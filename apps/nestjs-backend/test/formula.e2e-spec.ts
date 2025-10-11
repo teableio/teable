@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptionsRo } from '@teable/core';
@@ -28,6 +29,81 @@ describe('OpenAPI formula (e2e)', () => {
   let textFieldRo: IFieldRo & { id: string; name: string };
   let formulaFieldRo: IFieldRo & { id: string; name: string };
   const baseId = globalThis.testConfig.baseId;
+  const baseDate = new Date(Date.UTC(2025, 0, 3, 0, 0, 0, 0));
+  const dateAddMultiplier = 7;
+  const numberFieldSeedValue = 2;
+  type DateAddNormalizedUnit =
+    | 'millisecond'
+    | 'second'
+    | 'minute'
+    | 'hour'
+    | 'day'
+    | 'week'
+    | 'month'
+    | 'quarter'
+    | 'year';
+  const dateAddCases: Array<{ literal: string; normalized: DateAddNormalizedUnit }> = [
+    { literal: 'day', normalized: 'day' },
+    { literal: 'days', normalized: 'day' },
+    { literal: 'week', normalized: 'week' },
+    { literal: 'weeks', normalized: 'week' },
+    { literal: 'month', normalized: 'month' },
+    { literal: 'months', normalized: 'month' },
+    { literal: 'quarter', normalized: 'quarter' },
+    { literal: 'quarters', normalized: 'quarter' },
+    { literal: 'year', normalized: 'year' },
+    { literal: 'years', normalized: 'year' },
+    { literal: 'hour', normalized: 'hour' },
+    { literal: 'hours', normalized: 'hour' },
+    { literal: 'minute', normalized: 'minute' },
+    { literal: 'minutes', normalized: 'minute' },
+    { literal: 'second', normalized: 'second' },
+    { literal: 'seconds', normalized: 'second' },
+    { literal: 'millisecond', normalized: 'millisecond' },
+    { literal: 'milliseconds', normalized: 'millisecond' },
+    { literal: 'ms', normalized: 'millisecond' },
+    { literal: 'sec', normalized: 'second' },
+    { literal: 'secs', normalized: 'second' },
+    { literal: 'min', normalized: 'minute' },
+    { literal: 'mins', normalized: 'minute' },
+    { literal: 'hr', normalized: 'hour' },
+    { literal: 'hrs', normalized: 'hour' },
+  ];
+  const addToDate = (date: Date, count: number, unit: DateAddNormalizedUnit): Date => {
+    const clone = new Date(date.getTime());
+    switch (unit) {
+      case 'millisecond':
+        clone.setUTCMilliseconds(clone.getUTCMilliseconds() + count);
+        break;
+      case 'second':
+        clone.setUTCSeconds(clone.getUTCSeconds() + count);
+        break;
+      case 'minute':
+        clone.setUTCMinutes(clone.getUTCMinutes() + count);
+        break;
+      case 'hour':
+        clone.setUTCHours(clone.getUTCHours() + count);
+        break;
+      case 'day':
+        clone.setUTCDate(clone.getUTCDate() + count);
+        break;
+      case 'week':
+        clone.setUTCDate(clone.getUTCDate() + count * 7);
+        break;
+      case 'month':
+        clone.setUTCMonth(clone.getUTCMonth() + count);
+        break;
+      case 'quarter':
+        clone.setUTCMonth(clone.getUTCMonth() + count * 3);
+        break;
+      case 'year':
+        clone.setUTCFullYear(clone.getUTCFullYear() + count);
+        break;
+      default:
+        throw new Error(`Unsupported unit: ${unit}`);
+    }
+    return clone;
+  };
 
   beforeAll(async () => {
     const appCtx = await initApp();
@@ -291,6 +367,49 @@ describe('OpenAPI formula (e2e)', () => {
 
     expect(records[0].fields[urlFormulaField.name]).toEqual('https://example.com/?id=abc');
   });
+
+  it.each(dateAddCases)(
+    'should evaluate DATE_ADD with expression-based count argument for unit "%s"',
+    async ({ literal, normalized }) => {
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: numberFieldSeedValue,
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const dateAddField = await createField(table1Id, {
+        name: `date-add-formula-${literal}`,
+        type: FieldType.Formula,
+        options: {
+          expression: `DATE_ADD(DATETIME_PARSE("2025-01-03"), {${numberFieldRo.id}} * ${dateAddMultiplier}, '${literal}')`,
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const rawValue = recordAfterFormula.data.fields[dateAddField.name];
+      const value = String(rawValue);
+      const expectedCount = numberFieldSeedValue * dateAddMultiplier;
+      const expectedDate = addToDate(baseDate, expectedCount, normalized);
+      const expectedDatePart = expectedDate.toISOString().slice(0, 10);
+
+      expect(value).toContain(expectedDatePart);
+
+      if (['hour', 'minute', 'second', 'millisecond'].includes(normalized)) {
+        const expectedTimePart = expectedDate.toISOString().slice(11, 19);
+        expect(value).toContain(expectedTimePart);
+        if (normalized === 'millisecond') {
+          const fraction = expectedDate.getUTCMilliseconds().toString().padStart(3, '0');
+          expect(value).toContain(`.${fraction}`);
+        }
+      }
+    }
+  );
 
   it('should calculate primary field when have link relationship', async () => {
     const table2: ITableFullVo = await createTable(baseId, { name: 'table2' });

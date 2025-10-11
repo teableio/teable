@@ -23,6 +23,50 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `COALESCE(NULLIF((${value})::text, ''), '')`;
   }
 
+  private normalizeIntervalUnit(unitLiteral: string): {
+    unit: 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+    factor: number;
+  } {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return { unit: 'millisecond', factor: 1 };
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return { unit: 'second', factor: 1 };
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return { unit: 'minute', factor: 1 };
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return { unit: 'hour', factor: 1 };
+      case 'week':
+      case 'weeks':
+        return { unit: 'week', factor: 1 };
+      case 'month':
+      case 'months':
+        return { unit: 'month', factor: 1 };
+      case 'quarter':
+      case 'quarters':
+        return { unit: 'month', factor: 3 };
+      case 'year':
+      case 'years':
+        return { unit: 'year', factor: 1 };
+      case 'day':
+      case 'days':
+      default:
+        return { unit: 'day', factor: 1 };
+    }
+  }
+
   private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
     const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
     if (!shouldNormalize) {
@@ -234,8 +278,9 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   dateAdd(date: string, count: string, unit: string): string {
-    const cleanUnit = unit.replace(/^'|'$/g, '');
-    return `${this.tzWrap(date)} + INTERVAL '${count} ${cleanUnit}'`;
+    const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
+    const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    return `${this.tzWrap(date)} + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
   datestr(date: string): string {

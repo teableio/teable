@@ -210,12 +210,58 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `DATETIME('now')`;
   }
 
+  private normalizeDateModifier(unitLiteral: string): {
+    unit: 'seconds' | 'minutes' | 'hours' | 'days' | 'months' | 'years';
+    factor: number;
+  } {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return { unit: 'seconds', factor: 0.001 };
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return { unit: 'seconds', factor: 1 };
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return { unit: 'minutes', factor: 1 };
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return { unit: 'hours', factor: 1 };
+      case 'week':
+      case 'weeks':
+        return { unit: 'days', factor: 7 };
+      case 'month':
+      case 'months':
+        return { unit: 'months', factor: 1 };
+      case 'quarter':
+      case 'quarters':
+        return { unit: 'months', factor: 3 };
+      case 'year':
+      case 'years':
+        return { unit: 'years', factor: 1 };
+      case 'day':
+      case 'days':
+      default:
+        return { unit: 'days', factor: 1 };
+    }
+  }
+
   today(): string {
     return `DATE('now')`;
   }
 
   dateAdd(date: string, count: string, unit: string): string {
-    return `DATETIME(${date}, '+' || ${count} || ' ${unit}')`;
+    const { unit: modifierUnit, factor } = this.normalizeDateModifier(unit);
+    const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    return `DATETIME(${date}, (${scaledCount}) || ' ${modifierUnit}')`;
   }
 
   datestr(date: string): string {
