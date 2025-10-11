@@ -108,7 +108,8 @@
       "goToForeignTable": "跳转至关联表",
       "foreignTableIdRequired": "关联表不能为空",
       "linkFieldIdRequired": "关联字段不能为空",
-      "selectTooManyRecords": "选择的记录不应超过 {{maxCount}}"
+      "selectTooManyRecords": "选择的记录不应超过 {{maxCount}}",
+      "relationshipRequired": "关系不能为空"
     },
     "user": {
       "searchPlaceholder": "通过姓名查找用户",
@@ -125,7 +126,8 @@
       "refineOptionsError": "解析查找选项配置错误 {{message}}"
     },
     "rollup": {
-      "expressionRequired": "公式不能为空"
+      "expressionRequired": "公式不能为空",
+      "unsupportedTip": "汇总只支持关联和汇总字段"
     },
     "aiConfig": {
       "modelKeyRequired": "模型不能为空",
@@ -135,7 +137,8 @@
       "promptRequired": "提示词不能为空"
     },
     "error": {
-      "refineOptionsError": "解析字段配置错误 {{message}}"
+      "refineOptionsError": "解析字段配置错误 {{message}}",
+      "optionsRequired": "字段选项不能为空"
     }
   },
   "filter": {
@@ -835,7 +838,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
-      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
+      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试",
+      "invalidOperation": "无效操作"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段"
@@ -845,6 +849,51 @@
       "deleteRecords": "没有权限删除记录({{recordIds}})",
       "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
       "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})"
+    },
+    "field": {
+      "unsupportedFieldType": "不支持的字段类型 {{type}}",
+      "unsupportedPrimaryFieldType": "不支持的字段类型 {{type}} 作为主字段",
+      "calculateRecordNotFound": "计算 {{recordId}} 时未找到记录：{{value}}，字段ID：{{fieldId}}",
+      "toRecordIdsOrFromRecordIdsRequired": "普通计算字段需要 toRecordIds 或 fromRecordIds",
+      "recordFieldsRequired": "记录字段为空",
+      "uniqueUnsupportedType": "字段 {{name}}[{{fieldId}}] 不支持字段值唯一性验证",
+      "notNullValidationWhenCreateField": "新建字段 {{name}}[{{fieldId}}] 不支持非空验证",
+      "dbFieldNameAlreadyExists": "数据库字段名 {{dbFieldName}} 已存在",
+      "fieldValidationError": "字段 {{name}}[{{fieldId}}] 字段验证错误",
+      "fieldNameAlreadyExists": "字段名 {{name}} 已存在",
+      "fieldNotFound": "字段 {{fieldId}} 不存在",
+      "fieldNotFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
+      "deleteFieldsNotFound": "删除字段 {{fieldIds}} 不在表 {{tableId}} 中",
+      "lookupValuesShouldBeArray": "当链接字段为多选时，lookupValues 应为数组",
+      "linkCellValuesShouldBeArray": "当链接字段为多选时，linkCellValues 应为数组",
+      "lookupAndLinkLengthMatch": "lookupValues 长度应与 linkCellValues 长度相同",
+      "cycleDetected": "检测到循环依赖",
+      "cycleDetectedCreateField": "检测到循环依赖，无法创建字段 {{name}}[{{id}}]",
+      "recordMapNotFound": "在表 {{tableName}} 中找不到字段 {{fieldName}} 的记录",
+      "forbidDeletePrimaryField": "不允许删除主字段",
+      "foreignTableIdInvalid": "关联表 {{foreignTableId}} 无效",
+      "relationshipInvalid": "关联关系 {{relationship}} 无效",
+      "linkFieldIdInvalid": "关联字段 {{linkFieldId}} 无效",
+      "lookupFieldIdInvalid": "查找字段 {{lookupFieldId}} 无效",
+      "formulaExpressionParseError": "公式的表达式 {{expression}} 解析错误：{{error}}",
+      "formulaReferenceNotFound": "公式的引用字段 {{fieldIds}} 不存在",
+      "rollupExpressionParseError": "汇总字段的表达式 {{expression}} 解析错误：{{error}}",
+      "choiceNameAlreadyExists": "选项名称 {{name}} 已存在",
+      "symmetricFieldIdRequired": "双向关联对称的字段 ID 不能为空",
+      "foreignKeyNameCannotUseId": "外键名称不能使用 __id",
+      "createForeignKeyError": "创建外键错误",
+      "lookupFieldTypeNotEqual": "当前字段类型 {{fieldType}} 不等于查找字段类型 {{lookupFieldType}}",
+      "recordNotFound": "记录 {{recordId}} 不存在于表 {{tableId}}",
+      "linkCellRecordIdAlreadyExists": "不能在同一个单元格中设置重复的记录ID: {{recordId}}",
+      "linkConsistencyError": "一致性错误，记录ID {{recordId}} 不存在",
+      "oneOneLinkCellValueCannotBeArray": "一对一关联字段的值不能是数组",
+      "manyOneLinkCellValueCannotBeArray": "多对一关联字段的值不能是数组",
+      "oneManyLinkCellValueShouldBeArray": "一对多关联字段的值应为数组",
+      "manyManyLinkCellValueShouldBeArray": "多对多关联字段的值应为数组",
+      "foreignKeyDuplicate": "外键重复"
+    },
+    "view": {
+      "viewNotFound": "视图 {{viewId}} 不存在"
     }
   }
 }

@@ -94,7 +94,8 @@
       "goToForeignTable": "Go to foreign table",
       "foreignTableIdRequired": "Foreign table is required",
       "linkFieldIdRequired": "Link field is required",
-      "selectTooManyRecords": "The selected records should not exceed {{maxCount}}"
+      "selectTooManyRecords": "The selected records should not exceed {{maxCount}}",
+      "relationshipRequired": "Relationship is required"
     },
     "user": {
       "searchPlaceholder": "Find users by name",
@@ -111,7 +112,8 @@
       "refineOptionsError": "Parse lookup options error {{message}}"
     },
     "rollup": {
-      "expressionRequired": "Expression is required"
+      "expressionRequired": "Expression is required",
+      "unsupportedTip": "Rollup only support link and rollup field"
     },
     "aiConfig": {
       "modelKeyRequired": "Model is required",
@@ -121,7 +123,8 @@
       "promptRequired": "Prompt is required"
     },
     "error": {
-      "refineOptionsError": "Parse field options error {{message}}"
+      "refineOptionsError": "Parse field options error {{message}}",
+      "optionsRequired": "Field options is required"
     }
   },
   "filter": {
@@ -835,7 +838,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "search timeout, please decrease the search scope and try again",
-      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
+      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
+      "invalidOperation": "Invalid operation"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field"
@@ -845,6 +849,48 @@
       "deleteRecords": "You don't have permission to delete records({{recordIds}})",
       "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
       "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})"
+    },
+    "field": {
+      "unsupportedFieldType": "Unsupported field type {{type}}",
+      "unsupportedPrimaryFieldType": "Unsupported field type {{type}} as primary field",
+      "calculateRecordNotFound": "Record not found for: {{value}}, fieldId: {{fieldId}}, when calculate {{recordId}}",
+      "toRecordIdsOrFromRecordIdsRequired": "toRecordIds or fromRecordIds is required for normal computed field",
+      "recordFieldsRequired": "Record fields is undefined",
+      "uniqueUnsupportedType": "Field {{name}}[{{fieldId}}] does not support field value unique validation",
+      "notNullValidationWhenCreateField": "Field {{name}}[{{fieldId}}] does not support not null validation when creating a new field",
+      "dbFieldNameAlreadyExists": "Database field name {{dbFieldName}} already exists",
+      "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
+      "fieldNameAlreadyExists": "Field name {{name}} already exists",
+      "fieldNotFound": "field {{fieldId}} not found",
+      "fieldNotFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
+      "deleteFieldsNotFound": "Delete fields {{fieldIds}} not found in table {{tableId}}",
+      "lookupValuesShouldBeArray": "lookupValues should be array when link field is multiple cell value",
+      "linkCellValuesShouldBeArray": "linkCellValues should be array when link field is multiple cell value",
+      "lookupAndLinkLengthMatch": "lookupValues length should be same as linkCellValues length",
+      "cycleDetected": "Cycle detected",
+      "cycleDetectedCreateField": "Cycle detected, cannot create field {{name}}[{{id}}]",
+      "recordMapNotFound": "Record not found in table {{tableName}} for field {{fieldName}}",
+      "forbidDeletePrimaryField": "Forbid delete primary field",
+      "foreignTableIdInvalid": "Foreign table {{foreignTableId}} invalid",
+      "relationshipInvalid": "Relationship {{relationship}} invalid",
+      "linkFieldIdInvalid": "Link field {{linkFieldId}} invalid",
+      "lookupFieldIdInvalid": "Lookup field {{lookupFieldId}} invalid",
+      "formulaExpressionParseError": "Formula expression {{expression}} parse error: {{error}}",
+      "formulaReferenceNotFound": "Formula reference field {{fieldIds}} not found",
+      "rollupExpressionParseError": "Rollup expression {{expression}} parse error: {{error}}",
+      "choiceNameAlreadyExists": "Choice name {{name}} already exists",
+      "symmetricFieldIdRequired": "Symmetric field ID is required",
+      "foreignKeyNameCannotUseId": "Foreign key name cannot use __id",
+      "createForeignKeyError": "Create foreignKey error",
+      "lookupFieldTypeNotEqual": "Current field type {{fieldType}} is not equal to lookup field {{lookupFieldType}}",
+      "recordNotFound": "Record {{recordId}} not found in {{tableId}}",
+      "linkCellRecordIdAlreadyExists": "Cannot set duplicate recordId: {{recordId}} in the same cell",
+      "oneOneLinkCellValueCannotBeArray": "One-to-one link field values cannot be an array",
+      "manyOneLinkCellValueCannotBeArray": "Many-to-one link field values cannot be an array",
+      "foreignKeyDuplicate": "Foreign key duplicate"
+    },
+    "view": {
+      "viewNotFound": "View {{viewId}} not found"
     }
   }
 }
