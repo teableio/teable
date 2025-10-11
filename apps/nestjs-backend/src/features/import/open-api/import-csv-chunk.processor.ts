@@ -213,7 +213,10 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
     const csvString = Papa.unparse(records);
 
-    const csvStream = Readable.from([csvString]);
+    // add BOM to make sure the csv file can be opened correctly in excel with UTF-8 encoding
+    const csvWithBOM = '\uFEFF' + csvString;
+
+    const csvStream = Readable.from(csvWithBOM, { encoding: 'utf8' });
 
     const pathDir = StorageAdapter.getDir(UploadType.Import);
 
@@ -223,7 +226,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       csvStream,
       {
         // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'text/csv',
+        'Content-Type': 'text/csv; charset=utf-8',
       }
     );
 

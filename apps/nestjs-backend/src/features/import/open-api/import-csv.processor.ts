@@ -25,6 +25,7 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { toLineDelimitedStream } from './delimiter-stream';
 import { parseBoolean } from './import.class';
 
 interface ITableImportCsvJob {
@@ -181,7 +182,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
       path
     );
     return new Promise((resolve, reject) => {
-      Papa.parse(stream, {
+      Papa.parse(toLineDelimitedStream(stream), {
         download: false,
         dynamicTyping: false,
         complete: (result) => {
@@ -216,8 +217,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   // this is for cache refresh
-  private updateTableLastModified(tableId: string) {
-    this.prismaService.txClient().tableMeta.update({
+  private async updateTableLastModified(tableId: string) {
+    await this.prismaService.txClient().tableMeta.update({
       where: { id: tableId },
       data: { lastModifiedTime: new Date().toISOString() },
     });
@@ -283,8 +284,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     this.logger.log(`import data to ${table.id} job completed, range: [${range}]`);
     // create new table need update row count and table last modified
     if (columnInfo) {
+      await this.updateTableLastModified(table.id);
       this.updateRowCount(table.id);
-      this.updateTableLastModified(table.id);
     }
   }
 }
