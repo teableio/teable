@@ -31,9 +31,15 @@ export function escapeJsonbRegex(input: string): string {
     return String(input);
   }
 
-  // For like_regex in JSONB path expressions, double escaping is required
-  // First escape regex special characters, then escape backslashes in JSON strings
-  return input
-    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape regex special characters
-    .replace(/\\/g, '\\\\'); // Escape backslashes for JSON strings
+  // For like_regex in JSONB path expressions, escape regex special characters
+  // Avoid double-escaping by handling all characters in one pass
+  return input.replace(/[.*+?^${}()|[\]\\]/g, (match) => {
+    if (match === '\\') {
+      // Backslashes need to be double-escaped for JSONB path expressions
+      return '\\\\\\\\';
+    } else {
+      // Other regex special characters need to be escaped with double backslashes
+      return '\\\\' + match;
+    }
+  });
 }
