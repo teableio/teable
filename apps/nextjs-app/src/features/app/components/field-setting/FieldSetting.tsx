@@ -1,10 +1,12 @@
-import type { IFieldRo, IFieldVo } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
 import {
   validateFieldOptions,
   convertFieldRoSchema,
   createFieldRoSchema,
   FieldType,
   getOptionsSchema,
+  isConditionalLookupOptions,
+  isLinkLookupOptions,
 } from '@teable/core';
 import { Share2 } from '@teable/icons';
 import { type IPlanFieldConvertVo } from '@teable/openapi';
@@ -30,6 +32,45 @@ import { DynamicFieldEditor } from './DynamicFieldEditor';
 import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
+
+const sanitizeLookupOptions = (
+  options?: ILookupOptionsRo | ILookupOptionsVo
+): ILookupOptionsRo | undefined => {
+  if (!options) {
+    return undefined;
+  }
+
+  if (isLinkLookupOptions(options)) {
+    const { foreignTableId, lookupFieldId, linkFieldId, filter } = options;
+    const sanitized: Record<string, unknown> = {
+      foreignTableId,
+      lookupFieldId,
+      linkFieldId,
+    };
+    if (filter != null) {
+      sanitized.filter = filter;
+    }
+    return sanitized as ILookupOptionsRo;
+  }
+
+  if (isConditionalLookupOptions(options)) {
+    const { foreignTableId, lookupFieldId, filter, baseId } = options;
+    const sanitized: Record<string, unknown> = {
+      foreignTableId,
+      lookupFieldId,
+    };
+    if (filter != null) {
+      sanitized.filter = filter;
+    }
+    if (baseId !== undefined) {
+      sanitized.baseId = baseId;
+    }
+    return sanitized as ILookupOptionsRo;
+  }
+
+  return undefined;
+};
+
 export const FieldSetting = (props: IFieldSetting) => {
   const { operator, order } = props;
 
@@ -158,7 +199,11 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   const table = useTable();
   const [field, setField] = useState<IFieldEditorRo>(
     originField
-      ? { ...originField, options: getOptionsSchema(originField.type).parse(originField.options) }
+      ? {
+          ...originField,
+          options: getOptionsSchema(originField.type).parse(originField.options),
+          lookupOptions: sanitizeLookupOptions(originField.lookupOptions),
+        }
       : {
           type: FieldType.SingleLineText,
         }
@@ -203,10 +248,14 @@ const FieldSettingBase = (props: IFieldSettingBase) => {
   };
 
   const onFieldEditorChange = useCallback(
-    (field: IFieldEditorRo) => {
-      setField(field);
+    (nextField: IFieldEditorRo) => {
+      const normalizedField: IFieldEditorRo = {
+        ...nextField,
+        lookupOptions: sanitizeLookupOptions(nextField.lookupOptions),
+      };
+      setField(normalizedField);
       setUpdateCount(1);
-      setShowGraphButton(checkFieldReady(field));
+      setShowGraphButton(checkFieldReady(normalizedField));
     },
     [checkFieldReady]
   );
