@@ -247,7 +247,7 @@
       "noLinkTip": "No hay registros vinculados para buscar. ",
       "fieldValidationRules": "Reglas de validación de valor de campo",
       "enableValidateFieldUnique": "Prohibir los valores duplicados",
-      "enableValidateFieldNotNull": "Prohibir valores no vacíos",
+      "enableValidateFieldNotNull": "Obligatorio",
       "knowMore": "conocer más",
       "linkFieldKnowMoreLink": "https://help.table.io/en/basic/field/advanced/link",
       "showByField": "Mostrar registros por campo",

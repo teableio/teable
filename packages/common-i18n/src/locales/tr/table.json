@@ -240,7 +240,7 @@
       "noLinkTip": "Aranacak bağlantılı kayıt yok. Başka bir kayda bağlantı alanı ekleyin, ardından aramanızı tekrar yapılandırmayı deneyin.",
       "fieldValidationRules": "Alan değeri doğrulama kuralları",
       "enableValidateFieldUnique": "Yinelenen değerleri yasakla",
-      "enableValidateFieldNotNull": "Boş değerleri yasakla",
+      "enableValidateFieldNotNull": "Gerekli",
       "knowMore": "daha fazla bilgi",
       "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Alanlara göre kayıtları göster",

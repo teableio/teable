@@ -252,7 +252,7 @@
       "noLinkTip": "Keine verknüpften Datensätze zum Nachschlagen. Fügen Sie einen Link zu einem anderen Datensatzfeld hinzu und versuchen Sie dann erneut, die Suche zu konfigurieren.",
       "fieldValidationRules": "Regeln für die Validierung von Feldwerten",
       "enableValidateFieldUnique": "Doppelte Werte verbieten",
-      "enableValidateFieldNotNull": "Nicht-leere Werte verbieten",
+      "enableValidateFieldNotNull": "Erforderlich",
       "knowMore": "mehr erfahren",
       "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Datensätze nach Feld filtern",

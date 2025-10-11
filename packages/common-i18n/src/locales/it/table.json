@@ -252,7 +252,7 @@
       "noLinkTip": "Nessun record collegato da cercare. Aggiungi un campo di collegamento a un altro record, quindi prova a configurare di nuovo la tua ricerca.",
       "fieldValidationRules": "Regole di validazione del valore del campo",
       "enableValidateFieldUnique": "Vieta valori duplicati",
-      "enableValidateFieldNotNull": "Vieta valori non vuoti",
+      "enableValidateFieldNotNull": "Obbligatorio",
       "knowMore": "saperne di più",
       "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Mostra record per campo",

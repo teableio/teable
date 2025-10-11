@@ -252,7 +252,7 @@
       "noLinkTip": "Немає зв'язаних записів для пошуку. Додайте посилання на інше поле запису, а потім спробуйте налаштувати пошук знову.",
       "fieldValidationRules": "Правила перевірки значення поля",
       "enableValidateFieldUnique": "Заборонити повторювані значення",
-      "enableValidateFieldNotNull": "Заборонити непорожні значення",
+      "enableValidateFieldNotNull": "Обов'язкове",
       "knowMore": "дізнатися більше",
       "linkFieldKnowMoreLink": "https://help.teable.ai/en/basic/field/advanced/link",
       "showByField": "Показати записи за полем",
