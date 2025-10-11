@@ -522,103 +522,692 @@ describe('OpenAPI formula (e2e)', () => {
     expect(records[0].fields[urlFormulaField.name]).toEqual('https://example.com/?id=abc');
   });
 
-  it.each(dateAddCases)(
-    'should evaluate DATE_ADD with expression-based count argument for unit "%s"',
-    async ({ literal, normalized }) => {
+  describe('numeric formula functions', () => {
+    const numericInput = 12.345;
+    const oddExpected = (() => {
+      const rounded = Math.ceil(numericInput / 3);
+      return rounded % 2 !== 0 ? rounded : rounded + 1;
+    })();
+
+    const numericCases = [
+      {
+        name: 'ROUND',
+        getExpression: () => `ROUND({${numberFieldRo.id}}, 2)`,
+        expected: Math.round(numericInput * 100) / 100,
+      },
+      {
+        name: 'ROUNDUP',
+        getExpression: () => `ROUNDUP({${numberFieldRo.id}} / 7, 2)`,
+        expected: Math.ceil((numericInput / 7) * 100) / 100,
+      },
+      {
+        name: 'ROUNDDOWN',
+        getExpression: () => `ROUNDDOWN({${numberFieldRo.id}} / 7, 2)`,
+        expected: Math.floor((numericInput / 7) * 100) / 100,
+      },
+      {
+        name: 'CEILING',
+        getExpression: () => `CEILING({${numberFieldRo.id}} / 3)`,
+        expected: Math.ceil(numericInput / 3),
+      },
+      {
+        name: 'FLOOR',
+        getExpression: () => `FLOOR({${numberFieldRo.id}} / 3)`,
+        expected: Math.floor(numericInput / 3),
+      },
+      {
+        name: 'EVEN',
+        getExpression: () => `EVEN({${numberFieldRo.id}} / 3)`,
+        expected: 4,
+      },
+      {
+        name: 'ODD',
+        getExpression: () => `ODD({${numberFieldRo.id}} / 3)`,
+        expected: oddExpected,
+      },
+      {
+        name: 'INT',
+        getExpression: () => `INT({${numberFieldRo.id}} / 3)`,
+        expected: Math.floor(numericInput / 3),
+      },
+      {
+        name: 'ABS',
+        getExpression: () => `ABS(-{${numberFieldRo.id}})`,
+        expected: Math.abs(-numericInput),
+      },
+      {
+        name: 'SQRT',
+        getExpression: () => `SQRT({${numberFieldRo.id}} * {${numberFieldRo.id}})`,
+        expected: Math.sqrt(numericInput * numericInput),
+      },
+      {
+        name: 'POWER',
+        getExpression: () => `POWER({${numberFieldRo.id}}, 2)`,
+        expected: Math.pow(numericInput, 2),
+      },
+      {
+        name: 'EXP',
+        getExpression: () => 'EXP(1)',
+        expected: Math.exp(1),
+      },
+      {
+        name: 'LOG',
+        getExpression: () => 'LOG(256, 2)',
+        expected: Math.log(256) / Math.log(2),
+      },
+      {
+        name: 'MOD',
+        getExpression: () => `MOD({${numberFieldRo.id}}, 5)`,
+        expected: numericInput % 5,
+      },
+      {
+        name: 'VALUE',
+        getExpression: () => 'VALUE("1234.5")',
+        expected: 1234.5,
+      },
+    ] as const;
+
+    it.each(numericCases)('should evaluate $name', async ({ getExpression, expected, name }) => {
       const { records } = await createRecords(table1Id, {
         fieldKeyType: FieldKeyType.Name,
         records: [
           {
             fields: {
-              [numberFieldRo.name]: numberFieldSeedValue,
+              [numberFieldRo.name]: numericInput,
+              [textFieldRo.name]: 'numeric',
             },
           },
         ],
       });
       const recordId = records[0].id;
 
-      const dateAddField = await createField(table1Id, {
-        name: `date-add-formula-${literal}`,
+      const formulaField = await createField(table1Id, {
+        name: `numeric-${name.toLowerCase()}`,
         type: FieldType.Formula,
         options: {
-          expression: `DATE_ADD(DATETIME_PARSE("2025-01-03"), {${numberFieldRo.id}} * ${dateAddMultiplier}, '${literal}')`,
+          expression: getExpression(),
         },
       });
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
-      const rawValue = recordAfterFormula.data.fields[dateAddField.name];
-      expect(typeof rawValue).toBe('string');
-      const value = rawValue as string;
-      const expectedCount = numberFieldSeedValue * dateAddMultiplier;
-      const expectedDate = addToDate(baseDate, expectedCount, normalized);
-      const expectedIso = expectedDate.toISOString();
-      expect(value).toEqual(expectedIso);
-    }
-  );
+      const value = recordAfterFormula.data.fields[formulaField.name];
+      expect(typeof value).toBe('number');
+      expect(value as number).toBeCloseTo(expected, 9);
+    });
+  });
 
-  it.each(datetimeDiffCases)(
-    'should evaluate DATETIME_DIFF for unit "%s"',
-    async ({ literal, expected }) => {
+  describe('text formula functions', () => {
+    const numericInput = 12.345;
+    const textInput = 'Teable Rocks';
+
+    const textCases = [
+      {
+        name: 'CONCATENATE',
+        getExpression: () => `CONCATENATE({${textFieldRo.id}}, "-", "END")`,
+        expected: `${textInput}-END`,
+      },
+      {
+        name: 'LEFT',
+        getExpression: () => `LEFT({${textFieldRo.id}}, 6)`,
+        expected: textInput.slice(0, 6),
+      },
+      {
+        name: 'RIGHT',
+        getExpression: () => `RIGHT({${textFieldRo.id}}, 5)`,
+        expected: textInput.slice(-5),
+      },
+      {
+        name: 'MID',
+        getExpression: () => `MID({${textFieldRo.id}}, 8, 3)`,
+        expected: textInput.slice(7, 10),
+      },
+      {
+        name: 'REPLACE',
+        getExpression: () => `REPLACE({${textFieldRo.id}}, 8, 5, "World")`,
+        expected: `${textInput.slice(0, 7)}World`,
+      },
+      {
+        name: 'REGEXP_REPLACE',
+        getExpression: () => `REGEXP_REPLACE({${textFieldRo.id}}, "[aeiou]", "#")`,
+        expected: textInput.replace(/[aeiou]/g, '#'),
+      },
+      {
+        name: 'SUBSTITUTE',
+        getExpression: () => `SUBSTITUTE({${textFieldRo.id}}, "e", "E")`,
+        expected: textInput.replace(/e/g, 'E'),
+      },
+      {
+        name: 'LOWER',
+        getExpression: () => `LOWER({${textFieldRo.id}})`,
+        expected: textInput.toLowerCase(),
+      },
+      {
+        name: 'UPPER',
+        getExpression: () => `UPPER({${textFieldRo.id}})`,
+        expected: textInput.toUpperCase(),
+      },
+      {
+        name: 'REPT',
+        getExpression: () => 'REPT("Na", 3)',
+        expected: 'NaNaNa',
+      },
+      {
+        name: 'TRIM',
+        getExpression: () => 'TRIM("  spaced  ")',
+        expected: 'spaced',
+      },
+      {
+        name: 'LEN',
+        getExpression: () => `LEN({${textFieldRo.id}})`,
+        expected: textInput.length,
+      },
+      {
+        name: 'T',
+        getExpression: () => `T({${textFieldRo.id}})`,
+        expected: textInput,
+      },
+      {
+        name: 'T (non text)',
+        getExpression: () => `T({${numberFieldRo.id}})`,
+        expected: numericInput.toString(),
+      },
+      {
+        name: 'FIND',
+        getExpression: () => `FIND("R", {${textFieldRo.id}})`,
+        expected: textInput.indexOf('R') + 1,
+      },
+      {
+        name: 'SEARCH',
+        getExpression: () => `SEARCH("rocks", {${textFieldRo.id}})`,
+        expected: textInput.toLowerCase().indexOf('rocks') + 1,
+      },
+      {
+        name: 'ENCODE_URL_COMPONENT',
+        getExpression: () => `ENCODE_URL_COMPONENT({${textFieldRo.id}})`,
+        expected: textInput,
+      },
+    ] as const;
+
+    it.each(textCases)('should evaluate $name', async ({ getExpression, expected, name }) => {
       const { records } = await createRecords(table1Id, {
         fieldKeyType: FieldKeyType.Name,
         records: [
           {
             fields: {
-              [numberFieldRo.name]: 1,
+              [numberFieldRo.name]: numericInput,
+              [textFieldRo.name]: textInput,
             },
           },
         ],
       });
       const recordId = records[0].id;
 
-      const diffField = await createField(table1Id, {
-        name: `datetime-diff-${literal}`,
+      const formulaField = await createField(table1Id, {
+        name: `text-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`,
         type: FieldType.Formula,
         options: {
-          expression: `DATETIME_DIFF(DATETIME_PARSE("${datetimeDiffStartIso}"), DATETIME_PARSE("${datetimeDiffEndIso}"), '${literal}')`,
+          expression: getExpression(),
         },
       });
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
-      const rawValue = recordAfterFormula.data.fields[diffField.name];
-      if (typeof rawValue === 'number') {
-        expect(rawValue).toBeCloseTo(expected, 6);
+      const value = recordAfterFormula.data.fields[formulaField.name];
+
+      if (typeof expected === 'number') {
+        expect(typeof value).toBe('number');
+        expect(value).toBe(expected);
       } else {
-        const numericValue = Number(rawValue);
-        expect(Number.isFinite(numericValue)).toBe(true);
-        expect(numericValue).toBeCloseTo(expected, 6);
+        expect(value ?? null).toEqual(expected);
       }
-    }
-  );
+    });
+  });
 
-  it.each(isSameCases)(
-    'should evaluate IS_SAME for unit "%s"',
-    async ({ literal, first, second, expected }) => {
-      const { records } = await createRecords(table1Id, {
-        fieldKeyType: FieldKeyType.Name,
-        records: [
-          {
+  describe('logical and system formula functions', () => {
+    const numericInput = 12.345;
+    const textInput = 'Teable Rocks';
+
+    const logicalCases = [
+      {
+        name: 'IF',
+        getExpression: () => `IF({${numberFieldRo.id}} > 10, "over", "under")`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => 'over' as const,
+      },
+      {
+        name: 'SWITCH',
+        getExpression: () => 'SWITCH(2, 1, "one", 2, "two", "other")',
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => 'two' as const,
+      },
+      {
+        name: 'AND',
+        getExpression: () => `AND({${numberFieldRo.id}} > 10, {${textFieldRo.id}} != "")`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => true,
+      },
+      {
+        name: 'OR',
+        getExpression: () => `OR({${numberFieldRo.id}} < 0, {${textFieldRo.id}} = "")`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => false,
+      },
+      {
+        name: 'XOR',
+        getExpression: () => `XOR({${numberFieldRo.id}} > 10, {${textFieldRo.id}} = "Other")`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => true,
+      },
+      {
+        name: 'NOT',
+        getExpression: () => `NOT({${numberFieldRo.id}} > 10)`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => false,
+      },
+      {
+        name: 'BLANK',
+        getExpression: () => 'BLANK()',
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => null,
+      },
+      {
+        name: 'TEXT_ALL',
+        getExpression: () => `TEXT_ALL({${textFieldRo.id}})`,
+        resolveExpected: (_ctx: {
+          recordId: string;
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => textInput,
+      },
+      {
+        name: 'RECORD_ID',
+        getExpression: () => 'RECORD_ID()',
+        resolveExpected: ({ recordId }: { recordId: string }) => recordId,
+      },
+      {
+        name: 'AUTO_NUMBER',
+        getExpression: () => 'AUTO_NUMBER()',
+        resolveExpected: ({
+          recordAfter,
+        }: {
+          recordAfter: Awaited<ReturnType<typeof getRecord>>;
+        }) => recordAfter.data.autoNumber ?? null,
+      },
+    ] as const;
+
+    it.each(logicalCases)(
+      'should evaluate $name',
+      async ({ getExpression, resolveExpected, name }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: numericInput,
+                [textFieldRo.name]: textInput,
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const formulaField = await createField(table1Id, {
+          name: `logic-${name.toLowerCase()}`,
+          type: FieldType.Formula,
+          options: {
+            expression: getExpression(),
+          },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
+        const expectedValue = resolveExpected({ recordId, recordAfter: recordAfterFormula });
+
+        if (typeof expectedValue === 'boolean') {
+          expect(typeof value).toBe('boolean');
+          expect(value).toBe(expectedValue);
+        } else if (typeof expectedValue === 'number') {
+          expect(typeof value).toBe('number');
+          expect(value).toBe(expectedValue);
+        } else {
+          expect(value ?? null).toEqual(expectedValue);
+        }
+      }
+    );
+  });
+
+  describe('field reference formulas', () => {
+    const fieldCases = [
+      {
+        name: 'date field formatting',
+        createFieldInput: () => ({
+          name: 'Date Field',
+          type: FieldType.Date,
+        }),
+        setValue: '2025-06-15T00:00:00.000Z',
+        buildExpression: (fieldId: string) => `DATETIME_FORMAT({${fieldId}}, 'YYYY-MM-DD')`,
+        assert: (value: unknown) => {
+          expect(value).toBe('2025-06-15');
+        },
+      },
+      {
+        name: 'rating field numeric formula',
+        createFieldInput: () => ({
+          name: 'Rating Field',
+          type: FieldType.Rating,
+          options: { icon: 'star', max: 5, color: 'yellowBright' },
+        }),
+        setValue: 3,
+        buildExpression: (fieldId: string) => `ROUND({${fieldId}})`,
+        assert: (value: unknown) => {
+          expect(typeof value).toBe('number');
+          expect(value).toBe(3);
+        },
+      },
+      {
+        name: 'checkbox field conditional',
+        createFieldInput: () => ({
+          name: 'Checkbox Field',
+          type: FieldType.Checkbox,
+        }),
+        setValue: true,
+        buildExpression: (fieldId: string) => `IF({${fieldId}}, "checked", "unchecked")`,
+        assert: (value: unknown) => {
+          expect(value).toBe('checked');
+        },
+      },
+    ] as const;
+
+    it.each(fieldCases)(
+      'should evaluate formula referencing $name',
+      async ({ createFieldInput, setValue, buildExpression, assert }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: 1,
+                [textFieldRo.name]: 'field-ref',
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const relatedField = await createField(table1Id, createFieldInput());
+
+        await updateRecord(table1Id, recordId, {
+          fieldKeyType: FieldKeyType.Name,
+          record: {
             fields: {
-              [textFieldRo.name]: 'value',
+              [relatedField.name]: setValue,
             },
           },
-        ],
-      });
-      const recordId = records[0].id;
+        });
 
-      const sameField = await createField(table1Id, {
-        name: `is-same-${literal}`,
-        type: FieldType.Formula,
-        options: {
-          expression: `IS_SAME(DATETIME_PARSE("${first}"), DATETIME_PARSE("${second}"), '${literal}')`,
-        },
-      });
+        const formulaField = await createField(table1Id, {
+          name: `field-ref-${relatedField.name.toLowerCase().replace(/[^a-z]+/g, '-')}`,
+          type: FieldType.Formula,
+          options: {
+            expression: buildExpression(relatedField.id),
+          },
+        });
 
-      const recordAfterFormula = await getRecord(table1Id, recordId);
-      const rawValue = recordAfterFormula.data.fields[sameField.name];
-      expect(rawValue).toBe(expected);
-    }
-  );
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
+        assert(value);
+      }
+    );
+  });
+  describe('datetime formula functions', () => {
+    it.each(dateAddCases)(
+      'should evaluate DATE_ADD with expression-based count argument for unit "%s"',
+      async ({ literal, normalized }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: numberFieldSeedValue,
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const dateAddField = await createField(table1Id, {
+          name: `date-add-formula-${literal}`,
+          type: FieldType.Formula,
+          options: {
+            expression: `DATE_ADD(DATETIME_PARSE("2025-01-03"), {${numberFieldRo.id}} * ${dateAddMultiplier}, '${literal}')`,
+          },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const rawValue = recordAfterFormula.data.fields[dateAddField.name];
+        expect(typeof rawValue).toBe('string');
+        const value = rawValue as string;
+        const expectedCount = numberFieldSeedValue * dateAddMultiplier;
+        const expectedDate = addToDate(baseDate, expectedCount, normalized);
+        const expectedIso = expectedDate.toISOString();
+        expect(value).toEqual(expectedIso);
+      }
+    );
+
+    it.each(datetimeDiffCases)(
+      'should evaluate DATETIME_DIFF for unit "%s"',
+      async ({ literal, expected }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: 1,
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const diffField = await createField(table1Id, {
+          name: `datetime-diff-${literal}`,
+          type: FieldType.Formula,
+          options: {
+            expression: `DATETIME_DIFF(DATETIME_PARSE("${datetimeDiffStartIso}"), DATETIME_PARSE("${datetimeDiffEndIso}"), '${literal}')`,
+          },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const rawValue = recordAfterFormula.data.fields[diffField.name];
+        if (typeof rawValue === 'number') {
+          expect(rawValue).toBeCloseTo(expected, 6);
+        } else {
+          const numericValue = Number(rawValue);
+          expect(Number.isFinite(numericValue)).toBe(true);
+          expect(numericValue).toBeCloseTo(expected, 6);
+        }
+      }
+    );
+
+    it.each(isSameCases)(
+      'should evaluate IS_SAME for unit "%s"',
+      async ({ literal, first, second, expected }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [textFieldRo.name]: 'value',
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const sameField = await createField(table1Id, {
+          name: `is-same-${literal}`,
+          type: FieldType.Formula,
+          options: {
+            expression: `IS_SAME(DATETIME_PARSE("${first}"), DATETIME_PARSE("${second}"), '${literal}')`,
+          },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const rawValue = recordAfterFormula.data.fields[sameField.name];
+        expect(rawValue).toBe(expected);
+      }
+    );
+
+    const componentCases = [
+      {
+        name: 'YEAR',
+        expression: `YEAR(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 2025,
+      },
+      {
+        name: 'MONTH',
+        expression: `MONTH(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 4,
+      },
+      {
+        name: 'DAY',
+        expression: `DAY(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 15,
+      },
+      {
+        name: 'HOUR',
+        expression: `HOUR(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 10,
+      },
+      {
+        name: 'MINUTE',
+        expression: `MINUTE(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 20,
+      },
+      {
+        name: 'SECOND',
+        expression: `SECOND(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 30,
+      },
+      {
+        name: 'WEEKDAY',
+        expression: `WEEKDAY(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 2,
+      },
+      {
+        name: 'WEEKNUM',
+        expression: `WEEKNUM(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: 16,
+      },
+    ] as const;
+
+    it.each(componentCases)(
+      'should evaluate %s component function',
+      async ({ expression, expected, name }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [{ fields: {} }],
+        });
+        const recordId = records[0].id;
+
+        const formulaField = await createField(table1Id, {
+          name: `datetime-component-${name.toLowerCase()}`,
+          type: FieldType.Formula,
+          options: { expression },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
+        expect(typeof value).toBe('number');
+        expect(value).toBe(expected);
+      }
+    );
+
+    const formattingCases = [
+      {
+        name: 'DATESTR',
+        expression: `DATESTR(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: '2025-04-15',
+      },
+      {
+        name: 'TIMESTR',
+        expression: `TIMESTR(DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: '10:20:30',
+      },
+      {
+        name: 'DATETIME_FORMAT',
+        expression: `DATETIME_FORMAT(DATETIME_PARSE("2025-04-15"), 'YYYY-MM-DD')`,
+        expected: '2025-04-15',
+      },
+    ] as const;
+
+    it.each(formattingCases)(
+      'should evaluate %s formatting function',
+      async ({ expression, expected, name }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [{ fields: {} }],
+        });
+        const recordId = records[0].id;
+
+        const formulaField = await createField(table1Id, {
+          name: `datetime-format-${name.toLowerCase()}`,
+          type: FieldType.Formula,
+          options: { expression },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
+        expect(value).toBe(expected);
+      }
+    );
+
+    const comparisonCases = [
+      {
+        name: 'IS_AFTER',
+        expression: `IS_AFTER(DATETIME_PARSE("2025-04-16T12:30:45Z"), DATETIME_PARSE("2025-04-15T10:20:30Z"))`,
+        expected: true,
+      },
+      {
+        name: 'IS_BEFORE',
+        expression: `IS_BEFORE(DATETIME_PARSE("2025-04-15T10:20:30Z"), DATETIME_PARSE("2025-04-16T12:30:45Z"))`,
+        expected: true,
+      },
+    ] as const;
+
+    it.each(comparisonCases)(
+      'should evaluate %s boolean comparison',
+      async ({ expression, expected, name }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [{ fields: {} }],
+        });
+        const recordId = records[0].id;
+
+        const formulaField = await createField(table1Id, {
+          name: `datetime-compare-${name.toLowerCase()}`,
+          type: FieldType.Formula,
+          options: { expression },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
+        expect(value).toBe(expected);
+      }
+    );
+  });
 
   it('should calculate primary field when have link relationship', async () => {
     const table2: ITableFullVo = await createTable(baseId, { name: 'table2' });
