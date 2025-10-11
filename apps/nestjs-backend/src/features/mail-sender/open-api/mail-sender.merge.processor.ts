@@ -1,29 +1,24 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MailTransporterType, MailType } from '@teable/openapi';
-import { type Job, type Queue } from 'bullmq';
-import dayjs from 'dayjs';
+import { type Job } from 'bullmq';
 import { isUndefined } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
 import { Events } from '../../../event-emitter/events';
 import { SettingOpenApiService } from '../../setting/open-api/setting-open-api.service';
-import { type ISendMailOptions } from '../mail-helpers';
 import { MailSenderService } from '../mail-sender.service';
-
-export const MAIL_SENDER_QUEUE = 'mailSenderQueue';
+import type {
+  IMailSenderMergeJob,
+  INotifyMailMergeSendPayload,
+  IMailSenderMergePayload,
+} from './mail-sender.merge.job';
+import { MAIL_SENDER_QUEUE, MailSenderMergeJob } from './mail-sender.merge.job';
 
 enum MailSenderJob {
   NotifyMailMerge = 'notifyMailMerge',
   NotifyMailMergeSend = 'notifyMailMergeSend',
-}
-
-type IMailSenderMergePayload = Omit<ISendMailOptions, 'to'> & { mailType: MailType; to: string };
-type INotifyMailMergeSendPayload = { to: string };
-
-interface IMailSenderMergeJob {
-  payload: IMailSenderMergePayload | INotifyMailMergeSendPayload;
 }
 
 @Processor(MAIL_SENDER_QUEUE)
@@ -33,8 +28,7 @@ export class MailSenderMergeProcessor extends WorkerHost {
     private readonly mailSenderService: MailSenderService,
     private readonly cacheService: CacheService<ICacheStore>,
     private readonly settingOpenApiService: SettingOpenApiService,
-    @InjectQueue(MAIL_SENDER_QUEUE)
-    public readonly queue: Queue<IMailSenderMergeJob>
+    private readonly mailSenderMergeJob: MailSenderMergeJob
   ) {
     super();
   }
@@ -64,7 +58,7 @@ export class MailSenderMergeProcessor extends WorkerHost {
 
   @OnEvent(Events.NOTIFY_MAIL_MERGE)
   async onNotifyMailMerge(event: { payload: IMailSenderMergePayload }) {
-    await this.queue.add(MailSenderJob.NotifyMailMerge, {
+    await this.mailSenderMergeJob.queue.add(MailSenderJob.NotifyMailMerge, {
       payload: event.payload,
     });
   }
@@ -74,7 +68,7 @@ export class MailSenderMergeProcessor extends WorkerHost {
     const list = await this.cacheService.get(`mail-sender:notify-mail-merge:${to}`);
     if (isUndefined(list)) {
       await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [], 1000 * 60 * 5); // 5 minutes
-      await this.queue.add(
+      await this.mailSenderMergeJob.queue.add(
         MailSenderJob.NotifyMailMergeSend,
         {
           payload: { to },

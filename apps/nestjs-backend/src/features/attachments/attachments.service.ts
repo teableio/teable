@@ -27,7 +27,7 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import type { IClsStore } from '../../types/cls';
 import { FileUtils } from '../../utils';
 import { second } from '../../utils/second';
-import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
+import { AttachmentsCropJob } from './attachments-crop.job';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import StorageAdapter from './plugins/adapter';
 import type { LocalStorage } from './plugins/local';
@@ -42,7 +42,7 @@ export class AttachmentsService {
     private readonly cls: ClsService<IClsStore>,
     private readonly cacheService: CacheService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
-    private readonly attachmentsCropQueueProcessor: AttachmentsCropQueueProcessor,
+    private readonly attachmentsCropJob: AttachmentsCropJob,
     @StorageConfig() readonly storageConfig: IStorageConfig,
     @ThresholdConfig() readonly thresholdConfig: IThresholdConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter
@@ -170,7 +170,7 @@ export class AttachmentsService {
         path: true,
       },
     });
-    await this.attachmentsCropQueueProcessor.queue.add('attachment_crop_image', {
+    await this.attachmentsCropJob.addAttachmentCropImage({
       token: attachment.token,
       path: attachment.path,
       mimetype: attachment.mimetype,

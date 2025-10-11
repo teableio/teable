@@ -1,24 +1,19 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { PassThrough } from 'stream';
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
-import { Queue, Job } from 'bullmq';
+import { Job } from 'bullmq';
 import * as unzipper from 'unzipper';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import {
   BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
-  BaseImportAttachmentsCsvQueueProcessor,
-} from './base-import-attachments-csv.processor';
-
-interface IBaseImportJob {
-  path: string;
-  userId: string;
-}
-
-export const BASE_IMPORT_ATTACHMENTS_QUEUE = 'base-import-attachments-queue';
+  BaseImportAttachmentsCsvJob,
+} from './base-import-attachments-csv.job';
+import type { IBaseImportJob } from './base-import-attachments.job';
+import { BASE_IMPORT_ATTACHMENTS_QUEUE } from './base-import-attachments.job';
 
 @Injectable()
 @Processor(BASE_IMPORT_ATTACHMENTS_QUEUE)
@@ -28,9 +23,8 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly baseImportAttachmentsCsvQueueProcessor: BaseImportAttachmentsCsvQueueProcessor,
-    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(BASE_IMPORT_ATTACHMENTS_QUEUE) public readonly queue: Queue<IBaseImportJob>
+    private readonly baseImportAttachmentsCsvJob: BaseImportAttachmentsCsvJob,
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {
     super();
   }
@@ -234,7 +228,7 @@ export class BaseImportAttachmentsQueueProcessor extends WorkerHost {
   @OnWorkerEvent('completed')
   async onCompleted(job: Job) {
     const { path, userId } = job.data;
-    this.baseImportAttachmentsCsvQueueProcessor.queue.add(
+    this.baseImportAttachmentsCsvJob.queue.add(
       BASE_IMPORT_ATTACHMENTS_CSV_QUEUE,
       {
         path,

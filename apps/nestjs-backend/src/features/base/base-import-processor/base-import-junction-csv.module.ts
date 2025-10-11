@@ -1,14 +1,19 @@
 import { Module } from '@nestjs/common';
 import { EventJobModule } from '../../../event-emitter/event-job/event-job.module';
+import { conditionalQueueProcessorProviders } from '../../../utils/queue';
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import {
-  BaseImportJunctionCsvQueueProcessor,
   BASE_IMPORT_JUNCTION_CSV_QUEUE,
-} from './base-import-junction.processor';
+  BaseImportJunctionCsvJob,
+} from './base-import-junction.job';
+import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.processor';
 
 @Module({
-  providers: [BaseImportJunctionCsvQueueProcessor],
+  providers: [
+    ...conditionalQueueProcessorProviders(BaseImportJunctionCsvQueueProcessor),
+    BaseImportJunctionCsvJob,
+  ],
   imports: [EventJobModule.registerQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE), StorageModule],
-  exports: [BaseImportJunctionCsvQueueProcessor],
+  exports: [BaseImportJunctionCsvJob],
 })
 export class BaseImportJunctionCsvModule {}

@@ -1,19 +1,21 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Readable } from 'stream';
 import { Worker } from 'worker_threads';
-import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
+import { OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { FieldType } from '@teable/core';
 import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
-import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
-import { Job, Queue } from 'bullmq';
+import { Job } from 'bullmq';
 import Papa from 'papaparse';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
-import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
+import type { ITableImportChunkJob } from './import-csv-chunk.job';
+import {
+  TABLE_IMPORT_CSV_CHUNK_QUEUE,
+  TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY,
+} from './import-csv-chunk.job';
+import { ImportTableCsvJob, TABLE_IMPORT_CSV_QUEUE } from './import-csv.job';
 import { getWorkerPath, importerFactory } from './import.class';
 
 class ImportError extends Error {
@@ -26,31 +28,6 @@ class ImportError extends Error {
   }
 }
 
-interface ITableImportChunkJob {
-  baseId: string;
-  table: {
-    id: string;
-    name: string;
-  };
-  userId: string;
-  importerParams: Pick<IImportOptionRo, 'attachmentUrl' | 'fileType'> & {
-    maxRowCount?: number;
-  };
-  options: {
-    skipFirstNLines: number;
-    sheetKey: string;
-    notification: boolean;
-  };
-  recordsCal: {
-    columnInfo?: IImportColumn[];
-    fields: { id: string; type: FieldType }[];
-    sourceColumnMap?: Record<string, number | null>;
-  };
-}
-
-export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
-export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = 6;
-
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_CHUNK_QUEUE, {
   concurrency: TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY,
@@ -62,10 +39,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly eventEmitterService: EventEmitterService,
-    private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
-    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>
+    private readonly importTableCsvJob: ImportTableCsvJob,
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {
     super();
   }
@@ -227,9 +202,9 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       }
     );
 
-    const chunkJobId = this.importTableCsvQueueProcessor.getChunkImportJobId(jobId, range);
+    const chunkJobId = this.importTableCsvJob.getChunkImportJobId(jobId, range);
 
-    await this.importTableCsvQueueProcessor.queue.add(
+    await this.importTableCsvJob.queue.add(
       TABLE_IMPORT_CSV_QUEUE,
       {
         baseId,
@@ -265,8 +240,8 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
     this.logger.error(`import data to ${table.id} chunk data job failed, range: [${range}]`);
 
-    const allJobs = (await this.queue.getJobs(['waiting', 'active'])).filter((job) =>
-      job.id?.startsWith(jobId)
+    const allJobs = (await this.importTableCsvJob.queue.getJobs(['waiting', 'active'])).filter(
+      (job) => job.id?.startsWith(jobId)
     );
 
     for (const relatedJob of allJobs) {
@@ -277,10 +252,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       }
     }
 
-    const localPresence = this.importTableCsvQueueProcessor.createImportPresence(
-      table.id,
-      'status'
-    );
-    this.importTableCsvQueueProcessor.setImportStatus(localPresence, true);
+    const localPresence = this.importTableCsvJob.createImportPresence(table.id, 'status');
+    this.importTableCsvJob.setImportStatus(localPresence, true);
   }
 }

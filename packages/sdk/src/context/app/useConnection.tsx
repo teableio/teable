@@ -58,7 +58,7 @@ export const useConnection = (path?: string) => {
   }, [socket, updateRefreshTime]);
 
   useConnectionAutoManage(socket, updateShareDb, {
-    // 10 minutes, it will be closed when the user is leave the page for 1 hour
+    // 1 hour, it will be closed when the user is leave the page for 1 hour
     inactiveTimeout: 1000 * 60 * 60,
     // reconnect when the browser is back for 2 seconds
     reconnectDelay: 2000,

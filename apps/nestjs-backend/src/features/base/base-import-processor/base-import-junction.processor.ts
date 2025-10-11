@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   PrismaClientKnownRequestError,
@@ -11,7 +11,6 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson } from '@teable/openapi';
 import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
-import { Queue } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
@@ -22,14 +21,8 @@ import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
 import { BatchProcessor } from '../BatchProcessor.class';
-
-interface IBaseImportJunctionCsvJob {
-  path: string;
-  fieldIdMap: Record<string, string>;
-  structure: IBaseJson;
-}
-
-export const BASE_IMPORT_JUNCTION_CSV_QUEUE = 'base-import-junction-csv-queue';
+import type { IBaseImportJunctionCsvJob } from './base-import-junction.job';
+import { BASE_IMPORT_JUNCTION_CSV_QUEUE } from './base-import-junction.job';
 
 @Injectable()
 @Processor(BASE_IMPORT_JUNCTION_CSV_QUEUE)
@@ -41,8 +34,6 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(BASE_IMPORT_JUNCTION_CSV_QUEUE)
-    public readonly queue: Queue<IBaseImportJunctionCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider
   ) {
     super();

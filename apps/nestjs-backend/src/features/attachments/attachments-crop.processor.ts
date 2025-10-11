@@ -1,21 +1,12 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { Queue } from 'bullmq';
 import type { Job } from 'bullmq';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-
-interface IRecordImageJob {
-  bucket: string;
-  token: string;
-  path: string;
-  mimetype: string;
-  height?: number | null;
-}
-
-export const ATTACHMENTS_CROP_QUEUE = 'attachments-crop-queue';
+import type { IRecordImageJob } from './attachments-crop.job';
+import { ATTACHMENTS_CROP_QUEUE } from './attachments-crop.job';
 
 @Injectable()
 @Processor(ATTACHMENTS_CROP_QUEUE)
@@ -25,8 +16,7 @@ export class AttachmentsCropQueueProcessor extends WorkerHost {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly attachmentsStorageService: AttachmentsStorageService,
-    private readonly eventEmitterService: EventEmitterService,
-    @InjectQueue(ATTACHMENTS_CROP_QUEUE) public readonly queue: Queue<IRecordImageJob>
+    private readonly eventEmitterService: EventEmitterService
   ) {
     super();
   }

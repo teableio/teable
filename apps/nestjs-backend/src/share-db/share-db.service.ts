@@ -98,7 +98,7 @@ export class ShareDbService extends ShareDBClass {
     if (!tableIds.length) {
       return;
     }
-    await this.prismaService.txClient().tableMeta.updateMany({
+    await this.prismaService.tableMeta.updateMany({
       where: { id: { in: tableIds } },
       data: { lastModifiedTime: new Date().toISOString() },
     });

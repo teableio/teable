@@ -1,22 +1,16 @@
-import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Attachments } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
 import type { Job } from 'bullmq';
-import { Queue } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import * as unzipper from 'unzipper';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { BatchProcessor } from '../BatchProcessor.class';
-
-interface IBaseImportAttachmentsCsvJob {
-  path: string;
-  userId: string;
-}
-
-export const BASE_IMPORT_ATTACHMENTS_CSV_QUEUE = 'base-import-attachments-csv-queue';
+import type { IBaseImportAttachmentsCsvJob } from './base-import-attachments-csv.job';
+import { BASE_IMPORT_ATTACHMENTS_CSV_QUEUE } from './base-import-attachments-csv.job';
 
 @Injectable()
 @Processor(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE)
@@ -27,9 +21,7 @@ export class BaseImportAttachmentsCsvQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @InjectQueue(BASE_IMPORT_ATTACHMENTS_CSV_QUEUE)
-    public readonly queue: Queue<IBaseImportAttachmentsCsvJob>
+    @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter
   ) {
     super();
   }
