@@ -314,7 +314,7 @@ export class SpaceService {
   }
 
   @PerformanceCache({
-    ttl: 60 * 60 * 24 * 7, // 7 day
+    ttl: 600, // 10 minutes
     keyGenerator: generateIntegrationCacheKey,
     statsType: 'integration',
   })
@@ -338,6 +338,7 @@ export class SpaceService {
   async createIntegration(spaceId: string, addIntegrationRo: ICreateIntegrationRo) {
     const { type, enable, config } = addIntegrationRo;
 
+    await this.performanceCacheService.del(generateIntegrationCacheKey(spaceId));
     if (type === IntegrationType.AI) {
       const aiIntegration = await this.prismaService.integration.findFirst({
         where: {
