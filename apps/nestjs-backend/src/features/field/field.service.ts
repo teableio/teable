@@ -505,7 +505,7 @@ export class FieldService implements IReadonlyAdapterService {
     if (!field) {
       throw new CustomHttpException(
         `Field ${fieldId} not found in table ${tableId}`,
-        HttpErrorCode.VALIDATION_ERROR,
+        HttpErrorCode.NOT_FOUND,
         {
           localization: {
             i18nKey: 'httpErrors.field.fieldNotFoundInTable',
@@ -556,7 +556,7 @@ export class FieldService implements IReadonlyAdapterService {
         select: { id: true, type: true, options: true, columnMeta: true },
       });
       if (!curView) {
-        throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.VALIDATION_ERROR, {
+        throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.view.viewNotFound',
             context: { viewId },

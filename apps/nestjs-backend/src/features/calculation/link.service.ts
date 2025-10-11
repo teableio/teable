@@ -713,22 +713,18 @@ export class LinkService {
     for (const fieldId in cellGroupByFieldId) {
       const field = fieldMap[fieldId];
       if (!field) {
-        throw new CustomHttpException(
-          `Field ${fieldId} not found`,
-          HttpErrorCode.VALIDATION_ERROR,
-          {
-            localization: {
-              i18nKey: 'httpErrors.field.fieldNotFound',
-              context: { fieldId },
-            },
-          }
-        );
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.fieldNotFound',
+            context: { fieldId },
+          },
+        });
       }
 
       if (field.type !== FieldType.Link) {
         throw new CustomHttpException(
           `Field ${fieldId} is not link field`,
-          HttpErrorCode.VALIDATION_ERROR,
+          HttpErrorCode.NOT_FOUND,
           {
             localization: {
               i18nKey: 'httpErrors.field.fieldNotFound',

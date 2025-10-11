@@ -171,11 +171,15 @@ export class FieldDeletingService {
 
     // forbid delete primary field
     if (isPrimary) {
-      throw new CustomHttpException(`Forbid delete primary field`, HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.field.forbidDeletePrimaryField',
-        },
-      });
+      throw new CustomHttpException(
+        `Forbid delete primary field`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.forbidDeletePrimaryField',
+          },
+        }
+      );
     }
 
     // delete index first
