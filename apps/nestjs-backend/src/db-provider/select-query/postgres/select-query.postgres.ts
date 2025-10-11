@@ -1,3 +1,4 @@
+import { DbFieldType } from '@teable/core';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -21,6 +22,38 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   private normalizeBlankComparable(value: string): string {
     return `COALESCE(NULLIF((${value})::text, ''), '')`;
+  }
+
+  private isTextLikeExpression(value: string): boolean {
+    const trimmed = value.trim();
+    if (/^'.*'$/.test(trimmed)) {
+      return true;
+    }
+
+    const columnMatch = trimmed.match(/^"([^"]+)"$/);
+    if (!columnMatch) {
+      return false;
+    }
+
+    const columnName = columnMatch[1];
+    const table = this.context?.table;
+    const field =
+      table?.fieldList?.find((item) => item.dbFieldName === columnName) ??
+      table?.fields?.ordered?.find((item) => item.dbFieldName === columnName);
+    if (!field) {
+      return false;
+    }
+
+    return field.dbFieldType === DbFieldType.Text;
+  }
+
+  private countANonNullExpression(value: string): string {
+    if (this.isTextLikeExpression(value)) {
+      const normalizedComparable = this.normalizeBlankComparable(value);
+      return `CASE WHEN ${value} IS NULL OR ${normalizedComparable} = '' THEN 0 ELSE 1 END`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   private normalizeIntervalUnit(
@@ -571,15 +604,17 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Array Functions - More flexible in SELECT context
   count(params: string[]): string {
-    return `COUNT(${this.joinParams(params)})`;
+    const countChecks = params.map((p) => `CASE WHEN ${p} IS NOT NULL THEN 1 ELSE 0 END`);
+    return `(${countChecks.join(' + ')})`;
   }
 
   countA(params: string[]): string {
-    return `COUNT(${this.joinParams(params.map((p) => `CASE WHEN ${p} IS NOT NULL THEN 1 END`))})`;
+    const blankAwareChecks = params.map((p) => this.countANonNullExpression(p));
+    return `(${blankAwareChecks.join(' + ')})`;
   }
 
-  countAll(_value: string): string {
-    return `COUNT(*)`;
+  countAll(value: string): string {
+    return this.countANonNullExpression(value);
   }
 
   arrayJoin(array: string, separator?: string): string {

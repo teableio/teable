@@ -12,7 +12,7 @@ exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Fu
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Functions > should implement count function 1`] = `"(CASE WHEN column_a IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL THEN 1 ELSE 0 END + CASE WHEN column_c IS NOT NULL THEN 1 ELSE 0 END)"`;
 
-exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Functions > should implement countA function 1`] = `"(CASE WHEN column_a IS NOT NULL AND column_a <> '' THEN 1 ELSE 0 END + CASE WHEN column_b IS NOT NULL AND column_b <> '' THEN 1 ELSE 0 END)"`;
+exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Functions > should implement countA function 1`] = `"(CASE WHEN column_a IS NULL OR COALESCE(NULLIF((column_a)::text, ''), '') = '' THEN 0 ELSE 1 END + CASE WHEN column_b IS NULL OR COALESCE(NULLIF((column_b)::text, ''), '') = '' THEN 0 ELSE 1 END)"`;
 
 exports[`GeneratedColumnQuery > PostgreSQL Generated Column Functions > Array Functions > should implement countAll function 1`] = `"CASE WHEN column_a IS NULL THEN 0 ELSE 1 END"`;
 

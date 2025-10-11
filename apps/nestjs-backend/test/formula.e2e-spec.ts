@@ -807,6 +807,59 @@ describe('OpenAPI formula (e2e)', () => {
       expect(record2.data.fields[autoNumberField.name]).toEqual(1);
     });
 
+    it('should convert blank-aware formulas referencing created time field', async () => {
+      const recordId = table.records[0].id;
+      const createdTimeField = await createField(table.id, {
+        name: 'created-time',
+        type: FieldType.CreatedTime,
+      });
+
+      const placeholderField = await createField(table.id, {
+        name: 'created-count',
+        type: FieldType.SingleLineText,
+      });
+
+      const countFormulaField = await convertField(table.id, placeholderField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `COUNTA({${createdTimeField.id}})`,
+        },
+      });
+
+      const recordAfterFirstConvert = await getRecord(table.id, recordId);
+      expect(recordAfterFirstConvert.data.fields[countFormulaField.name]).toEqual(1);
+
+      const updatedCountFormulaField = await convertField(table.id, countFormulaField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `COUNTA({${createdTimeField.id}}, {${createdTimeField.id}})`,
+        },
+      });
+
+      const recordAfterSecondConvert = await getRecord(table.id, recordId);
+      expect(recordAfterSecondConvert.data.fields[updatedCountFormulaField.name]).toEqual(2);
+
+      const countFormula = await convertField(table.id, updatedCountFormulaField.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `COUNT({${createdTimeField.id}})`,
+        },
+      });
+
+      const recordAfterCount = await getRecord(table.id, recordId);
+      expect(recordAfterCount.data.fields[countFormula.name]).toEqual(1);
+
+      const countAllFormula = await convertField(table.id, countFormula.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `COUNTALL({${createdTimeField.id}})`,
+        },
+      });
+
+      const recordAfterCountAll = await getRecord(table.id, recordId);
+      expect(recordAfterCountAll.data.fields[countAllFormula.name]).toEqual(1);
+    });
+
     it('should update record by name wile have create last modified field', async () => {
       await createField(table.id, {
         type: FieldType.LastModifiedTime,

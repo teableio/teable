@@ -1,3 +1,5 @@
+/* eslint-disable no-useless-escape */
+import { DbFieldType } from '@teable/core';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -28,6 +30,38 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       : this.normalizeBlankComparable(right);
 
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
+  }
+
+  private isTextLikeExpression(value: string): boolean {
+    const trimmed = value.trim();
+    if (/^'.*'$/.test(trimmed)) {
+      return true;
+    }
+
+    const columnMatch = trimmed.match(/^"([^"]+)"$/);
+    if (!columnMatch) {
+      return false;
+    }
+
+    const columnName = columnMatch[1];
+    const table = this.context?.table;
+    const field =
+      table?.fieldList?.find((item) => item.dbFieldName === columnName) ??
+      table?.fields?.ordered?.find((item) => item.dbFieldName === columnName);
+    if (!field) {
+      return false;
+    }
+
+    return field.dbFieldType === DbFieldType.Text;
+  }
+
+  private countANonNullExpression(value: string): string {
+    if (this.isTextLikeExpression(value)) {
+      const normalizedComparable = this.normalizeBlankComparable(value);
+      return `CASE WHEN ${value} IS NULL OR ${normalizedComparable} = '' THEN 0 ELSE 1 END`;
+    }
+
+    return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
   // Numeric Functions
@@ -600,7 +634,8 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   countA(params: string[]): string {
     // Count non-empty values (including zeros)
-    return `(${params.map((p) => `CASE WHEN ${p} IS NOT NULL AND ${p} <> '' THEN 1 ELSE 0 END`).join(' + ')})`;
+    const blankAwareChecks = params.map((p) => this.countANonNullExpression(p));
+    return `(${blankAwareChecks.join(' + ')})`;
   }
 
   countAll(value: string): string {
