@@ -108,7 +108,19 @@ export class BatchService {
 
     opsPair.map(([recordId]) => {
       if (!versionGroup[recordId]) {
-        throw new BadRequestException(`Record ${recordId} not found in ${tableId}`);
+        throw new CustomHttpException(
+          `Record ${recordId} not found in ${tableId}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.recordNotFound',
+              context: {
+                recordId,
+                tableId,
+              },
+            },
+          }
+        );
       }
     });
 
@@ -184,7 +196,15 @@ export class BatchService {
       const updateParam = ops.reduce<{ [fieldId: string]: unknown }>((pre, op) => {
         const opContext = RecordOpBuilder.editor.setRecord.detect(op);
         if (!opContext) {
-          throw new Error(`illegal op ${JSON.stringify(op)} found`);
+          throw new CustomHttpException(
+            `illegal op ${JSON.stringify(op)} found when build record ops data`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.invalidOperation',
+              },
+            }
+          );
         }
         pre[opContext.fieldId] = opContext.newCellValue;
         return pre;
@@ -416,7 +436,15 @@ export class BatchService {
           v: version,
         };
       } else {
-        throw new Error('unknown raw op type');
+        throw new CustomHttpException(
+          `unknown raw op type ${opType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.invalidOperation',
+            },
+          }
+        );
       }
       rawOpMap[collection][docId] = rawOp;
       return { rawOp, docId };

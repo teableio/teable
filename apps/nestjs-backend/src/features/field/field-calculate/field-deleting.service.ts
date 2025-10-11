@@ -1,8 +1,9 @@
-import { Injectable, Logger, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
-import { FieldOpBuilder, FieldType } from '@teable/core';
+import { FieldOpBuilder, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { difference, keyBy } from 'lodash';
+import { CustomHttpException } from '../../../custom.exception';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { TableIndexService } from '../../table/table-index.service';
@@ -170,7 +171,11 @@ export class FieldDeletingService {
 
     // forbid delete primary field
     if (isPrimary) {
-      throw new ForbiddenException(`forbid delete primary field`);
+      throw new CustomHttpException(`Forbid delete primary field`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.forbidDeletePrimaryField',
+        },
+      });
     }
 
     // delete index first

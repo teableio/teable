@@ -47,6 +47,7 @@ import {
   SelectFieldCore,
   SingleLineTextFieldCore,
   UserFieldCore,
+  HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -54,6 +55,7 @@ import { uniq, keyBy, mergeWith } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import type { z } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { extractFieldReferences } from '../../../utils';
@@ -114,7 +116,16 @@ export class FieldSupplementService {
       select: { name: true },
     });
     if (!tableRaw) {
-      throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
+      throw new CustomHttpException(
+        `foreignTableId ${foreignTableId} is invalid`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdInvalid',
+            context: { foreignTableId },
+          },
+        }
+      );
     }
     return tableRaw.name;
   }
@@ -189,7 +200,12 @@ export class FieldSupplementService {
       };
     }
 
-    throw new BadRequestException('relationship is invalid');
+    throw new CustomHttpException('relationship is invalid', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.field.relationshipInvalid',
+        context: { relationship },
+      },
+    });
   }
 
   async generateNewLinkOptionsVo(
@@ -220,8 +236,15 @@ export class FieldSupplementService {
           select: { id: true },
         })
         .catch(() => {
-          throw new BadRequestException(
-            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          throw new CustomHttpException(
+            `foreignTableId ${foreignTableId} is invalid`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.foreignTableIdInvalid',
+                context: { foreignTableId },
+              },
+            }
           );
         });
     }
@@ -288,8 +311,15 @@ export class FieldSupplementService {
           select: { id: true },
         })
         .catch(() => {
-          throw new BadRequestException(
-            `foreignTableId ${foreignTableId} is not exist in base ${baseId}`
+          throw new CustomHttpException(
+            `foreignTableId ${foreignTableId} is invalid`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.foreignTableIdInvalid',
+                context: { foreignTableId },
+              },
+            }
           );
         });
     }
@@ -410,7 +440,11 @@ export class FieldSupplementService {
   private async prepareLookupOptions(field: IFieldRo, batchFieldVos?: IFieldVo[]) {
     const { lookupOptions } = field;
     if (!lookupOptions) {
-      throw new BadRequestException('lookupOptions is required');
+      throw new CustomHttpException(`lookupOptions is required`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'editor.lookup.lookupOptionsRequired',
+        },
+      });
     }
 
     const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
@@ -425,11 +459,29 @@ export class FieldSupplementService {
       batchFieldVos?.find((field) => field.id === linkFieldId)?.options;
 
     if (!linkFieldOptions || !linkFieldRaw) {
-      throw new BadRequestException(`linkFieldId ${linkFieldId} is invalid`);
+      throw new CustomHttpException(
+        `linkFieldId ${linkFieldId} is invalid`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.linkFieldIdInvalid',
+            context: { linkFieldId },
+          },
+        }
+      );
     }
 
     if (foreignTableId !== linkFieldOptions.foreignTableId) {
-      throw new BadRequestException(`foreignTableId ${foreignTableId} is invalid`);
+      throw new CustomHttpException(
+        `foreignTableId ${foreignTableId} is invalid`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.foreignTableIdInvalid',
+            context: { foreignTableId },
+          },
+        }
+      );
     }
 
     const lookupFieldRaw = await this.prismaService.txClient().field.findFirst({
@@ -437,7 +489,16 @@ export class FieldSupplementService {
     });
 
     if (!lookupFieldRaw) {
-      throw new BadRequestException(`Lookup field ${lookupFieldId} is not exist`);
+      throw new CustomHttpException(
+        `Lookup field ${lookupFieldId} is invalid`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldIdInvalid',
+            context: { lookupFieldId },
+          },
+        }
+      );
     }
 
     return {
@@ -531,8 +592,15 @@ export class FieldSupplementService {
     );
 
     if (lookupFieldRaw.type !== fieldRo.type) {
-      throw new BadRequestException(
-        `Current field type ${fieldRo.type} is not equal to lookup field (${lookupFieldRaw.type})`
+      throw new CustomHttpException(
+        `Current field type ${fieldRo.type} is not equal to lookup field (${lookupFieldRaw.type})`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.lookupFieldTypeNotEqual',
+            context: { fieldType: fieldRo.type, lookupFieldType: lookupFieldRaw.type },
+          },
+        }
       );
     }
 
@@ -594,7 +662,19 @@ export class FieldSupplementService {
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException('expression parse error');
+      throw new CustomHttpException(
+        `formula expression ${(fieldRo.options as IFormulaFieldOptions).expression} parse error: ${e.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.formulaExpressionParseError',
+            context: {
+              error: e.message,
+              expression: (fieldRo.options as IFormulaFieldOptions).expression,
+            },
+          },
+        }
+      );
     }
 
     const fieldRaws = await this.prismaService.txClient().field.findMany({
@@ -606,7 +686,18 @@ export class FieldSupplementService {
     const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
 
     if (fieldIds.find((id) => !fieldMap[id])) {
-      throw new BadRequestException(`formula field reference ${fieldIds.join()} not found`);
+      throw new CustomHttpException(
+        `formula field reference ${fieldIds.join()} not found`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.formulaReferenceNotFound',
+            context: {
+              fieldIds: fieldIds.join(),
+            },
+          },
+        }
+      );
     }
 
     const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
@@ -651,7 +742,15 @@ export class FieldSupplementService {
     const options = field.options as IRollupFieldOptions;
     const lookupField = createFieldInstanceByRaw(lookupFieldRaw);
     if (!options) {
-      throw new BadRequestException('rollup field options is required');
+      throw new CustomHttpException(
+        'rollup field options is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'editor.error.optionsRequired',
+          },
+        }
+      );
     }
 
     let valueType;
@@ -663,7 +762,19 @@ export class FieldSupplementService {
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Parse rollup Error: ${e.message}`);
+      throw new CustomHttpException(
+        `Parse rollup expression ${options.expression} error: ${e.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'editor.error.rollupExpressionParseError',
+            context: {
+              expression: options.expression,
+              error: e.message,
+            },
+          },
+        }
+      );
     }
 
     const { cellValueType, isMultipleCellValue } = valueType;
@@ -773,7 +884,16 @@ export class FieldSupplementService {
     const nameSet = new Set<string>();
     const choices = optionsRo.choices.map((choice) => {
       if (nameSet.has(choice.name)) {
-        throw new BadRequestException(`choice name ${choice.name} is duplicated`);
+        throw new CustomHttpException(
+          `choice name ${choice.name} is already exists`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.choiceNameAlreadyExists',
+              context: { name: choice.name },
+            },
+          }
+        );
       }
       nameSet.add(choice.name);
       return {
@@ -1013,7 +1133,16 @@ export class FieldSupplementService {
       case FieldType.Button:
         return this.prepareButtonField(fieldRo);
       default:
-        throw new Error('invalid field type');
+        throw new CustomHttpException(
+          `Unsupported field type ${fieldRo.type}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.unsupportedFieldType',
+              context: { type: fieldRo.type },
+            },
+          }
+        );
     }
   }
 
@@ -1067,7 +1196,16 @@ export class FieldSupplementService {
       case FieldType.CreatedBy:
         return this.prepareCreatedByField(fieldRo);
       default:
-        throw new Error('invalid field type');
+        throw new CustomHttpException(
+          `Unsupported field type ${fieldRo.type}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.unsupportedFieldType',
+              context: { type: fieldRo.type },
+            },
+          }
+        );
     }
   }
 
@@ -1075,7 +1213,10 @@ export class FieldSupplementService {
     const result = (schema as z.Schema).safeParse(value);
 
     if (!result.success) {
-      throw new BadRequestException(`${name} is invalid: ${fromZodError(result.error)}`);
+      throw new CustomHttpException(
+        `${name} is invalid: ${fromZodError(result.error)}`,
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
   }
 
@@ -1125,7 +1266,16 @@ export class FieldSupplementService {
         select: { id: true },
       });
       if (existField) {
-        throw new BadRequestException(`dbFieldName ${fieldRo.dbFieldName} is duplicated`);
+        throw new CustomHttpException(
+          `Db Field name ${fieldRo.dbFieldName} already exists in this table`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+              context: { dbFieldName: fieldRo.dbFieldName },
+            },
+          }
+        );
       }
     }
 
@@ -1156,7 +1306,16 @@ export class FieldSupplementService {
       });
 
       if (existedField) {
-        throw new BadRequestException(`dbFieldName ${existedField.dbFieldName} is duplicated`);
+        throw new CustomHttpException(
+          `Db Field name ${existedField.dbFieldName} already exists in this table`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+              context: { dbFieldName: existedField.dbFieldName },
+            },
+          }
+        );
       }
     }
 
@@ -1248,7 +1407,15 @@ export class FieldSupplementService {
 
   async generateSymmetricField(tableId: string, field: LinkFieldDto) {
     if (!field.options.symmetricFieldId) {
-      throw new Error('symmetricFieldId is required');
+      throw new CustomHttpException(
+        'symmetricFieldId is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.symmetricFieldIdRequired',
+          },
+        }
+      );
     }
 
     const prisma = this.prismaService.txClient();
@@ -1365,7 +1532,15 @@ export class FieldSupplementService {
     if (relationship === Relationship.OneOne) {
       alterTableSchema = this.knex.schema.alterTable(fkHostTableName, (table) => {
         if (foreignKeyName === '__id') {
-          throw new Error('can not use __id for foreignKeyName');
+          throw new CustomHttpException(
+            'can not use __id for foreignKeyName',
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.foreignKeyNameCannotUseId',
+              },
+            }
+          );
         }
         table
           .string(foreignKeyName)
@@ -1379,7 +1554,11 @@ export class FieldSupplementService {
     }
 
     if (!alterTableSchema) {
-      throw new Error('alterTableSchema is undefined');
+      throw new CustomHttpException('create foreignKey error ', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.createForeignKeyError',
+        },
+      });
     }
 
     for (const sql of alterTableSchema.toSQL()) {
@@ -1527,7 +1706,19 @@ export class FieldSupplementService {
     });
 
     if (hasCycle(graphItems)) {
-      throw new BadRequestException('field reference has cycle');
+      throw new CustomHttpException(
+        `Detected a cycle: ${field.id}[${field.name}] is part of a circular dependency`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.cycleDetectedCreateField',
+            context: {
+              id: field.id,
+              name: field.name,
+            },
+          },
+        }
+      );
     }
 
     for (const fromFieldId of fieldIds) {

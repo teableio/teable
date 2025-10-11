@@ -1,14 +1,10 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldVo, ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
 import {
   evaluate,
   extractFieldIdsFromFilter,
   FieldType,
+  HttpErrorCode,
   isMultiValueLink,
   RecordOpBuilder,
   Relationship,
@@ -19,6 +15,7 @@ import { instanceToPlain } from 'class-transformer';
 import { Knex } from 'knex';
 import { difference, groupBy, isEmpty, isEqual, keyBy, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Timing } from '../../utils/timing';
@@ -392,8 +389,9 @@ export class ReferenceService {
         opsMap[tableId][recordId].forEach((op) => {
           const ctx = RecordOpBuilder.editor.setRecord.detect(op);
           if (!ctx) {
-            throw new Error(
-              'invalid op, it should detect by RecordOpBuilder.editor.setRecord.detect'
+            throw new CustomHttpException(
+              'invalid op, it should detect by RecordOpBuilder.editor.setRecord.detect',
+              HttpErrorCode.VALIDATION_ERROR
             );
           }
           recordData.push({
@@ -507,11 +505,27 @@ export class ReferenceService {
         : (field.options as ILinkFieldOptions).relationship;
 
       if (!lookupFieldId) {
-        throw new Error('lookupFieldId should not be undefined');
+        throw new CustomHttpException(
+          'lookupFieldId should not be undefined',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'editor.lookup.lookupFieldIdRequired',
+            },
+          }
+        );
       }
 
       if (!relationship) {
-        throw new Error('relationship should not be undefined');
+        throw new CustomHttpException(
+          'relationship should not be undefined',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'editor.link.relationshipRequired',
+            },
+          }
+        );
       }
 
       const lookedField = fieldMap[lookupFieldId];
@@ -549,7 +563,16 @@ export class ReferenceService {
       return this.calculateFormula(field, fieldMap, recordItem);
     }
 
-    throw new BadRequestException(`Unsupported field type ${field.type}`);
+    throw new CustomHttpException(
+      `Unsupported field type ${field.type}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.field.unsupportedFieldType',
+          context: { type: field.type },
+        },
+      }
+    );
   }
 
   @Timing()
@@ -600,7 +623,11 @@ export class ReferenceService {
     if (!recordItem.record?.fields) {
       console.log('recordItem', JSON.stringify(recordItem, null, 2));
       console.log('recordItem.field', field);
-      throw new InternalServerErrorException('record fields is undefined');
+      throw new CustomHttpException('record fields is undefined', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.recordFieldsRequired',
+        },
+      });
     }
 
     const cellValue = recordItem.record.fields[linkFieldId];
@@ -623,8 +650,19 @@ export class ReferenceService {
           .map((v) => {
             const result = dependenciesIndexed[v.id];
             if (!result) {
-              throw new InternalServerErrorException(
-                `Record not found for: ${JSON.stringify(v)}, fieldId: ${field.id}, when calculate ${JSON.stringify(recordItem.record.id)}`
+              throw new CustomHttpException(
+                `Record not found for: ${JSON.stringify(v)}, fieldId: ${field.id}, when calculate ${JSON.stringify(recordItem.record.id)}`,
+                HttpErrorCode.VALIDATION_ERROR,
+                {
+                  localization: {
+                    i18nKey: 'httpErrors.field.calculateRecordNotFound',
+                    context: {
+                      value: JSON.stringify(v),
+                      fieldId: field.id,
+                      recordId: recordItem.record.id,
+                    },
+                  },
+                }
               );
             }
             return result;
@@ -661,19 +699,47 @@ export class ReferenceService {
 
     if (field.isMultipleCellValue) {
       if (!Array.isArray(originLookupValues)) {
-        throw new Error('lookupValues should be array when link field is multiple cell value');
+        throw new CustomHttpException(
+          'lookupValues should be array when link field is multiple cell value',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.lookupValuesShouldBeArray',
+            },
+          }
+        );
       }
 
       if (!Array.isArray(linkCellValues)) {
-        throw new Error('linkCellValues should be array when link field is multiple cell value');
+        throw new CustomHttpException(
+          'linkCellValues should be array when link field is multiple cell value',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.linkCellValuesShouldBeArray',
+            },
+          }
+        );
       }
 
       if (linkCellValues.length !== originLookupValues.length) {
-        throw new Error(
+        throw new CustomHttpException(
           'lookupValues length should be same as linkCellValues length, now: ' +
-            linkCellValues.length +
+            'lookupValues length: ' +
+            originLookupValues.length +
             ' - ' +
-            originLookupValues.length
+            'linkCellValues length: ' +
+            linkCellValues.length,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.lookupAndLinkLengthMatch',
+              context: {
+                lookupValuesLength: originLookupValues.length,
+                linkCellValuesLength: linkCellValues.length,
+              },
+            },
+          }
         );
       }
 
@@ -702,7 +768,15 @@ export class ReferenceService {
     originLookupValues: unknown
   ): unknown {
     if (field.type !== FieldType.Link && field.type !== FieldType.Rollup) {
-      throw new BadRequestException('rollup only support link and rollup field currently');
+      throw new CustomHttpException(
+        'rollup only support link and rollup field currently',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'editor.rollup.unsupportedTip',
+          },
+        }
+      );
     }
 
     const fieldVo = instanceToPlain(lookupField, { excludePrefixes: ['_'] }) as IFieldVo;
@@ -1102,7 +1176,15 @@ export class ReferenceService {
       (field.type === FieldType.Link && (field.options as ILinkFieldOptions));
     if (!options) {
       if (!toRecordIds && !fromRecordIds) {
-        throw new Error('toRecordIds or fromRecordIds is required for normal computed field');
+        throw new CustomHttpException(
+          'toRecordIds or fromRecordIds is required for normal computed field',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.toRecordIdsOrFromRecordIdsRequired',
+            },
+          }
+        );
       }
       return (toRecordIds?.map((id) => ({ fromId: id, toId: id })) ||
         fromRecordIds?.map((id) => ({ fromId: id, toId: id }))) as IRelatedRecordItem[];

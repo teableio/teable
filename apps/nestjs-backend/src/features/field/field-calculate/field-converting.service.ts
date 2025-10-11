@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IFieldPropertyKey,
   ILookupOptionsVo,
@@ -561,7 +556,18 @@ export class FieldConvertingService {
     if (field.type === FieldType.MultipleSelect) {
       return this.updateOptionsFromMultiSelectField(tableId, updatedChoiceMap, field);
     }
-    throw new Error('Invalid field type');
+    throw new CustomHttpException(
+      `Unsupported field type ${(field as { type: FieldType }).type}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.field.unsupportedFieldType',
+          context: {
+            type: (field as { type: FieldType }).type,
+          },
+        },
+      }
+    );
   }
 
   private async modifySelectOptions(
@@ -806,7 +812,15 @@ export class FieldConvertingService {
       for (const op of innerOpsMap[recordId]) {
         const context = RecordOpBuilder.editor.setRecord.detect(op);
         if (!context) {
-          throw new Error('Invalid operation');
+          throw new CustomHttpException(
+            `Invalid operation ${JSON.stringify(op)}, when get derivate by link`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.invalidOperation',
+              },
+            }
+          );
         }
 
         // when changing link relationship, old value used to clean link cellValue
@@ -854,18 +868,27 @@ export class FieldConvertingService {
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
+    const { dbTableName, name: tableName } = await this.prismaService
+      .txClient()
+      .tableMeta.findFirstOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true, name: true },
+      });
 
     const result = await this.fieldCalculationService.getRecordsBatchByFields({
       [dbTableName]: [newField],
     });
     const records = result[dbTableName];
     if (!records) {
-      throw new InternalServerErrorException(
-        `Can't find recordMap for tableId: ${tableId} and fieldId: ${newField.id}`
+      throw new CustomHttpException(
+        `Can't find recordMap for tableId: ${tableId} and fieldId: ${newField.id}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.recordMapNotFound',
+            context: { tableName, fieldName: newField.name },
+          },
+        }
       );
     }
 
@@ -1295,15 +1318,18 @@ export class FieldConvertingService {
 
   async stageAnalysis(tableId: string, fieldId: string, updateFieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
-    if (!oldFieldVo) {
-      throw new BadRequestException(`Not found fieldId(${fieldId})`);
-    }
-
     const oldField = createFieldInstanceByVo(oldFieldVo);
 
     if (oldField.isPrimary && !PRIMARY_SUPPORTED_TYPES.has(updateFieldRo.type)) {
-      throw new BadRequestException(
-        `Field type ${updateFieldRo.type} is not supported as primary field`
+      throw new CustomHttpException(
+        `Field type ${updateFieldRo.type} is not supported as primary field`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.unsupportedPrimaryFieldType',
+            context: { type: updateFieldRo.type },
+          },
+        }
       );
     }
 

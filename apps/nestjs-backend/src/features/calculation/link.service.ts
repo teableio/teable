@@ -63,7 +63,16 @@ export class LinkService {
     const checkSet = new Set<string>();
     cell.newValue.forEach((v) => {
       if (checkSet.has(v.id)) {
-        throw new BadRequestException(`Cannot set duplicate recordId: ${v.id} in the same cell`);
+        throw new CustomHttpException(
+          `Cannot set duplicate recordId: ${v.id} in the same cell`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.linkCellRecordIdAlreadyExists',
+              context: { recordId: v.id },
+            },
+          }
+        );
       }
       checkSet.add(v.id);
     });
@@ -178,8 +187,15 @@ export class LinkService {
           | undefined;
         const newForeignRecord = foreignRecordMap[foreignRecordId];
         if (!newForeignRecord) {
-          throw new BadRequestException(
-            `Consistency error, recordId ${foreignRecordId} is not exist`
+          throw new CustomHttpException(
+            `Consistency error, recordId ${foreignRecordId} is not exist`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.custom.linkConsistencyError',
+                context: { recordId: foreignRecordId },
+              },
+            }
           );
         }
         const foreignCellValue = newForeignRecord[symmetricFieldId] as
@@ -246,7 +262,16 @@ export class LinkService {
         | undefined;
       const newForeignRecord = foreignRecordMap[newKey];
       if (!newForeignRecord) {
-        throw new BadRequestException(`Consistency error, recordId ${newKey} is not exist`);
+        throw new CustomHttpException(
+          `Consistency error, recordId ${newKey} is not exist`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.linkConsistencyError',
+              context: { recordId: newKey },
+            },
+          }
+        );
       }
       const foreignCellValue = newForeignRecord[symmetricFieldId] as
         | ILinkCellValue[]
@@ -580,13 +605,26 @@ export class LinkService {
         const oldCellValue = cellContext.oldValue as ILinkCellValue | ILinkCellValue[] | undefined;
         const newCellValue = cellContext.newValue as ILinkCellValue | undefined;
         if (Array.isArray(newCellValue)) {
-          throw new BadRequestException(
-            `CellValue of ${relationship} link field values cannot be an array`
+          throw new CustomHttpException(
+            `CellValue of ${relationship} link field values cannot be an array`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey:
+                  relationship === Relationship.OneOne
+                    ? 'httpErrors.custom.oneOneLinkCellValueCannotBeArray'
+                    : 'httpErrors.custom.manyOneLinkCellValueCannotBeArray',
+              },
+            }
           );
         }
 
         if ((foreignKeys?.length ?? 0) > 1) {
-          throw new Error('duplicate foreign key from database');
+          throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+            },
+          });
         }
 
         const oldKey = oldCellValue ? [oldCellValue].flat().map((key) => key.id) : null;
@@ -615,8 +653,17 @@ export class LinkService {
       if (relationship === Relationship.ManyMany || relationship === Relationship.OneMany) {
         const newCellValue = cellContext.newValue as ILinkCellValue[] | undefined;
         if (newCellValue && !Array.isArray(newCellValue)) {
-          throw new BadRequestException(
-            `CellValue of ${relationship} link field values should be an array`
+          throw new CustomHttpException(
+            `CellValue of ${relationship} link field values should be an array`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey:
+                  relationship === Relationship.OneMany
+                    ? 'httpErrors.custom.oneManyLinkCellValueShouldBeArray'
+                    : 'httpErrors.custom.manyManyLinkCellValueShouldBeArray',
+              },
+            }
           );
         }
 
@@ -666,11 +713,29 @@ export class LinkService {
     for (const fieldId in cellGroupByFieldId) {
       const field = fieldMap[fieldId];
       if (!field) {
-        throw new BadRequestException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(
+          `Field ${fieldId} not found`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNotFound',
+              context: { fieldId },
+            },
+          }
+        );
       }
 
       if (field.type !== FieldType.Link) {
-        throw new BadRequestException(`Field ${fieldId} is not link field`);
+        throw new CustomHttpException(
+          `Field ${fieldId} is not link field`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNotFound',
+              context: { fieldId },
+            },
+          }
+        );
       }
 
       const recordIds = cellGroupByFieldId[fieldId].map((ctx) => ctx.recordId);
@@ -1138,7 +1203,11 @@ export class LinkService {
       const foreignKeys = foreignKeysIndexed[id];
       if (relationship === Relationship.OneOne || relationship === Relationship.ManyOne) {
         if ((foreignKeys?.length ?? 0) > 1) {
-          throw new Error('duplicate foreign key from database');
+          throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+            },
+          });
         }
 
         const foreignRecordId = foreignKeys?.[0].foreignId;

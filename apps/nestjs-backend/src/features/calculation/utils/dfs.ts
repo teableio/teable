@@ -1,3 +1,6 @@
+import { HttpErrorCode } from '@teable/core';
+import { CustomHttpException } from '../../../custom.exception';
+
 // topo item is for field level reference, all id stands for fieldId;
 export interface ITopoItem {
   id: string;
@@ -81,7 +84,15 @@ export function getTopoOrders(graph: IGraphItem[]): ITopoItem[] {
 
   function visit(node: string) {
     if (visitingNodes.has(node)) {
-      throw new Error(`Detected a cycle: ${node} is part of a circular dependency`);
+      throw new CustomHttpException(
+        `Detected a cycle: ${node} is part of a circular dependency`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.cycleDetected',
+          },
+        }
+      );
     }
 
     if (!visitedNodes.has(node)) {

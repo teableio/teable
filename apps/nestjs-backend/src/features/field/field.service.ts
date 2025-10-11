@@ -240,6 +240,7 @@ export class FieldService implements IReadonlyAdapterService {
         unique,
         notNull,
         id: fieldId,
+        name,
       } = fieldInstances[i];
 
       const alterTableQuery = this.knex.schema
@@ -252,8 +253,15 @@ export class FieldService implements IReadonlyAdapterService {
 
       if (unique) {
         if (!checkFieldUniqueValidationEnabled(type, isLookup)) {
-          throw new BadRequestException(
-            `Field type "${type}" does not support field value unique validation`
+          throw new CustomHttpException(
+            `Field ${name}[${fieldId}] does not support field value unique validation`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.uniqueUnsupportedType',
+                context: { name, fieldId },
+              },
+            }
           );
         }
 
@@ -268,8 +276,15 @@ export class FieldService implements IReadonlyAdapterService {
       }
 
       if (notNull) {
-        throw new BadRequestException(
-          `Field type "${type}" does not support field validation when creating a new field`
+        throw new CustomHttpException(
+          `Field ${name}[${fieldId}] does not support not null validation when creating a new field`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.notNullValidationWhenCreateField',
+              context: { name, fieldId },
+            },
+          }
         );
       }
     }
@@ -290,14 +305,22 @@ export class FieldService implements IReadonlyAdapterService {
       where: { id: fieldId, deletedTime: null },
       select: { dbFieldName: true, table: { select: { id: true, dbTableName: true } } },
     });
-
     const existingField = await this.prismaService.txClient().field.findFirst({
       where: { tableId: table.id, dbFieldName: newDbFieldName, deletedTime: null },
       select: { id: true },
     });
 
     if (existingField) {
-      throw new BadRequestException(`Db Field name ${newDbFieldName} already exists in this table`);
+      throw new CustomHttpException(
+        `Db Field name ${newDbFieldName} already exists in this table`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.dbFieldNameAlreadyExists',
+            context: { dbFieldName: newDbFieldName },
+          },
+        }
+      );
     }
 
     const alterTableSql = this.dbProvider.renameColumn(
@@ -407,7 +430,16 @@ export class FieldService implements IReadonlyAdapterService {
       });
 
     if (!checkFieldValidationEnabled(type as FieldType, isLookup)) {
-      throw new BadRequestException(`Field type "${type}" does not support field validation`);
+      throw new CustomHttpException(
+        `Field ${name}[${fieldId}] field validation error`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.fieldValidationError',
+            context: { name, fieldId },
+          },
+        }
+      );
     }
 
     const dbTableName = table.dbTableName;
@@ -471,7 +503,16 @@ export class FieldService implements IReadonlyAdapterService {
       where: { id: fieldId, tableId, deletedTime: null },
     });
     if (!field) {
-      throw new NotFoundException(`field ${fieldId} in table ${tableId} not found`);
+      throw new CustomHttpException(
+        `Field ${fieldId} not found in table ${tableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.fieldNotFoundInTable',
+            context: { tableId, fieldId },
+          },
+        }
+      );
     }
     return rawField2FieldObj(field);
   }
@@ -515,7 +556,12 @@ export class FieldService implements IReadonlyAdapterService {
         select: { id: true, type: true, options: true, columnMeta: true },
       });
       if (!curView) {
-        throw new CustomHttpException('view is not found', HttpErrorCode.VIEW_NOT_FOUND);
+        throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.view.viewNotFound',
+            context: { viewId },
+          },
+        });
       }
       const view = {
         id: viewId,
@@ -586,7 +632,16 @@ export class FieldService implements IReadonlyAdapterService {
     });
 
     if (fieldRaw) {
-      throw new BadRequestException(`Field name ${name} already exists in this table`);
+      throw new CustomHttpException(
+        `Field name ${name} already exists in this table`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+            context: { name },
+          },
+        }
+      );
     }
   }
 
@@ -605,7 +660,7 @@ export class FieldService implements IReadonlyAdapterService {
       const opContext = ops.map((op) => {
         const ctx = FieldOpBuilder.detect(op);
         if (!ctx) {
-          throw new Error('unknown field editing op');
+          throw new CustomHttpException('unknown field editing op', HttpErrorCode.VALIDATION_ERROR);
         }
         return ctx as IOpContext;
       });
@@ -636,7 +691,16 @@ export class FieldService implements IReadonlyAdapterService {
     });
 
     if (fieldRaw.length !== fieldIds.length) {
-      throw new BadRequestException('delete field not found');
+      throw new CustomHttpException(
+        `delete fields ${fieldIds.join(',')} not found in table ${tableId}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.deleteFieldsNotFound',
+            context: { tableId, fieldIds },
+          },
+        }
+      );
     }
 
     const fieldRawMap = keyBy(fieldRaw, 'id');
@@ -739,7 +803,11 @@ export class FieldService implements IReadonlyAdapterService {
 
     if (key === 'options') {
       if (!newValue) {
-        throw new Error('field options is required');
+        throw new CustomHttpException('field options is required', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'editor.error.optionsRequired',
+          },
+        });
       }
       return { options: JSON.stringify(newValue) };
     }
@@ -781,7 +849,10 @@ export class FieldService implements IReadonlyAdapterService {
     const handler = opHandlers[opContext.name];
 
     if (!handler) {
-      throw new Error(`Unknown context ${opContext.name} for field update`);
+      throw new CustomHttpException(
+        `Unknown context ${opContext.name} for field update`,
+        HttpErrorCode.VALIDATION_ERROR
+      );
     }
 
     return handler.constructor.name === 'AsyncFunction'

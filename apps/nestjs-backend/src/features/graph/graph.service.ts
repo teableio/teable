@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo, ILinkFieldOptions, IConvertFieldRo } from '@teable/core';
 import { FieldType, Relationship } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
@@ -163,9 +163,6 @@ export class GraphService {
 
   private async getField(tableId: string, fieldId: string, fieldRo: IConvertFieldRo) {
     const oldFieldVo = await this.fieldService.getField(tableId, fieldId);
-    if (!oldFieldVo) {
-      throw new BadRequestException(`Not found fieldId(${fieldId})`);
-    }
     const oldField = createFieldInstanceByVo(oldFieldVo);
     const newFieldVo = await this.fieldSupplementService.prepareUpdateField(
       tableId,

@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { FieldAction, ILinkCellValue, ILinkFieldOptions, IOtOperation } from '@teable/core';
 import {
   Relationship,
@@ -7,9 +7,11 @@ import {
   RecordOpBuilder,
   isMultiValueLink,
   PRIMARY_SUPPORTED_TYPES,
+  HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { groupBy, isEqual } from 'lodash';
+import { CustomHttpException } from '../../../custom.exception';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import { LinkService } from '../../calculation/link.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
@@ -224,18 +226,27 @@ export class FieldConvertingLinkService {
   }
 
   private async getRecords(tableId: string, field: IFieldInstance) {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
+    const { dbTableName, name: tableName } = await this.prismaService
+      .txClient()
+      .tableMeta.findFirstOrThrow({
+        where: { id: tableId },
+        select: { dbTableName: true, name: true },
+      });
 
     const result = await this.fieldCalculationService.getRecordsBatchByFields({
       [dbTableName]: [field],
     });
     const records = result[dbTableName];
     if (!records) {
-      throw new InternalServerErrorException(
-        `Can't find recordMap for tableId: ${tableId} and fieldId: ${field.id}`
+      throw new CustomHttpException(
+        `Can't find recordMap for tableId: ${tableId} and fieldId: ${field.id}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.recordMapNotFound',
+            context: { tableName, fieldName: field.name },
+          },
+        }
       );
     }
 

@@ -5,12 +5,13 @@ import type {
   ILinkFieldOptions,
   ILookupOptionsRo,
 } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IBaseJson, IFieldJson, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
 import { pick, get } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { extractFieldReferences } from '../../../utils';
@@ -737,8 +738,18 @@ export class FieldDuplicateService {
           checkedField.push(curField);
           countMap[curField.id] = (countMap[curField.id] || 0) + 1;
         } else {
-          throw new BadGatewayException(
-            `Create circular field when create field: ${curField?.name || curField?.id || 'unknown field'}`
+          throw new CustomHttpException(
+            `Create circular field when create field: ${curField.name}[${curField.id}]`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.cycleDetectedCreateField',
+                context: {
+                  id: curField.id,
+                  name: curField.name,
+                },
+              },
+            }
           );
         }
       } else {
