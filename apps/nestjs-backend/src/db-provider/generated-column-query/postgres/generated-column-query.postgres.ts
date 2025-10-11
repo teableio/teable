@@ -252,10 +252,147 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return 'CURRENT_DATE';
   }
 
+  private normalizeIntervalUnit(
+    unitLiteral: string,
+    options?: { treatQuarterAsMonth?: boolean }
+  ): {
+    unit:
+      | 'millisecond'
+      | 'second'
+      | 'minute'
+      | 'hour'
+      | 'day'
+      | 'week'
+      | 'month'
+      | 'quarter'
+      | 'year';
+    factor: number;
+  } {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return { unit: 'millisecond', factor: 1 };
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return { unit: 'second', factor: 1 };
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return { unit: 'minute', factor: 1 };
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return { unit: 'hour', factor: 1 };
+      case 'week':
+      case 'weeks':
+        return { unit: 'week', factor: 1 };
+      case 'month':
+      case 'months':
+        return { unit: 'month', factor: 1 };
+      case 'quarter':
+      case 'quarters':
+        if (options?.treatQuarterAsMonth === false) {
+          return { unit: 'quarter', factor: 1 };
+        }
+        return { unit: 'month', factor: 3 };
+      case 'year':
+      case 'years':
+        return { unit: 'year', factor: 1 };
+      case 'day':
+      case 'days':
+      default:
+        return { unit: 'day', factor: 1 };
+    }
+  }
+
+  private normalizeDiffUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      default:
+        return 'day';
+    }
+  }
+
+  private normalizeTruncateUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
+      case 'day':
+      case 'days':
+      default:
+        return 'day';
+    }
+  }
+
   dateAdd(date: string, count: string, unit: string): string {
-    // Remove quotes from unit string literal for interval construction
-    const cleanUnit = unit.replace(/^'|'$/g, '');
-    return `${date}::timestamp + INTERVAL '${cleanUnit}' * ${count}::integer`;
+    const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
+    const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    if (cleanUnit === 'quarter') {
+      return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 month'`;
+    }
+    return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
   datestr(date: string): string {
@@ -263,22 +400,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
-    const cleanUnit = unit.replace(/^'|'$/g, '');
-    switch (cleanUnit.toLowerCase()) {
-      case 'day':
-      case 'days':
-        return `EXTRACT(DAY FROM ${endDate}::timestamp - ${startDate}::timestamp)`;
-      case 'hour':
-      case 'hours':
-        return `EXTRACT(EPOCH FROM ${endDate}::timestamp - ${startDate}::timestamp) / 3600`;
-      case 'minute':
-      case 'minutes':
-        return `EXTRACT(EPOCH FROM ${endDate}::timestamp - ${startDate}::timestamp) / 60`;
+    const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
+    const diffSeconds = `EXTRACT(EPOCH FROM ${endDate}::timestamp - ${startDate}::timestamp)`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${diffSeconds}) * 1000`;
       case 'second':
-      case 'seconds':
-        return `EXTRACT(EPOCH FROM ${endDate}::timestamp - ${startDate}::timestamp)`;
+        return `(${diffSeconds})`;
+      case 'minute':
+        return `(${diffSeconds}) / 60`;
+      case 'hour':
+        return `(${diffSeconds}) / 3600`;
+      case 'week':
+        return `(${diffSeconds}) / (86400 * 7)`;
+      case 'day':
       default:
-        return `EXTRACT(DAY FROM ${endDate}::timestamp - ${startDate}::timestamp)`;
+        return `(${diffSeconds}) / 86400`;
     }
   }
 
@@ -324,17 +461,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   isSame(date1: string, date2: string, unit?: string): string {
     if (unit) {
-      const cleanUnit = unit.replace(/^'|'$/g, '');
-      switch (cleanUnit.toLowerCase()) {
-        case 'day':
-          return `DATE_TRUNC('day', ${date1}::timestamp) = DATE_TRUNC('day', ${date2}::timestamp)`;
-        case 'month':
-          return `DATE_TRUNC('month', ${date1}::timestamp) = DATE_TRUNC('month', ${date2}::timestamp)`;
-        case 'year':
-          return `DATE_TRUNC('year', ${date1}::timestamp) = DATE_TRUNC('year', ${date2}::timestamp)`;
-        default:
-          return `${date1}::timestamp = ${date2}::timestamp`;
+      const trimmed = unit.trim();
+      if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+        const literal = trimmed.slice(1, -1);
+        const normalized = this.normalizeTruncateUnit(literal);
+        const safeUnit = normalized.replace(/'/g, "''");
+        return `DATE_TRUNC('${safeUnit}', ${date1}::timestamp) = DATE_TRUNC('${safeUnit}', ${date2}::timestamp)`;
       }
+      return `DATE_TRUNC(${unit}, ${date1}::timestamp) = DATE_TRUNC(${unit}, ${date2}::timestamp)`;
     }
     return `${date1}::timestamp = ${date2}::timestamp`;
   }

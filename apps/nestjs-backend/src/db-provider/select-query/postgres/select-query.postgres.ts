@@ -23,8 +23,20 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `COALESCE(NULLIF((${value})::text, ''), '')`;
   }
 
-  private normalizeIntervalUnit(unitLiteral: string): {
-    unit: 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'year';
+  private normalizeIntervalUnit(
+    unitLiteral: string,
+    options?: { treatQuarterAsMonth?: boolean }
+  ): {
+    unit:
+      | 'millisecond'
+      | 'second'
+      | 'minute'
+      | 'hour'
+      | 'day'
+      | 'week'
+      | 'month'
+      | 'quarter'
+      | 'year';
     factor: number;
   } {
     const normalized = unitLiteral.trim().toLowerCase();
@@ -56,6 +68,9 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
         return { unit: 'month', factor: 1 };
       case 'quarter':
       case 'quarters':
+        if (options?.treatQuarterAsMonth === false) {
+          return { unit: 'quarter', factor: 1 };
+        }
         return { unit: 'month', factor: 3 };
       case 'year':
       case 'years':
@@ -64,6 +79,81 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       case 'days':
       default:
         return { unit: 'day', factor: 1 };
+    }
+  }
+
+  private normalizeDiffUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      default:
+        return 'day';
+    }
+  }
+
+  private normalizeTruncateUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
+    const normalized = unitLiteral.trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
+      case 'day':
+      case 'days':
+      default:
+        return 'day';
     }
   }
 
@@ -280,6 +370,9 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   dateAdd(date: string, count: string, unit: string): string {
     const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
     const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    if (cleanUnit === 'quarter') {
+      return `${this.tzWrap(date)} + (${scaledCount}) * INTERVAL '1 month'`;
+    }
     return `${this.tzWrap(date)} + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
@@ -288,15 +381,23 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
-    const cleanUnit = unit.replace(/^'|'$/g, '').toLowerCase();
+    const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
     const diffSeconds = `EXTRACT(EPOCH FROM (${this.tzWrap(endDate)} - ${this.tzWrap(startDate)}))`;
-    return `CASE
-      WHEN '${cleanUnit}' IN ('day','days') THEN (${diffSeconds}) / 86400
-      WHEN '${cleanUnit}' IN ('hour','hours') THEN (${diffSeconds}) / 3600
-      WHEN '${cleanUnit}' IN ('minute','minutes') THEN (${diffSeconds}) / 60
-      WHEN '${cleanUnit}' IN ('second','seconds') THEN (${diffSeconds})
-      ELSE (${diffSeconds}) / 86400
-    END`;
+    switch (diffUnit) {
+      case 'millisecond':
+        return `(${diffSeconds}) * 1000`;
+      case 'second':
+        return `(${diffSeconds})`;
+      case 'minute':
+        return `(${diffSeconds}) / 60`;
+      case 'hour':
+        return `(${diffSeconds}) / 3600`;
+      case 'week':
+        return `(${diffSeconds}) / (86400 * 7)`;
+      case 'day':
+      default:
+        return `(${diffSeconds}) / 86400`;
+    }
   }
 
   datetimeFormat(date: string, format: string): string {
@@ -342,8 +443,10 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     if (unit) {
       const trimmed = unit.trim();
       if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
-        const cleanUnit = trimmed.slice(1, -1).replace(/'/g, "''");
-        return `DATE_TRUNC('${cleanUnit}', ${this.tzWrap(date1)}) = DATE_TRUNC('${cleanUnit}', ${this.tzWrap(date2)})`;
+        const literal = trimmed.slice(1, -1);
+        const normalizedUnit = this.normalizeTruncateUnit(literal);
+        const safeUnit = normalizedUnit.replace(/'/g, "''");
+        return `DATE_TRUNC('${safeUnit}', ${this.tzWrap(date1)}) = DATE_TRUNC('${safeUnit}', ${this.tzWrap(date2)})`;
       }
       return `DATE_TRUNC(${unit}, ${this.tzWrap(date1)}) = DATE_TRUNC(${unit}, ${this.tzWrap(date2)})`;
     }

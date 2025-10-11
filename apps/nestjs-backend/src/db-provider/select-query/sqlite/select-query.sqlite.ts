@@ -254,6 +254,75 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     }
   }
 
+  private normalizeDiffUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      default:
+        return 'day';
+    }
+  }
+
+  private normalizeTruncateFormat(unitLiteral: string): string {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return '%Y-%m-%d %H:%M:%S';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return '%Y-%m-%d %H:%M';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return '%Y-%m-%d %H';
+      case 'week':
+      case 'weeks':
+        return '%Y-%W';
+      case 'month':
+      case 'months':
+        return '%Y-%m';
+      case 'year':
+      case 'years':
+        return '%Y';
+      case 'day':
+      case 'days':
+      default:
+        return '%Y-%m-%d';
+    }
+  }
+
   today(): string {
     return `DATE('now')`;
   }
@@ -269,8 +338,22 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
-    // SQLite has limited date arithmetic
-    return `CAST((JULIANDAY(${endDate}) - JULIANDAY(${startDate})) AS INTEGER)`;
+    const baseDiffDays = `(JULIANDAY(${endDate}) - JULIANDAY(${startDate}))`;
+    switch (this.normalizeDiffUnit(unit)) {
+      case 'millisecond':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60 * 1000`;
+      case 'second':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60`;
+      case 'minute':
+        return `(${baseDiffDays}) * 24.0 * 60`;
+      case 'hour':
+        return `(${baseDiffDays}) * 24.0`;
+      case 'week':
+        return `(${baseDiffDays}) / 7.0`;
+      case 'day':
+      default:
+        return `${baseDiffDays}`;
+    }
   }
 
   datetimeFormat(date: string, format: string): string {
@@ -304,15 +387,12 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
 
   isSame(date1: string, date2: string, unit?: string): string {
     if (unit) {
-      const formatMap: { [key: string]: string } = {
-        year: '%Y',
-        month: '%Y-%m',
-        day: '%Y-%m-%d',
-        hour: '%Y-%m-%d %H',
-        minute: '%Y-%m-%d %H:%M',
-        second: '%Y-%m-%d %H:%M:%S',
-      };
-      const format = formatMap[unit] || '%Y-%m-%d';
+      const trimmed = unit.trim();
+      if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+        const format = this.normalizeTruncateFormat(trimmed.slice(1, -1));
+        return `STRFTIME('${format}', ${date1}) = STRFTIME('${format}', ${date2})`;
+      }
+      const format = this.normalizeTruncateFormat(unit);
       return `STRFTIME('${format}', ${date1}) = STRFTIME('${format}', ${date2})`;
     }
     return `DATETIME(${date1}) = DATETIME(${date2})`;

@@ -313,30 +313,123 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return "DATE('now')";
   }
 
-  dateAdd(date: string, count: string, unit: string): string {
-    const cleanUnit = unit.replace(/^'|'$/g, '');
-    switch (cleanUnit.toLowerCase()) {
-      case 'day':
-      case 'days':
-        return `DATE(${date}, '+' || ${count} || ' days')`;
-      case 'month':
-      case 'months':
-        return `DATE(${date}, '+' || ${count} || ' months')`;
-      case 'year':
-      case 'years':
-        return `DATE(${date}, '+' || ${count} || ' years')`;
-      case 'hour':
-      case 'hours':
-        return `DATETIME(${date}, '+' || ${count} || ' hours')`;
-      case 'minute':
-      case 'minutes':
-        return `DATETIME(${date}, '+' || ${count} || ' minutes')`;
+  private normalizeDateModifier(unitLiteral: string): {
+    unit: 'seconds' | 'minutes' | 'hours' | 'days' | 'months' | 'years';
+    factor: number;
+  } {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return { unit: 'seconds', factor: 0.001 };
       case 'second':
       case 'seconds':
-        return `DATETIME(${date}, '+' || ${count} || ' seconds')`;
+      case 'sec':
+      case 'secs':
+        return { unit: 'seconds', factor: 1 };
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return { unit: 'minutes', factor: 1 };
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return { unit: 'hours', factor: 1 };
+      case 'week':
+      case 'weeks':
+        return { unit: 'days', factor: 7 };
+      case 'month':
+      case 'months':
+        return { unit: 'months', factor: 1 };
+      case 'quarter':
+      case 'quarters':
+        return { unit: 'months', factor: 3 };
+      case 'year':
+      case 'years':
+        return { unit: 'years', factor: 1 };
+      case 'day':
+      case 'days':
       default:
-        return `DATE(${date}, '+' || ${count} || ' days')`;
+        return { unit: 'days', factor: 1 };
     }
+  }
+
+  private normalizeDiffUnit(
+    unitLiteral: string
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+        return 'millisecond';
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return 'second';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return 'minute';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return 'hour';
+      case 'week':
+      case 'weeks':
+        return 'week';
+      default:
+        return 'day';
+    }
+  }
+
+  private normalizeTruncateFormat(unitLiteral: string): string {
+    const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
+    switch (normalized) {
+      case 'millisecond':
+      case 'milliseconds':
+      case 'ms':
+      case 'second':
+      case 'seconds':
+      case 'sec':
+      case 'secs':
+        return '%Y-%m-%d %H:%M:%S';
+      case 'minute':
+      case 'minutes':
+      case 'min':
+      case 'mins':
+        return '%Y-%m-%d %H:%M';
+      case 'hour':
+      case 'hours':
+      case 'hr':
+      case 'hrs':
+        return '%Y-%m-%d %H';
+      case 'week':
+      case 'weeks':
+        return '%Y-%W';
+      case 'month':
+      case 'months':
+        return '%Y-%m';
+      case 'year':
+      case 'years':
+        return '%Y';
+      case 'day':
+      case 'days':
+      default:
+        return '%Y-%m-%d';
+    }
+  }
+
+  dateAdd(date: string, count: string, unit: string): string {
+    const { unit: cleanUnit, factor } = this.normalizeDateModifier(unit);
+    const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    return `DATETIME(${date}, (${scaledCount}) || ' ${cleanUnit}')`;
   }
 
   datestr(date: string): string {
@@ -344,22 +437,21 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
-    const cleanUnit = unit.replace(/^'|'$/g, '');
-    switch (cleanUnit.toLowerCase()) {
-      case 'day':
-      case 'days':
-        return `CAST(JULIANDAY(${endDate}) - JULIANDAY(${startDate}) AS INTEGER)`;
-      case 'hour':
-      case 'hours':
-        return `CAST((JULIANDAY(${endDate}) - JULIANDAY(${startDate})) * 24 AS INTEGER)`;
-      case 'minute':
-      case 'minutes':
-        return `CAST((JULIANDAY(${endDate}) - JULIANDAY(${startDate})) * 24 * 60 AS INTEGER)`;
+    const baseDiffDays = `(JULIANDAY(${endDate}) - JULIANDAY(${startDate}))`;
+    switch (this.normalizeDiffUnit(unit)) {
+      case 'millisecond':
+        return `(${baseDiffDays}) * 24.0 * 60 * 60 * 1000`;
       case 'second':
-      case 'seconds':
-        return `CAST((JULIANDAY(${endDate}) - JULIANDAY(${startDate})) * 24 * 60 * 60 AS INTEGER)`;
+        return `(${baseDiffDays}) * 24.0 * 60 * 60`;
+      case 'minute':
+        return `(${baseDiffDays}) * 24.0 * 60`;
+      case 'hour':
+        return `(${baseDiffDays}) * 24.0`;
+      case 'week':
+        return `(${baseDiffDays}) / 7.0`;
+      case 'day':
       default:
-        return `CAST(JULIANDAY(${endDate}) - JULIANDAY(${startDate}) AS INTEGER)`;
+        return `${baseDiffDays}`;
     }
   }
 
@@ -409,17 +501,13 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   isSame(date1: string, date2: string, unit?: string): string {
     if (unit) {
-      const cleanUnit = unit.replace(/^'|'$/g, '');
-      switch (cleanUnit.toLowerCase()) {
-        case 'day':
-          return `DATE(${date1}) = DATE(${date2})`;
-        case 'month':
-          return `STRFTIME('%Y-%m', ${date1}) = STRFTIME('%Y-%m', ${date2})`;
-        case 'year':
-          return `STRFTIME('%Y', ${date1}) = STRFTIME('%Y', ${date2})`;
-        default:
-          return `DATETIME(${date1}) = DATETIME(${date2})`;
+      const trimmed = unit.trim();
+      if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+        const format = this.normalizeTruncateFormat(trimmed.slice(1, -1));
+        return `STRFTIME('${format}', ${date1}) = STRFTIME('${format}', ${date2})`;
       }
+      const format = this.normalizeTruncateFormat(unit);
+      return `STRFTIME('${format}', ${date1}) = STRFTIME('${format}', ${date2})`;
     }
     return `DATETIME(${date1}) = DATETIME(${date2})`;
   }

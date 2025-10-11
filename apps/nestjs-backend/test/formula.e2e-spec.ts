@@ -32,6 +32,16 @@ describe('OpenAPI formula (e2e)', () => {
   const baseDate = new Date(Date.UTC(2025, 0, 3, 0, 0, 0, 0));
   const dateAddMultiplier = 7;
   const numberFieldSeedValue = 2;
+  const datetimeDiffStartIso = '2025-01-01T00:00:00.000Z';
+  const datetimeDiffEndIso = '2025-01-08T03:04:05.006Z';
+  const datetimeDiffStart = new Date(datetimeDiffStartIso);
+  const datetimeDiffEnd = new Date(datetimeDiffEndIso);
+  const diffMilliseconds = datetimeDiffEnd.getTime() - datetimeDiffStart.getTime();
+  const diffSeconds = diffMilliseconds / 1000;
+  const diffMinutes = diffSeconds / 60;
+  const diffHours = diffMinutes / 60;
+  const diffDays = diffHours / 24;
+  const diffWeeks = diffDays / 7;
   type DateAddNormalizedUnit =
     | 'millisecond'
     | 'second'
@@ -69,6 +79,150 @@ describe('OpenAPI formula (e2e)', () => {
     { literal: 'hr', normalized: 'hour' },
     { literal: 'hrs', normalized: 'hour' },
   ];
+  const datetimeDiffCases: Array<{ literal: string; expected: number }> = [
+    { literal: 'millisecond', expected: diffMilliseconds },
+    { literal: 'milliseconds', expected: diffMilliseconds },
+    { literal: 'ms', expected: diffMilliseconds },
+    { literal: 'second', expected: diffSeconds },
+    { literal: 'seconds', expected: diffSeconds },
+    { literal: 'sec', expected: diffSeconds },
+    { literal: 'secs', expected: diffSeconds },
+    { literal: 'minute', expected: diffMinutes },
+    { literal: 'minutes', expected: diffMinutes },
+    { literal: 'min', expected: diffMinutes },
+    { literal: 'mins', expected: diffMinutes },
+    { literal: 'hour', expected: diffHours },
+    { literal: 'hours', expected: diffHours },
+    { literal: 'hr', expected: diffHours },
+    { literal: 'hrs', expected: diffHours },
+    { literal: 'day', expected: diffDays },
+    { literal: 'days', expected: diffDays },
+    { literal: 'week', expected: diffWeeks },
+    { literal: 'weeks', expected: diffWeeks },
+  ];
+  const isSameCases: Array<{ literal: string; first: string; second: string; expected: boolean }> =
+    [
+      {
+        literal: 'day',
+        first: '2025-01-05T10:00:00Z',
+        second: '2025-01-05T23:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'days',
+        first: '2025-01-05T08:00:00Z',
+        second: '2025-01-05T12:34:56Z',
+        expected: true,
+      },
+      {
+        literal: 'hour',
+        first: '2025-01-05T10:05:00Z',
+        second: '2025-01-05T10:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'hours',
+        first: '2025-01-05T15:00:00Z',
+        second: '2025-01-05T15:45:00Z',
+        expected: true,
+      },
+      {
+        literal: 'hr',
+        first: '2025-01-05T18:01:00Z',
+        second: '2025-01-05T18:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'hrs',
+        first: '2025-01-05T21:00:00Z',
+        second: '2025-01-05T21:10:00Z',
+        expected: true,
+      },
+      {
+        literal: 'minute',
+        first: '2025-01-05T10:15:30Z',
+        second: '2025-01-05T10:15:59Z',
+        expected: true,
+      },
+      {
+        literal: 'minutes',
+        first: '2025-01-05T11:00:00Z',
+        second: '2025-01-05T11:00:59Z',
+        expected: true,
+      },
+      {
+        literal: 'min',
+        first: '2025-01-05T12:34:10Z',
+        second: '2025-01-05T12:34:50Z',
+        expected: true,
+      },
+      {
+        literal: 'mins',
+        first: '2025-01-05T13:00:00Z',
+        second: '2025-01-05T13:00:30Z',
+        expected: true,
+      },
+      {
+        literal: 'second',
+        first: '2025-01-05T14:15:30Z',
+        second: '2025-01-05T14:15:30Z',
+        expected: true,
+      },
+      {
+        literal: 'seconds',
+        first: '2025-01-05T14:15:45Z',
+        second: '2025-01-05T14:15:45Z',
+        expected: true,
+      },
+      {
+        literal: 'sec',
+        first: '2025-01-05T14:20:15Z',
+        second: '2025-01-05T14:20:15Z',
+        expected: true,
+      },
+      {
+        literal: 'secs',
+        first: '2025-01-05T14:25:40Z',
+        second: '2025-01-05T14:25:40Z',
+        expected: true,
+      },
+      {
+        literal: 'month',
+        first: '2025-01-05T10:00:00Z',
+        second: '2025-01-30T12:00:00Z',
+        expected: true,
+      },
+      {
+        literal: 'months',
+        first: '2025-01-01T00:00:00Z',
+        second: '2025-01-31T23:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'year',
+        first: '2025-01-01T00:00:00Z',
+        second: '2025-12-31T23:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'years',
+        first: '2025-03-15T00:00:00Z',
+        second: '2025-11-20T23:59:59Z',
+        expected: true,
+      },
+      {
+        literal: 'week',
+        first: '2025-01-06T08:00:00Z',
+        second: '2025-01-11T22:00:00Z',
+        expected: true,
+      },
+      {
+        literal: 'weeks',
+        first: '2025-01-06T00:00:00Z',
+        second: '2025-01-12T23:59:59Z',
+        expected: true,
+      },
+    ];
   const addToDate = (date: Date, count: number, unit: DateAddNormalizedUnit): Date => {
     const clone = new Date(date.getTime());
     switch (unit) {
@@ -393,21 +547,76 @@ describe('OpenAPI formula (e2e)', () => {
 
       const recordAfterFormula = await getRecord(table1Id, recordId);
       const rawValue = recordAfterFormula.data.fields[dateAddField.name];
-      const value = String(rawValue);
+      expect(typeof rawValue).toBe('string');
+      const value = rawValue as string;
       const expectedCount = numberFieldSeedValue * dateAddMultiplier;
       const expectedDate = addToDate(baseDate, expectedCount, normalized);
-      const expectedDatePart = expectedDate.toISOString().slice(0, 10);
+      const expectedIso = expectedDate.toISOString();
+      expect(value).toEqual(expectedIso);
+    }
+  );
 
-      expect(value).toContain(expectedDatePart);
+  it.each(datetimeDiffCases)(
+    'should evaluate DATETIME_DIFF for unit "%s"',
+    async ({ literal, expected }) => {
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: 1,
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
 
-      if (['hour', 'minute', 'second', 'millisecond'].includes(normalized)) {
-        const expectedTimePart = expectedDate.toISOString().slice(11, 19);
-        expect(value).toContain(expectedTimePart);
-        if (normalized === 'millisecond') {
-          const fraction = expectedDate.getUTCMilliseconds().toString().padStart(3, '0');
-          expect(value).toContain(`.${fraction}`);
-        }
+      const diffField = await createField(table1Id, {
+        name: `datetime-diff-${literal}`,
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_DIFF(DATETIME_PARSE("${datetimeDiffStartIso}"), DATETIME_PARSE("${datetimeDiffEndIso}"), '${literal}')`,
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const rawValue = recordAfterFormula.data.fields[diffField.name];
+      if (typeof rawValue === 'number') {
+        expect(rawValue).toBeCloseTo(expected, 6);
+      } else {
+        const numericValue = Number(rawValue);
+        expect(Number.isFinite(numericValue)).toBe(true);
+        expect(numericValue).toBeCloseTo(expected, 6);
       }
+    }
+  );
+
+  it.each(isSameCases)(
+    'should evaluate IS_SAME for unit "%s"',
+    async ({ literal, first, second, expected }) => {
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'value',
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const sameField = await createField(table1Id, {
+        name: `is-same-${literal}`,
+        type: FieldType.Formula,
+        options: {
+          expression: `IS_SAME(DATETIME_PARSE("${first}"), DATETIME_PARSE("${second}"), '${literal}')`,
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const rawValue = recordAfterFormula.data.fields[sameField.name];
+      expect(rawValue).toBe(expected);
     }
   );
 
