@@ -1331,6 +1331,64 @@ describe('OpenAPI link (e2e)', () => {
       );
     });
 
+    it('should preserve multiple linkages created by concurrent requests', async () => {
+      const [createResp1, createResp2] = await Promise.all([
+        createRecords(table2.id, {
+          records: [
+            {
+              fields: {
+                [table2.fields[0].id]: 'table2_4',
+                [table2.fields[2].id]: { id: table1.records[0].id },
+              },
+            },
+          ],
+        }),
+        createRecords(table2.id, {
+          records: [
+            {
+              fields: {
+                [table2.fields[0].id]: 'table2_5',
+                [table2.fields[2].id]: { id: table1.records[0].id },
+              },
+            },
+          ],
+        }),
+      ]);
+
+      const createdRecords = [createResp1.records[0], createResp2.records[0]];
+
+      expect(createdRecords).toHaveLength(2);
+      expect(createdRecords[0].id).not.toEqual(createdRecords[1].id);
+      for (const createdRecord of createdRecords) {
+        expect(createdRecord.fields[table2.fields[2].id] as { id: string }).toMatchObject({
+          id: table1.records[0].id,
+        });
+      }
+
+      const table1Record = await getRecord(table1.id, table1.records[0].id);
+      const linkedRecords = table1Record.fields[table1.fields[2].id] as Array<{
+        id: string;
+        title?: string;
+      }>;
+
+      expect(linkedRecords).toHaveLength(2);
+      expect(linkedRecords).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ id: createdRecords[0].id, title: 'table2_4' }),
+          expect.objectContaining({ id: createdRecords[1].id, title: 'table2_5' }),
+        ])
+      );
+
+      const refreshedFirst = await getRecord(table2.id, createdRecords[0].id);
+      const refreshedSecond = await getRecord(table2.id, createdRecords[1].id);
+
+      for (const refreshed of [refreshedFirst, refreshedSecond]) {
+        expect(refreshed.fields[table2.fields[2].id] as { id: string }).toMatchObject({
+          id: table1.records[0].id,
+        });
+      }
+    });
+
     it('should set a text value in a link record with typecast', async () => {
       await updateRecordByApi(table1.id, table1.records[0].id, table1.fields[0].id, 'A1');
       await updateRecordByApi(table2.id, table2.records[1].id, table2.fields[0].id, 'B2');

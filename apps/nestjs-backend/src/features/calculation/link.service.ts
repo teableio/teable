@@ -941,21 +941,36 @@ export class LinkService {
       fromReset
     );
 
-    const updatedRecordMapByTableId = await this.updateLinkRecord(
-      tableId,
-      fkRecordMap,
-      fieldMapByTableId,
-      originRecordMapByTableId
-    );
+    let updatedRecordMapByTableId: IRecordMapByTableId;
+
+    if (persistFk) {
+      await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
+      const refreshedRecordMapStruct = this.getRecordMapStruct(
+        tableId,
+        fieldMapByTableId,
+        linkContexts
+      );
+      updatedRecordMapByTableId = await this.fetchRecordMap(
+        tableId2DbTableName,
+        fieldMapByTableId,
+        refreshedRecordMapStruct,
+        cellContexts,
+        fromReset
+      );
+    } else {
+      updatedRecordMapByTableId = await this.updateLinkRecord(
+        tableId,
+        fkRecordMap,
+        fieldMapByTableId,
+        originRecordMapByTableId
+      );
+    }
 
     const cellChanges = this.diffLinkCellChange(
       fieldMapByTableId,
       originRecordMapByTableId,
       updatedRecordMapByTableId
     );
-    if (persistFk) {
-      await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
-    }
     return {
       cellChanges,
       fkRecordMap,
@@ -1123,6 +1138,11 @@ export class LinkService {
       newKey && toAdd.push([recordId, newKey]);
     }
 
+    const affectedForeignIds = uniq(
+      toDelete.map(([, foreignId]) => foreignId).concat(toAdd.map(([, foreignId]) => foreignId))
+    );
+    await this.lockForeignRecords(field.options.foreignTableId, affectedForeignIds);
+
     if (toDelete.length) {
       const updateFields: Record<string, null> = { [foreignKeyName]: null };
       // Also clear order column if field has order column
@@ -1186,6 +1206,34 @@ export class LinkService {
 
       await this.batchService.batchUpdateDB(fkHostTableName, selfKeyName, dbFields, updateData);
     }
+  }
+
+  private async lockForeignRecords(tableId: string, recordIds: string[]) {
+    if (!recordIds.length) {
+      return;
+    }
+
+    const client = (this.knex.client.config as { client?: string } | undefined)?.client;
+    if (client !== 'pg' && client !== 'postgresql') {
+      return;
+    }
+
+    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    if (!tableMeta) {
+      return;
+    }
+
+    const lockQuery = this.knex(tableMeta.dbTableName)
+      .select('__id')
+      .whereIn('__id', recordIds)
+      .forUpdate()
+      .toQuery();
+
+    await this.prismaService.txClient().$queryRawUnsafe(lockQuery);
   }
 
   private async saveForeignKeyForOneMany(
