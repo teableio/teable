@@ -20,6 +20,7 @@ interface IFilterUserProps {
   onSearch?: (value: string) => void;
   onSelect: (value: string[] | string | null) => void;
   modal?: boolean;
+  className?: string;
 }
 
 interface IFilterUserBaseProps extends IFilterUserProps {
@@ -34,7 +35,7 @@ interface IFilterUserBaseProps extends IFilterUserProps {
 const SINGLE_SELECT_OPERATORS = ['is', 'isNot'];
 
 const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
-  const { value, onSelect, operator, data, disableMe, onSearch, modal } = props;
+  const { value, onSelect, operator, data, disableMe, onSearch, modal, className } = props;
   const { user: currentUser } = useSession();
   const { t } = useTranslation();
   const values = useMemo<string | string[] | null>(() => value, [value]);
@@ -77,7 +78,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
               avatar={
                 isMeTag(option.value) ? (
                   <span className="flex shrink-0 items-center truncate rounded-full">
-                    <UserIcon className="z-50 size-6 rounded-full border bg-secondary p-1" />
+                    <UserIcon className="bg-secondary z-50 size-6 rounded-full border p-1" />
                   </span>
                 ) : (
                   option.avatar
@@ -95,12 +96,12 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
 
   const optionRender = useCallback((option: (typeof options)[number]) => {
     return (
-      <div key={option.value} className="px w-full truncate rounded-lg text-secondary-foreground">
+      <div key={option.value} className="px text-secondary-foreground w-full truncate rounded-lg">
         <UserOption
           className="w-full gap-2 truncate"
           avatar={
             isMeTag(option.value) ? (
-              <span className="flex size-full items-center justify-center bg-secondary">
+              <span className="bg-secondary flex size-full items-center justify-center">
                 <UserIcon className="size-4" />
               </span>
             ) : (
@@ -123,7 +124,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string}
           displayRender={displayRender}
           optionRender={optionRender}
-          className="flex w-64 overflow-hidden"
+          className={cn('flex overflow-hidden', className ? className : 'w-64')}
           popoverClassName="w-64"
           placeholderClassName="text-xs"
           onSearch={onSearch}
@@ -136,7 +137,7 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
           value={values as string[]}
           displayRender={displayRender}
           optionRender={optionRender}
-          className="w-64"
+          className={cn(className ? className : 'w-64')}
           popoverClassName="w-64"
           placeholderClassName="text-xs"
           onSearch={onSearch}

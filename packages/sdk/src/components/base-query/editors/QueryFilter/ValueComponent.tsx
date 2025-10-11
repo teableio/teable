@@ -32,7 +32,7 @@ export const ValueComponent: IFilterBaseComponent<IBaseFilterItem> = (props) => 
       <NumberEditor
         value={value as number}
         onChange={(value?: number | null) => onChange(path, value)}
-        className="min-w-28 max-w-40 placeholder:text-xs"
+        className="w-40 placeholder:text-xs"
         placeholder={t('filter.default.placeholder')}
       />
     );

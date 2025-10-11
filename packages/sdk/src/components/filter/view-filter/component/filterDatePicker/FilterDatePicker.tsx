@@ -5,7 +5,7 @@ import type {
   ISubOperator,
 } from '@teable/core';
 import { exactDate, FieldType, getValidFilterSubOperators, isWithIn } from '@teable/core';
-import { Input } from '@teable/ui-lib';
+import { Input, cn } from '@teable/ui-lib';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { DateField } from '../../../../../model';
@@ -20,10 +20,11 @@ interface IFilerDatePickerProps {
   operator: string;
   onSelect: (value: IDateFilter | null) => void;
   modal?: boolean;
+  className?: string;
 }
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
-  const { value: initValue, operator, onSelect, field, modal } = props;
+  const { value: initValue, operator, onSelect, field, modal, className } = props;
   const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
   const { t } = useTranslation();
   const dateMap = useDateI18nMap();
@@ -137,7 +138,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   }, [innerValue, datePickerSelect, field.options, t, onSelect]);
 
   return (
-    <div className="flex gap-2">
+    <div className={cn('flex gap-2', className)}>
       <BaseSingleSelect
         options={selectOptions}
         onSelect={mergedOnSelect}

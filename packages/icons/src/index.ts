@@ -66,6 +66,7 @@ export { default as FileFont } from './components/FileFont';
 export { default as FileImage } from './components/FileImage';
 export { default as FileJson } from './components/FileJson';
 export { default as FilePack } from './components/FilePack';
+export { default as Switch } from './components/Switch';
 export { default as FilePdf } from './components/FilePdf';
 export { default as FilePresentation } from './components/FilePresentation';
 export { default as FileQuestion } from './components/FileQuestion';

@@ -6,9 +6,17 @@ import {
   isFieldReferenceOperatorSupported,
 } from '@teable/core';
 import type { IDateFilter, IFilterItem, IFieldReferenceValue, IOperator } from '@teable/core';
-import { RefreshCcw } from '@teable/icons';
-import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
-import { useEffect, useMemo, useState } from 'react';
+import { Switch } from '@teable/icons';
+import {
+  Button,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  cn,
+} from '@teable/ui-lib';
+import { cloneElement, useEffect, useMemo, useState } from 'react';
+import type { ReactElement } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
 import { NumberEditor, RatingEditor } from '../../../editor';
@@ -116,29 +124,38 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const literalModeTooltip = t('filter.conditionalRollup.switchToField');
   const tooltipLabel = isFieldReferenceValue(value) ? fieldModeTooltip : literalModeTooltip;
 
+  const mergedLiteralComponent = useMemo(() => {
+    const element = literalComponent as ReactElement<{ className?: string }>;
+    return cloneElement(element, {
+      className: cn(element.props.className, '!h-9 w-40 border-r-0 rounded-r-none'),
+    });
+  }, [literalComponent]);
+
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-stretch">
       {isFieldReferenceValue(value) ? (
         <FieldSelector
           fields={referenceFields}
           value={value.fieldId}
           onSelect={handleFieldSelect}
           modal={modal}
+          className="!h-9 w-40 rounded-r-none border-r-0"
         />
       ) : (
-        literalComponent
+        mergedLiteralComponent
       )}
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              size="xs"
-              variant="ghost"
-              className="size-8 shrink-0"
+              variant="outline"
+              size="icon"
+              className="-ml-px size-9 shrink-0 rounded-l-none border-input"
               onClick={handleToggle}
               disabled={toggleDisabled}
+              aria-label={tooltipLabel}
             >
-              <RefreshCcw className="size-4" />
+              <Switch className="size-4" />
             </Button>
           </TooltipTrigger>
           {!toggleDisabled ? (
@@ -172,7 +189,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
       placeholder={t('filter.default.placeholder')}
       value={value as string}
       onChange={onSelect}
-      className="min-w-28 max-w-40"
+      className="w-40"
     />
   );
 
@@ -195,7 +212,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
             value={value as number}
             saveOnChange={true}
             onChange={onSelect as (value?: number | null) => void}
-            className="min-w-28 max-w-40 placeholder:text-xs"
+            className="w-40 placeholder:text-xs"
             placeholder={t('filter.default.placeholder')}
           />
         );
@@ -235,7 +252,7 @@ export function BaseFieldValue(props: IBaseFieldValue) {
           value={value as number}
           saveOnChange={true}
           onChange={onSelect as (value?: number | null) => void}
-          className="min-w-28 max-w-40 placeholder:text-xs"
+          className="w-40 placeholder:text-xs"
           placeholder={t('filter.default.placeholder')}
         />
       );
