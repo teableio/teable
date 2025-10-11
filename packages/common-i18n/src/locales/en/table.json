@@ -250,7 +250,8 @@
       "calculating": "Calculating...",
       "doSaveChanges": "Do you want to save the changes you made?",
       "linkFieldToLookup": "Linked record field to use for lookup",
-      "lookupToTable": "Field from {{tableName}} you want to look up",
+      "lookupToTable": "Field from <bold>{{tableName}}</bold> you want to look up",
+      "rollupToTable": "Field from <bold>{{tableName}}</bold> you want to roll up",
       "selectField": "Select a field...",
       "conditionalRollup": {
         "fieldMapping": "Add field mapping",

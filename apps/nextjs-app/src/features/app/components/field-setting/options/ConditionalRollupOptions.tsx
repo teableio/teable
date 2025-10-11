@@ -6,7 +6,7 @@ import type {
 } from '@teable/core';
 import { CellValueType, getRollupFunctionsByCellValueType, ROLLUP_FUNCTIONS } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { useBaseId, useFields, useTableId } from '@teable/sdk/hooks';
+import { useBaseId, useFields, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { Trans } from 'next-i18next';
 import { useCallback, useMemo } from 'react';
@@ -118,6 +118,7 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
   const { fieldId, options, onOptionsChange, onLookupFieldChange, rollupOptions, sourceTableId } =
     props;
   const foreignFields = useFields({ withHidden: true, withDenied: true });
+  const table = useTable();
 
   const lookupField = useMemo(() => {
     if (!options.lookupFieldId) return undefined;
@@ -136,9 +137,16 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
   return (
     <div className="space-y-3">
       <div className="space-y-2">
-        <span className="neutral-content label-text">
-          <Trans ns="table" i18nKey="field.editor.lookupToTable" values={{ tableName: '' }} />
-        </span>
+        {table?.name ? (
+          <span className="neutral-content label-text">
+            <Trans
+              ns="table"
+              i18nKey="field.editor.rollupToTable"
+              values={{ tableName: table.name }}
+              components={{ bold: <span className="font-semibold" /> }}
+            />
+          </span>
+        ) : null}
         <SelectFieldByTableId selectedId={options.lookupFieldId} onChange={onLookupFieldChange} />
       </div>
 

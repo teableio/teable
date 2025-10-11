@@ -251,7 +251,8 @@
       "calculating": "计算中...",
       "doSaveChanges": "您要保存所做的更改吗？",
       "linkFieldToLookup": "用于查找的已链接记录字段",
-      "lookupToTable": "从{{tableName}}表中选择要进行查找的字段",
+      "lookupToTable": "从<bold>{{tableName}}</bold>表中选择要进行查找的字段",
+      "rollupToTable": "从<bold>{{tableName}}</bold>表中选择要进行汇总的字段",
       "selectField": "选择一个字段...",
       "conditionalRollup": {
         "fieldMapping": "字段映射",

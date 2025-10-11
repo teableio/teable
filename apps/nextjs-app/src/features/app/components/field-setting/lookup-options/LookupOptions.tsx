@@ -124,6 +124,7 @@ export const LookupOptions = (props: {
                       values={{
                         tableName: table?.name,
                       }}
+                      components={{ bold: <span className="font-semibold" /> }}
                     />
                     <RequireCom />
                   </span>

@@ -1,7 +1,8 @@
 import type { IConditionalLookupOptions } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { useBaseId, useTableId } from '@teable/sdk/hooks';
+import { useBaseId, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
+import { Trans } from 'next-i18next';
 import { useCallback } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
@@ -96,9 +97,21 @@ const ConditionalLookupForeignSection = ({
   onFilterChange,
   sourceTableId,
 }: IConditionalLookupForeignSectionProps) => {
+  const table = useTable();
+
   return (
     <div className="space-y-3">
       <div className="space-y-2">
+        {table?.name ? (
+          <span className="neutral-content label-text">
+            <Trans
+              ns="table"
+              i18nKey="field.editor.lookupToTable"
+              values={{ tableName: table.name }}
+              components={{ bold: <span className="font-semibold" /> }}
+            />
+          </span>
+        ) : null}
         <SelectFieldByTableId selectedId={lookupFieldId} onChange={onLookupFieldChange} />
       </div>
 
