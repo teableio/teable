@@ -10,6 +10,7 @@ export const ROLLUP_FUNCTIONS = [
   'counta({values})',
   'count({values})',
   'sum({values})',
+  'average({values})',
   'max({values})',
   'min({values})',
   'and({values})',
@@ -35,6 +36,7 @@ const BASE_ROLLUP_FUNCTIONS: RollupFunction[] = [
 
 const NUMBER_ROLLUP_FUNCTIONS: RollupFunction[] = [
   'sum({values})',
+  'average({values})',
   'max({values})',
   'min({values})',
 ];

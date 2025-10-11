@@ -214,13 +214,12 @@ describe('OpenAPI Rollup field (e2e)', () => {
       type: FieldType.Rollup,
       options: {
         expression,
-        formatting:
-          expression.startsWith('count') || expression.startsWith('sum')
-            ? {
-                type: NumberFormattingType.Decimal,
-                precision: 0,
-              }
-            : undefined,
+        formatting: ['count', 'sum', 'average'].some((prefix) => expression.startsWith(prefix))
+          ? {
+              type: NumberFormattingType.Decimal,
+              precision: 0,
+            }
+          : undefined,
       },
       lookupOptions: {
         foreignTableId: foreignTable.id,
@@ -343,6 +342,30 @@ describe('OpenAPI Rollup field (e2e)', () => {
 
     const record6 = await getRecord(table2.id, table2.records[1].id);
     expect(record6.fields[rollupFieldVo.id]).toEqual(123);
+  });
+
+  it('should calculate average in one - many rollup field', async () => {
+    const lookedUpToField = getFieldByType(table2.fields, FieldType.Number);
+    const linkFieldId = getFieldByType(table1.fields, FieldType.Link).id;
+    const rollupFieldVo = await rollupFrom(table1, lookedUpToField.id, 'average({values})');
+
+    await updateRecordField(table2.id, table2.records[1].id, lookedUpToField.id, 20);
+    await updateRecordField(table2.id, table2.records[2].id, lookedUpToField.id, 40);
+
+    await updateRecordField(table1.id, table1.records[1].id, linkFieldId, [
+      { id: table2.records[1].id },
+      { id: table2.records[2].id },
+    ]);
+
+    const record = await getRecord(table1.id, table1.records[1].id);
+    expect(record.fields[rollupFieldVo.id]).toEqual(30);
+
+    await updateRecordField(table1.id, table1.records[1].id, linkFieldId, [
+      { id: table2.records[2].id },
+    ]);
+
+    const recordAfter = await getRecord(table1.id, table1.records[1].id);
+    expect(recordAfter.fields[rollupFieldVo.id]).toEqual(40);
   });
 
   it('should update many - one rollupField by replace a linkRecord from cell', async () => {

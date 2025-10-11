@@ -155,6 +155,10 @@ export const RollupOptions = (props: {
           name = t('field.default.rollup.func.sum');
           description = t('field.default.rollup.funcDesc.sum');
           break;
+        case 'average({values})':
+          name = t('field.default.rollup.func.average');
+          description = t('field.default.rollup.funcDesc.average');
+          break;
         case 'max({values})':
           name = t('field.default.rollup.func.max');
           description = t('field.default.rollup.funcDesc.max');

@@ -179,6 +179,15 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
         }
         // Non-numeric target: avoid SUM() casting errors
         return this.castAgg('SUM(0)');
+      case 'average':
+        if (
+          targetField?.type === FieldType.Number ||
+          (targetField as unknown as { cellValueType?: CellValueType })?.cellValueType ===
+            CellValueType.Number
+        ) {
+          return this.castAgg(`COALESCE(AVG(${fieldExpression}), 0)`);
+        }
+        return this.castAgg('AVG(0)');
       case 'count':
         return this.castAgg(`COALESCE(COUNT(${fieldExpression}), 0)`);
       case 'countall': {
@@ -252,6 +261,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
   singleValueRollupAggregate(fn: string, fieldExpression: string): string {
     switch (fn) {
       case 'sum':
+      case 'average':
         // For single-value relationships, SUM reduces to the value itself.
         // Coalesce to 0 and cast to double precision for numeric stability.
         // If the expression is non-numeric, upstream rollup setup should avoid SUM on such targets.

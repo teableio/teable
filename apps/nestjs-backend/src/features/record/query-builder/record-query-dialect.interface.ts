@@ -233,7 +233,7 @@ export interface IRecordQueryDialectProvider {
 
   /**
    * Build an aggregate expression for rollup in multi-value relationships.
-   * Supported functions: sum, count, countall, counta, max, min, and, or, xor,
+   * Supported functions: sum, average, count, countall, counta, max, min, and, or, xor,
    * array_join/concatenate, array_unique, array_compact.
    * @example
    * ```ts

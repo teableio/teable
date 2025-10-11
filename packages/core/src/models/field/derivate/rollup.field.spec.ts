@@ -196,6 +196,12 @@ describe('RollupFieldCore', () => {
       });
 
       expect(
+        RollupFieldCore.getParsedValueType('average({values})', CellValueType.Number, false)
+      ).toEqual({
+        cellValueType: CellValueType.Number,
+      });
+
+      expect(
         RollupFieldCore.getParsedValueType('sum({values})', CellValueType.Number, false)
       ).toEqual({
         cellValueType: CellValueType.Number,

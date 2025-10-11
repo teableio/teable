@@ -139,6 +139,8 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
     switch (fn) {
       case 'sum':
         return `COALESCE(SUM(${fieldExpression}), 0)`;
+      case 'average':
+        return `COALESCE(AVG(${fieldExpression}), 0)`;
       case 'count':
         return `COALESCE(COUNT(${fieldExpression}), 0)`;
       case 'countall': {
@@ -174,6 +176,7 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
   singleValueRollupAggregate(fn: string, fieldExpression: string): string {
     switch (fn) {
       case 'sum':
+      case 'average':
         return `COALESCE(${fieldExpression}, 0)`;
       case 'max':
       case 'min':

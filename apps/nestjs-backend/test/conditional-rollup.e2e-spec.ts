@@ -142,6 +142,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;
     let categorySumField: IFieldVo;
+    let categoryAverageField: IFieldVo;
     let dynamicActiveCountField: IFieldVo;
     let highValueActiveCountField: IFieldVo;
     let categoryFieldId: string;
@@ -211,6 +212,17 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
           foreignTableId: foreign.id,
           lookupFieldId: amountId,
           expression: 'sum({values})',
+          filter: categoryFilter,
+        },
+      } as IFieldRo);
+
+      categoryAverageField = await createField(host.id, {
+        name: 'Category Average',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: amountId,
+          expression: 'average({values})',
           filter: categoryFilter,
         },
       } as IFieldRo);
@@ -288,14 +300,17 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     it('should recalc lookup values when host filter field changes', async () => {
       const baseline = await getRecord(host.id, hardwareRecordId);
       expect(baseline.fields[categorySumField.id]).toEqual(90);
+      expect(baseline.fields[categoryAverageField.id]).toEqual(45);
 
       await updateRecordByApi(host.id, hardwareRecordId, categoryFieldId, 'Software');
       const updated = await getRecord(host.id, hardwareRecordId);
       expect(updated.fields[categorySumField.id]).toEqual(120);
+      expect(updated.fields[categoryAverageField.id]).toEqual(60);
 
       await updateRecordByApi(host.id, hardwareRecordId, categoryFieldId, 'Hardware');
       const restored = await getRecord(host.id, hardwareRecordId);
       expect(restored.fields[categorySumField.id]).toEqual(90);
+      expect(restored.fields[categoryAverageField.id]).toEqual(45);
     });
 
     it('should apply field-referenced numeric filters', async () => {
