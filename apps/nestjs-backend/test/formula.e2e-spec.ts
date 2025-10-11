@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILinkFieldOptionsRo } from '@teable/core';
+import type { IFieldRo, IFilter, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -970,6 +970,144 @@ describe('OpenAPI formula (e2e)', () => {
         assert(value);
       }
     );
+  });
+
+  describe('conditional reference formulas', () => {
+    it('should evaluate formulas referencing conditional rollup fields', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'formula-conditional-rollup-foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Laptop', Status: 'Active', Amount: 70 } },
+          { fields: { Title: 'Mouse', Status: 'Active', Amount: 20 } },
+          { fields: { Title: 'Subscription', Status: 'Closed', Amount: 15 } },
+        ],
+      });
+      let host: ITableFullVo | undefined;
+      try {
+        host = await createTable(baseId, {
+          name: 'formula-conditional-rollup-host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Closed' } }],
+        });
+
+        const statusFieldId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const amountFieldId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+        const statusFilterFieldId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+
+        const rollupField = await createField(host.id, {
+          name: 'Matching Amount Sum',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: amountFieldId,
+            expression: 'sum({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterFieldId },
+                },
+              ],
+            },
+          },
+        } as IFieldRo);
+
+        const formulaField = await createField(host.id, {
+          name: 'Rollup Sum Mirror',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${rollupField.id}}`,
+          },
+        });
+
+        const activeRecord = await getRecord(host.id, host.records[0].id);
+        expect(activeRecord.data.fields[formulaField.name]).toEqual(90);
+
+        const closedRecord = await getRecord(host.id, host.records[1].id);
+        expect(closedRecord.data.fields[formulaField.name]).toEqual(15);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    it('should evaluate formulas referencing conditional lookup fields', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'formula-conditional-lookup-foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Status: 'Active' } },
+          { fields: { Title: 'Beta', Status: 'Active' } },
+          { fields: { Title: 'Gamma', Status: 'Closed' } },
+        ],
+      });
+      let host: ITableFullVo | undefined;
+      try {
+        host = await createTable(baseId, {
+          name: 'formula-conditional-lookup-host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Closed' } }],
+        });
+
+        const titleFieldId = foreign.fields.find((field) => field.name === 'Title')!.id;
+        const statusFieldId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const statusFilterFieldId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+
+        const statusMatchFilter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: statusFieldId,
+              operator: 'is',
+              value: { type: 'field', fieldId: statusFilterFieldId },
+            },
+          ],
+        };
+
+        const lookupField = await createField(host.id, {
+          name: 'Matching Titles',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleFieldId,
+            filter: statusMatchFilter,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const formulaField = await createField(host.id, {
+          name: 'Lookup Joined Titles',
+          type: FieldType.Formula,
+          options: {
+            expression: `ARRAY_JOIN({${lookupField.id}}, ", ")`,
+          },
+        });
+
+        const activeRecord = await getRecord(host.id, host.records[0].id);
+        expect(activeRecord.data.fields[formulaField.name]).toEqual('Alpha, Beta');
+
+        const closedRecord = await getRecord(host.id, host.records[1].id);
+        expect(closedRecord.data.fields[formulaField.name]).toEqual('Gamma');
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
   });
   describe('datetime formula functions', () => {
     it.each(dateAddCases)(

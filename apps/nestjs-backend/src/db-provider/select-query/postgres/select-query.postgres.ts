@@ -617,43 +617,50 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return this.countANonNullExpression(value);
   }
 
+  private normalizeJsonbArray(array: string): string {
+    return `(
+      CASE
+        WHEN ${array} IS NULL THEN '[]'::jsonb
+        WHEN jsonb_typeof(to_jsonb(${array})) = 'array' THEN to_jsonb(${array})
+        ELSE jsonb_build_array(to_jsonb(${array}))
+      END
+    )`;
+  }
+
   arrayJoin(array: string, separator?: string): string {
     const sep = separator || `','`;
-    // Handle JSON arrays by converting to text and joining
+    const normalizedArray = this.normalizeJsonbArray(array);
     return `(
       SELECT string_agg(
-        CASE
-          WHEN json_typeof(value) = 'array' THEN value::text
-          ELSE value::text
-        END,
+        elem.value,
         ${sep}
       )
-      FROM json_array_elements(${array})
+      FROM jsonb_array_elements_text(${normalizedArray}) AS elem(value)
     )`;
   }
 
   arrayUnique(array: string): string {
-    // Handle JSON arrays by deduplicating
+    const normalizedArray = this.normalizeJsonbArray(array);
     return `ARRAY(
-      SELECT DISTINCT value::text
-      FROM json_array_elements(${array})
+      SELECT DISTINCT elem.value
+      FROM jsonb_array_elements_text(${normalizedArray}) AS elem(value)
     )`;
   }
 
   arrayFlatten(array: string): string {
-    // Flatten nested JSON arrays - for now just convert to text array
+    const normalizedArray = this.normalizeJsonbArray(array);
     return `ARRAY(
-      SELECT value::text
-      FROM json_array_elements(${array})
+      SELECT elem.value
+      FROM jsonb_array_elements_text(${normalizedArray}) AS elem(value)
     )`;
   }
 
   arrayCompact(array: string): string {
-    // Remove null values from JSON array
+    const normalizedArray = this.normalizeJsonbArray(array);
     return `ARRAY(
-      SELECT value::text
-      FROM json_array_elements(${array})
-      WHERE value IS NOT NULL AND value::text != 'null'
+      SELECT elem.value
+      FROM jsonb_array_elements_text(${normalizedArray}) AS elem(value)
+      WHERE elem.value IS NOT NULL AND elem.value != 'null'
     )`;
   }
 
