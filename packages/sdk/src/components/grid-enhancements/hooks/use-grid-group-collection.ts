@@ -17,22 +17,29 @@ const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 100 }
 const { columnWidth } = GRID_DEFAULT;
 
 const generateGroupColumns = (fields: IFieldInstance[]): IGridColumn[] => {
-  const iconString = (type: FieldType, isLookup: boolean | undefined) => {
-    return isLookup ? `${type}_lookup` : type;
+  const iconString = (
+    type: FieldType,
+    isLookup: boolean | undefined,
+    isConditionalLookup: boolean | undefined
+  ) => {
+    if (isLookup) {
+      return isConditionalLookup ? `${type}_conditional_lookup` : `${type}_lookup`;
+    }
+    return type;
   };
 
   return fields
     .map((field) => {
       if (!field) return;
 
-      const { id, type, name, description, isLookup } = field;
+      const { id, type, name, description, isLookup, isConditionalLookup } = field;
 
       return {
         id,
         name,
         width: columnWidth,
         description,
-        icon: iconString(type, isLookup),
+        icon: iconString(type, isLookup, isConditionalLookup),
       };
     })
     .filter(Boolean) as IGridColumn[];

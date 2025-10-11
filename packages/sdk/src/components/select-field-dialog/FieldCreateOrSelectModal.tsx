@@ -125,6 +125,7 @@ export const FieldCreateOrSelectModal = forwardRef<
                   const { id, type, name, isLookup, aiConfig, canReadFieldRecord } = field;
                   const { Icon } = getFieldStatic(type, {
                     isLookup,
+                    isConditionalLookup: field.isConditionalLookup,
                     hasAiConfig: Boolean(aiConfig),
                     deniedReadRecord: !canReadFieldRecord,
                   });

@@ -10,6 +10,8 @@ import {
   File as AttachmentIcon,
   Hash as NumberIcon,
   A as TextIcon,
+  ConditionalLookup as ConditionalLookupIcon,
+  ConditionalRollup as ConditionalRollupIcon,
   Layers as RollupIcon,
   Link as LinkIcon,
   ListChecks as MenuIcon,
@@ -60,23 +62,24 @@ export const useFieldStaticGetter = () => {
     (
       type: FieldType,
       config: {
-        isLookup: boolean | undefined;
-        hasAiConfig: boolean | undefined;
+        isLookup?: boolean;
+        isConditionalLookup?: boolean;
+        hasAiConfig?: boolean;
         deniedReadRecord?: boolean;
-      } = {
-        isLookup: undefined,
-        hasAiConfig: undefined,
-      }
+      } = {}
       // eslint-disable-next-line sonarjs/cognitive-complexity
     ): IFieldStatic => {
-      const { isLookup, hasAiConfig, deniedReadRecord } = config;
+      const { isLookup, isConditionalLookup, hasAiConfig, deniedReadRecord } = config;
 
       const getIcon = (icon: React.FC<any>) => {
         if (deniedReadRecord)
           return (props: React.SVGProps<SVGSVGElement>) =>
             EyeOff({ ...props, color: 'hsl(var(--destructive))' });
         if (hasAiConfig) return MagicAi;
-        return isLookup ? SearchIcon : icon;
+        if (isLookup) {
+          return isConditionalLookup ? ConditionalLookupIcon : SearchIcon;
+        }
+        return icon;
       };
 
       switch (type) {
@@ -176,7 +179,7 @@ export const useFieldStaticGetter = () => {
             title: t('field.title.conditionalRollup'),
             description: t('field.description.conditionalRollup'),
             defaultOptions: {},
-            Icon: getIcon(RollupIcon),
+            Icon: getIcon(ConditionalRollupIcon),
           };
         case FieldType.User: {
           return {

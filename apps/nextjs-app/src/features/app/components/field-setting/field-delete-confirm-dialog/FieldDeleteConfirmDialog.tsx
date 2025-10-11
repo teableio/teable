@@ -27,6 +27,7 @@ const FieldGraphListPanel = (props: { tableId: string; fieldIds: string[] }) => 
         {fields.map((field) => {
           const { Icon } = fieldStaticGetter(field.type, {
             isLookup: field.isLookup,
+            isConditionalLookup: field.isConditionalLookup,
             hasAiConfig: Boolean(field.aiConfig),
             deniedReadRecord: !field.canReadFieldRecord,
           });

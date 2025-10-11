@@ -1,4 +1,5 @@
 import { FieldType, PRIMARY_SUPPORTED_TYPES } from '@teable/core';
+import { ConditionalLookup as ConditionalLookupIcon } from '@teable/icons';
 import { FIELD_TYPE_ORDER, useFieldStaticGetter } from '@teable/sdk';
 import SearchIcon from '@teable/ui-lib/icons/app/search.svg';
 import {
@@ -184,7 +185,7 @@ export const SelectFieldType = (props: {
         id: 'conditionalLookup',
         name: t('sdk:field.title.conditionalLookup'),
         description: t('sdk:field.description.conditionalLookup'),
-        icon: <SearchIcon className="size-4" />,
+        icon: <ConditionalLookupIcon className="size-4" />,
       });
     }
     return list;

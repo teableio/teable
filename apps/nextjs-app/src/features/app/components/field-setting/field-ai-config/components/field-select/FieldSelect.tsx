@@ -28,6 +28,7 @@ export const FieldSelect: React.FC<IFieldSelectProps> = (props) => {
         .map((f) => {
           const Icon = getFieldStatic(f.type, {
             isLookup: f.isLookup,
+            isConditionalLookup: f.isConditionalLookup,
             hasAiConfig: Boolean(f.aiConfig),
             deniedReadRecord: !f.canReadFieldRecord,
           }).Icon;

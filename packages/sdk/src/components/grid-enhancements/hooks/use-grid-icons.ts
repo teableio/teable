@@ -22,11 +22,23 @@ export const useGridIcons = () => {
         })?.Icon;
         const LookupIconComponent = getFieldStatic(type, {
           isLookup: true,
+          isConditionalLookup: false,
+          hasAiConfig: false,
+        })?.Icon;
+        const ConditionalLookupIconComponent = getFieldStatic(type, {
+          isLookup: true,
+          isConditionalLookup: true,
           hasAiConfig: false,
         })?.Icon;
         pre.push({ type: type, IconComponent });
         if (LookupIconComponent) {
           pre.push({ type: `${type}_lookup`, IconComponent: LookupIconComponent });
+        }
+        if (ConditionalLookupIconComponent) {
+          pre.push({
+            type: `${type}_conditional_lookup`,
+            IconComponent: ConditionalLookupIconComponent,
+          });
         }
         return pre;
       }, [])

@@ -124,6 +124,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                 const { id, name, type, isLookup, isPrimary, aiConfig, canReadFieldRecord } = field;
                 const { Icon } = fieldStaticGetter(type, {
                   isLookup,
+                  isConditionalLookup: field.isConditionalLookup,
                   hasAiConfig: Boolean(aiConfig),
                   deniedReadRecord: !canReadFieldRecord,
                 });

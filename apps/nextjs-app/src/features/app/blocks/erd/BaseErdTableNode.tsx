@@ -29,6 +29,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
   const fieldComponents = fields.map((field) => {
     const { Icon } = fieldStaticGetter(field.type, {
       isLookup: field.isLookup,
+      isConditionalLookup: field.isConditionalLookup,
       hasAiConfig: false,
       deniedReadRecord: false,
     });

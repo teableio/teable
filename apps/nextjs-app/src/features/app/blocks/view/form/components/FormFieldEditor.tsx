@@ -31,6 +31,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   const { type, name, description, isComputed, isLookup, id: fieldId, aiConfig } = field;
   const Icon = getFieldStatic(type, {
     isLookup,
+    isConditionalLookup: field.isConditionalLookup,
     hasAiConfig: Boolean(aiConfig),
   }).Icon;
 

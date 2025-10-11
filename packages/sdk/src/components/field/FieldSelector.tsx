@@ -44,6 +44,7 @@ export function FieldSelector(props: IFieldSelector) {
 
   const { Icon } = fieldStaticGetter(selectedField?.type || FieldType.SingleLineText, {
     isLookup: selectedField?.isLookup,
+    isConditionalLookup: selectedField?.isConditionalLookup,
     hasAiConfig: Boolean(selectedField?.aiConfig),
     deniedReadRecord: !selectedField?.canReadFieldRecord,
   });

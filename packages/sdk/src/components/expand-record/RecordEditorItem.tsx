@@ -17,6 +17,7 @@ export const RecordEditorItem = (props: {
   const fieldStaticGetter = useFieldStaticGetter();
   const { Icon } = fieldStaticGetter(type, {
     isLookup,
+    isConditionalLookup: field.isConditionalLookup,
     hasAiConfig: Boolean(field.aiConfig),
   });
 

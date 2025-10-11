@@ -46,6 +46,7 @@ export function FieldCommand(props: IFieldCommand) {
           {mergeFields?.map((field) => {
             const { Icon } = fieldStaticGetter(field.type, {
               isLookup: field.isLookup,
+              isConditionalLookup: field.isConditionalLookup,
               hasAiConfig: Boolean(field.aiConfig),
               deniedReadRecord: !field.canReadFieldRecord,
             });

@@ -32,6 +32,7 @@ export const SelectFieldByTableId: React.FC<{
       candidates={fields.map((f) => {
         const Icon = getFieldStatic(f.type, {
           isLookup: f.isLookup,
+          isConditionalLookup: f.isConditionalLookup,
           hasAiConfig: Boolean(f.aiConfig),
         }).Icon;
         return {

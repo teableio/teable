@@ -30,6 +30,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
     (option: (typeof options)[number]) => {
       const { Icon } = fieldStaticGetter(option.type, {
         isLookup: option.isLookup,
+        isConditionalLookup: option.isConditionalLookup,
         hasAiConfig: Boolean(option.aiConfig),
       });
       return (
@@ -72,6 +73,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
         const { type, isLookup, label, aiConfig, recordRead } = selectedField;
         const { Icon } = fieldStaticGetter(type, {
           isLookup,
+          isConditionalLookup: selectedField.isConditionalLookup,
           hasAiConfig: Boolean(aiConfig),
           deniedReadRecord: recordRead === false,
         });

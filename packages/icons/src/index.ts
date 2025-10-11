@@ -38,6 +38,8 @@ export { default as Code2 } from './components/Code2';
 export { default as Cohere } from './components/Cohere';
 export { default as Component } from './components/Component';
 export { default as Condition } from './components/Condition';
+export { default as ConditionalLookup } from './components/ConditionalLookup';
+export { default as ConditionalRollup } from './components/ConditionalRollup';
 export { default as Copy } from './components/Copy';
 export { default as CreateRecord } from './components/CreateRecord';
 export { default as CreditCard } from './components/CreditCard';

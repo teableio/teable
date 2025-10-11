@@ -146,6 +146,9 @@ export const TableTrash = () => {
                       resourceType === ResourceType.Field
                         ? getFieldStatic((resource as IFieldSnapshotItemVo).type, {
                             isLookup: Boolean((resource as IFieldSnapshotItemVo).isLookup),
+                            isConditionalLookup: Boolean(
+                              (resource as IFieldSnapshotItemVo).isConditionalLookup
+                            ),
                             hasAiConfig: false,
                           }).Icon
                         : resourceType === ResourceType.View

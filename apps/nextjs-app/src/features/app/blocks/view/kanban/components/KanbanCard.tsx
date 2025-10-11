@@ -116,9 +116,18 @@ export const KanbanCard = (props: IKanbanCardProps) => {
             )}
             <div className="text-base font-semibold">{titleComponent}</div>
             {displayFields.map((field) => {
-              const { id: fieldId, name, type, isLookup, aiConfig, canReadFieldRecord } = field;
+              const {
+                id: fieldId,
+                name,
+                type,
+                isLookup,
+                isConditionalLookup,
+                aiConfig,
+                canReadFieldRecord,
+              } = field;
               const { Icon } = getFieldStatic(type, {
                 isLookup,
+                isConditionalLookup,
                 hasAiConfig: Boolean(aiConfig),
                 deniedReadRecord: !canReadFieldRecord,
               });

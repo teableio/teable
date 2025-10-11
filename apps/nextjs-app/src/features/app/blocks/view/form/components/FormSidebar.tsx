@@ -31,6 +31,7 @@ interface IDragItemProps {
     type: FieldType,
     config: {
       isLookup: boolean | undefined;
+      isConditionalLookup?: boolean;
       hasAiConfig: boolean | undefined;
       deniedReadRecord?: boolean;
     }
@@ -43,6 +44,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
   const { type, name, isLookup, aiConfig } = field;
   const Icon = getFieldStatic(type, {
     isLookup,
+    isConditionalLookup: field.isConditionalLookup,
     hasAiConfig: Boolean(aiConfig),
   }).Icon;
   const content = (

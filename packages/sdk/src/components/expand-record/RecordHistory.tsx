@@ -119,7 +119,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const { name: fieldName, type: fieldType } = after.meta;
           const { Icon } = getFieldStatic(fieldType, {
-            isLookup: false,
+            isLookup: after.meta.isLookup,
+            isConditionalLookup: after.meta.isConditionalLookup,
             hasAiConfig: false,
           });
           return (

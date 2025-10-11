@@ -343,6 +343,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                   const { id, name, type, isLookup, aiConfig } = result.item;
                   const { Icon } = getFieldStatic(type, {
                     isLookup,
+                    isConditionalLookup: result.item.isConditionalLookup,
                     hasAiConfig: Boolean(aiConfig),
                   });
                   const isSuggestionItem =
