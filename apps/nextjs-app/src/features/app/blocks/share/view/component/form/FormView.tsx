@@ -21,7 +21,7 @@ export const FormView = () => {
   };
   return (
     <div className="flex size-full">
-      {embed ? <FormViewBase /> : <FormPreviewer submit={onSubmit} />}
+      {embed ? <FormViewBase submit={onSubmit} /> : <FormPreviewer submit={onSubmit} />}
     </div>
   );
 };
