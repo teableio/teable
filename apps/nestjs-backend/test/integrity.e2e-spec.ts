@@ -516,4 +516,38 @@ describe('OpenAPI integrity (e2e)', () => {
       expect(integrity2.data.hasIssues).toEqual(false);
     });
   });
+
+  describe('fix empty string cell value', () => {
+    let baseId1: string;
+    let base1table: ITableFullVo;
+    beforeEach(async () => {
+      baseId1 = (await createBase({ spaceId, name: 'base1' })).data.id;
+      base1table = await createTable(baseId1, { name: 'base1table' });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId1, base1table.id);
+      await deleteBase(baseId1);
+    });
+
+    it('should check integrity when empty string cell value is found', async () => {
+      const integrity = await checkBaseIntegrity(baseId1, base1table.id);
+      expect(integrity.data.hasIssues).toEqual(false);
+
+      const sql = knex(base1table.dbTableName)
+        .update({
+          [base1table.fields[0].dbFieldName]: '',
+        })
+        .toQuery();
+      await prisma.txClient().$executeRawUnsafe(sql);
+
+      const integrity2 = await checkBaseIntegrity(baseId1, base1table.id);
+      expect(integrity2.data.hasIssues).toEqual(true);
+
+      await fixBaseIntegrity(baseId1, base1table.id);
+
+      const integrity3 = await checkBaseIntegrity(baseId1, base1table.id);
+      expect(integrity3.data.hasIssues).toEqual(false);
+    });
+  });
 });
