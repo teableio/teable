@@ -20,6 +20,7 @@ export default defineConfig({
     environment: 'node',
     setupFiles: './vitest-e2e.setup.ts',
     testTimeout: timeout,
+    hookTimeout: timeout,
     passWithNoTests: true,
     poolOptions: {
       forks: {
