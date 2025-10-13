@@ -668,10 +668,6 @@ export class FieldSupplementService {
         {
           localization: {
             i18nKey: 'httpErrors.field.formulaExpressionParseError',
-            context: {
-              error: e.message,
-              expression: (fieldRo.options as IFormulaFieldOptions).expression,
-            },
           },
         }
       );
@@ -768,10 +764,6 @@ export class FieldSupplementService {
         {
           localization: {
             i18nKey: 'editor.error.rollupExpressionParseError',
-            context: {
-              expression: options.expression,
-              error: e.message,
-            },
           },
         }
       );
