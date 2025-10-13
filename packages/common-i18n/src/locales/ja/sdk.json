@@ -817,9 +817,9 @@
       "workflowNotFound": "{{workflowId}} ワークフローが見つかりません",
       "triggerTestFailed": "トリガーテストが失敗しました。トリガーの設定を確認してください",
       "workflowTestFailed": "ワークフローテストが失敗しました。ワークフローの設定を確認してください",
-      "nodeParseError": "{{name}}[{{id}}] ノード設定が不完全またはエラーがあります。ノード設定を確認してください",
-      "nodeNeedTest": "{{name}}[{{id}}] ノードはテストが必要です",
-      "nodeTestOutdated": "{{name}}[{{id}}] ノードのテストは古くなっています"
+      "nodeParseError": "{{name}} ノード設定が不完全またはエラーがあります。ノード設定を確認してください",
+      "nodeNeedTest": "{{name}} ノードはテストが必要です",
+      "nodeTestOutdated": "{{name}} ノードのテストは古くなっています"
     },
     "permission": {
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",

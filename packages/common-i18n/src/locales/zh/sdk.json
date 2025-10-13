@@ -850,9 +850,9 @@
       "workflowNotFound": "{{workflowId}} 工作流未找到",
       "triggerTestFailed": "触发器测试失败, 请检查触发器配置",
       "workflowTestFailed": "工作流测试失败, 请检查工作流配置",
-      "nodeParseError": "{{name}}[{{id}}] 节点配置未完成或者有错误，请检查该节点配置",
-      "nodeNeedTest": "{{name}}[{{id}}] 节点需要测试",
-      "nodeTestOutdated": "{{name}}[{{id}}] 节点测试已过期"
+      "nodeParseError": "{{name}} 节点配置未完成或者有错误，请检查该节点配置",
+      "nodeNeedTest": "{{name}} 节点需要测试",
+      "nodeTestOutdated": "{{name}} 节点测试已过期"
     },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",

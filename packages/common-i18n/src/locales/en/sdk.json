@@ -853,9 +853,9 @@
       "workflowNotFound": "{{workflowId}} workflow not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "workflowTestFailed": "Workflow test failed, please check the workflow configuration",
-      "nodeParseError": "{{name}}[{{id}}] node configuration is incomplete or has errors, please check the node configuration",
-      "nodeNeedTest": "{{name}}[{{id}}] node needs to be tested",
-      "nodeTestOutdated": "{{name}}[{{id}}] node test outdated"
+      "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
+      "nodeNeedTest": "{{name}} node needs to be tested",
+      "nodeTestOutdated": "{{name}} node test outdated"
     },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",

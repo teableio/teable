@@ -853,9 +853,9 @@
       "workflowNotFound": "{{workflowId}} Workflow nicht gefunden",
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
       "workflowTestFailed": "Workflow-Test fehlgeschlagen, bitte überprüfen Sie die Workflow-Konfiguration",
-      "nodeParseError": "{{name}}[{{id}}] Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
-      "nodeNeedTest": "{{name}}[{{id}}] Knoten muss getestet werden",
-      "nodeTestOutdated": "{{name}}[{{id}}] Knotentest ist veraltet"
+      "nodeParseError": "{{name}} Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
+      "nodeNeedTest": "{{name}} Knoten muss getestet werden",
+      "nodeTestOutdated": "{{name}} Knotentest ist veraltet"
     },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",

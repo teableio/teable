@@ -827,9 +827,9 @@
       "workflowNotFound": "{{workflowId}} iş akışı bulunamadı",
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
       "workflowTestFailed": "İş akışı testi başarısız, lütfen iş akışı yapılandırmasını kontrol edin",
-      "nodeParseError": "{{name}}[{{id}}] düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
-      "nodeNeedTest": "{{name}}[{{id}}] düğümün test edilmesi gerekiyor",
-      "nodeTestOutdated": "{{name}}[{{id}}] düğüm testi güncel değil"
+      "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
+      "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
+      "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
