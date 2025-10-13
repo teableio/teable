@@ -853,7 +853,7 @@
       "workflowNotFound": "{{workflowId}} Workflow nicht gefunden",
       "triggerTestFailed": "Trigger-Test fehlgeschlagen, bitte überprüfen Sie die Trigger-Konfiguration",
       "workflowTestFailed": "Workflow-Test fehlgeschlagen, bitte überprüfen Sie die Workflow-Konfiguration",
-      "nodeParseError": "{{name}}[{{id}}] Knoten-Konfiguration Analysefehler",
+      "nodeParseError": "{{name}}[{{id}}] Knotenkonfiguration ist unvollständig oder fehlerhaft, bitte überprüfen Sie die Knotenkonfiguration",
       "nodeNeedTest": "{{name}}[{{id}}] Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}}[{{id}}] Knotentest ist veraltet"
     },

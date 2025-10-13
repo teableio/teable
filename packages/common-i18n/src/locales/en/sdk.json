@@ -853,8 +853,8 @@
       "workflowNotFound": "{{workflowId}} workflow not found",
       "triggerTestFailed": "Trigger test failed, please check the trigger configuration",
       "workflowTestFailed": "Workflow test failed, please check the workflow configuration",
-      "nodeParseError": "{{name}}[{{id}}] node config parse error",
-      "nodeNeedTest": "{{name}}[{{id}}] node need test",
+      "nodeParseError": "{{name}}[{{id}}] node configuration is incomplete or has errors, please check the node configuration",
+      "nodeNeedTest": "{{name}}[{{id}}] node needs to be tested",
       "nodeTestOutdated": "{{name}}[{{id}}] node test outdated"
     },
     "permission": {

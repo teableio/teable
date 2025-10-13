@@ -853,7 +853,7 @@
       "workflowNotFound": "{{workflowId}} flusso di lavoro non trovato",
       "triggerTestFailed": "Test del trigger fallito, per favore controlla la configurazione del trigger",
       "workflowTestFailed": "Test del flusso di lavoro fallito, per favore controlla la configurazione del flusso di lavoro",
-      "nodeParseError": "{{name}}[{{id}}] errore di analisi della configurazione del nodo",
+      "nodeParseError": "{{name}}[{{id}}] la configurazione del nodo è incompleta o contiene errori, si prega di verificare la configurazione del nodo",
       "nodeNeedTest": "{{name}}[{{id}}] il nodo deve essere testato",
       "nodeTestOutdated": "{{name}}[{{id}}] il test del nodo è obsoleto"
     },

@@ -830,7 +830,7 @@
       "workflowNotFound": "{{workflowId}} flux de travail non trouvé",
       "triggerTestFailed": "Test du déclencheur échoué, veuillez vérifier la configuration du déclencheur",
       "workflowTestFailed": "Test du flux de travail échoué, veuillez vérifier la configuration du flux de travail",
-      "nodeParseError": "{{name}}[{{id}}] erreur d'analyse de configuration du nœud",
+      "nodeParseError": "{{name}}[{{id}}] la configuration du nœud est incomplète ou contient des erreurs, veuillez vérifier la configuration du nœud",
       "nodeNeedTest": "{{name}}[{{id}}] le nœud doit être testé",
       "nodeTestOutdated": "{{name}}[{{id}}] le test du nœud est obsolète"
     },
