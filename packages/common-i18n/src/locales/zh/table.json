@@ -410,7 +410,21 @@
       "title": "检查完整性",
       "loading": "检查完整性...",
       "allGood": "一切正常！",
-      "fixIssues": "修复问题"
+      "fixIssues": "修复问题",
+      "type": "类型",
+      "message": "错误信息",
+      "errorType": {
+        "ForeignTableNotFound": "外键关联表不存在",
+        "ForeignKeyNotFound": "外键不存在",
+        "SelfKeyNotFound": "自关联键不存在",
+        "SymmetricFieldNotFound": "对称字段不存在",
+        "MissingRecordReference": "关联记录不存在",
+        "InvalidLinkReference": "无效的关联字段",
+        "ForeignKeyHostTableNotFound": "主键关联表不存在",
+        "ReferenceFieldNotFound": "引用字段不存在",
+        "UniqueIndexNotFound": "唯一索引不存在",
+        "EmptyString": "存在空字符串单元格"
+      }
     },
     "index": {
       "description": "索引可以显著提升搜索性能，特别是当数据量较大(超过 {{rowCount}} 行)，缺点是写入操作略微变慢，如果经常进行搜索操作或数据量较大，建议开启索引。",

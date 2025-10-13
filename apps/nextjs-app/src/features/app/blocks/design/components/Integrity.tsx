@@ -3,20 +3,23 @@ import { checkBaseIntegrity, fixBaseIntegrity } from '@teable/openapi';
 import { useBase } from '@teable/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { Loader2, Check } from 'lucide-react';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 
 export const IntegrityButton = () => {
   const base = useBase();
-  const { t } = useTranslation(['table']);
+  const { t } = useTranslation(['table', 'common']);
+  const router = useRouter();
+  const tableId = router.query.tableId as string;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['baseIntegrity', base.id],
-    queryFn: () => checkBaseIntegrity(base.id).then(({ data }) => data),
+    queryFn: () => checkBaseIntegrity(base.id, tableId).then(({ data }) => data),
     enabled: false,
   });
 
   const { mutateAsync: fixIntegrity } = useMutation({
-    mutationFn: () => fixBaseIntegrity(base.id),
+    mutationFn: () => fixBaseIntegrity(base.id, tableId),
     onSuccess: () => {
       refetch();
     },
@@ -48,8 +51,13 @@ export const IntegrityButton = () => {
                     <div key={index} className="mb-2 ml-4 text-sm">
                       {issues.issues.map((issue) => (
                         <div key={issue.type}>
-                          <div>Type: {issue.type}</div>
-                          <div>Message: {issue.message}</div>
+                          <div>
+                            {t('table:table.integrity.type')}:{' '}
+                            {t(`table:table.integrity.errorType.${issue.type}`)}
+                          </div>
+                          <div>
+                            {t('table:table.integrity.message')}: {issue.message}
+                          </div>
                         </div>
                       ))}
                     </div>

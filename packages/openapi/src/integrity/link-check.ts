@@ -16,6 +16,7 @@ export enum IntegrityIssueType {
   ForeignKeyHostTableNotFound = 'ForeignKeyHostTableNotFound',
   ReferenceFieldNotFound = 'ReferenceFieldNotFound',
   UniqueIndexNotFound = 'UniqueIndexNotFound',
+  EmptyString = 'EmptyString',
 }
 
 // Define the schema for a single issue
@@ -23,6 +24,7 @@ export const integrityIssueSchema = z.object({
   type: z.nativeEnum(IntegrityIssueType),
   message: z.string(),
   fieldId: z.string(),
+  tableId: z.string().optional(),
 });
 
 // Define the schema for a link field check item
@@ -55,6 +57,9 @@ export const IntegrityCheckRoute: RouteConfig = registerRoute({
     params: z.object({
       baseId: z.string(),
     }),
+    query: z.object({
+      tableId: z.string(),
+    }),
   },
   responses: {
     200: {
@@ -69,10 +74,15 @@ export const IntegrityCheckRoute: RouteConfig = registerRoute({
   tags: ['integrity'],
 });
 
-export const checkBaseIntegrity = async (baseId: string) => {
+export const checkBaseIntegrity = async (baseId: string, tableId: string) => {
   return axios.get<IIntegrityCheckVo>(
     urlBuilder(CHECK_BASE_INTEGRITY, {
       baseId,
-    })
+    }),
+    {
+      params: {
+        tableId,
+      },
+    }
   );
 };

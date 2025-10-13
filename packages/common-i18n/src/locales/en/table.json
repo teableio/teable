@@ -411,7 +411,21 @@
       "title": "Integrity check",
       "loading": "Checking integrity...",
       "allGood": "All good!",
-      "fixIssues": "Fix Issues"
+      "fixIssues": "Fix Issues",
+      "type": "Type",
+      "message": "Error message",
+      "errorType": {
+        "ForeignTableNotFound": "ForeignTableNotFound",
+        "ForeignKeyNotFound": "ForeignKeyNotFound",
+        "SelfKeyNotFound": "SelfKeyNotFound",
+        "SymmetricFieldNotFound": "SymmetricFieldNotFound",
+        "MissingRecordReference": "MissingRecordReference",
+        "InvalidLinkReference": "InvalidLinkReference",
+        "ForeignKeyHostTableNotFound": "ForeignKeyHostTableNotFound",
+        "ReferenceFieldNotFound": "ReferenceFieldNotFound",
+        "UniqueIndexNotFound": "UniqueIndexNotFound",
+        "EmptyString": "EmptyString"
+      }
     },
     "index": {
       "description": "Indexes can significantly improve search performance, especially when dealing with large amounts of data (over {{rowCount}} rows). The downside is slightly slower write operations. If you frequently perform searches or have large datasets, it's recommended to enable indexing.",

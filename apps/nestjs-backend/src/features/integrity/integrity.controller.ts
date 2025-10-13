@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import type { IIntegrityCheckVo, IIntegrityIssue } from '@teable/openapi';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -11,13 +11,19 @@ export class IntegrityController {
 
   @Permissions('table|create')
   @Get('base/:baseId/link-check')
-  async checkBaseIntegrity(@Param('baseId') baseId: string): Promise<IIntegrityCheckVo> {
-    return await this.linkIntegrityService.linkIntegrityCheck(baseId);
+  async checkBaseIntegrity(
+    @Param('baseId') baseId: string,
+    @Query('tableId') tableId: string
+  ): Promise<IIntegrityCheckVo> {
+    return await this.linkIntegrityService.linkIntegrityCheck(baseId, tableId);
   }
 
   @Permissions('table|create')
   @Post('base/:baseId/link-fix')
-  async fixBaseIntegrity(@Param('baseId') baseId: string): Promise<IIntegrityIssue[]> {
-    return await this.linkIntegrityService.linkIntegrityFix(baseId);
+  async fixBaseIntegrity(
+    @Param('baseId') baseId: string,
+    @Query('tableId') tableId: string
+  ): Promise<IIntegrityIssue[]> {
+    return await this.linkIntegrityService.linkIntegrityFix(baseId, tableId);
   }
 }

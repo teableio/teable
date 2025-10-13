@@ -1,8 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { FieldType, type ILinkFieldOptions } from '@teable/core';
+import { FieldType, type ILinkFieldOptions, CellValueType, DbFieldType } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityCheckVo, type IIntegrityIssue } from '@teable/openapi';
+import { Knex } from 'knex';
+import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -20,10 +22,11 @@ export class LinkIntegrityService {
     private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
     private readonly uniqueIndexService: UniqueIndexService,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  async linkIntegrityCheck(baseId: string): Promise<IIntegrityCheckVo> {
+  async linkIntegrityCheck(baseId: string, tableId?: string): Promise<IIntegrityCheckVo> {
     const mainBase = await this.prismaService.base.findFirstOrThrow({
       where: { id: baseId, deletedTime: null },
       select: { id: true, name: true },
@@ -113,6 +116,18 @@ export class LinkIntegrityService {
         baseName: mainBase.name,
         issues: referenceFieldIssues,
       });
+    }
+
+    if (tableId) {
+      const checkEmptyString = await this.checkEmptyString(tableId);
+
+      if (checkEmptyString.length > 0) {
+        linkFieldIssues.push({
+          baseId: mainBase.id,
+          baseName: mainBase.name,
+          issues: checkEmptyString,
+        });
+      }
     }
 
     return {
@@ -286,8 +301,51 @@ export class LinkIntegrityService {
     return issues;
   }
 
-  async linkIntegrityFix(baseId: string): Promise<IIntegrityIssue[]> {
-    const checkResult = await this.linkIntegrityCheck(baseId);
+  async checkEmptyString(tableId: string): Promise<IIntegrityIssue[]> {
+    const prisma = this.prismaService.txClient();
+    const fields = await prisma.field.findMany({
+      where: {
+        tableId,
+        deletedTime: null,
+        cellValueType: CellValueType.String,
+        dbFieldType: DbFieldType.Text,
+        isComputed: null,
+      },
+      select: {
+        dbFieldName: true,
+        id: true,
+      },
+    });
+
+    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const issues: IIntegrityIssue[] = [];
+
+    for (const { dbFieldName, id: fieldId } of fields) {
+      const countSql = await this.knex(dbTableName)
+        .count('*')
+        .whereRaw(`?? = ''`, [dbFieldName])
+        .toQuery();
+      const countResult = await prisma.$queryRawUnsafe<{ count: number }[]>(countSql);
+      const count = Number(countResult[0].count);
+      if (count > 0) {
+        issues.push({
+          type: IntegrityIssueType.EmptyString,
+          fieldId: fieldId,
+          tableId,
+          message: `Empty string cell value found in field: ${dbFieldName}`,
+        });
+      }
+    }
+
+    return issues;
+  }
+
+  async linkIntegrityFix(baseId: string, tableId?: string): Promise<IIntegrityIssue[]> {
+    const checkResult = await this.linkIntegrityCheck(baseId, tableId || '');
     const fixResults: IIntegrityIssue[] = [];
     for (const issues of checkResult.linkFieldIssues) {
       for (const issue of issues.issues) {
@@ -317,6 +375,11 @@ export class LinkIntegrityService {
               issues.tableId,
               issue.fieldId
             );
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.EmptyString: {
+            const result = await this.fixEmptyString(issue.fieldId, issue.tableId);
             result && fixResults.push(result);
             break;
           }
@@ -382,6 +445,37 @@ export class LinkIntegrityService {
       type: IntegrityIssueType.SymmetricFieldNotFound,
       fieldId: field.id,
       message: `fixed one way link field (Field Name: ${field.name}, Field ID: ${field.id})`,
+    };
+  }
+
+  async fixEmptyString(fieldId: string, tableId?: string): Promise<IIntegrityIssue | undefined> {
+    const prisma = this.prismaService.txClient();
+    if (!tableId) {
+      return;
+    }
+
+    const { dbTableName } = await prisma.tableMeta.findFirstOrThrow({
+      where: { id: tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    const { dbFieldName } = await prisma.field.findFirstOrThrow({
+      where: { id: fieldId, deletedTime: null },
+      select: { dbFieldName: true },
+    });
+
+    const sql = this.knex(dbTableName)
+      .whereRaw('?? = ?', [dbFieldName, ''])
+      .update({
+        [dbFieldName]: null,
+      })
+      .toQuery();
+    await prisma.$executeRawUnsafe(sql);
+
+    return {
+      type: IntegrityIssueType.EmptyString,
+      fieldId,
+      message: 'Empty string cell value fixed',
     };
   }
 }
