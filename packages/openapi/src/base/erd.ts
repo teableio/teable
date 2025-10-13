@@ -19,6 +19,7 @@ export const baseErdTableNodeSchema = z
         name: true,
         type: true,
         isLookup: true,
+        isConditionalLookup: true,
         isPrimary: true,
       })
       .array(),
