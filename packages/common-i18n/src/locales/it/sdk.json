@@ -79,7 +79,8 @@
         "generating": "Generazione...",
         "generate": "Genera",
         "apply": "Applica"
-      }
+      },
+      "expressionRequired": "L'espressione è obbligatoria"
     },
     "link": {
       "placeholder": "Seleziona record da collegare",
@@ -90,7 +91,11 @@
       "selected": "Selezionato",
       "expandRecordError": "Nessun permesso per visualizzare questo record.",
       "alreadyOpen": "Questo record è già aperto.",
-      "goToForeignTable": "Vai alla tabella esterna"
+      "goToForeignTable": "Vai alla tabella esterna",
+      "foreignTableIdRequired": "La tabella esterna è obbligatoria",
+      "linkFieldIdRequired": "Il campo di collegamento è obbligatorio",
+      "selectTooManyRecords": "I record selezionati non devono superare {{maxCount}}",
+      "relationshipRequired": "La relazione è obbligatoria"
     },
     "user": {
       "searchPlaceholder": "Trova utenti per nome",
@@ -107,7 +112,8 @@
       "refineOptionsError": "Errore nell'analisi delle opzioni di ricerca {{message}}"
     },
     "rollup": {
-      "expressionRequired": "L'espressione è obbligatoria"
+      "expressionRequired": "L'espressione è obbligatoria",
+      "unsupportedTip": "Il rollup supporta solo i campi di collegamento e rollup"
     },
     "aiConfig": {
       "modelKeyRequired": "Il modello è obbligatorio",
@@ -117,7 +123,8 @@
       "promptRequired": "Il prompt è obbligatorio"
     },
     "error": {
-      "refineOptionsError": "Errore nell'analisi delle opzioni del campo {{message}}"
+      "refineOptionsError": "Errore nell'analisi delle opzioni del campo {{message}}",
+      "optionsRequired": "Le opzioni del campo sono obbligatorie"
     }
   },
   "filter": {

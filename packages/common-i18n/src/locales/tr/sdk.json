@@ -79,7 +79,8 @@
         "generating": "Oluşturuluyor...",
         "generate": "Oluştur",
         "apply": "Uygula"
-      }
+      },
+      "expressionRequired": "İfade gereklidir"
     },
     "link": {
       "placeholder": "Bağlanacak kayıtları seçin",
@@ -90,7 +91,11 @@
       "selected": "Seçilmiş",
       "expandRecordError": "Bu kaydı görüntüleme izniniz yok.",
       "alreadyOpen": "Bu kayıt zaten açık.",
-      "goToForeignTable": "Yabancı tabloya git"
+      "goToForeignTable": "Yabancı tabloya git",
+      "foreignTableIdRequired": "Yabancı tablo gereklidir",
+      "linkFieldIdRequired": "Bağlantı alanı gereklidir",
+      "selectTooManyRecords": "Seçilen kayıtlar {{maxCount}} değerini aşmamalıdır",
+      "relationshipRequired": "İlişki gereklidir"
     },
     "user": {
       "searchPlaceholder": "İsme göre kullanıcı ara",
@@ -107,7 +112,8 @@
       "refineOptionsError": "Arama seçenekleri ayrıştırma hatası {{message}}"
     },
     "rollup": {
-      "expressionRequired": "İfade gereklidir"
+      "expressionRequired": "İfade gereklidir",
+      "unsupportedTip": "Rollup yalnızca bağlantı ve rollup alanlarını destekler"
     },
     "aiConfig": {
       "modelKeyRequired": "Model gereklidir",
@@ -117,7 +123,8 @@
       "promptRequired": "İstem gereklidir"
     },
     "error": {
-      "refineOptionsError": "Alan seçenekleri ayrıştırma hatası {{message}}"
+      "refineOptionsError": "Alan seçenekleri ayrıştırma hatası {{message}}",
+      "optionsRequired": "Alan seçenekleri gereklidir"
     }
   },
   "filter": {

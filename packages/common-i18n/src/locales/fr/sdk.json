@@ -42,7 +42,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Relâchez pour télécharger le fichier",
-      "uploadDragDefault": "Collez ou faites glisser pour télécharger ici"
+      "uploadDragDefault": "Collez ou faites glisser pour télécharger ici",
+      "upload": "télécharger"
     },
     "date": {
       "placeholder": "Choisir une date",
@@ -66,7 +67,8 @@
         "generating": "Génération...",
         "generate": "Générer",
         "apply": "Appliquer"
-      }
+      },
+      "expressionRequired": "L'expression est requise"
     },
     "link": {
       "placeholder": "Sélectionner des enregistrements à lier",
@@ -76,7 +78,12 @@
       "unselected": "Non sélectionné",
       "selected": "Sélectionné",
       "expandRecordError": "Aucun droit pour voir cet enregistrement.",
-      "goToForeignTable": "Accéder à la table liée"
+      "alreadyOpen": "Cet enregistrement est déjà ouvert.",
+      "goToForeignTable": "Accéder à la table liée",
+      "foreignTableIdRequired": "La table externe est requise",
+      "linkFieldIdRequired": "Le champ de lien est requis",
+      "selectTooManyRecords": "Les enregistrements sélectionnés ne doivent pas dépasser {{maxCount}}",
+      "relationshipRequired": "La relation est requise"
     },
     "user": {
       "searchPlaceholder": "Trouver des utilisateurs par nom",
@@ -93,7 +100,8 @@
       "refineOptionsError": "Erreur lors de l'analyse des options de recherche {{message}}"
     },
     "rollup": {
-      "expressionRequired": "L'expression est requise"
+      "expressionRequired": "L'expression est requise",
+      "unsupportedTip": "Le rollup ne prend en charge que les champs de lien et de rollup"
     },
     "aiConfig": {
       "modelKeyRequired": "Le modèle est requis",
@@ -103,7 +111,8 @@
       "promptRequired": "L'invite est requise"
     },
     "error": {
-      "refineOptionsError": "Erreur lors de l'analyse des options de champ {{message}}"
+      "refineOptionsError": "Erreur lors de l'analyse des options de champ {{message}}",
+      "optionsRequired": "Les options de champ sont requises"
     }
   },
   "filter": {

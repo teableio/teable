@@ -79,7 +79,8 @@
         "generating": "Generieren...",
         "generate": "Generieren",
         "apply": "Anwenden"
-      }
+      },
+      "expressionRequired": "Ausdruck ist erforderlich"
     },
     "link": {
       "placeholder": "Zu verknüpfende Datensätze auswählen",
@@ -90,7 +91,11 @@
       "selected": "Ausgewählt",
       "expandRecordError": "Keine Erlaubnis, diesen Datensatz einzusehen.",
       "alreadyOpen": "Dieser Datensatz ist bereits geöffnet.",
-      "goToForeignTable": "Gehe zu fremder Tabelle"
+      "goToForeignTable": "Gehe zu fremder Tabelle",
+      "foreignTableIdRequired": "Fremdtabelle ist erforderlich",
+      "linkFieldIdRequired": "Verknüpfungsfeld ist erforderlich",
+      "selectTooManyRecords": "Die ausgewählten Datensätze sollten {{maxCount}} nicht überschreiten",
+      "relationshipRequired": "Beziehung ist erforderlich"
     },
     "user": {
       "searchPlaceholder": "Benutzer nach Namen suchen",
@@ -107,7 +112,8 @@
       "refineOptionsError": "Fehler beim Parsen der Lookup-Optionen {{message}}"
     },
     "rollup": {
-      "expressionRequired": "Ausdruck ist erforderlich"
+      "expressionRequired": "Ausdruck ist erforderlich",
+      "unsupportedTip": "Rollup unterstützt nur Verknüpfungs- und Rollup-Felder"
     },
     "aiConfig": {
       "modelKeyRequired": "Modell ist erforderlich",
@@ -117,7 +123,8 @@
       "promptRequired": "Eingabeaufforderung ist erforderlich"
     },
     "error": {
-      "refineOptionsError": "Fehler beim Parsen der Feldoptionen {{message}}"
+      "refineOptionsError": "Fehler beim Parsen der Feldoptionen {{message}}",
+      "optionsRequired": "Feldoptionen sind erforderlich"
     }
   },
   "filter": {

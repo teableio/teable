@@ -66,6 +66,7 @@
       "guideSyntax": "Sintaxis",
       "guideExample": "Ejemplo",
       "helperExample": "Ejemplo:",
+      "fieldValue": "Devuelve el valor a las celdas del campo {{fieldName}}.",
       "placeholder": "Ingrese una expresión",
       "placeholderForAIPrompt": "Describe la fórmula que quieres generar",
       "editExpression": "Editar fórmula",
@@ -78,7 +79,8 @@
         "generating": "Generando...",
         "generate": "Generar",
         "apply": "Aplicar"
-      }
+      },
+      "expressionRequired": "La expresión es obligatoria"
     },
     "link": {
       "placeholder": "Seleccionar registros para vincular",
@@ -89,7 +91,11 @@
       "selected": "Seleccionado",
       "expandRecordError": "No hay permiso para ver este registro.",
       "alreadyOpen": "Este registro ya está abierto.",
-      "goToForeignTable": "Ir a la mesa extranjera"
+      "goToForeignTable": "Ir a la mesa extranjera",
+      "foreignTableIdRequired": "La tabla externa es obligatoria",
+      "linkFieldIdRequired": "El campo de enlace es obligatorio",
+      "selectTooManyRecords": "Los registros seleccionados no deben exceder {{maxCount}}",
+      "relationshipRequired": "La relación es obligatoria"
     },
     "user": {
       "searchPlaceholder": "Encuentra usuarios por nombre",
@@ -106,7 +112,8 @@
       "refineOptionsError": "Error al analizar las opciones de búsqueda {{message}}"
     },
     "rollup": {
-      "expressionRequired": "La expresión es obligatoria"
+      "expressionRequired": "La expresión es obligatoria",
+      "unsupportedTip": "El rollup solo admite campos de enlace y rollup"
     },
     "aiConfig": {
       "modelKeyRequired": "El modelo es obligatorio",
@@ -116,7 +123,8 @@
       "promptRequired": "El prompt es obligatorio"
     },
     "error": {
-      "refineOptionsError": "Error al analizar las opciones del campo {{message}}"
+      "refineOptionsError": "Error al analizar las opciones del campo {{message}}",
+      "optionsRequired": "Las opciones del campo son obligatorias"
     }
   },
   "filter": {

@@ -79,7 +79,8 @@
         "generating": "Створюється...",
         "generate": "Створити",
         "apply": "Примінити"
-      }
+      },
+      "expressionRequired": "Вираз обов'язковий"
     },
     "link": {
       "placeholder": "Виберіть записи для зв'язування",
@@ -90,7 +91,11 @@
       "selected": "Вибрано",
       "expandRecordError": "Немає дозволу на перегляд цього запису.",
       "alreadyOpen": "Цей запис уже відкрито.",
-      "goToForeignTable": "Перейти до іноземної таблиці"
+      "goToForeignTable": "Перейти до іноземної таблиці",
+      "foreignTableIdRequired": "Зовнішня таблиця обов'язкова",
+      "linkFieldIdRequired": "Поле зв'язку обов'язкове",
+      "selectTooManyRecords": "Вибрані записи не повинні перевищувати {{maxCount}}",
+      "relationshipRequired": "Відношення обов'язкове"
     },
     "user": {
       "searchPlaceholder": "Знайти користувачів за іменами",
@@ -107,7 +112,8 @@
       "refineOptionsError": "Помилка парсингу опцій пошуку {{message}}"
     },
     "rollup": {
-      "expressionRequired": "Вираз обов'язковий"
+      "expressionRequired": "Вираз обов'язковий",
+      "unsupportedTip": "Rollup підтримує лише поля зв'язку та rollup"
     },
     "aiConfig": {
       "modelKeyRequired": "Модель обов'язкова",
@@ -117,7 +123,8 @@
       "promptRequired": "Запит обов'язковий"
     },
     "error": {
-      "refineOptionsError": "Помилка парсингу опцій поля {{message}}"
+      "refineOptionsError": "Помилка парсингу опцій поля {{message}}",
+      "optionsRequired": "Опції поля обов'язкові"
     }
   },
   "filter": {

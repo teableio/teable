@@ -54,7 +54,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Отпустите, чтобы загрузить файл",
-      "uploadDragDefault": "Вставьте или перетащите файл для загрузки сюда"
+      "uploadDragDefault": "Вставьте или перетащите файл для загрузки сюда",
+      "upload": "загрузить"
     },
     "date": {
       "placeholder": "Выберите дату",
@@ -78,7 +79,8 @@
         "generating": "Сгенерирование...",
         "generate": "Сгенерировать",
         "apply": "Применить"
-      }
+      },
+      "expressionRequired": "Выражение обязательно"
     },
     "link": {
       "placeholder": "Выберите записи для ссылки",
@@ -88,7 +90,12 @@
       "unselected": "Не выбрано",
       "selected": "Выбрано",
       "expandRecordError": "Нет доступа для просмотра этой записи.",
-      "goToForeignTable": "Перейти к связанной таблице"
+      "alreadyOpen": "Эта запись уже открыта.",
+      "goToForeignTable": "Перейти к связанной таблице",
+      "foreignTableIdRequired": "Внешняя таблица обязательна",
+      "linkFieldIdRequired": "Поле связи обязательно",
+      "selectTooManyRecords": "Выбранные записи не должны превышать {{maxCount}}",
+      "relationshipRequired": "Отношение обязательно"
     },
     "user": {
       "searchPlaceholder": "Найдите пользователей по имени",
@@ -105,7 +112,8 @@
       "refineOptionsError": "Ошибка парсинга опций поиска {{message}}"
     },
     "rollup": {
-      "expressionRequired": "Выражение обязательно"
+      "expressionRequired": "Выражение обязательно",
+      "unsupportedTip": "Rollup поддерживает только поля связи и rollup"
     },
     "aiConfig": {
       "modelKeyRequired": "Модель обязательна",
@@ -115,7 +123,8 @@
       "promptRequired": "Запрос обязателен"
     },
     "error": {
-      "refineOptionsError": "Ошибка парсинга опций поля {{message}}"
+      "refineOptionsError": "Ошибка парсинга опций поля {{message}}",
+      "optionsRequired": "Опции поля обязательны"
     }
   },
   "filter": {
