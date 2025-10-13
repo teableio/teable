@@ -47,7 +47,7 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           cursor: pageParam,
         });
     setNextCursor(() => res.data.nextCursor);
-    setUserMap({ ...userMap, ...res.data.userMap });
+    setUserMap((prev) => ({ ...prev, ...res.data.userMap }));
     return res.data.historyList;
   };
 
@@ -139,6 +139,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const before = row.getValue<IRecordHistoryItemVo['before']>('before');
           const validatedCellValue = validateCellValue(before.meta as IFieldVo, before.data);
           const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
+          const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(before.meta.type);
+          const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
             <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
               {cellValue != null ? (
@@ -148,9 +150,9 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                     field={before.meta as IFieldInstance}
                     className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                   />
-                  {SUPPORTED_COPY_FIELD_TYPES.includes(before.meta.type) && (
+                  {canCopy && copyText && (
                     <CopyButton
-                      text={cellValue}
+                      text={copyText}
                       size="xs"
                       variant="outline"
                       className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"
@@ -184,6 +186,8 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
           const after = row.getValue<IRecordHistoryItemVo['after']>('after');
           const validatedCellValue = validateCellValue(after.meta as IFieldVo, after.data);
           const cellValue = validatedCellValue.success ? validatedCellValue.data : undefined;
+          const canCopy = SUPPORTED_COPY_FIELD_TYPES.includes(after.meta.type);
+          const copyText = typeof cellValue === 'string' ? cellValue : undefined;
           return (
             <div className={cn('group relative', actionVisible ? 'w-52' : 'w-[264px]')}>
               {cellValue != null ? (
@@ -193,9 +197,9 @@ export const RecordHistory = (props: IRecordHistoryProps) => {
                     field={after.meta as IFieldInstance}
                     className={actionVisible ? 'max-w-52' : 'max-w-[264px]'}
                   />
-                  {SUPPORTED_COPY_FIELD_TYPES.includes(after.meta.type) && (
+                  {canCopy && copyText && (
                     <CopyButton
-                      text={cellValue}
+                      text={copyText}
                       size="xs"
                       variant="outline"
                       className="absolute right-0 top-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100"

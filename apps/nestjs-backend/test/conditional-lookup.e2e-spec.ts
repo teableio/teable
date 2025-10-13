@@ -327,6 +327,136 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
   });
 
+  describe('text filter edge cases', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let emptyLabelScoresField: IFieldVo;
+    let nonEmptyLabelsField: IFieldVo;
+    let alphaNotesField: IFieldVo;
+    let labelId: string;
+    let notesId: string;
+    let scoreId: string;
+    let hostRecordId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_Text_Foreign',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Notes', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Alpha', Notes: 'Alpha plan', Score: 10 } },
+          { fields: { Label: '', Notes: 'Empty label entry', Score: 5 } },
+          { fields: { Notes: 'Missing label Alpha entry', Score: 7 } },
+          { fields: { Label: 'Beta', Notes: 'Beta details', Score: 12 } },
+          { fields: { Label: 'Gamma', Notes: 'General info', Score: 8 } },
+        ],
+      });
+
+      labelId = foreign.fields.find((field) => field.name === 'Label')!.id;
+      notesId = foreign.fields.find((field) => field.name === 'Notes')!.id;
+      scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_Text_Host',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Name: 'Row 1' } }],
+      });
+      hostRecordId = host.records[0].id;
+
+      emptyLabelScoresField = await createField(host.id, {
+        name: 'Empty Label Scores',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: labelId,
+                operator: 'isEmpty',
+                value: null,
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      nonEmptyLabelsField = await createField(host.id, {
+        name: 'Non Empty Labels',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: labelId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: labelId,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      alphaNotesField = await createField(host.id, {
+        name: 'Alpha Notes',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: notesId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: notesId,
+                operator: 'contains',
+                value: 'Alpha',
+              },
+            ],
+          },
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should include values when filtering for empty text', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[emptyLabelScoresField.id]).toEqual([5, 7]);
+    });
+
+    it('should exclude blanks when using isNotEmpty filters', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[nonEmptyLabelsField.id]).toEqual(['Alpha', 'Beta', 'Gamma']);
+    });
+
+    it('should support contains filters against text fields', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[alphaNotesField.id]).toEqual([
+        'Alpha plan',
+        'Missing label Alpha entry',
+      ]);
+    });
+  });
+
   describe('date field reference filters', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

@@ -12,11 +12,19 @@ export const getRecordHistoryQuerySchema = z.object({
 });
 
 export const recordHistoryItemStateVoSchema = z.object({
-  meta: fieldVoSchema.pick({ name: true, type: true, cellValueType: true }).merge(
-    z.object({
-      options: z.unknown(),
+  meta: fieldVoSchema
+    .pick({
+      name: true,
+      type: true,
+      cellValueType: true,
+      isLookup: true,
+      isConditionalLookup: true,
     })
-  ),
+    .merge(
+      z.object({
+        options: z.unknown(),
+      })
+    ),
   data: z.unknown(),
 });
 

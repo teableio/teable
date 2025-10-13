@@ -367,6 +367,142 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('text filter edge cases', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let emptyLabelCountField: IFieldVo;
+    let nonEmptyLabelCountField: IFieldVo;
+    let labelCountAField: IFieldVo;
+    let alphaScoreSumField: IFieldVo;
+    let labelId: string;
+    let notesId: string;
+    let scoreId: string;
+    let hostRecordId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Text_Foreign',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Notes', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Alpha', Notes: 'Alpha plan', Score: 10 } },
+          { fields: { Label: '', Notes: 'Empty label entry', Score: 5 } },
+          { fields: { Notes: 'Missing label Alpha entry', Score: 7 } },
+          { fields: { Label: 'Beta', Notes: 'Beta details', Score: 12 } },
+          { fields: { Label: 'Gamma', Notes: 'General info', Score: 8 } },
+        ],
+      });
+
+      labelId = foreign.fields.find((field) => field.name === 'Label')!.id;
+      notesId = foreign.fields.find((field) => field.name === 'Notes')!.id;
+      scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Text_Host',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Name: 'Row 1' } }],
+      });
+      hostRecordId = host.records[0].id;
+
+      emptyLabelCountField = await createField(host.id, {
+        name: 'Empty Label Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'count({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: labelId,
+                operator: 'isEmpty',
+                value: null,
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+
+      nonEmptyLabelCountField = await createField(host.id, {
+        name: 'Non Empty Label Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'count({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: labelId,
+                operator: 'isNotEmpty',
+                value: null,
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+
+      labelCountAField = await createField(host.id, {
+        name: 'Label CountA',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: labelId,
+          expression: 'counta({values})',
+        },
+      } as IFieldRo);
+
+      alphaScoreSumField = await createField(host.id, {
+        name: 'Alpha Score Sum',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: scoreId,
+          expression: 'sum({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: notesId,
+                operator: 'contains',
+                value: 'Alpha',
+              },
+            ],
+          },
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should treat blank strings as empty when filtering text fields', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[emptyLabelCountField.id]).toEqual(2);
+      expect(record.fields[nonEmptyLabelCountField.id]).toEqual(3);
+    });
+
+    it('should skip blank values in counta aggregations', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[labelCountAField.id]).toEqual(3);
+    });
+
+    it('should honor contains filters for text rollups', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[alphaScoreSumField.id]).toEqual(17);
+    });
+  });
+
   describe('date field reference filters', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;
@@ -1988,6 +2124,7 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;
     let conditionalRollupField: IFieldVo;
+    let sumConditionalRollupField: IFieldVo;
     let baseFieldId: string;
     let taxFieldId: string;
     let totalFormulaFieldId: string;
@@ -2023,22 +2160,12 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
           },
         },
       };
-      const totalFormulaField: IFieldRo = {
-        id: totalFormulaFieldId,
-        name: 'Total',
-        type: FieldType.Formula,
-        options: {
-          expression: `{${baseFieldId}} + {${taxFieldId}}`,
-        },
-      } as IFieldRo;
-
       foreign = await createTable(baseId, {
         name: 'RefLookup_Formula_Foreign',
         fields: [
           { name: 'Category', type: FieldType.SingleLineText, options: {} } as IFieldRo,
           baseField,
           taxField,
-          totalFormulaField,
         ],
         records: [
           { fields: { Category: 'Hardware', Base: 100, Tax: 10 } },
@@ -2046,6 +2173,21 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         ],
       });
       categoryFieldId = foreign.fields.find((f) => f.name === 'Category')!.id;
+
+      const totalFormulaField = await createField(foreign.id, {
+        id: totalFormulaFieldId,
+        name: 'Total',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${baseFieldId}} + {${taxFieldId}}`,
+          formatting: {
+            type: NumberFormattingType.Decimal,
+            precision: 2,
+          },
+        },
+      } as IFieldRo);
+      totalFormulaFieldId = totalFormulaField.id;
+      expect(totalFormulaField.cellValueType).toBe(CellValueType.Number);
 
       host = await createTable(baseId, {
         name: 'RefLookup_Formula_Host',
@@ -2082,6 +2224,17 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
           filter: categoryMatchFilter,
         },
       } as IFieldRo);
+
+      sumConditionalRollupField = await createField(host.id, {
+        name: 'Total Formula Sum Value',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: totalFormulaFieldId,
+          expression: 'sum({values})',
+          filter: categoryMatchFilter,
+        },
+      } as IFieldRo);
     });
 
     afterAll(async () => {
@@ -2094,16 +2247,20 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       const hardwareRecord = records.records.find((record) => record.id === hardwareHostRecordId)!;
       const softwareRecord = records.records.find((record) => record.id === softwareHostRecordId)!;
 
-      expect(hardwareRecord.fields[conditionalRollupField.id]).toEqual('110');
-      expect(softwareRecord.fields[conditionalRollupField.id]).toEqual('55');
+      expect(hardwareRecord.fields[conditionalRollupField.id]).toEqual('110.00');
+      expect(softwareRecord.fields[conditionalRollupField.id]).toEqual('55.00');
+      expect(hardwareRecord.fields[sumConditionalRollupField.id]).toEqual(110);
+      expect(softwareRecord.fields[sumConditionalRollupField.id]).toEqual(55);
 
       await updateRecordByApi(foreign.id, foreign.records[0].id, baseFieldId, 120);
 
       const updatedHardware = await getRecord(host.id, hardwareHostRecordId);
-      expect(updatedHardware.fields[conditionalRollupField.id]).toEqual('130');
+      expect(updatedHardware.fields[conditionalRollupField.id]).toEqual('130.00');
+      expect(updatedHardware.fields[sumConditionalRollupField.id]).toEqual(130);
 
       const updatedSoftware = await getRecord(host.id, softwareHostRecordId);
-      expect(updatedSoftware.fields[conditionalRollupField.id]).toEqual('55');
+      expect(updatedSoftware.fields[conditionalRollupField.id]).toEqual('55.00');
+      expect(updatedSoftware.fields[sumConditionalRollupField.id]).toEqual(55);
     });
   });
 });

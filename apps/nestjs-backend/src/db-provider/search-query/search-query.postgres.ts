@@ -154,7 +154,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
         WHERE sub.aggregated ~* ?
       )
     `,
-      [this.dbTableName, this.field.dbFieldName, escapedSearchValue]
+      [escapedSearchValue]
     );
   }
 
@@ -216,7 +216,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
         WHERE sub.aggregated ~* ?
       )
       `,
-      [this.dbTableName, this.field.dbFieldName, escapedSearchValue]
+      [escapedSearchValue]
     );
   }
 }
