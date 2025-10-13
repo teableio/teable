@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { describe, expect, it } from 'vitest';
 
 import { SelectQueryPostgres } from './select-query.postgres';
