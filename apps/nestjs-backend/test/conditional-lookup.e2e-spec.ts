@@ -10,10 +10,18 @@ import type {
   IFilter,
   ILookupOptionsRo,
 } from '@teable/core';
-import { Colors, FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
+import {
+  Colors,
+  DbFieldType,
+  FieldKeyType,
+  FieldType,
+  NumberFormattingType,
+  Relationship,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
+  convertField,
   createTable,
   deleteField,
   getRecord,
@@ -1503,6 +1511,155 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         expect(typeof tier.id).toBe('string');
         expect(typeof tier.color).toBe('string');
       });
+    });
+
+    it('should preserve computed metadata when renaming select lookups via convertField', async () => {
+      const beforeRename = await getField(host.id, tierSelectLookupField.id);
+      expect(beforeRename.dbFieldType).toBe(DbFieldType.Json);
+      expect(beforeRename.isMultipleCellValue).toBe(true);
+      expect(beforeRename.isComputed).toBe(true);
+      expect(beforeRename.lookupOptions).toBeDefined();
+
+      const originalName = beforeRename.name;
+      const fieldId = tierSelectLookupField.id;
+
+      try {
+        tierSelectLookupField = await convertField(host.id, fieldId, {
+          name: 'Tier Select Lookup Renamed',
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: beforeRename.options,
+          lookupOptions: beforeRename.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+
+        expect(tierSelectLookupField.name).toBe('Tier Select Lookup Renamed');
+        expect(tierSelectLookupField.dbFieldType).toBe(DbFieldType.Json);
+        expect(tierSelectLookupField.isLookup).toBe(true);
+        expect(tierSelectLookupField.isConditionalLookup).toBe(true);
+        expect(tierSelectLookupField.isComputed).toBe(true);
+        expect(tierSelectLookupField.isMultipleCellValue).toBe(true);
+        expect(tierSelectLookupField.options).toEqual(beforeRename.options);
+        expect(tierSelectLookupField.lookupOptions).toMatchObject(
+          beforeRename.lookupOptions as Record<string, unknown>
+        );
+
+        const record = await getRecord(host.id, hostRow1Id);
+        const tiers = record.fields[tierSelectLookupField.id] as Array<string | { name?: string }>;
+        expect(Array.isArray(tiers)).toBe(true);
+        const tierNames = tiers
+          .map((tier) => (typeof tier === 'string' ? tier : tier.name))
+          .filter((name): name is string => Boolean(name))
+          .sort();
+        expect(tierNames).toEqual(['Basic', 'Enterprise', 'Pro', 'Pro'].sort());
+      } finally {
+        tierSelectLookupField = await convertField(host.id, fieldId, {
+          name: originalName,
+          type: FieldType.SingleSelect,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: beforeRename.options,
+          lookupOptions: beforeRename.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+      }
+    });
+
+    it('should preserve computed metadata when renaming text conditional lookups via convertField', async () => {
+      const beforeRename = await getField(host.id, tagAllLookupField.id);
+      expect(beforeRename.dbFieldType).toBe(DbFieldType.Json);
+      expect(beforeRename.isMultipleCellValue).toBe(true);
+      expect(beforeRename.isComputed).toBe(true);
+      expect(beforeRename.lookupOptions).toBeDefined();
+
+      const originalName = beforeRename.name;
+      const fieldId = tagAllLookupField.id;
+      const recordBefore = await getRecord(host.id, hostRow1Id);
+      const baseline = recordBefore.fields[fieldId];
+
+      try {
+        tagAllLookupField = await convertField(host.id, fieldId, {
+          name: 'Tag All Names Renamed',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: beforeRename.options,
+          lookupOptions: beforeRename.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+
+        expect(tagAllLookupField.name).toBe('Tag All Names Renamed');
+        expect(tagAllLookupField.dbFieldType).toBe(DbFieldType.Json);
+        expect(tagAllLookupField.isLookup).toBe(true);
+        expect(tagAllLookupField.isConditionalLookup).toBe(true);
+        expect(tagAllLookupField.isComputed).toBe(true);
+        expect(tagAllLookupField.isMultipleCellValue).toBe(true);
+        expect(tagAllLookupField.options).toEqual(beforeRename.options);
+        expect(tagAllLookupField.lookupOptions).toMatchObject(
+          beforeRename.lookupOptions as Record<string, unknown>
+        );
+
+        const recordAfter = await getRecord(host.id, hostRow1Id);
+        expect(recordAfter.fields[fieldId]).toEqual(baseline);
+      } finally {
+        tagAllLookupField = await convertField(host.id, fieldId, {
+          name: originalName,
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: beforeRename.options,
+          lookupOptions: beforeRename.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+      }
+    });
+
+    it('should retain computed metadata when renaming and updating lookup formatting via convertField', async () => {
+      const beforeUpdate = await getField(host.id, currencyScoreLookupField.id);
+      expect(beforeUpdate.dbFieldType).toBe(DbFieldType.Json);
+      const fieldId = currencyScoreLookupField.id;
+      const originalName = beforeUpdate.name;
+      const recordBefore = await getRecord(host.id, hostRow1Id);
+      const baseline = recordBefore.fields[fieldId];
+      const originalOptions = beforeUpdate.options as {
+        formatting?: { type: NumberFormattingType; symbol?: string; precision?: number };
+      };
+      const updatedOptions = {
+        ...originalOptions,
+        formatting: {
+          type: NumberFormattingType.Currency,
+          symbol: '$',
+          precision: 0,
+        },
+      };
+
+      try {
+        currencyScoreLookupField = await convertField(host.id, fieldId, {
+          name: `${originalName} Renamed`,
+          type: FieldType.Number,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: updatedOptions,
+          lookupOptions: beforeUpdate.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+
+        expect(currencyScoreLookupField.name).toBe(`${originalName} Renamed`);
+        expect(currencyScoreLookupField.dbFieldType).toBe(beforeUpdate.dbFieldType);
+        expect(currencyScoreLookupField.isComputed).toBe(true);
+        expect(currencyScoreLookupField.isMultipleCellValue).toBe(true);
+        expect((currencyScoreLookupField.options as typeof updatedOptions).formatting).toEqual(
+          updatedOptions.formatting
+        );
+
+        const recordAfter = await getRecord(host.id, hostRow1Id);
+        expect(recordAfter.fields[fieldId]).toEqual(baseline);
+      } finally {
+        currencyScoreLookupField = await convertField(host.id, fieldId, {
+          name: originalName,
+          type: FieldType.Number,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: originalOptions,
+          lookupOptions: beforeUpdate.lookupOptions as ILookupOptionsRo,
+        } as IFieldRo);
+      }
     });
 
     it('should recompute when host filters change', async () => {

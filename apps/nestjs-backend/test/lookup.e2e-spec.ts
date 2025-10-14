@@ -8,6 +8,7 @@ import type {
   IFieldVo,
   IFilter,
   ILinkFieldOptions,
+  ILookupLinkOptions,
   ILookupOptionsRo,
   INumberFieldOptions,
   LinkFieldCore,
@@ -28,9 +29,11 @@ import {
   createTable,
   permanentDeleteTable,
   getFields,
+  getField,
   getRecord,
   initApp,
   updateRecordByApi,
+  convertField,
 } from './utils/init-app';
 
 // All kind of field type (except link)
@@ -361,6 +364,62 @@ describe('OpenAPI Lookup field (e2e)', () => {
 
       const record6 = await getRecord(table2.id, table2.records[1].id);
       expect(record6.fields[lookupFieldVo.id]).toEqual(123);
+    });
+
+    it('should preserve lookup metadata when renaming via convertField', async () => {
+      const linkField = getFieldByType(table1.fields, FieldType.Link) as LinkFieldCore;
+      const foreignTable = tables.find((t) => t.id === linkField.options.foreignTableId)!;
+      const lookedUpField = getFieldByType(foreignTable.fields, FieldType.SingleLineText);
+      const lookupName = 'lookup rename safeguard';
+
+      const lookupField = await createField(table1.id, {
+        name: lookupName,
+        type: lookedUpField.type,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: lookedUpField.id,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      await updateTableFields(table1);
+      const fieldId = lookupField.id;
+      const beforeDetail = await getField(table1.id, fieldId);
+      const rawLookupOptions = beforeDetail.lookupOptions as ILookupLinkOptions | undefined;
+      const normalizedLookupOptions: ILookupOptionsRo | undefined = rawLookupOptions
+        ? {
+            foreignTableId: rawLookupOptions.foreignTableId,
+            lookupFieldId: rawLookupOptions.lookupFieldId,
+            linkFieldId: rawLookupOptions.linkFieldId,
+            filter: rawLookupOptions.filter,
+          }
+        : undefined;
+      const recordBefore = await getRecord(table1.id, table1.records[0].id);
+      const baseline = recordBefore.fields[fieldId];
+
+      try {
+        const renamed = await convertField(table1.id, fieldId, {
+          name: `${lookupName} renamed`,
+          type: lookedUpField.type,
+          isLookup: true,
+          lookupOptions: normalizedLookupOptions,
+          options: beforeDetail.options,
+        } as IFieldRo);
+
+        expect(renamed.dbFieldType).toBe(beforeDetail.dbFieldType);
+        expect(renamed.isMultipleCellValue).toBe(beforeDetail.isMultipleCellValue);
+        expect(renamed.isComputed).toBe(true);
+        expect(renamed.lookupOptions).toMatchObject(
+          beforeDetail.lookupOptions as Record<string, unknown>
+        );
+
+        const recordAfter = await getRecord(table1.id, table1.records[0].id);
+        expect(recordAfter.fields[fieldId]).toEqual(baseline);
+      } finally {
+        await deleteField(table1.id, fieldId);
+        await updateTableFields(table1);
+      }
     });
 
     it('should update many - one lookupField by replace a linkRecord from cell', async () => {

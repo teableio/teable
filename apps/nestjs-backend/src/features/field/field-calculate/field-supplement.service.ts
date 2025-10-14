@@ -1325,11 +1325,23 @@ export class FieldSupplementService {
   }
 
   private async prepareUpdateFieldInner(tableId: string, fieldRo: IFieldRo, oldFieldVo: IFieldVo) {
+    const hasMajorChange = majorFieldKeysChanged(oldFieldVo, fieldRo);
+
     if (fieldRo.type !== oldFieldVo.type) {
       return this.prepareCreateFieldInner(tableId, fieldRo);
     }
 
-    if (fieldRo.isLookup && majorFieldKeysChanged(oldFieldVo, fieldRo)) {
+    if (!hasMajorChange) {
+      return {
+        ...oldFieldVo,
+        ...fieldRo,
+        options: fieldRo.options !== undefined ? fieldRo.options : oldFieldVo.options,
+        lookupOptions:
+          fieldRo.lookupOptions !== undefined ? fieldRo.lookupOptions : oldFieldVo.lookupOptions,
+      };
+    }
+
+    if (fieldRo.isLookup && hasMajorChange) {
       return this.prepareUpdateLookupField(fieldRo, oldFieldVo);
     }
 

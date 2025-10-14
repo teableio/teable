@@ -1594,6 +1594,77 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(afterExpressionChange.fields[lookupField.id]).toEqual(6);
     });
 
+    it('should preserve computed metadata when renaming conditional rollups via convertField', async () => {
+      const beforeRename = await getField(host.id, lookupField.id);
+      const originalName = beforeRename.name;
+      const fieldId = lookupField.id;
+      const baseline = (await getRecord(host.id, hostRecordId)).fields[fieldId];
+
+      try {
+        lookupField = await convertField(host.id, fieldId, {
+          name: `${originalName} Renamed`,
+          type: FieldType.ConditionalRollup,
+          options: beforeRename.options as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+
+        expect(lookupField.name).toBe(`${originalName} Renamed`);
+        expect(lookupField.dbFieldType).toBe(beforeRename.dbFieldType);
+        expect(lookupField.isComputed).toBe(true);
+        expect(lookupField.isMultipleCellValue).toBe(beforeRename.isMultipleCellValue);
+        expect(lookupField.options).toEqual(beforeRename.options);
+
+        const recordAfter = await getRecord(host.id, hostRecordId);
+        expect(recordAfter.fields[fieldId]).toEqual(baseline);
+      } finally {
+        lookupField = await convertField(host.id, fieldId, {
+          name: originalName,
+          type: FieldType.ConditionalRollup,
+          options: beforeRename.options as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+      }
+    });
+
+    it('should retain computed metadata when renaming and updating conditional rollup formatting', async () => {
+      const beforeUpdate = await getField(host.id, lookupField.id);
+      const fieldId = lookupField.id;
+      const originalName = beforeUpdate.name;
+      const baseline = (await getRecord(host.id, hostRecordId)).fields[fieldId];
+      const originalOptions = beforeUpdate.options as IConditionalRollupFieldOptions;
+      const updatedOptions: IConditionalRollupFieldOptions = {
+        ...originalOptions,
+        formatting: {
+          type: NumberFormattingType.Currency,
+          symbol: '$',
+          precision: 0,
+        },
+      };
+
+      try {
+        lookupField = await convertField(host.id, fieldId, {
+          name: `${originalName} Renamed`,
+          type: FieldType.ConditionalRollup,
+          options: updatedOptions,
+        } as IFieldRo);
+
+        expect(lookupField.name).toBe(`${originalName} Renamed`);
+        expect(lookupField.dbFieldType).toBe(beforeUpdate.dbFieldType);
+        expect(lookupField.isComputed).toBe(true);
+        expect(lookupField.isMultipleCellValue).toBe(beforeUpdate.isMultipleCellValue);
+        expect((lookupField.options as IConditionalRollupFieldOptions)?.formatting).toEqual(
+          updatedOptions.formatting
+        );
+
+        const recordAfter = await getRecord(host.id, hostRecordId);
+        expect(recordAfter.fields[fieldId]).toEqual(baseline);
+      } finally {
+        lookupField = await convertField(host.id, fieldId, {
+          name: originalName,
+          type: FieldType.ConditionalRollup,
+          options: originalOptions,
+        } as IFieldRo);
+      }
+    });
+
     it('should respect updated filters and foreign mutations', async () => {
       const statusFilter = {
         conjunction: 'and',
