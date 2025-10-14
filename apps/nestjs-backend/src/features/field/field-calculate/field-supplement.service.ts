@@ -64,7 +64,10 @@ import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { extractFieldReferences } from '../../../utils';
-import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
+import {
+  majorFieldKeysChanged,
+  NON_INFECT_OPTION_KEYS,
+} from '../../../utils/major-field-keys-changed';
 import { ReferenceService } from '../../calculation/reference.service';
 import { hasCycle } from '../../calculation/utils/dfs';
 import { FieldService } from '../field.service';
@@ -1332,13 +1335,42 @@ export class FieldSupplementService {
     }
 
     if (!hasMajorChange) {
-      return {
-        ...oldFieldVo,
-        ...fieldRo,
-        options: fieldRo.options !== undefined ? fieldRo.options : oldFieldVo.options,
-        lookupOptions:
-          fieldRo.lookupOptions !== undefined ? fieldRo.lookupOptions : oldFieldVo.lookupOptions,
-      };
+      const mergedField = { ...oldFieldVo } as IFieldVo;
+      Object.entries(fieldRo).forEach(([key, value]) => {
+        if (value !== undefined && key !== 'options' && key !== 'lookupOptions') {
+          (mergedField as Record<string, unknown>)[key] = value;
+        }
+      });
+      if (fieldRo.options !== undefined) {
+        const oldOptions = (oldFieldVo.options ?? {}) as Record<string, unknown>;
+        const newOptions = fieldRo.options as Record<string, unknown>;
+        const mergedOptions = { ...oldOptions };
+
+        Object.entries(newOptions).forEach(([key, value]) => {
+          if (value === undefined) {
+            delete mergedOptions[key];
+          } else {
+            mergedOptions[key] = value;
+          }
+        });
+
+        Object.keys(oldOptions).forEach((key) => {
+          if (!(key in newOptions) && NON_INFECT_OPTION_KEYS.has(key)) {
+            delete mergedOptions[key];
+          }
+        });
+
+        mergedField.options = mergedOptions as IFieldVo['options'];
+      }
+      if (fieldRo.lookupOptions !== undefined) {
+        const oldLookupOptions = (oldFieldVo.lookupOptions ?? {}) as Record<string, unknown>;
+        const newLookupOptions = fieldRo.lookupOptions as Record<string, unknown>;
+        mergedField.lookupOptions = {
+          ...oldLookupOptions,
+          ...newLookupOptions,
+        } as IFieldVo['lookupOptions'];
+      }
+      return mergedField;
     }
 
     if (fieldRo.isLookup && hasMajorChange) {
