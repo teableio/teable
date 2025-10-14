@@ -45,6 +45,35 @@
     "title": "クイックアクション...",
     "placeHolder": "コマンドまたは検索の入力..."
   },
+  "password": {
+    "setInvalid": "パスワードが無効です。少なくとも8文字で、少なくとも1つの文字と1つの数字を含める必要があります。"
+  },
+  "template": {
+    "aiTitle": "一緒に構築しましょう",
+    "aiSubTitle": "チームがデータで協力し、本番アプリを生成する最初のAIプラットフォーム",
+    "guideTitle": "シナリオから始める",
+    "watchVideo": "動画を見る",
+    "title": "テンプレート",
+    "description": "テンプレートから新しいベースを作成",
+    "browseAll": "すべて閲覧",
+    "templateTitle": "テンプレートで始める",
+    "loadMore": "さらに読み込む",
+    "allTemplatesLoaded": "すべてのテンプレートが読み込まれました",
+    "createTemplate": "テンプレートを作成",
+    "promptBox": {
+      "placeholder": "Teableでビジネスアプリを構築",
+      "start": "開始",
+      "carouselGuides": {
+        "guide1": "レシートを貼り付け → Teableに主要データを自動抽出させる",
+        "guide2": "リードとフォローアップテーブルでAI CRMを構築",
+        "guide3": "顧客フィードバックを貼り付け → Teableにインサイトを見つけてレポートを生成させる",
+        "guide4": "タスクと期限付きのプロジェクトトラッカーを作成",
+        "guide5": "リードスプレッドシートを貼り付け → TeableにスマートなCRMを構築させる",
+        "guide6": "投稿と公開日付を持つコンテンツプランナーを構築",
+        "guide7": "履歴書を貼り付け → Teableに候補者を整理して選別させる"
+      }
+    }
+  },
   "settings": {
     "title": "設定",
     "back": "ホームに戻る",

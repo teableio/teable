@@ -56,6 +56,32 @@
   "password": {
     "setInvalid": "La contraseña no es válida, debe tener al menos 8 caracteres y contener al menos una letra y un número."
   },
+  "template": {
+    "aiTitle": "Construyamos juntos",
+    "aiSubTitle": "La primera plataforma de IA donde los equipos colaboran en datos y generan aplicaciones de producción",
+    "guideTitle": "Comienza desde tu escenario",
+    "watchVideo": "Ver video",
+    "title": "Plantilla",
+    "description": "Crear una nueva base desde una plantilla",
+    "browseAll": "Ver Todas",
+    "templateTitle": "Comenzar con plantilla",
+    "loadMore": "Cargar Más",
+    "allTemplatesLoaded": "Todas las plantillas cargadas",
+    "createTemplate": "Crear Plantilla",
+    "promptBox": {
+      "placeholder": "Construye tu aplicación empresarial con Teable",
+      "start": "Iniciar",
+      "carouselGuides": {
+        "guide1": "Pega recibos → Pide a Teable que extraiga automáticamente los datos clave",
+        "guide2": "Construye un CRM de IA con tablas de leads y seguimiento",
+        "guide3": "Pega comentarios de clientes → Pide a Teable que encuentre insights y genere informes",
+        "guide4": "Crea un rastreador de proyectos con tareas y plazos",
+        "guide5": "Pega hoja de leads → Pide a Teable que construya un CRM inteligente",
+        "guide6": "Construye un planificador de contenido con publicaciones y fechas de publicación",
+        "guide7": "Pega currículums → Pide a Teable que organice y preseleccione candidatos"
+      }
+    }
+  },
   "settings": {
     "title": "Configuración",
     "back": "Volver al inicio",

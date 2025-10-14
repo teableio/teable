@@ -49,6 +49,35 @@
     "title": "Hızlı İşlemler...",
     "placeHolder": "Bir komut yazın veya arayın..."
   },
+  "password": {
+    "setInvalid": "Şifre geçersiz, en az 8 karakter olmalı ve en az bir harf ve bir rakam içermelidir."
+  },
+  "template": {
+    "aiTitle": "Birlikte inşa edelim",
+    "aiSubTitle": "Ekiplerin veriler üzerinde işbirliği yaptığı ve üretim uygulamaları oluşturduğu ilk AI platformu",
+    "guideTitle": "Senaryonuzdan başlayın",
+    "watchVideo": "Video izle",
+    "title": "Şablon",
+    "description": "Şablondan yeni bir veritabanı oluştur",
+    "browseAll": "Tümüne Göz At",
+    "templateTitle": "Şablonla başla",
+    "loadMore": "Daha Fazla Yükle",
+    "allTemplatesLoaded": "Tüm şablonlar yüklendi",
+    "createTemplate": "Şablon Oluştur",
+    "promptBox": {
+      "placeholder": "Teable ile iş uygulamanızı oluşturun",
+      "start": "Başlat",
+      "carouselGuides": {
+        "guide1": "Makbuzları yapıştırın → Teable'dan anahtar verileri otomatik olarak çıkarmasını isteyin",
+        "guide2": "Müşteri adayı ve takip tabloları ile AI CRM oluşturun",
+        "guide3": "Müşteri geri bildirimlerini yapıştırın → Teable'dan içgörüler bulmasını ve raporlar oluşturmasını isteyin",
+        "guide4": "Görevler ve son tarihlerle bir proje takip sistemi oluşturun",
+        "guide5": "Müşteri adayları elektronik tablosunu yapıştırın → Teable'dan akıllı bir CRM oluşturmasını isteyin",
+        "guide6": "Gönderiler ve yayın tarihleri ile bir içerik planlayıcısı oluşturun",
+        "guide7": "Özgeçmişleri yapıştırın → Teable'dan adayları düzenlemesini ve ön elemeyi yapmasını isteyin"
+      }
+    }
+  },
   "settings": {
     "title": "Ayarlar",
     "back": "Ana sayfaya dön",

@@ -46,6 +46,35 @@
     "title": "Actions rapides...",
     "placeHolder": "Tapez une commande ou recherchez..."
   },
+  "password": {
+    "setInvalid": "Le mot de passe n'est pas valide, il doit contenir au moins 8 caractères et au moins une lettre et un chiffre."
+  },
+  "template": {
+    "aiTitle": "Construisons ensemble",
+    "aiSubTitle": "La première plateforme IA où les équipes collaborent sur les données et génèrent des applications de production",
+    "guideTitle": "Commencez à partir de votre scénario",
+    "watchVideo": "Regarder la vidéo",
+    "title": "Modèle",
+    "description": "Créer une nouvelle base à partir d'un modèle",
+    "browseAll": "Parcourir Tout",
+    "templateTitle": "Commencer avec un modèle",
+    "loadMore": "Charger Plus",
+    "allTemplatesLoaded": "Tous les modèles chargés",
+    "createTemplate": "Créer un Modèle",
+    "promptBox": {
+      "placeholder": "Créez votre application métier avec Teable",
+      "start": "Démarrer",
+      "carouselGuides": {
+        "guide1": "Collez des reçus → Demandez à Teable d'extraire automatiquement les données clés",
+        "guide2": "Créez un CRM IA avec des tables de prospects et de suivi",
+        "guide3": "Collez les commentaires clients → Demandez à Teable de trouver des insights et générer des rapports",
+        "guide4": "Créez un suivi de projet avec tâches et échéances",
+        "guide5": "Collez une feuille de prospects → Demandez à Teable de créer un CRM intelligent",
+        "guide6": "Créez un planificateur de contenu avec publications et dates de publication",
+        "guide7": "Collez des CV → Demandez à Teable d'organiser et présélectionner les candidats"
+      }
+    }
+  },
   "settings": {
     "title": "Paramètres",
     "back": "Retour à l'accueil",

@@ -56,6 +56,32 @@
   "password": {
     "setInvalid": "La password non è valida, deve contenere almeno 8 caratteri e almeno una lettera e un numero."
   },
+  "template": {
+    "aiTitle": "Costruiamo insieme",
+    "aiSubTitle": "La prima piattaforma AI dove i team collaborano sui dati e generano app di produzione",
+    "guideTitle": "Inizia dal tuo scenario",
+    "watchVideo": "Guarda il video",
+    "title": "Modello",
+    "description": "Crea un nuovo database da un modello",
+    "browseAll": "Sfoglia Tutti",
+    "templateTitle": "Inizia con modello",
+    "loadMore": "Carica Altro",
+    "allTemplatesLoaded": "Tutti i modelli caricati",
+    "createTemplate": "Crea Modello",
+    "promptBox": {
+      "placeholder": "Costruisci la tua app aziendale con Teable",
+      "start": "Inizia",
+      "carouselGuides": {
+        "guide1": "Incolla ricevute → Chiedi a Teable di estrarre automaticamente i dati chiave",
+        "guide2": "Costruisci un CRM AI con tabelle di lead e follow-up",
+        "guide3": "Incolla feedback dei clienti → Chiedi a Teable di trovare insights e generare report",
+        "guide4": "Crea un tracker di progetti con attività e scadenze",
+        "guide5": "Incolla foglio di lead → Chiedi a Teable di costruire un CRM intelligente",
+        "guide6": "Costruisci un pianificatore di contenuti con post e date di pubblicazione",
+        "guide7": "Incolla curriculum → Chiedi a Teable di organizzare e selezionare candidati"
+      }
+    }
+  },
   "settings": {
     "title": "Impostazioni",
     "back": "Torna alla home",

@@ -56,6 +56,32 @@
   "password": {
     "setInvalid": "Das Passwort ist ungültig, besteht aus mindestens 8 Zeichen und muss mindestens einen Buchstaben und eine Zahl enthalten."
   },
+  "template": {
+    "aiTitle": "Lass uns zusammen bauen",
+    "aiSubTitle": "Die erste KI-Plattform, auf der Teams gemeinsam an Daten arbeiten und Produktions-Apps erstellen",
+    "guideTitle": "Beginnen Sie mit Ihrem Szenario",
+    "watchVideo": "Video ansehen",
+    "title": "Vorlage",
+    "description": "Erstellen Sie eine neue Datenbank aus einer Vorlage",
+    "browseAll": "Alle durchsuchen",
+    "templateTitle": "Mit Vorlage beginnen",
+    "loadMore": "Mehr laden",
+    "allTemplatesLoaded": "Alle Vorlagen geladen",
+    "createTemplate": "Vorlage erstellen",
+    "promptBox": {
+      "placeholder": "Erstellen Sie Ihre Business-App mit Teable",
+      "start": "Starten",
+      "carouselGuides": {
+        "guide1": "Quittungen einfügen → Teable bitten, Schlüsseldaten automatisch zu extrahieren",
+        "guide2": "Erstellen Sie ein KI-CRM mit Lead- und Follow-up-Tabellen",
+        "guide3": "Kundenfeedback einfügen → Teable bitten, Erkenntnisse zu finden und Berichte zu erstellen",
+        "guide4": "Erstellen Sie einen Projekt-Tracker mit Aufgaben und Fristen",
+        "guide5": "Leads-Tabelle einfügen → Teable bitten, ein intelligentes CRM zu erstellen",
+        "guide6": "Erstellen Sie einen Content-Planer mit Beiträgen und Veröffentlichungsdaten",
+        "guide7": "Lebensläufe einfügen → Teable bitten, Kandidaten zu organisieren und vorzusortieren"
+      }
+    }
+  },
   "settings": {
     "title": "Einstellungen",
     "back": "Zurück zum Start",
