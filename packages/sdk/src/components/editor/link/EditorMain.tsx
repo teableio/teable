@@ -32,6 +32,7 @@ export interface ILinkEditorMainProps {
   isEditing?: boolean;
   setEditing?: (isEditing: boolean) => void;
   onChange?: (value: ILinkCellValue | ILinkCellValue[] | null) => void;
+  onExpand?: (recordId: string) => void;
 }
 
 export interface ILinkEditorMainRef {
@@ -42,7 +43,8 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
   props,
   forwardRef
 ) => {
-  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange } = props;
+  const { recordId, fieldId, options, cellValue, isEditing, setEditing, onChange, onExpand } =
+    props;
 
   const { searchQuery } = useSearch();
   const rowCount = useRowCount() || 0;
@@ -175,6 +177,7 @@ const LinkEditorInnerBase: ForwardRefRenderFunction<ILinkEditorMainRef, ILinkEdi
           isMultiple={isMultiple}
           recordQuery={recordQuery}
           onChange={onListChange}
+          onExpand={onExpand}
         />
       </div>
       <div className="flex justify-between">

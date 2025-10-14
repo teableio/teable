@@ -1,11 +1,12 @@
 import type { ILinkCellValue } from '@teable/core';
 import { Dialog, DialogContent } from '@teable/ui-lib';
 import type { FC } from 'react';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { type LinkField } from '../../../model';
 import type { ILinkEditorMainRef } from '../../editor';
 import { LinkEditorMain } from '../../editor';
+import { ExpandRecorder, ExpandRecordModel } from '../../expand-record';
 import type { IEditorProps } from '../../grid/components';
 import type { IWrapperEditorProps } from './type';
 
@@ -18,6 +19,7 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
 
   const containerRef = useRef<HTMLDivElement>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
+  const [expandRecordId, setExpandRecordId] = useState<string>();
 
   const onOpenChange = (open: boolean) => {
     if (open) return setEditing?.(true);
@@ -26,6 +28,14 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
 
   const onChange = (value: ILinkCellValue | ILinkCellValue[] | null) => {
     record.updateCell(fieldId, value, { t });
+  };
+
+  const onExpand = (recordId: string) => {
+    setExpandRecordId(recordId);
+  };
+
+  const onExpandClose = () => {
+    setExpandRecordId(undefined);
   };
 
   return (
@@ -37,6 +47,8 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
           className="flex h-[520px] max-w-4xl flex-col"
           onMouseDown={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
         >
           <LinkEditorMain
             ref={linkEditorMainRef}
@@ -48,7 +60,16 @@ export const GridLinkEditor: FC<IEditorProps & IWrapperEditorProps> = (props) =>
             isEditing={isEditing}
             onChange={onChange}
             setEditing={setEditing}
+            onExpand={onExpand}
           />
+          {expandRecordId && (
+            <ExpandRecorder
+              tableId={options.foreignTableId}
+              recordId={expandRecordId}
+              model={ExpandRecordModel.Modal}
+              onClose={onExpandClose}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </>

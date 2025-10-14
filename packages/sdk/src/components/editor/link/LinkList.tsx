@@ -3,9 +3,17 @@ import type { IGetRecordsRo } from '@teable/openapi';
 import { useToast } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from '../../../context/app/i18n';
-import type { ICell, ICellItem, IGridRef, IRectangle } from '../../grid';
+import type { ICell, ICellItem, IGridColumn, IGridRef, IRectangle } from '../../grid';
 
 import {
   CombinedSelection,
@@ -75,10 +83,12 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     },
   }));
 
+  const [columnWidths, setColumnWidths] = useState<Map<string, number>>(new Map());
+
   const theme = useGridTheme();
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
-  const { columns, cellValue2GridDisplay } = useGridColumns(false, hiddenFieldIds);
+  const { columns: baseColumns, cellValue2GridDisplay } = useGridColumns(false, hiddenFieldIds);
 
   const gridRef = useRef<IGridRef>(null);
   const rowCountRef = useRef<number>(rowCount);
@@ -91,6 +101,16 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     undefined,
     recordQuery
   );
+
+  const columns = useMemo(() => {
+    if (columnWidths.size === 0) return baseColumns;
+
+    const overrideMap = new Map(columnWidths.entries());
+    return baseColumns.map((col) => {
+      const width = overrideMap.get(col.id);
+      return width !== undefined ? { ...col, width } : col;
+    });
+  }, [baseColumns, columnWidths]);
 
   const componentId = useMemo(() => uniqueId('link-editor-'), []);
 
@@ -217,6 +237,16 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     onExpand?.(record.id);
   };
 
+  const onColumnResize = useCallback((column: IGridColumn, newSize: number) => {
+    const columnId = column.id;
+    if (!columnId) return;
+    setColumnWidths((prev) => {
+      const next = new Map(prev);
+      next.set(columnId, newSize);
+      return next;
+    });
+  }, []);
+
   return (
     <>
       <Grid
@@ -242,6 +272,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
         onSelectionChanged={onSelectionChanged}
         onVisibleRegionChanged={onVisibleRegionChanged}
         onRowExpand={isExpandEnable ? onExpandInner : undefined}
+        onColumnResize={onColumnResize}
       />
       <GridTooltip id={componentId} />
     </>
