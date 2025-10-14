@@ -296,9 +296,11 @@ export class GeneratedColumnQuerySupportValidatorSqlite
     return false;
   }
 
-  // Logical Functions - All supported
+  // Logical Functions - IF fallback to computed evaluation (not immutable-safe).
+  // Example: `IF({LinkField}, 1, 0)` needs to inspect JSON link arrays at runtime;
+  // SQLite generated columns cannot express that immutably, so we prevent GC usage.
   if(_condition: string, _valueIfTrue: string, _valueIfFalse: string): boolean {
-    return true;
+    return false;
   }
 
   and(_params: string[]): boolean {

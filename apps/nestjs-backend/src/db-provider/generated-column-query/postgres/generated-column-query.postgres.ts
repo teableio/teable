@@ -64,6 +64,29 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
+  private normalizeBooleanCondition(condition: string): string {
+    const wrapped = `(${condition})`;
+    const conditionType = `pg_typeof${wrapped}::text`;
+    const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
+    const stringTypes = "('text','character varying','character','varchar','unknown')";
+    const wrappedText = `(${wrapped})::text`;
+    const booleanTruthyScore = `CASE WHEN LOWER(${wrappedText}) IN ('t','true','1') THEN 1 ELSE 0 END`;
+    const numericTruthyScore = `CASE WHEN ${wrappedText} ~ '^\\s*[+-]{0,1}0*(\\.0*){0,1}\\s*$' THEN 0 ELSE 1 END`;
+    const fallbackTruthyScore = `CASE
+      WHEN COALESCE(${wrappedText}, '') = '' THEN 0
+      WHEN LOWER(${wrappedText}) = 'null' THEN 0
+      ELSE 1
+    END`;
+
+    return `CASE
+      WHEN ${wrapped} IS NULL THEN 0
+      WHEN ${conditionType} = 'boolean' THEN ${booleanTruthyScore}
+      WHEN ${conditionType} IN ${numericTypes} THEN ${numericTruthyScore}
+      WHEN ${conditionType} IN ${stringTypes} THEN ${fallbackTruthyScore}
+      ELSE ${fallbackTruthyScore}
+    END = 1`;
+  }
+
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
@@ -566,7 +589,8 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    return `CASE WHEN ${condition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    const booleanCondition = this.normalizeBooleanCondition(condition);
+    return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
   and(params: string[]): string {

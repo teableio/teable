@@ -450,11 +450,15 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    // Handle JSON values in conditions by checking if they are not null and not 'null'
-    // This is needed for link fields that return JSON objects
-    const wrappedCondition = `(${condition})`;
-    const booleanCondition = `(${wrappedCondition} IS NOT NULL AND ${wrappedCondition} != 'null')`;
-    return `CASE WHEN ${booleanCondition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    const wrapped = `(${condition})`;
+    const valueType = `TYPEOF${wrapped}`;
+    const booleanCondition = `CASE
+      WHEN ${wrapped} IS NULL THEN 0
+      WHEN ${valueType} = 'integer' OR ${valueType} = 'real' THEN (${wrapped}) != 0
+      WHEN ${valueType} = 'text' THEN (${wrapped} != '' AND LOWER(${wrapped}) != 'null')
+      ELSE (${wrapped}) IS NOT NULL AND ${wrapped} != 'null'
+    END`;
+    return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
   and(params: string[]): string {

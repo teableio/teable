@@ -544,11 +544,24 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    // Handle JSON values in conditions by checking if they are not null and not JSON null
-    // This is needed for link fields that return JSON objects
-    const wrappedCondition = `(${condition})`;
-    const booleanCondition = `(${wrappedCondition} IS NOT NULL AND ${wrappedCondition}::text != 'null')`;
-    return `CASE WHEN ${booleanCondition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    const wrapped = `(${condition})`;
+    const conditionType = `pg_typeof${wrapped}::text`;
+    const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
+    const wrappedText = `(${wrapped})::text`;
+    const booleanTruthyScore = `CASE WHEN LOWER(${wrappedText}) IN ('t','true','1') THEN 1 ELSE 0 END`;
+    const numericTruthyScore = `CASE WHEN ${wrappedText} ~ '^\\s*[+-]{0,1}0*(\\.0*){0,1}\\s*$' THEN 0 ELSE 1 END`;
+    const fallbackTruthyScore = `CASE
+      WHEN COALESCE(${wrappedText}, '') = '' THEN 0
+      WHEN LOWER(${wrappedText}) = 'null' THEN 0
+      ELSE 1
+    END`;
+    const truthinessScore = `CASE
+      WHEN ${wrapped} IS NULL THEN 0
+      WHEN ${conditionType} = 'boolean' THEN ${booleanTruthyScore}
+      WHEN ${conditionType} IN ${numericTypes} THEN ${numericTruthyScore}
+      ELSE ${fallbackTruthyScore}
+    END`;
+    return `CASE WHEN (${truthinessScore}) = 1 THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
   and(params: string[]): string {

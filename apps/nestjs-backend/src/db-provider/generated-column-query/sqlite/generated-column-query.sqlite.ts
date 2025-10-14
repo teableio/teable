@@ -566,9 +566,21 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return '__created_time';
   }
 
+  private normalizeBooleanCondition(condition: string): string {
+    const wrapped = `(${condition})`;
+    const valueType = `TYPEOF${wrapped}`;
+    return `CASE
+      WHEN ${wrapped} IS NULL THEN 0
+      WHEN ${valueType} = 'integer' OR ${valueType} = 'real' THEN (${wrapped}) != 0
+      WHEN ${valueType} = 'text' THEN (${wrapped} != '' AND LOWER(${wrapped}) != 'null')
+      ELSE (${wrapped}) IS NOT NULL AND ${wrapped} != 'null'
+    END`;
+  }
+
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    return `CASE WHEN ${condition} THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    const booleanCondition = this.normalizeBooleanCondition(condition);
+    return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
   and(params: string[]): string {

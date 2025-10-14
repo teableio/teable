@@ -298,9 +298,12 @@ export class GeneratedColumnQuerySupportValidatorPostgres
     return false;
   }
 
-  // Logical Functions - All supported
+  // Logical Functions - IF fallback to computed evaluation (not immutable-safe).
+  // Example: `IF({LinkField}, 1, 0)` dereferences JSON arrays from link cells and
+  // needs runtime truthiness checks; the generated expression is not immutable,
+  // so we force evaluation in the computed path instead of a generated column.
   if(_condition: string, _valueIfTrue: string, _valueIfFalse: string): boolean {
-    return true;
+    return false;
   }
 
   and(_params: string[]): boolean {

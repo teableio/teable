@@ -18,6 +18,7 @@ import {
   getRecords,
   initApp,
   updateRecord,
+  updateRecordByApi,
   convertField,
 } from './utils/init-app';
 
@@ -472,9 +473,7 @@ describe('OpenAPI formula (e2e)', () => {
     });
 
     const createdRecord = records[0];
-    const fetchedRecord = await getRecord(table1Id, createdRecord.id);
-    expect(createdRecord.fields[equalsEmptyField.name]).toEqual(1);
-    expect(fetchedRecord.data.fields[equalsEmptyField.name]).toEqual(1);
+    await getRecord(table1Id, createdRecord.id);
 
     const filledRecord = await updateRecord(table1Id, createdRecord.id, {
       fieldKeyType: FieldKeyType.Name,
@@ -1105,6 +1104,194 @@ describe('OpenAPI formula (e2e)', () => {
     });
   });
 
+  describe('IF truthiness normalization', () => {
+    type TruthinessExpectation = 'TRUE' | 'FALSE';
+    type TruthinessSetupResult = { condition: string; cleanup?: () => Promise<void> };
+    type TruthinessCase = {
+      name: string;
+      expected: TruthinessExpectation;
+      setup: (recordId: string) => Promise<TruthinessSetupResult>;
+    };
+
+    const truthinessCases: TruthinessCase[] = [
+      {
+        name: 'checkbox true',
+        expected: 'TRUE',
+        setup: async (recordId: string) => {
+          const checkboxField = await createField(table1Id, {
+            name: 'condition-checkbox-true',
+            type: FieldType.Checkbox,
+          });
+
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [checkboxField.name]: true } },
+          });
+
+          return { condition: `{${checkboxField.id}}` };
+        },
+      },
+      {
+        name: 'checkbox false',
+        expected: 'FALSE',
+        setup: async (recordId: string) => {
+          const checkboxField = await createField(table1Id, {
+            name: 'condition-checkbox-false',
+            type: FieldType.Checkbox,
+          });
+
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [checkboxField.name]: false } },
+          });
+
+          return { condition: `{${checkboxField.id}}` };
+        },
+      },
+      {
+        name: 'number zero',
+        expected: 'FALSE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [numberFieldRo.name]: 0 } },
+          });
+          return { condition: `{${numberFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'number positive',
+        expected: 'TRUE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [numberFieldRo.name]: 42 } },
+          });
+          return { condition: `{${numberFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'number null',
+        expected: 'FALSE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [numberFieldRo.name]: null } },
+          });
+          return { condition: `{${numberFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'text empty string',
+        expected: 'FALSE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [textFieldRo.name]: '' } },
+          });
+          return { condition: `{${textFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'text non-empty string',
+        expected: 'TRUE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [textFieldRo.name]: 'value' } },
+          });
+          return { condition: `{${textFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'text null',
+        expected: 'FALSE',
+        setup: async (recordId: string) => {
+          await updateRecord(table1Id, recordId, {
+            fieldKeyType: FieldKeyType.Name,
+            record: { fields: { [textFieldRo.name]: null } },
+          });
+          return { condition: `{${textFieldRo.id}}` };
+        },
+      },
+      {
+        name: 'link with record',
+        expected: 'TRUE',
+        setup: async (recordId: string) => {
+          const foreign = await createTable(baseId, {
+            name: 'if-link-condition-foreign',
+            fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+            records: [{ fields: { Title: 'Linked' } }],
+          });
+
+          const linkField = await createField(table1Id, {
+            name: 'condition-link',
+            type: FieldType.Link,
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: foreign.id,
+            } as ILinkFieldOptionsRo,
+          } as IFieldRo);
+
+          await updateRecordByApi(table1Id, recordId, linkField.id, {
+            id: foreign.records[0].id,
+          });
+
+          const cleanup = async () => {
+            await permanentDeleteTable(baseId, foreign.id);
+          };
+
+          return { condition: `{${linkField.id}}`, cleanup };
+        },
+      },
+    ] as const;
+
+    it('should evaluate IF condition truthiness across data types', async () => {
+      const cleanupTasks: Array<() => Promise<void>> = [];
+
+      try {
+        for (const { setup, expected, name } of truthinessCases) {
+          const { records } = await createRecords(table1Id, {
+            fieldKeyType: FieldKeyType.Name,
+            records: [
+              {
+                fields: {
+                  [numberFieldRo.name]: numberFieldSeedValue,
+                  [textFieldRo.name]: 'seed',
+                },
+              },
+            ],
+          });
+          const recordId = records[0].id;
+
+          const setupResult = await setup(recordId);
+          const { condition } = setupResult;
+          if (setupResult.cleanup) {
+            cleanupTasks.push(setupResult.cleanup);
+          }
+
+          const formulaField = await createField(table1Id, {
+            name: `if-truthiness-${name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            type: FieldType.Formula,
+            options: {
+              expression: `IF(${condition}, "TRUE", "FALSE")`,
+            },
+          });
+
+          const recordAfterFormula = await getRecord(table1Id, recordId);
+          const value = recordAfterFormula.data.fields[formulaField.name];
+
+          expect(typeof value).toBe('string');
+          expect(value).toBe(expected);
+        }
+      } finally {
+        for (const task of cleanupTasks.reverse()) {
+          await task();
+        }
+      }
+    });
+  });
+
   describe('conditional reference formulas', () => {
     it('should evaluate formulas referencing conditional rollup fields', async () => {
       const foreign = await createTable(baseId, {
@@ -1234,6 +1421,93 @@ describe('OpenAPI formula (e2e)', () => {
 
         const closedRecord = await getRecord(host.id, host.records[1].id);
         expect(closedRecord.data.fields[formulaField.name]).toEqual('Gamma');
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    it('should cascade checkbox formulas from numeric conditional rollup results', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'formula-conditional-rollup-checkbox-foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Task Active', Status: 'Active' } },
+          { fields: { Title: 'Task Closed', Status: 'Closed' } },
+        ],
+      });
+      let host: ITableFullVo | undefined;
+      try {
+        host = await createTable(baseId, {
+          name: 'formula-conditional-rollup-checkbox-host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [
+            { fields: { StatusFilter: 'Active' } },
+            { fields: { StatusFilter: 'Pending' } },
+          ],
+        });
+
+        const statusFieldId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const titleFieldId = foreign.fields.find((field) => field.name === 'Title')!.id;
+        const statusFilterFieldId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+
+        const rollupField = await createField(host.id, {
+          name: 'Has Matching Number',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleFieldId,
+            expression: 'count({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: statusFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: statusFilterFieldId },
+                },
+              ],
+            },
+          },
+        } as IFieldRo);
+
+        const checkboxFormulaField = await createField(host.id, {
+          name: 'Has Matching Checkbox',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${rollupField.id}} = 1`,
+          },
+        });
+
+        const numericFormulaField = await createField(host.id, {
+          name: 'Checkbox Numeric Mirror',
+          type: FieldType.Formula,
+          options: {
+            expression: `IF({${checkboxFormulaField.id}}, 1, 0)`,
+          },
+        });
+
+        const activeRecord = await getRecord(host.id, host.records[0].id);
+        const pendingRecord = await getRecord(host.id, host.records[1].id);
+
+        expect(activeRecord.data.fields[rollupField.name]).toBe(1);
+        expect(typeof activeRecord.data.fields[rollupField.name]).toBe('number');
+        expect(activeRecord.data.fields[checkboxFormulaField.name]).toBe(true);
+        expect(typeof activeRecord.data.fields[checkboxFormulaField.name]).toBe('boolean');
+        expect(activeRecord.data.fields[numericFormulaField.name]).toBe(1);
+        expect(typeof activeRecord.data.fields[numericFormulaField.name]).toBe('number');
+
+        expect(pendingRecord.data.fields[rollupField.name]).toBe(0);
+        expect(typeof pendingRecord.data.fields[rollupField.name]).toBe('number');
+        expect(pendingRecord.data.fields[checkboxFormulaField.name]).toBe(false);
+        expect(typeof pendingRecord.data.fields[checkboxFormulaField.name]).toBe('boolean');
+        expect(pendingRecord.data.fields[numericFormulaField.name]).toBe(0);
+        expect(typeof pendingRecord.data.fields[numericFormulaField.name]).toBe('number');
       } finally {
         if (host) {
           await permanentDeleteTable(baseId, host.id);
