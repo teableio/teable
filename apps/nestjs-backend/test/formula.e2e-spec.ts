@@ -640,7 +640,12 @@ describe('OpenAPI formula (e2e)', () => {
     const numericInput = 12.345;
     const textInput = 'Teable Rocks';
 
-    const textCases = [
+    const textCases: Array<{
+      name: string;
+      getExpression: () => string;
+      expected: string | number;
+      textValue?: string;
+    }> = [
       {
         name: 'CONCATENATE',
         getExpression: () => `CONCATENATE({${textFieldRo.id}}, "-", "END")`,
@@ -670,6 +675,12 @@ describe('OpenAPI formula (e2e)', () => {
         name: 'REGEXP_REPLACE',
         getExpression: () => `REGEXP_REPLACE({${textFieldRo.id}}, "[aeiou]", "#")`,
         expected: textInput.replace(/[aeiou]/g, '#'),
+      },
+      {
+        name: 'REGEXP_REPLACE email local part',
+        textValue: 'olivia@example.com',
+        getExpression: () => `"user name:" & REGEXP_REPLACE({${textFieldRo.id}}, '@.*', '')`,
+        expected: 'user name:olivia',
       },
       {
         name: 'SUBSTITUTE',
@@ -726,40 +737,44 @@ describe('OpenAPI formula (e2e)', () => {
         getExpression: () => `ENCODE_URL_COMPONENT({${textFieldRo.id}})`,
         expected: textInput,
       },
-    ] as const;
+    ];
 
-    it.each(textCases)('should evaluate $name', async ({ getExpression, expected, name }) => {
-      const { records } = await createRecords(table1Id, {
-        fieldKeyType: FieldKeyType.Name,
-        records: [
-          {
-            fields: {
-              [numberFieldRo.name]: numericInput,
-              [textFieldRo.name]: textInput,
+    it.each(textCases)(
+      'should evaluate $name',
+      async ({ getExpression, expected, name, textValue }) => {
+        const recordTextValue = textValue ?? textInput;
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: numericInput,
+                [textFieldRo.name]: recordTextValue,
+              },
             },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const formulaField = await createField(table1Id, {
+          name: `text-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`,
+          type: FieldType.Formula,
+          options: {
+            expression: getExpression(),
           },
-        ],
-      });
-      const recordId = records[0].id;
+        });
 
-      const formulaField = await createField(table1Id, {
-        name: `text-${name.toLowerCase().replace(/[^a-z]+/g, '-')}`,
-        type: FieldType.Formula,
-        options: {
-          expression: getExpression(),
-        },
-      });
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const value = recordAfterFormula.data.fields[formulaField.name];
 
-      const recordAfterFormula = await getRecord(table1Id, recordId);
-      const value = recordAfterFormula.data.fields[formulaField.name];
-
-      if (typeof expected === 'number') {
-        expect(typeof value).toBe('number');
-        expect(value).toBe(expected);
-      } else {
-        expect(value ?? null).toEqual(expected);
+        if (typeof expected === 'number') {
+          expect(typeof value).toBe('number');
+          expect(value).toBe(expected);
+        } else {
+          expect(value ?? null).toEqual(expected);
+        }
       }
-    });
+    );
   });
 
   describe('logical and system formula functions', () => {
