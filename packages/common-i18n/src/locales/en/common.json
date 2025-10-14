@@ -61,9 +61,10 @@
     "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
   },
   "template": {
-    "aiTitle": "Let’s build together",
+    "aiTitle": "Let's build together",
     "aiSubTitle": "The first AI platform where teams collaborate on data and generate production apps",
     "guideTitle": "Start from your scenario",
+    "watchVideo": "Watch video",
     "title": "Template",
     "description": "Create a new base from a template",
     "browseAll": "Browse All",
@@ -74,8 +75,16 @@
     "promptBox": {
       "placeholder": "Build your business app with Teable",
       "start": "Start it",
-      "ideas": "Some ideas to get started:",
-      "ideasList": {
+      "carouselGuides": {
+        "guide1": "Paste receipts → Ask Teable to auto-extract key data",
+        "guide2": "Build an AI CRM with lead & follow-up tables",
+        "guide3": "Paste customer feedback → Ask Teable to find insights & generate reports",
+        "guide4": "Create a project tracker with tasks & deadlines",
+        "guide5": "Paste leads spreadsheet → Ask Teable to build a smart CRM",
+        "guide6": "Build a content planner with posts & publish dates",
+        "guide7": "Paste resumes → Ask Teable to organize and shortlist candidates"
+      },
+      "ideasList_deprecated": {
         "crm": {
           "title": "CRM",
           "crmForArtists": {
