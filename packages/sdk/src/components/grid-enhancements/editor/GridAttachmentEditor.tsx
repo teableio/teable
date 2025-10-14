@@ -56,6 +56,7 @@ export const GridAttachmentEditor = forwardRef<
             'click-outside-ignore flex-1 overflow-hidden max-w-xl p-5 pt-8',
             Object.values(attachments || {}).length > 5 ? 'h-full max-h-[600px] mt-1 mb-1' : 'h-96'
           )}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <AttachmentEditorMain value={attachments || []} onChange={setAttachments} />
         </DialogContent>
