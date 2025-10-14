@@ -3,6 +3,7 @@ import { DraggableHandle, Star } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { getPinList, updatePinOrder } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
+import { useIsHydrated } from '@teable/sdk/hooks';
 import type { DragEndEvent } from '@teable/ui-lib/base';
 import { DndKitContext, Draggable, Droppable } from '@teable/ui-lib/base';
 import {
@@ -18,6 +19,7 @@ import { PinItem } from './PinItem';
 import { StarButton } from './StarButton';
 
 export const PinList = () => {
+  const isHydrated = useIsHydrated();
   const [pinListExpanded, setPinListExpanded] = useLocalStorage<boolean>(
     LocalStorageKeys.PinListExpanded
   );
@@ -38,6 +40,8 @@ export const PinList = () => {
       queryClient.invalidateQueries(ReactQueryKeys.pinList());
     },
   });
+
+  const finalPinListExpanded = isHydrated ? pinListExpanded : false;
 
   const onDragEndHandler = async (event: DragEndEvent) => {
     const { over, active } = event;
@@ -76,7 +80,7 @@ export const PinList = () => {
       type="single"
       collapsible
       className="w-full shrink-0"
-      value={pinListExpanded ? 'pin-list' : ''}
+      value={finalPinListExpanded ? 'pin-list' : ''}
       onValueChange={(value) => {
         setPinListExpanded(value === 'pin-list');
       }}
