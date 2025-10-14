@@ -55,6 +55,8 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let titleId: string;
     let statusId: string;
     let statusFilterId: string;
+    let activeHostRecordId: string;
+    let gammaRecordId: string;
     beforeAll(async () => {
       foreign = await createTable(baseId, {
         name: 'ConditionalLookup_Foreign',
@@ -70,6 +72,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       });
       titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
       statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+      gammaRecordId = foreign.records.find((record) => record.fields.Title === 'Gamma')!.id;
 
       host = await createTable(baseId, {
         name: 'ConditionalLookup_Host',
@@ -77,6 +80,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Closed' } }],
       });
       statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+      activeHostRecordId = host.records.find(
+        (record) => record.fields.StatusFilter === 'Active'
+      )!.id;
 
       const statusMatchFilter: IFilter = {
         conjunction: 'and',
@@ -133,6 +139,24 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
 
       expect(activeRecord.fields[lookupField.id]).toEqual(['Alpha', 'Beta']);
       expect(closedRecord.fields[lookupField.id]).toEqual(['Gamma']);
+    });
+
+    it('should refresh conditional lookup when foreign records enter the filter', async () => {
+      const baseline = await getRecord(host.id, activeHostRecordId);
+      expect(baseline.fields[lookupField.id]).toEqual(['Alpha', 'Beta']);
+
+      await updateRecordByApi(foreign.id, gammaRecordId, statusId, 'Active');
+      const afterStatus = await getRecord(host.id, activeHostRecordId);
+      expect(afterStatus.fields[lookupField.id]).toEqual(['Alpha', 'Beta', 'Gamma']);
+
+      await updateRecordByApi(foreign.id, gammaRecordId, titleId, 'Gamma Updated');
+      const afterTitle = await getRecord(host.id, activeHostRecordId);
+      expect(afterTitle.fields[lookupField.id]).toEqual(['Alpha', 'Beta', 'Gamma Updated']);
+
+      await updateRecordByApi(foreign.id, gammaRecordId, titleId, 'Gamma');
+      await updateRecordByApi(foreign.id, gammaRecordId, statusId, 'Closed');
+      const restored = await getRecord(host.id, activeHostRecordId);
+      expect(restored.fields[lookupField.id]).toEqual(['Alpha', 'Beta']);
     });
   });
 
@@ -1701,6 +1725,8 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let minSupplierRatingFieldId: string;
     let supplierNameFieldId: string;
     let productSupplierNameFieldId: string;
+    let supplierBRecordId: string;
+    let subscriptionProductId: string;
 
     beforeAll(async () => {
       suppliers = await createTable(baseId, {
@@ -1716,6 +1742,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       });
       supplierRatingId = suppliers.fields.find((f) => f.name === 'Rating')!.id;
       supplierNameFieldId = suppliers.fields.find((f) => f.name === 'SupplierName')!.id;
+      supplierBRecordId = suppliers.records.find(
+        (record) => record.fields.SupplierName === 'Supplier B'
+      )!.id;
 
       products = await createTable(baseId, {
         name: 'ConditionalLookup_Product',
@@ -1730,6 +1759,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         ],
       });
       productSupplierNameFieldId = products.fields.find((f) => f.name === 'Supplier Name')!.id;
+      subscriptionProductId = products.records.find(
+        (record) => record.fields.ProductName === 'Subscription'
+      )!.id;
 
       linkToSupplierField = await createField(products.id, {
         name: 'Supplier Link',
@@ -2029,6 +2061,65 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         const hostRecord = await getRecord(host.id, host.records[0].id);
         expect(hostRecord.fields[conditionalRollupMirrorField.id]).toEqual([5, 4]);
       });
+    });
+
+    it('should refresh conditional rollup mirrors when source aggregates gain new matches', async () => {
+      const baselineHost = await getRecord(host.id, host.records[0].id);
+      const baselineRollupValues = [
+        ...((baselineHost.fields[conditionalRollupMirrorField.id] as number[]) || []),
+      ];
+      const baselineLookupValues = [
+        ...((baselineHost.fields[conditionalLookupMirrorField.id] as number[]) || []),
+      ];
+      expect(baselineRollupValues).toEqual([5, 4]);
+      expect(baselineLookupValues).toEqual([5, 4]);
+
+      const baselineProduct = await getRecord(products.id, subscriptionProductId);
+      const baselineRollup = baselineProduct.fields[supplierRatingConditionalRollup.id] as
+        | number
+        | null
+        | undefined;
+      expect(baselineRollup ?? 0).toBe(0);
+
+      await updateRecordByApi(suppliers.id, supplierBRecordId, supplierRatingId, 5);
+
+      const afterBoostHost = await getRecord(host.id, host.records[0].id);
+      const rollupValues =
+        (afterBoostHost.fields[conditionalRollupMirrorField.id] as number[]) || [];
+      const lookupValues =
+        (afterBoostHost.fields[conditionalLookupMirrorField.id] as number[]) || [];
+      const baselineFiveRollupCount = baselineRollupValues.filter((value) => value === 5).length;
+      const baselineFiveLookupCount = baselineLookupValues.filter((value) => value === 5).length;
+      expect(rollupValues.filter((value) => value === 5).length).toBeGreaterThan(
+        baselineFiveRollupCount
+      );
+      expect(lookupValues.filter((value) => value === 5).length).toBeGreaterThan(
+        baselineFiveLookupCount
+      );
+
+      const subscriptionAfterBoost = await getRecord(products.id, subscriptionProductId);
+      expect(subscriptionAfterBoost.fields[supplierRatingConditionalRollup.id]).toEqual(5);
+
+      await updateRecordByApi(suppliers.id, supplierBRecordId, supplierRatingId, 4);
+
+      const restoredHost = await getRecord(host.id, host.records[0].id);
+      const restoredRollupValues =
+        (restoredHost.fields[conditionalRollupMirrorField.id] as number[]) || [];
+      const restoredLookupValues =
+        (restoredHost.fields[conditionalLookupMirrorField.id] as number[]) || [];
+      expect(restoredRollupValues.filter((value) => value > 0)).toEqual(
+        baselineRollupValues.filter((value) => value > 0)
+      );
+      expect(restoredLookupValues.filter((value) => value > 0)).toEqual(
+        baselineLookupValues.filter((value) => value > 0)
+      );
+
+      const subscriptionRestored = await getRecord(products.id, subscriptionProductId);
+      const restoredRollup = subscriptionRestored.fields[supplierRatingConditionalRollup.id] as
+        | number
+        | null
+        | undefined;
+      expect(restoredRollup ?? 0).toBe(baselineRollup ?? 0);
     });
 
     it('marks lookup dependencies as errored when source fields are removed', async () => {

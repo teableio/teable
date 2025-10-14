@@ -2,7 +2,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import type { IFilter, ILinkFieldOptions, IConditionalRollupFieldOptions } from '@teable/core';
+import type {
+  IFilter,
+  ILinkFieldOptions,
+  IConditionalRollupFieldOptions,
+  IConditionalLookupOptions,
+} from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -315,25 +320,50 @@ export class ComputedDependencyCollectorService {
       (linkAdj[from] ||= new Set<string>()).add(to);
     }
 
-    const referenceFields = await this.prismaService.txClient().field.findMany({
+    const conditionalReferenceFields = await this.prismaService.txClient().field.findMany({
       where: {
         tableId: { in: tables },
-        type: FieldType.ConditionalRollup,
         deletedTime: null,
+        OR: [
+          { type: FieldType.ConditionalRollup },
+          { AND: [{ isLookup: true }, { isConditionalLookup: true }] },
+        ],
       },
-      select: { id: true, tableId: true, options: true },
+      select: {
+        id: true,
+        tableId: true,
+        options: true,
+        lookupOptions: true,
+        type: true,
+        isConditionalLookup: true,
+      },
     });
 
-    for (const rf of referenceFields) {
-      const opts = this.parseOptionsLoose<IConditionalRollupFieldOptions>(rf.options);
-      const foreignTableId = opts?.foreignTableId;
-      if (!foreignTableId) continue;
-      (conditionalRollupAdj[foreignTableId] ||= []).push({
-        tableId: rf.tableId,
-        fieldId: rf.id,
-        foreignTableId,
-        filter: opts?.filter ?? undefined,
-      });
+    for (const field of conditionalReferenceFields) {
+      if (field.type === FieldType.ConditionalRollup) {
+        const opts = this.parseOptionsLoose<IConditionalRollupFieldOptions>(field.options);
+        const foreignTableId = opts?.foreignTableId;
+        if (!foreignTableId) continue;
+        (conditionalRollupAdj[foreignTableId] ||= []).push({
+          tableId: field.tableId,
+          fieldId: field.id,
+          foreignTableId,
+          filter: opts?.filter ?? undefined,
+        });
+        continue;
+      }
+
+      if (field.isConditionalLookup) {
+        const opts = this.parseOptionsLoose<IConditionalLookupOptions>(field.lookupOptions);
+        const foreignTableId = opts?.foreignTableId;
+        if (!foreignTableId) continue;
+        (conditionalRollupAdj[foreignTableId] ||= []).push({
+          tableId: field.tableId,
+          fieldId: field.id,
+          foreignTableId,
+          filter: opts?.filter ?? undefined,
+        });
+      }
     }
 
     return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
