@@ -1,5 +1,6 @@
 import { z } from '../../zod';
 import { filterSchema } from '../view/filter';
+import { SortFunc } from '../view/sort';
 import { Relationship } from './constant';
 
 const lookupLinkOptionsVoSchema = z.object({
@@ -52,6 +53,22 @@ const lookupConditionalOptionsVoSchema = z.object({
   }),
   filter: filterSchema.openapi({
     description: 'Filter to apply when resolving conditional lookup values.',
+  }),
+  sort: z
+    .object({
+      fieldId: z.string().openapi({
+        description: 'The field in the foreign table used to order lookup records.',
+      }),
+      order: z
+        .nativeEnum(SortFunc)
+        .openapi({ description: 'Ordering direction to apply to the sorted field.' }),
+    })
+    .optional()
+    .openapi({
+      description: 'Optional sort configuration applied before aggregating lookup values.',
+    }),
+  limit: z.number().int().positive().optional().openapi({
+    description: 'Maximum number of matching records to include in the lookup result.',
   }),
 });
 

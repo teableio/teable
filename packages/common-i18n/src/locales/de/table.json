@@ -264,7 +264,14 @@
       "filter": "Datensätze filtern",
       "hideFields": "Felder verstecken",
       "moreOptions": "Mehr Optionen",
-      "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen"
+      "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Verknüpfung mit Datensätzen in der von Ihnen gewählten Tabelle",

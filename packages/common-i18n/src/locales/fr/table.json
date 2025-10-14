@@ -255,7 +255,14 @@
       "filter": "Filtrer les enregistrements",
       "hideFields": "Masquer les champs",
       "moreOptions": "Plus d'options",
-      "allowNewOptionsWhenEditing": "Autoriser de nouvelles options lors de l'édition"
+      "allowNewOptionsWhenEditing": "Autoriser de nouvelles options lors de l'édition",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Lien vers les enregistrements dans la table que vous choisissez",

@@ -33,7 +33,7 @@ import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
 
-const sanitizeLookupOptions = (
+export const sanitizeLookupOptions = (
   options?: ILookupOptionsRo | ILookupOptionsVo
 ): ILookupOptionsRo | undefined => {
   if (!options) {
@@ -54,7 +54,7 @@ const sanitizeLookupOptions = (
   }
 
   if (isConditionalLookupOptions(options)) {
-    const { foreignTableId, lookupFieldId, filter, baseId } = options;
+    const { foreignTableId, lookupFieldId, filter, baseId, sort, limit } = options;
     const sanitized: Record<string, unknown> = {
       foreignTableId,
       lookupFieldId,
@@ -64,6 +64,12 @@ const sanitizeLookupOptions = (
     }
     if (baseId !== undefined) {
       sanitized.baseId = baseId;
+    }
+    if (sort !== undefined) {
+      sanitized.sort = sort;
+    }
+    if (limit !== undefined) {
+      sanitized.limit = limit;
     }
     return sanitized as ILookupOptionsRo;
   }

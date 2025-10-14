@@ -239,7 +239,11 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'array_unique':
         return `json_agg(DISTINCT ${fieldExpression})`;
       case 'array_compact': {
-        const baseAggregate = `jsonb_agg(${fieldExpression}) FILTER (WHERE ${fieldExpression} IS NOT NULL)`;
+        const buildAggregate = (expr: string) =>
+          orderByField
+            ? `jsonb_agg(${expr} ORDER BY ${orderByField}) FILTER (WHERE ${expr} IS NOT NULL)`
+            : `jsonb_agg(${expr}) FILTER (WHERE ${expr} IS NOT NULL)`;
+        const baseAggregate = buildAggregate(fieldExpression);
         if (flattenNestedArray) {
           return `(WITH RECURSIVE flattened(val) AS (
               SELECT COALESCE(${baseAggregate}, '[]'::jsonb)

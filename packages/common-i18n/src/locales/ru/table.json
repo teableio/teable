@@ -255,7 +255,14 @@
       "filter": "Фильтровать записи",
       "hideFields": "Скрыть поля",
       "moreOptions": "Дополнительные параметры",
-      "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании"
+      "allowNewOptionsWhenEditing": "Разрешить новые варианты при редактировании",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Связать с записями в выбранной таблице",

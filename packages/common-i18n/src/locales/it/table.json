@@ -264,7 +264,14 @@
       "filter": "Filtra record",
       "hideFields": "Nascondi campi",
       "moreOptions": "Altre opzioni",
-      "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica"
+      "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Collega ai record nella tabella che scegli",

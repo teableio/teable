@@ -860,6 +860,8 @@ export class FieldOpenApiService {
           'lookupFieldId',
           'linkFieldId',
           'filter',
+          'sort',
+          'limit',
         ]),
       } as IFieldInstance['lookupOptions'];
     }

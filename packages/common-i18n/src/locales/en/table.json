@@ -258,6 +258,13 @@
         "selectBaseField": "Select base field",
         "noMappings": "No field mappings configured yet."
       },
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      },
       "linkTable": "Link table",
       "linkBase": "Link base",
       "tableNoPermission": "No permission table",

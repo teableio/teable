@@ -264,7 +264,14 @@
       "filter": "Фільтрувати записи",
       "hideFields": "Приховати поля",
       "moreOptions": "Більше параметрів",
-      "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування"
+      "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Посилання на записи у вибраній таблиці",

@@ -255,7 +255,14 @@
       "filter": "レコードをフィルターする",
       "hideFields": "フィールドを非表示にする",
       "moreOptions": "オプションを表示",
-      "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可"
+      "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "選択したテーブル内のレコードへのリンク",

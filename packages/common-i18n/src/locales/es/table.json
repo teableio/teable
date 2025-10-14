@@ -261,7 +261,14 @@
       "filter": "Registros de filtro",
       "hideFields": "Ocultar campos",
       "moreOptions": "Más opciones",
-      "allowNewOptionsWhenEditing": "Permitir nuevas opciones al editar"
+      "allowNewOptionsWhenEditing": "Permitir nuevas opciones al editar",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Enlace a los registros en la tabla que elija",

@@ -37,6 +37,7 @@ import {
   type FieldCore,
   type IRollupFieldOptions,
   DbFieldType,
+  SortFunc,
   isLinkLookupOptions,
 } from '@teable/core';
 import type { Knex } from 'knex';
@@ -1043,12 +1044,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     rollupExpression: string,
     fieldExpression: string,
     targetField: FieldCore,
-    foreignAlias: string
+    foreignAlias: string,
+    orderByClause?: string
   ): string {
     const fn = this.parseRollupFunction(rollupExpression);
     return this.dialect.rollupAggregate(fn, fieldExpression, {
       targetField,
       rowPresenceExpr: `"${foreignAlias}"."${ID_FIELD_NAME}"`,
+      orderByField: orderByClause,
       flattenNestedArray: fn === 'array_compact' && !!targetField.isConditionalLookup,
     });
   }
@@ -1234,7 +1237,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
     this.conditionalLookupGenerationStack.add(field.id);
     try {
-      const { foreignTableId, lookupFieldId, filter } = options;
+      const { foreignTableId, lookupFieldId, filter, sort, limit } = options;
       if (!foreignTableId || !lookupFieldId) {
         return;
       }
@@ -1274,22 +1277,45 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         selectVisitor
       );
 
+      let orderByClause: string | undefined;
+      if (sort?.fieldId) {
+        const sortField = foreignTable.getField(sort.fieldId);
+        if (sortField) {
+          let sortExpression = this.resolveConditionalComputedTargetExpression(
+            sortField,
+            foreignTable,
+            foreignAliasUsed,
+            selectVisitor
+          );
+
+          const defaultForeignAlias = getTableAliasFromTable(foreignTable);
+          if (defaultForeignAlias !== foreignAliasUsed) {
+            sortExpression = sortExpression.replaceAll(
+              `"${defaultForeignAlias}"`,
+              `"${foreignAliasUsed}"`
+            );
+          }
+
+          const direction = sort.order === SortFunc.Desc ? 'DESC' : 'ASC';
+          orderByClause = `${sortExpression} ${direction}`;
+        }
+      }
+
       const aggregateExpression =
         field.type === FieldType.ConditionalRollup
-          ? this.dialect.jsonAggregateNonNull(rawExpression)
+          ? this.dialect.jsonAggregateNonNull(rawExpression, orderByClause)
           : this.buildConditionalRollupAggregation(
               'array_compact({values})',
               rawExpression,
               targetField,
-              foreignAliasUsed
+              foreignAliasUsed,
+              orderByClause
             );
       const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
 
-      const aggregateQuery = this.qb.client
-        .queryBuilder()
-        .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+      const applyConditionalFilter = (targetQb: Knex.QueryBuilder) => {
+        if (!filter) return;
 
-      if (filter) {
         const fieldMap = foreignTable.fieldList.reduce(
           (map, f) => {
             map[f.id] = f as FieldCore;
@@ -1311,13 +1337,32 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
 
         this.dbProvider
-          .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+          .filterQuery(targetQb, fieldMap, filter, undefined, {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
           })
           .appendQueryBuilder();
+      };
+
+      const aggregateSourceQuery = this.qb.client
+        .queryBuilder()
+        .select('*')
+        .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+      applyConditionalFilter(aggregateSourceQuery);
+
+      if (orderByClause) {
+        aggregateSourceQuery.orderByRaw(orderByClause);
       }
+
+      if (typeof limit === 'number' && limit > 0) {
+        aggregateSourceQuery.limit(limit);
+      }
+
+      const aggregateQuery = this.qb.client
+        .queryBuilder()
+        .from(aggregateSourceQuery.as(foreignAliasUsed));
 
       aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
 

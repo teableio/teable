@@ -962,6 +962,8 @@ export class FieldSupplementService {
         foreignTableId,
         lookupFieldId,
         filter: conditionalLookup.filter,
+        sort: conditionalLookup.sort,
+        limit: conditionalLookup.limit,
       },
       isMultipleCellValue: true,
       isComputed: true,

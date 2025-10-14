@@ -259,6 +259,13 @@
         "selectBaseField": "选择当前表字段",
         "noMappings": "尚未配置字段映射"
       },
+      "conditionalLookup": {
+        "sortLabel": "排序结果",
+        "orderPlaceholder": "选择排序方式",
+        "clearSort": "清除排序",
+        "limitLabel": "显示的最大记录数",
+        "limitPlaceholder": "留空表示显示全部匹配项"
+      },
       "linkTable": "进行关联的表",
       "linkBase": "进行关联的数据库",
       "tableNoPermission": "无权限表格",

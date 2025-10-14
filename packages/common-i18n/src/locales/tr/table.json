@@ -252,7 +252,14 @@
       "filter": "Kayıtları filtrele",
       "hideFields": "Alanları gizle",
       "moreOptions": "Daha fazla seçenek",
-      "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver"
+      "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
+      "conditionalLookup": {
+        "sortLabel": "Sort results",
+        "orderPlaceholder": "Select an order",
+        "clearSort": "Clear sort",
+        "limitLabel": "Maximum records to include",
+        "limitPlaceholder": "Leave blank to include all matches"
+      }
     },
     "subTitle": {
       "link": "Seçtiğiniz tablodaki kayıtlara bağlantı oluşturun",
