@@ -985,6 +985,124 @@ describe('OpenAPI formula (e2e)', () => {
         assert(value);
       }
     );
+
+    it('should evaluate IF formula on checkbox to numeric values', async () => {
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: 1,
+              [textFieldRo.name]: 'checkbox-if-checked',
+            },
+          },
+          {
+            fields: {
+              [numberFieldRo.name]: 2,
+              [textFieldRo.name]: 'checkbox-if-unchecked',
+            },
+          },
+          {
+            fields: {
+              [numberFieldRo.name]: 3,
+              [textFieldRo.name]: 'checkbox-if-cleared',
+            },
+          },
+        ],
+      });
+
+      const [checkedSource, uncheckedSource, clearedSource] = records;
+
+      const checkboxField = await createField(table1Id, {
+        name: 'Checkbox Boolean',
+        type: FieldType.Checkbox,
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'Checkbox Numeric Result',
+        type: FieldType.Formula,
+        options: {
+          expression: `IF({${checkboxField.id}}, 1, 0)`,
+        },
+      });
+
+      const getFieldValue = (
+        fields: Record<string, unknown>,
+        field: { id: string; name: string }
+      ): unknown => fields[field.name] ?? fields[field.id];
+
+      const scenarios = [
+        {
+          label: 'checked',
+          recordId: checkedSource.id,
+          nextValue: true,
+          expectedCheckbox: true,
+          expectedFormula: 1,
+        },
+        {
+          label: 'unchecked',
+          recordId: uncheckedSource.id,
+          nextValue: false,
+          expectedCheckbox: false,
+          expectedFormula: 0,
+        },
+        {
+          label: 'cleared',
+          recordId: clearedSource.id,
+          nextValue: null,
+          expectedCheckbox: null,
+          expectedFormula: 0,
+        },
+      ] as const;
+
+      for (const { recordId, nextValue, expectedCheckbox, expectedFormula, label } of scenarios) {
+        await updateRecord(table1Id, recordId, {
+          fieldKeyType: FieldKeyType.Name,
+          record: {
+            fields: {
+              [checkboxField.name]: nextValue,
+            },
+          },
+        });
+
+        const { data: recordAfterUpdate } = await getRecord(table1Id, recordId);
+
+        const checkboxValue = getFieldValue(recordAfterUpdate.fields, checkboxField);
+        const formulaValue = getFieldValue(recordAfterUpdate.fields, formulaField);
+
+        expect(getFieldValue(recordAfterUpdate.fields, textFieldRo)).toContain(label);
+
+        if (nextValue === null) {
+          expect(checkboxValue ?? null).toBeNull();
+        } else {
+          expect(Boolean(checkboxValue)).toBe(expectedCheckbox);
+        }
+        expect(formulaValue).toBe(expectedFormula);
+        expect(typeof formulaValue).toBe('number');
+      }
+
+      const refreshed = await getRecords(table1Id);
+
+      const recordMap = new Map(refreshed.records.map((record) => [record.id, record]));
+
+      for (const { recordId, expectedCheckbox, expectedFormula, label } of scenarios) {
+        const current = recordMap.get(recordId);
+        expect(current).toBeDefined();
+
+        const checkboxValue = getFieldValue(current!.fields, checkboxField);
+        const formulaValue = getFieldValue(current!.fields, formulaField);
+
+        if (expectedCheckbox === null) {
+          expect(checkboxValue ?? null).toBeNull();
+        } else {
+          expect(Boolean(checkboxValue)).toBe(expectedCheckbox);
+        }
+
+        expect(typeof formulaValue).toBe('number');
+        expect(formulaValue).toBe(expectedFormula);
+        expect(getFieldValue(current!.fields, textFieldRo)).toContain(label);
+      }
+    });
   });
 
   describe('conditional reference formulas', () => {
