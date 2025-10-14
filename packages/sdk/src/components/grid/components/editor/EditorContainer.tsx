@@ -134,7 +134,14 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   useEffect(() => {
     if ((cellType as CellType) === CellType.Loading) return;
     if (!activeCell || selection.type === SelectionRegionType.None) return;
-    requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
+
+    requestAnimationFrame(() => {
+      if (editorRef.current && editorRef.current.focus) {
+        editorRef.current.focus();
+      } else {
+        defaultFocusRef.current?.focus({ preventScroll: true });
+      }
+    });
   }, [cellType, activeCell, selection, isEditing]);
 
   useKeyboardSelection({
