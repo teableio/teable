@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { assertNever, CellValueType } from '@teable/core';
+import { assertNever, CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
 
 import { IndexBuilderAbstract } from '../index-query/index-abstract-builder';
@@ -38,7 +38,12 @@ export class FieldFormatter {
           if (isStructuredCellValue) {
             return `value->>'title'::text`;
           }
-          return 'value';
+          if (field.type === FieldType.LongText) {
+            // chr(13) is carriage return, chr(10) is line feed, chr(9) is tab
+            return `REPLACE(REPLACE(REPLACE(value, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text)`;
+          } else {
+            return `value`;
+          }
         }
         default:
           assertNever(cellValueType);

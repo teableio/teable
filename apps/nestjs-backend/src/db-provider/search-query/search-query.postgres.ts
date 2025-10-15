@@ -1,5 +1,5 @@
 import type { IDateFieldOptions } from '@teable/core';
-import { CellValueType } from '@teable/core';
+import { CellValueType, FieldType } from '@teable/core';
 import type { ISearchIndexByQueryRo } from '@teable/openapi';
 import { TableIndex } from '@teable/openapi';
 import { type Knex } from 'knex';
@@ -26,7 +26,9 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   appendBuilder() {
     const { originQueryBuilder } = this;
     const sql = this.getSql();
-    sql && this.originQueryBuilder.orWhereRaw(sql);
+    if (sql) {
+      this.originQueryBuilder.orWhereRaw(sql);
+    }
     return originQueryBuilder;
   }
 
@@ -51,8 +53,9 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const isSearchAllFields = !search[1];
     if (isSearchAllFields) {
       const searchValue = search[0];
+      const escapedSearchValue = escapePostgresRegex(searchValue);
       const expression = FieldFormatter.getSearchableExpression(field, isMultipleCellValue);
-      return expression ? knex.raw(`(${expression}) ILIKE ?`, [`%${searchValue}%`]) : null;
+      return expression ? knex.raw(`(${expression}) ILIKE ?`, [`%${escapedSearchValue}%`]) : null;
     } else {
       return isMultipleCellValue ? this.getMultipleCellTypeQuery() : this.getSingleCellTypeQuery();
     }
@@ -106,7 +109,17 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const dbFieldName = this.field.dbFieldName;
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw(`??.?? ILIKE ?`, [this.dbTableName, dbFieldName, `%${searchValue}%`]);
+    const escapedSearchValue = escapePostgresRegex(searchValue);
+
+    if (this.field.type === FieldType.LongText) {
+      return knex.raw(
+        // chr(13) is carriage return, chr(10) is line feed, chr(9) is tab
+        "REPLACE(REPLACE(REPLACE(??.??, CHR(13), ' '::text), CHR(10), ' '::text), CHR(9), ' '::text) ILIKE ?",
+        [this.dbTableName, dbFieldName, `%${escapedSearchValue}%`]
+      );
+    } else {
+      return knex.raw('??.?? ILIKE ?', [this.dbTableName, dbFieldName, `%${escapedSearchValue}%`]);
+    }
   }
 
   protected number() {

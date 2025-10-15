@@ -292,7 +292,59 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         })
       ).data;
       expect(records.length).toBe(1);
-      expect(1).toBe(1);
+    });
+  });
+
+  describe('search value with line break', () => {
+    let table: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'special_characters',
+        fields: [
+          {
+            name: 'text',
+            type: FieldType.LongText,
+          },
+          {
+            name: 'user',
+            type: FieldType.User,
+          },
+          {
+            name: 'multipleSelect',
+            type: FieldType.MultipleSelect,
+            options: {
+              choices: [
+                { id: 'choX', name: 'rap', color: Colors.Cyan },
+                { id: 'choY', name: 'rock', color: Colors.Blue },
+                { id: 'choZ', name: 'hiphop', color: Colors.Gray },
+              ],
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              text: `hello\nnewYork, London\nlove`,
+              multipleSelect: ['rap', 'rock'],
+            },
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should search value with line break', async () => {
+      const { records } = (
+        await apiGetRecords(table.id, {
+          fieldKeyType: FieldKeyType.Id,
+          viewId: table.views[0].id,
+          search: ['hello newYork, London love', table.fields[0].id, true],
+        })
+      ).data;
+      expect(records.length).toBe(1);
     });
   });
 

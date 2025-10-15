@@ -89,7 +89,10 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
   protected text() {
     const { search, knex } = this;
     const [searchValue] = search;
-    return knex.raw(`??.?? LIKE ?`, [this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]);
+    return knex.raw(
+      `REPLACE(REPLACE(REPLACE(??.??, CHAR(13), ' '), CHAR(10), ' '), CHAR(9), ' ') LIKE ?`,
+      [this.dbTableName, this.field.dbFieldName, `%${searchValue}%`]
+    );
   }
 
   protected json() {
