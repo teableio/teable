@@ -137,6 +137,8 @@ export const EditorContainerBase: ForwardRefRenderFunction<
     if ((cellType as CellType) === CellType.Loading) return;
     if (!activeCell || selection.type === SelectionRegionType.None) return;
 
+    initialSearchRef.current = '';
+
     requestAnimationFrame(() => (editorRef.current || defaultFocusRef.current)?.focus?.());
   }, [cellType, activeCell, selection, isEditing]);
 
