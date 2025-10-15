@@ -1,8 +1,7 @@
 import { FieldType, SortFunc } from '@teable/core';
-import { Trash2 } from '@teable/icons';
 import { FieldCommand, FieldSelector, OrderSelect } from '@teable/sdk';
 import { useFields } from '@teable/sdk/hooks';
-import { Button, Input, Switch } from '@teable/ui-lib/shadcn';
+import { Input, Switch } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -37,7 +36,6 @@ export const LinkedRecordSortLimitConfig = ({
   const switchLabel = t('table:field.editor.conditionalLookup.sortLimitToggleLabel');
   const sortLabel = t('table:field.editor.conditionalLookup.sortLabel');
   const limitLabel = t('table:field.editor.conditionalLookup.limitLabel');
-  const clearSortLabel = t('table:field.editor.conditionalLookup.clearSort');
   const limitPlaceholder = t('table:field.editor.conditionalLookup.limitPlaceholder');
 
   const fields = useFields({ withHidden: true, withDenied: true });
@@ -149,7 +147,7 @@ export const LinkedRecordSortLimitConfig = ({
                   value={sort.fieldId}
                   fields={sortCandidates}
                   onSelect={handleSortFieldChange}
-                  className="flex-1 !max-w-none justify-between h-9"
+                  className="h-9 !max-w-none flex-1 justify-between"
                 />
                 <OrderSelect
                   value={sort.order ?? SortFunc.Asc}

@@ -9,13 +9,20 @@ import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useFields, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
 import { Trans } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { LookupFilterOptions } from '../lookup-options/LookupFilterOptions';
 import { SelectFieldByTableId } from '../lookup-options/LookupOptions';
+import { LinkedRecordSortLimitConfig } from './LinkedRecordSortLimitConfig';
 import { SelectTable } from './LinkOptions/SelectTable';
 import { RollupOptions } from './RollupOptions';
 
 const RAW_VALUE_EXPRESSION = 'concatenate({values})' as RollupFunction;
+const SORT_LIMIT_ENABLED_EXPRESSIONS: RollupFunction[] = [
+  'array_compact({values})',
+  'array_join({values})',
+  'array_unique({values})',
+  'concatenate({values})',
+];
 
 interface IConditionalRollupOptionsProps {
   fieldId?: string;
@@ -127,12 +134,21 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
 
   const cellValueType = lookupField?.cellValueType ?? CellValueType.String;
   const isMultipleCellValue = lookupField?.isMultipleCellValue ?? false;
+  const expression = options.expression as RollupFunction | undefined;
+  const supportsSortLimit =
+    expression != null && SORT_LIMIT_ENABLED_EXPRESSIONS.includes(expression);
 
   const availableExpressions = useMemo(() => {
     return getRollupFunctionsByCellValueType(cellValueType).filter(
       (expr) => expr !== RAW_VALUE_EXPRESSION
     );
   }, [cellValueType]);
+
+  useEffect(() => {
+    if (!supportsSortLimit && (options.sort || options.limit)) {
+      onOptionsChange({ sort: undefined, limit: undefined });
+    }
+  }, [supportsSortLimit, options.limit, options.sort, onOptionsChange]);
 
   return (
     <div className="space-y-3">
@@ -169,6 +185,17 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
         availableExpressions={availableExpressions}
         onChange={(partial) => onOptionsChange(partial)}
       />
+
+      {supportsSortLimit ? (
+        <LinkedRecordSortLimitConfig
+          sort={options.sort}
+          limit={options.limit}
+          onSortChange={(sortValue) => onOptionsChange({ sort: sortValue })}
+          onLimitChange={(limitValue) => onOptionsChange({ limit: limitValue })}
+          defaultLimit={1}
+          toggleTestId="conditional-rollup-sort-limit-toggle"
+        />
+      ) : null}
     </div>
   );
 };

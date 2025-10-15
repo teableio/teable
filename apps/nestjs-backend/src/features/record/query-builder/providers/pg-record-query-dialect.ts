@@ -237,6 +237,9 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
           : `STRING_AGG(${fieldExpression}::text, ', ')`;
       case 'array_unique':
+        if (orderByField) {
+          return `(SELECT json_agg(val) FROM (SELECT DISTINCT ${fieldExpression} AS val ORDER BY ${orderByField}) __teable_rollup_unique)`;
+        }
         return `json_agg(DISTINCT ${fieldExpression})`;
       case 'array_compact': {
         const buildAggregate = (expr: string) =>

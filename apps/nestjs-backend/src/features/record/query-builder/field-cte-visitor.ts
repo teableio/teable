@@ -1040,6 +1040,19 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     }
   }
 
+  private rollupFunctionSupportsOrdering(expression: string): boolean {
+    const fn = this.parseRollupFunction(expression);
+    switch (fn) {
+      case 'array_join':
+      case 'array_compact':
+      case 'array_unique':
+      case 'concatenate':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   private buildConditionalRollupAggregation(
     rollupExpression: string,
     fieldExpression: string,
@@ -1111,6 +1124,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         lookupFieldId,
         expression = 'countall({values})',
         filter,
+        sort,
+        limit,
       } = field.options;
       if (!foreignTableId || !lookupFieldId) {
         return;
@@ -1160,16 +1175,44 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         ? formattedExpression
         : rawExpression;
 
+      const supportsOrdering = this.rollupFunctionSupportsOrdering(expression);
+
+      let orderByClause: string | undefined;
+      if (supportsOrdering && sort?.fieldId) {
+        const sortField = foreignTable.getField(sort.fieldId);
+        if (sortField) {
+          let sortExpression = this.resolveConditionalComputedTargetExpression(
+            sortField,
+            foreignTable,
+            foreignAliasUsed,
+            selectVisitor
+          );
+
+          const defaultForeignAlias = getTableAliasFromTable(foreignTable);
+          if (defaultForeignAlias !== foreignAliasUsed) {
+            sortExpression = sortExpression.replaceAll(
+              `"${defaultForeignAlias}"`,
+              `"${foreignAliasUsed}"`
+            );
+          }
+
+          const direction = sort.order === SortFunc.Desc ? 'DESC' : 'ASC';
+          orderByClause = `${sortExpression} ${direction}`;
+        }
+      }
+
       const aggregateExpression = this.buildConditionalRollupAggregation(
         expression,
         aggregationInputExpression,
         targetField,
-        foreignAliasUsed
+        foreignAliasUsed,
+        supportsOrdering ? orderByClause : undefined
       );
       const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
 
-      const aggregateQuery = this.qb.client
+      const aggregateSourceQuery = this.qb.client
         .queryBuilder()
+        .select('*')
         .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
 
       if (filter) {
@@ -1194,13 +1237,25 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
 
         this.dbProvider
-          .filterQuery(aggregateQuery, fieldMap, filter, undefined, {
+          .filterQuery(aggregateSourceQuery, fieldMap, filter, undefined, {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
           })
           .appendQueryBuilder();
       }
+
+      if (supportsOrdering && orderByClause) {
+        aggregateSourceQuery.orderByRaw(orderByClause);
+      }
+
+      if (supportsOrdering && typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+        aggregateSourceQuery.limit(limit);
+      }
+
+      const aggregateQuery = this.qb.client
+        .queryBuilder()
+        .from(aggregateSourceQuery.as(foreignAliasUsed));
 
       aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
       const aggregateSql = aggregateQuery.toQuery();
