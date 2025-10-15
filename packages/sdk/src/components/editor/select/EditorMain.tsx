@@ -48,7 +48,6 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
 
   useImperativeHandle(ref, () => ({
     focus: () => {
-      // Do not clear search here; keep the initial character captured from grid
       inputRef.current?.focus();
     },
     setValue: (value?: string | string[]) => {
