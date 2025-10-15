@@ -13,7 +13,7 @@ const GridUserEditorBase: ForwardRefRenderFunction<
   IEditorRef<string>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { field, record, rect, style, isEditing, initialSearch } = props;
+  const { field, record, rect, style, isEditing, initialSearch, setEditing } = props;
   const { t } = useTranslation();
   const { id: fieldId, options } = field as UserField;
   const cellValue = record.getCellValue(field.id) as IUserCellValue | IUserCellValue[];
@@ -28,6 +28,9 @@ const GridUserEditorBase: ForwardRefRenderFunction<
   const attachStyle = useGridPopupPosition(rect, 340);
   const onChange = (value?: IUserCellValue | IUserCellValue[]) => {
     record.updateCell(fieldId, value, { t });
+    if (!options.isMultiple) {
+      setTimeout(() => setEditing?.(false));
+    }
   };
 
   return (
