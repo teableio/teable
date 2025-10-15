@@ -266,6 +266,7 @@
       "moreOptions": "Altre opzioni",
       "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
       "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
         "orderPlaceholder": "Select an order",
         "clearSort": "Clear sort",

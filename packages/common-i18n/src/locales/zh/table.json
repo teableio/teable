@@ -260,6 +260,7 @@
         "noMappings": "尚未配置字段映射"
       },
       "conditionalLookup": {
+        "sortLimitToggleLabel": "对引用字段进行排序和限制引用数量",
         "sortLabel": "排序结果",
         "orderPlaceholder": "选择排序方式",
         "clearSort": "清除排序",

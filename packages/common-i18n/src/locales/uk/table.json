@@ -266,6 +266,7 @@
       "moreOptions": "Більше параметрів",
       "allowNewOptionsWhenEditing": "Дозволити нові параметри під час редагування",
       "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
         "orderPlaceholder": "Select an order",
         "clearSort": "Clear sort",

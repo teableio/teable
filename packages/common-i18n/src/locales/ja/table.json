@@ -257,6 +257,7 @@
       "moreOptions": "オプションを表示",
       "allowNewOptionsWhenEditing": "編集時に新しいオプションを許可",
       "conditionalLookup": {
+        "sortLimitToggleLabel": "Sort linked records and limit the number of matches",
         "sortLabel": "Sort results",
         "orderPlaceholder": "Select an order",
         "clearSort": "Clear sort",

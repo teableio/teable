@@ -8,6 +8,7 @@ import {
   SelectGroup,
   SelectContent,
   SelectItem,
+  cn,
 } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
@@ -17,10 +18,11 @@ interface IOrderProps {
   value: SortFunc;
   fieldId: string;
   onSelect: (value: SortFunc) => void;
+  triggerClassName?: string;
 }
 
 function OrderSelect(props: IOrderProps) {
-  const { value, onSelect, fieldId } = props;
+  const { value, onSelect, fieldId, triggerClassName } = props;
   const { t } = useTranslation();
 
   const fields = useFields({ withHidden: true, withDenied: true });
@@ -119,7 +121,7 @@ function OrderSelect(props: IOrderProps) {
 
   return (
     <Select value={value} onValueChange={onSelect}>
-      <SelectTrigger className="mx-2 h-8 w-32">
+      <SelectTrigger className={cn('mx-2 h-8 w-32', triggerClassName)}>
         <SelectValue placeholder={t('common.selectPlaceHolder')} />
       </SelectTrigger>
       <SelectContent>
