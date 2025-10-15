@@ -168,6 +168,8 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
+    const startFieldIdList = Array.from(new Set(sources.flatMap((s) => s.fieldIds || [])));
+
     await update();
 
     // After update, some fields may be deleted; build a post-update impact that only
@@ -193,12 +195,35 @@ export class ComputedOrchestratorService {
       }
     }
 
+    if (startFieldIdList.length) {
+      const existingStartFields = await this.prismaService.txClient().field.findMany({
+        where: { id: { in: startFieldIdList }, deletedTime: null },
+        select: { id: true },
+      });
+      const existingSet = new Set(existingStartFields.map((r) => r.id));
+      const deletedStartIds = startFieldIdList.filter((id) => !existingSet.has(id));
+
+      if (deletedStartIds.length) {
+        const dependents = await this.collector.getConditionalSortDependents(deletedStartIds);
+        if (dependents.length) {
+          for (const { tableId, fieldId } of dependents) {
+            const group = impactPost[tableId];
+            if (!group) continue;
+            group.fieldIds.delete(fieldId);
+            if (!group.fieldIds.size) {
+              delete impactPost[tableId];
+            }
+          }
+        }
+      }
+    }
+
     if (!Object.keys(impactPost).length) {
       return { publishedOps: 0, impact: {} };
     }
 
     // Also exclude the source (deleted) field ids when publishing
-    const startFieldIds = new Set<string>(sources.flatMap((s) => s.fieldIds || []));
+    const startFieldIds = new Set<string>(startFieldIdList);
 
     // Determine which impacted fieldIds were actually deleted (no longer exist post-update)
     const actuallyDeleted = new Set<string>();

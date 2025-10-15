@@ -2405,4 +2405,203 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       expect(softwareRecord.fields[crossBaseLookupField.id]).toEqual([70]);
     });
   });
+
+  describe('sort dependency edge cases', () => {
+    it('updates results when the sort field is converted through the API', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalLookup_SortConvert_Foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'RawScore', type: FieldType.Number } as IFieldRo,
+            { name: 'Bonus', type: FieldType.Number } as IFieldRo,
+            { name: 'EffectiveScore', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            {
+              fields: {
+                Title: 'Alpha',
+                Status: 'Active',
+                RawScore: 70,
+                Bonus: 0,
+                EffectiveScore: 70,
+              },
+            },
+            {
+              fields: {
+                Title: 'Beta',
+                Status: 'Active',
+                RawScore: 90,
+                Bonus: -60,
+                EffectiveScore: 90,
+              },
+            },
+            {
+              fields: {
+                Title: 'Gamma',
+                Status: 'Active',
+                RawScore: 40,
+                Bonus: 0,
+                EffectiveScore: 40,
+              },
+            },
+          ],
+        });
+
+        const titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
+        const statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const rawScoreId = foreign.fields.find((field) => field.name === 'RawScore')!.id;
+        const bonusId = foreign.fields.find((field) => field.name === 'Bonus')!.id;
+        const effectiveScoreId = foreign.fields.find(
+          (field) => field.name === 'EffectiveScore'
+        )!.id;
+
+        host = await createTable(baseId, {
+          name: 'ConditionalLookup_SortConvert_Host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { StatusFilter: 'Active' } }],
+        });
+        const statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+        const activeRecordId = host.records[0].id;
+
+        const statusMatchFilter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: statusId,
+              operator: 'is',
+              value: { type: 'field', fieldId: statusFilterId },
+            },
+          ],
+        };
+
+        const lookupField = await createField(host.id, {
+          name: 'Converted Sort Lookup',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            sort: { fieldId: effectiveScoreId, order: SortFunc.Desc },
+            limit: 2,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const baseline = await getRecord(host.id, activeRecordId);
+        expect(baseline.fields[lookupField.id]).toEqual(['Beta', 'Alpha']);
+
+        await convertField(foreign.id, effectiveScoreId, {
+          name: 'EffectiveScore',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${rawScoreId}} + {${bonusId}}`,
+          },
+        } as IFieldRo);
+
+        const refreshed = await getRecord(host.id, activeRecordId);
+        expect(refreshed.fields[lookupField.id]).toEqual(['Alpha', 'Gamma']);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+
+    it('keeps only the limit after the sort field is deleted', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalLookup_DeleteSort_Foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'EffectiveScore', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Title: 'Alpha', Status: 'Active', EffectiveScore: 70 } },
+            { fields: { Title: 'Beta', Status: 'Active', EffectiveScore: 90 } },
+            { fields: { Title: 'Gamma', Status: 'Active', EffectiveScore: 40 } },
+            { fields: { Title: 'Delta', Status: 'Closed', EffectiveScore: 100 } },
+          ],
+        });
+
+        const titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
+        const statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const effectiveScoreId = foreign.fields.find(
+          (field) => field.name === 'EffectiveScore'
+        )!.id;
+
+        host = await createTable(baseId, {
+          name: 'ConditionalLookup_DeleteSort_Host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { StatusFilter: 'Active' } }],
+        });
+        const statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+        const activeRecordId = host.records[0].id;
+
+        const statusMatchFilter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: statusId,
+              operator: 'is',
+              value: { type: 'field', fieldId: statusFilterId },
+            },
+          ],
+        };
+
+        const lookupField = await createField(host.id, {
+          name: 'Limit Without Sort Lookup',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            sort: { fieldId: effectiveScoreId, order: SortFunc.Desc },
+            limit: 2,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const baseline = await getRecord(host.id, activeRecordId);
+        expect(baseline.fields[lookupField.id]).toEqual(['Beta', 'Alpha']);
+
+        await deleteField(foreign.id, effectiveScoreId);
+
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Closed');
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
+
+        const refreshedRecord = await getRecord(host.id, activeRecordId);
+        const refreshedValue = refreshedRecord.fields[lookupField.id] as
+          | string[]
+          | null
+          | undefined;
+        if (Array.isArray(refreshedValue)) {
+          expect(refreshedValue.length).toBeLessThanOrEqual(2);
+          expect(refreshedValue).not.toContain('Delta');
+        } else {
+          expect(refreshedValue == null).toBe(true);
+        }
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+  });
 });

@@ -122,6 +122,51 @@ export class ComputedDependencyCollectorService {
     return null;
   }
 
+  private async resolveConditionalSortDependents(
+    sortFieldIds: readonly string[]
+  ): Promise<Array<{ tableId: string; fieldId: string; sortFieldId: string }>> {
+    if (!sortFieldIds.length) return [];
+
+    const prisma = this.prismaService.txClient();
+    const sortIdSet = new Set(sortFieldIds);
+    const results: Array<{ tableId: string; fieldId: string; sortFieldId: string }> = [];
+
+    const [conditionalRollups, conditionalLookups] = await Promise.all([
+      prisma.field.findMany({
+        where: { deletedTime: null, type: FieldType.ConditionalRollup },
+        select: { id: true, tableId: true, options: true },
+      }),
+      prisma.field.findMany({
+        where: { deletedTime: null, isConditionalLookup: true },
+        select: { id: true, tableId: true, lookupOptions: true },
+      }),
+    ]);
+
+    for (const row of conditionalRollups) {
+      const options = this.parseOptionsLoose<IConditionalRollupFieldOptions>(row.options);
+      const sortFieldId = options?.sort?.fieldId;
+      if (sortFieldId && sortIdSet.has(sortFieldId)) {
+        results.push({ tableId: row.tableId, fieldId: row.id, sortFieldId });
+      }
+    }
+
+    for (const row of conditionalLookups) {
+      const options = this.parseOptionsLoose<IConditionalLookupOptions>(row.lookupOptions);
+      const sortFieldId = options?.sort?.fieldId;
+      if (sortFieldId && sortIdSet.has(sortFieldId)) {
+        results.push({ tableId: row.tableId, fieldId: row.id, sortFieldId });
+      }
+    }
+
+    return results;
+  }
+
+  async getConditionalSortDependents(
+    sortFieldIds: readonly string[]
+  ): Promise<Array<{ tableId: string; fieldId: string; sortFieldId: string }>> {
+    return this.resolveConditionalSortDependents(sortFieldIds);
+  }
+
   /**
    * Resolve link field IDs among the provided field IDs and include their symmetric counterparts.
    */
@@ -405,6 +450,16 @@ export class ComputedDependencyCollectorService {
         fieldIds: new Set<string>(),
         recordIds: new Set<string>(),
       }).fieldIds.add(f.id);
+    }
+
+    // Ensure conditional rollup/lookup fields that sort by the changed fields are always impacted,
+    // even if historical references are missing.
+    const sortDependents = await this.resolveConditionalSortDependents(startFieldIds);
+    for (const { tableId, fieldId } of sortDependents) {
+      (impact[tableId] ||= {
+        fieldIds: new Set<string>(),
+        recordIds: new Set<string>(),
+      }).fieldIds.add(fieldId);
     }
 
     if (!Object.keys(impact).length) return {};

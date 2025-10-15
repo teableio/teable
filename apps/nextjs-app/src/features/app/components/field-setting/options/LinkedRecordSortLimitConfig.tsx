@@ -2,6 +2,7 @@ import { FieldType, SortFunc } from '@teable/core';
 import { FieldCommand, FieldSelector, OrderSelect } from '@teable/sdk';
 import { useFields } from '@teable/sdk/hooks';
 import { Input, Switch } from '@teable/ui-lib/shadcn';
+import { AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -37,9 +38,17 @@ export const LinkedRecordSortLimitConfig = ({
   const sortLabel = t('table:field.editor.conditionalLookup.sortLabel');
   const limitLabel = t('table:field.editor.conditionalLookup.limitLabel');
   const limitPlaceholder = t('table:field.editor.conditionalLookup.limitPlaceholder');
+  const sortMissingTitle = t('table:field.editor.conditionalLookup.sortMissingWarningTitle');
+  const sortMissingDescription = t(
+    'table:field.editor.conditionalLookup.sortMissingWarningDescription'
+  );
 
   const fields = useFields({ withHidden: true, withDenied: true });
   const sortCandidates = useMemo(() => fields.filter((f) => f.type !== FieldType.Button), [fields]);
+  const sortFieldMissing = useMemo(() => {
+    if (!sort?.fieldId) return false;
+    return !sortCandidates.some((candidate) => candidate.id === sort.fieldId);
+  }, [sort?.fieldId, sortCandidates]);
 
   const derivedEnabled = Boolean(sort || limit);
   const [limitDraft, setLimitDraft] = useState(limit != null ? String(limit) : '');
@@ -139,6 +148,15 @@ export const LinkedRecordSortLimitConfig = ({
 
       {!sortLimitEnabled ? null : (
         <div className="space-y-4">
+          {sortFieldMissing ? (
+            <div className="flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+              <div className="space-y-1 text-warning">
+                <span className="block text-sm font-medium leading-none">{sortMissingTitle}</span>
+                <span className="block text-xs text-warning/90">{sortMissingDescription}</span>
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2">
             <span className="neutral-content label-text">{sortLabel}</span>
             {sort?.fieldId ? (

@@ -264,7 +264,9 @@
         "orderPlaceholder": "Select an order",
         "clearSort": "Clear sort",
         "limitLabel": "Maximum records to include",
-        "limitPlaceholder": "Leave blank to include all matches"
+        "limitPlaceholder": "Leave blank to include all matches",
+        "sortMissingWarningTitle": "Sorting field unavailable",
+        "sortMissingWarningDescription": "The field that powered this sort was deleted. Results ignore the sort and only enforce the limit."
       },
       "linkTable": "Link table",
       "linkBase": "Link base",
