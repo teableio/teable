@@ -53,7 +53,7 @@ export const OverflowTooltip = (props: IOverflowTooltipProps) => {
   const Content = (
     <div
       ref={contentRef}
-      className={cn(className, 'overflow-hidden whitespace-pre-wrap break-all line-clamp-6')}
+      className={cn('overflow-hidden whitespace-pre-wrap break-all line-clamp-6', className)}
       onClick={(e) => {
         if (onClick) {
           e.stopPropagation();

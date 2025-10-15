@@ -12,6 +12,7 @@ import type {
   IButtonFieldOptions,
 } from '@teable/core';
 import { CellValueType, FieldType } from '@teable/core';
+import { cn } from '@teable/ui-lib';
 import type { IFieldInstance } from '../../model';
 import { CellAttachment } from './cell-attachment';
 import { CellButton } from './cell-button';
@@ -38,7 +39,13 @@ export const CellValue = (props: ICellValueContainer) => {
 
   switch (type) {
     case FieldType.LongText: {
-      return <CellText value={value as string} className={className} ellipsis={ellipsis} />;
+      return (
+        <CellText
+          value={value as string}
+          className={cn(className, 'line-clamp-none')}
+          ellipsis={ellipsis}
+        />
+      );
     }
     case FieldType.SingleLineText: {
       return (
