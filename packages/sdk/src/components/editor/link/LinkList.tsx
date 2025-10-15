@@ -105,9 +105,8 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
   const columns = useMemo(() => {
     if (columnWidths.size === 0) return baseColumns;
 
-    const overrideMap = new Map(columnWidths.entries());
     return baseColumns.map((col) => {
-      const width = overrideMap.get(col.id);
+      const width = columnWidths.get(col.id);
       return width !== undefined ? { ...col, width } : col;
     });
   }, [baseColumns, columnWidths]);
