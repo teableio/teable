@@ -2,7 +2,7 @@ import { Plus } from '@teable/icons';
 import { Button, cn } from '@teable/ui-lib';
 import { produce } from 'immer';
 import { set, get } from 'lodash';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { Condition } from './condition';
 import { BaseFilterContext } from './context';
@@ -69,6 +69,8 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
     [defaultGroupValueFromProps]
   );
 
+  const filterContainerRef = useRef<HTMLDivElement>(null);
+
   const createCondition = useCallback(
     (path: IFilterPath, type: 'item' | 'group') => {
       const newFilter = produce(value, (draft) => {
@@ -109,11 +111,31 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
   );
 
   const footer = (
-    <div className={cn('flex justify-start gap-1', footerClassName)}>
+    <div
+      role="button"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      }}
+      className={cn('flex justify-start gap-1', footerClassName)}
+      onClick={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        setTimeout(() => {
+          filterContainerRef?.current?.scrollTo({
+            top: filterContainerRef?.current?.scrollHeight,
+            behavior: 'smooth',
+          });
+        }, 0);
+      }}
+    >
       <Button
         variant="ghost"
         size="xs"
-        onClick={() =>
+        onClick={() => {
           setValue({
             conjunction: valueProp.conjunction,
             children: [
@@ -122,8 +144,8 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
                 ? { ...defaultItemValue }
                 : ({ field: null, operator: null, value: null } as T),
             ],
-          })
-        }
+          });
+        }}
       >
         <Plus />
         {t('filter.addCondition')}
@@ -156,7 +178,10 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
       }}
     >
       {children.length > 0 && (
-        <div className={cn('flex flex-1 flex-col overflow-auto', contentClassName)}>
+        <div
+          className={cn('flex flex-1 flex-col overflow-auto', contentClassName)}
+          ref={filterContainerRef}
+        >
           {children.map((condition, index) => (
             <Condition
               key={index}
