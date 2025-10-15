@@ -38,6 +38,21 @@ export class ConditionalRollupFieldCore extends FormulaAbstractCore {
     return this.options?.filter ?? undefined;
   }
 
+  static supportsOrdering(expression?: string): boolean {
+    if (!expression) return false;
+    const match = expression.match(/^(\w+)\(\{values\}\)$/i);
+    if (!match) return false;
+    switch (match[1].toLowerCase()) {
+      case 'array_join':
+      case 'array_compact':
+      case 'array_unique':
+      case 'concatenate':
+        return true;
+      default:
+        return false;
+    }
+  }
+
   validateOptions() {
     return conditionalRollupFieldOptionsSchema
       .extend({

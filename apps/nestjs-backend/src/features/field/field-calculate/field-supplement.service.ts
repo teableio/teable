@@ -7,6 +7,7 @@ import {
   CellValueType,
   CheckboxFieldCore,
   ColorUtils,
+  ConditionalRollupFieldCore,
   CreatedTimeFieldCore,
   DateFieldCore,
   DbFieldType,
@@ -855,6 +856,11 @@ export class FieldSupplementService {
     const expression =
       options.expression ??
       ConditionalRollupFieldDto.defaultOptions(lookupField.cellValueType).expression!;
+
+    if (!ConditionalRollupFieldCore.supportsOrdering(expression)) {
+      delete options.sort;
+      delete options.limit;
+    }
 
     let valueType;
     try {
@@ -1860,7 +1866,7 @@ export class FieldSupplementService {
         refs.push(lookupFieldId);
       }
       const sortFieldId = options?.sort?.fieldId;
-      if (sortFieldId) {
+      if (sortFieldId && ConditionalRollupFieldCore.supportsOrdering(options?.expression)) {
         refs.push(sortFieldId);
       }
       const filterRefs = extractFieldIdsFromFilter(options?.filter, true);

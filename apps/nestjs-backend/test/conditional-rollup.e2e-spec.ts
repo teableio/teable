@@ -2612,6 +2612,96 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       }
     });
 
+    it('drops ordering when converting an array rollup to a sum aggregation', async () => {
+      let foreign: ITableFullVo | undefined;
+      let host: ITableFullVo | undefined;
+
+      try {
+        foreign = await createTable(baseId, {
+          name: 'ConditionalRollup_SumConvert_Foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Score', type: FieldType.Number } as IFieldRo,
+          ],
+          records: [
+            { fields: { Title: 'Alpha', Status: 'Active', Score: 70 } },
+            { fields: { Title: 'Beta', Status: 'Active', Score: 90 } },
+            { fields: { Title: 'Gamma', Status: 'Active', Score: 40 } },
+            { fields: { Title: 'Delta', Status: 'Closed', Score: 15 } },
+          ],
+        });
+
+        const statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+        const scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+
+        host = await createTable(baseId, {
+          name: 'ConditionalRollup_SumConvert_Host',
+          fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { StatusFilter: 'Active' } }],
+        });
+        const statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+        const activeRecordId = host.records[0].id;
+
+        const statusMatchFilter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: statusId,
+              operator: 'is',
+              value: { type: 'field', fieldId: statusFilterId },
+            },
+          ],
+        };
+
+        let rollupField = await createField(host.id, {
+          name: 'Top Scores Array',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: scoreId,
+            expression: 'array_compact({values})',
+            filter: statusMatchFilter,
+            sort: { fieldId: scoreId, order: SortFunc.Desc },
+            limit: 2,
+          } as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+
+        const baseline = await getRecord(host.id, activeRecordId);
+        expect(baseline.fields[rollupField.id]).toEqual([90, 70]);
+
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: 'Total Score',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: scoreId,
+            expression: 'sum({values})',
+            filter: statusMatchFilter,
+            // Simulate stale sort/limit payload coming from the client
+            sort: { fieldId: scoreId, order: SortFunc.Desc },
+            limit: 2,
+          } as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+
+        const converted = await getField(host.id, rollupField.id);
+        const convertedOptions = converted.options as IConditionalRollupFieldOptions;
+        expect(convertedOptions.sort).toBeUndefined();
+        expect(convertedOptions.limit).toBeUndefined();
+        expect(converted.cellValueType).toBe(CellValueType.Number);
+
+        const updated = await getRecord(host.id, activeRecordId);
+        expect(updated.fields[rollupField.id]).toEqual(200);
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        if (foreign) {
+          await permanentDeleteTable(baseId, foreign.id);
+        }
+      }
+    });
+
     it('ignores sorting after the sort field is deleted', async () => {
       let foreign: ITableFullVo | undefined;
       let host: ITableFullVo | undefined;
