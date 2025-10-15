@@ -15,7 +15,7 @@ import type {
 import { CellRegionType, CellType } from './interface';
 
 const imagePositionCache: LRUCache<string, (IRectangle & { id: string })[]> = new LRUCache({
-  max: 100,
+  max: 200,
 });
 
 const INNER_PADDING = 4;
