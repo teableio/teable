@@ -21,7 +21,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,
   IWrapperEditorProps & IEditorProps
 > = (props, ref) => {
-  const { field, record, rect, style, isEditing, setEditing } = props;
+  const { field, record, rect, style, isEditing, initialSearch, setEditing } = props;
   const { t } = useTranslation();
   const tableId = useTableId();
   const defaultFocusRef = useRef<HTMLInputElement | null>(null);
@@ -100,6 +100,7 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
           isMultiple={isMultiple}
           preventAutoNewOptions={(options as ISelectFieldOptions)?.preventAutoNewOptions}
           options={selectOptions}
+          initialSearch={initialSearch}
           onChange={onChange}
           onOptionAdd={onOptionAdd}
         />

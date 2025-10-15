@@ -18,6 +18,7 @@ export interface IUserEditorMainProps extends ICellEditor<IUserCellValue | IUser
   onSearch?: (value: string) => void;
   style?: React.CSSProperties;
   className?: string;
+  initialSearch?: string;
 }
 
 const DefaultDataWrapper = forwardRef<IUserEditorRef, IUserEditorMainProps>((props, ref) => {

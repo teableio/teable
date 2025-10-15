@@ -16,6 +16,7 @@ export interface ISelectEditorMain<T extends boolean> extends ICellEditor<ISelec
   style?: React.CSSProperties;
   className?: string;
   onOptionAdd?: (optionName: string) => Promise<void>;
+  initialSearch?: string;
 }
 
 const getValue = (value?: string | string[]) => {
@@ -37,16 +38,17 @@ const SelectEditorMainBase: ForwardRefRenderFunction<
     className,
     onChange,
     onOptionAdd,
+    initialSearch,
   } = props;
 
   const [value, setValue] = useState<string[]>(getValue(originValue));
-  const [searchValue, setSearchValue] = useState('');
+  const [searchValue, setSearchValue] = useState(initialSearch ?? '');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { t } = useTranslation();
 
   useImperativeHandle(ref, () => ({
     focus: () => {
-      setSearchValue('');
+      // Do not clear search here; keep the initial character captured from grid
       inputRef.current?.focus();
     },
     setValue: (value?: string | string[]) => {

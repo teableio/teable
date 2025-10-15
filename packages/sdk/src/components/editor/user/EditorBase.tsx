@@ -33,6 +33,7 @@ export interface IUserEditorBaseProps extends ICellEditor<IUserCellValue | IUser
   onSearch?: (value: string) => void;
   collaborators?: ICollaborator[];
   isLoading?: boolean;
+  initialSearch?: string;
 }
 
 export type IUserEditorRef = IEditorRef<IUserCellValue | IUserCellValue[] | undefined>;
@@ -50,10 +51,11 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
     collaborators,
     onChange,
     onSearch,
+    initialSearch,
   } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
   const { t } = useTranslation();
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearch ?? '');
   const [isComposing, setIsComposing] = useState(false);
 
   useImperativeHandle(ref, () => ({
