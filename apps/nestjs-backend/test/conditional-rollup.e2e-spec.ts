@@ -8,6 +8,7 @@ import type {
   IFieldVo,
   ILookupOptionsRo,
   IConditionalRollupFieldOptions,
+  IFilter,
 } from '@teable/core';
 import {
   CellValueType,
@@ -19,6 +20,7 @@ import {
   Relationship,
   generateFieldId,
   isGreater,
+  SortFunc,
 } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -135,6 +137,172 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
 
       expect(first.fields[lookupField.id]).toEqual(2);
       expect(second.fields[lookupField.id]).toEqual(1);
+    });
+  });
+
+  describe('sort and limit options', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let rollupField: IFieldVo;
+    let titleId: string;
+    let statusId: string;
+    let scoreId: string;
+    let statusFilterId: string;
+    let activeRecordId: string;
+    let closedRecordId: string;
+    let gammaRecordId: string;
+    let statusMatchFilter: IFilter;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Sort_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Status: 'Active', Score: 70 } },
+          { fields: { Title: 'Beta', Status: 'Active', Score: 90 } },
+          { fields: { Title: 'Gamma', Status: 'Active', Score: 40 } },
+          { fields: { Title: 'Delta', Status: 'Closed', Score: 100 } },
+        ],
+      });
+      titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
+      statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+      scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+      gammaRecordId = foreign.records.find((record) => record.fields.Title === 'Gamma')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Sort_Host',
+        fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Closed' } }],
+      });
+      statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+      activeRecordId = host.records[0].id;
+      closedRecordId = host.records[1].id;
+
+      statusMatchFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterId },
+          },
+        ],
+      };
+
+      rollupField = await createField(host.id, {
+        name: 'Top Titles Rollup',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          expression: 'array_compact({values})',
+          filter: statusMatchFilter,
+          sort: { fieldId: scoreId, order: SortFunc.Desc },
+          limit: 2,
+        } as IConditionalRollupFieldOptions,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should honor sort and limit for array rollups and react to updates', async () => {
+      const originalField = await getField(host.id, rollupField.id);
+      const originalOptions = {
+        ...(originalField.options as IConditionalRollupFieldOptions),
+      };
+      const originalName = originalField.name;
+
+      try {
+        expect(originalOptions.sort).toEqual({ fieldId: scoreId, order: SortFunc.Desc });
+        expect(originalOptions.limit).toBe(2);
+
+        const baselineRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        const baselineActive = baselineRecords.records.find(
+          (record) => record.id === activeRecordId
+        )!;
+        const baselineClosed = baselineRecords.records.find(
+          (record) => record.id === closedRecordId
+        )!;
+        expect(baselineActive.fields[rollupField.id]).toEqual(['Beta', 'Alpha']);
+        expect(baselineClosed.fields[rollupField.id]).toEqual(['Delta']);
+
+        const ascOptions: IConditionalRollupFieldOptions = {
+          ...originalOptions,
+          sort: { fieldId: scoreId, order: SortFunc.Asc },
+          limit: 1,
+        };
+
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: rollupField.name,
+          type: FieldType.ConditionalRollup,
+          options: ascOptions,
+        } as IFieldRo);
+
+        let activeRecord = await getRecord(host.id, activeRecordId);
+        let closedRecord = await getRecord(host.id, closedRecordId);
+        expect(activeRecord.fields[rollupField.id]).toEqual(['Gamma']);
+        expect(closedRecord.fields[rollupField.id]).toEqual(['Delta']);
+
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 75);
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[rollupField.id]).toEqual(['Alpha']);
+
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 40);
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[rollupField.id]).toEqual(['Gamma']);
+
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Closed');
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[rollupField.id]).toEqual(['Delta']);
+
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[rollupField.id]).toEqual(['Gamma']);
+
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: rollupField.name,
+          type: FieldType.ConditionalRollup,
+          options: {
+            ...(rollupField.options as IConditionalRollupFieldOptions),
+            sort: undefined,
+            limit: undefined,
+          } as IConditionalRollupFieldOptions,
+        } as IFieldRo);
+
+        const fieldAfterDisable = await getField(host.id, rollupField.id);
+        // eslint-disable-next-line no-console
+        console.log('[test] field after disable', fieldAfterDisable.options);
+
+        const unsortedField = await getField(host.id, rollupField.id);
+        const unsortedOptions = unsortedField.options as IConditionalRollupFieldOptions;
+        expect(unsortedOptions.sort).toBeUndefined();
+        expect(unsortedOptions.limit).toBeUndefined();
+
+        const unsortedRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        const unsortedActive = unsortedRecords.records.find(
+          (record) => record.id === activeRecordId
+        )!;
+        const unsortedTitles = [...(unsortedActive.fields[rollupField.id] as string[])].sort();
+        expect(unsortedTitles).toEqual(['Alpha', 'Beta', 'Gamma']);
+
+        closedRecord = unsortedRecords.records.find((record) => record.id === closedRecordId)!;
+        expect(closedRecord.fields[rollupField.id]).toEqual(['Delta']);
+      } finally {
+        rollupField = await convertField(host.id, rollupField.id, {
+          name: originalName,
+          type: FieldType.ConditionalRollup,
+          options: originalOptions,
+        } as IFieldRo);
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 40);
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
+      }
     });
   });
 

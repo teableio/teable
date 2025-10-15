@@ -11,6 +11,7 @@ import type {
   ILookupOptionsRo,
 } from '@teable/core';
 import {
+  isConditionalLookupOptions,
   Colors,
   DbFieldType,
   FieldKeyType,
@@ -171,6 +172,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     let statusFilterId: string;
     let activeRecordId: string;
     let closedRecordId: string;
+    let gammaRecordId: string;
     let statusMatchFilter: IFilter;
 
     beforeAll(async () => {
@@ -191,6 +193,7 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
       statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
       scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+      gammaRecordId = foreign.records.find((record) => record.fields.Title === 'Gamma')!.id;
 
       host = await createTable(baseId, {
         name: 'ConditionalLookup_Sort_Host',
@@ -236,47 +239,115 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
 
     it('should apply sort and limit to conditional lookup results', async () => {
-      const fieldDetail = await getField(host.id, lookupField.id);
-      expect(fieldDetail.lookupOptions).toMatchObject({
-        sort: { fieldId: scoreId, order: SortFunc.Desc },
-        limit: 2,
-      });
+      const originalField = await getField(host.id, lookupField.id);
+      const originalLookupOptions = originalField.lookupOptions as ILookupOptionsRo;
+      const originalOptions = originalField.options;
+      const originalName = originalField.name;
 
-      const initialRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
-      const initialActive = initialRecords.records.find((record) => record.id === activeRecordId)!;
-      const initialClosed = initialRecords.records.find((record) => record.id === closedRecordId)!;
-      expect(initialActive.fields[lookupField.id]).toEqual(['Beta', 'Alpha']);
-      expect(initialClosed.fields[lookupField.id]).toEqual(['Delta']);
+      try {
+        expect(originalLookupOptions).toMatchObject({
+          sort: { fieldId: scoreId, order: SortFunc.Desc },
+          limit: 2,
+        });
 
-      lookupField = await convertField(host.id, lookupField.id, {
-        name: lookupField.name,
-        type: FieldType.SingleLineText,
-        isLookup: true,
-        isConditionalLookup: true,
-        options: lookupField.options,
-        lookupOptions: {
-          foreignTableId: foreign.id,
-          lookupFieldId: titleId,
-          filter: statusMatchFilter,
-          sort: {
-            fieldId: scoreId,
-            order: SortFunc.Asc,
-          },
+        const initialRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        const initialActive = initialRecords.records.find(
+          (record) => record.id === activeRecordId
+        )!;
+        const initialClosed = initialRecords.records.find(
+          (record) => record.id === closedRecordId
+        )!;
+        expect(initialActive.fields[lookupField.id]).toEqual(['Beta', 'Alpha']);
+        expect(initialClosed.fields[lookupField.id]).toEqual(['Delta']);
+
+        lookupField = await convertField(host.id, lookupField.id, {
+          name: lookupField.name,
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: lookupField.options,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            sort: {
+              fieldId: scoreId,
+              order: SortFunc.Asc,
+            },
+            limit: 1,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const ascField = await getField(host.id, lookupField.id);
+        expect(ascField.lookupOptions).toMatchObject({
+          sort: { fieldId: scoreId, order: SortFunc.Asc },
           limit: 1,
-        } as ILookupOptionsRo,
-      } as IFieldRo);
+        });
 
-      const updatedField = await getField(host.id, lookupField.id);
-      expect(updatedField.lookupOptions).toMatchObject({
-        sort: { fieldId: scoreId, order: SortFunc.Asc },
-        limit: 1,
-      });
+        let activeRecord = await getRecord(host.id, activeRecordId);
+        const closedRecord = await getRecord(host.id, closedRecordId);
+        expect(activeRecord.fields[lookupField.id]).toEqual(['Gamma']);
+        expect(closedRecord.fields[lookupField.id]).toEqual(['Delta']);
 
-      const updatedRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
-      const updatedActive = updatedRecords.records.find((record) => record.id === activeRecordId)!;
-      const updatedClosed = updatedRecords.records.find((record) => record.id === closedRecordId)!;
-      expect(updatedActive.fields[lookupField.id]).toEqual(['Gamma']);
-      expect(updatedClosed.fields[lookupField.id]).toEqual(['Delta']);
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 75);
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[lookupField.id]).toEqual(['Alpha']);
+
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 40);
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[lookupField.id]).toEqual(['Gamma']);
+
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Closed');
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[lookupField.id]).toEqual(['Delta']);
+
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
+        activeRecord = await getRecord(host.id, activeRecordId);
+        expect(activeRecord.fields[lookupField.id]).toEqual(['Gamma']);
+
+        lookupField = await convertField(host.id, lookupField.id, {
+          name: lookupField.name,
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: lookupField.options,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const disabledField = await getField(host.id, lookupField.id);
+        const disabledOptions = disabledField.lookupOptions;
+        if (!isConditionalLookupOptions(disabledOptions)) {
+          throw new Error('expected conditional lookup options');
+        }
+        expect(disabledOptions.sort).toBeUndefined();
+        expect(disabledOptions.limit).toBeUndefined();
+
+        const unsortedRecords = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+        const unsortedActive = unsortedRecords.records.find(
+          (record) => record.id === activeRecordId
+        )!;
+        const unsortedClosed = unsortedRecords.records.find(
+          (record) => record.id === closedRecordId
+        )!;
+        const activeTitles = [...(unsortedActive.fields[lookupField.id] as string[])].sort();
+        expect(activeTitles).toEqual(['Alpha', 'Beta', 'Gamma']);
+        expect(unsortedClosed.fields[lookupField.id]).toEqual(['Delta']);
+      } finally {
+        lookupField = await convertField(host.id, lookupField.id, {
+          name: originalName,
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          options: originalOptions,
+          lookupOptions: originalLookupOptions,
+        } as IFieldRo);
+        await updateRecordByApi(foreign.id, gammaRecordId, scoreId, 40);
+        await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
+      }
     });
   });
 

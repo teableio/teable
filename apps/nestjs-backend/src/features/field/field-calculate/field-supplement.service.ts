@@ -811,10 +811,19 @@ export class FieldSupplementService {
     };
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private async prepareConditionalRollupField(field: IFieldRo) {
-    const options = field.options as IConditionalRollupFieldOptions | undefined;
+    const rawOptions = field.options as IConditionalRollupFieldOptions | undefined;
+    const options = { ...(rawOptions || {}) } as IConditionalRollupFieldOptions | undefined;
     if (!options) {
       throw new BadRequestException('Conditional rollup field options are required');
+    }
+
+    if (!options.sort || options.sort.fieldId == null) {
+      delete options.sort;
+    }
+    if (options.limit == null) {
+      delete options.limit;
     }
 
     const { foreignTableId, lookupFieldId } = options;
@@ -1367,10 +1376,17 @@ export class FieldSupplementService {
       if (fieldRo.lookupOptions !== undefined) {
         const oldLookupOptions = (oldFieldVo.lookupOptions ?? {}) as Record<string, unknown>;
         const newLookupOptions = fieldRo.lookupOptions as Record<string, unknown>;
-        mergedField.lookupOptions = {
-          ...oldLookupOptions,
-          ...newLookupOptions,
-        } as IFieldVo['lookupOptions'];
+        const mergedLookupOptions = { ...oldLookupOptions };
+
+        Object.entries(newLookupOptions).forEach(([key, value]) => {
+          if (value === undefined) {
+            delete mergedLookupOptions[key];
+          } else {
+            mergedLookupOptions[key] = value;
+          }
+        });
+
+        mergedField.lookupOptions = mergedLookupOptions as IFieldVo['lookupOptions'];
       }
       return mergedField;
     }
@@ -1827,6 +1843,10 @@ export class FieldSupplementService {
       if (lookupFieldId) {
         refs.push(lookupFieldId);
       }
+      const sortFieldId = meta?.sort?.fieldId;
+      if (sortFieldId) {
+        refs.push(sortFieldId);
+      }
       const filterRefs = extractFieldIdsFromFilter(meta?.filter, true);
       filterRefs.forEach((fieldId) => refs.push(fieldId));
       return refs;
@@ -1838,6 +1858,10 @@ export class FieldSupplementService {
       const lookupFieldId = options?.lookupFieldId;
       if (lookupFieldId) {
         refs.push(lookupFieldId);
+      }
+      const sortFieldId = options?.sort?.fieldId;
+      if (sortFieldId) {
+        refs.push(sortFieldId);
       }
       const filterRefs = extractFieldIdsFromFilter(options?.filter, true);
       filterRefs.forEach((fieldId) => refs.push(fieldId));
@@ -1878,6 +1902,9 @@ export class FieldSupplementService {
       filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);
       });
+      if (conditionalLookupOptions.sort?.fieldId) {
+        fieldIds.push(conditionalLookupOptions.sort.fieldId);
+      }
     }
 
     if (field.type === FieldType.ConditionalRollup) {
@@ -1886,6 +1913,9 @@ export class FieldSupplementService {
       filterFieldIds.forEach((fieldId) => {
         fieldIds.push(fieldId);
       });
+      if (options?.sort?.fieldId) {
+        fieldIds.push(options.sort.fieldId);
+      }
     }
 
     fieldIds = uniq(fieldIds);

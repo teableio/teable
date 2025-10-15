@@ -9,6 +9,8 @@ export const NON_INFECT_OPTION_KEYS = new Set([
   'visibleFieldIds',
   'filterByViewId',
   'filter',
+  'sort',
+  'limit',
 ]);
 
 export const majorOptionsKeyChanged = (
