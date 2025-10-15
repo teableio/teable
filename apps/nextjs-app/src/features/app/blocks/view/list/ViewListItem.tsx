@@ -29,9 +29,10 @@ interface IProps {
   view: IViewInstance;
   removable: boolean;
   isActive: boolean;
+  onEdit: (value: boolean) => void;
 }
 
-export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) => {
+export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [open, setOpen] = useState(false);
   const tableId = useTableId();
@@ -50,12 +51,13 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
   const { resetSearchHandler } = useGridSearchStore();
 
   useEffect(() => {
-    isActive &&
+    if (isActive) {
       setTimeout(() => {
         viewItemRef.current?.scrollIntoView({
           behavior: 'smooth',
         });
       }, 0);
+    }
   }, [isActive]);
 
   const navigateHandler = () => {
@@ -108,6 +110,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
               view.updateName(e.target.value);
             }
             setIsEditing(false);
+            onEdit(false);
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
@@ -115,6 +118,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                 view.updateName(e.currentTarget.value);
               }
               setIsEditing(false);
+              onEdit(false);
             }
             e.stopPropagation();
           }}
@@ -135,7 +139,10 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
         }
       )}
       onDoubleClick={() => {
-        permission['view|update'] && setIsEditing(true);
+        if (permission['view|update']) {
+          setIsEditing(true);
+          onEdit(true);
+        }
       }}
       onKeyDown={(e) => {
         if (isEditing) {
@@ -177,6 +184,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive }) =>
                   variant="ghost"
                   onClick={() => {
                     setIsEditing(true);
+                    onEdit(true);
                   }}
                   className="flex justify-start"
                 >
