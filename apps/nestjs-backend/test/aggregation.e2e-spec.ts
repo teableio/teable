@@ -1,7 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import fs from 'fs';
+import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import type { IGroup } from '@teable/core';
-import { FieldKeyType, is, isGreaterEqual, SortFunc, StatisticsFunc, ViewType } from '@teable/core';
+import {
+  Colors,
+  FieldKeyType,
+  FieldType,
+  is,
+  isGreaterEqual,
+  SortFunc,
+  StatisticsFunc,
+  ViewType,
+} from '@teable/core';
 import type { IGroupHeaderPoint, ITableFullVo } from '@teable/openapi';
 import {
   getAggregation,
@@ -10,7 +21,9 @@ import {
   getRowCount,
   getSearchIndex,
   GroupPointType,
+  uploadAttachment,
 } from '@teable/openapi';
+import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { x_20 } from './data-helpers/20x';
 import {
   CHECKBOX_FIELD_CASES,
@@ -737,6 +750,104 @@ describe('OpenAPI AggregationController (e2e)', () => {
         '2022-03-12': 1,
       });
       expect(result.data.records.length).toEqual(4);
+    });
+  });
+
+  describe('attachment total size aggregation with groupBy', () => {
+    let tableId: string;
+    let groupFieldId: string;
+    let attachmentFieldId: string;
+    let recordA1Id: string;
+    let recordA2Id: string;
+    let recordB1Id: string;
+    let file10Path: string;
+    let file20Path: string;
+
+    beforeAll(async () => {
+      file10Path = path.join(StorageAdapter.TEMPORARY_DIR, 'agg-10b.bin');
+      file20Path = path.join(StorageAdapter.TEMPORARY_DIR, 'agg-20b.bin');
+      fs.writeFileSync(file10Path, 'a'.repeat(10));
+      fs.writeFileSync(file20Path, 'b'.repeat(20));
+
+      const table = await createTable(baseId, {
+        name: 'agg_attachment_group',
+        fields: [
+          {
+            name: 'group',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { id: 'A', name: 'A', color: Colors.BlueBright },
+                { id: 'B', name: 'B', color: Colors.CyanBright },
+              ],
+            },
+          },
+          {
+            name: 'att',
+            type: FieldType.Attachment,
+          },
+        ],
+      });
+      tableId = table.id;
+      groupFieldId = table.fields[0].id;
+      attachmentFieldId = table.fields[1].id;
+
+      const created = await createRecords(tableId, {
+        records: [
+          { fields: { [groupFieldId]: 'A' } },
+          { fields: { [groupFieldId]: 'A' } },
+          { fields: { [groupFieldId]: 'B' } },
+        ],
+      });
+
+      recordA1Id = created.records[0].id;
+      recordA2Id = created.records[1].id;
+      recordB1Id = created.records[2].id;
+
+      await uploadAttachment(
+        tableId,
+        recordA1Id,
+        attachmentFieldId,
+        fs.createReadStream(file10Path)
+      );
+      await uploadAttachment(
+        tableId,
+        recordA2Id,
+        attachmentFieldId,
+        fs.createReadStream(file20Path)
+      );
+      await uploadAttachment(
+        tableId,
+        recordB1Id,
+        attachmentFieldId,
+        fs.createReadStream(file20Path)
+      );
+    });
+
+    afterAll(async () => {
+      try {
+        await permanentDeleteTable(baseId, tableId);
+      } finally {
+        if (fs.existsSync(file10Path)) fs.unlinkSync(file10Path);
+        if (fs.existsSync(file20Path)) fs.unlinkSync(file20Path);
+      }
+    });
+
+    it('should compute per-group total attachment size correctly', async () => {
+      const result = await getAggregation(tableId, {
+        field: { [StatisticsFunc.TotalAttachmentSize]: [attachmentFieldId] },
+        groupBy: [{ fieldId: groupFieldId, order: SortFunc.Asc }],
+      }).then((res) => res.data);
+
+      expect(result.aggregations?.length).toBe(1);
+      const [{ total, group }] = result.aggregations!;
+      expect(total?.aggFunc).toBe(StatisticsFunc.TotalAttachmentSize);
+      expect(Number(total?.value)).toBe(50);
+      expect(group).toBeDefined();
+      const values = Object.values(group ?? {})
+        .map((g) => g.value as number)
+        .sort((a, b) => a - b);
+      expect(values).toEqual(['0', '20', '30']);
     });
   });
 });
