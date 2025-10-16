@@ -36,7 +36,7 @@ export const GridViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
     return <div></div>;
   }
   return (
-    <div className="flex @sm/toolbar:gap-1">
+    <div className="flex gap-1">
       <HideFields>
         {(text, isActive) => (
           <ToolBarButton
