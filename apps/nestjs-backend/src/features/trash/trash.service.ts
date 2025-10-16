@@ -25,6 +25,7 @@ import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
+import { RecordService } from '../record/record.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { UserService } from '../user/user.service';
 import { ViewService } from '../view/view.service';
@@ -39,6 +40,7 @@ export class TrashService {
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly fieldOpenApiService: FieldOpenApiService,
     private readonly recordOpenApiService: RecordOpenApiService,
+    private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
@@ -558,10 +560,18 @@ export class TrashService {
             const { fields, records } = snapshot as ICreateFieldsOperation['result'];
             await this.fieldOpenApiService.createFields(tableId, fields);
             if (records) {
-              await this.recordOpenApiService.updateRecords(tableId, {
-                fieldKeyType: FieldKeyType.Id,
-                records,
-              });
+              const existingSnapshots = await this.recordService.getSnapshotBulk(
+                tableId,
+                records.map((r) => r.id)
+              );
+              const existingIdSet = new Set(existingSnapshots.map((s) => s.data.id));
+              const filteredRecords = records.filter((r) => existingIdSet.has(r.id));
+              if (filteredRecords.length) {
+                await this.recordOpenApiService.updateRecords(tableId, {
+                  fieldKeyType: FieldKeyType.Id,
+                  records: filteredRecords,
+                });
+              }
             }
             break;
           }
