@@ -190,7 +190,7 @@ describe('Trash (e2e)', () => {
       expect(restored.status).toEqual(201);
     });
 
-    it.only('should restore field when some records were deleted after field deletion', async () => {
+    it('should restore field when some records were deleted after field deletion', async () => {
       const field = await createField(tableId, {
         name: 'restore field',
         type: FieldType.SingleSelect,
