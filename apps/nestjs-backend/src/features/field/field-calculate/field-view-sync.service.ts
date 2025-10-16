@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { getValidFilterOperators, FieldType, ViewOpBuilder, FieldOpBuilder } from '@teable/core';
+import {
+  getValidFilterOperators,
+  FieldType,
+  ViewOpBuilder,
+  FieldOpBuilder,
+  getValidStatisticFunc,
+} from '@teable/core';
 import type {
   IFilterSet,
   ISelectFieldOptionsRo,
@@ -9,6 +15,7 @@ import type {
   IFilterValue,
   ILinkFieldOptions,
   IOtOperation,
+  IColumn,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { isEqual, differenceBy, find, isEmpty } from 'lodash';
@@ -188,6 +195,7 @@ export class FieldViewSyncService {
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async convertViewDependenciesByFieldIds(
     tableId: string,
     newField: IFieldInstance,
@@ -198,6 +206,7 @@ export class FieldViewSyncService {
         filter: true,
         id: true,
         type: true,
+        columnMeta: true,
       },
       where: { tableId: tableId, deletedTime: null },
     });
@@ -208,21 +217,49 @@ export class FieldViewSyncService {
 
     const opsMap: { [viewId: string]: IOtOperation[] } = {};
     for (let i = 0; i < views.length; i++) {
-      const filterString = views[i].filter;
-      // empty filter or the field is not in filter, skip
-      if (!filterString || !filterString?.includes(newField.id)) {
-        continue;
+      const view = views[i];
+      const viewId = view.id;
+      const filterString = view.filter;
+
+      // if the field is in filter, update the filter
+      if (filterString?.includes(newField.id)) {
+        const filter = JSON.parse(filterString) as NonNullable<IFilter>;
+
+        const newFilter = this.getNewFilterByFieldChanges(filter, newField, oldField);
+
+        const ops = ViewOpBuilder.editor.setViewProperty.build({
+          key: 'filter',
+          newValue: newFilter ? (newFilter?.filterSet?.length ? newFilter : null) : null,
+          oldValue: filter,
+        });
+        opsMap[viewId] = [ops];
       }
-      const filter = JSON.parse(filterString) as NonNullable<IFilter>;
 
-      const newFilter = this.getNewFilterByFieldChanges(filter, newField, oldField);
-
-      const ops = ViewOpBuilder.editor.setViewProperty.build({
-        key: 'filter',
-        newValue: newFilter ? (newFilter?.filterSet?.length ? newFilter : null) : null,
-        oldValue: filter,
-      });
-      opsMap[views[i].id] = [ops];
+      // clear invalid aggregation statisticFunc from columnMeta
+      const columnMetaString = view?.columnMeta;
+      if (columnMetaString) {
+        const columnMeta = JSON.parse(columnMetaString) as {
+          [fieldId: string]: IColumn | null;
+        };
+        const fieldId = newField.id;
+        const meta = columnMeta[fieldId];
+        if (meta && 'statisticFunc' in meta) {
+          const validFuncs = getValidStatisticFunc(newField);
+          const currentFunc = meta.statisticFunc as unknown;
+          if (
+            currentFunc &&
+            Array.isArray(validFuncs) &&
+            !validFuncs.includes(currentFunc as never)
+          ) {
+            const updateOp = ViewOpBuilder.editor.updateViewColumnMeta.build({
+              fieldId,
+              newColumnMeta: { ...meta, statisticFunc: null },
+              oldColumnMeta: { ...meta },
+            });
+            opsMap[viewId] = [...(opsMap[viewId] || []), updateOp];
+          }
+        }
+      }
     }
 
     await this.viewService.batchUpdateViewByOps(tableId, opsMap);

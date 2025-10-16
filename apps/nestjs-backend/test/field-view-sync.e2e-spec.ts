@@ -1,6 +1,11 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldVo, ISelectFieldChoice, ISelectFieldOptions } from '@teable/core';
-import { FieldType, ViewType, SortFunc, Colors } from '@teable/core';
+import type {
+  IFieldVo,
+  IGridColumnMeta,
+  ISelectFieldChoice,
+  ISelectFieldOptions,
+} from '@teable/core';
+import { FieldType, ViewType, SortFunc, Colors, StatisticsFunc } from '@teable/core';
 import {
   createTable,
   createView,
@@ -8,6 +13,7 @@ import {
   permanentDeleteTable,
   initApp,
   getViews,
+  updateViewColumnMeta,
   convertField,
 } from './utils/init-app';
 
@@ -285,5 +291,33 @@ describe('OpenAPI FieldController (e2e)', () => {
         },
       ],
     });
+  });
+
+  it('should clear invalid statisticFunc in columnMeta when field type changes', async () => {
+    const numberField = fields.find(({ type }) => type === FieldType.Number) as IFieldVo;
+
+    const views = await getViews(tableId);
+    const gridView = views.find(({ type }) => type === ViewType.Grid) || views[0];
+
+    await updateViewColumnMeta(tableId, gridView.id, [
+      {
+        fieldId: numberField.id,
+        columnMeta: {
+          statisticFunc: StatisticsFunc.Sum,
+        },
+      },
+    ]);
+
+    await convertField(tableId, numberField.id, {
+      name: numberField.name,
+      dbFieldName: numberField.dbFieldName,
+      type: FieldType.SingleLineText,
+      options: {},
+    });
+
+    const updatedViews = await getViews(tableId);
+    const updatedGridView = updatedViews.find(({ id }) => id === gridView.id)!;
+    const updatedColumnMeta = updatedGridView.columnMeta as unknown as IGridColumnMeta;
+    expect(updatedColumnMeta[numberField.id]?.statisticFunc ?? null).toBe(null);
   });
 });
