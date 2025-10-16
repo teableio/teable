@@ -499,6 +499,7 @@ export class TableDuplicateService {
         name,
         options: {
           ...pick(options, [
+            'baseId',
             'relationship',
             'foreignTableId',
             'isOneWay',

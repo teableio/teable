@@ -19,8 +19,9 @@ import {
   FieldKeyType,
   Colors,
   generateWorkflowId,
+  Relationship,
 } from '@teable/core';
-import type { IDuplicateTableVo, ITableFullVo } from '@teable/openapi';
+import type { ICreateBaseVo, IDuplicateTableVo, ITableFullVo } from '@teable/openapi';
 import {
   createField,
   getFields,
@@ -33,6 +34,7 @@ import {
   updateRecord,
   getRecords,
   buttonClick,
+  createBase,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { x_20 } from './data-helpers/20x';
@@ -703,6 +705,54 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
       const newRecords = (await getRecords(id)).data.records;
       expect(newRecords[0].fields[formulaField.name]).toBe(1);
       expect(newRecords[2].fields[formulaField.name]).toBe(3);
+    });
+  });
+
+  describe('duplicate table with cross base link field', () => {
+    let table: ITableFullVo;
+    let base2: ICreateBaseVo;
+    let crossBaseTable: ITableFullVo;
+    beforeAll(async () => {
+      base2 = (
+        await createBase({
+          spaceId: globalThis.testConfig.spaceId,
+          name: 'base2',
+        })
+      ).data;
+
+      table = await createTable(baseId, {
+        name: 'mainTable',
+      });
+
+      crossBaseTable = await createTable(base2.id, {
+        name: 'crossBaseTable',
+      });
+
+      await createField(table.id, {
+        name: 'crossBaseLinkField',
+        type: FieldType.Link,
+        options: {
+          baseId: base2.id,
+          foreignTableId: crossBaseTable.id,
+          relationship: Relationship.ManyOne,
+          lookupFieldId: crossBaseTable.fields[0].id,
+          isOneWay: false,
+        },
+      });
+    });
+
+    it('should duplicate cross base link field', async () => {
+      const duplicateTableData = (
+        await duplicateTable(baseId, table.id, {
+          name: 'duplicated_table',
+          includeRecords: true,
+        })
+      ).data;
+
+      const linkField = duplicateTableData.fields.find((f) => f.type === FieldType.Link)!;
+      expect((linkField.options as ILinkFieldOptions).baseId).toBe(base2.id);
+      expect((linkField.options as ILinkFieldOptions).foreignTableId).toBe(crossBaseTable.id);
+      expect((linkField.options as ILinkFieldOptions).isOneWay).toBe(true);
     });
   });
 
