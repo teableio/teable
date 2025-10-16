@@ -14,6 +14,9 @@ export const mailConfig = registerAs('mail', () => ({
     user: process.env.BACKEND_MAIL_AUTH_USER,
     pass: process.env.BACKEND_MAIL_AUTH_PASS,
   },
+  connectionTimeout: parseInt(process.env.BACKEND_MAIL_CONNECTION_TIMEOUT ?? '10000', 10),
+  greetingTimeout: parseInt(process.env.BACKEND_MAIL_GREETING_TIMEOUT ?? '10000', 10),
+  dnsTimeout: parseInt(process.env.BACKEND_MAIL_DNS_TIMEOUT ?? '5000', 10),
   encryption: {
     algorithm: 'aes-128-cbc',
     key: process.env.BACKEND_MAIL_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx1',

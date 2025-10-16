@@ -35,8 +35,15 @@ export class MailSenderService {
     };
   }
 
+  // https://nodemailer.com/smtp#connection-options
   async createTransporter(config: IMailTransportConfig) {
-    const transporter = createTransport(config);
+    const { connectionTimeout, greetingTimeout, dnsTimeout } = this.mailConfig;
+    const transporter = createTransport({
+      ...config,
+      connectionTimeout,
+      greetingTimeout,
+      dnsTimeout,
+    });
     const templateAdapter = this.mailService['templateAdapter'];
     this.mailService['initTemplateAdapter'](templateAdapter, transporter);
     return transporter;
