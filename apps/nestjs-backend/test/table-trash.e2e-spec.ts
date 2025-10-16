@@ -1,9 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { faker } from '@faker-js/faker';
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, ViewType } from '@teable/core';
+import { FieldKeyType, FieldType, ViewType } from '@teable/core';
 import type { ITableTrashItemVo } from '@teable/openapi';
 import {
+  createRecords,
   deleteFields,
   deleteRecords,
   deleteView,
@@ -187,6 +188,48 @@ describe('Trash (e2e)', () => {
       const restored = await restoreTrash(result.data.trashItems[0].id);
 
       expect(restored.status).toEqual(201);
+    });
+
+    it.only('should restore field when some records were deleted after field deletion', async () => {
+      const field = await createField(tableId, {
+        name: 'restore field',
+        type: FieldType.SingleSelect,
+        options: {
+          choices: [{ name: 'A' }, { name: 'B' }],
+        },
+      });
+
+      const options = (field.options as unknown as { choices: { id: string }[] }).choices;
+
+      const created = await createRecords(tableId, {
+        records: [
+          { fields: { [field.id]: options[0].id } },
+          { fields: { [field.id]: options[1].id } },
+        ],
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+      });
+      const createdRecordIds = created.data.records.map((r) => r.id);
+
+      await awaitWithFieldEvent(async () => deleteFields(tableId, [field.id]));
+
+      await awaitWithRecordEvent(async () => deleteRecords(tableId, [createdRecordIds[0]]));
+
+      const itemsRes = await getTrashItems({
+        resourceId: tableId,
+        resourceType: ResourceType.Table,
+      });
+      const fieldTrashItem = itemsRes.data.trashItems.find(
+        (t) => (t as ITableTrashItemVo).resourceType === ResourceType.Field
+      ) as ITableTrashItemVo | undefined;
+
+      expect(fieldTrashItem).toBeTruthy();
+
+      const restored = await restoreTrash(fieldTrashItem!.id);
+      expect(restored.status).toEqual(201);
+
+      const afterFields = await getFields(tableId);
+      expect(afterFields.find((f) => f.id === field.id)).toBeTruthy();
     });
 
     it('should restore fields successfully', async () => {
