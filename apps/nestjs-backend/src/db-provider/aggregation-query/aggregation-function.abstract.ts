@@ -62,6 +62,8 @@ export abstract class AbstractAggregationFunction implements IAggregationFunctio
       StatisticsFunc.PercentUnChecked,
       StatisticsFunc.PercentFilled,
       StatisticsFunc.PercentChecked,
+      // Special-case: compute per-row then sum across group without MCV join
+      StatisticsFunc.TotalAttachmentSize,
     ];
 
     if (isMultipleCellValue && !ignoreMcvFunc.includes(aggFunc)) {
