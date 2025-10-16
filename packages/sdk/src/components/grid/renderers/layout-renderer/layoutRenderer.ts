@@ -2053,9 +2053,9 @@ export const drawGrid = (
 
   drawSearchCursor(mainCtx, props);
 
-  drawActiveCell(mainCtx, props);
-
   drawColumnStatisticsRegion(mainCtx, props);
+
+  drawActiveCell(mainCtx, props);
 
   columnStatistics != null && drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
 
