@@ -33,7 +33,7 @@ export const ExpandViewList = () => {
           <ChevronDown className="size-4" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="p-1">
+      <PopoverContent side="bottom" align="start" className="w-auto max-w-[456px] p-1">
         <Command>
           <CommandInput
             className="h-9"
@@ -41,7 +41,7 @@ export const ExpandViewList = () => {
             onValueChange={(value) => setIsDraggable(!value)}
           />
           <CommandEmpty>{t('common:noResult')}</CommandEmpty>
-          <CommandList className="p-0.5">
+          <CommandList className="max-h-[70vh] p-0.5">
             <DraggableWrapper strategy={verticalListSortingStrategy}>
               {({
                 view: { id, name, type },
@@ -79,7 +79,9 @@ export const ExpandViewList = () => {
                     }}
                   >
                     <Icon className="size-4 shrink-0" />
-                    <span className="ml-2 truncate text-sm">{name}</span>
+                    <span className="ml-2 truncate text-sm" title={name}>
+                      {name}
+                    </span>
                     <span className="grow" />
                     {isDraggable && permission['view|update'] && (
                       <div {...attributes} {...listeners} className="pr-1">
