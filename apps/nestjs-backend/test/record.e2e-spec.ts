@@ -101,6 +101,36 @@ describe('OpenAPI RecordController (e2e)', () => {
       expect(Object.keys(result.records[0].fields).length).toEqual(1);
     });
 
+    it('should get records with single projection parameter', async () => {
+      // Test case for when projection has only one value passed as query param
+      // This tests the fix for schema validation when projection=id is passed
+      const { axios } = await import('@teable/openapi');
+      await updateRecord(table.id, table.records[0].id, {
+        record: {
+          fields: {
+            [table.fields[0].name]: 'text',
+            [table.fields[1].name]: 1,
+          },
+        },
+      });
+
+      // Simulate HTTP query param: ?projection=fieldName
+      // When only one value is passed, it's parsed as string not array
+      const response = await axios.get(`/table/${table.id}/record`, {
+        params: {
+          projection: table.fields[0].name, // Single string value
+          fieldKeyType: FieldKeyType.Name,
+        },
+      });
+
+      expect(response.status).toEqual(200);
+      expect(response.data.records).toBeInstanceOf(Array);
+      expect(response.data.records.length).toBeGreaterThan(0);
+      // Should only return the projected field
+      expect(Object.keys(response.data.records[0].fields).length).toEqual(1);
+      expect(response.data.records[0].fields[table.fields[0].name]).toBeDefined();
+    });
+
     it('should create a record', async () => {
       const value1 = 'New Record' + new Date();
       const res1 = await createRecords(table.id, {

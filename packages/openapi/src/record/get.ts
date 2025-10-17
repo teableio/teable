@@ -37,10 +37,16 @@ export const typecastSchema = z
   );
 
 export const getRecordQuerySchema = z.object({
-  projection: z.string().array().optional().openapi({
-    description:
-      'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained, The parameter value depends on the specified fieldKeyType to determine whether it is name or id',
-  }),
+  projection: z
+    .union([z.string(), z.string().array()])
+    .transform((val) => (typeof val === 'string' ? [val] : val))
+    .optional()
+    .openapi({
+      type: 'array',
+      items: { type: 'string' },
+      description:
+        'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained, The parameter value depends on the specified fieldKeyType to determine whether it is name or id',
+    }),
   cellFormat: z
     .nativeEnum(CellFormat, {
       errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
