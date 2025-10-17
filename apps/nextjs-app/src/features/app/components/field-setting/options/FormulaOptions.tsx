@@ -19,15 +19,25 @@ import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
-const calculateTypedValue = (fields: IFieldInstance[], expression?: string) => {
-  const defaultResult = { cellValueType: CellValueType.String, isMultipleCellValue: false };
+const calculateTypedValue = (
+  fields: IFieldInstance[],
+  expression?: string
+): {
+  cellValueType: CellValueType;
+  isMultipleCellValue?: boolean;
+  hasError?: boolean;
+} => {
+  const defaultResult = {
+    cellValueType: CellValueType.String,
+    isMultipleCellValue: false,
+  };
 
   try {
     return expression
       ? FormulaField.getParsedValueType(expression, keyBy(fields, 'id'))
       : defaultResult;
   } catch (e) {
-    return defaultResult;
+    return { ...defaultResult, hasError: true };
   }
 };
 
@@ -48,7 +58,11 @@ export const FormulaOptionsInner = (props: {
       : '';
   }, [expression, fields]);
 
-  const { cellValueType, isMultipleCellValue } = calculateTypedValue(fields, expression);
+  const {
+    cellValueType,
+    isMultipleCellValue,
+    hasError: expressionHasError,
+  } = calculateTypedValue(fields, expression);
 
   const onExpressionChange = (expr: string) => {
     const { cellValueType: newCellValueType } = calculateTypedValue(fields, expr);
@@ -59,7 +73,7 @@ export const FormulaOptionsInner = (props: {
           ? formatting.timeZone
           : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
     };
-    if (newCellValueType !== cellValueType) {
+    if (newCellValueType !== cellValueType || expressionHasError) {
       const defaultFormatting = getDefaultFormatting(newCellValueType);
       newOptions.formatting = defaultFormatting;
       newOptions.showAs = undefined;
