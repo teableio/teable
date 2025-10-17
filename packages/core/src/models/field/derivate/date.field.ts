@@ -58,10 +58,39 @@ export class DateFieldCore extends FieldCore {
   }
   private defaultTzFormat(value: string) {
     try {
-      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
+      const formatValue = dayjs.utc(value);
       if (!formatValue.isValid()) return null;
       return formatValue.toISOString();
-    } catch (e) {
+    } catch {
+      return null;
+    }
+  }
+
+  private parseUsingFieldFormatting(value: string): string | null {
+    const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
+    const hasSeconds = /\d{1,2}:\d{2}:\d{2}/.test(value);
+    const hasAmPm = /am|pm/i.test(value);
+
+    const dateFormat = this.options.formatting.date.replace('MM', 'M').replace('DD', 'D');
+
+    let timeFormat: string | null = null;
+    if (hasTime) {
+      if (this.options.formatting.time === TimeFormatting.Hour12 || hasAmPm) {
+        timeFormat = hasSeconds ? 'hh:mm:ss A' : 'hh:mm A';
+      } else {
+        timeFormat = hasSeconds ? 'HH:mm:ss' : 'HH:mm';
+      }
+    }
+
+    const format = timeFormat ? `${dateFormat} ${timeFormat}` : dateFormat;
+
+    try {
+      const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
+      if (!formatValue.isValid()) return null;
+      const isoString = formatValue.toISOString();
+      if (isoString.startsWith('-')) return null;
+      return isoString;
+    } catch {
       return null;
     }
   }
@@ -77,22 +106,24 @@ export class DateFieldCore extends FieldCore {
       return dayjs().toISOString();
     }
 
-    const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
-
-    const format = `${this.options.formatting.date}${hasTime && this.options.formatting.time !== TimeFormatting.None ? ' ' + this.options.formatting.time : ''}`;
-
-    try {
-      const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
-      if (!formatValue.isValid()) return null;
-      const formatValueISOString = formatValue.toISOString();
-      // ISOString start with '-' means the date is invalid
-      if (formatValueISOString.startsWith('-')) {
-        return null;
+    if (/^\d+$/.test(String(value))) {
+      const num = Number(value);
+      const ms = String(value).length >= 13 ? num : num * 1000;
+      try {
+        const d = dayjs(ms).tz(this.options.formatting.timeZone);
+        if (d.isValid()) {
+          const iso = d.toISOString();
+          if (!iso.startsWith('-')) return iso;
+        }
+      } catch {
+        // ignore
       }
-      return formatValue.toISOString();
-    } catch (e) {
-      return this.defaultTzFormat(value);
     }
+
+    const formatted = this.parseUsingFieldFormatting(value);
+    if (formatted) return formatted;
+
+    return this.defaultTzFormat(value);
   }
 
   item2String(item?: unknown) {

@@ -1,6 +1,6 @@
 import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, getRandomString } from '@teable/core';
+import { FieldType, getRandomString, TimeFormatting } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -80,7 +80,7 @@ export class ImportOpenApiService {
             formatting: {
               timeZone: tz,
               date: 'YYYY-MM-DD',
-              time: 'None',
+              time: TimeFormatting.None,
             },
           };
         }

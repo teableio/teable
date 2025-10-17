@@ -99,6 +99,38 @@ describe('DateFieldCore', () => {
     expect(usField.convertStringToCellValue('5/1/2024 06:50')).toBe('2024-05-01T06:50:00.000Z');
   });
 
+  it('should parse single-digit month/day with seconds', () => {
+    const fieldWithAsian = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.Asian,
+          time: TimeFormatting.Hour24,
+          timeZone: 'Asia/Shanghai',
+        },
+      },
+    });
+    expect(fieldWithAsian.convertStringToCellValue('2025/7/31 14:15:32')).toBe(
+      '2025-07-31T06:15:32.000Z'
+    );
+  });
+
+  it('should parse single-digit month/day with seconds', () => {
+    const fieldWithAsian = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {
+        formatting: {
+          date: DateFormattingPreset.Asian,
+          time: TimeFormatting.None,
+          timeZone: 'Asia/Shanghai',
+        },
+      },
+    });
+    expect(fieldWithAsian.convertStringToCellValue('2025/7/31 14:15:32')).toBe(
+      '2025-07-31T06:15:32.000Z'
+    );
+  });
+
   it('should repair invalid value', () => {
     expect(field.repair(1687158022191)).toBe('2023-06-19T07:00:22.191Z');
     expect(field.repair('xxx')).toBe(null);
