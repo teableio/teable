@@ -34,6 +34,10 @@ export class TrashListener {
       case Events.BASE_DELETE: {
         resourceId = payload.baseId;
         resourceType = ResourceType.Base;
+        // Skip trash creation for permanent delete
+        if (payload.permanent) {
+          return;
+        }
         const base = await this.prismaService.base.findUniqueOrThrow({
           where: { id: resourceId },
           select: { id: true, spaceId: true, deletedTime: true },
