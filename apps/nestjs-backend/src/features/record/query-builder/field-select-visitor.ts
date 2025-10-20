@@ -275,11 +275,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return name;
     }
 
-    const raw = `to_char(${name} AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')`;
-    const selection = this.qb.client.raw(raw);
-
     this.state.setSelection(field.id, name);
-    return selection;
+    return name;
   }
 
   visitRatingField(field: RatingFieldCore): IFieldSelectName {
