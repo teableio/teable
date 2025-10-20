@@ -158,4 +158,20 @@ describe('SelectQueryPostgres unit-aware date helpers', () => {
       `DATE_TRUNC('${expectedUnit}', date_a::timestamp) = DATE_TRUNC('${expectedUnit}', date_b::timestamp)`
     );
   });
+
+  describe('numeric aggregate rewrites', () => {
+    it('sum rewrites multiple params to addition with numeric coercion', () => {
+      const sql = query.sum(['column_a', 'column_b', '10']);
+      expect(sql).toBe(
+        "(COALESCE(NULLIF(REGEXP_REPLACE((column_a)::text, '[^0-9.+-]', '', 'g'), '')::double precision, 0) + COALESCE(NULLIF(REGEXP_REPLACE((column_b)::text, '[^0-9.+-]', '', 'g'), '')::double precision, 0) + COALESCE(NULLIF(REGEXP_REPLACE((10)::text, '[^0-9.+-]', '', 'g'), '')::double precision, 0))"
+      );
+    });
+
+    it('average divides the rewritten sum by parameter count', () => {
+      const sql = query.average(['column_a', '10']);
+      expect(sql).toBe(
+        "((COALESCE(NULLIF(REGEXP_REPLACE((column_a)::text, '[^0-9.+-]', '', 'g'), '')::double precision, 0) + COALESCE(NULLIF(REGEXP_REPLACE((10)::text, '[^0-9.+-]', '', 'g'), '')::double precision, 0))) / 2"
+      );
+    });
+  });
 });

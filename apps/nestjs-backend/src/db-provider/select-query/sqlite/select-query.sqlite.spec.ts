@@ -151,4 +151,20 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
     const sql = query.isSame('date_a', 'date_b', `'${literal}'`);
     expect(sql).toBe(`STRFTIME('${format}', date_a) = STRFTIME('${format}', date_b)`);
   });
+
+  describe('numeric aggregate rewrites', () => {
+    it('sum rewrites multiple params to addition with numeric coercion', () => {
+      const sql = query.sum(['column_a', 'column_b', '10']);
+      expect(sql).toBe(
+        '(COALESCE(CAST((column_a) AS REAL), 0) + COALESCE(CAST((column_b) AS REAL), 0) + COALESCE(CAST((10) AS REAL), 0))'
+      );
+    });
+
+    it('average divides the rewritten sum by parameter count', () => {
+      const sql = query.average(['column_a', '10']);
+      expect(sql).toBe(
+        '((COALESCE(CAST((column_a) AS REAL), 0) + COALESCE(CAST((10) AS REAL), 0))) / 2'
+      );
+    });
+  });
 });

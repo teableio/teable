@@ -43,13 +43,28 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
   }
 
+  private coalesceNumeric(expr: string): string {
+    return `COALESCE(CAST((${expr}) AS REAL), 0)`;
+  }
+
   // Numeric Functions
   sum(params: string[]): string {
-    return `SUM(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return '0';
+    }
+    const terms = params.map((param) => this.coalesceNumeric(param));
+    if (terms.length === 1) {
+      return terms[0];
+    }
+    return `(${terms.join(' + ')})`;
   }
 
   average(params: string[]): string {
-    return `AVG(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return '0';
+    }
+    const numerator = this.sum(params);
+    return `(${numerator}) / ${params.length}`;
   }
 
   max(params: string[]): string {

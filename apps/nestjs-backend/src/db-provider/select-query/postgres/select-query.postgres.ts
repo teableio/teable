@@ -28,6 +28,10 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
   }
 
+  private coalesceNumeric(expr: string): string {
+    return `COALESCE(${this.toNumericSafe(expr)}, 0)`;
+  }
+
   private isEmptyStringLiteral(value: string): boolean {
     return value.trim() === "''";
   }
@@ -232,12 +236,23 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
   // Numeric Functions
   sum(params: string[]): string {
-    // In SELECT context, we can use window functions and aggregates more freely
-    return `SUM(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return '0';
+    }
+
+    const terms = params.map((param) => this.coalesceNumeric(param));
+    if (terms.length === 1) {
+      return terms[0];
+    }
+    return `(${terms.join(' + ')})`;
   }
 
   average(params: string[]): string {
-    return `AVG(${this.joinParams(params)})`;
+    if (params.length === 0) {
+      return '0';
+    }
+    const numerator = this.sum(params);
+    return `(${numerator}) / ${params.length}`;
   }
 
   max(params: string[]): string {

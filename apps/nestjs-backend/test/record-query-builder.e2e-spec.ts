@@ -91,10 +91,7 @@ describe('RecordQueryBuilder (e2e)', () => {
         "TBL_ALIAS"."__last_modified_by",
         "TBL_ALIAS"."col_c1" AS "col_c1",
         "TBL_ALIAS"."col_c2" AS "col_c2",
-        to_char(
-          "TBL_ALIAS"."col_c3" AT TIME ZONE 'UTC',
-          'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
-        ) as "col_c3"
+        "TBL_ALIAS"."col_c3" AS "col_c3"
       from
         "db_table" as "TBL_ALIAS"
       limit
@@ -120,10 +117,7 @@ describe('RecordQueryBuilder (e2e)', () => {
         "TBL_ALIAS"."__created_by",
         "TBL_ALIAS"."__last_modified_by",
         "TBL_ALIAS"."col_c1" AS "col_c1",
-        to_char(
-          "TBL_ALIAS"."col_c3" AT TIME ZONE 'UTC',
-          'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'
-        ) as "col_c3"
+        "TBL_ALIAS"."col_c3" AS "col_c3"
       from
         "db_table" as "TBL_ALIAS"
       limit

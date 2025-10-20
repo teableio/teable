@@ -633,6 +633,45 @@ describe('OpenAPI formula (e2e)', () => {
       expect(typeof value).toBe('number');
       expect(value as number).toBeCloseTo(expected, 9);
     });
+
+    it('should evaluate SUM with multiple arguments and conditional logic', async () => {
+      const initialValue = 25;
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: initialValue,
+              [textFieldRo.name]: 'numeric',
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const formulaField = await createField(table1Id, {
+        name: 'numeric-sum-if',
+        type: FieldType.Formula,
+        options: {
+          expression: `SUM(IF({${numberFieldRo.id}} > 20, {${numberFieldRo.id}} - 20, {${numberFieldRo.id}} + 20), {${numberFieldRo.id}})`,
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const firstValue = recordAfterFormula.data.fields[formulaField.name];
+      expect(firstValue).toBe(30);
+
+      const updatedRecord = await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 10,
+          },
+        },
+      });
+
+      expect(updatedRecord.fields[formulaField.name]).toBe(40);
+    });
   });
 
   describe('text formula functions', () => {
