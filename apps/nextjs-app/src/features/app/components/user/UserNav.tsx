@@ -61,7 +61,7 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
             rel="noopener noreferrer"
           >
             <MessageSquare className="size-4 shrink-0" />
-            {t('nav.contactSupport', 'Contact Support')}
+            {t('nav.contactSupport')}
           </a>
         </DropdownMenuItem>
         {isCloud && (
