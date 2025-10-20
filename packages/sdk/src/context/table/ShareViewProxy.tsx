@@ -1,4 +1,4 @@
-import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup } from '@teable/core';
+import type { IViewVo, ISort, IColumnMetaRo, IFilter, IGroup, IColumnMeta } from '@teable/core';
 import { useEffect, useState } from 'react';
 import { useView } from '../../hooks/use-view';
 import type { IViewInstance } from '../../model/view/factory';
@@ -86,15 +86,17 @@ export const ShareViewProxy = (props: IViewProxyProps) => {
       });
     };
     newViewProxy.updateColumnMeta = (columnMeta: IColumnMetaRo) => {
-      const [{ columnMeta: meta, fieldId }] = columnMeta;
       const newViewData = {
         ...viewData,
         columnMeta: {
           ...viewData.columnMeta,
-          [fieldId]: {
-            ...viewData.columnMeta?.[fieldId],
-            ...meta,
-          },
+          ...columnMeta.reduce((acc, { fieldId, columnMeta }) => {
+            acc[fieldId] = {
+              ...viewData.columnMeta?.[fieldId],
+              ...columnMeta,
+            };
+            return acc;
+          }, {} as IColumnMeta),
         },
       };
       setViewData(newViewData);
