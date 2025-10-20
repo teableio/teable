@@ -35,6 +35,11 @@ export interface ICreateRecordQueryBuilderOptions {
    * Useful for UPDATE ... FROM (SELECT ...) operations to avoid type mismatches (e.g., timestamptz vs text).
    */
   rawProjection?: boolean;
+  /**
+   * When true, prefer raw field references when converting formulas to SQL (skip formatting).
+   * Typically used alongside rawProjection when the consumer needs source values (e.g., jsonb) rather than formatted text.
+   */
+  preferRawFieldReferences?: boolean;
 }
 
 /**
@@ -143,6 +148,8 @@ export interface IReadonlyQueryBuilderState {
   /** Convenience helpers */
   hasFieldCte(fieldId: string): boolean;
   getCteName(fieldId: string): string | undefined;
+  /** Check if a CTE has already been joined to the main query */
+  isCteJoined(cteName: string): boolean;
 }
 
 /**
@@ -167,4 +174,6 @@ export interface IMutableQueryBuilderState extends IReadonlyQueryBuilderState {
   setMainTableSource(source: string): void;
   /** Set pagination base CTE name */
   setBaseCteName(cteName: string | undefined): void;
+  /** Mark that a CTE has been joined to the main query */
+  markCteJoined(cteName: string): void;
 }

@@ -230,13 +230,26 @@ export class FieldSupplementService {
     const foreignTableName = await this.getDbTableName(foreignTableId);
 
     if (!lookupFieldId) {
-      const { id: defaultLookupFieldId } = await this.prismaService
-        .txClient()
-        .field.findFirstOrThrow({
-          where: { tableId: foreignTableId, isPrimary: true },
-          select: { id: true },
-        });
-      lookupFieldId = defaultLookupFieldId;
+      const labelField = await this.prismaService.txClient().field.findFirst({
+        where: {
+          tableId: foreignTableId,
+          name: 'Label',
+          deletedTime: null,
+        },
+        select: { id: true },
+      });
+
+      if (labelField?.id) {
+        lookupFieldId = labelField.id;
+      } else {
+        const { id: defaultLookupFieldId } = await this.prismaService
+          .txClient()
+          .field.findFirstOrThrow({
+            where: { tableId: foreignTableId, isPrimary: true },
+            select: { id: true },
+          });
+        lookupFieldId = defaultLookupFieldId;
+      }
     }
 
     if (baseId) {
@@ -305,13 +318,21 @@ export class FieldSupplementService {
       }
     }
     if (!lookupFieldId) {
-      const { id: defaultLookupFieldId } = await this.prismaService
-        .txClient()
-        .field.findFirstOrThrow({
-          where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
-          select: { id: true },
-        });
-      lookupFieldId = defaultLookupFieldId;
+      const labelField = await this.prismaService.txClient().field.findFirst({
+        where: { tableId: foreignTableId, name: 'Label', deletedTime: null },
+        select: { id: true },
+      });
+      if (labelField?.id) {
+        lookupFieldId = labelField.id;
+      } else {
+        const { id: defaultLookupFieldId } = await this.prismaService
+          .txClient()
+          .field.findFirstOrThrow({
+            where: { tableId: foreignTableId, isPrimary: true, deletedTime: null },
+            select: { id: true },
+          });
+        lookupFieldId = defaultLookupFieldId;
+      }
     }
 
     if (baseId) {

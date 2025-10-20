@@ -88,6 +88,7 @@ export class ComputedEvaluatorService {
         tableIdOrDbTableName: tableId,
         projection: Array.from(validFieldIdSet),
         rawProjection: true,
+        preferRawFieldReferences: true,
       });
 
       const idCol = alias ? `${alias}.__id` : '__id';

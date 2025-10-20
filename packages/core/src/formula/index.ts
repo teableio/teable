@@ -8,6 +8,7 @@ export * from './errors';
 export * from './function-call-collector.visitor';
 export * from './parse-formula';
 export { FunctionName, FormulaFuncType } from './functions/common';
+export * from './function-aliases';
 export { FormulaLexer } from './parser/FormulaLexer';
 export { FUNCTIONS } from './functions/factory';
 export * from './parser/Formula';

@@ -116,7 +116,6 @@ export class RecordComputedUpdateService {
       returningDbFieldNames: returningWithAutoNumber,
     });
     this.logger.debug('updateFromSelect SQL:', sql);
-
     return await this.prismaService
       .txClient()
       .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);

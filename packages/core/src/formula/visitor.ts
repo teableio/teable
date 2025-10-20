@@ -5,6 +5,7 @@ import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor
 import { CellValueType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
 import type { IRecord } from '../models/record';
+import { normalizeFunctionNameAlias } from './function-aliases';
 import { FunctionName } from './functions/common';
 import type { FormulaFunc } from './functions/common';
 import { FUNCTIONS } from './functions/factory';
@@ -423,10 +424,12 @@ export class EvalVisitor
   }
 
   visitFunctionCall(ctx: FunctionCallContext) {
-    const fnName = ctx.func_name().text.toUpperCase() as FunctionName;
+    const rawName = ctx.func_name().text.toUpperCase();
+    const normalized = normalizeFunctionNameAlias(rawName) as FunctionName;
+    const fnName = normalized;
     const func = FUNCTIONS[fnName];
     if (!func) {
-      throw new TypeError(`Function name ${func} is not found`);
+      throw new TypeError(`Function name ${rawName} is not found`);
     }
 
     if (fnName === FunctionName.Blank) {

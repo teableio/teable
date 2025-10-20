@@ -57,7 +57,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
      * When true, select raw scalar values for lookup/rollup CTEs instead of formatted display values.
      * This avoids type mismatches when propagating values back into physical columns (e.g. timestamptz).
      */
-    private readonly rawProjection: boolean = false
+    private readonly rawProjection: boolean = false,
+    private readonly preferRawFieldReferences: boolean = false
   ) {}
 
   private get tableAlias() {
@@ -217,6 +218,8 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
           selectionMap: this.getSelectionMap(),
           fieldCteMap: this.state.getFieldCteMap(),
           timeZone: timezone,
+          preferRawFieldReferences: this.preferRawFieldReferences,
+          targetDbFieldType: field.dbFieldType,
         });
       }
 

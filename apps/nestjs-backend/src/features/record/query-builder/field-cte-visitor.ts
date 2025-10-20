@@ -243,6 +243,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       new ScopedSelectionState(this.state),
       this.dialect,
       undefined,
+      true,
       true
     );
 
@@ -677,6 +678,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       new ScopedSelectionState(this.state),
       this.dialect,
       foreignTableAlias,
+      true,
       true
     );
     const targetFieldResult = targetLookupField.accept(selectVisitor);
@@ -838,7 +840,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       scopedState,
       this.dialect,
       this.getForeignAlias(),
-      true
+      true,
+      false
     );
 
     const foreignAlias = this.getForeignAlias();
@@ -1298,8 +1301,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           .modify((builder) => this.fromTableWithRestriction(builder, table, mainAlias));
       });
 
-      if (joinToMain) {
+      if (joinToMain && !this.state.isCteJoined(cteName)) {
         this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+        this.state.markCteJoined(cteName);
       }
 
       this.state.setFieldCte(field.id, cteName);
@@ -1465,8 +1469,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         this.fromTableWithRestriction(cqb, table, mainAlias);
       });
 
-      if (joinToMain) {
+      if (joinToMain && !this.state.isCteJoined(cteName)) {
         this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+        this.state.markCteJoined(cteName);
       }
 
       this.state.setFieldCte(field.id, cteName);
@@ -1763,8 +1768,12 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             );
           }
         }
-      })
-      .leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+      });
+
+    if (!this.state.isCteJoined(cteName)) {
+      this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+      this.state.markCteJoined(cteName);
+    }
 
     this.state.setFieldCte(linkField.id, cteName);
   }
@@ -2119,11 +2128,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitRatingField(_field: RatingFieldCore): void {}
   visitAutoNumberField(_field: AutoNumberFieldCore): void {}
   visitLinkField(field: LinkFieldCore): void {
-    // Skip errored link fields
     if (field.hasError) return;
-    // If CTE already exists for this link, do not re-define it
-    if (this.state.getFieldCteMap().has(field.id)) return;
-    return this.generateLinkFieldCte(field);
+    const existingCteName = this.state.getCteName(field.id);
+    if (existingCteName) {
+      this.ensureLinkCteJoined(existingCteName);
+      return;
+    }
+    this.generateLinkFieldCte(field);
   }
   visitRollupField(_field: RollupFieldCore): void {}
   visitConditionalRollupField(field: ConditionalRollupFieldCore): void {
@@ -2138,6 +2149,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
   visitCreatedByField(_field: CreatedByFieldCore): void {}
   visitLastModifiedByField(_field: LastModifiedByFieldCore): void {}
   visitButtonField(_field: ButtonFieldCore): void {}
+
+  private ensureLinkCteJoined(cteName: string): void {
+    if (this.state.isCteJoined(cteName)) {
+      return;
+    }
+    const mainAlias = getTableAliasFromTable(this.table);
+    this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+    this.state.markCteJoined(cteName);
+  }
 }
 const getLinkFieldId = (options: FieldCore['lookupOptions']): string | undefined => {
   return options && isLinkLookupOptions(options) ? options.linkFieldId : undefined;

@@ -818,6 +818,8 @@ export class LinkService {
         {
           tableIdOrDbTableName: tableId,
           viewId: undefined,
+          rawProjection: true,
+          preferRawFieldReferences: true,
         }
       );
 

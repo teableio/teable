@@ -186,7 +186,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       defaultOrderField: options.defaultOrderField,
     });
 
-    this.buildSelect(qb, table, state, options.projection, options.rawProjection);
+    this.buildSelect(
+      qb,
+      table,
+      state,
+      options.projection,
+      options.rawProjection,
+      options.preferRawFieldReferences ?? false
+    );
 
     // Selection map collected as fields are visited.
 
@@ -436,7 +443,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     table: TableDomain,
     state: IMutableQueryBuilderState,
     projection?: string[],
-    rawProjection: boolean = false
+    rawProjection: boolean = false,
+    preferRawFieldReferences: boolean = false
   ): this {
     const visitor = new FieldSelectVisitor(
       qb,
@@ -445,7 +453,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       state,
       this.dialect,
       undefined,
-      rawProjection
+      rawProjection,
+      preferRawFieldReferences
     );
     const alias = getTableAliasFromTable(table);
 

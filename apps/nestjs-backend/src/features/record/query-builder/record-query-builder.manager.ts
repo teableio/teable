@@ -13,6 +13,7 @@ export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
   constructor(public readonly context: IRecordQueryContext) {}
   private readonly fieldIdToCteName: Map<string, string> = new Map();
   private readonly fieldIdToSelection: Map<string, IFieldSelectName> = new Map();
+  private readonly joinedCtes: Set<string> = new Set();
   private mainAlias?: string;
   private mainSource?: string;
   private originalMainSource?: string;
@@ -55,6 +56,10 @@ export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
     return this.fieldIdToCteName.get(fieldId);
   }
 
+  isCteJoined(cteName: string): boolean {
+    return this.joinedCtes.has(cteName);
+  }
+
   // Mutable API
   setFieldCte(fieldId: string, cteName: string): void {
     this.fieldIdToCteName.set(fieldId, cteName);
@@ -62,6 +67,7 @@ export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
 
   clearFieldCtes(): void {
     this.fieldIdToCteName.clear();
+    this.joinedCtes.clear();
   }
 
   setSelection(fieldId: string, selection: IFieldSelectName): void {
@@ -89,6 +95,10 @@ export class RecordQueryBuilderManager implements IMutableQueryBuilderState {
 
   setBaseCteName(cteName: string | undefined): void {
     this.baseCteName = cteName;
+  }
+
+  markCteJoined(cteName: string): void {
+    this.joinedCtes.add(cteName);
   }
 }
 
@@ -128,6 +138,10 @@ export class ScopedSelectionState implements IMutableQueryBuilderState {
 
   getCteName(fieldId: string): string | undefined {
     return this.base.getCteName(fieldId);
+  }
+
+  isCteJoined(cteName: string): boolean {
+    return this.base.isCteJoined(cteName);
   }
 
   getMainTableAlias(): string | undefined {
@@ -179,5 +193,9 @@ export class ScopedSelectionState implements IMutableQueryBuilderState {
 
   setBaseCteName(_cteName: string | undefined): void {
     throw new Error('setBaseCteName is not supported on ScopedSelectionState');
+  }
+
+  markCteJoined(_cteName: string): void {
+    throw new Error('markCteJoined is not supported on ScopedSelectionState');
   }
 }

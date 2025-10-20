@@ -1,4 +1,5 @@
 import { DbFieldType } from '@teable/core';
+import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -8,6 +9,17 @@ import { SelectQueryAbstract } from '../select-query.abstract';
  * mutable functions and have different optimization strategies.
  */
 export class SelectQueryPostgres extends SelectQueryAbstract {
+  private get tableAlias(): string | undefined {
+    const ctx = this.context as ISelectFormulaConversionContext | undefined;
+    return ctx?.tableAlias;
+  }
+
+  private qualifySystemColumn(column: string): string {
+    const quoted = `"${column}"`;
+    const alias = this.tableAlias;
+    return alias ? `"${alias}".${quoted}` : quoted;
+  }
+
   private toNumericSafe(expr: string): string {
     // Safely coerce any scalar to a floating-point number:
     // - Strip everything except digits, sign, decimal point
@@ -488,7 +500,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   lastModifiedTime(): string {
     // This would typically reference a system column
-    return `"__last_modified_time"`;
+    return this.qualifySystemColumn('__last_modified_time');
   }
 
   minute(date: string): string {
@@ -539,7 +551,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   createdTime(): string {
     // This would typically reference a system column
-    return `"__created_time"`;
+    return this.qualifySystemColumn('__created_time');
   }
 
   // Logical Functions
@@ -680,12 +692,12 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   // System Functions
   recordId(): string {
     // This would typically reference the primary key
-    return `__id`;
+    return this.qualifySystemColumn('__id');
   }
 
   autoNumber(): string {
     // This would typically reference an auto-increment column
-    return `__auto_number`;
+    return this.qualifySystemColumn('__auto_number');
   }
 
   textAll(value: string): string {

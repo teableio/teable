@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-collapsible-if */
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
@@ -23,6 +24,7 @@ import {
   parseFormula,
   isFieldHasExpression,
   isLinkLookupOptions,
+  normalizeFunctionNameAlias,
 } from '@teable/core';
 import type {
   FormulaVisitor,
@@ -34,6 +36,7 @@ import type {
   LastModifiedTimeFieldCore,
   FormulaFieldCore,
   IFieldWithExpression,
+  DbFieldType,
 } from '@teable/core';
 import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
 import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
@@ -58,6 +61,52 @@ function unescapeString(str: string): string {
   });
 }
 
+const STRING_FUNCTIONS = new Set<FunctionName>([
+  FunctionName.Concatenate,
+  FunctionName.Left,
+  FunctionName.Right,
+  FunctionName.Mid,
+  FunctionName.Upper,
+  FunctionName.Lower,
+  FunctionName.Trim,
+  FunctionName.Substitute,
+  FunctionName.Replace,
+  FunctionName.T,
+  FunctionName.Datestr,
+  FunctionName.Timestr,
+  FunctionName.ArrayJoin,
+]);
+
+const NUMBER_FUNCTIONS = new Set<FunctionName>([
+  FunctionName.Sum,
+  FunctionName.Average,
+  FunctionName.Max,
+  FunctionName.Min,
+  FunctionName.Round,
+  FunctionName.RoundUp,
+  FunctionName.RoundDown,
+  FunctionName.Ceiling,
+  FunctionName.Floor,
+  FunctionName.Abs,
+  FunctionName.Sqrt,
+  FunctionName.Power,
+  FunctionName.Exp,
+  FunctionName.Log,
+  FunctionName.Mod,
+  FunctionName.Value,
+  FunctionName.Len,
+  FunctionName.Count,
+  FunctionName.CountA,
+  FunctionName.CountAll,
+]);
+
+const BOOLEAN_FUNCTIONS = new Set<FunctionName>([
+  FunctionName.And,
+  FunctionName.Or,
+  FunctionName.Not,
+  FunctionName.Xor,
+]);
+
 /**
  * Context information for formula conversion
  */
@@ -80,6 +129,10 @@ export interface ISelectFormulaConversionContext extends IFormulaConversionConte
   tableAlias?: string;
   /** CTE map: linkFieldId -> cteName */
   fieldCteMap?: ReadonlyMap<string, string>;
+  /** When true, prefer raw field references (no title formatting) to preserve native types */
+  preferRawFieldReferences?: boolean;
+  /** Target DB field type for the enclosing formula selection (used for type-sensitive raw projection) */
+  targetDbFieldType?: DbFieldType;
 }
 
 /**
@@ -314,7 +367,8 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitFunctionCall(ctx: FunctionCallContext): string {
-    const fnName = ctx.func_name().text.toUpperCase() as FunctionName;
+    const rawName = ctx.func_name().text.toUpperCase();
+    const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
     const params = ctx.expr().map((exprCtx) => exprCtx.accept(this));
 
     return (
@@ -670,56 +724,18 @@ abstract class BaseSqlConversionVisitor<
   private inferFunctionReturnType(
     ctx: FunctionCallContext
   ): 'string' | 'number' | 'boolean' | 'unknown' {
-    const fnName = ctx.func_name().text.toUpperCase();
+    const rawName = ctx.func_name().text.toUpperCase();
+    const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
 
-    const stringFunctions = [
-      'CONCATENATE',
-      'LEFT',
-      'RIGHT',
-      'MID',
-      'UPPER',
-      'LOWER',
-      'TRIM',
-      'SUBSTITUTE',
-      'REPLACE',
-      'T',
-      'DATESTR',
-      'TIMESTR',
-    ];
-
-    const numberFunctions = [
-      'SUM',
-      'AVERAGE',
-      'MAX',
-      'MIN',
-      'ROUND',
-      'ROUNDUP',
-      'ROUNDDOWN',
-      'CEILING',
-      'FLOOR',
-      'ABS',
-      'SQRT',
-      'POWER',
-      'EXP',
-      'LOG',
-      'MOD',
-      'VALUE',
-      'LEN',
-      'COUNT',
-      'COUNTA',
-    ];
-
-    const booleanFunctions = ['AND', 'OR', 'NOT', 'XOR'];
-
-    if (stringFunctions.includes(fnName)) {
+    if (STRING_FUNCTIONS.has(fnName)) {
       return 'string';
     }
 
-    if (numberFunctions.includes(fnName)) {
+    if (NUMBER_FUNCTIONS.has(fnName)) {
       return 'number';
     }
 
-    if (booleanFunctions.includes(fnName)) {
+    if (BOOLEAN_FUNCTIONS.has(fnName)) {
       return 'boolean';
     }
 
@@ -826,6 +842,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     // Check if this field has a CTE mapping (for link, lookup, rollup fields)
     const selectContext = this.context as ISelectFormulaConversionContext;
+    const preferRaw = !!selectContext.preferRawFieldReferences;
     const selectionMap = selectContext.selectionMap;
     const selection = selectionMap?.get(fieldId);
     let selectionSql = typeof selection === 'string' ? selection : selection?.toSQL().sql;
@@ -877,7 +894,21 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           ? `rollup_${fieldInfo.id}`
           : undefined;
       if (columnName) {
-        return `"${cteName}"."${columnName}"`;
+        const columnRef = `"${cteName}"."${columnName}"`;
+        if (preferRaw && fieldInfo.type !== FieldType.Link) {
+          return columnRef;
+        }
+        if (fieldInfo.isLookup && isLinkLookupOptions(fieldInfo.lookupOptions)) {
+          const titlesExpr = this.dialect!.linkExtractTitles(
+            columnRef,
+            !!fieldInfo.isMultipleCellValue
+          );
+          if (fieldInfo.isMultipleCellValue) {
+            return this.dialect!.formatStringArray(titlesExpr);
+          }
+          return titlesExpr;
+        }
+        return columnRef;
       }
     }
 
@@ -922,9 +953,9 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     // Walk up the parse tree to find if we're inside a logical function
     while (parent) {
       if (parent instanceof FunctionCallContext) {
-        const fnName = parent.func_name().text.toUpperCase();
-        const booleanFunctions = ['AND', 'OR', 'NOT', 'XOR', 'IF'];
-        return booleanFunctions.includes(fnName);
+        const rawName = parent.func_name().text.toUpperCase();
+        const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
+        return BOOLEAN_FUNCTIONS.has(fnName) || fnName === FunctionName.If;
       }
 
       // Also check for binary logical operators

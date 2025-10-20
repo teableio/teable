@@ -23,7 +23,7 @@ import {
   Relationship,
   isLinkLookupOptions,
 } from '@teable/core';
-import type { ITableFullVo } from '@teable/openapi';
+import type { ITableFullVo, IRecordsVo } from '@teable/openapi';
 import {
   axios,
   convertField,
@@ -82,10 +82,125 @@ describe('OpenAPI link (e2e)', () => {
   describe('create table with link field', () => {
     let table1: ITableFullVo;
     let table2: ITableFullVo;
+    let table3: ITableFullVo;
 
     afterEach(async () => {
       table1 && (await permanentDeleteTable(baseId, table1.id));
       table2 && (await permanentDeleteTable(baseId, table2.id));
+      table3 && (await permanentDeleteTable(baseId, table3.id));
+    });
+
+    it('should format lookup-of-link titles inside formulas when aggregating link records', async () => {
+      table1 = await createTable(baseId, {
+        name: 'tblA-link-api',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Label', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Name: 'Alpha', Label: 'Alpha Label' } },
+          { fields: { Name: 'Beta', Label: 'Beta Label' } },
+        ],
+      });
+      // eslint-disable-next-line no-console
+
+      table2 = await createTable(baseId, {
+        name: 'tblB-link-api',
+        fields: [
+          { name: 'Capture', type: FieldType.SingleLineText },
+          { name: 'Shot Time', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Capture: 'Screen 1', 'Shot Time': '2024-01-01' } },
+          { fields: { Capture: 'Screen 2', 'Shot Time': '2024-02-02' } },
+          { fields: { Capture: 'Screen 3', 'Shot Time': '2024-03-03' } },
+        ],
+      });
+
+      const linkToAField = await createField(table2.id, {
+        name: 'LinkToA',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: table1.id,
+        },
+      });
+      // eslint-disable-next-line no-console
+
+      await updateRecordByApi(table2.id, table2.records[0].id, linkToAField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[1].id, linkToAField.id, {
+        id: table1.records[0].id,
+      });
+      await updateRecordByApi(table2.id, table2.records[2].id, linkToAField.id, {
+        id: table1.records[1].id,
+      });
+
+      table3 = await createTable(baseId, {
+        name: 'tblC-link-api',
+        fields: [{ name: 'Entry', type: FieldType.SingleLineText }],
+        records: [{ fields: { Entry: 'Group A' } }, { fields: { Entry: 'Group B' } }],
+      });
+
+      const linkToBField = await createField(table3.id, {
+        name: 'LinkToB',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table2.id,
+        },
+      });
+
+      await updateRecordByApi(table3.id, table3.records[0].id, linkToBField.id, [
+        { id: table2.records[0].id },
+        { id: table2.records[1].id },
+      ]);
+      await updateRecordByApi(table3.id, table3.records[1].id, linkToBField.id, [
+        { id: table2.records[2].id },
+      ]);
+
+      const lookupLinkToAField = await createField(table3.id, {
+        name: 'LookupLinkToA',
+        type: FieldType.Link,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkToBField.id,
+          lookupFieldId: linkToAField.id,
+        },
+      });
+
+      const shotTimeFieldId = table2.fields.find((f) => f.name === 'Shot Time')!.id;
+      const lookupShotTimeField = await createField(table3.id, {
+        name: 'LookupShotTime',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table2.id,
+          linkFieldId: linkToBField.id,
+          lookupFieldId: shotTimeFieldId,
+        },
+      });
+
+      await createField(table3.id, {
+        name: 'Summary',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${lookupLinkToAField.id}} & ' - ' & ARRAYJOIN({${lookupShotTimeField.id}}, ', ')`,
+        },
+      });
+
+      const recordsVo: IRecordsVo = await getRecords(table3.id, {
+        fieldKeyType: FieldKeyType.Name,
+      });
+
+      expect(recordsVo.records).toHaveLength(2);
+      const summaryA = recordsVo.records.find((r) => r.fields.Entry === 'Group A')!;
+      const summaryB = recordsVo.records.find((r) => r.fields.Entry === 'Group B')!;
+
+      expect(typeof summaryA.fields.Summary).toBe('string');
+      expect(typeof summaryB.fields.Summary).toBe('string');
     });
 
     it('should create foreign link field when create a new table with many-one link field', async () => {
@@ -3118,6 +3233,7 @@ describe('OpenAPI link (e2e)', () => {
           linkFieldId: linkField.id,
         },
       });
+      // eslint-disable-next-line no-console
 
       // Formula: conditional rollup to produce number[]; its formatting should be applied when used as Link title
       const formula = await createField(table1.id, {
@@ -3127,6 +3243,7 @@ describe('OpenAPI link (e2e)', () => {
           expression: `{${lookupAmount.id}}`,
         },
       });
+      // eslint-disable-next-line no-console
 
       // Attach two t2 records to t1 record
       await updateRecord(table1.id, table1.records[0].id, {

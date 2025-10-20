@@ -1,3 +1,4 @@
+import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -7,6 +8,17 @@ import { SelectQueryAbstract } from '../select-query.abstract';
  * more functions and have different optimization strategies.
  */
 export class SelectQuerySqlite extends SelectQueryAbstract {
+  private get tableAlias(): string | undefined {
+    const ctx = this.context as ISelectFormulaConversionContext | undefined;
+    return ctx?.tableAlias;
+  }
+
+  private qualifySystemColumn(column: string): string {
+    const quoted = `"${column}"`;
+    const alias = this.tableAlias;
+    return alias ? `"${alias}".${quoted}` : quoted;
+  }
+
   private isEmptyStringLiteral(value: string): boolean {
     return value.trim() === "''";
   }
@@ -399,7 +411,7 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
   }
 
   lastModifiedTime(): string {
-    return `"__last_modified_time"`;
+    return this.qualifySystemColumn('__last_modified_time');
   }
 
   minute(date: string): string {
@@ -445,7 +457,7 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
   }
 
   createdTime(): string {
-    return `"__created_time"`;
+    return this.qualifySystemColumn('__created_time');
   }
 
   // Logical Functions
@@ -546,11 +558,11 @@ export class SelectQuerySqlite extends SelectQueryAbstract {
 
   // System Functions
   recordId(): string {
-    return `__id`;
+    return this.qualifySystemColumn('__id');
   }
 
   autoNumber(): string {
-    return `__auto_number`;
+    return this.qualifySystemColumn('__auto_number');
   }
 
   textAll(value: string): string {
