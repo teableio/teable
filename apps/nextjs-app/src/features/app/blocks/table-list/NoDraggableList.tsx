@@ -15,6 +15,7 @@ export const NoDraggableList: React.FC = () => {
             table={table}
             href={tableHrefMap[table.id]}
             isActive={table.id === tableId}
+            className="cursor-pointer"
           />
         </li>
       ))}

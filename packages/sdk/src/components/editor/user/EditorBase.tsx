@@ -119,7 +119,7 @@ const UserEditorBaseRef: ForwardRefRenderFunction<IUserEditorRef, IUserEditorBas
             collaborators?.map(({ userId, userName, avatar, email }) => (
               <CommandItem
                 key={userId}
-                value={userName}
+                value={userId}
                 onSelect={() => onSelect({ id: userId, title: userName, avatarUrl: avatar, email })}
                 className="flex justify-between"
               >

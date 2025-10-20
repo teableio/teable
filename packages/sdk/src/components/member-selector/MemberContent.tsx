@@ -89,7 +89,7 @@ export const MemberContent = forwardRef<IMemberContentRef, IMemberContentProps>(
         <div className="grid min-h-0 flex-1 grid-cols-2 gap-4">
           <div className="flex min-h-0 flex-col">
             <div className="h-8"></div>
-            <div className="min-h-0 flex-1 rounded-lg border">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-lg border">
               <DepartmentList
                 departmentId={departmentId}
                 selectedMembers={selectedMembers}

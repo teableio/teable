@@ -51,7 +51,7 @@ export const BaseCollaboratorContent = (props: { baseId: string; role: IRole }) 
           />
         )}
         <div className="w-full">
-          <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.spaceTitle')}</div>
+          <div className="mb-3 text-sm text-muted-foreground">{t('invite.dialog.baseTitle')}</div>
           <BaseCollaborators baseId={baseId} role={role} />
         </div>
       </div>

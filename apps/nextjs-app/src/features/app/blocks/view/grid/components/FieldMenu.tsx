@@ -382,6 +382,9 @@ export const FieldMenu = () => {
     .map((items) => items.filter(({ hidden }) => !hidden))
     .filter((items) => items.length);
 
+  if (menuGroups.length === 0) {
+    return null;
+  }
   return (
     <>
       {isTouchDevice ? (
