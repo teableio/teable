@@ -2303,6 +2303,7 @@ export class RecordService {
     const groupFieldIds = groupBy.map((item) => item.fieldId);
 
     const withUserId = this.cls.get('user.id');
+    const shouldUseQueryModel = useQueryModel && !viewCte;
     const { qb: queryBuilder, selectionMap } =
       await this.recordQueryBuilder.createRecordAggregateBuilder(viewCte ?? dbTableName, {
         tableIdOrDbTableName: tableId,
@@ -2317,7 +2318,7 @@ export class RecordService {
         ],
         groupBy,
         currentUserId: withUserId,
-        useQueryModel,
+        useQueryModel: shouldUseQueryModel,
       });
 
     // Attach permission CTE to the aggregate query when using the permission view.

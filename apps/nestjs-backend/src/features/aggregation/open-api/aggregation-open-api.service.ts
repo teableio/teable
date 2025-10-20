@@ -59,6 +59,7 @@ export class AggregationOpenApiService {
       tableId: tableId,
       withView,
       search: query?.search,
+      useQueryModel: true,
     });
     return { aggregations: result?.aggregations };
   }

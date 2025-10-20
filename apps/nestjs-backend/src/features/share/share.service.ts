@@ -178,6 +178,7 @@ export class ShareService {
     const result = await this.aggregationService.performAggregation({
       tableId,
       withView: { viewId, customFilter: filter, customFieldStats: fieldStats, groupBy },
+      useQueryModel: true,
     });
 
     return { aggregations: result?.aggregations };

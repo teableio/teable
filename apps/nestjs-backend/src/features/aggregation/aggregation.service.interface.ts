@@ -29,6 +29,7 @@ export interface IAggregationService {
     withFieldIds?: string[];
     withView?: IWithView;
     search?: [string, string?, boolean?];
+    useQueryModel?: boolean;
   }): Promise<IRawAggregationValue>;
 
   /**

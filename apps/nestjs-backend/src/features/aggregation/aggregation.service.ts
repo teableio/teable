@@ -89,8 +89,9 @@ export class AggregationService implements IAggregationService {
     withFieldIds?: string[];
     withView?: IWithView;
     search?: [string, string?, boolean?];
+    useQueryModel?: boolean;
   }): Promise<IRawAggregationValue> {
-    const { tableId, withFieldIds, withView, search } = params;
+    const { tableId, withFieldIds, withView, search, useQueryModel } = params;
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
 
@@ -113,6 +114,7 @@ export class AggregationService implements IAggregationService {
       statisticFields,
       withUserId: currentUserId,
       withView,
+      useQueryModel,
     });
 
     const aggregationResult = rawAggregationData && rawAggregationData[0];
@@ -150,6 +152,7 @@ export class AggregationService implements IAggregationService {
       dbTableName,
       fieldInstanceMap,
       withView,
+      useQueryModel,
     });
 
     return { aggregations: aggregationsWithGroup };
@@ -204,6 +207,7 @@ export class AggregationService implements IAggregationService {
     statisticFields?: IAggregationField[];
     withUserId?: string;
     withView?: IWithView;
+    useQueryModel?: boolean;
   }) {
     const {
       dbTableName,
@@ -215,6 +219,7 @@ export class AggregationService implements IAggregationService {
       groupBy,
       withView,
       tableId,
+      useQueryModel,
     } = params;
 
     if (!statisticFields?.length) {
@@ -244,6 +249,7 @@ export class AggregationService implements IAggregationService {
       currentUserId: withUserId,
       // Limit link/lookup CTEs to enabled fields so denied fields resolve to NULL
       projection,
+      useQueryModel,
     });
 
     // Attach permission CTE and switch FROM to the CTE alias
@@ -273,6 +279,7 @@ export class AggregationService implements IAggregationService {
     dbTableName: string;
     fieldInstanceMap: Record<string, IFieldInstance>;
     withView?: IWithView;
+    useQueryModel?: boolean;
   }) {
     const {
       dbTableName,
@@ -284,6 +291,7 @@ export class AggregationService implements IAggregationService {
       fieldInstanceMap,
       withView,
       tableId,
+      useQueryModel,
     } = params;
 
     if (!groupBy || !statisticFields) return aggregations;
@@ -309,6 +317,7 @@ export class AggregationService implements IAggregationService {
         statisticFields,
         withUserId: currentUserId,
         withView,
+        useQueryModel,
       }))!;
 
       const currentGroupFieldId = groupByFields[i].fieldId;
