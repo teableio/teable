@@ -33,9 +33,10 @@ export const BasePermissionListener = () => {
       }
 
       const base = await refetch();
+
       if (
-        !base.data?.restrictedAuthority &&
-        Boolean(restrictedAuthority) !== Boolean(base.data?.restrictedAuthority)
+        Boolean(restrictedAuthority) === Boolean(base.data?.restrictedAuthority) &&
+        !restrictedAuthority
       ) {
         return;
       }
