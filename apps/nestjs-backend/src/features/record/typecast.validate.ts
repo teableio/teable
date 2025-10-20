@@ -363,11 +363,11 @@ export class TypeCastAndValidate {
           }
           return (validatedCellValue as IUserCellValue[]).map((v) => {
             const user = userMap[v.id];
-            return {
+            return UserFieldDto.fullAvatarUrl({
               id: user.id,
               title: user.name,
               email: user.email,
-            };
+            });
           });
         }
         const user = userMap[(validatedCellValue as IUserCellValue).id];
@@ -376,11 +376,11 @@ export class TypeCastAndValidate {
             `User(${(validatedCellValue as IUserCellValue).id}) not selected in table(${this.tableId})`
           );
         }
-        return {
+        return UserFieldDto.fullAvatarUrl({
           id: user.id,
           title: user.name,
           email: user.email,
-        };
+        });
       }
     );
   }
