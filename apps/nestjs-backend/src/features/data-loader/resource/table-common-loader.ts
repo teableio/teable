@@ -91,6 +91,9 @@ export class TableCommonLoader<T extends IDataLoaderDataItem> {
 
     return data.filter((item) => {
       return Object.entries(keys).every(([key, values]) => {
+        if (values === undefined) {
+          return true;
+        }
         if (values && (values as T[K][]).length === 0) {
           return false;
         }
