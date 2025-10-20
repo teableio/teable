@@ -160,7 +160,8 @@
     },
     "nav": {
       "settings": "Impostazioni",
-      "logout": "Esci"
+      "logout": "Esci",
+      "contactSupport": "Contatta l'assistenza"
     },
     "integration": {
       "title": "Integrazioni",

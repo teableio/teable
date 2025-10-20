@@ -157,7 +157,8 @@
     },
     "nav": {
       "settings": "Налаштування",
-      "logout": "Вийти"
+      "logout": "Вийти",
+      "contactSupport": "Contact Support"
     },
     "integration": {
       "title": "Інтеграції",

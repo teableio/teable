@@ -140,7 +140,8 @@
     },
     "nav": {
       "settings": "Настройки",
-      "logout": "Выйти"
+      "logout": "Выйти",
+      "contactSupport": "Связаться с поддержкой"
     },
     "integration": {
       "title": "Интеграции",

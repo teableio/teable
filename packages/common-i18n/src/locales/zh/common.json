@@ -239,7 +239,8 @@
     },
     "nav": {
       "settings": "设置",
-      "logout": "退出登录"
+      "logout": "退出登录",
+      "contactSupport": "联系支持"
     },
     "integration": {
       "title": "集成",

@@ -139,7 +139,8 @@
     },
     "nav": {
       "settings": "設定",
-      "logout": "ログアウト"
+      "logout": "ログアウト",
+      "contactSupport": "サポートに連絡"
     },
     "integration": {
       "title": "統合",

@@ -160,7 +160,8 @@
     },
     "nav": {
       "settings": "Configuración",
-      "logout": "Cerrar sesión"
+      "logout": "Cerrar sesión",
+      "contactSupport": "Contactar con soporte"
     },
     "integration": {
       "title": "Integración",

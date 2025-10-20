@@ -1,6 +1,6 @@
 import { ExitIcon } from '@radix-ui/react-icons';
 import { useMutation } from '@tanstack/react-query';
-import { Code, HelpCircle, License, Settings } from '@teable/icons';
+import { Code, HelpCircle, License, MessageSquare, Settings } from '@teable/icons';
 import { signout } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
 import {
@@ -52,6 +52,16 @@ export const UserNav: React.FC<React.PropsWithChildren> = (props) => {
           <a href={t('help.mainLink')} target="_blank" rel="noreferrer">
             <HelpCircle className="size-4 shrink-0" />
             {t('help.title')}
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="flex gap-2" asChild>
+          <a
+            href="https://app.teable.ai/share/shrX1qxpciRUj1Jww2b/view"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <MessageSquare className="size-4 shrink-0" />
+            {t('nav.contactSupport', 'Contact Support')}
           </a>
         </DropdownMenuItem>
         {isCloud && (

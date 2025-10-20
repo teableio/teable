@@ -164,7 +164,8 @@
     },
     "nav": {
       "settings": "Einstellungen",
-      "logout": "Ausloggen"
+      "logout": "Ausloggen",
+      "contactSupport": "Support kontaktieren"
     },
     "integration": {
       "title": "Integrationen",

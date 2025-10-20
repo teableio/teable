@@ -239,7 +239,8 @@
     },
     "nav": {
       "settings": "Settings",
-      "logout": "Log out"
+      "logout": "Log out",
+      "contactSupport": "Contact Support"
     },
     "integration": {
       "title": "Integrations",
