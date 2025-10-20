@@ -40,12 +40,15 @@ export class SingleLineTextFieldCore extends FieldCore {
       return null;
     }
 
-    if (value === '' || value == null) {
+    // value may be the null
+    // eslint-disable-next-line regexp/prefer-character-class
+    const realValue = value?.replace(/[\n\r\t]/g, ' ')?.trim() ?? null;
+
+    if (realValue === '' || realValue == null) {
       return null;
     }
 
-    // eslint-disable-next-line regexp/prefer-character-class
-    return value.replace(/\n|\r|\t/g, ' ').trim();
+    return realValue;
   }
 
   repair(value: unknown) {
