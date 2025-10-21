@@ -2,11 +2,12 @@
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import type { IGroup } from '@teable/core';
+import type { IFieldVo, IFilter, IGroup } from '@teable/core';
 import {
   Colors,
   FieldKeyType,
   FieldType,
+  Relationship,
   is,
   isGreaterEqual,
   SortFunc,
@@ -40,6 +41,8 @@ import {
   initApp,
   createRecords,
   createView,
+  createField,
+  updateRecordByApi,
   getRecords,
 } from './utils/init-app';
 
@@ -491,6 +494,139 @@ describe('OpenAPI AggregationController (e2e)', () => {
       result.aggregations?.forEach((agg) => {
         expect(agg.total?.value).toBeCloseTo(0, 4);
       });
+    });
+  });
+
+  describe('aggregation projection respects field selection', () => {
+    let projectionTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+    let amountField: IFieldVo;
+    let linkField: IFieldVo;
+    let lookupField: IFieldVo;
+    let viewId: string;
+
+    const sumFieldDef = { name: 'Amount', type: FieldType.Number };
+    const labelFieldDef = { name: 'Label', type: FieldType.SingleLineText };
+    const foreignNameFieldDef = { name: 'Order Name', type: FieldType.SingleLineText };
+    const foreignTagFieldDef = { name: 'Order Tag', type: FieldType.SingleLineText };
+
+    beforeAll(async () => {
+      projectionTable = await createTable(baseId, {
+        name: 'agg_projection_main',
+        fields: [labelFieldDef, sumFieldDef],
+        records: [
+          { fields: { [labelFieldDef.name]: 'Row 1', [sumFieldDef.name]: 10 } },
+          { fields: { [labelFieldDef.name]: 'Row 2', [sumFieldDef.name]: 30 } },
+        ],
+      });
+
+      amountField = projectionTable.fields.find((field) => field.name === sumFieldDef.name)!;
+      viewId = projectionTable.views[0].id;
+
+      foreignTable = await createTable(baseId, {
+        name: 'agg_projection_foreign',
+        fields: [foreignNameFieldDef, foreignTagFieldDef],
+        records: [
+          {
+            fields: {
+              [foreignNameFieldDef.name]: 'Order A',
+              [foreignTagFieldDef.name]: 'include',
+            },
+          },
+          {
+            fields: {
+              [foreignNameFieldDef.name]: 'Order B',
+              [foreignTagFieldDef.name]: 'exclude',
+            },
+          },
+        ],
+      });
+
+      const foreignTagField = foreignTable.fields.find(
+        (field) => field.name === foreignTagFieldDef.name
+      )!;
+
+      linkField = (await createField(projectionTable.id, {
+        name: 'Orders',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: foreignTable.id,
+        },
+      })) as IFieldVo;
+
+      lookupField = (await createField(projectionTable.id, {
+        name: 'Order Tag Lookup',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: foreignTagField.id,
+        },
+      })) as IFieldVo;
+
+      const [firstRecord, secondRecord] = projectionTable.records;
+      await updateRecordByApi(projectionTable.id, firstRecord.id, linkField.id, [
+        { id: foreignTable.records[0].id },
+      ]);
+      await updateRecordByApi(projectionTable.id, secondRecord.id, linkField.id, [
+        { id: foreignTable.records[1].id },
+      ]);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, projectionTable.id);
+      await permanentDeleteTable(baseId, foreignTable.id);
+    });
+
+    it('should aggregate a number field with projection applied', async () => {
+      const response = await getAggregation(projectionTable.id, {
+        viewId,
+        field: {
+          [StatisticsFunc.Sum]: [amountField.id],
+        },
+      });
+      const aggregation = response.data.aggregations?.find(
+        (item) => item.fieldId === amountField.id
+      );
+      expect(aggregation?.total?.value).toBe(40);
+    });
+
+    it('should aggregate correctly when lookup fields are present', async () => {
+      const response = await getAggregation(projectionTable.id, {
+        viewId,
+        field: {
+          [StatisticsFunc.Sum]: [amountField.id],
+        },
+      });
+      const aggregation = response.data.aggregations?.find(
+        (item) => item.fieldId === amountField.id
+      );
+      expect(aggregation?.total?.value).toBe(40);
+    });
+
+    it('should sum correctly when filtering by lookup values', async () => {
+      const response = await getAggregation(projectionTable.id, {
+        viewId,
+        field: {
+          [StatisticsFunc.Sum]: [amountField.id],
+        },
+        filter: {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: lookupField.id,
+              operator: is.value,
+              value: 'include',
+            },
+          ],
+        } as IFilter,
+      });
+      const aggregation = response.data.aggregations?.find(
+        (item) => item.fieldId === amountField.id
+      );
+      expect(aggregation?.total?.value).toBe(10);
     });
   });
 

@@ -9,6 +9,7 @@ import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import {
   CellValueType,
   HttpErrorCode,
+  extractFieldIdsFromFilter,
   identify,
   IdPrefix,
   mergeWithDefaultFilter,
@@ -228,16 +229,28 @@ export class AggregationService implements IAggregationService {
 
     const { viewId } = withView || {};
 
-    const searchFields = await this.recordService.getSearchFields(fieldInstanceMap, search, viewId);
-    const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
-
     // Probe permission to get enabled field IDs for CTE projection
     const permissionProbe = await this.recordPermissionService.wrapView(
       tableId,
       this.knex.queryBuilder(),
       { viewId }
     );
-    const projection = permissionProbe.enabledFieldIds;
+    const allowedFieldIds = permissionProbe.enabledFieldIds;
+
+    const searchFields = await this.recordService.getSearchFields(
+      fieldInstanceMap,
+      search,
+      viewId,
+      allowedFieldIds
+    );
+
+    const projection = this.resolveAggregationProjection({
+      statisticFields,
+      groupBy,
+      filter,
+      searchFields,
+      allowedFieldIds,
+    });
 
     // Build aggregate query first, then attach permission CTE on the same builder
     const { qb, alias } = await this.recordQueryBuilder.createRecordAggregateBuilder(dbTableName, {
@@ -355,6 +368,60 @@ export class AggregationService implements IAggregationService {
     }
 
     return Object.values(aggregationByFieldId);
+  }
+
+  /**
+   * Determine required projection for aggregation query.
+   */
+  private resolveAggregationProjection(params: {
+    statisticFields?: IAggregationField[];
+    groupBy?: IGroup;
+    filter?: IFilter;
+    searchFields?: IFieldInstance[];
+    allowedFieldIds?: string[];
+  }): string[] | undefined {
+    const { statisticFields, groupBy, filter, searchFields, allowedFieldIds } = params;
+
+    const projectionSet = new Set<string>();
+
+    statisticFields?.forEach(({ fieldId }) => {
+      if (fieldId && fieldId !== '*') {
+        projectionSet.add(fieldId);
+      }
+    });
+
+    groupBy?.forEach(({ fieldId }) => {
+      if (fieldId) {
+        projectionSet.add(fieldId);
+      }
+    });
+
+    if (filter) {
+      for (const fieldId of extractFieldIdsFromFilter(filter)) {
+        projectionSet.add(fieldId);
+      }
+    }
+
+    searchFields?.forEach((fieldInstance) => {
+      projectionSet.add(fieldInstance.id);
+    });
+
+    if (projectionSet.size === 0) {
+      return allowedFieldIds && allowedFieldIds.length
+        ? Array.from(new Set(allowedFieldIds))
+        : undefined;
+    }
+
+    const projectionArray = Array.from(projectionSet);
+
+    if (!allowedFieldIds || allowedFieldIds.length === 0) {
+      return projectionArray;
+    }
+
+    const allowedSet = new Set(allowedFieldIds);
+    const filtered = projectionArray.filter((fieldId) => allowedSet.has(fieldId));
+
+    return filtered.length > 0 ? filtered : Array.from(allowedSet);
   }
 
   /**
