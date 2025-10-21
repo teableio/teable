@@ -821,8 +821,10 @@
     "tip": {
       "editing": "Editing...",
       "edited": "(Edited)",
-      "onNotify": "Only be notified comment relative to you if you turn off",
-      "offNotify": "You will be notified by all active if you turn on",
+      "notifyAll": "Notify all comments",
+      "notifyRelatedToMe": "Notify comments related to me",
+      "all": "All",
+      "relatedToMe": "Related to me",
       "reactionUserSuffix": "reacted with {{emoji}} emoji",
       "me": "You",
       "connection": "and"

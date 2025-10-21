@@ -815,13 +815,15 @@
     "deletedComment": "Deleted Comment",
     "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
-      "editing": "Editing...",
-      "edited": "(Edited)",
-      "onNotify": "Only be notified comment relative to you if you turn off",
-      "offNotify": "You will be notified by all active if you turn on",
-      "reactionUserSuffix": "reacted with {{emoji}} emoji",
-      "me": "You",
-      "connection": "and"
+      "editing": "Modifica...",
+      "edited": "(Editato)",
+      "notifyAll": "Notifica tutti i commenti",
+      "notifyRelatedToMe": "Notifica i commenti relativi a me",
+      "all": "Tutti",
+      "relatedToMe": "Relativo a me",
+      "reactionUserSuffix": "ha reagito con {{emoji}} emoji",
+      "me": "Tu",
+      "connection": "e"
     },
     "toolbar": {
       "link": "Link",

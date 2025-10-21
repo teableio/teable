@@ -821,8 +821,10 @@
     "tip": {
       "editing": "正在编辑...",
       "edited": "(已编辑)",
-      "onNotify": "关闭之后只会接受到与自己相关的评论通知",
-      "offNotify": "开启后，可以收到所有评论动态",
+      "notifyAll": "通知所有评论",
+      "notifyRelatedToMe": "通知与我相关的评论",
+      "all": "全部",
+      "relatedToMe": "与我相关",
       "reactionUserSuffix": "回复表情 {{emoji}}",
       "me": "你",
       "connection": "和"

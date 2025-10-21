@@ -790,8 +790,10 @@
     "tip": {
       "editing": "編集中...",
       "edited": "(編集済み)",
-      "onNotify": "オフにすると、あなたに関連するコメントのみ通知されます",
-      "offNotify": "オンにすると、すべてのアクティビティが通知されます",
+      "notifyAll": "すべてのコメントを通知",
+      "notifyRelatedToMe": "関連するコメントを通知",
+      "all": "すべて",
+      "relatedToMe": "関連するコメント",
       "reactionUserSuffix": "{{emoji}}の絵文字でリアクションしました",
       "me": "あなた",
       "connection": "と"

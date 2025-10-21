@@ -1,11 +1,17 @@
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
-import { Bell } from '@teable/icons';
+import { Bell, ChevronDown } from '@teable/icons';
 import {
   getCommentSubscribe,
   createCommentSubscribe,
   deleteCommentSubscribe,
 } from '@teable/openapi';
-import { Toggle, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@teable/ui-lib';
 import { ReactQueryKeys } from '../../config';
 import { useTranslation } from '../../context/app/i18n';
 import type { IBaseQueryParams } from './types';
@@ -55,26 +61,27 @@ export const CommentHeader = (props: ICommentHeaderProps) => {
   };
 
   return (
-    <TooltipProvider>
-      <Tooltip>
-        <div className="flex h-10 items-center justify-between border-b p-1 px-3">
-          <div>{t('comment.title')}</div>
-          <TooltipTrigger>
-            <Toggle
-              aria-label="Toggle italic"
-              size={'sm'}
-              variant={'default'}
-              pressed={!!subscribeStatus}
-              onPressedChange={() => subscribeHandler()}
-            >
-              <Bell />
-            </Toggle>
-          </TooltipTrigger>
-        </div>
-        <TooltipContent>
-          <p>{subscribeStatus ? t('comment.tip.onNotify') : t('comment.tip.offNotify')}</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex h-[52px] items-center justify-between border-b p-1 px-3">
+      <div>{t('comment.title')}</div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size={'xs'} className="gap-2 p-2">
+            <Bell className="size-4" />
+            <span className="text-sm">
+              {subscribeStatus ? t('comment.tip.all') : t('comment.tip.relatedToMe')}
+            </span>
+            <ChevronDown className="size-4 text-muted-foreground" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent>
+          <DropdownMenuItem className="text-sm" onSelect={() => subscribeHandler()}>
+            {t('comment.tip.notifyAll')}
+          </DropdownMenuItem>
+          <DropdownMenuItem className="text-sm" onSelect={() => subscribeHandler()}>
+            {t('comment.tip.notifyRelatedToMe')}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };

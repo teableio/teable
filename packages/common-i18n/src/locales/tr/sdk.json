@@ -798,11 +798,13 @@
     "deletedComment": "Silinmiş Yorum",
     "imageSizeLimit": "Görsel boyutu {{size}}'den büyük olamaz",
     "tip": {
-      "editing": "Düzenleniyor...",
+      "editing": "Düzenleme...",
       "edited": "(Düzenlendi)",
-      "onNotify": "Kapatırsanız yalnızca sizinle ilgili yorumlardan bildirim alırsınız",
-      "offNotify": "Açarsanız tüm etkinliklerden bildirim alırsınız",
-      "reactionUserSuffix": "{{emoji}} emojisi ile tepki verdi",
+      "notifyAll": "Tüm yorumları bildir",
+      "notifyRelatedToMe": "Benimle ilgili yorumları bildir",
+      "all": "Tümü",
+      "relatedToMe": "Benimle ilgili",
+      "reactionUserSuffix": "{{emoji}} emoji ile tepki verdi",
       "me": "Sen",
       "connection": "ve"
     },

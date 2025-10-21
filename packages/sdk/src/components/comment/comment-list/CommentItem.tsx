@@ -92,7 +92,7 @@ export const CommentItem = (props: ICommentItemProps) => {
       <HoverCard openDelay={200}>
         <HoverCardTrigger asChild>
           <div
-            className={cn('flex w-full gap-1 rounded-sm p-1 hover:bg-secondary', {
+            className={cn('flex w-full gap-1 rounded-sm p-2 hover:bg-secondary', {
               'flex-row-reverse': isMe,
             })}
             ref={itemRef}

@@ -167,7 +167,7 @@ export const CommentList = forwardRef<CommentListRefHandle, ICommentListProps>((
   useCommentPatchListener(tableId, recordId, commentListener);
 
   return (
-    <div className="my-1 flex w-full flex-1 flex-col overflow-y-auto px-1" ref={listRef}>
+    <div className="my-2 flex w-full flex-1 flex-col gap-2 overflow-y-auto px-2" ref={listRef}>
       {isLoading ? (
         <CommentSkeleton />
       ) : (

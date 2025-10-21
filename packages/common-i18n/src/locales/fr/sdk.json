@@ -803,8 +803,10 @@
     "tip": {
       "editing": "Modification en cours...",
       "edited": "(Modifié)",
-      "onNotify": "Vous ne serez notifié que des commentaires vous concernant si vous désactivez",
-      "offNotify": "Vous serez notifié de toutes les activités si vous activez",
+      "notifyAll": "Notifier tous les commentaires",
+      "notifyRelatedToMe": "Notifier les commentaires relatifs à moi",
+      "all": "Tous",
+      "relatedToMe": "Relatif à moi",
       "reactionUserSuffix": "a réagi avec l'emoji {{emoji}}",
       "me": "Vous",
       "connection": "et"

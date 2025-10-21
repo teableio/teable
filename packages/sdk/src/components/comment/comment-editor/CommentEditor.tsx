@@ -255,7 +255,7 @@ export const CommentEditor = (props: ICommentEditorProps) => {
             placeholder={t('comment.placeholder')}
             size={'sm'}
             focusRing={false}
-            className="h-24 rounded-none border-none outline-none focus:outline-none"
+            className="h-[130px] rounded-none border-none outline-none focus:outline-none"
             variant={'ghost'}
             disabled={!permission['record|comment']}
             onCompositionStart={() => {

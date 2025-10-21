@@ -815,12 +815,14 @@
     "deletedComment": "Kommentar gelöscht",
     "imageSizeLimit": "Die Bildgröße darf nicht größer sein als {{size}}",
     "tip": {
-      "editing": "Editiere...",
-      "edited": "(Editiert)",
-      "onNotify": "Nur bei Kommentaren benachricht werden, die sich auf meine beziehen (Funktion deaktieren)",
-      "offNotify": "Bei allen Aktivitäten benachrichtigt werden (Funktion aktieren)",
-      "reactionUserSuffix": "Reagierte mit {{emoji}} Emoji",
-      "me": "Sie",
+      "editing": "Bearbeiten...",
+      "edited": "(Bearbeitet)",
+      "notifyAll": "Alle Kommentare benachrichtigen",
+      "notifyRelatedToMe": "Kommentare, die sich auf mich beziehen, benachrichtigen",
+      "all": "Alle",
+      "relatedToMe": "Mit mir verbunden",
+      "reactionUserSuffix": "hat mit {{emoji}} emoji reagiert",
+      "me": "Du",
       "connection": "und"
     },
     "toolbar": {

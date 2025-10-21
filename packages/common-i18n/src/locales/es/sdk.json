@@ -803,10 +803,13 @@
     "emptyComment": "Comience una conversación",
     "deletedComment": "Comentario eliminado",
     "tip": {
-      "editing": "Edición...",
+      "editing": "Editando...",
       "edited": "(Editado)",
-      "onNotify": "Solo ser notificado comentario en relación con usted si apagas",
-      "offNotify": "Todos activos serán notificados si se enciende",
+      "notifyAll": "Notificar todos los comentarios",
+      "notifyRelatedToMe": "Notificar comentarios relacionados conmigo",
+      "all": "Todos",
+      "relatedToMe": "Relacionados conmigo",
+      "reactionUserSuffix": "reaccionó con el emoji {{emoji}}",
       "me": "Tú",
       "connection": "y"
     },

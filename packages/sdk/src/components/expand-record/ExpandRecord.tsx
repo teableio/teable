@@ -186,7 +186,7 @@ export const ExpandRecord = (props: IExpandRecordProps) => {
               )}
 
               {commentVisible && baseId && tableId && recordId && (
-                <div className="w-80 shrink-0">
+                <div className="w-[360px] shrink-0">
                   <CommentPanel
                     tableId={tableId}
                     recordId={recordId}
