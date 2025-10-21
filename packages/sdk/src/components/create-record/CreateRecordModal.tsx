@@ -153,7 +153,7 @@ export const CreateRecordModal = (props: ICreateRecordModalProps) => {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(val) => val && setOpen(val)}>
       <DialogTrigger asChild>{children}</DialogTrigger>
       <DialogContent
         closeable={false}
