@@ -75,6 +75,10 @@ export const validateFilterItem = (item: IFilterItem, fieldMap: Record<string, I
 
   if (!validOperators.includes(operator as IOperator)) return null;
 
+  if (value == null) {
+    return item;
+  }
+
   if (type === FieldType.SingleSelect && !isMultipleCellValue) {
     if (typeof value !== 'string') return null;
     const choice = (options as ISelectFieldOptions).choices.find((c) => c.name === value);
