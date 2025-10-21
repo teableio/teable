@@ -39,6 +39,7 @@ import {
   DbFieldType,
   SortFunc,
   isLinkLookupOptions,
+  normalizeConditionalLimit,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -1283,8 +1284,9 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         aggregateSourceQuery.orderByRaw(orderByClause);
       }
 
-      if (supportsOrdering && typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
-        aggregateSourceQuery.limit(limit);
+      if (supportsOrdering) {
+        const resolvedLimit = normalizeConditionalLimit(limit);
+        aggregateSourceQuery.limit(resolvedLimit);
       }
 
       const aggregateQuery = this.qb.client
@@ -1446,9 +1448,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         aggregateSourceQuery.orderByRaw(orderByClause);
       }
 
-      if (typeof limit === 'number' && limit > 0) {
-        aggregateSourceQuery.limit(limit);
-      }
+      const resolvedLimit = normalizeConditionalLimit(limit);
+      aggregateSourceQuery.limit(resolvedLimit);
 
       const aggregateQuery = this.qb.client
         .queryBuilder()

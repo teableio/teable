@@ -141,6 +141,112 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('limit enforcement', () => {
+    const limitCap = Number(process.env.CONDITIONAL_QUERY_MAX_LIMIT ?? '5000');
+    const totalActive = limitCap + 3;
+    const activeTitles = Array.from({ length: totalActive }, (_, idx) => `Score ${idx + 1}`);
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let titleId: string;
+    let statusId: string;
+    let scoreId: string;
+    let statusFilterId: string;
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Limit_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          ...activeTitles.map((title, idx) => ({
+            fields: { Title: title, Status: 'Active', Score: idx + 1 },
+          })),
+          { fields: { Title: 'Closed Item', Status: 'Closed', Score: 999 } },
+        ],
+      });
+      titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
+      statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+      scoreId = foreign.fields.find((field) => field.name === 'Score')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Limit_Host',
+        fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { StatusFilter: 'Active' } }],
+      });
+      statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('rejects creating conditional rollups with limit above the configured cap', async () => {
+      const statusMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterId },
+          },
+        ],
+      };
+
+      await createField(
+        host.id,
+        {
+          name: 'TooManyRollupValues',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            expression: 'array_compact({values})',
+            filter: statusMatchFilter,
+            sort: { fieldId: scoreId, order: SortFunc.Asc },
+            limit: limitCap + 1,
+          } as IConditionalRollupFieldOptions,
+        } as IFieldRo,
+        400
+      );
+    });
+
+    it('caps array aggregation results to the configured maximum when limit is omitted', async () => {
+      const statusMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterId },
+          },
+        ],
+      };
+
+      const rollupField = await createField(host.id, {
+        name: 'Limited Titles Rollup',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          expression: 'array_compact({values})',
+          filter: statusMatchFilter,
+          sort: { fieldId: scoreId, order: SortFunc.Asc },
+        } as IConditionalRollupFieldOptions,
+      } as IFieldRo);
+
+      const record = await getRecord(host.id, host.records[0].id);
+      const values = record.fields[rollupField.id] as string[];
+      expect(Array.isArray(values)).toBe(true);
+      expect(values.length).toBe(limitCap);
+      expect(values).toEqual(activeTitles.slice(0, limitCap));
+      expect(values).not.toContain(activeTitles[limitCap]);
+    });
+  });
+
   describe('filter option synchronization', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

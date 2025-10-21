@@ -78,6 +78,13 @@ function compileWorkerFile() {
 async function setup() {
   dotenv.config({ path: '../nextjs-app' });
 
+  if (!process.env.CONDITIONAL_QUERY_MAX_LIMIT) {
+    process.env.CONDITIONAL_QUERY_MAX_LIMIT = '7';
+  }
+  if (!process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT) {
+    process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT = process.env.CONDITIONAL_QUERY_MAX_LIMIT;
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
   const databaseUrl = process.env.PRISMA_DATABASE_URL!;
 

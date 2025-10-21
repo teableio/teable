@@ -4,7 +4,12 @@ import type {
   RollupFunction,
   IRollupFieldOptions,
 } from '@teable/core';
-import { CellValueType, getRollupFunctionsByCellValueType, ROLLUP_FUNCTIONS } from '@teable/core';
+import {
+  CellValueType,
+  getRollupFunctionsByCellValueType,
+  ROLLUP_FUNCTIONS,
+  CONDITIONAL_QUERY_DEFAULT_LIMIT,
+} from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useFields, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
@@ -192,7 +197,7 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
           limit={options.limit}
           onSortChange={(sortValue) => onOptionsChange({ sort: sortValue })}
           onLimitChange={(limitValue) => onOptionsChange({ limit: limitValue })}
-          defaultLimit={1}
+          defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
           toggleTestId="conditional-rollup-sort-limit-toggle"
         />
       ) : null}

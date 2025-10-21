@@ -1,6 +1,7 @@
 import { z } from '../../zod';
 import { filterSchema } from '../view/filter';
 import { SortFunc } from '../view/sort';
+import { CONDITIONAL_QUERY_MAX_LIMIT } from './conditional.constants';
 import { Relationship } from './constant';
 
 const lookupLinkOptionsVoSchema = z.object({
@@ -67,7 +68,7 @@ const lookupConditionalOptionsVoSchema = z.object({
     .openapi({
       description: 'Optional sort configuration applied before aggregating lookup values.',
     }),
-  limit: z.number().int().positive().optional().openapi({
+  limit: z.number().int().positive().max(CONDITIONAL_QUERY_MAX_LIMIT).optional().openapi({
     description: 'Maximum number of matching records to include in the lookup result.',
   }),
 });

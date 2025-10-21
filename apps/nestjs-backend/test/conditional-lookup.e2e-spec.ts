@@ -3393,4 +3393,109 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
       expect(bobSummary.fields[scoresWithoutExcludedField.id]).toEqual([7]);
     });
   });
+
+  describe('limit enforcement', () => {
+    const limitCap = Number(process.env.CONDITIONAL_QUERY_MAX_LIMIT ?? '5000');
+    const totalActive = limitCap + 2;
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let titleId: string;
+    let statusId: string;
+    let statusFilterId: string;
+    let lookupFieldId: string;
+    const activeTitles = Array.from({ length: totalActive }, (_, idx) => `Active ${idx + 1}`);
+
+    beforeAll(async () => {
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_Limit_Foreign',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText, options: {} } as IFieldRo,
+        ],
+        records: [
+          ...activeTitles.map((title) => ({
+            fields: { Title: title, Status: 'Active' },
+          })),
+          { fields: { Title: 'Closed Item', Status: 'Closed' } },
+        ],
+      });
+      titleId = foreign.fields.find((field) => field.name === 'Title')!.id;
+      statusId = foreign.fields.find((field) => field.name === 'Status')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_Limit_Host',
+        fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText, options: {} } as IFieldRo],
+        records: [{ fields: { StatusFilter: 'Active' } }],
+      });
+      statusFilterId = host.fields.find((field) => field.name === 'StatusFilter')!.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('rejects creating a conditional lookup with limit beyond configured maximum', async () => {
+      const statusMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterId },
+          },
+        ],
+      };
+
+      await createField(
+        host.id,
+        {
+          name: 'TooManyRecords',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: titleId,
+            filter: statusMatchFilter,
+            limit: limitCap + 1,
+          } as ILookupOptionsRo,
+        } as IFieldRo,
+        400
+      );
+    });
+
+    it('caps resolved lookup results to the maximum limit when limit is omitted', async () => {
+      const statusMatchFilter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFilterId },
+          },
+        ],
+      };
+
+      const lookupField = await createField(host.id, {
+        name: 'Limited Titles',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: titleId,
+          filter: statusMatchFilter,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+      lookupFieldId = lookupField.id;
+
+      const record = await getRecord(host.id, host.records[0].id);
+      const values = record.fields[lookupFieldId] as string[];
+      expect(Array.isArray(values)).toBe(true);
+      expect(values.length).toBe(limitCap);
+      expect(values).toEqual(activeTitles.slice(0, limitCap));
+      expect(values).not.toContain(activeTitles[limitCap]);
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import type { IConditionalLookupOptions } from '@teable/core';
+import { CONDITIONAL_QUERY_DEFAULT_LIMIT, type IConditionalLookupOptions } from '@teable/core';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { useBaseId, useTable, useTableId } from '@teable/sdk/hooks';
 import type { IFieldInstance } from '@teable/sdk/model';
@@ -143,7 +143,7 @@ const ConditionalLookupForeignSection = ({
         limit={limit}
         onSortChange={onSortChange}
         onLimitChange={onLimitChange}
-        defaultLimit={1}
+        defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
         toggleTestId="conditional-lookup-sort-limit-toggle"
       />
     </div>

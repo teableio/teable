@@ -266,6 +266,7 @@
         "clearSort": "清除排序",
         "limitLabel": "显示的最大记录数",
         "limitPlaceholder": "留空表示显示全部匹配项",
+        "limitHint": "最多仅会保存 {{limit}} 条匹配记录。",
         "sortMissingWarningTitle": "排序字段已被删除",
         "sortMissingWarningDescription": "用于排序的字段已删除，结果会忽略排序，仅保留数量限制。"
       },
