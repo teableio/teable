@@ -588,6 +588,38 @@ describe('OpenAPI SelectionController (e2e)', () => {
       });
       expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
     });
+
+    it('should delete rows matched by hide-not-match search even when matches are beyond base range', async () => {
+      const searchTable = await createTable(baseId, {
+        name: 'search table',
+        fields: [
+          {
+            name: 'name',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [
+          { fields: { name: 'alpha' } },
+          { fields: { name: 'beta' } },
+          { fields: { name: 'gamma' } },
+          { fields: { name: 'target one' } },
+          { fields: { name: 'target two' } },
+        ],
+      });
+      try {
+        const viewId = searchTable.views[0].id;
+        const result = await deleteSelection(searchTable.id, {
+          viewId,
+          type: RangeType.Rows,
+          ranges: [[0, 1]],
+          search: ['target', searchTable.fields[0].id, true],
+        });
+
+        expect(result.data.ids).toEqual([searchTable.records[3].id, searchTable.records[4].id]);
+      } finally {
+        await permanentDeleteTable(baseId, searchTable.id);
+      }
+    });
   });
 
   describe('paste user', () => {

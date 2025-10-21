@@ -28,6 +28,8 @@ export interface ICreateRecordQueryBuilderOptions {
   limit?: number;
   /** Optional pagination offset (skip) */
   offset?: number;
+  /** When true, hide-not-match search filtering is applied */
+  hasSearch?: boolean;
   /** Optional fallback field used for default ordering */
   defaultOrderField?: string;
   /**

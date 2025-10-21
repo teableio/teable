@@ -576,6 +576,7 @@ export class RecordService {
         useQueryModel,
         limit: query.take,
         offset: query.skip,
+        hasSearch: Boolean(search?.[2]),
         defaultOrderField: basicSortIndex,
       }
     );

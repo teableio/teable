@@ -151,6 +151,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         sort: options.sort,
         currentUserId: options.currentUserId,
         defaultOrderField: options.defaultOrderField,
+        hasSearch: options.hasSearch,
       });
       this.buildFieldCtes(qb, tables, state, options.projection);
     }
@@ -184,6 +185,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       sort,
       currentUserId,
       defaultOrderField: options.defaultOrderField,
+      hasSearch: options.hasSearch,
     });
 
     this.buildSelect(
@@ -297,9 +299,10 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       sort?: ISortItem[];
       currentUserId?: string;
       defaultOrderField?: string;
+      hasSearch?: boolean;
     }
   ): void {
-    const { limit, offset, filter, sort, currentUserId, defaultOrderField } = params;
+    const { limit, offset, filter, sort, currentUserId, defaultOrderField, hasSearch } = params;
     state.setBaseCteName(undefined);
 
     if (state.getContext() !== 'table') {
@@ -313,6 +316,11 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
 
     const baseLimit = this.resolveBaseLimit(limit, offset);
     if (!baseLimit) {
+      return;
+    }
+
+    if (hasSearch) {
+      // Avoid trimming candidate rows before search filter applies; search runs after base CTE.
       return;
     }
 
