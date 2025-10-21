@@ -211,7 +211,7 @@ export const FieldEditor = (props: {
             <span className="mb-2 text-sm font-medium">{t('common:description')}</span>
           </div>
           <Textarea
-            className="h-12 resize-none"
+            className="min-h-12 resize-y"
             value={field['description'] || undefined}
             placeholder={t('table:field.editor.descriptionPlaceholder')}
             onChange={(e) => updateFieldProps({ description: e.target.value || null })}
