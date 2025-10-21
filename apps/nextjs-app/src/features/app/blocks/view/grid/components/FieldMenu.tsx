@@ -70,6 +70,7 @@ enum MenuItemType {
 
 const iconClassName = 'mr-2 h-4 w-4';
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export const FieldMenu = () => {
   const isTouchDevice = useIsTouchDevice();
   const view = useView() as GridView | undefined;
@@ -383,7 +384,7 @@ export const FieldMenu = () => {
     .filter((items) => items.length);
 
   if (menuGroups.length === 0) {
-    return null;
+    return;
   }
   return (
     <>
