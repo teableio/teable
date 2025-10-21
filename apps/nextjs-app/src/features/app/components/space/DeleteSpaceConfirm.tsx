@@ -34,8 +34,7 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
   const { data } = useQuery({
     queryKey: ['usage-before-delete', spaceId],
     queryFn: async () => (await getSpaceUsage(spaceId)).data,
-    enabled: isCloud && !!spaceId,
-    staleTime: 0,
+    enabled: isCloud && !!spaceId && open,
   });
 
   const isBlocked =
