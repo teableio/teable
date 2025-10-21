@@ -31,6 +31,9 @@ export const Modal: FC<
           }
           e.stopPropagation();
         }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => {
           e.stopPropagation();
           e.preventDefault();
