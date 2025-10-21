@@ -1,5 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
-import { CellValueType, Colors, DriverClient, FieldKeyType, FieldType } from '@teable/core';
+import {
+  CellValueType,
+  Colors,
+  DriverClient,
+  FieldKeyType,
+  FieldType,
+  SortFunc,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   getRecords as apiGetRecords,
@@ -12,6 +19,7 @@ import {
   deleteField,
   updateField,
   convertField,
+  getSearchIndex,
 } from '@teable/openapi';
 import { differenceWith } from 'lodash';
 import type { IFieldInstance } from '../src/features/field/model/factory';
@@ -342,6 +350,94 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         })
       ).data;
       expect(records.length).toBe(1);
+    });
+  });
+
+  describe('search quoting regressions', () => {
+    let table: ITableFullVo;
+    let descriptionFieldId: string;
+    let groupFieldId: string;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'search_quoting_regression',
+        fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Description',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Group',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { id: 'choAlpha', name: 'Alpha', color: Colors.Blue },
+                { id: 'choBeta', name: 'Beta', color: Colors.Cyan },
+              ],
+            },
+          },
+        ],
+        records: [
+          {
+            fields: {
+              Name: 'Alpha row',
+              Description: 'ce target',
+              Group: 'Alpha',
+            },
+          },
+          {
+            fields: {
+              Name: 'Beta row',
+              Description: 'other value',
+              Group: 'Beta',
+            },
+          },
+        ],
+      });
+
+      const descriptionField = table.fields.find((f) => f.name === 'Description')!;
+      const groupField = table.fields.find((f) => f.name === 'Group')!;
+      await updateField(table.id, descriptionField.id, { dbFieldName: 'DESCRIPTION' });
+      await updateField(table.id, groupField.id, { dbFieldName: 'GROUP' });
+
+      table.fields = await getFields(table.id);
+      descriptionFieldId = table.fields.find((f) => f.name === 'Description')!.id;
+      groupFieldId = table.fields.find((f) => f.name === 'Group')!.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('returns results when searching uppercase db column', async () => {
+      const response = await apiGetRecords(table.id, {
+        viewId: table.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+        search: ['ce target', descriptionFieldId, true],
+      });
+
+      const { records } = response.data;
+      expect(records.length).toBe(1);
+      expect(records[0].fields[descriptionFieldId]).toBe('ce target');
+    });
+
+    it('sorts search index when single select column uses reserved name', async () => {
+      const result = await getSearchIndex(table.id, {
+        viewId: table.views[0].id,
+        take: 10,
+        search: ['ce', '', false],
+        orderBy: [{ fieldId: groupFieldId, order: SortFunc.Asc }],
+      });
+
+      const payload = result.data as unknown;
+      expect(Array.isArray(payload)).toBe(true);
+      const entries = payload as { fieldId: string }[];
+      expect(entries.length).toBeGreaterThan(0);
+      expect(entries[0]?.fieldId).toBe(descriptionFieldId);
     });
   });
 

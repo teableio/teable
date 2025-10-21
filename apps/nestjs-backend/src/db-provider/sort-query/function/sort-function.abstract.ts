@@ -16,10 +16,10 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
     const { dbFieldName, id } = field;
 
     const selection = context?.selectionMap.get(id);
-    if (selection) {
-      this.columnName = selection as string;
+    if (selection !== undefined && selection !== null) {
+      this.columnName = this.normalizeSelection(selection) ?? this.quoteIdentifier(dbFieldName);
     } else {
-      this.columnName = dbFieldName;
+      this.columnName = this.quoteIdentifier(dbFieldName);
     }
   }
 
@@ -71,5 +71,32 @@ export abstract class AbstractSortFunction implements ISortFunctionInterface {
 
   protected createSqlPlaceholders(values: unknown[]): string {
     return values.map(() => '?').join(',');
+  }
+
+  private normalizeSelection(selection: unknown): string | undefined {
+    if (typeof selection === 'string') {
+      return selection;
+    }
+    if (selection && typeof (selection as Knex.Raw).toQuery === 'function') {
+      return (selection as Knex.Raw).toQuery();
+    }
+    if (selection && typeof (selection as Knex.Raw).toSQL === 'function') {
+      const { sql } = (selection as Knex.Raw).toSQL();
+      if (sql) {
+        return sql;
+      }
+    }
+    return undefined;
+  }
+
+  private quoteIdentifier(identifier: string): string {
+    if (!identifier) {
+      return identifier;
+    }
+    if (identifier.startsWith('"') && identifier.endsWith('"')) {
+      return identifier;
+    }
+    const escaped = identifier.replace(/"/g, '""');
+    return `"${escaped}"`;
   }
 }

@@ -829,6 +829,9 @@ export class AggregationService implements IAggregationService {
     );
 
     const sql = queryBuilder.toQuery();
+
+    this.logger.debug('getRecordIndexBySearchOrder sql: %s', sql);
+
     try {
       return await this.prisma.$tx(async (prisma) => {
         const result = await prisma.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(sql);

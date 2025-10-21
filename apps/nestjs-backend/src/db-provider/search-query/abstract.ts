@@ -65,10 +65,10 @@ export abstract class SearchQueryAbstract {
     const { dbFieldName, id } = field;
 
     const selection = context?.selectionMap.get(id);
-    if (selection) {
-      this.fieldName = selection as string;
+    if (selection !== undefined && selection !== null) {
+      this.fieldName = this.normalizeSelection(selection) ?? this.quoteIdentifier(dbFieldName);
     } else {
-      this.fieldName = dbFieldName;
+      this.fieldName = this.quoteIdentifier(dbFieldName);
     }
   }
 
@@ -93,4 +93,31 @@ export abstract class SearchQueryAbstract {
   abstract getQuery(): Knex.QueryBuilder;
 
   abstract appendBuilder(): Knex.QueryBuilder;
+
+  private normalizeSelection(selection: unknown): string | undefined {
+    if (typeof selection === 'string') {
+      return selection;
+    }
+    if (selection && typeof (selection as Knex.Raw).toQuery === 'function') {
+      return (selection as Knex.Raw).toQuery();
+    }
+    if (selection && typeof (selection as Knex.Raw).toSQL === 'function') {
+      const { sql } = (selection as Knex.Raw).toSQL();
+      if (sql) {
+        return sql;
+      }
+    }
+    return undefined;
+  }
+
+  private quoteIdentifier(identifier: string): string {
+    if (!identifier) {
+      return identifier;
+    }
+    if (identifier.startsWith('"') && identifier.endsWith('"')) {
+      return identifier;
+    }
+    const escaped = identifier.replace(/"/g, '""');
+    return `"${escaped}"`;
+  }
 }

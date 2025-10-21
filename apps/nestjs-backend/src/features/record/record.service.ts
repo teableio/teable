@@ -1560,7 +1560,7 @@ export class RecordService {
       builder: searchWrapBuilder,
       viewCte: searchViewCte,
       enabledFieldIds,
-    } = await this.recordPermissionService.wrapView(tableId, this.knex.queryBuilder(), {
+    } = await this.recordPermissionService.wrapView(tableId, queryBuilder, {
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
       viewId,
     });
@@ -1761,9 +1761,13 @@ export class RecordService {
         );
       })
       .from('search_index');
-    const result = await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(
-      newQuery.toQuery()
-    );
+
+    const searchQuery = newQuery.toQuery();
+
+    this.logger.debug('getSearchHitIndex query: %s', searchQuery);
+
+    const result =
+      await this.prismaService.$queryRawUnsafe<{ __id: string; fieldId: string }[]>(searchQuery);
 
     if (!result.length) {
       return null;
