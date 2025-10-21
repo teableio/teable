@@ -1,4 +1,5 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
+import { roleSchema } from '@teable/core';
 import { axios } from '../axios';
 import type { IGetCollaboratorsResponse } from '../space';
 import { collaboratorItem, PrincipalType } from '../space/types';
@@ -15,6 +16,7 @@ export const listBaseCollaboratorRoSchema = z.object({
   take: z.coerce.number().optional(),
   search: z.string().optional(),
   type: z.nativeEnum(PrincipalType).optional(),
+  role: roleSchema.array().optional(),
 });
 
 export type ListBaseCollaboratorRo = z.infer<typeof listBaseCollaboratorRoSchema>;
