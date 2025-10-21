@@ -24,6 +24,7 @@ import type {
   ILinkFieldOptions,
   IConditionalRollupFieldOptions,
   IConditionalLookupOptions,
+  IRollupFieldOptions,
   IGetFieldsQuery,
   IFilter,
   IFilterItem,
@@ -145,11 +146,22 @@ export class FieldOpenApiService {
     return true;
   }
 
-  private async validateConditionalRollupAggregation(hostTableId: string, field: IFieldInstance) {
-    const options = field.options as IConditionalRollupFieldOptions | undefined;
-    const expression = options?.expression;
-    const lookupFieldId = options?.lookupFieldId;
-    const foreignTableId = options?.foreignTableId;
+  private normalizeCellValueType(rawCellType: unknown): CellValueType {
+    if (
+      typeof rawCellType === 'string' &&
+      Object.values(CellValueType).includes(rawCellType as CellValueType)
+    ) {
+      return rawCellType as CellValueType;
+    }
+    return CellValueType.String;
+  }
+
+  private async isRollupAggregationSupported(params: {
+    expression?: IRollupFieldOptions['expression'];
+    lookupFieldId?: string;
+    foreignTableId?: string;
+  }): Promise<boolean> {
+    const { expression, lookupFieldId, foreignTableId } = params;
 
     if (!expression || !lookupFieldId || !foreignTableId) {
       return false;
@@ -164,17 +176,39 @@ export class FieldOpenApiService {
       return false;
     }
 
-    const rawCellType = foreignField.cellValueType as string;
-    const availableTypes = new Set<string>(Object.values(CellValueType));
-    const cellValueType = availableTypes.has(rawCellType)
-      ? (rawCellType as CellValueType)
-      : CellValueType.String;
+    const cellValueType = this.normalizeCellValueType(foreignField.cellValueType);
+    return isRollupFunctionSupportedForCellValueType(expression, cellValueType);
+  }
 
-    const aggregationSupported = isRollupFunctionSupportedForCellValueType(
+  private async validateRollupAggregation(field: IFieldInstance): Promise<boolean> {
+    if (!field.lookupOptions || !isLinkLookupOptions(field.lookupOptions)) {
+      return false;
+    }
+
+    const options = field.options as IRollupFieldOptions | undefined;
+    return this.isRollupAggregationSupported({
+      expression: options?.expression,
+      lookupFieldId: field.lookupOptions.lookupFieldId,
+      foreignTableId: field.lookupOptions.foreignTableId,
+    });
+  }
+
+  private async validateConditionalRollupAggregation(hostTableId: string, field: IFieldInstance) {
+    const options = field.options as IConditionalRollupFieldOptions | undefined;
+    const expression = options?.expression;
+    const lookupFieldId = options?.lookupFieldId;
+    const foreignTableId = options?.foreignTableId;
+
+    const aggregationSupported = await this.isRollupAggregationSupported({
       expression,
-      cellValueType
-    );
+      lookupFieldId,
+      foreignTableId,
+    });
     if (!aggregationSupported) {
+      return false;
+    }
+
+    if (!foreignTableId) {
       return false;
     }
 
@@ -204,6 +238,38 @@ export class FieldOpenApiService {
     }
 
     return this.validateFilterFieldReferences(tableId, foreignTableId, meta?.filter);
+  }
+
+  private async isFieldConfigurationValid(
+    tableId: string,
+    field: IFieldInstance
+  ): Promise<boolean> {
+    if (
+      field.lookupOptions &&
+      field.type !== FieldType.ConditionalRollup &&
+      !field.isConditionalLookup
+    ) {
+      const lookupValid = await this.validateLookupField(field);
+      if (!lookupValid) {
+        return false;
+      }
+
+      if (field.type === FieldType.Rollup) {
+        return await this.validateRollupAggregation(field);
+      }
+
+      return true;
+    }
+
+    if (field.type === FieldType.ConditionalRollup) {
+      return await this.validateConditionalRollupAggregation(tableId, field);
+    }
+
+    if (field.isConditionalLookup) {
+      return await this.validateConditionalLookup(tableId, field);
+    }
+
+    return true;
   }
 
   private async findConditionalFilterDependentFields(startFieldIds: readonly string[]): Promise<
@@ -536,24 +602,8 @@ export class FieldOpenApiService {
       });
     }
 
-    let hasError = false;
-
-    if (
-      field.lookupOptions &&
-      field.type !== FieldType.ConditionalRollup &&
-      !field.isConditionalLookup
-    ) {
-      const isValid = await this.validateLookupField(field);
-      hasError = !isValid;
-    } else if (field.type === FieldType.ConditionalRollup) {
-      const isValid = await this.validateConditionalRollupAggregation(tableId, field);
-      hasError = !isValid;
-    } else if (field.isConditionalLookup) {
-      const isValid = await this.validateConditionalLookup(tableId, field);
-      hasError = !isValid;
-    }
-
-    await this.markError(tableId, field, hasError);
+    const isValid = await this.isFieldConfigurationValid(tableId, field);
+    await this.markError(tableId, field, !isValid);
   }
 
   async restoreReference(references: string[]) {
@@ -1060,14 +1110,7 @@ export class FieldOpenApiService {
         });
         for (const raw of dependentFieldRaws) {
           const instance = createFieldInstanceByRaw(raw);
-          let isValid = true;
-
-          if (instance.type === FieldType.ConditionalRollup) {
-            isValid = await this.validateConditionalRollupAggregation(raw.tableId, instance);
-          } else if (instance.isConditionalLookup) {
-            isValid = await this.validateConditionalLookup(raw.tableId, instance);
-          }
-
+          const isValid = await this.isFieldConfigurationValid(raw.tableId, instance);
           await this.markError(raw.tableId, instance, !isValid);
         }
 

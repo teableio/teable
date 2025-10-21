@@ -17,9 +17,8 @@ import { BaseSingleSelect } from '@teable/sdk/components/filter/view-filter/comp
 import { RollupField } from '@teable/sdk/model';
 import { isEmpty, isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
-import { TimeZoneFormatting } from '../formatting/TimeZoneFormatting';
 import { UnionFormatting } from '../formatting/UnionFormatting';
 import { UnionShowAs } from '../show-as/UnionShowAs';
 
@@ -94,6 +93,20 @@ export const RollupOptions = (props: {
     },
     [cellValueType, formatting, isMultipleCellValue, isLookup, options.timeZone, onChange]
   );
+
+  useEffect(() => {
+    if (!availableExpressions || availableExpressions.length === 0) {
+      return;
+    }
+    if (expression && availableExpressions.includes(expression)) {
+      return;
+    }
+    const fallbackExpression = availableExpressions[0];
+    if (!fallbackExpression) {
+      return;
+    }
+    onExpressionChange(fallbackExpression);
+  }, [availableExpressions, expression, onExpressionChange]);
 
   const onFormattingChange = useCallback(
     (newFormatting?: IUnionFormatting) => {

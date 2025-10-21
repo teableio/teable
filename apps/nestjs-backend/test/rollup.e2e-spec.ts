@@ -22,8 +22,10 @@ import {
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
+  convertField,
   createTable,
   permanentDeleteTable,
+  getField,
   getFields,
   initApp,
   updateRecord,
@@ -743,6 +745,101 @@ describe('OpenAPI Rollup field (e2e)', () => {
       expect(decodeRollupValue(north.fields[rollupFieldVo.id])).toEqual(['Alpha']);
       expect(decodeRollupValue(global.fields[rollupFieldVo.id])).toEqual(['Alpha', 'Gamma']);
       expect(decodeRollupValue(unlinked.fields[rollupFieldVo.id])).toEqual([]);
+    });
+  });
+
+  describe('Rollup aggregation validation', () => {
+    it('keeps numeric aggregation valid for numeric sources', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RollupValidationForeign',
+        fields: [{ name: 'Amount', type: FieldType.Number } as IFieldRo],
+      });
+      const host = await createTable(baseId, {
+        name: 'RollupValidationHost',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+      });
+      const amountFieldId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+
+      try {
+        const linkField = await createField(host.id, {
+          name: 'Link to Foreign',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: foreign.id,
+          },
+        } as IFieldRo);
+
+        const rollupField = await createField(host.id, {
+          name: 'Sum Amount',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'sum({values})',
+          },
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: amountFieldId,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const fetched = await getField(host.id, rollupField.id);
+        expect(fetched.hasError).toBeFalsy();
+      } finally {
+        await permanentDeleteTable(baseId, host.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    it('marks rollup as errored when numeric source becomes text', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RollupValidationForeignConversion',
+        fields: [{ name: 'Amount', type: FieldType.Number } as IFieldRo],
+      });
+      const host = await createTable(baseId, {
+        name: 'RollupValidationHostConversion',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText } as IFieldRo],
+      });
+      const amountFieldId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+
+      try {
+        const linkField = await createField(host.id, {
+          name: 'Link to Foreign',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: foreign.id,
+          },
+        } as IFieldRo);
+
+        const rollupField = await createField(host.id, {
+          name: 'Sum Amount',
+          type: FieldType.Rollup,
+          options: {
+            expression: 'sum({values})',
+          },
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: amountFieldId,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const initial = await getField(host.id, rollupField.id);
+        expect(initial.hasError).toBeFalsy();
+
+        await convertField(foreign.id, amountFieldId, {
+          name: 'Amount',
+          type: FieldType.SingleLineText,
+          options: {},
+        } as IFieldRo);
+
+        const afterConvert = await getField(host.id, rollupField.id);
+        expect(afterConvert.hasError).toBe(true);
+      } finally {
+        await permanentDeleteTable(baseId, host.id);
+        await permanentDeleteTable(baseId, foreign.id);
+      }
     });
   });
 
