@@ -73,6 +73,19 @@ export class S3Storage implements StorageAdapter {
     }
   }
 
+  private replaceBucketEndpoint(url: string, bucket: string): string {
+    const { privateBucketEndpoint, privateBucket } = this.config;
+    if (privateBucketEndpoint && bucket === privateBucket) {
+      const resUrl = new URL(url, privateBucketEndpoint);
+      const newUrl = new URL(privateBucketEndpoint);
+      resUrl.protocol = newUrl.protocol;
+      resUrl.hostname = newUrl.hostname;
+      resUrl.port = newUrl.port;
+      return resUrl.toString();
+    }
+    return url;
+  }
+
   async presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes> {
     try {
       const { tokenExpireIn, uploadMethod } = this.config;
@@ -89,13 +102,15 @@ export class S3Storage implements StorageAdapter {
         ContentLength: contentLength,
       });
 
-      const url = await getSignedUrl(
+      let url = await getSignedUrl(
         internal ? this.s3ClientPrivateNetwork : this.s3Client,
         command,
         {
           expiresIn: expiresIn ?? second(tokenExpireIn),
         }
       );
+
+      url = this.replaceBucketEndpoint(url, bucket);
 
       const requestHeaders = {
         'Content-Type': contentType,
@@ -111,6 +126,7 @@ export class S3Storage implements StorageAdapter {
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
+      console.log('S3 presigned error', e);
       throw new BadRequestException(`S3 presigned error${e?.message ? `: ${e.message}` : ''}`);
     }
   }
@@ -124,7 +140,7 @@ export class S3Storage implements StorageAdapter {
       ContentLength: size,
       ContentType: s3Mimetype = 'application/octet-stream',
       ETag: hash,
-    } = await this.s3Client.send(command);
+    } = await this.s3ClientPrivateNetwork.send(command);
     const mimetype = s3Mimetype || 'application/octet-stream';
     if (!size || !mimetype || !hash) {
       throw new BadRequestException('Invalid object meta');
@@ -142,7 +158,7 @@ export class S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
     });
-    const { Body } = await this.s3Client.send(getObjectCommand);
+    const { Body } = await this.s3ClientPrivateNetwork.send(getObjectCommand);
     const stream = Body as Readable;
     if (!stream) {
       throw new BadRequestException('Invalid image stream');
@@ -176,9 +192,10 @@ export class S3Storage implements StorageAdapter {
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
     });
 
-    return getSignedUrl(this.s3Client, command, {
+    const res = await getSignedUrl(this.s3Client, command, {
       expiresIn: expiresIn ?? second(this.config.tokenExpireIn),
     });
+    return this.replaceBucketEndpoint(res, bucket);
   }
   uploadFileWidthPath(
     bucket: string,
@@ -186,6 +203,7 @@ export class S3Storage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, unknown>
   ) {
+    console.log('start uploadFileWidthPath', bucket, path, filePath, metadata);
     const readStream = fse.createReadStream(filePath);
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -198,7 +216,7 @@ export class S3Storage implements StorageAdapter {
       ContentLanguage: metadata['Content-Language'] as string,
       ContentMD5: metadata['Content-MD5'] as string,
     });
-    return this.s3Client
+    return this.s3ClientPrivateNetwork
       .send(command)
       .then((res) => ({
         hash: res.ETag!,
@@ -207,6 +225,7 @@ export class S3Storage implements StorageAdapter {
       .finally(() => {
         readStream.removeAllListeners();
         readStream.destroy();
+        console.log('end uploadFileWidthPath');
       });
   }
 
@@ -268,7 +287,7 @@ export class S3Storage implements StorageAdapter {
         Bucket: bucket,
         Key: path,
       });
-      await this.s3Client.send(command);
+      await this.s3ClientPrivateNetwork.send(command);
       return true;
     } catch (error) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -298,7 +317,7 @@ export class S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
     });
-    const { Body: stream, ContentType: mimetype } = await this.s3Client.send(command);
+    const { Body: stream, ContentType: mimetype } = await this.s3ClientPrivateNetwork.send(command);
     if (!mimetype?.startsWith('image/')) {
       throw new BadRequestException('Invalid image');
     }
@@ -332,14 +351,14 @@ export class S3Storage implements StorageAdapter {
       Bucket: bucket,
       Key: path,
     });
-    const { Body: stream } = await this.s3Client.send(command);
+    const { Body: stream } = await this.s3ClientPrivateNetwork.send(command);
     return stream as Readable;
   }
 
   async deleteDir(bucket: string, path: string, throwError: boolean = true) {
     const prefix = path.endsWith('/') ? path : `${path}/`;
 
-    const { Contents } = await this.s3Client.send(
+    const { Contents } = await this.s3ClientPrivateNetwork.send(
       new ListObjectsV2Command({
         Bucket: bucket,
         Prefix: prefix,
@@ -349,7 +368,7 @@ export class S3Storage implements StorageAdapter {
     if (!Contents || Contents.length === 0) return;
 
     try {
-      await this.s3Client.send(
+      await this.s3ClientPrivateNetwork.send(
         new DeleteObjectsCommand({
           Bucket: bucket,
           Delete: {
