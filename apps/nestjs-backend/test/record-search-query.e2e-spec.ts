@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import type { IExtraResult } from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -242,10 +243,55 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
             })
           ).data;
 
-          console.log('records', JSON.stringify(records.map((f) => f.fields)));
           expect(records.length).toBe(expectResultLength);
         }
       );
+    });
+  });
+
+  describe('basis field search highlight record', () => {
+    let table: ITableFullVo;
+    let subTable: ITableFullVo;
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+
+      const x20Link = x_20_link(table);
+      subTable = await createTable(baseId, {
+        name: 'sort_x_20',
+        fields: x20Link.fields,
+        records: x20Link.records,
+      });
+
+      const x20LinkFromLookups = x_20_link_from_lookups(table, subTable.fields[2].id);
+      for (const field of x20LinkFromLookups.fields) {
+        await createField(subTable.id, field);
+      }
+
+      table.fields = await getFields(table.id);
+      subTable.fields = await getFields(subTable.id);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+      await permanentDeleteTable(baseId, subTable.id);
+    });
+
+    it('should get records with highlight records', async () => {
+      const res = (
+        await apiGetRecords(table.id, {
+          search: ['text field 10'],
+        })
+      ).data;
+
+      expect(res.extra?.searchHitIndex?.length).toBe(2);
+      expect(res.extra?.searchHitIndex).toEqual([
+        { recordId: res.records[11].id, fieldId: table.fields[0].id },
+        { recordId: res.records[22].id, fieldId: table.fields[0].id },
+      ]);
     });
   });
 

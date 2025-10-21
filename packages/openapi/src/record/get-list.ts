@@ -256,6 +256,18 @@ export const recordsVoSchema = z.object({
       allGroupHeaderRefs: z.array(groupHeaderRefSchema).optional().openapi({
         description: 'All group header refs for the view, including collapsed group headers',
       }),
+      searchHitIndex: z
+        .array(
+          z.object({
+            recordId: z.string(),
+            fieldId: z.string(),
+          })
+        )
+        .nullable()
+        .optional()
+        .openapi({
+          description: 'The index of the records that match the search, highlight the records',
+        }),
     })
     .optional(),
 });
