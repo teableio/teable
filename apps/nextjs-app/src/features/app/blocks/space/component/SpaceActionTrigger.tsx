@@ -1,6 +1,5 @@
 import { Pencil, Settings, Trash2, Import } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
-import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,8 +7,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
-import { Trans, useTranslation } from 'next-i18next';
+import { useTranslation } from 'next-i18next';
 import React from 'react';
+import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { spaceConfig } from '@/features/i18n/space.config';
 
 interface ISpaceActionTrigger {
@@ -20,6 +20,7 @@ interface ISpaceActionTrigger {
   showImportBase?: boolean;
   onRename?: () => void;
   onDelete?: () => void;
+  onPermanentDelete?: () => void;
   onSpaceSetting?: () => void;
   open?: boolean;
   setOpen?: (open: boolean) => void;
@@ -37,6 +38,7 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     showSpaceSetting,
     showImportBase,
     onDelete,
+    onPermanentDelete,
     onRename,
     onSpaceSetting,
     open,
@@ -83,18 +85,13 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ConfirmDialog
+      <DeleteSpaceConfirm
         open={deleteConfirm}
         onOpenChange={setDeleteConfirm}
-        title={
-          <Trans ns="space" i18nKey={'tip.delete'}>
-            {space?.name}
-          </Trans>
-        }
-        cancelText={t('actions.cancel')}
-        confirmText={t('actions.confirm')}
-        onCancel={() => setDeleteConfirm(false)}
+        spaceId={space.id}
+        spaceName={space.name}
         onConfirm={onDelete}
+        onPermanentConfirm={onPermanentDelete}
       />
     </>
   );

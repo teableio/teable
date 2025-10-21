@@ -49,6 +49,13 @@
     "moveBaseSuccessTitle": "Spostamento riuscito",
     "moveBaseSuccessDescription": "{{baseName}} è stato spostato con successo in {{spaceName}}"
   },
+  "deleteSpaceModal": {
+    "title": "Elimina spazio",
+    "blockedTitle": "Impossibile eliminare questo spazio",
+    "blockedDesc": "Questo spazio ha un abbonamento attivo. Si prega di annullare l'abbonamento prima di eliminare lo spazio.",
+    "permanentDeleteWarning": "Questa azione eliminerà definitivamente tutte le risorse e i dati nello spazio corrente. Si prega di procedere con cautela!",
+    "confirmInputLabel": "Si prega di digitare DELETE per confermare l'eliminazione"
+  },
   "sharedBase": {
     "title": "Basi condivise",
     "description": "Le basi condivise con te appariranno qui",

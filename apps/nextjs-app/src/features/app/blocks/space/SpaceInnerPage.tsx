@@ -5,6 +5,7 @@ import {
   deleteSpace,
   getSpaceById,
   getSubscriptionSummary,
+  permanentDeleteSpace,
   updateSpace,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -55,6 +56,16 @@ export const SpaceInnerPage: React.FC = () => {
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      router.push({
+        pathname: '/space',
+      });
+    },
+  });
+
+  const { mutate: permanentDeleteSpaceMutator } = useMutation({
+    mutationFn: permanentDeleteSpace,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
       router.push({
@@ -129,6 +140,7 @@ export const SpaceInnerPage: React.FC = () => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
+            onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
           />
@@ -151,6 +163,7 @@ export const SpaceInnerPage: React.FC = () => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
+            onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
           />

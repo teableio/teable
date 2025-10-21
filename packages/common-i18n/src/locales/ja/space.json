@@ -49,6 +49,13 @@
     "moveBaseSuccessTitle": "移動成功",
     "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました"
   },
+  "deleteSpaceModal": {
+    "title": "スペースを削除",
+    "blockedTitle": "このスペースを削除できません",
+    "blockedDesc": "このスペースにはアクティブなサブスクリプションがあります。スペースを削除する前にサブスクリプションをキャンセルしてください。",
+    "permanentDeleteWarning": "この操作により、現在のスペース内のすべてのリソースとデータが永久に削除されます。慎重に進めてください！",
+    "confirmInputLabel": "削除を確認するには DELETE と入力してください"
+  },
   "sharedBase": {
     "title": "共有ベース",
     "description": "共有されたベースはここに表示されます",

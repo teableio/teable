@@ -53,6 +53,13 @@
     "moveBaseSuccessTitle": "Move base success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },
+  "deleteSpaceModal": {
+    "title": "Delete Space",
+    "blockedTitle": "Cannot delete this space",
+    "blockedDesc": "This space has an active subscription. Please cancel the subscription before deleting the space.",
+    "permanentDeleteWarning": "This action will permanently delete all resources and data under the current space. Please proceed with caution!",
+    "confirmInputLabel": "Please type DELETE to confirm the deletion"
+  },
   "sharedBase": {
     "title": "Shared with me",
     "description": "Bases shared with me will appear here",

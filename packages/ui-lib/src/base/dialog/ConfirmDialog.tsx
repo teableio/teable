@@ -22,6 +22,7 @@ interface IConfirmDialogProps {
   cancelText?: string;
   confirmText?: string;
   confirmLoading?: boolean;
+  confirmDisabled?: boolean;
   onConfirm?: () => void | Promise<void>;
   onCancel?: () => void | Promise<void>;
   onOpenChange?: (open: boolean) => void;
@@ -39,6 +40,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
     cancelText,
     confirmText,
     confirmLoading,
+    confirmDisabled,
     onConfirm,
     onCancel,
   } = props;
@@ -69,7 +71,7 @@ export const ConfirmDialog = (props: IConfirmDialogProps) => {
               </Button>
             )}
             {confirmText && (
-              <Button size={'sm'} onClick={onConfirm}>
+              <Button size={'sm'} onClick={onConfirm} disabled={confirmDisabled}>
                 {confirmLoading && <Spin />}
                 {confirmText}
               </Button>

@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { MoreHorizontal } from '@teable/icons';
-import { deleteSpace, type IGetSpaceVo } from '@teable/openapi';
+import { deleteSpace, permanentDeleteSpace, type IGetSpaceVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useRouter } from 'next/router';
 import React, { useMemo } from 'react';
@@ -40,6 +40,18 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
     },
   });
 
+  const { mutate: permanentDeleteSpaceMutator } = useMutation({
+    mutationFn: permanentDeleteSpace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+      if (currentSpaceId === space.id) {
+        router.push({
+          pathname: '/space',
+        });
+      }
+    },
+  });
+
   const onSpaceSetting = () => {
     router.push({
       pathname: '/space/[spaceId]/setting/general',
@@ -66,6 +78,7 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
         showSpaceSetting={menuPermission.spaceUpdate}
         showImportBase={menuPermission.spaceUpdate}
         onDelete={() => deleteSpaceMutator(space.id)}
+        onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
         onRename={onRename}
         onSpaceSetting={onSpaceSetting}
         open={open}

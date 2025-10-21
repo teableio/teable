@@ -49,6 +49,13 @@
     "moveBaseSuccessTitle": "Taşıma başarılı",
     "moveBaseSuccessDescription": "{{baseName}} başarıyla {{spaceName}} alanına taşındı"
   },
+  "deleteSpaceModal": {
+    "title": "Alanı Sil",
+    "blockedTitle": "Bu alan silinemiyor",
+    "blockedDesc": "Bu alanın aktif bir aboneliği var. Lütfen alanı silmeden önce aboneliği iptal edin.",
+    "permanentDeleteWarning": "Bu işlem mevcut alan altındaki tüm kaynakları ve verileri kalıcı olarak silecektir. Lütfen dikkatli ilerleyin!",
+    "confirmInputLabel": "Silme işlemini onaylamak için lütfen DELETE yazın"
+  },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",
     "description": "Sizinle paylaşılan veritabanları burada görünecek",

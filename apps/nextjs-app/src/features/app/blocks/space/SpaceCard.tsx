@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Role } from '@teable/core';
 import type { IGetBaseVo, IGetSpaceVo, ISubscriptionSummaryVo } from '@teable/openapi';
-import { PinType, deleteSpace, updateSpace, getSpaceCollaboratorList } from '@teable/openapi';
+import {
+  PinType,
+  deleteSpace,
+  permanentDeleteSpace,
+  updateSpace,
+  getSpaceCollaboratorList,
+} from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Card, CardContent, CardHeader, CardTitle } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
@@ -47,6 +53,13 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
+    },
+  });
+
+  const { mutate: permanentDeleteSpaceMutator } = useMutation({
+    mutationFn: permanentDeleteSpace,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceList() });
     },
@@ -119,6 +132,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
             disallowSpaceInvitation={disallowSpaceInvitation}
             onDelete={() => deleteSpaceMutator(space.id)}
+            onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
           />

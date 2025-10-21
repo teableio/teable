@@ -20,6 +20,7 @@ interface ActionBarProps {
   disallowSpaceInvitation?: boolean | null;
   onRename?: () => void;
   onDelete?: () => void;
+  onPermanentDelete?: () => void;
   onSpaceSetting?: () => void;
 }
 
@@ -31,6 +32,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     disallowSpaceInvitation,
     onRename,
     onDelete,
+    onPermanentDelete,
     onSpaceSetting,
   } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
@@ -73,6 +75,7 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         showSpaceSetting={hasPermission(space.role, 'space|update')}
         showImportBase={hasPermission(space.role, 'space|update')}
         onDelete={onDelete}
+        onPermanentDelete={onPermanentDelete}
         onRename={onRename}
         onSpaceSetting={onSpaceSetting}
         onImportBase={() => setImportBaseOpen(true)}

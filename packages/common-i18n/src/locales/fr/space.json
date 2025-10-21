@@ -49,6 +49,13 @@
     "moveBaseSuccessTitle": "Déplacement réussi",
     "moveBaseSuccessDescription": "{{baseName}} a été déplacé avec succès vers {{spaceName}}"
   },
+  "deleteSpaceModal": {
+    "title": "Supprimer l'espace",
+    "blockedTitle": "Impossible de supprimer cet espace",
+    "blockedDesc": "Cet espace a un abonnement actif. Veuillez annuler l'abonnement avant de supprimer l'espace.",
+    "permanentDeleteWarning": "Cette action supprimera définitivement toutes les ressources et données de l'espace actuel. Veuillez procéder avec prudence !",
+    "confirmInputLabel": "Veuillez taper DELETE pour confirmer la suppression"
+  },
   "integration": {
     "title": "Intégrations",
     "description": "Gérer les intégrations de votre espace",

@@ -53,6 +53,13 @@
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },
+  "deleteSpaceModal": {
+    "title": "删除空间",
+    "blockedTitle": "无法删除该空间",
+    "blockedDesc": "该空间存在订阅，请先取消订阅后再删除空间。",
+    "permanentDeleteWarning": "此操作将会永久删除当前空间下的所有资源和数据，请谨慎操作！",
+    "confirmInputLabel": "请输入 DELETE 以确认删除操作"
+  },
   "sharedBase": {
     "title": "分享给我的",
     "description": "与您分享的数据库将显示在这里",

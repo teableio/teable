@@ -2,14 +2,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
 import { Edit } from '@teable/icons';
-import { deleteSpace, getSpaceById, updateSpace } from '@teable/openapi';
+import { deleteSpace, getSpaceById, permanentDeleteSpace, updateSpace } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Input } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
-import { Trans, useTranslation } from 'next-i18next';
+import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { CopyButton } from '@/features/app/components/CopyButton';
+import { DeleteSpaceConfirm } from '@/features/app/components/space/DeleteSpaceConfirm';
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
@@ -35,6 +35,13 @@ export const GeneralPage = () => {
 
   const { mutate: deleteSpaceMutator } = useMutation({
     mutationFn: deleteSpace,
+    onSuccess: () => {
+      router.push('/space');
+    },
+  });
+
+  const { mutate: permanentDeleteSpaceMutator } = useMutation({
+    mutationFn: permanentDeleteSpace,
     onSuccess: () => {
       router.push('/space');
     },
@@ -119,19 +126,16 @@ export const GeneralPage = () => {
         )}
       </SpaceSettingContainer>
 
-      <ConfirmDialog
-        open={deleteConfirm}
-        onOpenChange={setDeleteConfirm}
-        title={
-          <Trans ns="space" i18nKey={'tip.delete'}>
-            {space?.name}
-          </Trans>
-        }
-        cancelText={t('actions.cancel')}
-        confirmText={t('actions.confirm')}
-        onCancel={() => setDeleteConfirm(false)}
-        onConfirm={() => space && deleteSpaceMutator(space.id)}
-      />
+      {space && (
+        <DeleteSpaceConfirm
+          open={deleteConfirm}
+          onOpenChange={setDeleteConfirm}
+          spaceId={space.id}
+          spaceName={space.name}
+          onConfirm={() => deleteSpaceMutator(space.id)}
+          onPermanentConfirm={() => permanentDeleteSpaceMutator(space.id)}
+        />
+      )}
     </>
   );
 };
