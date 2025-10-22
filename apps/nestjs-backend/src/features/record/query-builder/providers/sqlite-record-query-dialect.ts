@@ -167,7 +167,7 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'array_unique':
         return `json_group_array(DISTINCT ${fieldExpression})`;
       case 'array_compact':
-        return `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL THEN ${fieldExpression} END)`;
+        return `json_group_array(CASE WHEN ${fieldExpression} IS NOT NULL AND CAST(${fieldExpression} AS TEXT) <> '' THEN ${fieldExpression} END)`;
       default:
         throw new Error(`Unsupported rollup function: ${fn}`);
     }

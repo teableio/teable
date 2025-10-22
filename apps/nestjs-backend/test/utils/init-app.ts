@@ -421,6 +421,16 @@ const ensureConditionalRollupOptions = (fieldRo: IFieldRo): IFieldRo => {
     return fieldRo;
   }
 
+  if (options.filter === null) {
+    return {
+      ...fieldRo,
+      options: {
+        ...options,
+        filter: undefined,
+      } as IConditionalRollupFieldOptions,
+    };
+  }
+
   const hasFilterConditions =
     options.filter?.filterSet != null && options.filter.filterSet.length > 0;
 

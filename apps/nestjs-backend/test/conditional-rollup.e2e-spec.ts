@@ -54,6 +54,145 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     await app.close();
   });
 
+  describe('expression coverage', () => {
+    const setupConditionalRollupFixtures = async () => {
+      const foreign = await createTable(baseId, {
+        name: 'ConditionalRollupExpr_Foreign',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+          { name: 'Flag', type: FieldType.Checkbox } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Alpha', Amount: 10, Flag: true } },
+          { fields: { Label: 'Alpha', Amount: null, Flag: true } },
+          { fields: { Label: 'Beta', Amount: 20, Flag: true } },
+        ],
+      });
+
+      const host = await createTable(baseId, {
+        name: 'ConditionalRollupExpr_Host',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Name: 'Host Row' } }],
+      });
+
+      const linkField = await createField(host.id, {
+        name: 'Links',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: foreign.id,
+        },
+      } as IFieldRo);
+
+      const hostRecordId = host.records[0].id;
+      await updateRecordByApi(host.id, hostRecordId, linkField.id, [
+        { id: foreign.records[0].id },
+        { id: foreign.records[1].id },
+        { id: foreign.records[2].id },
+      ]);
+
+      const labelId = foreign.fields.find((field) => field.name === 'Label')!.id;
+      const amountId = foreign.fields.find((field) => field.name === 'Amount')!.id;
+      const flagId = foreign.fields.find((field) => field.name === 'Flag')!.id;
+      return { foreign, host, linkField, hostRecordId, labelId, amountId, flagId };
+    };
+
+    const conditionalRollupCases: Array<{
+      expression: string;
+      lookupFieldKey: 'labelId' | 'amountId' | 'flagId';
+      expected: unknown;
+    }> = [
+      { expression: 'countall({values})', lookupFieldKey: 'amountId', expected: 3 },
+      { expression: 'counta({values})', lookupFieldKey: 'labelId', expected: 3 },
+      { expression: 'count({values})', lookupFieldKey: 'amountId', expected: 2 },
+      { expression: 'sum({values})', lookupFieldKey: 'amountId', expected: 30 },
+      { expression: 'average({values})', lookupFieldKey: 'amountId', expected: 15 },
+      { expression: 'max({values})', lookupFieldKey: 'amountId', expected: 20 },
+      { expression: 'min({values})', lookupFieldKey: 'amountId', expected: 10 },
+      { expression: 'and({values})', lookupFieldKey: 'flagId', expected: true },
+      { expression: 'or({values})', lookupFieldKey: 'flagId', expected: true },
+      { expression: 'xor({values})', lookupFieldKey: 'flagId', expected: true },
+      {
+        expression: 'array_join({values})',
+        lookupFieldKey: 'labelId',
+        expected: 'Alpha, Alpha, Beta',
+      },
+      {
+        expression: 'array_unique({values})',
+        lookupFieldKey: 'labelId',
+        expected: ['Alpha', 'Beta'],
+      },
+      {
+        expression: 'array_compact({values})',
+        lookupFieldKey: 'labelId',
+        expected: ['Alpha', 'Alpha', 'Beta'],
+      },
+      {
+        expression: 'concatenate({values})',
+        lookupFieldKey: 'labelId',
+        expected: 'Alpha, Alpha, Beta',
+      },
+    ];
+
+    it.each(conditionalRollupCases)(
+      'should support conditional rollup expression %s without filters',
+      async ({ expression, lookupFieldKey, expected }) => {
+        let fixtures: Awaited<ReturnType<typeof setupConditionalRollupFixtures>> | undefined;
+        try {
+          fixtures = await setupConditionalRollupFixtures();
+          const { foreign, host, linkField, hostRecordId } = fixtures;
+          const lookupFieldId = fixtures[lookupFieldKey];
+
+          const field = await createField(host.id, {
+            name: `conditional rollup ${expression}`,
+            type: FieldType.ConditionalRollup,
+            options: {
+              foreignTableId: foreign.id,
+              lookupFieldId,
+              expression,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: fixtures.labelId,
+                    operator: 'isNotEmpty',
+                    value: null,
+                  },
+                ],
+              },
+            },
+          } as IFieldRo);
+
+          const record = await getRecord(host.id, hostRecordId);
+          const value = record.fields[field.id];
+
+          if (Array.isArray(expected)) {
+            expect(Array.isArray(value)).toBe(true);
+            const sortedExpected = [...expected].sort();
+            const sortedValue = [...(value as unknown[])].sort();
+            expect(sortedValue).toEqual(sortedExpected);
+          } else if (typeof expected === 'string') {
+            if (expected.includes(', ')) {
+              expect((value as string).split(', ').sort()).toEqual(expected.split(', ').sort());
+            } else {
+              expect(value).toEqual(expected);
+            }
+          } else {
+            expect(value).toEqual(expected);
+          }
+        } finally {
+          if (fixtures?.host) {
+            await permanentDeleteTable(baseId, fixtures.host.id);
+          }
+          if (fixtures?.foreign) {
+            await permanentDeleteTable(baseId, fixtures.foreign.id);
+          }
+        }
+      }
+    );
+  });
+
   describe('table and field retrieval', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

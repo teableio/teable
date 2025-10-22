@@ -237,15 +237,12 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
           ? `STRING_AGG(${fieldExpression}::text, ', ' ORDER BY ${orderByField})`
           : `STRING_AGG(${fieldExpression}::text, ', ')`;
       case 'array_unique':
-        if (orderByField) {
-          return `(SELECT json_agg(val) FROM (SELECT DISTINCT ${fieldExpression} AS val ORDER BY ${orderByField}) __teable_rollup_unique)`;
-        }
         return `json_agg(DISTINCT ${fieldExpression})`;
       case 'array_compact': {
         const buildAggregate = (expr: string) =>
           orderByField
-            ? `jsonb_agg(${expr} ORDER BY ${orderByField}) FILTER (WHERE ${expr} IS NOT NULL)`
-            : `jsonb_agg(${expr}) FILTER (WHERE ${expr} IS NOT NULL)`;
+            ? `jsonb_agg(${expr} ORDER BY ${orderByField}) FILTER (WHERE (${expr}) IS NOT NULL AND (${expr})::text <> '')`
+            : `jsonb_agg(${expr}) FILTER (WHERE (${expr}) IS NOT NULL AND (${expr})::text <> '')`;
         const baseAggregate = buildAggregate(fieldExpression);
         if (flattenNestedArray) {
           return `(WITH RECURSIVE flattened(val) AS (
@@ -256,7 +253,11 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
               CROSS JOIN LATERAL jsonb_array_elements(flattened.val) AS elem
               WHERE jsonb_typeof(flattened.val) = 'array'
             )
-            SELECT jsonb_agg(val) FILTER (WHERE jsonb_typeof(val) <> 'array') FROM flattened)`;
+            SELECT jsonb_agg(val) FILTER (
+              WHERE jsonb_typeof(val) <> 'array'
+                AND jsonb_typeof(val) <> 'null'
+                AND val <> '""'::jsonb
+            ) FROM flattened)`;
         }
         return baseAggregate;
       }

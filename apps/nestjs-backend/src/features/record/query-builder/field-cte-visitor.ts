@@ -1080,7 +1080,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     switch (fn) {
       case 'array_join':
       case 'array_compact':
-      case 'array_unique':
       case 'concatenate':
         return true;
       default:
