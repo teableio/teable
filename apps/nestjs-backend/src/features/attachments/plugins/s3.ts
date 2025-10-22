@@ -27,6 +27,7 @@ import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './t
 export class S3Storage implements StorageAdapter {
   private s3Client: S3Client;
   private s3ClientPrivateNetwork: S3Client;
+  private s3ClientPreSigner: S3Client;
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
@@ -49,6 +50,19 @@ export class S3Storage implements StorageAdapter {
     });
     this.s3ClientPrivateNetwork = this.s3Client;
     fse.ensureDirSync(StorageAdapter.TEMPORARY_DIR);
+
+    this.s3ClientPreSigner = this.config.privateBucketEndpoint
+      ? new S3Client({
+          region,
+          endpoint,
+          bucketEndpoint: true,
+          requestHandler,
+          credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+          },
+        })
+      : this.s3Client;
   }
 
   private checkConfig() {
@@ -73,17 +87,12 @@ export class S3Storage implements StorageAdapter {
     }
   }
 
-  private replaceBucketEndpoint(url: string, bucket: string): string {
+  private replaceBucketEndpoint(bucket: string, internal?: boolean) {
     const { privateBucketEndpoint, privateBucket } = this.config;
-    if (privateBucketEndpoint && bucket === privateBucket) {
-      const resUrl = new URL(url);
-      const newUrl = new URL(privateBucketEndpoint);
-      resUrl.protocol = newUrl.protocol;
-      resUrl.hostname = newUrl.hostname;
-      resUrl.port = newUrl.port;
-      return resUrl.toString();
+    if (privateBucketEndpoint && bucket === privateBucket && !internal) {
+      return privateBucketEndpoint;
     }
-    return url;
+    return bucket;
   }
 
   async presigned(bucket: string, dir: string, params: IPresignParams): Promise<IPresignRes> {
@@ -102,15 +111,13 @@ export class S3Storage implements StorageAdapter {
         ContentLength: contentLength,
       });
 
-      let url = await getSignedUrl(
+      const url = await getSignedUrl(
         internal ? this.s3ClientPrivateNetwork : this.s3Client,
         command,
         {
           expiresIn: expiresIn ?? second(tokenExpireIn),
         }
       );
-
-      url = this.replaceBucketEndpoint(url, bucket);
 
       const requestHeaders = {
         'Content-Type': contentType,
@@ -186,15 +193,14 @@ export class S3Storage implements StorageAdapter {
     respHeaders?: IRespHeaders
   ): Promise<string> {
     const command = new GetObjectCommand({
-      Bucket: bucket,
+      Bucket: this.replaceBucketEndpoint(bucket),
       Key: path,
       ResponseContentDisposition: respHeaders?.['Content-Disposition'],
     });
 
-    const res = await getSignedUrl(this.s3Client, command, {
+    return getSignedUrl(this.s3ClientPreSigner, command, {
       expiresIn: expiresIn ?? second(this.config.tokenExpireIn),
     });
-    return this.replaceBucketEndpoint(res, bucket);
   }
   uploadFileWidthPath(
     bucket: string,
