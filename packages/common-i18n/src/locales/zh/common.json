@@ -32,6 +32,7 @@
     "rename": "重命名",
     "duplicate": "复制",
     "export": "导出",
+    "import": "导入",
     "change": "变更",
     "upgrade": "升级",
     "search": "搜索",
@@ -631,6 +632,7 @@
     "turnOnTip": "您是否要开启当前自动化？"
   },
   "email": {
+    "title": "邮箱",
     "send": "发送",
     "config": "邮件配置",
     "customConfig": "自定义邮件服务器",
@@ -654,7 +656,17 @@
     "username": "用户名",
     "password": "密码",
     "sender": "发件人地址",
-    "senderName": "发件人名称"
+    "senderName": "发件人名称",
+    "subscribe": "订阅",
+    "unsubscribe": "取消订阅",
+    "unsubscribeList": "取消订阅列表",
+    "unsubscribeTime": "取消订阅时间",
+    "processing": "处理中...",
+    "unsubscribeH1": "确认取消订阅",
+    "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
+    "subscribeH1": "确认订阅",
+    "subscribeH2": "您即将订阅 Teable 未来的促销和产品更新信息。您确定要订阅吗？",
+    "unsubscribeListTip": "当前数据库以下用户退订了，您将无法再给他们发送邮件"
   },
   "waitlist": {
     "title": "等待列表",

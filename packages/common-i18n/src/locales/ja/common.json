@@ -484,7 +484,17 @@
     "username": "ユーザー名",
     "password": "パスワード",
     "sender": "送信者アドレス",
-    "senderName": "送信者名"
+    "senderName": "送信者名",
+    "subscribe": "購読",
+    "unsubscribe": "購読解除",
+    "unsubscribeList": "購読解除リスト",
+    "unsubscribeTime": "購読解除時刻",
+    "processing": "処理中...",
+    "unsubscribeH1": "登録解除を確認しますか？",
+    "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
+    "subscribeH1": "登録を確認しますか？",
+    "subscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を登録しようとしています。登録してもよろしいですか？",
+    "unsubscribeListTip": "現在のデータベースの以下のユーザーが購読を解除しました。これらのユーザーにはメールを送信できなくなります"
   },
   "waitlist": {
     "title": "待機リスト",

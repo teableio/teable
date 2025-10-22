@@ -32,6 +32,7 @@
     "rename": "Rename",
     "duplicate": "Duplicate",
     "export": "Export",
+    "import": "Import",
     "change": "Change",
     "upgrade": "Upgrade",
     "search": "Search",
@@ -634,6 +635,7 @@
     "turnOnTip": "Do you want to turn on the current automation?"
   },
   "email": {
+    "title": "Email",
     "send": "Send",
     "config": "Email Config",
     "customConfig": "Custom Email Server",
@@ -657,7 +659,17 @@
     "username": "Username",
     "password": "Password",
     "sender": "Sender",
-    "senderName": "Sender Name"
+    "senderName": "Sender Name",
+    "subscribe": "Subscribe",
+    "unsubscribe": "Unsubscribe",
+    "unsubscribeList": "Unsubscribe List",
+    "unsubscribeTime": "Unsubscribe Time",
+    "processing": "Processing...",
+    "unsubscribeH1": "Confirm Unsubscribe?",
+    "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
+    "subscribeH1": "Confirm Subscribe?",
+    "subscribeH2": "You're about to subscribe from future Teable promotions and product updates. Are you sure you want to subscribe?",
+    "unsubscribeListTip": "The following users in the current database have unsubscribed, you will no longer be able to send them emails"
   },
   "waitlist": {
     "title": "Waitlist",

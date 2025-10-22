@@ -14,6 +14,12 @@ export const mailConfig = registerAs('mail', () => ({
     user: process.env.BACKEND_MAIL_AUTH_USER,
     pass: process.env.BACKEND_MAIL_AUTH_PASS,
   },
+  encryption: {
+    algorithm: 'aes-128-cbc',
+    key: process.env.BACKEND_MAIL_ENCRYPTION_KEY ?? 'ie21hOKjlXUiGDx1',
+    iv: process.env.BACKEND_MAIL_ENCRYPTION_IV ?? 'i0vKGXBWkzyAoGf1',
+    encoding: 'base64' as BufferEncoding,
+  },
 }));
 
 export const MailConfig = () => Inject(mailConfig.KEY);

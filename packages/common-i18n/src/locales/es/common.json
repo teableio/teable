@@ -508,7 +508,17 @@
     "username": "Nombre de Usuario",
     "password": "Contraseña",
     "sender": "Dirección del Remitente",
-    "senderName": "Nombre del Remitente"
+    "senderName": "Nombre del Remitente",
+    "subscribe": "Suscribirse",
+    "unsubscribe": "Cancelar suscripción",
+    "unsubscribeList": "Lista de cancelar suscripción",
+    "unsubscribeTime": "Fecha de cancelación de suscripción",
+    "processing": "Procesando...",
+    "unsubscribeH1": "¿Confirmar cancelación de suscripción?",
+    "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",
+    "subscribeH1": "¿Confirmar suscripción?",
+    "subscribeH2": "Estás a punto de suscribirte a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas suscribirte?",
+    "unsubscribeListTip": "Los siguientes usuarios de la base de datos actual se han dado de baja, ya no podrás enviarles correos electrónicos"
   },
   "waitlist": {
     "title": "Lista de espera",

@@ -41,3 +41,4 @@ export * from './query';
 export * from './automation';
 export * from './mail';
 export * from './formula';
+export * from './unsubscribe';

@@ -528,7 +528,17 @@
     "username": "Benutzername",
     "password": "Passwort",
     "sender": "Absender-Adresse",
-    "senderName": "Absender-Name"
+    "senderName": "Absender-Name",
+    "subscribe": "Abonnieren",
+    "unsubscribe": "Abbestellen",
+    "unsubscribeList": "Abbestellliste",
+    "unsubscribeTime": "Abbestellzeit",
+    "processing": "Verarbeitung...",
+    "unsubscribeH1": "Abmeldung bestätigen?",
+    "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
+    "subscribeH1": "Abonnement bestätigen?",
+    "subscribeH2": "Sie sind dabei, zukünftige Teable-Werbeaktionen und Produktaktualisierungen zu abonnieren. Möchten Sie wirklich abonnieren?",
+    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Datenbank haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden"
   },
   "waitlist": {
     "title": "Warteliste",

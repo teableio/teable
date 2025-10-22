@@ -525,7 +525,17 @@
     "username": "Nome Utente",
     "password": "Password",
     "sender": "Indirizzo del Mittente",
-    "senderName": "Nome del Mittente"
+    "senderName": "Nome del Mittente",
+    "subscribe": "Iscriviti",
+    "unsubscribe": "Annulla iscrizione",
+    "unsubscribeList": "Lista di annullamento iscrizione",
+    "unsubscribeTime": "Ora di annullamento iscrizione",
+    "processing": "Elaborazione in corso...",
+    "unsubscribeH1": "Confermare la cancellazione dell'iscrizione?",
+    "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
+    "subscribeH1": "Confermare l'iscrizione?",
+    "subscribeH2": "Stai per iscriverti alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di volerti iscrivere?",
+    "unsubscribeListTip": "I seguenti utenti nel database corrente si sono cancellati, non potrai più inviare loro e-mail"
   },
   "waitlist": {
     "title": "Lista d'attesa",
