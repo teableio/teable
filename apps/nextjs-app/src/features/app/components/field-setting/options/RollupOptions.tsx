@@ -74,24 +74,38 @@ export const RollupOptions = (props: {
 
   const onExpressionChange = useCallback(
     (expr: IRollupFieldOptions['expression']) => {
-      const { cellValueType: newCellValueType } = isLookup
-        ? { cellValueType }
+      const nextTypedValue = isLookup
+        ? { cellValueType, isMultipleCellValue }
         : calculateRollupTypedValue(expr, cellValueType, isMultipleCellValue);
-      const newOptions: IRollupFieldOptions = {
+      const { cellValueType: newCellValueType, isMultipleCellValue: newIsMultipleCellValue } =
+        nextTypedValue;
+      const newOptions: Partial<IRollupFieldOptions> = {
         expression: expr,
         timeZone:
           formatting && 'timeZone' in formatting && formatting?.timeZone
             ? formatting.timeZone
             : options.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
-      if (newCellValueType !== cellValueType) {
-        const defaultFormatting = getDefaultFormatting(newCellValueType);
-        newOptions.formatting = defaultFormatting;
+
+      const formattingSchema = getFormattingSchema(newCellValueType);
+      const formattingValid = formattingSchema.safeParse(formatting).success;
+      if (!formattingValid) {
+        newOptions.formatting = getDefaultFormatting(newCellValueType);
+      }
+
+      const showAsSchema = getShowAsSchema(newCellValueType, newIsMultipleCellValue);
+      const showAsValid = showAsSchema.safeParse(showAs).success;
+      if (
+        !showAsValid ||
+        newCellValueType !== cellValueType ||
+        newIsMultipleCellValue !== isMultipleCellValue
+      ) {
         newOptions.showAs = undefined;
       }
+
       onChange?.(newOptions);
     },
-    [cellValueType, formatting, isMultipleCellValue, isLookup, options.timeZone, onChange]
+    [cellValueType, formatting, isMultipleCellValue, isLookup, onChange, options.timeZone, showAs]
   );
 
   useEffect(() => {
