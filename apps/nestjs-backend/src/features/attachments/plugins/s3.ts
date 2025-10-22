@@ -76,7 +76,7 @@ export class S3Storage implements StorageAdapter {
   private replaceBucketEndpoint(url: string, bucket: string): string {
     const { privateBucketEndpoint, privateBucket } = this.config;
     if (privateBucketEndpoint && bucket === privateBucket) {
-      const resUrl = new URL(url, privateBucketEndpoint);
+      const resUrl = new URL(url);
       const newUrl = new URL(privateBucketEndpoint);
       resUrl.protocol = newUrl.protocol;
       resUrl.hostname = newUrl.hostname;
@@ -126,7 +126,6 @@ export class S3Storage implements StorageAdapter {
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      console.log('S3 presigned error', e);
       throw new BadRequestException(`S3 presigned error${e?.message ? `: ${e.message}` : ''}`);
     }
   }
@@ -203,7 +202,6 @@ export class S3Storage implements StorageAdapter {
     filePath: string,
     metadata: Record<string, unknown>
   ) {
-    console.log('start uploadFileWidthPath', bucket, path, filePath, metadata);
     const readStream = fse.createReadStream(filePath);
     const command = new PutObjectCommand({
       Bucket: bucket,
@@ -225,7 +223,6 @@ export class S3Storage implements StorageAdapter {
       .finally(() => {
         readStream.removeAllListeners();
         readStream.destroy();
-        console.log('end uploadFileWidthPath');
       });
   }
 
