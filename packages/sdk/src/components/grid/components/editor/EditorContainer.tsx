@@ -306,7 +306,7 @@ export const EditorContainerBase: ForwardRefRenderFunction<
   };
 
   const onCopyInner = (e: React.ClipboardEvent) => {
-    if (!activeCell || isEditing) return;
+    if (isEditing || selection.type === SelectionRegionType.None) return;
     onCopy?.(selection, e);
   };
 
