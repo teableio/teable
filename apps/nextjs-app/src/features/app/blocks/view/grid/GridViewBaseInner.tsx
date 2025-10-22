@@ -739,6 +739,48 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
   };
 
+  const onDeleteForPrefilling = (selection: CombinedSelection) => {
+    if (localRecord == null || prefillingFieldValueMap == null) return;
+
+    const [start, end] = selection.serialize();
+    const startCol = Math.min(start[0], end[0]);
+    const endCol = Math.max(start[0], end[0]);
+
+    const updated: { [fieldId: string]: unknown } = { ...prefillingFieldValueMap };
+    for (let col = startCol; col <= endCol; col++) {
+      const fieldId = columns[col]?.id;
+      if (!fieldId) continue;
+      updated[fieldId] = null;
+    }
+    setPrefillingFieldValueMap(updated);
+  };
+
+  const onDeleteForPresort = (selection: CombinedSelection) => {
+    if (!presortRecord) return;
+
+    const [start, end] = selection.serialize();
+    const startCol = Math.min(start[0], end[0]);
+    const endCol = Math.max(start[0], end[0]);
+
+    const fieldsToNull: { [fieldId: string]: unknown } = {};
+    for (let col = startCol; col <= endCol; col++) {
+      const fieldId = columns[col]?.id;
+      if (!fieldId) continue;
+      fieldsToNull[fieldId] = null;
+    }
+
+    updateRecord({
+      tableId,
+      recordId: presortRecord.id,
+      recordRo: {
+        fieldKeyType: FieldKeyType.Id,
+        record: {
+          fields: { ...presortRecord.fields, ...fieldsToNull },
+        },
+      },
+    });
+  };
+
   const collaborators = useCollaborate(selection, getCellContent);
 
   const groupedCollaborators = useMemo(() => {
@@ -1150,6 +1192,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             onCellEdited={onPrefillingCellEdited}
             onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
             onPaste={onPasteForPrefilling}
+            onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
           />
         </PrefillingRowContainer>
       )}
@@ -1183,6 +1226,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             onCellEdited={onPresortCellEdited}
             onCopy={(selection, e) => onCopyForSingleRow(e, selection, presortRecord.fields)}
             onPaste={onPasteForPresort}
+            onDelete={getAuthorizedFunction(onDeleteForPresort, 'record|update')}
           />
         </PresortRowContainer>
       )}
