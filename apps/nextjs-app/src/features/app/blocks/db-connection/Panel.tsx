@@ -43,9 +43,9 @@ export const DbConnectionPanel = ({ className }: { className?: string }) => {
     <div className="flex flex-col gap-4">
       {data ? (
         <>
-          <div className="grid gap-2">
+          <div className="grid gap-2 overflow-x-auto">
             {dataArray.map(({ label, value, display }) => (
-              <div key={label} className="flex items-center justify-between text-sm">
+              <div key={label} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-muted-foreground">{label}</span>
                 <div className="flex items-center gap-2">
                   <code className="rounded bg-muted px-1.5 py-0.5 text-xs">

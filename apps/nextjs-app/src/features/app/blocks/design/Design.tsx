@@ -46,7 +46,7 @@ export const Design = () => {
               <BaseDetail />
 
               {/* Connection Info */}
-              <DbConnectionPanel />
+              <DbConnectionPanel className="overflow-hidden" />
             </div>
 
             <Separator />

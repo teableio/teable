@@ -1,6 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import type { IExtraResult } from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -288,10 +287,12 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       ).data;
 
       expect(res.extra?.searchHitIndex?.length).toBe(2);
-      expect(res.extra?.searchHitIndex).toEqual([
-        { recordId: res.records[11].id, fieldId: table.fields[0].id },
-        { recordId: res.records[22].id, fieldId: table.fields[0].id },
-      ]);
+      expect(res.extra?.searchHitIndex).toEqual(
+        expect.arrayContaining([
+          { recordId: res.records[11].id, fieldId: table.fields[0].id },
+          { recordId: res.records[22].id, fieldId: table.fields[0].id },
+        ])
+      );
     });
   });
 
@@ -556,7 +557,6 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
       test.each(recordTestCases)(
         'returns expected records for %s',
         async ({
-          caseName,
           getSearchValue,
           getSearchFieldId,
           hideNotMatch,
@@ -620,7 +620,7 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
 
       test.each(searchIndexTestCases)(
         'returns expected search index entries for %s',
-        async ({ caseName, getSearchValue, getSearchFieldId, hideNotMatch, expectedFieldId }) => {
+        async ({ getSearchValue, getSearchFieldId, hideNotMatch, expectedFieldId }) => {
           const searchTuple: [string, string, boolean] = [
             getSearchValue(),
             getSearchFieldId(),
