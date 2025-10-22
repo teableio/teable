@@ -41,9 +41,10 @@ export class DateFieldCore extends FieldCore {
 
     return this.item2String(cellValue as string);
   }
+
   private defaultTzFormat(value: string) {
     try {
-      const formatValue = dayjs.utc(value);
+      const formatValue = dayjs.tz(value, this.options.formatting.timeZone);
       if (!formatValue.isValid()) return null;
       return formatValue.toISOString();
     } catch {
@@ -53,23 +54,16 @@ export class DateFieldCore extends FieldCore {
 
   private parseUsingFieldFormatting(value: string): string | null {
     const hasTime = /\d{1,2}:\d{2}(?::\d{2})?/.test(value);
-    const hasSeconds = /\d{1,2}:\d{2}:\d{2}/.test(value);
-    const hasAmPm = /am|pm/i.test(value);
-
-    const dateFormat = this.options.formatting.date.replace('MM', 'M').replace('DD', 'D');
-
-    let timeFormat: string | null = null;
-    if (hasTime) {
-      if (this.options.formatting.time === TimeFormatting.Hour12 || hasAmPm) {
-        timeFormat = hasSeconds ? 'hh:mm:ss A' : 'hh:mm A';
-      } else {
-        timeFormat = hasSeconds ? 'HH:mm:ss' : 'HH:mm';
-      }
-    }
-
+    const dateFormat = this.options.formatting.date;
+    const timeFormat =
+      hasTime && this.options.formatting.time !== TimeFormatting.None
+        ? this.options.formatting.time
+        : null;
     const format = timeFormat ? `${dateFormat} ${timeFormat}` : dateFormat;
 
     try {
+      const check = dayjs(value, format, true).isValid();
+      if (!check) return null;
       const formatValue = dayjs.tz(value, format, this.options.formatting.timeZone);
       if (!formatValue.isValid()) return null;
       const isoString = formatValue.toISOString();
@@ -90,20 +84,6 @@ export class DateFieldCore extends FieldCore {
 
     if (value === 'now') {
       return dayjs().toISOString();
-    }
-
-    if (/^\d+$/.test(String(value))) {
-      const num = Number(value);
-      const ms = String(value).length >= 13 ? num : num * 1000;
-      try {
-        const d = dayjs(ms).tz(this.options.formatting.timeZone);
-        if (d.isValid()) {
-          const iso = d.toISOString();
-          if (!iso.startsWith('-')) return iso;
-        }
-      } catch {
-        // ignore
-      }
     }
 
     const dayjsObj = dayjs(value);

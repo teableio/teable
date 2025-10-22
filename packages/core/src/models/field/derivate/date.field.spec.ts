@@ -99,6 +99,25 @@ describe('DateFieldCore', () => {
     expect(usField.convertStringToCellValue('5/1/2024 06:50')).toBe('2024-05-01T06:50:00.000Z');
   });
 
+  it('should parse text to date with Chinese date format', () => {
+    const fieldWithAsian = plainToInstance(DateFieldCore, {
+      ...json,
+      options: {
+        formatting: {
+          date: 'YYYY 年 M 月 D 日',
+          time: TimeFormatting.None,
+          timeZone: 'Asia/Shanghai',
+        },
+      },
+    });
+    expect(fieldWithAsian.convertStringToCellValue('2025-10-12 11:17')).toBe(
+      '2025-10-12T03:17:00.000Z'
+    );
+    expect(fieldWithAsian.convertStringToCellValue('2025 年 10 月 12 日')).toBe(
+      '2025-10-11T16:00:00.000Z'
+    );
+  });
+
   it('should parse single-digit month/day with seconds', () => {
     const fieldWithAsian = plainToInstance(DateFieldCore, {
       ...json,
