@@ -2586,6 +2586,59 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('self-referencing conditional rollup propagation', () => {
+    let table: ITableFullVo;
+    let amountFieldId: string;
+    let rollupField: IFieldVo;
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'ConditionalRollup_Self_Propagation',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Label: 'Alpha', Amount: 5 } },
+          { fields: { Label: 'Beta', Amount: 3 } },
+        ],
+      });
+      amountFieldId = table.fields.find((field) => field.name === 'Amount')!.id;
+
+      rollupField = await createField(table.id, {
+        name: 'Global Sum',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: table.id,
+          lookupFieldId: amountFieldId,
+          expression: 'sum({values})',
+        } as IConditionalRollupFieldOptions,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('converts without repeating ALL_RECORDS expansion', async () => {
+      const updated = await convertField(table.id, rollupField.id, {
+        name: rollupField.name,
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: table.id,
+          lookupFieldId: amountFieldId,
+          expression: 'max({values})',
+        } as IConditionalRollupFieldOptions,
+      } as IFieldRo);
+
+      expect((updated.options as IConditionalRollupFieldOptions).expression).toBe('max({values})');
+
+      const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const values = records.records.map((record) => record.fields[rollupField.id]);
+      expect(values).toEqual([5, 5]);
+    });
+  });
+
   describe('conditional rollup across bases', () => {
     let foreignBaseId: string;
     let foreign: ITableFullVo;

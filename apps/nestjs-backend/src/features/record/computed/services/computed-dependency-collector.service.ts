@@ -769,13 +769,19 @@ export class ComputedDependencyCollectorService {
       await this.getAdjacencyMaps(tablesForAdjacency);
 
     const queue: string[] = [...originTableIds];
+    const expandedAllRecords = new Set<string>();
     while (queue.length) {
       const src = queue.shift()!;
       const rawSet = recordSets[src];
       const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
+      const startedWithAllRecords = rawSet === ALL_RECORDS;
+      if (startedWithAllRecords && expandedAllRecords.has(src)) {
+        continue;
+      }
       let currentIds: string[] = [];
       if (rawSet === ALL_RECORDS) {
         if (!hasOutgoing) {
+          expandedAllRecords.add(src);
           continue;
         }
         const ids = await this.getAllRecordIds(src);
@@ -816,8 +822,12 @@ export class ComputedDependencyCollectorService {
         const matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
-          recordSets[edge.tableId] = ALL_RECORDS;
-          queue.push(edge.tableId);
+          if (recordSets[edge.tableId] !== ALL_RECORDS) {
+            recordSets[edge.tableId] = ALL_RECORDS;
+          }
+          if (!expandedAllRecords.has(edge.tableId)) {
+            queue.push(edge.tableId);
+          }
           continue;
         }
         if (!matched.length) continue;
@@ -838,6 +848,9 @@ export class ComputedDependencyCollectorService {
           }
         }
         if (added) queue.push(edge.tableId);
+      }
+      if (startedWithAllRecords) {
+        expandedAllRecords.add(src);
       }
     }
 
@@ -989,13 +1002,19 @@ export class ComputedDependencyCollectorService {
 
     // BFS-like propagation over table graph
     const queue: string[] = [tableId];
+    const expandedAllRecords = new Set<string>();
     while (queue.length) {
       const src = queue.shift()!;
       const rawSet = recordSets[src];
       const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
+      const startedWithAllRecords = rawSet === ALL_RECORDS;
+      if (startedWithAllRecords && expandedAllRecords.has(src)) {
+        continue;
+      }
       let currentIds: string[] = [];
       if (rawSet === ALL_RECORDS) {
         if (!hasOutgoing) {
+          expandedAllRecords.add(src);
           continue;
         }
         const ids = await this.getAllRecordIds(src);
@@ -1041,8 +1060,12 @@ export class ComputedDependencyCollectorService {
         );
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
-          recordSets[edge.tableId] = ALL_RECORDS;
-          queue.push(edge.tableId);
+          if (recordSets[edge.tableId] !== ALL_RECORDS) {
+            recordSets[edge.tableId] = ALL_RECORDS;
+          }
+          if (!expandedAllRecords.has(edge.tableId)) {
+            queue.push(edge.tableId);
+          }
           continue;
         }
         if (!matched.length) continue;
@@ -1063,6 +1086,9 @@ export class ComputedDependencyCollectorService {
           }
         }
         if (added) queue.push(edge.tableId);
+      }
+      if (startedWithAllRecords) {
+        expandedAllRecords.add(src);
       }
     }
 
