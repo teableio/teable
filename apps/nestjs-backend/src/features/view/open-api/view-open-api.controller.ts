@@ -358,4 +358,10 @@ export class ViewOpenApiController {
   ) {
     return this.viewOpenApiService.updatePluginStorage(viewId, ro.storage);
   }
+
+  @Permissions('view|create')
+  @Post('/:viewId/duplicate')
+  async duplicateView(@Param('tableId') tableId: string, @Param('viewId') viewId: string) {
+    return this.viewOpenApiService.duplicateView(tableId, viewId);
+  }
 }

@@ -104,11 +104,11 @@ export const pluginColumnSchema = columnSchemaBase.merge(
 );
 
 export const columnSchema = z.union([
-  gridColumnSchema,
-  kanbanColumnSchema,
-  galleryColumnSchema,
-  formColumnSchema,
-  pluginColumnSchema,
+  gridColumnSchema.strict(),
+  kanbanColumnSchema.strict(),
+  galleryColumnSchema.strict(),
+  formColumnSchema.strict(),
+  pluginColumnSchema.strict(),
 ]);
 
 export const columnMetaSchema = z.record(z.string().startsWith(IdPrefix.Field), columnSchema);

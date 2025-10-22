@@ -229,6 +229,7 @@ export class ViewService implements IReadonlyAdapterService {
       shareId,
       shareMeta,
       enableShare,
+      isLocked,
     } = createViewRo;
 
     const { name, order } = await this.polishOrderAndName(tableId, createViewRo);
@@ -261,6 +262,7 @@ export class ViewService implements IReadonlyAdapterService {
       shareId,
       shareMeta: shareMeta ? JSON.stringify(shareMeta) : undefined,
       enableShare,
+      isLocked,
     };
 
     return await prisma.view.create({ data });

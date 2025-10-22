@@ -1,8 +1,26 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 
-import type { IColumn, IFieldRo, IFieldVo, IViewRo } from '@teable/core';
-import { FieldKeyType, FieldType, generateViewId, Relationship, ViewType } from '@teable/core';
+import type {
+  IColumn,
+  IFieldRo,
+  IFieldVo,
+  IFormColumn,
+  IFormColumnMeta,
+  IPluginViewOptions,
+  IViewRo,
+} from '@teable/core';
+import {
+  ColorConfigType,
+  Colors,
+  FieldKeyType,
+  FieldType,
+  generateViewId,
+  Relationship,
+  RowHeightLevel,
+  SortFunc,
+  ViewType,
+} from '@teable/core';
 import { PrismaService, type Prisma } from '@teable/db-main-prisma';
 import type { ICreateTableRo, ITableFullVo } from '@teable/openapi';
 import {
@@ -15,9 +33,12 @@ import {
   updateRecord,
   getRecords,
   updateViewLocked,
+  duplicateView,
+  installViewPlugin,
 } from '@teable/openapi';
 import { sample } from 'lodash';
 import { ViewService } from '../src/features/view/view.service';
+import { x_20 } from './data-helpers/20x';
 import { VIEW_DEFAULT_SHARE_META } from './data-helpers/caces/view-default-share-meta';
 import {
   createField,
@@ -470,6 +491,250 @@ describe('OpenAPI ViewController (e2e)', () => {
 
       expect(fieldResult.length).toEqual(table.fields.length - 1);
       expect(fieldResult.find((field) => field.id === table.fields[1].id)).toBeUndefined();
+    });
+  });
+
+  describe('/api/table/{tableId}/view/:viewId/duplicate (POST)', () => {
+    let table: ITableFullVo;
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'record_query_x_20',
+        fields: x_20.fields,
+        records: x_20.records,
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should duplicate grid view', async () => {
+      const view = await createView(table.id, {
+        name: 'grid_view',
+        type: ViewType.Grid,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        isLocked: true,
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        group: [
+          {
+            fieldId: table.fields[0].id,
+            order: SortFunc.Asc,
+          },
+        ],
+        options: {
+          rowHeight: RowHeightLevel.Medium,
+        },
+        columnMeta: {
+          [table.fields[0].id]: {
+            hidden: true,
+            order: 1,
+          },
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, view.id)).data;
+      expect(duplicatedView.name).toEqual('grid_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Grid);
+      expect(duplicatedView.filter).toEqual(view.filter);
+      expect(duplicatedView.sort).toEqual(view.sort);
+      expect(duplicatedView.group).toEqual(view.group);
+      expect(duplicatedView.options).toEqual(view.options);
+      expect(duplicatedView.columnMeta).toEqual(view.columnMeta);
+      expect(duplicatedView.isLocked).toBeTruthy();
+    });
+
+    it('should duplicate form view', async () => {
+      const initialColumnMeta = table.fields.reduce<Record<string, IFormColumnMeta>>(
+        (pre, cur, index) => {
+          pre[cur.id] = {
+            order: index,
+          } as unknown as IFormColumnMeta;
+          if (index === 0) {
+            (pre[cur.id] as unknown as IFormColumn).visible = false;
+            (pre[cur.id] as unknown as IFormColumn).required = true;
+          }
+          return pre;
+        },
+        {} as Record<string, IFormColumnMeta>
+      );
+      const formView = await createView(table.id, {
+        name: 'form_view',
+        type: ViewType.Form,
+        columnMeta: {
+          ...(initialColumnMeta as unknown as Record<string, IColumn>),
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, formView.id)).data;
+
+      expect(duplicatedView.name).toEqual('form_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Form);
+      expect(duplicatedView.options).toEqual(formView.options);
+      expect(duplicatedView.columnMeta).toEqual(initialColumnMeta);
+    });
+
+    it('should duplicate gallery view', async () => {
+      const attachmentField = await createField(table.id, {
+        name: 'Attachment',
+        type: FieldType.Attachment,
+      });
+      const galleryView = await createView(table.id, {
+        name: 'gallery_view',
+        type: ViewType.Gallery,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        options: {
+          coverFieldId: attachmentField.id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, galleryView.id)).data;
+      expect(duplicatedView.name).toEqual('gallery_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Gallery);
+      expect(duplicatedView.filter).toEqual(galleryView.filter);
+      expect(duplicatedView.sort).toEqual(galleryView.sort);
+      expect(duplicatedView.options).toEqual({
+        coverFieldId: attachmentField.id,
+      });
+    });
+
+    it('should duplicate kanban view', async () => {
+      const kanbanView = await createView(table.id, {
+        name: 'kanban_view',
+        type: ViewType.Kanban,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        sort: {
+          sortObjs: [
+            {
+              fieldId: table.fields[0].id,
+              order: SortFunc.Asc,
+            },
+          ],
+        },
+        options: {
+          stackFieldId: table.fields[0].id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, kanbanView.id)).data;
+      expect(duplicatedView.name).toEqual('kanban_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Kanban);
+      expect(duplicatedView.filter).toEqual(kanbanView.filter);
+      expect(duplicatedView.sort).toEqual(kanbanView.sort);
+      expect(duplicatedView.columnMeta).toEqual(kanbanView.columnMeta);
+      expect(duplicatedView.options).toEqual({
+        stackFieldId: table.fields[0].id,
+      });
+    });
+
+    it('should duplicate calendar view', async () => {
+      const startDateField = await createField(table.id, {
+        name: 'Start Date',
+        type: FieldType.Date,
+      });
+      const endDateField = await createField(table.id, {
+        name: 'End Date',
+        type: FieldType.Date,
+      });
+      const calendarView = await createView(table.id, {
+        name: 'calendar_view',
+        type: ViewType.Calendar,
+        filter: {
+          filterSet: [
+            {
+              fieldId: table.fields[0].id,
+              value: 'text',
+              operator: 'is',
+            },
+          ],
+          conjunction: 'and',
+        },
+        options: {
+          startDateFieldId: startDateField.id,
+          endDateFieldId: endDateField.id,
+          colorConfig: {
+            type: ColorConfigType.Custom,
+            color: Colors.PurpleLight2,
+          },
+          titleFieldId: table.fields[0].id,
+        },
+      });
+
+      const duplicatedView = (await duplicateView(table.id, calendarView.id)).data;
+      expect(duplicatedView.name).toEqual('calendar_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Calendar);
+      expect(duplicatedView.filter).toEqual(calendarView.filter);
+      expect(duplicatedView.sort).toEqual(calendarView.sort);
+      expect(duplicatedView.options).toEqual(calendarView.options);
+      expect(duplicatedView.columnMeta).toEqual(calendarView.columnMeta);
+      expect(duplicatedView.options).toEqual({
+        startDateFieldId: startDateField.id,
+        endDateFieldId: endDateField.id,
+        colorConfig: {
+          type: ColorConfigType.Custom,
+          color: Colors.PurpleLight2,
+        },
+        titleFieldId: table.fields[0].id,
+      });
+    });
+
+    it('should duplicate plugin view', async () => {
+      const sheetPlugin = (
+        await installViewPlugin(table.id, {
+          name: 'sheet_view',
+          pluginId: 'plgsheetform',
+        })
+      ).data;
+
+      const sheetView = await getView(table.id, sheetPlugin.viewId);
+
+      const duplicatedView = (await duplicateView(table.id, sheetView.id)).data;
+      expect(duplicatedView.name).toEqual('sheet_view 2');
+      expect(duplicatedView.type).toEqual(ViewType.Plugin);
+      expect(duplicatedView.options).contain({
+        pluginLogo: (sheetView.options as IPluginViewOptions).pluginLogo,
+      });
     });
   });
 });

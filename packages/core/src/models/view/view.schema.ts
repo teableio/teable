@@ -69,6 +69,7 @@ export const viewRoSchema = viewVoSchema
     name: true,
     order: true,
     columnMeta: true,
+    isLocked: true,
   })
   .superRefine((data, ctx) => {
     const { type } = data;

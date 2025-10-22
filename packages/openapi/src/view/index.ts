@@ -21,3 +21,4 @@ export * from './plugin-install';
 export * from './plugin-update-storage';
 export * from './plugin-get';
 export * from './update-locked';
+export * from './duplicate';

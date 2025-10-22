@@ -5,7 +5,7 @@ import type { INestApplication } from '@nestjs/common';
 import type { IFilter, IOperator } from '@teable/core';
 import { and, FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { getRecords as apiGetRecords, createField, getFields, getRecords } from '@teable/openapi';
+import { getRecords as apiGetRecords, createField, getFields } from '@teable/openapi';
 import { textField, x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import {
