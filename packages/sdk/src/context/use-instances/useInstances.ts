@@ -18,14 +18,18 @@ const queryDestroy = (query: Query | undefined, cb?: () => void) => {
     return;
   }
   if (!query.sent || query.ready) {
-    query?.destroy(cb);
+    query?.destroy(() => {
+      query.removeAllListeners();
+      cb?.();
+      query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
+    });
     return;
   }
   query.once('ready', () => {
     query.destroy(() => {
       query.removeAllListeners();
-      query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
       cb?.();
+      query.results?.forEach((doc) => doc.listenerCount('op batch') === 0 && doc.destroy());
     });
   });
 };
@@ -111,7 +115,6 @@ export function useInstances<T, R extends { id: string }>({
       extra: undefined,
     }
   );
-
   const opListeners = useRef<OpListenersManager<T>>(new OpListenersManager<T>(collection));
   const preQueryRef = useRef<Query<T>>();
   const lastConnectionRef = useRef<typeof connection>();
@@ -203,7 +206,12 @@ export function useInstances<T, R extends { id: string }>({
   useEffect(() => {
     const listeners = opListeners.current;
     const keyAtMount = currentKeyRef.current;
+    const hasQuery = Boolean(query);
     return () => {
+      // forbid clear query when query is not set but currentKeyRef.current is set
+      if (!hasQuery) {
+        return;
+      }
       // for easy component refresh clean data when switch & loading
       dispatch({ type: 'clear' });
       // release cached query on unmount or when switching queries
