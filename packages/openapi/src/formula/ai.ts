@@ -26,9 +26,10 @@ export const getFormulaPrompt = (
   Instructions:
   1. Generate a formula based on the user's description.
   2. Return ONLY the formula without any explanation.
-  3. When referencing field names, wrap them in curly braces like {fieldName}.
-  4. Available field names are listed in the <fields> tag.
-  5. Available functions and their usage are listed in the <functions> tag - strictly follow their definitions and parameter formats.
+  3. DO NOT wrap the formula in markdown code blocks (such as \`\`\` or \`\`\`javascript\`\`\`).
+  4. When referencing field names, wrap them in curly braces like {fieldName}.
+  5. Available field names are listed in the <fields> tag.
+  6. Available functions and their usage are listed in the <functions> tag - strictly follow their definitions and parameter formats.
 
   <fields>
   ${context}
