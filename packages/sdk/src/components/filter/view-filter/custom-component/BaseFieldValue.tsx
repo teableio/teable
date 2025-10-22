@@ -5,6 +5,8 @@ import {
   isFieldReferenceValue,
   isFieldReferenceOperatorSupported,
   isFieldReferenceComparable,
+  exactDate,
+  exactFormatDate,
 } from '@teable/core';
 import type { IDateFilter, IFilterItem, IFieldReferenceValue, IOperator } from '@teable/core';
 import { Switch } from '@teable/icons';
@@ -71,6 +73,11 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const [lastLiteralValue, setLastLiteralValue] = useState<IFilterItem['value'] | null>(
     isFieldMode ? null : (value as IFilterItem['value'])
   );
+  const [literalModeHint, setLiteralModeHint] = useState<IDateFilter['mode'] | null>(null);
+
+  const handleLiteralModeChange = useCallback((mode: IDateFilter['mode'] | null) => {
+    setLiteralModeHint(mode ?? null);
+  }, []);
 
   useEffect(() => {
     if (!isFieldReferenceValue(value)) {
@@ -85,8 +92,6 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
     return isFieldReferenceOperatorSupported(field, operator as IOperator);
   }, [field, operator]);
 
-  const toggleDisabled = !referenceFields.length || !operatorSupportsReferences;
-
   const isReferenceFieldDisabled = useCallback(
     (candidate: IFieldInstance) => {
       if (!field) {
@@ -97,48 +102,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
     [field]
   );
 
-  useEffect(() => {
-    if (!toggleDisabled || !isFieldReferenceValue(value)) {
-      return;
-    }
-    onSelect(lastLiteralValue ?? null);
-  }, [lastLiteralValue, onSelect, toggleDisabled, value]);
-
-  useEffect(() => {
-    if (!isFieldReferenceValue(value) || !field || !referenceFields.length) {
-      return;
-    }
-
-    const currentField = referenceFields.find((candidate) => candidate.id === value.fieldId);
-    const currentDisabled = currentField ? isReferenceFieldDisabled(currentField) : true;
-
-    if (!currentDisabled) {
-      return;
-    }
-
-    const fallbackField = referenceFields.find(
-      (candidate) => candidate.id !== value.fieldId && !isReferenceFieldDisabled(candidate)
-    );
-
-    if (fallbackField) {
-      onSelect({
-        type: 'field',
-        fieldId: fallbackField.id,
-        tableId: fallbackField.tableId ?? referenceTableId,
-      } satisfies IFieldReferenceValue);
-      return;
-    }
-
-    onSelect(lastLiteralValue ?? null);
-  }, [
-    field,
-    isReferenceFieldDisabled,
-    lastLiteralValue,
-    onSelect,
-    referenceFields,
-    referenceTableId,
-    value,
-  ]);
+  const toggleDisabled = !operatorSupportsReferences || !referenceFields.length;
 
   const handleToggle = () => {
     if (toggleDisabled) {
@@ -148,14 +112,17 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
       onSelect(lastLiteralValue ?? null);
       return;
     }
-    const fallbackFieldId = referenceFields[0]?.id;
-    if (!fallbackFieldId) {
+    const comparableField = referenceFields.find(
+      (candidate) => !isReferenceFieldDisabled(candidate)
+    );
+    const targetField = comparableField ?? referenceFields[0];
+    if (!targetField) {
       return;
     }
     onSelect({
       type: 'field',
-      fieldId: fallbackFieldId,
-      tableId: referenceTableId,
+      fieldId: targetField.id,
+      tableId: targetField.tableId ?? referenceTableId,
     } satisfies IFieldReferenceValue);
   };
 
@@ -172,12 +139,58 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   const literalModeTooltip = t('filter.conditionalRollup.switchToField');
   const tooltipLabel = isFieldReferenceValue(value) ? fieldModeTooltip : literalModeTooltip;
 
+  const literalCandidate = isFieldReferenceValue(value) ? lastLiteralValue : value;
+
+  useEffect(() => {
+    if (isFieldReferenceValue(value)) {
+      return;
+    }
+    if (literalCandidate && typeof literalCandidate === 'object' && 'mode' in literalCandidate) {
+      setLiteralModeHint((literalCandidate as IDateFilter).mode ?? null);
+    }
+  }, [literalCandidate, value]);
+
+  const shouldHideToggle = useMemo(() => {
+    if (isFieldReferenceValue(value)) {
+      return false;
+    }
+    if (!field || field.cellValueType !== CellValueType.DateTime) {
+      return false;
+    }
+    if (!literalModeHint) {
+      return false;
+    }
+    return [exactDate.value, exactFormatDate.value].includes(
+      literalModeHint as 'exactDate' | 'exactFormatDate'
+    );
+  }, [field, literalModeHint, value]);
+
   const mergedLiteralComponent = useMemo(() => {
-    const element = literalComponent as ReactElement<{ className?: string }>;
+    const element = literalComponent as ReactElement<{
+      className?: string;
+      onModeChange?: unknown;
+    }>;
+    const existingModeChange = (
+      element.props as {
+        onModeChange?: (mode: IDateFilter['mode'] | null) => void;
+      }
+    ).onModeChange;
     return cloneElement(element, {
-      className: cn(element.props.className, '!h-9 w-40 border-r-0 rounded-r-none'),
+      className: cn(
+        element.props.className,
+        '!h-9 min-w-[8rem] w-full',
+        shouldHideToggle ? null : 'rounded-r-none border-r-0'
+      ),
+      onModeChange: (mode: IDateFilter['mode'] | null) => {
+        handleLiteralModeChange(mode);
+        existingModeChange?.(mode);
+      },
     });
-  }, [literalComponent]);
+  }, [handleLiteralModeChange, literalComponent, shouldHideToggle]);
+
+  if (shouldHideToggle) {
+    return mergedLiteralComponent;
+  }
 
   return (
     <div className="flex items-stretch">

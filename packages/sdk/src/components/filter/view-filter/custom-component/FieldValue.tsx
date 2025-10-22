@@ -1,4 +1,5 @@
 import type { IFilterItem } from '@teable/core';
+import { useMemo } from 'react';
 import { useCrud } from '../../hooks';
 import type { IFilterComponents } from '../../index';
 import type { IBaseFilterCustomComponentProps, IConditionItemProperty } from '../../types';
@@ -23,6 +24,25 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
   const linkContext = useViewFilterContext();
   const field = fields.find((f) => f.id === item.field);
 
+  const defaultReferenceSource = useMemo<IFilterReferenceSource | undefined>(() => {
+    if (!field) {
+      return referenceSource;
+    }
+    if (referenceSource?.fields?.length) {
+      return referenceSource;
+    }
+    const candidates = field.tableId
+      ? fields.filter((candidate) => candidate.tableId === field.tableId)
+      : fields;
+    if (!candidates.length) {
+      return referenceSource;
+    }
+    return {
+      fields: candidates,
+      tableId: field.tableId ?? candidates[0]?.tableId,
+    };
+  }, [field, fields, referenceSource]);
+
   return (
     <BaseFieldValue
       value={value}
@@ -38,7 +58,7 @@ export const FieldValue = <T extends IConditionItemProperty = IViewFilterConditi
         onChange(path, newValue);
       }}
       linkContext={linkContext}
-      referenceSource={referenceSource}
+      referenceSource={defaultReferenceSource}
     />
   );
 };

@@ -6,13 +6,31 @@ import type {
 } from '@teable/core';
 import { exactDate, FieldType, getValidFilterSubOperators, isWithIn } from '@teable/core';
 import { Input, cn } from '@teable/ui-lib';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../../../context/app/i18n';
 import type { DateField } from '../../../../../model';
 import { DateEditor } from '../../../../editor';
 import { useDateI18nMap } from '../../hooks';
 import { BaseSingleSelect } from '../base';
 import { DATEPICKEROPTIONS, defaultValue, INPUTOPTIONS, withInDefaultValue } from './constant';
+
+const isDateFilterEqual = (
+  a: IDateFilter | null | undefined,
+  b: IDateFilter | null | undefined
+): boolean => {
+  if (a === b) {
+    return true;
+  }
+  if (!a || !b) {
+    return false;
+  }
+  return (
+    a.mode === b.mode &&
+    a.exactDate === b.exactDate &&
+    a.numberOfDays === b.numberOfDays &&
+    a.timeZone === b.timeZone
+  );
+};
 
 interface IFilerDatePickerProps {
   value: IDateFilter | null;
@@ -21,40 +39,56 @@ interface IFilerDatePickerProps {
   onSelect: (value: IDateFilter | null) => void;
   modal?: boolean;
   className?: string;
+  onModeChange?: (mode: IDateFilter['mode'] | null) => void;
 }
 
 function FilterDatePicker(props: IFilerDatePickerProps) {
-  const { value: initValue, operator, onSelect, field, modal, className } = props;
-  const [innerValue, setInnerValue] = useState<IDateFilter | null>(initValue);
+  const { value: initValue, operator, onSelect, field, modal, className, onModeChange } = props;
+  const defaultConfig = operator === isWithIn.value ? withInDefaultValue : defaultValue;
+  const [innerValue, setInnerValue] = useState<IDateFilter | null>(
+    () => initValue ?? defaultConfig
+  );
   const { t } = useTranslation();
   const dateMap = useDateI18nMap();
 
-  const defaultConfig = useMemo(() => {
-    if (operator !== isWithIn.value) {
-      return defaultValue;
-    }
-    return withInDefaultValue;
-  }, [operator]);
+  const previousInitRef = useRef<IDateFilter | null>(initValue ?? null);
 
   useEffect(() => {
-    // according to the operator to get the default value
-    if (initValue) {
-      setInnerValue(initValue);
-    } else {
-      setInnerValue(defaultConfig);
+    const normalizedInit = initValue ?? null;
+    const prev = previousInitRef.current;
+
+    if (isDateFilterEqual(prev, normalizedInit)) {
+      return;
     }
-  }, [defaultConfig, initValue, operator]);
+
+    previousInitRef.current = normalizedInit;
+
+    if (normalizedInit) {
+      setInnerValue(normalizedInit);
+      onModeChange?.(normalizedInit.mode);
+      return;
+    }
+
+    if (!innerValue) {
+      setInnerValue(defaultConfig);
+      onModeChange?.(defaultConfig.mode);
+    }
+  }, [defaultConfig, innerValue, initValue, onModeChange]);
 
   const mergedOnSelect = useCallback(
     (val: string | null) => {
+      if (val === null) {
+        setInnerValue(null);
+        onModeChange?.(null);
+        return;
+      }
+
       const mergedValue = {
         mode: val as IDateFilter['mode'],
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       };
       setInnerValue(mergedValue as IDateFilter);
-      if (val === null) {
-        return;
-      }
+      onModeChange?.(val as IDateFilter['mode']);
       if (INPUTOPTIONS.includes(val)) {
         if (innerValue?.numberOfDays) {
           onSelect({ ...mergedValue, numberOfDays: innerValue.numberOfDays });
@@ -83,9 +117,10 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
             timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone as ITimeZoneString,
           }
         : null;
+      onModeChange?.(mergedValue?.mode ?? null);
       onSelect?.(mergedValue);
     },
-    [onSelect]
+    [onModeChange, onSelect]
   );
 
   const selectOptions = useMemo(() => {
@@ -110,7 +145,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
             onChange={(value) => datePickerSelect(value, innerValue?.mode)}
             options={field.options}
             disableTimePicker={true}
-            className="h-8 w-40 text-xs sm:h-8"
+            className="h-9 w-40 text-xs sm:h-9"
           />
         );
       case isInput:
@@ -118,7 +153,7 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
           <Input
             placeholder={t('filter.default.placeholder')}
             defaultValue={innerValue?.numberOfDays ?? ''}
-            className="h-8 w-24 placeholder:text-xs"
+            className="h-9 w-24 placeholder:text-xs"
             onInput={(e) => {
               // limit the number positive
               e.currentTarget.value = e.currentTarget.value?.replace(/\D/g, '');
@@ -138,12 +173,12 @@ function FilterDatePicker(props: IFilerDatePickerProps) {
   }, [innerValue, datePickerSelect, field.options, t, onSelect]);
 
   return (
-    <div className={cn('flex gap-2', className)}>
+    <div className={cn('flex items-center gap-2', className)}>
       <BaseSingleSelect
         options={selectOptions}
         onSelect={mergedOnSelect}
         value={innerValue?.mode || null}
-        className="max-w-xs"
+        className={cn('h-9 min-w-[8rem] flex-1', className)}
         popoverClassName="w-max"
         modal={modal}
       />
