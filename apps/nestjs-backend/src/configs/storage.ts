@@ -4,7 +4,11 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 
 export const storageConfig = registerAs('storage', () => ({
-  provider: (process.env.BACKEND_STORAGE_PROVIDER ?? 'local') as 'local' | 'minio' | 's3',
+  provider: (process.env.BACKEND_STORAGE_PROVIDER ?? 'local') as
+    | 'local'
+    | 'minio'
+    | 's3'
+    | 'aliyun',
   local: {
     path: process.env.BACKEND_STORAGE_LOCAL_PATH ?? '.assets/uploads',
   },

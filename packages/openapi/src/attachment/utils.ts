@@ -8,7 +8,7 @@ export const READ_PATH = '/api/attachments/read';
 
 export const getPublicFullStorageUrl = (
   storage: {
-    provider?: 'local' | 's3' | 'minio';
+    provider?: 'local' | 's3' | 'minio' | 'aliyun';
     prefix?: string;
     publicBucket?: string;
     publicUrl?: string;
@@ -24,7 +24,7 @@ export const getPublicFullStorageUrl = (
   if (provider === 'minio') {
     return prefix + pathJoin('/', bucket, path);
   }
-  if (provider === 's3') {
+  if (provider === 's3' || provider === 'aliyun') {
     return prefix + pathJoin('/', path);
   }
   return prefix + pathJoin(READ_PATH, bucket, path);
