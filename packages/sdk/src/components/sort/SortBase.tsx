@@ -2,6 +2,7 @@ import type { ISort } from '@teable/core';
 import { Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib';
 import React, { forwardRef, useImperativeHandle, useState } from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import { ReadOnlyTip } from '../ReadOnlyTip';
 import { SortConfig } from './SortConfig';
 import { SortContent } from './SortContent';
 
@@ -53,7 +54,8 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
 
-      <PopoverContent side="bottom" align="start" className="w-fit max-w-screen-md p-0">
+      <PopoverContent side="bottom" align="start" className="relative w-fit max-w-screen-md p-0">
+        <ReadOnlyTip />
         <header className="mx-3">
           <div className="border-b py-3 text-[13px]">{t('sort.setTips')}</div>
         </header>

@@ -14,6 +14,7 @@
       "placeholder": "Suchen...",
       "empty": "Keine Resultate gefunden"
     },
+    "readOnlyTip": "Diese Ansicht ist gesperrt. Sie können den persönlichen Modus aktivieren, um Ansichtsoptionen zu bearbeiten, und die Änderungen treten nur für Sie in Kraft.",
     "selectPlaceHolder": "Auswählen...",
     "loading": "Lade...",
     "loadMore": "Mehr laden",

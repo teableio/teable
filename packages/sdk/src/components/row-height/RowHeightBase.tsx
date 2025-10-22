@@ -9,6 +9,7 @@ import {
 } from '@teable/ui-lib';
 import React from 'react';
 import { useTranslation } from '../../context/app/i18n';
+import { ReadOnlyTip } from '../ReadOnlyTip';
 import { useFieldNameDisplayLinesNodes } from './useFieldNameDisplayLinesNodes';
 import { useRowHeightNodes } from './useRowHeightNodes';
 
@@ -29,7 +30,8 @@ export const RowHeightBase = (props: IRowHeightBaseProps) => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
-      <DropdownMenuContent side="bottom" align="start" className="w-52 p-0">
+      <DropdownMenuContent side="bottom" align="start" className="relative w-52 p-0">
+        <ReadOnlyTip />
         <DropdownMenuLabel className="py-1 text-xs font-normal text-muted-foreground">
           {t('rowHeight.title')}
         </DropdownMenuLabel>

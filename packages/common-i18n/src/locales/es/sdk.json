@@ -14,6 +14,7 @@
       "placeholder": "Buscar...",
       "empty": "No se encontraron resultados"
     },
+    "readOnlyTip": "Esta vista está bloqueada. Puede activar el modo personal para editar las opciones de la vista, y los cambios solo tendrán efecto para usted.",
     "selectPlaceHolder": "Seleccionar...",
     "loading": "Cargando...",
     "loadMore": "Cargar más",

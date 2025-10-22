@@ -1,10 +1,11 @@
 import { FieldType, type IFilter } from '@teable/core';
-import { Popover, PopoverTrigger, PopoverContent } from '@teable/ui-lib';
+import { Popover, PopoverTrigger, PopoverContent, cn } from '@teable/ui-lib';
 import { isEqual } from 'lodash';
 import { useState } from 'react';
 import { useDebounce, useLatest, useUpdateEffect } from 'react-use';
 import { useTranslation } from '../../../context/app/i18n';
 import { useFields, useTableId, useViewId, useTablePermission } from '../../../hooks';
+import { ReadOnlyTip } from '../../ReadOnlyTip';
 import type { IFilterBaseComponent } from '../types';
 import { BaseViewFilter } from './BaseViewFilter';
 import { useFilterNode, useViewFilterLinkContext } from './hooks';
@@ -64,8 +65,11 @@ export const ViewFilter = (props: IViewFilterProps) => {
       <PopoverContent
         side="bottom"
         align="start"
-        className="flex max-h-96 w-min min-w-[544px] max-w-screen-md flex-col overflow-hidden p-0"
+        className={cn(
+          'flex max-h-96 w-min min-w-[544px] max-w-screen-md flex-col overflow-hidden p-0 relative'
+        )}
       >
+        <ReadOnlyTip />
         {contentHeader}
         <div className="px-2 py-1 text-xs">
           {filters?.filterSet?.length ? (

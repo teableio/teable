@@ -25,6 +25,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 import { useFieldStaticGetter } from '../../hooks';
 import type { IFieldInstance } from '../../model';
+import { ReadOnlyTip } from '../ReadOnlyTip';
 
 interface IHideFieldsBaseProps {
   fields: IFieldInstance[];
@@ -217,7 +218,8 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   return (
     <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="p-0">
+      <PopoverContent side="bottom" align="start" className="relative p-0">
+        <ReadOnlyTip />
         {content()}
         {footer}
       </PopoverContent>
