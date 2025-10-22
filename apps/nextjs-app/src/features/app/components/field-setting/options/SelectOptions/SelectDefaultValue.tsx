@@ -12,7 +12,6 @@ export const SelectDefaultValue = ({ isMultiple, onChange, options }: ISelectDef
   return (
     <DefaultValue onReset={() => onChange(undefined)}>
       <SelectEditor
-        className="h-9"
         value={options?.defaultValue}
         options={transformSelectOptions(options?.choices ?? [])}
         onChange={onChange}
