@@ -4,7 +4,14 @@ import {
   DbFieldType,
   FieldType,
 } from '../../../../../../packages/core/src/models/field/constant';
-import { extractHtmlHeader, isTeableHTML, serializerHtml } from './clipboard';
+import {
+  extractHtmlHeader,
+  isTeableHTML,
+  serializerHtml,
+  serializerCellValueHtml,
+  extractTableContent,
+  escapeHTML,
+} from './clipboard';
 
 const stringData = 'John\t20\tlight\nTom\t30\tmedium\nBob\t40\theavy';
 const parseData = [
@@ -37,7 +44,10 @@ vi.mock('zod', () => {
 
 vi.mock('@teable/sdk/model', () => {
   return {
-    createFieldInstance: () => ({}),
+    createFieldInstance: (header: { type: number }) => ({
+      type: header.type,
+      cellValue2String: (cell: unknown) => (cell == null ? '' : String(cell)),
+    }),
   };
 });
 
@@ -113,12 +123,12 @@ describe('clipboard', () => {
     },
   ];
   it('extractTableHeader should extract table header from HTML', () => {
-    const { result: result } = extractHtmlHeader(html);
+    const { result } = extractHtmlHeader(html);
     expect(result).toEqual(expectedHeader);
   });
 
   it('extractTableHeader should return undefined from non-teable HTML', () => {
-    const { result: result } = extractHtmlHeader('<table></table>');
+    const { result } = extractHtmlHeader('<table></table>');
     expect(result).toEqual(undefined);
   });
 
@@ -157,5 +167,41 @@ describe('clipboard', () => {
       const html = `<div>`;
       expect(isTeableHTML(html)).toBe(false);
     });
+  });
+
+  it('escapeHTML should escape special HTML characters', () => {
+    const input = '<div>&</div>"\'';
+    const output = escapeHTML(input);
+    expect(output).toBe('&lt;div&gt;&amp;&lt;/div&gt;"\'');
+  });
+
+  it('serializerCellValueHtml should serialize with safe HTML and data attributes, and be round-trippable', () => {
+    const headers = [
+      { id: 'h1', name: 'Long', type: FieldType.LongText },
+      { id: 'h2', name: 'Num', type: FieldType.Number },
+      { id: 'h3', name: 'Txt', type: FieldType.SingleLineText },
+    ];
+
+    const data: unknown[][] = [
+      ['line1\nline2 & <tag>', 2, '<b>x</b>'],
+      [null, 3, 'normal'],
+    ];
+
+    const html = serializerCellValueHtml(data, headers as any);
+
+    // Contains teable marker and header attribute
+    expect(html).toContain('data-teable-html-marker="1"');
+    expect(html).toContain('data-teable-html-header="');
+
+    // LongText should replace newlines with <br data-teable-line-tag>
+    expect(html).toMatch(/line1<br[^>]*data-teable-line-tag="1"[^>]*>line2/);
+
+    // XSS should be escaped in cell innerHTML
+    expect(html).toContain('&lt;tag&gt;');
+    expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
+
+    // Round-trip extract back to original cell values
+    const parsed = extractTableContent(html);
+    expect(parsed).toEqual(data);
   });
 });

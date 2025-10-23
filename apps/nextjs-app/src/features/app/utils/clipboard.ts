@@ -8,6 +8,12 @@ const teableHeader = 'data-teable-html-header';
 
 const lineTag = '<br data-teable-line-tag="1" style="mso-data-placement:same-cell;">';
 
+export const escapeHTML = (str: string) => {
+  const p = document.createElement('p');
+  p.appendChild(document.createTextNode(str));
+  return p.innerHTML;
+};
+
 export const serializerHtml = (data: string, headers: IFieldVo[]) => {
   const tableData = parseClipboardText(data);
   const bodyContent = tableData
@@ -34,13 +40,11 @@ export const serializerCellValueHtml = (data: unknown[][], headers: IFieldVo[]) 
       return `<tr>${row
         .map((cell, index) => {
           const field = fields[index];
+          const safeHtml = escapeHTML(field.cellValue2String(cell));
           if (field.type === FieldType.LongText) {
-            return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${field.cellValue2String(cell).replaceAll('\n', lineTag)}</td>`;
+            return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${safeHtml.replaceAll('\n', lineTag)}</td>`;
           }
-          if (field.type != FieldType.SingleLineText && field.type != FieldType.SingleSelect) {
-            return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${field.cellValue2String(cell)}</td>`;
-          }
-          return `<td>${field.cellValue2String(cell)}</td>`;
+          return `<td data-teable-cell-value="${encodeURIComponent(JSON.stringify(cell == null ? null : cell))}">${safeHtml}</td>`;
         })
         .join('')}</tr>`;
     })
