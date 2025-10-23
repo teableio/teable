@@ -70,7 +70,7 @@ export class S3Storage implements StorageAdapter {
       : this.s3Client;
 
     const logS3ConnectionsRate = Number(process.env.LOG_S3_CONNECTIONS_RATE);
-    if (isNaN(logS3ConnectionsRate)) {
+    if (Number.isNaN(logS3ConnectionsRate)) {
       this.logger.log('LOG_S3_CONNECTIONS_RATE not set, skipping log');
       return;
     }
