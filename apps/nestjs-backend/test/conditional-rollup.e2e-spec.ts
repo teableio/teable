@@ -1170,7 +1170,35 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
-    it('should aggregate by matching host date fields', async () => {
+    const dateReferenceScenarios = [
+      {
+        name: 'aggregates matches when due date equals host target date',
+        field: () => onTargetCountField,
+        expected: [1, 1, 0],
+      },
+      {
+        name: 'sums hours occurring after the host target date',
+        field: () => afterTargetSumField,
+        expected: [10, 7, 0],
+      },
+      {
+        name: 'sums hours occurring before the host target date',
+        field: () => beforeTargetSumField,
+        expected: [0, 5, 15],
+      },
+      {
+        name: 'counts records on or after the host target date',
+        field: () => onOrAfterTargetCountField,
+        expected: [3, 2, 0],
+      },
+      {
+        name: 'counts records on or before the host target date',
+        field: () => onOrBeforeTargetCountField,
+        expected: [1, 2, 3],
+      },
+    ] as const;
+
+    it.each(dateReferenceScenarios)('$name', async ({ field, expected }) => {
       const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
       const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
       const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
@@ -1178,52 +1206,12 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         (record) => record.id === targetThirteenRecordId
       )!;
 
-      expect(targetTen.fields[onTargetCountField.id]).toEqual(1);
-      expect(targetEleven.fields[onTargetCountField.id]).toEqual(1);
-      expect(targetThirteen.fields[onTargetCountField.id]).toEqual(0);
-    });
-
-    it('should support field-referenced date comparisons for ranges', async () => {
-      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
-      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
-      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
-      const targetThirteen = records.records.find(
-        (record) => record.id === targetThirteenRecordId
-      )!;
-
-      expect(targetTen.fields[afterTargetSumField.id]).toEqual(10);
-      expect(targetEleven.fields[afterTargetSumField.id]).toEqual(7);
-      expect(targetThirteen.fields[afterTargetSumField.id]).toEqual(0);
-    });
-
-    it('should evaluate before/after comparisons using host fields', async () => {
-      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
-      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
-      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
-      const targetThirteen = records.records.find(
-        (record) => record.id === targetThirteenRecordId
-      )!;
-
-      expect(targetTen.fields[beforeTargetSumField.id]).toEqual(0);
-      expect(targetEleven.fields[beforeTargetSumField.id]).toEqual(5);
-      expect(targetThirteen.fields[beforeTargetSumField.id]).toEqual(15);
-
-      expect(targetTen.fields[onOrAfterTargetCountField.id]).toEqual(3);
-      expect(targetEleven.fields[onOrAfterTargetCountField.id]).toEqual(2);
-      expect(targetThirteen.fields[onOrAfterTargetCountField.id]).toEqual(0);
-    });
-
-    it('should aggregate inclusive comparisons with host fields', async () => {
-      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
-      const targetTen = records.records.find((record) => record.id === targetTenRecordId)!;
-      const targetEleven = records.records.find((record) => record.id === targetElevenRecordId)!;
-      const targetThirteen = records.records.find(
-        (record) => record.id === targetThirteenRecordId
-      )!;
-
-      expect(targetTen.fields[onOrBeforeTargetCountField.id]).toEqual(1);
-      expect(targetEleven.fields[onOrBeforeTargetCountField.id]).toEqual(2);
-      expect(targetThirteen.fields[onOrBeforeTargetCountField.id]).toEqual(3);
+      const aggregateField = field();
+      expect([
+        targetTen.fields[aggregateField.id],
+        targetEleven.fields[aggregateField.id],
+        targetThirteen.fields[aggregateField.id],
+      ]).toEqual(expected);
     });
   });
 
@@ -3476,6 +3464,100 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
         await permanentDeleteTable(baseId, host.id);
         await permanentDeleteTable(baseId, foreign.id);
       }
+    });
+  });
+
+  describe('self-referencing field reference filters', () => {
+    let table: ITableFullVo;
+    let linkField: IFieldVo;
+    let statusFieldId: string;
+    let scoreFieldId: string;
+    let rollupField: IFieldVo;
+    let recordIds: string[];
+
+    beforeAll(async () => {
+      table = await createTable(baseId, {
+        name: 'ConditionalRollup_SelfReference',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Score', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Name: 'Alpha', Status: 'todo', Score: 5 } },
+          { fields: { Name: 'Beta', Status: 'todo', Score: 5 } },
+          { fields: { Name: 'Gamma', Status: 'todo', Score: 8 } },
+          { fields: { Name: 'Delta', Status: 'done', Score: 5 } },
+        ],
+      });
+      statusFieldId = table.fields.find((field) => field.name === 'Status')!.id;
+      scoreFieldId = table.fields.find((field) => field.name === 'Score')!.id;
+      recordIds = table.records.map((record) => record.id);
+
+      linkField = await createField(table.id, {
+        name: 'Related',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: table.id,
+        },
+      } as IFieldRo);
+
+      const linkTargets = recordIds.map((id) => ({ id }));
+      for (const recordId of recordIds) {
+        await updateRecordByApi(table.id, recordId, linkField.id, linkTargets);
+      }
+
+      const filter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: statusFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: statusFieldId, tableId: table.id },
+          },
+          {
+            fieldId: scoreFieldId,
+            operator: 'is',
+            value: { type: 'field', fieldId: scoreFieldId, tableId: table.id },
+          },
+        ],
+      };
+
+      rollupField = await createField(table.id, {
+        name: 'Self Matching Count',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: table.id,
+          lookupFieldId: scoreFieldId,
+          expression: 'countall({values})',
+          filter,
+        } as IConditionalRollupFieldOptions,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('aggregates without recursion issues when comparing identical fields', async () => {
+      const records = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const byId = new Map(records.records.map((record) => [record.id, record]));
+
+      expect(byId.get(recordIds[0])?.fields[rollupField.id]).toEqual(2);
+      expect(byId.get(recordIds[1])?.fields[rollupField.id]).toEqual(2);
+      expect(byId.get(recordIds[2])?.fields[rollupField.id]).toEqual(1);
+      expect(byId.get(recordIds[3])?.fields[rollupField.id]).toEqual(1);
+
+      await updateRecordByApi(table.id, recordIds[1], scoreFieldId, 6);
+
+      const updated = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const updatedById = new Map(updated.records.map((record) => [record.id, record]));
+
+      expect(updatedById.get(recordIds[0])?.fields[rollupField.id]).toEqual(1);
+      expect(updatedById.get(recordIds[1])?.fields[rollupField.id]).toEqual(1);
+      expect(updatedById.get(recordIds[2])?.fields[rollupField.id]).toEqual(1);
+      expect(updatedById.get(recordIds[3])?.fields[rollupField.id]).toEqual(1);
     });
   });
 

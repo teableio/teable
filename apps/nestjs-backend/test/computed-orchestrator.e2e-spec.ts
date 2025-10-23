@@ -3,8 +3,15 @@
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
+import type { IFieldRo, IFilter, IFilterItem } from '@teable/core';
+import {
+  FieldType,
+  Relationship,
+  FieldKeyType,
+  is as FilterOperatorIs,
+  isGreater as FilterOperatorIsGreater,
+  isNotEmpty as FilterOperatorIsNotEmpty,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { duplicateField, convertField } from '@teable/openapi';
 import type { Knex } from 'knex';
@@ -17,7 +24,9 @@ import {
   deleteField,
   createField,
   createTable,
+  createRecords,
   getFields,
+  getRecords,
   initApp,
   permanentDeleteTable,
   updateRecordByApi,
@@ -939,55 +948,483 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, foreign.id);
     });
 
-    it('aggregates numeric values with sum rollup expression', async () => {
+    const setupEqualityConditionalRollup = async (
+      expression: string,
+      options?: {
+        extraFilterItems?: (ids: {
+          foreignEmailId: string;
+          foreignAmountId: string;
+          hostEmailId: string;
+        }) => IFilterItem[];
+      }
+    ) => {
       const foreign = await createTable(baseId, {
-        name: 'RefLookup_Sum_Foreign',
-        fields: [{ name: 'Amount', type: FieldType.Number } as IFieldRo],
-        records: [{ fields: { Amount: 3 } }, { fields: { Amount: 7 } }],
+        name: `RefLookup_Equality_Foreign_${expression}`,
+        fields: [
+          { name: 'Email', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Email: 'alice@example.com', Amount: 10 } },
+          { fields: { Email: 'alice@example.com', Amount: 20 } },
+          { fields: { Email: 'bob@example.com', Amount: 5 } },
+        ],
       });
-      const amountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+      const foreignEmailId = foreign.fields.find((f) => f.name === 'Email')!.id;
+      const foreignAmountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
 
       const host = await createTable(baseId, {
-        name: 'RefLookup_Sum_Host',
-        fields: [],
-        records: [{ fields: {} }],
+        name: `RefLookup_Equality_Host_${expression}`,
+        fields: [{ name: 'Email', type: FieldType.SingleLineText } as IFieldRo],
+        records: [
+          { fields: { Email: 'alice@example.com' } },
+          { fields: { Email: 'nobody@example.com' } },
+        ],
       });
-      const hostRecordId = host.records[0].id;
+      const hostEmailId = host.fields.find((f) => f.name === 'Email')!.id;
+      const aliceRecordId = host.records[0].id;
+      const nobodyRecordId = host.records[1].id;
 
-      const { result: conditionalRollupField, events: creationEvents } =
-        await runAndCaptureRecordUpdates(async () => {
+      const filterSet: Array<IFilter | IFilterItem> = [
+        {
+          fieldId: foreignEmailId,
+          operator: FilterOperatorIs.value,
+          value: { type: 'field', fieldId: hostEmailId },
+        },
+      ];
+
+      const additionalFilterItems = options?.extraFilterItems?.({
+        foreignEmailId,
+        foreignAmountId,
+        hostEmailId,
+      });
+      if (additionalFilterItems?.length) {
+        filterSet.push(...additionalFilterItems);
+      }
+
+      const { result: rollupField, events } = await runAndCaptureRecordUpdates(async () => {
+        return await createField(host.id, {
+          name: `Equality ${expression}`,
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: foreign.id,
+            lookupFieldId: foreignAmountId,
+            expression,
+            filter: {
+              conjunction: 'and',
+              filterSet,
+            },
+          },
+        } as IFieldRo);
+      });
+
+      const hostDbTable = await getDbTableName(host.id);
+      const hostFieldVo = (await getFields(host.id)).find((f) => f.id === rollupField.id)! as any;
+
+      return {
+        foreign,
+        host,
+        rollupField,
+        creationEvents: events,
+        foreignEmailId,
+        foreignAmountId,
+        hostEmailId,
+        hostDbTable,
+        hostFieldVo,
+        aliceRecordId,
+        nobodyRecordId,
+        cleanup: async () => {
+          await permanentDeleteTable(baseId, host.id);
+          await permanentDeleteTable(baseId, foreign.id);
+        },
+      };
+    };
+
+    const normalizeAggregateValue = (value: unknown): number | null | undefined => {
+      if (value === null || value === undefined) return value as null | undefined;
+      if (typeof value === 'number') return value;
+      if (typeof value === 'string' && value.trim().length) {
+        const parsed = Number(value);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+      return value as number | null | undefined;
+    };
+
+    const expectAggregateValue = (
+      value: unknown,
+      expected: number | null,
+      mode: 'equal' | 'closeTo' = 'equal'
+    ) => {
+      if (expected === null) {
+        expect(value === null || value === undefined).toBe(true);
+        return;
+      }
+      const normalized = normalizeAggregateValue(value);
+      expect(typeof normalized === 'number' && !Number.isNaN(normalized)).toBe(true);
+      if (mode === 'closeTo') {
+        expect(normalized as number).toBeCloseTo(expected, 6);
+      } else {
+        expect(normalized).toEqual(expected);
+      }
+    };
+
+    type EqualityAggregateContext = Awaited<ReturnType<typeof setupEqualityConditionalRollup>>;
+
+    const equalityAggregateCases: Array<{
+      expression: string;
+      initialAlice: number | null;
+      initialNobody: number | null;
+      updatedAlice: number | null;
+      updatedNobody?: number | null;
+      update: (ctx: EqualityAggregateContext) => Promise<void>;
+      compareMode?: 'equal' | 'closeTo';
+    }> = [
+      {
+        expression: 'count({values})',
+        initialAlice: 2,
+        initialNobody: 0,
+        updatedAlice: 3,
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 12,
+                },
+              },
+            ],
+          });
+        },
+      },
+      {
+        expression: 'countall({values})',
+        initialAlice: 2,
+        initialNobody: 0,
+        updatedAlice: 3,
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 9,
+                },
+              },
+            ],
+          });
+        },
+      },
+      {
+        expression: 'sum({values})',
+        initialAlice: 30,
+        initialNobody: 0,
+        updatedAlice: 45,
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 15,
+                },
+              },
+            ],
+          });
+        },
+      },
+      {
+        expression: 'average({values})',
+        initialAlice: 15,
+        initialNobody: 0,
+        updatedAlice: 20,
+        compareMode: 'closeTo',
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 30,
+                },
+              },
+            ],
+          });
+        },
+      },
+      {
+        expression: 'max({values})',
+        initialAlice: 20,
+        initialNobody: null,
+        updatedAlice: 25,
+        updatedNobody: null,
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 25,
+                },
+              },
+            ],
+          });
+        },
+      },
+      {
+        expression: 'min({values})',
+        initialAlice: 10,
+        initialNobody: null,
+        updatedAlice: 4,
+        updatedNobody: null,
+        update: async (ctx) => {
+          await createRecords(ctx.foreign.id, {
+            records: [
+              {
+                fields: {
+                  [ctx.foreignEmailId]: 'alice@example.com',
+                  [ctx.foreignAmountId]: 4,
+                },
+              },
+            ],
+          });
+        },
+      },
+    ];
+
+    describe('conditional rollup equality aggregates', () => {
+      it.each(equalityAggregateCases)(
+        'evaluates $expression with equality filter',
+        async ({
+          expression,
+          compareMode = 'equal',
+          initialAlice,
+          initialNobody,
+          updatedAlice,
+          updatedNobody,
+          update,
+        }) => {
+          const ctx = await setupEqualityConditionalRollup(expression);
+          const { cleanup } = ctx;
+          try {
+            const createAliceChange = findRecordChangeMap(
+              ctx.creationEvents,
+              ctx.host.id,
+              ctx.aliceRecordId
+            );
+            expect(createAliceChange).toBeDefined();
+            expectAggregateValue(
+              createAliceChange?.[ctx.rollupField.id]?.newValue,
+              initialAlice,
+              compareMode
+            );
+
+            const createNobodyChange = findRecordChangeMap(
+              ctx.creationEvents,
+              ctx.host.id,
+              ctx.nobodyRecordId
+            );
+            expect(createNobodyChange).toBeDefined();
+            expectAggregateValue(
+              createNobodyChange?.[ctx.rollupField.id]?.newValue,
+              initialNobody,
+              compareMode
+            );
+
+            const initialAliceValue = parseMaybe(
+              (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
+            );
+            expectAggregateValue(initialAliceValue, initialAlice, compareMode);
+
+            const initialNobodyValue = parseMaybe(
+              (await getRow(ctx.hostDbTable, ctx.nobodyRecordId))[ctx.hostFieldVo.dbFieldName]
+            );
+            expectAggregateValue(initialNobodyValue, initialNobody, compareMode);
+
+            const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
+              await update(ctx);
+            });
+
+            const updateAliceChange = findRecordChangeMap(
+              updateEvents,
+              ctx.host.id,
+              ctx.aliceRecordId
+            );
+            expect(updateAliceChange).toBeDefined();
+            expectAggregateValue(
+              updateAliceChange?.[ctx.rollupField.id]?.newValue,
+              updatedAlice,
+              compareMode
+            );
+
+            const updatedAliceValue = parseMaybe(
+              (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
+            );
+            expectAggregateValue(updatedAliceValue, updatedAlice, compareMode);
+
+            const updatedNobodyValue = parseMaybe(
+              (await getRow(ctx.hostDbTable, ctx.nobodyRecordId))[ctx.hostFieldVo.dbFieldName]
+            );
+            expectAggregateValue(updatedNobodyValue, updatedNobody ?? initialNobody, compareMode);
+          } finally {
+            await cleanup();
+          }
+        }
+      );
+
+      it('evaluates sum({values}) with equality and additional predicates', async () => {
+        const ctx = await setupEqualityConditionalRollup('sum({values})', {
+          extraFilterItems: ({ foreignAmountId }) => [
+            {
+              fieldId: foreignAmountId,
+              operator: FilterOperatorIsGreater.value,
+              value: 10,
+            },
+            {
+              fieldId: foreignAmountId,
+              operator: FilterOperatorIsNotEmpty.value,
+              value: null,
+            },
+          ],
+        });
+        const { cleanup } = ctx;
+        try {
+          const createAliceChange = findRecordChangeMap(
+            ctx.creationEvents,
+            ctx.host.id,
+            ctx.aliceRecordId
+          );
+          expect(createAliceChange).toBeDefined();
+          expectAggregateValue(createAliceChange?.[ctx.rollupField.id]?.newValue, 20, 'equal');
+
+          const createNobodyChange = findRecordChangeMap(
+            ctx.creationEvents,
+            ctx.host.id,
+            ctx.nobodyRecordId
+          );
+          expect(createNobodyChange).toBeDefined();
+          expectAggregateValue(createNobodyChange?.[ctx.rollupField.id]?.newValue, 0, 'equal');
+
+          const initialAliceValue = parseMaybe(
+            (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
+          );
+          expectAggregateValue(initialAliceValue, 20, 'equal');
+
+          const initialNobodyValue = parseMaybe(
+            (await getRow(ctx.hostDbTable, ctx.nobodyRecordId))[ctx.hostFieldVo.dbFieldName]
+          );
+          expectAggregateValue(initialNobodyValue, 0, 'equal');
+
+          const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
+            await createRecords(ctx.foreign.id, {
+              records: [
+                {
+                  fields: {
+                    [ctx.foreignEmailId]: 'alice@example.com',
+                    [ctx.foreignAmountId]: 15,
+                  },
+                },
+              ],
+            });
+          });
+
+          const updateAliceChange = findRecordChangeMap(
+            updateEvents,
+            ctx.host.id,
+            ctx.aliceRecordId
+          );
+          expect(updateAliceChange).toBeDefined();
+          expectAggregateValue(updateAliceChange?.[ctx.rollupField.id]?.newValue, 35, 'equal');
+
+          const updatedAliceValue = parseMaybe(
+            (await getRow(ctx.hostDbTable, ctx.aliceRecordId))[ctx.hostFieldVo.dbFieldName]
+          );
+          expectAggregateValue(updatedAliceValue, 35, 'equal');
+
+          const updatedNobodyValue = parseMaybe(
+            (await getRow(ctx.hostDbTable, ctx.nobodyRecordId))[ctx.hostFieldVo.dbFieldName]
+          );
+          expectAggregateValue(updatedNobodyValue, 0, 'equal');
+        } finally {
+          await cleanup();
+        }
+      });
+    });
+
+    it('aggregates with equality-filtered sum referencing host fields', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'RefLookup_Sum_Equality_Foreign',
+        fields: [
+          { name: 'Email', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Amount', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Email: 'alice@example.com', Amount: 10 } },
+          { fields: { Email: 'alice@example.com', Amount: 20 } },
+          { fields: { Email: 'bob@example.com', Amount: 5 } },
+        ],
+      });
+      const foreignEmailId = foreign.fields.find((f) => f.name === 'Email')!.id;
+      const foreignAmountId = foreign.fields.find((f) => f.name === 'Amount')!.id;
+
+      const host = await createTable(baseId, {
+        name: 'RefLookup_Sum_Equality_Host',
+        fields: [{ name: 'Email', type: FieldType.SingleLineText } as IFieldRo],
+        records: [
+          { fields: { Email: 'alice@example.com' } },
+          { fields: { Email: 'nobody@example.com' } },
+        ],
+      });
+      const hostEmailId = host.fields.find((f) => f.name === 'Email')!.id;
+      const aliceId = host.records[0].id;
+      const nobodyId = host.records[1].id;
+
+      const { result: rollupField, events: creationEvents } = await runAndCaptureRecordUpdates(
+        async () => {
           return await createField(host.id, {
-            name: 'Total Amount',
+            name: 'Sum By Email',
             type: FieldType.ConditionalRollup,
             options: {
               foreignTableId: foreign.id,
-              lookupFieldId: amountId,
+              lookupFieldId: foreignAmountId,
               expression: 'sum({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignEmailId,
+                    operator: 'is',
+                    value: { type: 'field', fieldId: hostEmailId },
+                  },
+                ],
+              },
             },
           } as IFieldRo);
-        });
+        }
+      );
 
-      const createChange = findRecordChangeMap(creationEvents, host.id, hostRecordId);
-      expect(createChange).toBeDefined();
-      expect(createChange?.[conditionalRollupField.id]?.newValue).toEqual(10);
+      const createAliceChange = findRecordChangeMap(creationEvents, host.id, aliceId);
+      expect(createAliceChange).toBeDefined();
+      expect(createAliceChange?.[rollupField.id]?.newValue).toEqual(30);
+      const createNobodyChange = findRecordChangeMap(creationEvents, host.id, nobodyId);
+      expect(createNobodyChange).toBeDefined();
+      expect(createNobodyChange?.[rollupField.id]?.newValue).toEqual(0);
 
       const hostDbTable = await getDbTableName(host.id);
-      const hostFieldVo = (await getFields(host.id)).find(
-        (f) => f.id === conditionalRollupField.id
-      )! as any;
-      expect(
-        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
-      ).toEqual(10);
+      const hostFieldVo = (await getFields(host.id)).find((f) => f.id === rollupField.id)! as any;
+      expect(parseMaybe((await getRow(hostDbTable, aliceId))[hostFieldVo.dbFieldName])).toEqual(30);
+      expect(parseMaybe((await getRow(hostDbTable, nobodyId))[hostFieldVo.dbFieldName])).toEqual(0);
 
       const { events: updateEvents } = await runAndCaptureRecordUpdates(async () => {
-        await updateRecordByApi(foreign.id, foreign.records[0].id, amountId, 4);
+        await updateRecordByApi(foreign.id, foreign.records[0].id, foreignAmountId, 15);
       });
-      const updateChange = findRecordChangeMap(updateEvents, host.id, hostRecordId);
-      expect(updateChange).toBeDefined();
-      expect(updateChange?.[conditionalRollupField.id]?.newValue).toEqual(11);
-      expect(
-        parseMaybe((await getRow(hostDbTable, hostRecordId))[hostFieldVo.dbFieldName])
-      ).toEqual(11);
+      const updateAliceChange = findRecordChangeMap(updateEvents, host.id, aliceId);
+      expect(updateAliceChange).toBeDefined();
+      expect(updateAliceChange?.[rollupField.id]?.newValue).toEqual(35);
+      const updateNobodyChange = findRecordChangeMap(updateEvents, host.id, nobodyId);
+      expect(updateNobodyChange?.[rollupField.id]).toBeUndefined();
+      expect(parseMaybe((await getRow(hostDbTable, aliceId))[hostFieldVo.dbFieldName])).toEqual(35);
+      expect(parseMaybe((await getRow(hostDbTable, nobodyId))[hostFieldVo.dbFieldName])).toEqual(0);
 
       await permanentDeleteTable(baseId, host.id);
       await permanentDeleteTable(baseId, foreign.id);
@@ -1292,6 +1729,87 @@ describe('Computed Orchestrator (e2e)', () => {
 
       await permanentDeleteTable(baseId, host.id);
       await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('handles self-table filters comparing multiple host fields without overflowing the stack', async () => {
+      const table = await createTable(baseId, {
+        name: 'RefLookup_Self_FieldRefs',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Category', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Category: 'A' } },
+          { fields: { Title: 'Alpha', Category: 'A' } },
+          { fields: { Title: 'Alpha', Category: 'B' } },
+          { fields: { Title: 'Beta', Category: 'A' } },
+        ],
+      });
+      const titleId = table.fields.find((f) => f.name === 'Title')!.id;
+      const categoryId = table.fields.find((f) => f.name === 'Category')!.id;
+      const firstAlphaId = table.records[0].id;
+      const secondAlphaId = table.records[1].id;
+      const alphaBId = table.records[2].id;
+      const betaId = table.records[3].id;
+
+      const duplicateFieldFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: titleId,
+            operator: 'is',
+            value: { type: 'field', fieldId: titleId, tableId: table.id },
+          },
+          {
+            fieldId: categoryId,
+            operator: 'is',
+            value: { type: 'field', fieldId: categoryId, tableId: table.id },
+          },
+        ],
+      } as any;
+
+      const { result: rollupField } = await runAndCaptureRecordUpdates(async () => {
+        return await createField(table.id, {
+          name: 'Self Scoped Count',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: table.id,
+            lookupFieldId: titleId,
+            expression: 'countall({values})',
+            filter: duplicateFieldFilter,
+          },
+        } as IFieldRo);
+      });
+
+      const references = await prisma.reference.findMany({
+        where: { toFieldId: rollupField.id },
+        select: { fromFieldId: true },
+      });
+      expect(references.map((ref) => ref.fromFieldId)).toEqual(
+        expect.arrayContaining([titleId, categoryId])
+      );
+
+      const tableRecords = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const countsById = new Map(
+        tableRecords.records.map((record) => [record.id, record.fields?.[rollupField.id]])
+      );
+      expect(countsById.get(firstAlphaId)).toEqual(2);
+      expect(countsById.get(secondAlphaId)).toEqual(2);
+      expect(countsById.get(alphaBId)).toEqual(1);
+      expect(countsById.get(betaId)).toEqual(1);
+
+      await updateRecordByApi(table.id, firstAlphaId, categoryId, 'B');
+
+      const updated = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const updatedCounts = new Map(
+        updated.records.map((record) => [record.id, record.fields?.[rollupField.id]])
+      );
+      expect(updatedCounts.get(firstAlphaId)).toEqual(2);
+      expect(updatedCounts.get(secondAlphaId)).toEqual(1);
+      expect(updatedCounts.get(alphaBId)).toEqual(2);
+      expect(updatedCounts.get(betaId)).toEqual(1);
+
+      await permanentDeleteTable(baseId, table.id);
     });
   });
 

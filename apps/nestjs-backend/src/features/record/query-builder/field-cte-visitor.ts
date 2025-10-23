@@ -9,6 +9,7 @@ import {
   FieldType,
   Relationship,
   type IFilter,
+  type IFilterItem,
   type IFieldVisitor,
   type AttachmentFieldCore,
   type AutoNumberFieldCore,
@@ -38,8 +39,29 @@ import {
   type IRollupFieldOptions,
   DbFieldType,
   SortFunc,
+  isFieldReferenceValue,
   isLinkLookupOptions,
   normalizeConditionalLimit,
+  contains as FilterOperatorContains,
+  doesNotContain as FilterOperatorDoesNotContain,
+  hasAllOf as FilterOperatorHasAllOf,
+  hasAnyOf as FilterOperatorHasAnyOf,
+  hasNoneOf as FilterOperatorHasNoneOf,
+  is as FilterOperatorIs,
+  isAfter as FilterOperatorIsAfter,
+  isAnyOf as FilterOperatorIsAnyOf,
+  isBefore as FilterOperatorIsBefore,
+  isExactly as FilterOperatorIsExactly,
+  isGreater as FilterOperatorIsGreater,
+  isGreaterEqual as FilterOperatorIsGreaterEqual,
+  isLess as FilterOperatorIsLess,
+  isLessEqual as FilterOperatorIsLessEqual,
+  isNoneOf as FilterOperatorIsNoneOf,
+  isNotEmpty as FilterOperatorIsNotEmpty,
+  isNotExactly as FilterOperatorIsNotExactly,
+  isEmpty as FilterOperatorIsEmpty,
+  isOnOrAfter as FilterOperatorIsOnOrAfter,
+  isOnOrBefore as FilterOperatorIsOnOrBefore,
 } from '@teable/core';
 import type { Knex } from 'knex';
 import { match } from 'ts-pattern';
@@ -64,6 +86,29 @@ import type { IRecordQueryDialectProvider } from './record-query-dialect.interfa
 type ICteResult = void;
 
 const JUNCTION_ALIAS = 'j';
+
+const SUPPORTED_EQUALITY_RESIDUAL_OPERATORS = new Set<string>([
+  FilterOperatorIs.value,
+  FilterOperatorContains.value,
+  FilterOperatorDoesNotContain.value,
+  FilterOperatorIsGreater.value,
+  FilterOperatorIsGreaterEqual.value,
+  FilterOperatorIsLess.value,
+  FilterOperatorIsLessEqual.value,
+  FilterOperatorIsEmpty.value,
+  FilterOperatorIsNotEmpty.value,
+  FilterOperatorIsAnyOf.value,
+  FilterOperatorIsNoneOf.value,
+  FilterOperatorHasAnyOf.value,
+  FilterOperatorHasAllOf.value,
+  FilterOperatorHasNoneOf.value,
+  FilterOperatorIsExactly.value,
+  FilterOperatorIsNotExactly.value,
+  FilterOperatorIsBefore.value,
+  FilterOperatorIsAfter.value,
+  FilterOperatorIsOnOrBefore.value,
+  FilterOperatorIsOnOrAfter.value,
+]);
 
 class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
   constructor(
@@ -1103,6 +1148,125 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     });
   }
 
+  private extractConditionalEqualityJoinPlan(
+    filter: IFilter | null | undefined,
+    table: TableDomain,
+    foreignTable: TableDomain,
+    mainAlias: string,
+    foreignAlias: string
+  ): {
+    joinKeys: Array<{ alias: string; hostExpr: string; foreignExpr: string }>;
+    residualFilter: IFilter | null;
+  } | null {
+    if (!filter?.filterSet?.length) return null;
+
+    const joinKeys: Array<{ alias: string; hostExpr: string; foreignExpr: string }> = [];
+
+    type FilterNode = Exclude<IFilter, null>;
+
+    const buildResidual = (
+      current: IFilter | null | undefined
+    ): { ok: boolean; residual: IFilter } => {
+      if (!current?.filterSet?.length) return { ok: false, residual: null };
+      const conjunction = current.conjunction ?? 'and';
+      if (conjunction !== 'and') return { ok: false, residual: null };
+
+      const residualEntries: Array<FilterNode | IFilterItem> = [];
+
+      for (const entry of current.filterSet ?? []) {
+        if (!entry) continue;
+        if ('fieldId' in entry) {
+          const item = entry as IFilterItem;
+
+          if (item.operator === FilterOperatorIs.value && isFieldReferenceValue(item.value)) {
+            const hostRef = item.value;
+            if (hostRef.tableId && hostRef.tableId !== table.id) {
+              return { ok: false, residual: null };
+            }
+            const foreignField = foreignTable.getField(item.fieldId);
+            const hostField = table.getField(hostRef.fieldId);
+            if (!foreignField || !hostField) {
+              return { ok: false, residual: null };
+            }
+            if (isDateLikeField(foreignField) || isDateLikeField(hostField)) {
+              return { ok: false, residual: null };
+            }
+            const caseInsensitive =
+              foreignField.dbFieldType === DbFieldType.Text &&
+              hostField.dbFieldType === DbFieldType.Text;
+            const alias = `__cr_key_${joinKeys.length}`;
+            const foreignExpr = caseInsensitive
+              ? `LOWER("${foreignAlias}"."${foreignField.dbFieldName}")`
+              : `"${foreignAlias}"."${foreignField.dbFieldName}"`;
+            const hostExpr = caseInsensitive
+              ? `LOWER("${mainAlias}"."${hostField.dbFieldName}")`
+              : `"${mainAlias}"."${hostField.dbFieldName}"`;
+            joinKeys.push({ alias, hostExpr, foreignExpr });
+            continue;
+          }
+
+          if (isFieldReferenceValue(item.value)) {
+            return { ok: false, residual: null };
+          }
+
+          if (!SUPPORTED_EQUALITY_RESIDUAL_OPERATORS.has(item.operator)) {
+            return { ok: false, residual: null };
+          }
+
+          residualEntries.push(entry);
+          continue;
+        }
+
+        if ('filterSet' in entry) {
+          const nested = buildResidual(entry as IFilter);
+          if (!nested.ok) {
+            return { ok: false, residual: null };
+          }
+          const nestedResidual = nested.residual;
+          if (nestedResidual && 'filterSet' in nestedResidual && nestedResidual.filterSet?.length) {
+            residualEntries.push(nestedResidual as FilterNode);
+          }
+          continue;
+        }
+
+        return { ok: false, residual: null };
+      }
+
+      if (!residualEntries.length) {
+        return { ok: true, residual: null };
+      }
+
+      return {
+        ok: true,
+        residual: {
+          conjunction,
+          filterSet: residualEntries,
+        } as FilterNode,
+      };
+    };
+
+    const { ok, residual } = buildResidual(filter);
+    if (!ok || !joinKeys.length) return null;
+    return { joinKeys, residualFilter: residual };
+  }
+
+  private getConditionalEqualityFallback(aggregationFn: string, field: FieldCore): string | null {
+    switch (aggregationFn) {
+      case 'countall':
+      case 'count':
+      case 'sum':
+      case 'average':
+        return '0::double precision';
+      case 'max':
+      case 'min': {
+        const dbType = field.dbFieldType ?? DbFieldType.Text;
+        return this.dialect.typedNullFor(dbType);
+      }
+      default:
+        return null;
+    }
+  }
+
   private resolveConditionalComputedTargetExpression(
     targetField: FieldCore,
     foreignTable: TableDomain,
@@ -1243,6 +1407,98 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         supportsOrdering ? orderByClause : undefined
       );
       const castedAggregateExpression = this.castExpressionForDbType(aggregateExpression, field);
+
+      const equalityEnabledFns = new Set(['countall', 'count', 'sum', 'average', 'max', 'min']);
+      const canUseEqualityPlan =
+        equalityEnabledFns.has(aggregationFn) &&
+        !supportsOrdering &&
+        !orderByClause &&
+        !sort?.fieldId;
+      const equalityPlan = canUseEqualityPlan
+        ? this.extractConditionalEqualityJoinPlan(
+            filter,
+            table,
+            foreignTable,
+            mainAlias,
+            foreignAliasUsed
+          )
+        : null;
+
+      if (equalityPlan?.joinKeys.length) {
+        const countsAlias = `__cr_counts_${field.id}`;
+        const countsQuery = this.qb.client
+          .queryBuilder()
+          .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+        for (const cond of equalityPlan.joinKeys) {
+          countsQuery.select(this.qb.client.raw(`${cond.foreignExpr} as "${cond.alias}"`));
+          countsQuery.groupByRaw(cond.foreignExpr);
+        }
+        countsQuery.select(this.qb.client.raw(`${castedAggregateExpression} as "reference_value"`));
+
+        if (equalityPlan.residualFilter) {
+          const fieldMap = foreignTable.fieldList.reduce(
+            (map, f) => {
+              map[f.id] = f as FieldCore;
+              return map;
+            },
+            {} as Record<string, FieldCore>
+          );
+
+          const selectionMap = new Map<string, IFieldSelectName>();
+          for (const f of foreignTable.fields.ordered) {
+            selectionMap.set(f.id, `"${foreignAliasUsed}"."${f.dbFieldName}"`);
+          }
+
+          const fieldReferenceSelectionMap = new Map<string, string>();
+          const fieldReferenceFieldMap = new Map<string, FieldCore>();
+          for (const mainField of table.fields.ordered) {
+            fieldReferenceSelectionMap.set(
+              mainField.id,
+              `"${mainAlias}"."${mainField.dbFieldName}"`
+            );
+            fieldReferenceFieldMap.set(mainField.id, mainField as FieldCore);
+          }
+
+          this.dbProvider
+            .filterQuery(countsQuery, fieldMap, equalityPlan.residualFilter, undefined, {
+              selectionMap,
+              fieldReferenceSelectionMap,
+              fieldReferenceFieldMap,
+            })
+            .appendQueryBuilder();
+        }
+
+        const equalityFallback = this.getConditionalEqualityFallback(aggregationFn, field);
+        this.qb.with(cteName, (cqb) => {
+          cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
+          const refValueSql =
+            equalityFallback != null
+              ? `COALESCE(${countsAlias}."reference_value", ${equalityFallback})`
+              : `${countsAlias}."reference_value"`;
+          cqb.select(cqb.client.raw(`${refValueSql} as "conditional_rollup_${field.id}"`));
+          this.fromTableWithRestriction(cqb, table, mainAlias);
+          cqb.leftJoin(
+            this.qb.client.raw(`(${countsQuery.toQuery()}) as ${countsAlias}`),
+            (join) => {
+              for (const cond of equalityPlan.joinKeys) {
+                join.on(
+                  this.qb.client.raw(cond.hostExpr),
+                  '=',
+                  this.qb.client.raw(`${countsAlias}."${cond.alias}"`)
+                );
+              }
+            }
+          );
+        });
+
+        if (joinToMain && !this.state.isCteJoined(cteName)) {
+          this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+          this.state.markCteJoined(cteName);
+        }
+
+        this.state.setFieldCte(field.id, cteName);
+        return;
+      }
 
       const aggregateSourceQuery = this.qb.client
         .queryBuilder()

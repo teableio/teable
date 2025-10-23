@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IFilter,
   IFilterItem,
@@ -47,9 +47,11 @@ interface IConditionalRollupAdjacencyEdge {
 }
 
 const ALL_RECORDS = Symbol('ALL_RECORDS');
+const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 
 @Injectable()
 export class ComputedDependencyCollectorService {
+  private logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
@@ -78,6 +80,15 @@ export class ComputedDependencyCollectorService {
     const parts = qualified.split('.');
     if (parts.length === 2) return { schema: parts[0], table: parts[1] };
     return { table: qualified };
+  }
+
+  private buildValuesTable(alias: string, columnName: string, values: readonly string[]): Knex.Raw {
+    if (!values.length) {
+      throw new Error('buildValuesTable requires at least one value');
+    }
+    const placeholders = values.map(() => '(?)').join(', ');
+    const quotedColumn = `"${columnName.replace(/"/g, '""')}"`;
+    return this.knex.raw(`(values ${placeholders}) as ${alias} (${quotedColumn})`, values);
   }
 
   // Minimal link options needed for join table lookups
@@ -390,6 +401,9 @@ export class ComputedDependencyCollectorService {
       return [];
     }
     const uniqueForeignIds = Array.from(new Set(foreignRecordIds.filter(Boolean)));
+    if (uniqueForeignIds.length > MAX_CONDITIONAL_ROLLUP_SAMPLE) {
+      return ALL_RECORDS;
+    }
     if (!uniqueForeignIds.length) {
       return [];
     }
@@ -449,6 +463,11 @@ export class ComputedDependencyCollectorService {
 
     const hostAlias = '__host';
     const foreignAlias = '__foreign';
+    const { schema: foreignSchema, table: foreignTable } = this.splitDbTableName(foreignTableName);
+    const foreignFrom = () =>
+      foreignSchema
+        ? this.knex.raw('??.?? as ??', [foreignSchema, foreignTable, foreignAlias])
+        : this.knex.raw('?? as ??', [foreignTable, foreignAlias]);
 
     const quoteIdentifier = (name: string) => name.replace(/"/g, '""');
 
@@ -466,10 +485,15 @@ export class ComputedDependencyCollectorService {
       fieldReferenceFieldMap.set(id, field);
     }
 
+    const existsIdAlias = '__foreign_ids';
     const existsSubquery = this.knex
       .select(this.knex.raw('1'))
-      .from(`${foreignTableName} as ${foreignAlias}`)
-      .whereIn(`${foreignAlias}.__id`, uniqueForeignIds);
+      .from(foreignFrom())
+      .join(
+        this.buildValuesTable(existsIdAlias, '__id', uniqueForeignIds),
+        `${foreignAlias}.__id`,
+        `${existsIdAlias}.__id`
+      );
 
     this.dbProvider
       .filterQuery(existsSubquery, foreignFieldObj, filter, undefined, {
@@ -484,9 +508,12 @@ export class ComputedDependencyCollectorService {
       .from(`${hostTableName} as ${hostAlias}`)
       .whereExists(existsSubquery);
 
+    const sql = queryBuilder.toQuery();
+    this.logger.debug(`Conditional Rollup Impacted Records SQL: ${sql}`);
+
     const rows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(queryBuilder.toQuery());
+      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(sql);
 
     const ids = new Set<string>();
     for (const row of rows) {
@@ -512,15 +539,26 @@ export class ComputedDependencyCollectorService {
       return ALL_RECORDS;
     }
 
-    const { schema, table } = this.splitDbTableName(foreignTableName);
-    const foreignQueryBuilder = schema ? this.knex.withSchema(schema) : this.knex;
     const selectColumns = ['__id', ...foreignDbFieldNamesOrdered];
+    const baseIdAlias = '__base_ids';
+    const baseRowsQuery = this.knex
+      .select(
+        ...selectColumns.map((column) =>
+          this.knex.raw(
+            `"${foreignAlias}"."${quoteIdentifier(column)}" as "${quoteIdentifier(column)}"`
+          )
+        )
+      )
+      .from(foreignFrom())
+      .join(
+        this.buildValuesTable(baseIdAlias, '__id', uniqueForeignIds),
+        `${foreignAlias}.__id`,
+        `${baseIdAlias}.__id`
+      );
 
     const baseRows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<
-        Record<string, unknown>[]
-      >(foreignQueryBuilder.select(selectColumns).from(table).whereIn('__id', uniqueForeignIds).toQuery());
+      .$queryRawUnsafe<Record<string, unknown>[]>(baseRowsQuery.toQuery());
     const baseRowById = new Map<string, Record<string, unknown>>();
     for (const row of baseRows) {
       const id = row['__id'];
@@ -773,27 +811,40 @@ export class ComputedDependencyCollectorService {
     while (queue.length) {
       const src = queue.shift()!;
       const rawSet = recordSets[src];
-      const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
       const startedWithAllRecords = rawSet === ALL_RECORDS;
       if (startedWithAllRecords && expandedAllRecords.has(src)) {
         continue;
       }
+      const linkTargets = Array.from(linkAdj[src] || []).filter((dst) => !!impact[dst]);
+      const referenceEdges = (referenceAdj[src] || []).filter((edge) => {
+        const targetGroup = impact[edge.tableId];
+        return !!targetGroup && targetGroup.fieldIds.has(edge.fieldId);
+      });
+      const hasRelevantOutgoing = linkTargets.length > 0 || referenceEdges.length > 0;
+
       let currentIds: string[] = [];
+      let shouldMaterializeAllRecords = false;
       if (rawSet === ALL_RECORDS) {
-        if (!hasOutgoing) {
+        if (!hasRelevantOutgoing) {
           expandedAllRecords.add(src);
           continue;
         }
-        const ids = await this.getAllRecordIds(src);
-        currentIds = ids;
-        recordSets[src] = new Set(ids);
+        const edgesRequiringIds = referenceEdges.filter((edge) => {
+          const targetSet = recordSets[edge.tableId];
+          return targetSet !== ALL_RECORDS && edge.tableId !== src;
+        });
+        shouldMaterializeAllRecords = linkTargets.length > 0 || edgesRequiringIds.length > 0;
+        if (shouldMaterializeAllRecords) {
+          const ids = await this.getAllRecordIds(src);
+          currentIds = ids;
+          recordSets[src] = new Set(ids);
+        }
       } else if (rawSet) {
         currentIds = Array.from(rawSet);
       }
-      if (!currentIds.length) continue;
-      const outs = Array.from(linkAdj[src] || []);
-      for (const dst of outs) {
-        if (!impact[dst]) continue; // only propagate to impacted tables
+      if (!currentIds.length && shouldMaterializeAllRecords) continue;
+
+      for (const dst of linkTargets) {
         const linked = await this.getLinkedRecordIds(dst, src, currentIds);
         if (!linked.length) continue;
         const existingDst = recordSets[dst];
@@ -815,11 +866,21 @@ export class ComputedDependencyCollectorService {
         if (added) queue.push(dst);
       }
 
-      const referenceEdges = referenceAdj[src] || [];
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        const matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
+        let matched: string[] | typeof ALL_RECORDS;
+        if (
+          rawSet === ALL_RECORDS &&
+          (!shouldMaterializeAllRecords ||
+            recordSets[edge.tableId] === ALL_RECORDS ||
+            edge.tableId === src)
+        ) {
+          matched = ALL_RECORDS;
+        } else {
+          if (!currentIds.length) continue;
+          matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
+        }
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
           if (recordSets[edge.tableId] !== ALL_RECORDS) {
@@ -1006,28 +1067,40 @@ export class ComputedDependencyCollectorService {
     while (queue.length) {
       const src = queue.shift()!;
       const rawSet = recordSets[src];
-      const hasOutgoing = (linkAdj[src]?.size || 0) > 0 || (referenceAdj[src]?.length || 0) > 0;
       const startedWithAllRecords = rawSet === ALL_RECORDS;
       if (startedWithAllRecords && expandedAllRecords.has(src)) {
         continue;
       }
+      const linkTargets = Array.from(linkAdj[src] || []).filter((dst) => !!impact[dst]);
+      const referenceEdges = (referenceAdj[src] || []).filter((edge) => {
+        const targetGroup = impact[edge.tableId];
+        return !!targetGroup && targetGroup.fieldIds.has(edge.fieldId);
+      });
+      const hasRelevantOutgoing = linkTargets.length > 0 || referenceEdges.length > 0;
+
       let currentIds: string[] = [];
+      let shouldMaterializeAllRecords = false;
       if (rawSet === ALL_RECORDS) {
-        if (!hasOutgoing) {
+        if (!hasRelevantOutgoing) {
           expandedAllRecords.add(src);
           continue;
         }
-        const ids = await this.getAllRecordIds(src);
-        currentIds = ids;
-        recordSets[src] = new Set(ids);
+        const edgesRequiringIds = referenceEdges.filter((edge) => {
+          const targetSet = recordSets[edge.tableId];
+          return targetSet !== ALL_RECORDS && edge.tableId !== src;
+        });
+        shouldMaterializeAllRecords = linkTargets.length > 0 || edgesRequiringIds.length > 0;
+        if (shouldMaterializeAllRecords) {
+          const ids = await this.getAllRecordIds(src);
+          currentIds = ids;
+          recordSets[src] = new Set(ids);
+        }
       } else if (rawSet) {
         currentIds = Array.from(rawSet);
       }
-      if (!currentIds.length) continue;
-      const outs = Array.from(linkAdj[src] || []);
-      for (const dst of outs) {
-        // Only care about tables we plan to update
-        if (!impact[dst]) continue;
+      if (!currentIds.length && shouldMaterializeAllRecords) continue;
+
+      for (const dst of linkTargets) {
         const linked = await this.getLinkedRecordIds(dst, src, currentIds);
         if (!linked.length) continue;
         const existingDst = recordSets[dst];
@@ -1049,15 +1122,25 @@ export class ComputedDependencyCollectorService {
         if (added) queue.push(dst);
       }
 
-      const referenceEdges = referenceAdj[src] || [];
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        const matched = await this.getConditionalRollupImpactedRecordIds(
-          edge,
-          currentIds,
-          src === tableId ? contextByRecord : undefined
-        );
+        let matched: string[] | typeof ALL_RECORDS;
+        if (
+          rawSet === ALL_RECORDS &&
+          (!shouldMaterializeAllRecords ||
+            recordSets[edge.tableId] === ALL_RECORDS ||
+            edge.tableId === src)
+        ) {
+          matched = ALL_RECORDS;
+        } else {
+          if (!currentIds.length) continue;
+          matched = await this.getConditionalRollupImpactedRecordIds(
+            edge,
+            currentIds,
+            src === tableId ? contextByRecord : undefined
+          );
+        }
         if (matched === ALL_RECORDS) {
           targetGroup.preferAutoNumberPaging = true;
           if (recordSets[edge.tableId] !== ALL_RECORDS) {
