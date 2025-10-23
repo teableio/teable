@@ -46,17 +46,25 @@ export class BaseQueryService {
   // Quote an identifier if not already quoted
   private quoteIdentifier(name: string): string {
     if (!name) return name as unknown as string;
-    if (name.startsWith('"') && name.endsWith('"')) return name;
-    return `"${name}"`;
+    if (name.includes('.')) {
+      return name
+        .split('.')
+        .filter((part) => part.length > 0)
+        .map((part) => this.quoteIdentifier(part))
+        .join('.');
+    }
+    const trimmed = name.replace(/^"+|"+$/g, '');
+    const escaped = trimmed.replace(/"/g, '""');
+    return `"${escaped}"`;
   }
 
   // Quote a composite table name like schema.table
   private quoteDbTableName(dbTableName: string): string {
-    const parts = dbTableName.split('.');
-    if (parts.length === 2) {
-      return `${this.quoteIdentifier(parts[0])}.${this.quoteIdentifier(parts[1])}`;
-    }
-    return this.quoteIdentifier(dbTableName);
+    return dbTableName
+      .split('.')
+      .filter((part) => part.length > 0)
+      .map((part) => this.quoteIdentifier(part))
+      .join('.');
   }
 
   private convertFieldMapToColumn(fieldMap: Record<string, IFieldInstance>): IBaseQueryColumn[] {
@@ -338,7 +346,14 @@ export class BaseQueryService {
       (acc, field) => {
         if (dbTableName) {
           const qualifiedTable = this.quoteDbTableName(dbTableName);
-          field.dbFieldName = `${qualifiedTable}.${this.quoteIdentifier(field.dbFieldName)}`;
+          const rawFieldName = field.dbFieldName ?? '';
+          const columnSegment = rawFieldName.split('.').pop() ?? rawFieldName;
+          const isSimpleIdentifier =
+            !!columnSegment && /^[\w"]+$/.test(columnSegment.replace(/^"+|"+$/g, ''));
+          field.dbFieldName =
+            columnSegment && isSimpleIdentifier
+              ? `${qualifiedTable}.${this.quoteIdentifier(columnSegment)}`
+              : rawFieldName;
         }
         acc[field.id] = field;
         return acc;
