@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
+import https from 'https';
 import { join, resolve } from 'path';
 import type { Readable } from 'stream';
 import {
@@ -12,7 +13,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { getRandomString } from '@teable/core';
 import * as fse from 'fs-extra';
@@ -27,16 +28,20 @@ import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './t
 export class S3Storage implements StorageAdapter {
   private s3Client: S3Client;
   private s3ClientPrivateNetwork: S3Client;
+  private httpsAgent: https.Agent;
   private s3ClientPreSigner: S3Client;
+  private logger = new Logger(S3Storage.name);
 
   constructor(@StorageConfig() readonly config: IStorageConfig) {
     const { endpoint, region, accessKey, secretKey, maxSockets } = this.config.s3;
     this.checkConfig();
+    this.httpsAgent = new https.Agent({
+      maxSockets,
+      keepAlive: true,
+    });
     const requestHandler = maxSockets
       ? new NodeHttpHandler({
-          httpsAgent: {
-            maxSockets: maxSockets,
-          },
+          httpsAgent: this.httpsAgent,
         })
       : undefined;
     this.s3Client = new S3Client({
@@ -63,6 +68,47 @@ export class S3Storage implements StorageAdapter {
           },
         })
       : this.s3Client;
+
+    const logS3ConnectionsRate = Number(process.env.LOG_S3_CONNECTIONS_RATE);
+    if (isNaN(logS3ConnectionsRate)) {
+      this.logger.log('LOG_S3_CONNECTIONS_RATE not set, skipping log');
+      return;
+    }
+    this.logger.log(`Logging S3 connections rate every ${logS3ConnectionsRate} milliseconds`);
+    setInterval(() => {
+      const countRecords: Record<
+        string,
+        { socketsCount: number; freeSocketsCount: number; requestsCount: number }
+      > = {};
+      Object.entries(this.httpsAgent.sockets).forEach(([key, sockets]) => {
+        if (sockets) {
+          const currentCountRecord = countRecords[key] ?? {};
+          countRecords[key] = {
+            ...countRecords[key],
+            socketsCount: (currentCountRecord?.socketsCount ?? 0) + sockets.length,
+          };
+        }
+      });
+      Object.entries(this.httpsAgent.freeSockets).forEach(([key, sockets]) => {
+        if (sockets) {
+          const currentCountRecord = countRecords[key] ?? {};
+          countRecords[key] = {
+            ...countRecords[key],
+            freeSocketsCount: (currentCountRecord?.freeSocketsCount ?? 0) + sockets.length,
+          };
+        }
+      });
+      Object.entries(this.httpsAgent.requests).forEach(([key, requests]) => {
+        if (requests) {
+          const currentCountRecord = countRecords[key] ?? {};
+          countRecords[key] = {
+            ...countRecords[key],
+            requestsCount: (currentCountRecord?.requestsCount ?? 0) + requests.length,
+          };
+        }
+      });
+      this.logger.log(`httpsAgent connections: ${JSON.stringify(countRecords, null, 2)}`);
+    }, logS3ConnectionsRate);
   }
 
   private checkConfig() {
@@ -322,6 +368,7 @@ export class S3Storage implements StorageAdapter {
     });
     const { Body: stream, ContentType: mimetype } = await this.s3ClientPrivateNetwork.send(command);
     if (!mimetype?.startsWith('image/')) {
+      (stream as Readable)?.destroy?.();
       throw new BadRequestException('Invalid image');
     }
     if (!stream) {
