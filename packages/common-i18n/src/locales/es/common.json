@@ -518,7 +518,7 @@
     "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",
     "subscribeH1": "¿Confirmar suscripción?",
     "subscribeH2": "Estás a punto de suscribirte a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas suscribirte?",
-    "unsubscribeListTip": "Los siguientes usuarios de la base de datos actual se han dado de baja, ya no podrás enviarles correos electrónicos"
+    "unsubscribeListTip": "Los siguientes usuarios de la base actual se han dado de baja, ya no podrás enviarles correos electrónicos. Al importar correos electrónicos, coloque las direcciones de correo electrónico en la primera columna y nombre el encabezado \"email\"."
   },
   "waitlist": {
     "title": "Lista de espera",

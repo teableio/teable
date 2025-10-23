@@ -538,7 +538,7 @@
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
     "subscribeH1": "Abonnement bestätigen?",
     "subscribeH2": "Sie sind dabei, zukünftige Teable-Werbeaktionen und Produktaktualisierungen zu abonnieren. Möchten Sie wirklich abonnieren?",
-    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Datenbank haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden"
+    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Basis haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\"."
   },
   "waitlist": {
     "title": "Warteliste",

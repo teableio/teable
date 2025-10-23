@@ -669,7 +669,7 @@
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
     "subscribeH1": "Confirm Subscribe?",
     "subscribeH2": "You're about to subscribe from future Teable promotions and product updates. Are you sure you want to subscribe?",
-    "unsubscribeListTip": "The following users in the current database have unsubscribed, you will no longer be able to send them emails"
+    "unsubscribeListTip": "The following users in the current base have unsubscribed, you will no longer be able to send them emails. When importing emails, please place the email addresses in the first column, and name the header \"email\"."
   },
   "waitlist": {
     "title": "Waitlist",

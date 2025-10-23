@@ -473,7 +473,7 @@
     "unsubscribeH2": "Vous êtes sur le point de vous désabonner des futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous désabonner ?",
     "subscribeH1": "Confirmer l'abonnement ?",
     "subscribeH2": "Vous êtes sur le point de vous abonner aux futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous abonner ?",
-    "unsubscribeListTip": "Les utilisateurs suivants de la base de données actuelle se sont désabonnés, vous ne pourrez plus leur envoyer d'e-mails"
+    "unsubscribeListTip": "Les utilisateurs suivants de la base actuelle se sont désabonnés, vous ne pourrez plus leur envoyer d'e-mails. Lors de l'importation d'e-mails, veuillez placer les adresses e-mail dans la première colonne et nommer l'en-tête \"email\"."
   },
   "waitlist": {
     "title": "Liste d'attente",

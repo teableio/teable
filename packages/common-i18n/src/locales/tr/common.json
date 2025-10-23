@@ -511,7 +511,7 @@
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
     "subscribeH1": "Aboneliği onaylıyor musunuz?",
     "subscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerine abone olmak üzeresiniz. Abone olmak istediğinizden emin misiniz?",
-    "unsubscribeListTip": "Mevcut veritabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz"
+    "unsubscribeListTip": "Mevcut tabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın."
   },
   "waitlist": {
     "title": "Bekleme Listesi",

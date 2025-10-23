@@ -666,7 +666,7 @@
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
     "subscribeH1": "确认订阅",
     "subscribeH2": "您即将订阅 Teable 未来的促销和产品更新信息。您确定要订阅吗？",
-    "unsubscribeListTip": "当前数据库以下用户退订了，您将无法再给他们发送邮件"
+    "unsubscribeListTip": "当前数据库的以下用户已取消订阅，您将无法再向他们发送电子邮件。导入电子邮件时，请将电子邮件地址放在第一列，并将标题命名为 email。"
   },
   "waitlist": {
     "title": "等待列表",
