@@ -28,6 +28,7 @@ import {
   createBase,
   createField,
   convertField,
+  createRecords,
   createTable,
   deleteBase,
   deleteField,
@@ -383,6 +384,142 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
       expect(values.length).toBe(limitCap);
       expect(values).toEqual(activeTitles.slice(0, limitCap));
       expect(values).not.toContain(activeTitles[limitCap]);
+    });
+  });
+
+  describe('self equality filters', () => {
+    it('supports creating records when rollup filters compare against same-table fields', async () => {
+      let table: ITableFullVo | undefined;
+      const categoryChoices = [
+        { id: 'cat-a', name: 'Category A', color: Colors.Blue },
+        { id: 'cat-b', name: 'Category B', color: Colors.Green },
+      ];
+
+      try {
+        table = await createTable(baseId, {
+          name: 'ConditionalRollup_Self_Foreign',
+          fields: [
+            { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+            { name: 'Count', type: FieldType.Number } as IFieldRo,
+            {
+              name: 'Category',
+              type: FieldType.SingleSelect,
+              options: { choices: categoryChoices },
+            } as IFieldRo,
+          ],
+          records: [
+            {
+              fields: {
+                Title: 'Alpha',
+                Count: 1,
+                Category: categoryChoices[0].name,
+              },
+            },
+            {
+              fields: {
+                Title: 'Beta',
+                Count: 2,
+                Category: categoryChoices[1].name,
+              },
+            },
+            {
+              fields: {
+                Title: 'Gamma',
+                Count: 3,
+                Category: categoryChoices[0].name,
+              },
+            },
+          ],
+        });
+
+        const titleFieldId = table.fields.find((field) => field.name === 'Title')!.id;
+        const countFieldId = table.fields.find((field) => field.name === 'Count')!.id;
+        const categoryFieldId = table.fields.find((field) => field.name === 'Category')!.id;
+
+        const linkField = await createField(table.id, {
+          name: 'Self Links',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table.id,
+          },
+        } as IFieldRo);
+
+        const currentRecordIds = table.records.map((record) => record.id);
+        let currentLinkTargets = currentRecordIds.map((id) => ({ id }));
+
+        const syncAllLinks = async () => {
+          for (const recordId of currentRecordIds) {
+            await updateRecordByApi(table!.id, recordId, linkField.id, currentLinkTargets);
+          }
+        };
+
+        await syncAllLinks();
+
+        const rollupField = await createField(table.id, {
+          name: 'Self Category Count',
+          type: FieldType.ConditionalRollup,
+          options: {
+            foreignTableId: table.id,
+            lookupFieldId: categoryFieldId,
+            expression: 'count({values})',
+            filter: {
+              conjunction: 'and',
+              filterSet: [
+                {
+                  fieldId: titleFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: titleFieldId, tableId: table.id },
+                },
+                {
+                  fieldId: countFieldId,
+                  operator: 'is',
+                  value: { type: 'field', fieldId: countFieldId, tableId: table.id },
+                },
+              ],
+            },
+          },
+        } as IFieldRo);
+
+        const expectRollupValue = async (recordId: string, expected: number) => {
+          const record = await getRecord(table!.id, recordId);
+          expect(record.fields[rollupField.id]).toEqual(expected);
+        };
+
+        for (const recordId of currentRecordIds) {
+          await expectRollupValue(recordId, 1);
+        }
+
+        const created = await createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [titleFieldId]: 'Delta',
+                [countFieldId]: null,
+                [categoryFieldId]: categoryChoices[1].name,
+              },
+            },
+          ],
+        });
+        const newRecordId = created.records[0].id;
+        currentRecordIds.push(newRecordId);
+        currentLinkTargets = currentRecordIds.map((id) => ({ id }));
+        await syncAllLinks();
+
+        await expectRollupValue(newRecordId, 0);
+
+        await updateRecordByApi(table.id, newRecordId, countFieldId, 4);
+
+        await expectRollupValue(newRecordId, 1);
+
+        await updateRecordByApi(table.id, newRecordId, titleFieldId, 'Delta Updated');
+
+        await expectRollupValue(newRecordId, 1);
+      } finally {
+        if (table) {
+          await permanentDeleteTable(baseId, table.id);
+        }
+      }
     });
   });
 

@@ -473,9 +473,13 @@ export class ComputedDependencyCollectorService {
 
     const selectionMap = new Map<string, string>();
     const foreignFieldObj: Record<string, FieldCore> = {};
+    const foreignFieldByDbName = new Map<string, FieldCore>();
     for (const [id, field] of foreignFieldMap) {
       selectionMap.set(id, `"${foreignAlias}"."${quoteIdentifier(field.dbFieldName)}"`);
       foreignFieldObj[id] = field;
+      if (field.dbFieldName) {
+        foreignFieldByDbName.set(field.dbFieldName, field);
+      }
     }
 
     const fieldReferenceSelectionMap = new Map<string, string>();
@@ -621,14 +625,49 @@ export class ComputedDependencyCollectorService {
       return ALL_RECORDS;
     }
 
-    const valuePlaceholders = valuesMatrix
-      .map((row) => `(${row.map(() => '?').join(', ')})`)
-      .join(', ');
     const bindings = valuesMatrix.flat();
     const columnsSql = valueColumns.map((col) => `"${quoteIdentifier(col)}"`).join(', ');
 
+    const resolveColumnType = (column: string): string => {
+      if (column === '__id') {
+        return 'text';
+      }
+      const field = foreignFieldByDbName.get(column);
+      switch (field?.dbFieldType) {
+        case DbFieldType.Integer:
+          return 'integer';
+        case DbFieldType.Real:
+          return 'double precision';
+        case DbFieldType.Boolean:
+          return 'boolean';
+        case DbFieldType.DateTime:
+          return 'timestamp';
+        case DbFieldType.Blob:
+          return 'bytea';
+        case DbFieldType.Json:
+          return 'jsonb';
+        case DbFieldType.Text:
+        default:
+          return 'text';
+      }
+    };
+
+    const columnTypeSql = valueColumns.map(resolveColumnType);
+    const unionSelectSql = valuesMatrix
+      .map((row) => {
+        const columnAssignments = row
+          .map((_, columnIndex) => {
+            const typeSql = columnTypeSql[columnIndex];
+            const columnAlias = `"${quoteIdentifier(valueColumns[columnIndex])}"`;
+            return `CAST(? AS ${typeSql}) AS ${columnAlias}`;
+          })
+          .join(', ');
+        return `select ${columnAssignments}`;
+      })
+      .join(' union all ');
+
     const derivedRaw = this.knex.raw(
-      `(values ${valuePlaceholders}) as ${foreignAlias} (${columnsSql})`,
+      `(${unionSelectSql}) as ${foreignAlias} (${columnsSql})`,
       bindings
     );
     const postExistsSubquery = this.knex.select(this.knex.raw('1')).from(derivedRaw);
@@ -646,9 +685,12 @@ export class ComputedDependencyCollectorService {
       .from(`${hostTableName} as ${hostAlias}`)
       .whereExists(postExistsSubquery);
 
+    const postQuery = postQueryBuilder.toQuery();
+    this.logger.debug('postQuery %s', postQuery);
+
     const postRows = await this.prismaService
       .txClient()
-      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(postQueryBuilder.toQuery());
+      .$queryRawUnsafe<{ id?: string; __id?: string }[]>(postQuery);
 
     for (const row of postRows) {
       const id = row.id || row.__id;
