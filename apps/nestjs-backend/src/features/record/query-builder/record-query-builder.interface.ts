@@ -42,6 +42,11 @@ export interface ICreateRecordQueryBuilderOptions {
    * Typically used alongside rawProjection when the consumer needs source values (e.g., jsonb) rather than formatted text.
    */
   preferRawFieldReferences?: boolean;
+  /**
+   * Optional list of record IDs to restrict the query to before generating CTEs.
+   * Useful when the caller intends to apply a final WHERE IN "__id" (...) filter anyway.
+   */
+  restrictRecordIds?: string[];
 }
 
 /**
@@ -63,6 +68,10 @@ export interface ICreateRecordAggregateBuilderOptions {
   /** Optional projection to minimize CTE/select */
   projection?: string[];
   useQueryModel?: boolean;
+  /**
+   * Optional list of record IDs to restrict the query to before generating CTEs.
+   */
+  restrictRecordIds?: string[];
 }
 
 /**

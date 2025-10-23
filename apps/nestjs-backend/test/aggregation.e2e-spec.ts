@@ -98,6 +98,17 @@ describe('OpenAPI AggregationController (e2e)', () => {
       expect(rowCount).toEqual(23);
     });
 
+    it('should limit rowCount to selectedRecordIds', async () => {
+      const selectedIds = table.records.slice(0, 2).map((record) => record.id);
+      const response = await getRowCount(table.id, {
+        viewId: table.views[0].id,
+        selectedRecordIds: selectedIds,
+        ignoreViewQuery: true,
+      });
+
+      expect(response.data.rowCount).toEqual(selectedIds.length);
+    });
+
     describe('simple aggregation text field record', () => {
       test.each(TEXT_FIELD_CASES)(
         `should agg func [$aggFunc] value: $expectValue`,

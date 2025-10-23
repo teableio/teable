@@ -505,6 +505,9 @@ export class AggregationService implements IAggregationService {
       viewId,
     } = params;
 
+    const restrictRecordIds =
+      selectedRecordIds && !filterLinkCellCandidate ? selectedRecordIds : undefined;
+
     const { qb, alias, selectionMap } = await this.recordQueryBuilder.createRecordAggregateBuilder(
       dbTableName,
       {
@@ -519,6 +522,7 @@ export class AggregationService implements IAggregationService {
             alias: 'count',
           },
         ],
+        restrictRecordIds,
         useQueryModel: true,
       }
     );

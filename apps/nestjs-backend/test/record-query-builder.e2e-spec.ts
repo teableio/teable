@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
-import { FieldType as FT, Relationship } from '@teable/core';
+import { FieldType as FT, Relationship, StatisticsFunc } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { format as formatSql } from 'sql-formatter';
 import type { IRecordQueryBuilder } from '../src/features/record/query-builder';
@@ -148,6 +148,39 @@ describe('RecordQueryBuilder (e2e)', () => {
       limit
         1"
     `);
+  });
+
+  it('pushes record id restriction into the base CTE', async () => {
+    const { qb, alias } = await rqb.createRecordQueryBuilder(dbTableName, {
+      tableIdOrDbTableName: table.id,
+      projection: [f1.id],
+      restrictRecordIds: ['rec_TEST_1'],
+    });
+
+    const formatted = pretty(normalizeSql(qb.limit(1).toQuery(), alias));
+
+    expect(formatted).toMatch(/with\s+"BASE_TBL_ALIAS"\s+as/i);
+    expect(formatted).toMatch(/where\s+"TBL_ALIAS"\."__id"\s+in\s+\('rec_TEST_1'\)/i);
+    expect(formatted).toMatch(/from\s+"BASE_TBL_ALIAS"\s+as\s+"TBL_ALIAS"/i);
+  });
+
+  it('pushes record id restriction into the aggregate base CTE', async () => {
+    const { qb, alias } = await rqb.createRecordAggregateBuilder(dbTableName, {
+      tableIdOrDbTableName: table.id,
+      aggregationFields: [
+        {
+          fieldId: '*',
+          statisticFunc: StatisticsFunc.Count,
+          alias: 'row_count',
+        },
+      ],
+      restrictRecordIds: ['rec_TEST_2'],
+    });
+
+    const formatted = pretty(normalizeSql(qb.toQuery(), alias));
+    expect(formatted).toMatch(/with\s+"BASE_TBL_ALIAS"\s+as/i);
+    expect(formatted).toMatch(/where\s+"TBL_ALIAS"\."__id"\s+in\s+\('rec_TEST_2'\)/i);
+    expect(formatted).toMatch(/from\s+"BASE_TBL_ALIAS"\s+as\s+"TBL_ALIAS"/i);
   });
 
   it('qualifies system columns inside lookup CTE formulas', async () => {

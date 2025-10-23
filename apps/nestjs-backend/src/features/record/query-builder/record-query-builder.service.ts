@@ -5,7 +5,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
-import { preservedDbFieldNames } from '../../field/constant';
+import { ID_FIELD_NAME, preservedDbFieldNames } from '../../field/constant';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import { FieldCteVisitor } from './field-cte-visitor';
 import { FieldSelectVisitor } from './field-select-visitor';
@@ -152,6 +152,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         currentUserId: options.currentUserId,
         defaultOrderField: options.defaultOrderField,
         hasSearch: options.hasSearch,
+        restrictRecordIds: options.restrictRecordIds,
       });
       this.buildFieldCtes(qb, tables, state, options.projection);
     }
@@ -175,7 +176,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     options: ICreateRecordQueryBuilderOptions
   ): Promise<{ qb: Knex.QueryBuilder; alias: string; selectionMap: IReadonlyRecordSelectionMap }> {
-    const { tableIdOrDbTableName, filter, sort, currentUserId } = options;
+    const { tableIdOrDbTableName, filter, sort, currentUserId, restrictRecordIds } = options;
     const { qb, alias, table, state } = await this.createQueryBuilder(from, tableIdOrDbTableName, {
       useQueryModel: options.useQueryModel,
       projection: options.projection,
@@ -186,6 +187,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId,
       defaultOrderField: options.defaultOrderField,
       hasSearch: options.hasSearch,
+      restrictRecordIds,
     });
 
     this.buildSelect(
@@ -222,12 +224,14 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       groupBy,
       currentUserId,
       useQueryModel,
+      restrictRecordIds,
     } = options;
     const { qb, table, alias, state } = await this.createQueryBuilder(from, tableIdOrDbTableName, {
       useQueryModel,
       projection: options.projection,
       filter,
       currentUserId,
+      restrictRecordIds,
     });
 
     this.buildAggregateSelect(qb, table, state);
@@ -300,9 +304,19 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       currentUserId?: string;
       defaultOrderField?: string;
       hasSearch?: boolean;
+      restrictRecordIds?: string[];
     }
   ): void {
-    const { limit, offset, filter, sort, currentUserId, defaultOrderField, hasSearch } = params;
+    const {
+      limit,
+      offset,
+      filter,
+      sort,
+      currentUserId,
+      defaultOrderField,
+      hasSearch,
+      restrictRecordIds,
+    } = params;
     state.setBaseCteName(undefined);
 
     if (state.getContext() !== 'table') {
@@ -315,42 +329,62 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     }
 
     const baseLimit = this.resolveBaseLimit(limit, offset);
-    if (!baseLimit) {
+    let applyPagination = Boolean(baseLimit) && !hasSearch;
+    const normalizedRecordIds = Array.from(
+      new Set(
+        (restrictRecordIds ?? []).filter(
+          (id): id is string => typeof id === 'string' && id.length > 0
+        )
+      )
+    );
+    const applyRecordRestriction = normalizedRecordIds.length > 0;
+
+    if (!applyPagination && !applyRecordRestriction) {
       return;
     }
 
-    if (hasSearch) {
-      // Avoid trimming candidate rows before search filter applies; search runs after base CTE.
-      return;
+    let baseSelectionMap: Map<string, string> | undefined;
+
+    if (applyPagination) {
+      const requiredFieldIds = this.collectRequiredFieldIds(filter, sort, defaultOrderField);
+      const fieldLookup = this.buildFieldLookup(table);
+
+      if (this.referencesComputedField(requiredFieldIds, fieldLookup)) {
+        // Fall back to full table scan when pagination conflicts with computed fields,
+        // but still allow record-level restriction to run.
+        applyPagination = false;
+        if (!applyRecordRestriction) {
+          return;
+        }
+      } else {
+        baseSelectionMap = this.createBaseSelectionMap(requiredFieldIds, fieldLookup, alias);
+      }
     }
-
-    const requiredFieldIds = this.collectRequiredFieldIds(filter, sort, defaultOrderField);
-    const fieldLookup = this.buildFieldLookup(table);
-
-    if (this.referencesComputedField(requiredFieldIds, fieldLookup)) {
-      return;
-    }
-
-    const baseSelectionMap = this.createBaseSelectionMap(requiredFieldIds, fieldLookup, alias);
 
     const baseBuilder = this.knex
       .queryBuilder()
       .select(this.knex.raw('??.*', [alias]))
       .from({ [alias]: originalSource });
 
-    if (filter) {
-      this.buildFilter(baseBuilder, table, filter, baseSelectionMap, currentUserId);
+    if (applyPagination && filter) {
+      this.buildFilter(baseBuilder, table, filter, baseSelectionMap!, currentUserId);
     }
 
-    if (sort && sort.length) {
-      this.buildSort(baseBuilder, table, sort, baseSelectionMap);
+    if (applyPagination && sort && sort.length) {
+      this.buildSort(baseBuilder, table, sort, baseSelectionMap!);
     }
 
-    if (defaultOrderField) {
+    if (applyPagination && defaultOrderField) {
       baseBuilder.orderBy(`${alias}.${defaultOrderField}`, 'asc');
     }
 
-    baseBuilder.limit(baseLimit);
+    if (applyPagination && baseLimit) {
+      baseBuilder.limit(baseLimit);
+    }
+
+    if (applyRecordRestriction) {
+      baseBuilder.whereIn(`${alias}.${ID_FIELD_NAME}`, normalizedRecordIds);
+    }
 
     const baseCteName = `BASE_${alias}`;
     qb.with(baseCteName, baseBuilder);

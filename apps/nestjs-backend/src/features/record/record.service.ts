@@ -212,6 +212,7 @@ export class RecordService {
       {
         tableIdOrDbTableName: tableId,
         viewId: undefined,
+        restrictRecordIds: [recordId],
       }
     );
     const sql = queryBuilder.where('__id', recordId).toQuery();
@@ -561,6 +562,11 @@ export class RecordService {
 
     const basicSortIndex = await this.getBasicOrderIndexField(dbTableName, query.viewId);
 
+    const restrictRecordIds =
+      query.selectedRecordIds && !query.filterLinkCellCandidate
+        ? query.selectedRecordIds
+        : undefined;
+
     // Retrieve the current user's ID to build user-related query conditions
     const currentUserId = this.cls.get('user.id');
     const { qb, alias, selectionMap } = await this.recordQueryBuilder.createRecordQueryBuilder(
@@ -578,6 +584,7 @@ export class RecordService {
         offset: query.skip,
         hasSearch: Boolean(search?.[2]),
         defaultOrderField: basicSortIndex,
+        restrictRecordIds,
       }
     );
 
@@ -1387,6 +1394,7 @@ export class RecordService {
         viewId: undefined,
         useQueryModel: query.useQueryModel,
         projection: fieldIds,
+        restrictRecordIds: recordIds,
       }
     );
 

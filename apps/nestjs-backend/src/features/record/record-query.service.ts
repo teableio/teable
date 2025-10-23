@@ -57,6 +57,7 @@ export class RecordQueryService {
           tableIdOrDbTableName: tableId,
           viewId: undefined,
           useQueryModel: false,
+          restrictRecordIds: recordIds,
         }
       );
       const sql = queryBuilder.whereIn('__id', recordIds).toQuery();
