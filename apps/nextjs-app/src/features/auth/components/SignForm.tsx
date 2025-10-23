@@ -20,6 +20,8 @@ import type { FC } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ZodIssue } from 'zod';
 import { fromZodError } from 'zod-validation-error';
+import { trackSignUpConversion } from '@/components/google-ads';
+import { useEnv } from '@/features/app/hooks/useEnv';
 import { authConfig } from '../../i18n/auth.config';
 import { SendVerificationButton } from './SendVerificationButton';
 import TurnstileWidget from './TurnstileWidget';
@@ -41,6 +43,7 @@ export const SignForm: FC<ISignForm> = (props) => {
   const [turnstileToken, setTurnstileToken] = useState<string>();
   const [countdown, setCountdown] = useState<number>(0);
   const [turnstileKey, setTurnstileKey] = useState<number>(0);
+  const env = useEnv();
   const emailRef = useRef<HTMLInputElement>(null);
 
   const { data: setting } = useQuery({
@@ -142,10 +145,20 @@ export const SignForm: FC<ISignForm> = (props) => {
     meta: {
       preventGlobalError: true,
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
       // Reset turnstile token after successful submission
       setTurnstileToken(undefined);
       setTurnstileKey((prev) => prev + 1);
+
+      // Track Google Ads conversion for successful sign-up with user info
+      if (variables.type === 'signup' && data.data) {
+        trackSignUpConversion(env.googleAdsConversionId, {
+          id: data.data.id,
+          email: data.data.email,
+          name: data.data.name,
+        });
+      }
+
       onSuccess?.();
     },
   });

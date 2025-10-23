@@ -8,6 +8,7 @@ export interface IServerEnv {
   microsoftClarityId?: string;
   umamiWebSiteId?: string;
   gaId?: string;
+  googleAdsConversionId?: string;
   umamiUrl?: string;
   sentryDsn?: string;
   socialAuthProviders?: string[];
