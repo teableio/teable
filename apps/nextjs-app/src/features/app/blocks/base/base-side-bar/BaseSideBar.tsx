@@ -41,7 +41,7 @@ export const BaseSideBar = () => {
           href: `/base/${baseId}/app`,
           label: t('common:noun.app'),
           Icon: AppWindowMac,
-          hidden: !basePermission?.['base|create'] || !buildAppEnabled,
+          hidden: !basePermission?.['base|update'] || !buildAppEnabled,
           billingLevel: BillingProductLevel.Pro,
         },
         {
