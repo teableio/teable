@@ -107,6 +107,32 @@ const BOOLEAN_FUNCTIONS = new Set<FunctionName>([
   FunctionName.Xor,
 ]);
 
+const STRING_FIELD_TYPES = new Set<FieldType>([
+  FieldType.SingleLineText,
+  FieldType.LongText,
+  FieldType.SingleSelect,
+  FieldType.MultipleSelect,
+  FieldType.User,
+  FieldType.CreatedBy,
+  FieldType.LastModifiedBy,
+  FieldType.Attachment,
+  FieldType.Link,
+  FieldType.Button,
+]);
+
+const DATETIME_FIELD_TYPES = new Set<FieldType>([
+  FieldType.Date,
+  FieldType.CreatedTime,
+  FieldType.LastModifiedTime,
+]);
+
+const NUMBER_FIELD_TYPES = new Set<FieldType>([
+  FieldType.Number,
+  FieldType.Rating,
+  FieldType.AutoNumber,
+  FieldType.Rollup,
+]);
+
 /**
  * Context information for formula conversion
  */
@@ -369,7 +395,8 @@ abstract class BaseSqlConversionVisitor<
   visitFunctionCall(ctx: FunctionCallContext): string {
     const rawName = ctx.func_name().text.toUpperCase();
     const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
-    const params = ctx.expr().map((exprCtx) => exprCtx.accept(this));
+    const exprContexts = ctx.expr();
+    const params = exprContexts.map((exprCtx) => exprCtx.accept(this));
 
     return (
       match(fnName)
@@ -395,7 +422,12 @@ abstract class BaseSqlConversionVisitor<
         .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
 
         // Text Functions
-        .with(FunctionName.Concatenate, () => this.formulaQuery.concatenate(params))
+        .with(FunctionName.Concatenate, () => {
+          const coerced = params.map((param, index) =>
+            this.coerceToStringForConcatenation(param, exprContexts[index])
+          );
+          return this.formulaQuery.concatenate(coerced);
+        })
         .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
         .with(FunctionName.Search, () => this.formulaQuery.search(params[0], params[1], params[2]))
         .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
@@ -541,8 +573,15 @@ abstract class BaseSqlConversionVisitor<
         const _leftType = this.inferExpressionType(ctx.expr(0));
         const _rightType = this.inferExpressionType(ctx.expr(1));
 
-        if (_leftType === 'string' || _rightType === 'string') {
-          return this.formulaQuery.stringConcat(left, right);
+        if (
+          _leftType === 'string' ||
+          _rightType === 'string' ||
+          _leftType === 'datetime' ||
+          _rightType === 'datetime'
+        ) {
+          const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), _leftType);
+          const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), _rightType);
+          return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
         }
 
         return this.formulaQuery.add(left, right);
@@ -561,7 +600,11 @@ abstract class BaseSqlConversionVisitor<
       .with('||', () => this.formulaQuery.logicalOr(left, right))
       .with('&', () => {
         // Always treat & as string concatenation to avoid type issues
-        return this.formulaQuery.stringConcat(left, right);
+        const leftType = this.inferExpressionType(ctx.expr(0));
+        const rightType = this.inferExpressionType(ctx.expr(1));
+        const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), leftType);
+        const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), rightType);
+        return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
       })
       .otherwise((op) => {
         throw new Error(`Unsupported binary operator: ${op}`);
@@ -576,10 +619,29 @@ abstract class BaseSqlConversionVisitor<
   private safeCastToNumeric(value: string): string {
     return this.dialect!.coerceToNumericForCompare(value);
   }
+
+  /**
+   * Coerce values participating in string concatenation to textual representation when needed.
+   * Datetime operands are cast to string to mirror client-side behaviour and to avoid relying
+   * on database-specific implicit casts that may be non-immutable for generated columns.
+   */
+  private coerceToStringForConcatenation(
+    value: string,
+    exprCtx: ExprContext,
+    inferredType?: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown'
+  ): string {
+    const type = inferredType ?? this.inferExpressionType(exprCtx);
+    if (type === 'datetime') {
+      return this.formulaQuery.datetimeFormat(value, "'YYYY-MM-DD'");
+    }
+    return value;
+  }
   /**
    * Infer the type of an expression for type-aware operations
    */
-  private inferExpressionType(ctx: ExprContext): 'string' | 'number' | 'boolean' | 'unknown' {
+  private inferExpressionType(
+    ctx: ExprContext
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     // Handle literals
     const literalType = this.inferLiteralType(ctx);
     if (literalType !== 'unknown') {
@@ -621,7 +683,9 @@ abstract class BaseSqlConversionVisitor<
   /**
    * Infer type from literal contexts
    */
-  private inferLiteralType(ctx: ExprContext): 'string' | 'number' | 'boolean' | 'unknown' {
+  private inferLiteralType(
+    ctx: ExprContext
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     if (ctx instanceof StringLiteralContext) {
       return 'string';
     }
@@ -642,7 +706,7 @@ abstract class BaseSqlConversionVisitor<
    */
   private inferFieldReferenceType(
     ctx: FieldReferenceCurlyContext
-  ): 'string' | 'number' | 'boolean' | 'unknown' {
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     const fieldId = ctx.text.slice(1, -1); // Remove curly braces
     const fieldInfo = this.context.table.getField(fieldId);
 
@@ -650,51 +714,47 @@ abstract class BaseSqlConversionVisitor<
       return 'unknown';
     }
 
-    // For formula fields, try to infer the actual return type from cellValueType
-    if (fieldInfo.type === 'formula' && fieldInfo.cellValueType) {
-      return this.mapCellValueTypeToBasicType(fieldInfo.cellValueType);
-    }
-
-    return this.mapFieldTypeToBasicType(fieldInfo.type);
+    return this.mapFieldTypeToBasicType(fieldInfo);
   }
 
   /**
    * Map field types to basic types
    */
-  private mapFieldTypeToBasicType(fieldType: string): 'string' | 'number' | 'boolean' | 'unknown' {
-    const stringTypes = [
-      'singleLineText',
-      'longText',
-      'singleSelect',
-      'multipleSelect',
-      'user',
-      'createdBy',
-      'lastModifiedBy',
-      'attachment',
-      'link',
-      'date',
-      'createdTime',
-      'lastModifiedTime', // Dates are typically handled as strings in SQL
-    ];
+  private mapFieldTypeToBasicType(
+    fieldInfo: FieldCore
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
+    const { type, cellValueType } = fieldInfo;
+    const typeEnum = type as FieldType;
 
-    const numberTypes = ['number', 'rating', 'autoNumber', 'count', 'rollup'];
-
-    if (stringTypes.includes(fieldType)) {
+    if (STRING_FIELD_TYPES.has(typeEnum)) {
       return 'string';
     }
 
-    if (numberTypes.includes(fieldType)) {
+    if (DATETIME_FIELD_TYPES.has(typeEnum)) {
+      return 'datetime';
+    }
+
+    if (NUMBER_FIELD_TYPES.has(typeEnum)) {
       return 'number';
     }
 
-    if (fieldType === 'checkbox') {
+    if (typeEnum === FieldType.Checkbox) {
       return 'boolean';
     }
 
-    if (fieldType === 'formula') {
-      // For formula fields, we can't easily determine the type without recursion
-      // Default to unknown to be safe
+    if (
+      typeEnum === FieldType.Formula ||
+      typeEnum === FieldType.Rollup ||
+      typeEnum === FieldType.ConditionalRollup
+    ) {
+      if (cellValueType) {
+        return this.mapCellValueTypeToBasicType(cellValueType);
+      }
       return 'unknown';
+    }
+
+    if (cellValueType) {
+      return this.mapCellValueTypeToBasicType(cellValueType);
     }
 
     return 'unknown';
@@ -705,7 +765,7 @@ abstract class BaseSqlConversionVisitor<
    */
   private mapCellValueTypeToBasicType(
     cellValueType: string
-  ): 'string' | 'number' | 'boolean' | 'unknown' {
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     switch (cellValueType) {
       case 'string':
         return 'string';
@@ -713,6 +773,8 @@ abstract class BaseSqlConversionVisitor<
         return 'number';
       case 'boolean':
         return 'boolean';
+      case 'datetime':
+        return 'datetime';
       default:
         return 'unknown';
     }
@@ -723,7 +785,7 @@ abstract class BaseSqlConversionVisitor<
    */
   private inferFunctionReturnType(
     ctx: FunctionCallContext
-  ): 'string' | 'number' | 'boolean' | 'unknown' {
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     const rawName = ctx.func_name().text.toUpperCase();
     const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
 
@@ -739,6 +801,20 @@ abstract class BaseSqlConversionVisitor<
       return 'boolean';
     }
 
+    // Basic detection for functions that yield datetime
+    if (
+      [
+        FunctionName.CreatedTime,
+        FunctionName.LastModifiedTime,
+        FunctionName.Today,
+        FunctionName.Now,
+        FunctionName.DateAdd,
+        FunctionName.DatetimeParse,
+      ].includes(fnName)
+    ) {
+      return 'datetime';
+    }
+
     return 'unknown';
   }
 
@@ -747,7 +823,7 @@ abstract class BaseSqlConversionVisitor<
    */
   private inferBinaryOperationType(
     ctx: BinaryOpContext
-  ): 'string' | 'number' | 'boolean' | 'unknown' {
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
     const operator = ctx._op?.text;
 
     if (!operator) {
@@ -764,6 +840,10 @@ abstract class BaseSqlConversionVisitor<
       const rightType = this.inferExpressionType(ctx.expr(1));
 
       if (leftType === 'string' || rightType === 'string') {
+        return 'string';
+      }
+
+      if (leftType === 'datetime' || rightType === 'datetime') {
         return 'string';
       }
 

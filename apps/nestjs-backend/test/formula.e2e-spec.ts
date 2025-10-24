@@ -813,6 +813,135 @@ describe('OpenAPI formula (e2e)', () => {
         }
       }
     );
+
+    it('should concatenate date and text fields with ampersand', async () => {
+      const followDateField = await createField(table1Id, {
+        name: 'follow date',
+        type: FieldType.Date,
+      } as IFieldRo);
+
+      const followDateValue = '2025-10-24T00:00:00.000Z';
+      const followContentValue = 'hello';
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: numericInput,
+              [textFieldRo.name]: followContentValue,
+              [followDateField.name]: followDateValue,
+            },
+          },
+        ],
+      });
+
+      const recordId = records[0].id;
+
+      const formulaField = await createField(table1Id, {
+        name: 'follow summary',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${followDateField.id}} & "-" & {${textFieldRo.id}}`,
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const formulaValue = recordAfterFormula.data.fields[formulaField.name];
+      expect(formulaValue).toBe('2025-10-24-hello');
+    });
+
+    it('should keep concatenated formula after updating referenced text field', async () => {
+      const followDateField = await createField(table1Id, {
+        name: 'follow date',
+        type: FieldType.Date,
+      } as IFieldRo);
+
+      const followDateValue = '2025-10-24T00:00:00.000Z';
+      const followContentValue = 'hello';
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: numericInput,
+              [textFieldRo.name]: followContentValue,
+              [followDateField.name]: followDateValue,
+            },
+          },
+        ],
+      });
+
+      const recordId = records[0].id;
+
+      const formulaField = await createField(table1Id, {
+        name: 'follow summary',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${followDateField.id}} & "-" & {${textFieldRo.id}}`,
+        },
+      });
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [textFieldRo.name]: 'world',
+          },
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const formulaValue = recordAfterFormula.data.fields[formulaField.name];
+      expect(formulaValue).toBe('2025-10-24-world');
+    });
+
+    it('should keep concatenated formula after updating referenced date field', async () => {
+      const followDateField = await createField(table1Id, {
+        name: 'follow date',
+        type: FieldType.Date,
+      } as IFieldRo);
+
+      const followDateValue = '2025-10-24T00:00:00.000Z';
+      const followContentValue = 'hello';
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [numberFieldRo.name]: numericInput,
+              [textFieldRo.name]: followContentValue,
+              [followDateField.name]: followDateValue,
+            },
+          },
+        ],
+      });
+
+      const recordId = records[0].id;
+
+      const formulaField = await createField(table1Id, {
+        name: 'follow summary',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${followDateField.id}} & "-" & {${textFieldRo.id}}`,
+        },
+      });
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [followDateField.name]: '2025-10-26T00:00:00.000Z',
+          },
+        },
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, recordId);
+      const formulaValue = recordAfterFormula.data.fields[formulaField.name];
+      expect(formulaValue).toBe('2025-10-26-hello');
+    });
   });
 
   describe('logical and system formula functions', () => {

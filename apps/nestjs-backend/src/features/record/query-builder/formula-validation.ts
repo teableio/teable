@@ -14,6 +14,7 @@ export function validateFormulaSupport(
   expression: string,
   tableDomain: TableDomain
 ): boolean {
+  supportValidator.setContext({ table: tableDomain });
   const validator = new FormulaSupportGeneratedColumnValidator(supportValidator, tableDomain);
   return validator.validateFormula(expression);
 }

@@ -114,7 +114,9 @@ export class RecordUpdateService {
       tableId,
       recordIds,
       undefined,
-      fieldKeyType
+      fieldKeyType,
+      undefined,
+      true
     );
     return {
       records: snapshots.map((snapshot) => snapshot.data),

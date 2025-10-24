@@ -1,3 +1,11 @@
+import type {
+  TableDomain,
+  IFunctionCallInfo,
+  ExprContext,
+  FormulaFieldCore,
+  UnaryOpContext,
+  RuleNode,
+} from '@teable/core';
 import {
   parseFormula,
   FunctionCallCollectorVisitor,
@@ -5,12 +13,10 @@ import {
   FieldType,
   AbstractParseTreeVisitor,
   CellValueType,
-} from '@teable/core';
-import type {
-  TableDomain,
-  IFunctionCallInfo,
-  ExprContext,
-  FormulaFieldCore,
+  FunctionName,
+  LeftWhitespaceOrCommentsContext,
+  normalizeFunctionNameAlias,
+  RightWhitespaceOrCommentsContext,
   StringLiteralContext,
   IntegerLiteralContext,
   DecimalLiteralContext,
@@ -19,8 +25,7 @@ import type {
   FieldReferenceCurlyContext,
   BracketsContext,
   BinaryOpContext,
-  UnaryOpContext,
-  RuleNode,
+  DbFieldType,
 } from '@teable/core';
 import { match } from 'ts-pattern';
 import type { IGeneratedColumnQuerySupportValidator } from './sql-conversion.visitor';
@@ -47,6 +52,10 @@ export class FormulaSupportGeneratedColumnValidator {
 
       // First check if any referenced fields are link, lookup, or rollup fields
       if (!this.validateFieldReferences(tree)) {
+        return false;
+      }
+
+      if (this.hasDatetimeStringConcatenation(tree)) {
         return false;
       }
 
@@ -344,45 +353,49 @@ export class FormulaSupportGeneratedColumnValidator {
   private validateTypeSafety(tree: ExprContext): boolean {
     try {
       class TypeInferVisitor extends AbstractParseTreeVisitor<
-        'string' | 'number' | 'boolean' | 'unknown'
+        'string' | 'number' | 'boolean' | 'datetime' | 'unknown'
       > {
         constructor(private readonly tableDomain: TableDomain) {
           super();
         }
 
-        protected defaultResult(): 'string' | 'number' | 'boolean' | 'unknown' {
+        protected defaultResult(): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return 'unknown';
         }
 
         visitStringLiteral(
           _ctx: StringLiteralContext
-        ): 'string' | 'number' | 'boolean' | 'unknown' {
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return 'string';
         }
 
         visitIntegerLiteral(
           _ctx: IntegerLiteralContext
-        ): 'string' | 'number' | 'boolean' | 'unknown' {
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return 'number';
         }
 
         visitDecimalLiteral(
           _ctx: DecimalLiteralContext
-        ): 'string' | 'number' | 'boolean' | 'unknown' {
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return 'number';
         }
 
         visitBooleanLiteral(
           _ctx: BooleanLiteralContext
-        ): 'string' | 'number' | 'boolean' | 'unknown' {
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return 'boolean';
         }
 
-        visitBrackets(ctx: BracketsContext): 'string' | 'number' | 'boolean' | 'unknown' {
+        visitBrackets(
+          ctx: BracketsContext
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           return ctx.expr().accept(this);
         }
 
-        visitUnaryOp(ctx: UnaryOpContext): 'string' | 'number' | 'boolean' | 'unknown' {
+        visitUnaryOp(
+          ctx: UnaryOpContext
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           const operandType = ctx.expr().accept(this);
           // Unary minus is numeric-only; if we can prove it's string, mark as unknown (invalid later)
           return operandType === 'string' ? 'unknown' : 'number';
@@ -390,7 +403,7 @@ export class FormulaSupportGeneratedColumnValidator {
 
         visitFieldReferenceCurly(
           ctx: FieldReferenceCurlyContext
-        ): 'string' | 'number' | 'boolean' | 'unknown' {
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           const fieldId = ctx.text.slice(1, -1);
           const field = this.tableDomain.getField(fieldId);
           if (!field) return 'unknown';
@@ -402,19 +415,38 @@ export class FormulaSupportGeneratedColumnValidator {
             case CellValueType.Boolean:
               return 'boolean';
             case CellValueType.DateTime:
-              // Treat datetime as unknown for arithmetic, will be validated by function support
-              return 'unknown';
+              return 'datetime';
+            case 'dateTime':
+              return 'datetime';
             default:
+              if (
+                field.type === FieldType.Date ||
+                field.type === FieldType.CreatedTime ||
+                field.type === FieldType.LastModifiedTime
+              ) {
+                return 'datetime';
+              }
+              if (field.cellValueType === 'datetime') {
+                return 'datetime';
+              }
+              if (field.dbFieldType === 'DATETIME') {
+                return 'datetime';
+              }
               return 'unknown';
           }
         }
 
-        visitFunctionCall(_ctx: FunctionCallContext): 'string' | 'number' | 'boolean' | 'unknown' {
+        visitFunctionCall(
+          _ctx: FunctionCallContext
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           // We don't derive precise return types here; keep as unknown to avoid false negatives
           return 'unknown';
         }
 
-        visitBinaryOp(ctx: BinaryOpContext): 'string' | 'number' | 'boolean' | 'unknown' {
+        // eslint-disable-next-line sonarjs/cognitive-complexity
+        visitBinaryOp(
+          ctx: BinaryOpContext
+        ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
           const operator = ctx._op?.text ?? '';
           const leftType = ctx.expr(0).accept(this);
           const rightType = ctx.expr(1).accept(this);
@@ -426,6 +458,7 @@ export class FormulaSupportGeneratedColumnValidator {
           if (operator === '+') {
             // Ambiguous in our grammar; be conservative: if either side is string, treat as string
             if (leftType === 'string' || rightType === 'string') return 'string';
+            if (leftType === 'datetime' || rightType === 'datetime') return 'string';
             if (leftType === 'number' && rightType === 'number') return 'number';
             return 'unknown';
           }
@@ -471,6 +504,22 @@ export class FormulaSupportGeneratedColumnValidator {
         visitBinaryOp(ctx: BinaryOpContext): boolean {
           const operator = ctx._op?.text ?? '';
           const arithmetic = ['-', '*', '/', '%'];
+          const stringConcat = ['&'];
+          const plusOperator = operator === '+';
+          if (plusOperator || stringConcat.includes(operator)) {
+            const leftType = ctx.expr(0).accept(this.infer);
+            const rightType = ctx.expr(1).accept(this.infer);
+            const behavesAsString =
+              stringConcat.includes(operator) ||
+              (plusOperator &&
+                (leftType === 'string' ||
+                  rightType === 'string' ||
+                  leftType === 'datetime' ||
+                  rightType === 'datetime'));
+            if (behavesAsString && (leftType === 'datetime' || rightType === 'datetime')) {
+              return true;
+            }
+          }
           if (arithmetic.includes(operator)) {
             const leftType = ctx.expr(0).accept(this.infer);
             const rightType = ctx.expr(1).accept(this.infer);
@@ -493,5 +542,144 @@ export class FormulaSupportGeneratedColumnValidator {
       // On validator failure, be conservative and disable generated column support
       return false;
     }
+  }
+
+  private hasDatetimeStringConcatenation(tree: ExprContext): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    class DatetimeConcatDetector extends AbstractParseTreeVisitor<boolean> {
+      protected defaultResult(): boolean {
+        return false;
+      }
+
+      // eslint-disable-next-line sonarjs/no-identical-functions
+      visitChildren(node: RuleNode): boolean {
+        const n = node.childCount;
+        for (let i = 0; i < n; i++) {
+          const child = node.getChild(i);
+          if (child && child.accept(this)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      visitBinaryOp(ctx: BinaryOpContext): boolean {
+        const operator = ctx._op?.text ?? '';
+        if (operator === '+' || operator === '&') {
+          const leftType = self.inferBasicType(ctx.expr(0));
+          const rightType = self.inferBasicType(ctx.expr(1));
+          const behavesAsString =
+            operator === '&' || leftType === 'string' || rightType === 'string';
+          if ((leftType === 'datetime' || rightType === 'datetime') && behavesAsString) {
+            return true;
+          }
+        }
+        return this.visitChildren(ctx);
+      }
+    }
+
+    return tree.accept(new DatetimeConcatDetector()) ?? false;
+  }
+
+  // eslint-disable-next-line sonarjs/cognitive-complexity
+  private inferBasicType(
+    ctx: ExprContext
+  ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
+    if (ctx instanceof StringLiteralContext) {
+      return 'string';
+    }
+    if (ctx instanceof IntegerLiteralContext || ctx instanceof DecimalLiteralContext) {
+      return 'number';
+    }
+    if (ctx instanceof BooleanLiteralContext) {
+      return 'boolean';
+    }
+    if (ctx instanceof FieldReferenceCurlyContext) {
+      const fieldId = ctx.text.slice(1, -1);
+      const field = this.tableDomain.getField(fieldId);
+      if (!field) {
+        return 'unknown';
+      }
+      switch (field.cellValueType) {
+        case CellValueType.String:
+          return 'string';
+        case CellValueType.Number:
+          return 'number';
+        case CellValueType.Boolean:
+          return 'boolean';
+        case CellValueType.DateTime:
+          return 'datetime';
+        default:
+          if (
+            field.type === FieldType.Date ||
+            field.type === FieldType.CreatedTime ||
+            field.type === FieldType.LastModifiedTime
+          ) {
+            return 'datetime';
+          }
+          if (field?.dbFieldType === DbFieldType.DateTime) {
+            return 'datetime';
+          }
+          return 'unknown';
+      }
+    }
+    if (ctx instanceof FunctionCallContext) {
+      const rawName = ctx.func_name().text.toUpperCase();
+      const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
+      if (
+        [
+          FunctionName.Today,
+          FunctionName.Now,
+          FunctionName.DateAdd,
+          FunctionName.CreatedTime,
+          FunctionName.LastModifiedTime,
+          FunctionName.DatetimeParse,
+        ].includes(fnName)
+      ) {
+        return 'datetime';
+      }
+      if (fnName === FunctionName.Concatenate) {
+        return 'string';
+      }
+      return 'unknown';
+    }
+    if (ctx instanceof BinaryOpContext) {
+      const operator = ctx._op?.text ?? '';
+      const leftType = this.inferBasicType(ctx.expr(0));
+      const rightType = this.inferBasicType(ctx.expr(1));
+      if (operator === '+' || operator === '&') {
+        if (leftType === 'string' || rightType === 'string') {
+          return 'string';
+        }
+        if (leftType === 'datetime' || rightType === 'datetime') {
+          return 'string';
+        }
+        if (leftType === 'number' && rightType === 'number') {
+          return 'number';
+        }
+        return 'unknown';
+      }
+      if (['-', '*', '/', '%'].includes(operator)) {
+        return 'number';
+      }
+      if (['>', '<', '>=', '<=', '=', '!=', '<>', '&&', '||'].includes(operator)) {
+        return 'boolean';
+      }
+      if (operator === '&') {
+        return 'string';
+      }
+      return 'unknown';
+    }
+    if (ctx instanceof BracketsContext) {
+      return this.inferBasicType(ctx.expr());
+    }
+    if (
+      ctx instanceof LeftWhitespaceOrCommentsContext ||
+      ctx instanceof RightWhitespaceOrCommentsContext
+    ) {
+      return this.inferBasicType(ctx.expr());
+    }
+    return 'unknown';
   }
 }
