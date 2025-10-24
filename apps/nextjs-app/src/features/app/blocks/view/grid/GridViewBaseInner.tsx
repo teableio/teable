@@ -9,7 +9,7 @@ import {
   stringifyClipboardText,
 } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
-import { autoFillField, createRecords, stopFillField, UploadType } from '@teable/openapi';
+import { createRecords, stopFillField, UploadType } from '@teable/openapi';
 import type {
   IRectangle,
   IPosition,
@@ -77,6 +77,7 @@ import {
   useViewId,
   useRecordOperations,
   useButtonClickStatus,
+  useFieldOperations,
 } from '@teable/sdk/hooks';
 import { ConfirmDialog, useConfirm, useToast } from '@teable/ui-lib';
 import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -117,6 +118,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { groupPointsServerData, onRowExpand } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { updateRecord, duplicateRecord } = useRecordOperations();
+  const { autoFillField } = useFieldOperations();
   const router = useRouter();
   const baseId = useBaseId();
   const tableId = useTableId() as string;
@@ -1286,7 +1288,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
                 groupBy: group,
               };
 
-          autoFillField(tableId, autoFillFieldId, query);
+          autoFillField({ tableId, fieldId: autoFillFieldId, query });
           setAutoFillFieldId(undefined);
         }}
       />

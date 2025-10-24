@@ -1,11 +1,13 @@
 import { useMutation } from '@tanstack/react-query';
 import type { IFieldRo } from '@teable/core';
+import type { IAutoFillFieldRo } from '@teable/openapi';
 import {
   convertField as convertFieldApi,
   createField as createFieldApi,
   planFieldCreate as planFieldCreateApi,
   planFieldConvert as planFieldConvertApi,
   deleteField as deleteFieldApi,
+  autoFillField as autoFillFieldApi,
 } from '@teable/openapi';
 
 export const useFieldOperations = () => {
@@ -48,5 +50,24 @@ export const useFieldOperations = () => {
       deleteFieldApi(tableId, fieldId).then((res) => res.data),
   });
 
-  return { createField, convertField, planFieldCreate, planFieldConvert, deleteField };
+  const { mutateAsync: autoFillField } = useMutation({
+    mutationFn: ({
+      tableId,
+      fieldId,
+      query,
+    }: {
+      tableId: string;
+      fieldId: string;
+      query: IAutoFillFieldRo;
+    }) => autoFillFieldApi(tableId, fieldId, query).then((res) => res.data),
+  });
+
+  return {
+    createField,
+    convertField,
+    planFieldCreate,
+    planFieldConvert,
+    deleteField,
+    autoFillField,
+  };
 };
