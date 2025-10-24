@@ -27,7 +27,7 @@ import {
   ISetSettingMailTransportConfigRo,
   SettingKey,
 } from '@teable/openapi';
-import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { Public } from '../../auth/decorators/public.decorator';
@@ -39,7 +39,7 @@ export class SettingOpenApiController {
   constructor(
     private readonly settingOpenApiService: SettingOpenApiService,
     private readonly turnstileService: TurnstileService,
-    @AuthConfig() private readonly authConfig: IAuthConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
   /**
@@ -87,8 +87,9 @@ export class SettingOpenApiController {
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       webSearchEnabled: Boolean(webSearchConfig?.apiKey),
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
-      signupVerificationCodeRateLimitSeconds:
-        this.authConfig.signupVerificationCodeRateLimitSeconds,
+      changeEmailSendMailCodeRate: this.thresholdConfig.changeEmailSendMailCodeRate,
+      resetPasswordSendMailCodeRate: this.thresholdConfig.resetPasswordSendMailCodeRate,
+      signupVerificationSendMailCodeRate: this.thresholdConfig.signupVerificationSendMailCodeRate,
     };
   }
 

@@ -196,7 +196,8 @@
           "invalidCode": "验证码无效",
           "invalidPassword": "密码无效",
           "invalidConflict": "新电子邮件已注册",
-          "invalidSameEmail": "新电子邮件与当前电子邮件相同"
+          "invalidSameEmail": "新电子邮件与当前电子邮件相同",
+          "sendMailRateLimit": "请等待 {{seconds}} 秒后再发送新的电子邮件"
         },
         "success": {
           "title": "🎉 电子邮件更改成功。",

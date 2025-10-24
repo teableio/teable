@@ -28,3 +28,10 @@ export const useSetting = () => {
     createdTime,
   };
 };
+
+export const usePublicSettingQuery = () => {
+  return useQuery({
+    queryKey: ReactQueryKeys.getPublicSetting(),
+    queryFn: () => getPublicSetting().then(({ data }) => data),
+  });
+};

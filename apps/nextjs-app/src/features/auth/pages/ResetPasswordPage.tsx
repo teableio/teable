@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { HttpError } from '@teable/core';
+import { type HttpError } from '@teable/core';
 import { resetPassword } from '@teable/openapi';
 import { passwordSchema } from '@teable/openapi/src/auth/types';
 import { Spin, Error } from '@teable/ui-lib/base';
@@ -35,8 +35,8 @@ export const ResetPasswordPage = () => {
         router.push('/auth/login');
       }, 2000);
     },
-    onError: (err) => {
-      setError((err as HttpError).message);
+    onError: (err: HttpError) => {
+      setError(err.message);
     },
   });
 

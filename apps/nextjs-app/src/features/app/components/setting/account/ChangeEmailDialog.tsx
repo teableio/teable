@@ -21,6 +21,8 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
+import { useCutDown } from '@/features/app/hooks/useCutDown';
+import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 
 export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation('common');
@@ -32,6 +34,10 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
   const [token, setToken] = useState('');
   const { user } = useSession();
   const router = useRouter();
+  const { countdown, setCountdown } = useCutDown();
+
+  const { data: setting } = usePublicSettingQuery();
+  const { changeEmailSendMailCodeRate } = setting ?? {};
 
   useEffect(() => {
     setError('');
@@ -52,6 +58,9 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
           setSendSuccess(false);
         }, 2000);
         toast.success(t('settings.account.changeEmail.success.sendSuccess'));
+        if (typeof changeEmailSendMailCodeRate === 'number' && changeEmailSendMailCodeRate > 0) {
+          setCountdown(changeEmailSendMailCodeRate);
+        }
       },
       meta: {
         preventGlobalError: true,
@@ -61,6 +70,18 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
           setError(t('settings.account.changeEmail.error.invalidConflict'));
         } else if (error.code === HttpErrorCode.INVALID_CREDENTIALS) {
           setError(t('settings.account.changeEmail.error.invalidPassword'));
+        } else if (
+          error.code === HttpErrorCode.TOO_MANY_REQUESTS &&
+          error.data &&
+          typeof error.data === 'object' &&
+          'seconds' in error.data
+        ) {
+          setError(
+            t('settings.account.changeEmail.error.sendMailRateLimit', {
+              seconds: error.data.seconds,
+            })
+          );
+          return;
         } else {
           setError(error.message);
         }
@@ -145,11 +166,13 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
                   !sendSuccess &&
                   sendChangeEmailCodeMutation({ email: newEmail, password: currentPassword })
                 }
-                disabled={sendChangeEmailCodeLoading || !newEmail || !currentPassword}
+                disabled={
+                  sendChangeEmailCodeLoading || !newEmail || !currentPassword || countdown > 0
+                }
               >
                 {sendChangeEmailCodeLoading && <Spin className="size-4" />}
                 {sendSuccess && <Check className="size-4 text-green-500 dark:text-green-400" />}
-                {t('settings.account.changeEmail.getCode')}
+                {countdown > 0 ? `${countdown}s` : t('settings.account.changeEmail.getCode')}
               </Button>
             </div>
             <Input

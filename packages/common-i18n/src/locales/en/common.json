@@ -196,7 +196,8 @@
           "invalidCode": "The verification code is invalid.",
           "invalidPassword": "The password is invalid.",
           "invalidConflict": "The new email is already registered.",
-          "invalidSameEmail": "The new email is the same as the current email."
+          "invalidSameEmail": "The new email is the same as the current email.",
+          "sendMailRateLimit": "Please wait {{seconds}} seconds before sending a new email"
         },
         "success": {
           "title": "🎉 Change email successfully.",

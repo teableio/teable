@@ -17,10 +17,10 @@ import { isEmpty } from 'lodash';
 import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
-import type { ICacheStore } from '../../../cache/types';
 import { AuthConfig, type IAuthConfig } from '../../../configs/auth.config';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { MailConfig, type IMailConfig } from '../../../configs/mail.config';
+import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
@@ -48,6 +48,7 @@ export class LocalAuthService {
     @AuthConfig() private readonly authConfig: IAuthConfig,
     @MailConfig() private readonly mailConfig: IMailConfig,
     @BaseConfig() private readonly baseConfig: IBaseConfig,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly jwtService: JwtService,
     private readonly settingService: SettingService,
     private readonly turnstileService: TurnstileService
@@ -274,72 +275,52 @@ export class LocalAuthService {
   }
 
   async sendSignupVerificationCode(email: string) {
-    // Check rate limit: ensure interval between emails for the same address
-    // Backend rate limit is configured limit - 2 seconds (to account for network latency)
-    // If configured limit is 0, skip rate limiting entirely
-    const configuredLimit = this.authConfig.signupVerificationCodeRateLimitSeconds;
-    const backendRateLimit = configuredLimit > 0 ? configuredLimit - 2 : 0;
-
-    if (backendRateLimit > 0) {
-      const rateLimitKey = `signup-verification-rate-limit:${email}` as keyof ICacheStore;
-      const existingRateLimit = await this.cacheService.get(rateLimitKey);
-
-      if (existingRateLimit) {
-        this.logger.warn(`Signup verification rate limit exceeded - email: ${email}`);
-        throw new BadRequestException(
-          `Please wait ${configuredLimit} seconds before requesting a new code`
-        );
-      }
-    }
-
-    const code = getRandomString(4, RandomType.Number);
-    const token = await this.jwtSignupCode(email, code);
-
-    if (this.baseConfig.enableEmailCodeConsole) {
-      console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-    }
-
-    const user = await this.userService.getUserByEmail(email);
-    this.isRegisteredValidate(user);
-
-    // Log verification code sending
-    this.logger.log(
-      `Sending signup verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
-    );
-
-    const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-      title: 'Signup verification',
-      message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
-    });
-
-    await this.mailSenderService.sendMail(
+    return await this.mailSenderService.checkSendMailRateLimit(
       {
-        to: email,
-
-        ...emailOptions,
+        email,
+        rateLimitKey: 'signup-verification',
+        rateLimit: this.thresholdConfig.signupVerificationSendMailCodeRate,
       },
-      {
-        type: MailType.VerifyCode,
-        transporterName: MailTransporterType.Notify,
+      async () => {
+        const code = getRandomString(4, RandomType.Number);
+        const token = await this.jwtSignupCode(email, code);
+
+        if (this.baseConfig.enableEmailCodeConsole) {
+          console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
+        }
+
+        const user = await this.userService.getUserByEmail(email);
+        this.isRegisteredValidate(user);
+
+        // Log verification code sending
+        this.logger.log(
+          `Sending signup verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
+        );
+
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+          title: 'Signup verification',
+          message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+        });
+
+        await this.mailSenderService.sendMail(
+          {
+            to: email,
+
+            ...emailOptions,
+          },
+          {
+            type: MailType.VerifyCode,
+            transporterName: MailTransporterType.Notify,
+          }
+        );
+        return {
+          token,
+          expiresTime: new Date(
+            ms(this.authConfig.signupVerificationExpiresIn) + Date.now()
+          ).toISOString(),
+        };
       }
     );
-
-    // Set rate limit using setDetail for exact TTL without random addition
-    if (backendRateLimit > 0) {
-      const rateLimitKey = `signup-verification-rate-limit:${email}` as keyof ICacheStore;
-      await this.cacheService.setDetail(
-        rateLimitKey,
-        { email, timestamp: Date.now() },
-        backendRateLimit
-      );
-    }
-
-    return {
-      token,
-      expiresTime: new Date(
-        ms(this.authConfig.signupVerificationExpiresIn) + Date.now()
-      ).toISOString(),
-    };
   }
 
   async changePassword({ password, newPassword }: IChangePasswordRo) {
@@ -363,33 +344,42 @@ export class LocalAuthService {
   }
 
   async sendResetPasswordEmail(email: string) {
-    const user = await this.userService.getUserByEmail(email);
-    if (!user || (user.accounts.length === 0 && user.password == null)) {
-      throw new BadRequestException(`${email} not registered`);
-    }
-
-    const resetPasswordCode = getRandomString(30);
-
-    const url = `${this.mailConfig.origin}/auth/reset-password?code=${resetPasswordCode}`;
-    const resetPasswordEmailOptions = await this.mailSenderService.resetPasswordEmailOptions({
-      name: user.name,
-      email: user.email,
-      resetPasswordUrl: url,
-    });
-    await this.mailSenderService.sendMail(
+    return await this.mailSenderService.checkSendMailRateLimit(
       {
-        to: user.email,
-        ...resetPasswordEmailOptions,
+        email,
+        rateLimitKey: 'send-reset-password-email',
+        rateLimit: this.thresholdConfig.resetPasswordSendMailCodeRate,
       },
-      {
-        type: MailType.ResetPassword,
-        transporterName: MailTransporterType.Notify,
+      async () => {
+        const user = await this.userService.getUserByEmail(email);
+        if (!user || (user.accounts.length === 0 && user.password == null)) {
+          throw new BadRequestException(`${email} not registered`);
+        }
+
+        const resetPasswordCode = getRandomString(30);
+
+        const url = `${this.mailConfig.origin}/auth/reset-password?code=${resetPasswordCode}`;
+        const resetPasswordEmailOptions = await this.mailSenderService.resetPasswordEmailOptions({
+          name: user.name,
+          email: user.email,
+          resetPasswordUrl: url,
+        });
+        await this.mailSenderService.sendMail(
+          {
+            to: user.email,
+            ...resetPasswordEmailOptions,
+          },
+          {
+            type: MailType.ResetPassword,
+            transporterName: MailTransporterType.Notify,
+          }
+        );
+        await this.cacheService.set(
+          `reset-password-email:${resetPasswordCode}`,
+          { userId: user.id },
+          second(this.authConfig.resetPasswordEmailExpiresIn)
+        );
       }
-    );
-    await this.cacheService.set(
-      `reset-password-email:${resetPasswordCode}`,
-      { userId: user.id },
-      second(this.authConfig.resetPasswordEmailExpiresIn)
     );
   }
 
@@ -469,39 +459,49 @@ export class LocalAuthService {
       'Password is incorrect',
       HttpErrorCode.INVALID_CREDENTIALS
     );
-    const user = await this.validateUserByEmail(email, password).catch(() => {
-      throw invalidPasswordError;
-    });
-    if (!user) {
-      throw invalidPasswordError;
-    }
-    const userByNewEmail = await this.userService.getUserByEmail(newEmail);
-    if (userByNewEmail) {
-      throw new ConflictException('New email is already registered');
-    }
-    const code = getRandomString(4, RandomType.Number);
-    const token = await this.jwtService.signAsync(
-      { email, newEmail, code },
-      { expiresIn: this.baseConfig.emailCodeExpiresIn }
-    );
-    if (this.baseConfig.enableEmailCodeConsole) {
-      console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-    }
-    const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-      title: 'Change Email verification',
-      message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
-    });
-    await this.mailSenderService.sendMail(
+
+    return await this.mailSenderService.checkSendMailRateLimit(
       {
-        to: newEmail,
-        ...emailOptions,
+        email: newEmail,
+        rateLimitKey: 'send-change-email-code',
+        rateLimit: this.thresholdConfig.changeEmailSendMailCodeRate,
       },
-      {
-        type: MailType.VerifyCode,
-        transporterName: MailTransporterType.Notify,
+      async () => {
+        const user = await this.validateUserByEmail(email, password).catch(() => {
+          throw invalidPasswordError;
+        });
+        if (!user) {
+          throw invalidPasswordError;
+        }
+        const userByNewEmail = await this.userService.getUserByEmail(newEmail);
+        if (userByNewEmail) {
+          throw new ConflictException('New email is already registered');
+        }
+        const code = getRandomString(4, RandomType.Number);
+        const token = await this.jwtService.signAsync(
+          { email, newEmail, code },
+          { expiresIn: this.baseConfig.emailCodeExpiresIn }
+        );
+        if (this.baseConfig.enableEmailCodeConsole) {
+          console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
+        }
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
+          title: 'Change Email verification',
+          message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
+        });
+        await this.mailSenderService.sendMail(
+          {
+            to: newEmail,
+            ...emailOptions,
+          },
+          {
+            type: MailType.VerifyCode,
+            transporterName: MailTransporterType.Notify,
+          }
+        );
+        return { token };
       }
     );
-    return { token };
   }
 
   async joinWaitlist(email: string) {

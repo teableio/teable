@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
+import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
 import { MailType, CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
 import { isString } from 'lodash';
 import { createTransport } from 'nodemailer';
+import { CacheService } from '../../cache/cache.service';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
+import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
@@ -19,7 +22,8 @@ export class MailSenderService {
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
     private readonly settingOpenApiService: SettingOpenApiService,
-    private readonly eventEmitterService: EventEmitterService
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly cacheService: CacheService
   ) {
     const { host, port, secure, auth, sender, senderName } = this.mailConfig;
     this.defaultTransportConfig = {
@@ -33,6 +37,32 @@ export class MailSenderService {
         pass: auth.pass || '',
       },
     };
+  }
+
+  async checkSendMailRateLimit<T>(
+    options: { email: string; rateLimitKey: string; rateLimit: number },
+    fn: () => Promise<T>
+  ) {
+    const { email, rateLimitKey: _rateLimitKey, rateLimit: _rateLimit } = options;
+    // If rate limit is 0, skip rate limiting entirely
+    if (_rateLimit <= 0) {
+      return await fn();
+    }
+    const rateLimit = _rateLimit - 2; // 2 seconds for network latency
+    const rateLimitKey = `send-mail-rate-limit:${_rateLimitKey}:${email}` as const;
+    const existingRateLimit = await this.cacheService.get(rateLimitKey);
+    if (existingRateLimit) {
+      throw new CustomHttpException(
+        `Reached the rate limit of sending mail, please try again after ${rateLimit} seconds`,
+        HttpErrorCode.TOO_MANY_REQUESTS,
+        {
+          seconds: _rateLimit,
+        }
+      );
+    }
+    const result = await fn();
+    await this.cacheService.setDetail(rateLimitKey, true, rateLimit);
+    return result;
   }
 
   // https://nodemailer.com/smtp#connection-options

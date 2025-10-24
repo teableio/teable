@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { HttpError } from '@teable/core';
+import { HttpErrorCode, type HttpError } from '@teable/core';
 import { sendResetPasswordEmail } from '@teable/openapi';
 import { Spin, Error } from '@teable/ui-lib/base';
 import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
@@ -7,6 +7,8 @@ import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { z } from 'zod';
 import { useAutoFavicon } from '@/features/app/hooks/useAutoFavicon';
+import { useCutDown } from '@/features/app/hooks/useCutDown';
+import { usePublicSettingQuery } from '@/features/app/hooks/useSetting';
 import { authConfig } from '@/features/i18n/auth.config';
 import { LayoutMain } from '../components/LayoutMain';
 
@@ -16,6 +18,9 @@ export const ForgetPasswordPage = () => {
   const { t } = useTranslation(authConfig.i18nNamespaces);
   useAutoFavicon();
   const { toast } = useToast();
+  const { countdown, setCountdown } = useCutDown();
+  const { data: setting } = usePublicSettingQuery();
+  const { resetPasswordSendMailCodeRate } = setting ?? {};
 
   const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
@@ -24,9 +29,21 @@ export const ForgetPasswordPage = () => {
         title: t('auth:forgetPassword.success.title'),
         description: t('auth:forgetPassword.success.description'),
       });
+      if (typeof resetPasswordSendMailCodeRate === 'number' && resetPasswordSendMailCodeRate > 0) {
+        setCountdown(resetPasswordSendMailCodeRate);
+      }
     },
-    onError: (err) => {
-      setError((err as HttpError).message);
+    onError: (err: HttpError) => {
+      if (
+        err.code === HttpErrorCode.TOO_MANY_REQUESTS &&
+        err.data &&
+        typeof err.data === 'object' &&
+        'seconds' in err.data
+      ) {
+        setError(t('auth:forgetPassword.sendMailRateLimit', { seconds: err.data.seconds }));
+        return;
+      }
+      setError(err.message);
     },
   });
 
@@ -70,9 +87,10 @@ export const ForgetPasswordPage = () => {
             if (error || isLoading || !email) return;
             sendResetPasswordEmailMutate({ email });
           }}
+          disabled={isLoading || countdown > 0}
         >
           {isLoading && <Spin />}
-          {t('auth:forgetPassword.buttonText')}
+          {countdown > 0 ? `${countdown}s` : t('auth:forgetPassword.buttonText')}
         </Button>
       </div>
     </LayoutMain>

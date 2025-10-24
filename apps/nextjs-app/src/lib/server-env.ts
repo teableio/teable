@@ -34,6 +34,9 @@ export interface IServerEnv {
   chatContextAttachmentSize?: number;
   publicOrigin?: string;
   publicDatabaseProxy?: string;
+  changeEmailSendMailCodeRate?: number;
+  resetPasswordSendMailCodeRate?: number;
+  signupVerificationSendMailCodeRate?: number;
 }
 
 export const EnvContext = React.createContext<IServerEnv>({});
