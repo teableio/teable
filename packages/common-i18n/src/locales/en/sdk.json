@@ -384,6 +384,7 @@
       "recordDelete": "Delete record",
       "recordRead": "Read record",
       "recordUpdate": "Update record",
+      "recordCopy": "Copy record",
       "automationCreate": "Create automation",
       "automationDelete": "Delete automation",
       "automationRead": "Read automation",

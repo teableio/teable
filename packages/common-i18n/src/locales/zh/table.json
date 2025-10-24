@@ -424,7 +424,8 @@
       "deleteSuccessful": "删除成功",
       "pasteFileFailed": "文件只能粘贴到附件字段中",
       "copyError": {
-        "noFocus": "请保持页面激活，不要切换窗口"
+        "noFocus": "请保持页面激活，不要切换窗口",
+        "noPermission": "您没有权限复制记录"
       }
     },
     "graph": {

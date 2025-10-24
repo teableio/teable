@@ -36,7 +36,7 @@ export class SelectionController {
     return this.selectionService.getIdsFromRanges(tableId, query);
   }
 
-  @Permissions('record|read')
+  @Permissions('record|read', 'record|copy')
   @Get('/copy')
   async copy(
     @Param('tableId') tableId: string,

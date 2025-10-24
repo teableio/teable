@@ -664,6 +664,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onCopy = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+    if (!permission['record|copy']) {
+      sonnerToast.warning(t('table:table.actionTips.copyError.noPermission'));
+      return;
+    }
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
       // sync copy
       syncCopy(e, { selection, recordMap });

@@ -78,6 +78,7 @@ export const recordActions = [
   'record|read',
   'record|update',
   'record|comment',
+  'record|copy',
 ] as const;
 export const recordActionSchema = z.enum(recordActions);
 export type RecordAction = z.infer<typeof recordActionSchema>;

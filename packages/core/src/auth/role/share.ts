@@ -18,4 +18,5 @@ export const shareViewPermissions: Record<ShareViewAction, boolean> = {
   'record|delete': false,
   'record|read': true,
   'record|update': false,
+  'record|copy': false,
 };

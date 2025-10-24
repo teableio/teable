@@ -398,6 +398,7 @@
       "recordDelete": "删除记录",
       "recordRead": "查看记录",
       "recordUpdate": "更新记录",
+      "recordCopy": "复制记录",
       "automationCreate": "创建自动化",
       "automationDelete": "删除自动化",
       "automationRead": "读取自动化",

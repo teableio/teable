@@ -137,6 +137,9 @@ const actionsI18nMap: Record<
   'record|update': {
     description: 'permission.actionDescription.recordUpdate',
   },
+  'record|copy': {
+    description: 'permission.actionDescription.recordCopy',
+  },
   'automation|create': {
     description: 'permission.actionDescription.automationCreate',
   },

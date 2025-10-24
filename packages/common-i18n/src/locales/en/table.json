@@ -423,7 +423,8 @@
       "deleteSuccessful": "Delete successful",
       "pasteFileFailed": "Files can only be pasted into an attachment field",
       "copyError": {
-        "noFocus": "Please keep the page active and do not switch windows"
+        "noFocus": "Please keep the page active and do not switch windows",
+        "noPermission": "You don't have permission to copy records"
       }
     },
     "graph": {
