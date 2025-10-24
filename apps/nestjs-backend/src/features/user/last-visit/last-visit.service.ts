@@ -455,6 +455,7 @@ export class LastVisitService {
 
       const oldRecords = await prisma.userLastVisit.findMany({
         where: {
+          userId,
           ...(maxKeys.includes('resourceType') ? { resourceType } : {}),
           ...(maxKeys.includes('parentResourceId') ? { parentResourceId } : {}),
         },
