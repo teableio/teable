@@ -266,7 +266,12 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     }
   }
 
-  singleValueRollupAggregate(fn: string, fieldExpression: string): string {
+  singleValueRollupAggregate(
+    fn: string,
+    fieldExpression: string,
+    options: { rollupField: FieldCore; targetField: FieldCore }
+  ): string {
+    const requiresJsonArray = options.rollupField.dbFieldType === DbFieldType.Json;
     switch (fn) {
       case 'sum':
       case 'average':
@@ -289,7 +294,10 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
         return `(COALESCE((${fieldExpression})::boolean, false))`;
       case 'array_unique':
       case 'array_compact':
-        return `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::json ELSE json_build_array(${fieldExpression}) END)`;
+        if (!requiresJsonArray) {
+          return `${fieldExpression}`;
+        }
+        return `(CASE WHEN ${fieldExpression} IS NULL THEN '[]'::jsonb ELSE jsonb_build_array(${fieldExpression}) END)`;
       default:
         return `${fieldExpression}`;
     }

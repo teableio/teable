@@ -3,7 +3,13 @@
 /* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFilter, IFilterItem } from '@teable/core';
+import type {
+  IFieldRo,
+  IFilter,
+  IFilterItem,
+  ILinkFieldOptions,
+  ILookupOptionsRo,
+} from '@teable/core';
 import {
   FieldType,
   Relationship,
@@ -14,6 +20,9 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { duplicateField, convertField } from '@teable/openapi';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
@@ -30,7 +39,11 @@ import {
   initApp,
   permanentDeleteTable,
   updateRecordByApi,
+  getRecord,
 } from './utils/init-app';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 describe('Computed Orchestrator (e2e)', () => {
   let app: INestApplication;
@@ -294,6 +307,134 @@ describe('Computed Orchestrator (e2e)', () => {
       expect(parseMaybe((row as any)[dFull.dbFieldName])).toEqual(5);
 
       await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('persists multi-value date lookup formulas without timezone cast regressions', async () => {
+      const parent = await createTable(baseId, { name: 'Formula_Lookup_Parent', fields: [] });
+      const child = await createTable(baseId, { name: 'Formula_Lookup_Child', fields: [] });
+
+      try {
+        const childDateField = await createField(child.id, {
+          name: 'Session Time',
+          type: FieldType.Date,
+        } as IFieldRo);
+
+        const linkField = await createField(parent.id, {
+          name: 'Sessions',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: child.id,
+          } as ILinkFieldOptions,
+        } as IFieldRo);
+
+        const symmetricFieldId = (linkField.options as ILinkFieldOptions)
+          .symmetricFieldId as string;
+
+        const lookupField = await createField(parent.id, {
+          name: 'All Session Times',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: child.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: childDateField.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const formulaField = await createField(parent.id, {
+          name: 'Follow Up Session',
+          type: FieldType.Formula,
+          options: {
+            expression: `DATE_ADD({${lookupField.id}}, 14, 'day')`,
+            timeZone: 'Asia/Shanghai',
+          },
+        } as IFieldRo);
+
+        const parentRecord = await createRecords(parent.id, { records: [{ fields: {} }] });
+        const parentRecordId = parentRecord.records[0].id;
+
+        const childRecord = await createRecords(child.id, {
+          typecast: true,
+          records: [
+            {
+              fields: {
+                [childDateField.id]: '2024-01-01T00:00:00.000Z',
+                [symmetricFieldId]: { id: parentRecordId },
+              },
+            },
+          ],
+        });
+        const childRecordId = childRecord.records[0].id;
+
+        // Ensure parent link field references the child so lookup returns multi-value array
+        await updateRecordByApi(parent.id, parentRecordId, linkField.id, [{ id: childRecordId }]);
+
+        const persistedParent = await getRecord(parent.id, parentRecordId);
+        const followUpValue = persistedParent.fields?.[formulaField.id];
+        expect(followUpValue).toBeTruthy();
+        const followUpTz = dayjs(followUpValue as string).tz('Asia/Shanghai');
+
+        const baseLookupRaw = persistedParent.fields?.[lookupField.id];
+        const baseIso =
+          typeof baseLookupRaw === 'string'
+            ? baseLookupRaw
+            : Array.isArray(baseLookupRaw)
+              ? (baseLookupRaw[0] as string | undefined)
+              : undefined;
+        expect(baseIso).toBeTruthy();
+        const baseTz = dayjs(baseIso as string).tz('Asia/Shanghai');
+
+        expect(followUpTz.diff(baseTz, 'day')).toBe(14);
+      } finally {
+        await permanentDeleteTable(baseId, child.id);
+        await permanentDeleteTable(baseId, parent.id);
+      }
+    });
+
+    it('handles divide and modulo by zero during computed persistence', async () => {
+      const table = await createTable(baseId, { name: 'Formula_Divide_Zero', fields: [] });
+
+      try {
+        const numeratorField = await createField(table.id, {
+          name: 'Numerator',
+          type: FieldType.Number,
+        } as IFieldRo);
+        const denominatorField = await createField(table.id, {
+          name: 'Denominator',
+          type: FieldType.Number,
+        } as IFieldRo);
+
+        const ratioField = await createField(table.id, {
+          name: 'Ratio',
+          type: FieldType.Formula,
+          options: { expression: `{${numeratorField.id}} / {${denominatorField.id}}` },
+        } as IFieldRo);
+
+        const remainderField = await createField(table.id, {
+          name: 'Remainder',
+          type: FieldType.Formula,
+          options: { expression: `{${numeratorField.id}} % {${denominatorField.id}}` },
+        } as IFieldRo);
+
+        const created = await createRecords(table.id, {
+          records: [
+            {
+              fields: {
+                [numeratorField.id]: 10,
+                [denominatorField.id]: 0,
+              },
+            },
+          ],
+        });
+        const recordId = created.records[0].id;
+
+        const record = await getRecord(table.id, recordId);
+        expect(record.fields?.[ratioField.id] ?? null).toBeNull();
+        expect(record.fields?.[remainderField.id] ?? null).toBeNull();
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
     });
   });
 

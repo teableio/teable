@@ -189,6 +189,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
    * Avoids using aggregate functions so GROUP BY is not required.
    */
   private generateSingleValueRollupAggregation(
+    rollupField: FieldCore,
+    targetField: FieldCore,
     expression: string,
     fieldExpression: string
   ): string {
@@ -199,9 +201,16 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const functionName = functionMatch[1].toLowerCase();
 
-    return this.dialect.singleValueRollupAggregate(functionName, fieldExpression);
+    return this.dialect.singleValueRollupAggregate(functionName, fieldExpression, {
+      rollupField,
+      targetField,
+    });
   }
-  private buildSingleValueRollup(field: FieldCore, expression: string): string {
+  private buildSingleValueRollup(
+    field: FieldCore,
+    targetField: FieldCore,
+    expression: string
+  ): string {
     const rollupOptions = field.options as IRollupFieldOptions;
     const rollupFilter = (field as FieldCore).getFilter?.();
     if (rollupFilter) {
@@ -210,9 +219,19 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
         this.dbProvider.driver === DriverClient.Pg
           ? `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`
           : expression;
-      return this.generateSingleValueRollupAggregation(rollupOptions.expression, filteredExpr);
+      return this.generateSingleValueRollupAggregation(
+        field,
+        targetField,
+        rollupOptions.expression,
+        filteredExpr
+      );
     }
-    return this.generateSingleValueRollupAggregation(rollupOptions.expression, expression);
+    return this.generateSingleValueRollupAggregation(
+      field,
+      targetField,
+      rollupOptions.expression,
+      expression
+    );
   }
   private buildAggregateRollup(
     rollupField: FieldCore,
@@ -965,7 +984,7 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
       options.relationship === Relationship.ManyOne || options.relationship === Relationship.OneOne;
 
     if (isSingleValueRelationship) {
-      return this.buildSingleValueRollup(field, expression);
+      return this.buildSingleValueRollup(field, targetLookupField, expression);
     }
     return this.buildAggregateRollup(field, targetLookupField, expression);
   }

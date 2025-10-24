@@ -257,11 +257,15 @@ export interface IRecordQueryDialectProvider {
    * Build rollup-like expression for single-value relationships without GROUP BY.
    * @example
    * ```ts
-   * dialect.singleValueRollupAggregate('count', 'f.amount')
+   * dialect.singleValueRollupAggregate('count', 'f.amount', { rollupField, targetField })
    * // PG:     CASE WHEN f.amount IS NULL THEN 0 ELSE 1 END
    * ```
    */
-  singleValueRollupAggregate(fn: string, fieldExpression: string): string;
+  singleValueRollupAggregate(
+    fn: string,
+    fieldExpression: string,
+    options: { rollupField: FieldCore; targetField: FieldCore }
+  ): string;
 
   /**
    * Build conditional JSON for link cell: { id, title? }.

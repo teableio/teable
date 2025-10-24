@@ -12,6 +12,10 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return value.trim() === "''";
   }
 
+  private toNumericSafe(expr: string): string {
+    return `NULLIF(REGEXP_REPLACE((${expr})::text, '[^0-9.+-]', '', 'g'), '')::double precision`;
+  }
+
   private normalizeBlankComparable(value: string): string {
     return `COALESCE(NULLIF((${value})::text, ''), '')`;
   }
@@ -62,6 +66,18 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
 
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
+  }
+
+  override divide(left: string, right: string): string {
+    const l = this.toNumericSafe(left);
+    const r = this.toNumericSafe(right);
+    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE (${l} / ${r}) END)`;
+  }
+
+  override modulo(left: string, right: string): string {
+    const l = this.toNumericSafe(left);
+    const r = this.toNumericSafe(right);
+    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE MOD((${l})::numeric, (${r})::numeric)::double precision END)`;
   }
 
   private normalizeBooleanCondition(condition: string): string {

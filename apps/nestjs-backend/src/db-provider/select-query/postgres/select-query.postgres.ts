@@ -737,11 +737,13 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   divide(left: string, right: string): string {
     const l = this.toNumericSafe(left);
     const r = this.toNumericSafe(right);
-    return `(${l} / ${r})`;
+    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE (${l} / ${r}) END)`;
   }
 
   modulo(left: string, right: string): string {
-    return `(${left} % ${right})`;
+    const l = this.toNumericSafe(left);
+    const r = this.toNumericSafe(right);
+    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE MOD((${l})::numeric, (${r})::numeric)::double precision END)`;
   }
 
   // Comparison Operations

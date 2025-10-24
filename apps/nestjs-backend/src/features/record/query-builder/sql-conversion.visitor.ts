@@ -25,6 +25,7 @@ import {
   isFieldHasExpression,
   isLinkLookupOptions,
   normalizeFunctionNameAlias,
+  DbFieldType,
 } from '@teable/core';
 import type {
   FormulaVisitor,
@@ -36,7 +37,6 @@ import type {
   LastModifiedTimeFieldCore,
   FormulaFieldCore,
   IFieldWithExpression,
-  DbFieldType,
 } from '@teable/core';
 import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
 import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
@@ -896,7 +896,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
       if (columnName) {
         const columnRef = `"${cteName}"."${columnName}"`;
         if (preferRaw && fieldInfo.type !== FieldType.Link) {
-          return columnRef;
+          return this.coerceRawMultiValueReference(columnRef, fieldInfo, selectContext);
         }
         if (fieldInfo.isLookup && isLinkLookupOptions(fieldInfo.lookupOptions)) {
           const titlesExpr = this.dialect!.linkExtractTitles(
@@ -933,14 +933,68 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     if (selectionSql) {
+      if (preferRaw) {
+        return this.coerceRawMultiValueReference(selectionSql, fieldInfo, selectContext);
+      }
       return selectionSql;
     }
     // Use table alias if provided in context
     if (selectContext.tableAlias) {
-      return `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+      const aliasExpr = `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+      return preferRaw
+        ? this.coerceRawMultiValueReference(aliasExpr, fieldInfo, selectContext)
+        : aliasExpr;
     }
 
-    return this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
+    const fallbackExpr = this.formulaQuery.fieldReference(fieldId, fieldInfo.dbFieldName);
+    return preferRaw
+      ? this.coerceRawMultiValueReference(fallbackExpr, fieldInfo, selectContext)
+      : fallbackExpr;
+  }
+
+  private coerceRawMultiValueReference(
+    expr: string,
+    fieldInfo: FieldCore,
+    selectContext: ISelectFormulaConversionContext
+  ): string {
+    if (!expr) return expr;
+    const trimmed = expr.trim().toUpperCase();
+    if (trimmed === 'NULL') {
+      return expr;
+    }
+    if (!fieldInfo.isMultipleCellValue) {
+      return expr;
+    }
+
+    const targetType = selectContext.targetDbFieldType;
+    if (!targetType || targetType === DbFieldType.Json) {
+      return expr;
+    }
+
+    if (!this.dialect) {
+      return expr;
+    }
+
+    // eslint-disable-next-line sonarjs/no-small-switch
+    switch (this.dialect.driver) {
+      case DriverClient.Pg: {
+        if (targetType !== DbFieldType.DateTime) {
+          return expr;
+        }
+        const safeJsonExpr = `(CASE
+          WHEN pg_typeof(${expr}) = 'jsonb'::regtype THEN (${expr})::jsonb
+          WHEN pg_typeof(${expr}) = 'json'::regtype THEN (${expr})::jsonb
+          ELSE NULL::jsonb
+        END)`;
+        return `(SELECT elem #>> '{}'
+          FROM jsonb_array_elements(COALESCE(${safeJsonExpr}, '[]'::jsonb)) AS elem
+          WHERE jsonb_typeof(elem) NOT IN ('array','object')
+          LIMIT 1
+        )`;
+      }
+      default:
+        return expr;
+    }
   }
 
   /**

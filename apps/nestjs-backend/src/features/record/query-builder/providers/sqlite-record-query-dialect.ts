@@ -1,5 +1,5 @@
-import { DriverClient, FieldType, Relationship } from '@teable/core';
-import type { INumberFormatting, ICurrencyFormatting, FieldCore, DbFieldType } from '@teable/core';
+import type { INumberFormatting, ICurrencyFormatting, FieldCore } from '@teable/core';
+import { DriverClient, FieldType, Relationship, DbFieldType } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQueryDialectProvider } from '../record-query-dialect.interface';
 
@@ -173,7 +173,12 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
     }
   }
 
-  singleValueRollupAggregate(fn: string, fieldExpression: string): string {
+  singleValueRollupAggregate(
+    fn: string,
+    fieldExpression: string,
+    options: { rollupField: FieldCore; targetField: FieldCore }
+  ): string {
+    const requiresJsonArray = options.rollupField.dbFieldType === DbFieldType.Json;
     switch (fn) {
       case 'sum':
       case 'average':
@@ -193,6 +198,9 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
         return `(CASE WHEN ${fieldExpression} THEN 1 ELSE 0 END)`;
       case 'array_unique':
       case 'array_compact':
+        if (!requiresJsonArray) {
+          return `${fieldExpression}`;
+        }
         return `(CASE WHEN ${fieldExpression} IS NULL THEN json('[]') ELSE json_array(${fieldExpression}) END)`;
       default:
         return `${fieldExpression}`;
