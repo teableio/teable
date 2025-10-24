@@ -14,7 +14,7 @@
       "placeholder": "Ara...",
       "empty": "Sonuç bulunamadı"
     },
-    "readOnlyTip": "Bu görünüm kilitli. Görünüm seçeneklerini düzenlemek için kişisel modu etkinleştirebilirsiniz, ve değişiklikler sadece size etkili olacaktır.",
+    "readOnlyTip": "Bu görünüm kilitli. Görünüm seçeneklerini düzenlemek için <button>kişisel modu</button> etkinleştirebilirsiniz, ve değişiklikler sadece size etkili olacaktır.",
     "selectPlaceHolder": "Seç...",
     "loading": "Yükleniyor...",
     "loadMore": "Daha Fazla Yükle",

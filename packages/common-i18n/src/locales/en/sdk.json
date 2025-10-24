@@ -14,7 +14,7 @@
       "placeholder": "Search...",
       "empty": "No results found"
     },
-    "readOnlyTip": "This view is locked. You can enable personal mode to edit view options, and the changes will only take effect for yourself.",
+    "readOnlyTip": "This view is locked. You can enable<button>personal mode</button>to edit view options, and the changes will only take effect for yourself.",
     "selectPlaceHolder": "Select...",
     "loading": "Loading...",
     "loadMore": "Load more",

@@ -14,7 +14,7 @@
       "placeholder": "Rechercher...",
       "empty": "Aucun résultat trouvé"
     },
-    "readOnlyTip": "Cette vue est verrouillée. Vous pouvez activer le mode personnel pour modifier les options de la vue, et les modifications ne prendront effet que pour vous.",
+    "readOnlyTip": "Cette vue est verrouillée. Vous pouvez activer le <button>mode personnel</button> pour modifier les options de la vue, et les modifications ne prendront effet que pour vous.",
     "selectPlaceHolder": "Sélectionner...",
     "loading": "Chargement...",
     "loadMore": "Charger plus",

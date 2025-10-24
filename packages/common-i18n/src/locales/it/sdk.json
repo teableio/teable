@@ -14,7 +14,7 @@
       "placeholder": "Cerca...",
       "empty": "Nessun risultato trovato"
     },
-    "readOnlyTip": "Questa vista è bloccata. Puoi abilitare il modo personale per modificare le opzioni della vista, e le modifiche avranno effetto solo per te.",
+    "readOnlyTip": "Questa vista è bloccata. Puoi abilitare <button>modo personale</button> per modificare le opzioni della vista, e le modifiche avranno effetto solo per te.",
     "selectPlaceHolder": "Seleziona...",
     "loading": "Caricamento...",
     "loadMore": "Carica altro",

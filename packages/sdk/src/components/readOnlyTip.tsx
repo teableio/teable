@@ -1,13 +1,13 @@
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
-import { useTranslation } from '../context/app/i18n';
+import { Button, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
+
+import { Trans } from '../context/app/i18n';
 import { usePersonalView, useView } from '../hooks';
 
 export const ReadOnlyTip = () => {
   const view = useView();
-  const { isPersonalView } = usePersonalView();
+  const { isPersonalView, openPersonalView } = usePersonalView();
 
   const readOnly = view?.isLocked && !isPersonalView;
-  const { t } = useTranslation();
 
   if (!readOnly) {
     return null;
@@ -20,7 +20,21 @@ export const ReadOnlyTip = () => {
           <div className={'absolute inset-0 z-50 cursor-not-allowed'} />
         </TooltipTrigger>
         <TooltipContent>
-          <p>{t('common.readOnlyTip')}</p>
+          <span className="text-xs">
+            <Trans
+              i18nKey="common.readOnlyTip"
+              components={{
+                button: (
+                  <Button
+                    className="pl-1 text-xs text-secondary underline"
+                    size="xs"
+                    onClick={openPersonalView}
+                    variant="link"
+                  />
+                ),
+              }}
+            />
+          </span>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

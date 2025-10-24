@@ -14,7 +14,7 @@
       "placeholder": "搜索...",
       "empty": "未找到结果"
     },
-    "readOnlyTip": "此视图已锁定，您可以启用个人模式来编辑视图选项，并且更改仅对您自己生效。",
+    "readOnlyTip": "此视图已锁定，您可以启用<button>个人模式</button>来编辑视图选项，并且更改仅对您自己生效。",
     "selectPlaceHolder": "请选择...",
     "loading": "加载中...",
     "loadMore": "加载更多",
