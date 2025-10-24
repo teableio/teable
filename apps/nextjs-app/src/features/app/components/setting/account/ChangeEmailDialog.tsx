@@ -37,7 +37,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
   const { countdown, setCountdown } = useCutDown();
 
   const { data: setting } = usePublicSettingQuery();
-  const { changeEmailSendMailCodeRate } = setting ?? {};
+  const { changeEmailSendCodeMailRate } = setting ?? {};
 
   useEffect(() => {
     setError('');
@@ -58,8 +58,8 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
           setSendSuccess(false);
         }, 2000);
         toast.success(t('settings.account.changeEmail.success.sendSuccess'));
-        if (typeof changeEmailSendMailCodeRate === 'number' && changeEmailSendMailCodeRate > 0) {
-          setCountdown(changeEmailSendMailCodeRate);
+        if (typeof changeEmailSendCodeMailRate === 'number' && changeEmailSendCodeMailRate > 0) {
+          setCountdown(changeEmailSendCodeMailRate);
         }
       },
       meta: {

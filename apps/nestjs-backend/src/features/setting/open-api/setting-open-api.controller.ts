@@ -87,9 +87,9 @@ export class SettingOpenApiController {
       appGenerationEnabled: Boolean(appConfig?.apiKey),
       webSearchEnabled: Boolean(webSearchConfig?.apiKey),
       turnstileSiteKey: this.turnstileService.getTurnstileSiteKey(),
-      changeEmailSendMailCodeRate: this.thresholdConfig.changeEmailSendMailCodeRate,
-      resetPasswordSendMailCodeRate: this.thresholdConfig.resetPasswordSendMailCodeRate,
-      signupVerificationSendMailCodeRate: this.thresholdConfig.signupVerificationSendMailCodeRate,
+      changeEmailSendCodeMailRate: this.thresholdConfig.changeEmailSendCodeMailRate,
+      resetPasswordSendMailRate: this.thresholdConfig.resetPasswordSendMailRate,
+      signupVerificationSendCodeMailRate: this.thresholdConfig.signupVerificationSendCodeMailRate,
     };
   }
 

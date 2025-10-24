@@ -279,7 +279,7 @@ export class LocalAuthService {
       {
         email,
         rateLimitKey: 'signup-verification',
-        rateLimit: this.thresholdConfig.signupVerificationSendMailCodeRate,
+        rateLimit: this.thresholdConfig.signupVerificationSendCodeMailRate,
       },
       async () => {
         const code = getRandomString(4, RandomType.Number);
@@ -348,7 +348,7 @@ export class LocalAuthService {
       {
         email,
         rateLimitKey: 'send-reset-password-email',
-        rateLimit: this.thresholdConfig.resetPasswordSendMailCodeRate,
+        rateLimit: this.thresholdConfig.resetPasswordSendMailRate,
       },
       async () => {
         const user = await this.userService.getUserByEmail(email);
@@ -464,7 +464,7 @@ export class LocalAuthService {
       {
         email: newEmail,
         rateLimitKey: 'send-change-email-code',
-        rateLimit: this.thresholdConfig.changeEmailSendMailCodeRate,
+        rateLimit: this.thresholdConfig.changeEmailSendCodeMailRate,
       },
       async () => {
         const user = await this.validateUserByEmail(email, password).catch(() => {

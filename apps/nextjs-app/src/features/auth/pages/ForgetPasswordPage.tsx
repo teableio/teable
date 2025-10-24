@@ -20,7 +20,7 @@ export const ForgetPasswordPage = () => {
   const { toast } = useToast();
   const { countdown, setCountdown } = useCutDown();
   const { data: setting } = usePublicSettingQuery();
-  const { resetPasswordSendMailCodeRate } = setting ?? {};
+  const { resetPasswordSendMailRate } = setting ?? {};
 
   const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
@@ -29,8 +29,8 @@ export const ForgetPasswordPage = () => {
         title: t('auth:forgetPassword.success.title'),
         description: t('auth:forgetPassword.success.description'),
       });
-      if (typeof resetPasswordSendMailCodeRate === 'number' && resetPasswordSendMailCodeRate > 0) {
-        setCountdown(resetPasswordSendMailCodeRate);
+      if (typeof resetPasswordSendMailRate === 'number' && resetPasswordSendMailRate > 0) {
+        setCountdown(resetPasswordSendMailRate);
       }
     },
     onError: (err: HttpError) => {
