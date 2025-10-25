@@ -33,9 +33,10 @@ export const RecordEditorItem = (props: {
         <div className="flex size-5 items-center">
           <Icon className="size-4" />
         </div>
-        <div className={cn('text-sm flex-1 truncate', vertical && 'break-words whitespace-normal')}>
+        <div className={cn('text-sm truncate', vertical && 'break-words whitespace-normal')}>
           {field.name}
         </div>
+        {field.notNull && <span className="text-red-500">*</span>}
       </div>
       <CellEditorWrap
         wrapClassName="min-w-0 flex-1 p-0.5"
