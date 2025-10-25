@@ -233,14 +233,17 @@ export class AiService {
     return text;
   }
 
-  async checkInstanceAIModel(modelKey: string): Promise<boolean> {
-    if (!this.baseConfig.isCloud) return false;
+  async getInstanceAIConfig() {
+    if (!this.baseConfig.isCloud) return null;
 
     const { aiConfig } = await this.settingService.getSetting();
 
-    if (!aiConfig?.enable) return false;
+    if (!aiConfig?.enable) return null;
 
-    const { llmProviders } = aiConfig;
+    return aiConfig;
+  }
+
+  findModelInProviders(modelKey: string, llmProviders: LLMProvider[]): boolean {
     const { type, model, name } = this.parseModelKey(modelKey);
 
     const providerConfig = llmProviders.find(
@@ -250,6 +253,13 @@ export class AiService {
         p.models.includes(model)
     );
     return !!providerConfig;
+  }
+
+  async checkInstanceAIModel(modelKey: string): Promise<boolean> {
+    const aiConfig = await this.getInstanceAIConfig();
+    if (!aiConfig) return false;
+
+    return this.findModelInProviders(modelKey, aiConfig.llmProviders);
   }
 
   async getChatModelInstance(baseId: string) {
