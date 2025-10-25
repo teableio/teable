@@ -50,6 +50,8 @@
     "exportTips1": "Export the current base as a .tea file, which may take some time. You can check the export results in the notification center.",
     "exportTips2": "You can import the .tea file in space -> more -> import",
     "exportTips3": "Cross-base relation fields will be converted to single line text.",
+    "exportIncludeDataLabel": "Include records",
+    "exportIncludeDataDescription": "Turn off to export only structure and configuration.",
     "moveBaseSuccessTitle": "Move base success",
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },

@@ -70,7 +70,7 @@ export class BaseExportService {
     return `${getRandomString(12)}`;
   }
 
-  async exportBaseZip(baseId: string) {
+  async exportBaseZip(baseId: string, includeData = true) {
     const { name: baseName } = await this.prismaService.base.findFirstOrThrow({
       where: {
         id: baseId,
@@ -80,7 +80,7 @@ export class BaseExportService {
       },
     });
 
-    this.processExportBaseZip(baseId)
+    this.processExportBaseZip(baseId, includeData)
       .then(async (result) => {
         const { path, name } = result;
         const previewUrl = await this.storageAdapter.getPreviewUrl(
@@ -102,7 +102,7 @@ export class BaseExportService {
       });
   }
 
-  private async processExportBaseZip(baseId: string) {
+  private async processExportBaseZip(baseId: string, includeData: boolean) {
     const prisma = this.prismaService.txClient();
     //  1. get all raw info
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -185,54 +185,56 @@ export class BaseExportService {
     await this.appendAttachments('attachments', tableRaws, archive);
 
     // 4.1 export attachments data .csv
-    await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
+    if (includeData) {
+      await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
 
-    // 5. export table data csv
-    const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
-
-    const crossBaseRelativeFieldsRaws = fieldRaws.filter(({ id }) =>
-      crossBaseRelativeFields.map(({ id }) => id).includes(id)
-    );
-
-    for (const tableRaw of tableRaws) {
-      const crossBaseFieldRaws = crossBaseRelativeFieldsRaws.filter(
-        ({ tableId }) => tableId === tableRaw.id
+      // 5. export table data csv
+      const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
+      const crossBaseRelativeFieldIds = new Set(crossBaseRelativeFields.map(({ id }) => id));
+      const crossBaseRelativeFieldsRaws = fieldRaws.filter(({ id }) =>
+        crossBaseRelativeFieldIds.has(id)
       );
-      const buttonDbFieldNames = fieldRaws
-        .filter(
-          ({ type, isLookup, tableId }) =>
-            type === FieldType.Button && !isLookup && tableId === tableRaw.id
-        )
-        .map((f) => f.dbFieldName);
 
-      const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
-      await this.appendTableDataCsv(
-        archive,
-        'tables',
-        tableRaw,
-        crossBaseFieldRaws,
-        excludeDbFieldNames
-      );
-    }
-
-    const linkFieldInstances = fieldRaws
-      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
-      .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
-      .map((f) => createFieldInstanceByRaw(f));
-
-    // 6. export junction csv for link fields
-    const junctionTableName = [] as string[];
-    for (const linkField of linkFieldInstances) {
-      const { options } = linkField;
-      const { fkHostTableName, selfKeyName, foreignKeyName } = options as ILinkFieldOptions;
-      if (fkHostTableName.includes('junction_') && !junctionTableName.includes(fkHostTableName)) {
-        await this.appendJunctionCsv(
-          'tables',
-          fkHostTableName,
-          selfKeyName,
-          foreignKeyName,
-          archive
+      for (const tableRaw of tableRaws) {
+        const crossBaseFieldRaws = crossBaseRelativeFieldsRaws.filter(
+          ({ tableId }) => tableId === tableRaw.id
         );
+        const buttonDbFieldNames = fieldRaws
+          .filter(
+            ({ type, isLookup, tableId }) =>
+              type === FieldType.Button && !isLookup && tableId === tableRaw.id
+          )
+          .map((f) => f.dbFieldName);
+
+        const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
+        await this.appendTableDataCsv(
+          archive,
+          'tables',
+          tableRaw,
+          crossBaseFieldRaws,
+          excludeDbFieldNames
+        );
+      }
+
+      const linkFieldInstances = fieldRaws
+        .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+        .filter(({ id }) => !crossBaseRelativeFieldIds.has(id))
+        .map((f) => createFieldInstanceByRaw(f));
+
+      // 6. export junction csv for link fields
+      const junctionTableName = [] as string[];
+      for (const linkField of linkFieldInstances) {
+        const { options } = linkField;
+        const { fkHostTableName, selfKeyName, foreignKeyName } = options as ILinkFieldOptions;
+        if (fkHostTableName.includes('junction_') && !junctionTableName.includes(fkHostTableName)) {
+          await this.appendJunctionCsv(
+            'tables',
+            fkHostTableName,
+            selfKeyName,
+            foreignKeyName,
+            archive
+          );
+        }
       }
     }
 

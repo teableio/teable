@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Switch,
   useToast,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -49,10 +50,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const [exportConfirm, setExportConfirm] = React.useState(false);
   const [moveConfirm, setMoveConfirm] = React.useState(false);
   const [spaceId, setSpaceId] = React.useState<string | null>(null);
+  const [includeData, setIncludeData] = React.useState(true);
   const baseStore = useDuplicateBaseStore();
   const queryClient = useQueryClient();
   const { mutateAsync: exportBaseFn } = useMutation({
-    mutationFn: (baseId: string) => exportBase(baseId),
+    mutationFn: ({ baseId, includeData }: { baseId: string; includeData: boolean }) =>
+      exportBase(baseId, { includeData }),
   });
 
   const { toast } = useToast();
@@ -78,6 +81,12 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     },
   });
 
+  React.useEffect(() => {
+    if (!exportConfirm) {
+      setIncludeData(true);
+    }
+  }, [exportConfirm]);
+
   if (!showDelete && !showRename && !showDuplicate && !showExport && !showMove) {
     return null;
   }
@@ -89,13 +98,25 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     setDeleteConfirm(false);
   };
 
-  const exportTips = (
-    <div className="text-wrap text-sm">
-      <p>{t('space:tip.exportTips1')}</p>
-      <p>{t('space:tip.exportTips2')}</p>
-      <br />
-      <p>Tips:</p>
-      <p>{t('space:tip.exportTips3')}</p>
+  const exportContent = (
+    <div className="space-y-4 text-sm">
+      <div className="space-y-2 text-wrap">
+        <p>{t('space:tip.exportTips1')}</p>
+        <p>{t('space:tip.exportTips2')}</p>
+        <div>
+          <p>Tips:</p>
+          <p>{t('space:tip.exportTips3')}</p>
+        </div>
+      </div>
+      <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
+        <div className="max-w-[240px] space-y-1">
+          <p className="text-sm font-medium">{t('space:tip.exportIncludeDataLabel')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('space:tip.exportIncludeDataDescription')}
+          </p>
+        </div>
+        <Switch checked={includeData} onCheckedChange={setIncludeData} />
+      </div>
     </div>
   );
 
@@ -193,13 +214,13 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       <ConfirmDialog
         open={exportConfirm}
         onOpenChange={setExportConfirm}
-        content={exportTips}
+        content={exportContent}
         title={t('space:tip.title')}
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
         onCancel={() => setExportConfirm(false)}
         onConfirm={() => {
-          exportBaseFn(base.id);
+          exportBaseFn({ baseId: base.id, includeData });
           setExportConfirm(false);
         }}
       />

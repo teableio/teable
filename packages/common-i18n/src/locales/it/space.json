@@ -46,6 +46,8 @@
     "exportTips1": "Esporta la base corrente come file .tea, il che potrebbe richiedere del tempo. Puoi controllare i risultati dell'esportazione nel centro notifiche.",
     "exportTips2": "Puoi importare il file .tea in spazio -> altro -> importa",
     "exportTips3": "I campi di relazione tra basi saranno convertiti in testo a riga singola.",
+    "exportIncludeDataLabel": "Includi record",
+    "exportIncludeDataDescription": "Disattiva per esportare solo struttura e configurazione.",
     "moveBaseSuccessTitle": "Spostamento riuscito",
     "moveBaseSuccessDescription": "{{baseName}} è stato spostato con successo in {{spaceName}}"
   },

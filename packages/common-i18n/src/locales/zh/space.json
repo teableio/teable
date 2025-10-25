@@ -50,6 +50,8 @@
     "exportTips1": "将当前数据库导出成 .tea 文件，这可能需要一定的时间，你可以在通知中心查看导出结果。",
     "exportTips2": "你可以在空间 -> 更多 -> 导入，导入 .tea 文件",
     "exportTips3": "跨数据库关联字段将会被转换成单行文本。",
+    "exportIncludeDataLabel": "包含记录",
+    "exportIncludeDataDescription": "关闭开关时仅导出结构和配置。",
     "moveBaseSuccessTitle": "移动成功",
     "moveBaseSuccessDescription": "{{baseName}}已成功移动到{{spaceName}}"
   },

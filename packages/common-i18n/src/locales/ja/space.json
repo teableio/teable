@@ -46,6 +46,8 @@
     "exportTips1": "現在のベースを.teaファイルとしてエクスポートします。これには時間がかかる場合があります。エクスポート結果は通知センターで確認できます。",
     "exportTips2": "スペース -> その他 -> インポートから.teaファイルをインポートできます",
     "exportTips3": "ベース間の関連フィールドは単一行テキストに変換されます。",
+    "exportIncludeDataLabel": "レコードを含める",
+    "exportIncludeDataDescription": "オフにすると構造と設定のみをエクスポートします。",
     "moveBaseSuccessTitle": "移動成功",
     "moveBaseSuccessDescription": "{{baseName}}は{{spaceName}}に正常に移動されました"
   },

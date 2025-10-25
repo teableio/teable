@@ -173,6 +173,9 @@ export const ExportBaseRoute: RouteConfig = registerRoute({
     params: z.object({
       baseId: z.string(),
     }),
+    query: z.object({
+      includeData: z.boolean().optional().default(true),
+    }),
   },
   responses: {
     200: {
@@ -182,10 +185,16 @@ export const ExportBaseRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
-export const exportBase = async (baseId: string) => {
+export const exportBase = async (baseId: string, options?: { includeData?: boolean }) => {
+  const includeData = options?.includeData ?? true;
   return await axios.get<null>(
     urlBuilder(EXPORT_BASE, {
       baseId,
-    })
+    }),
+    {
+      params: {
+        includeData,
+      },
+    }
   );
 };

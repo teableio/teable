@@ -46,6 +46,8 @@
     "exportTips1": "Exportieren Sie die aktuelle Base als .tea-Datei, was einige Zeit dauern kann. Sie können die Exportergebnisse im Benachrichtigungszentrum überprüfen.",
     "exportTips2": "Sie können die .tea-Datei in Space -> mehr -> Import importieren",
     "exportTips3": "Base-übergreifende Beziehungsfelder werden in einzeiligen Text umgewandelt.",
+    "exportIncludeDataLabel": "Datensätze einschließen",
+    "exportIncludeDataDescription": "Deaktivieren, um nur Struktur und Konfiguration zu exportieren.",
     "moveBaseSuccessTitle": "Verschiebung erfolgreich",
     "moveBaseSuccessDescription": "{{baseName}} wurde erfolgreich nach {{spaceName}} verschoben"
   },

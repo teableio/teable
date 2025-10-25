@@ -331,8 +331,10 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/export')
-  async exportBase(@Param('baseId') baseId: string) {
-    return await this.baseExportService.exportBaseZip(baseId);
+  async exportBase(@Param('baseId') baseId: string, @Query('includeData') includeData?: string) {
+    const includeDataValue =
+      includeData === undefined ? true : !['false', '0'].includes(includeData.toLowerCase());
+    return await this.baseExportService.exportBaseZip(baseId, includeDataValue);
   }
 
   @Put(':baseId/move')
