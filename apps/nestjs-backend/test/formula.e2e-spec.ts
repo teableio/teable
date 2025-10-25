@@ -3,11 +3,13 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFilter, ILinkFieldOptionsRo, ILookupOptionsRo } from '@teable/core';
 import {
+  DateFormattingPreset,
   FieldKeyType,
   FieldType,
   generateFieldId,
   NumberFormattingType,
   Relationship,
+  TimeFormatting,
 } from '@teable/core';
 import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
 import {
@@ -1997,6 +1999,83 @@ describe('OpenAPI formula (e2e)', () => {
 
       const record2 = await getRecord(table.id, table.records[0].id);
       expect(record2.data.fields[field2.name]).toEqual(27);
+    });
+
+    it('should evaluate timezone-aware formatting formulas referencing fields', async () => {
+      const dateField = await createField(table.id, {
+        name: 'tz source',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'Asia/Tokyo',
+          },
+        },
+      });
+
+      const recordId = table.records[0].id;
+      const inputValue = '2024-03-01T00:30:00+09:00';
+      const updatedRecord = await updateRecord(table.id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [dateField.name]: inputValue,
+          },
+        },
+      });
+      const sourceValue = updatedRecord.fields?.[dateField.name] as string;
+      expect(typeof sourceValue).toBe('string');
+
+      const expectedDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Shanghai',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date(sourceValue));
+
+      const expectedTime = new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'Asia/Shanghai',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      })
+        .format(new Date(sourceValue))
+        .replace(/\./g, ':'); // ensure consistent separators on all locales
+
+      const dateStrField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `DATESTR({${dateField.id}})`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      let record = await getRecord(table.id, recordId);
+      expect(record.data.fields[dateStrField.name]).toEqual(expectedDate);
+
+      const timeStrField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `TIMESTR({${dateField.id}})`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      record = await getRecord(table.id, recordId);
+      expect(record.data.fields[timeStrField.name]).toEqual(expectedTime);
+
+      const workdayField = await createField(table.id, {
+        type: FieldType.Formula,
+        options: {
+          expression: `DATESTR(WORKDAY({${dateField.id}}, 1))`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+
+      record = await getRecord(table.id, recordId);
+      expect(record.data.fields[workdayField.name]).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     });
 
     it.skip('should evaluate boolean formulas with timezone aware date arguments', async () => {
