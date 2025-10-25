@@ -1197,6 +1197,7 @@ export class FieldOpenApiService {
     return [];
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async duplicateField(
     sourceTableId: string,
     fieldId: string,
@@ -1283,16 +1284,25 @@ export class FieldOpenApiService {
       fieldInstance.type === FieldType.Rollup ||
       fieldInstance.type === FieldType.ConditionalRollup
     ) {
-      newFieldInstance.lookupOptions = {
-        ...pick(fieldInstance.lookupOptions, [
+      const sourceLookupOptions = fieldInstance.lookupOptions;
+      if (sourceLookupOptions) {
+        const normalizedLookupOptions = pick(sourceLookupOptions, [
           'foreignTableId',
           'lookupFieldId',
           'linkFieldId',
           'filter',
           'sort',
           'limit',
-        ]),
-      } as IFieldInstance['lookupOptions'];
+        ]);
+        if (Object.keys(normalizedLookupOptions).length > 0) {
+          newFieldInstance.lookupOptions =
+            normalizedLookupOptions as IFieldInstance['lookupOptions'];
+        } else {
+          delete newFieldInstance.lookupOptions;
+        }
+      } else {
+        delete newFieldInstance.lookupOptions;
+      }
     }
 
     // after create field, and add constraint relative

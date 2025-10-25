@@ -1,4 +1,11 @@
-import type { IFieldRo, IFieldVo, ILookupOptionsRo, ILookupOptionsVo } from '@teable/core';
+import type {
+  IFieldRo,
+  IFieldVo,
+  ILookupConditionalOptions,
+  ILookupLinkOptions,
+  ILookupOptionsRo,
+  ILookupOptionsVo,
+} from '@teable/core';
 import {
   validateFieldOptions,
   convertFieldRoSchema,
@@ -33,6 +40,58 @@ import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
 import { FieldOperator } from './type';
 
+const asNonEmptyString = (value: unknown) =>
+  typeof value === 'string' && value ? value : undefined;
+
+const sanitizeLinkLookupOptions = (options: ILookupLinkOptions): ILookupOptionsRo | undefined => {
+  const foreignTableId = asNonEmptyString(options.foreignTableId);
+  const lookupFieldId = asNonEmptyString(options.lookupFieldId);
+  const linkFieldId = asNonEmptyString(options.linkFieldId);
+  if (!foreignTableId || !lookupFieldId || !linkFieldId) {
+    return undefined;
+  }
+  const sanitized: ILookupOptionsRo = {
+    foreignTableId,
+    lookupFieldId,
+    linkFieldId,
+  };
+  if (options.filter != null) {
+    sanitized.filter = options.filter;
+  }
+  return sanitized;
+};
+
+const sanitizeConditionalLookupOptions = (
+  options: ILookupConditionalOptions
+): ILookupOptionsRo | undefined => {
+  const foreignTableId = asNonEmptyString(options.foreignTableId);
+  const lookupFieldId = asNonEmptyString(options.lookupFieldId);
+  const filter = options.filter;
+  if (!foreignTableId || !lookupFieldId || !filter) {
+    return undefined;
+  }
+
+  const sanitized: ILookupOptionsRo = {
+    foreignTableId,
+    lookupFieldId,
+    filter,
+  };
+
+  const baseId = asNonEmptyString(options.baseId);
+  if (baseId) {
+    sanitized.baseId = baseId;
+  }
+  const sortFieldId = asNonEmptyString(options.sort?.fieldId);
+  if (sortFieldId && options.sort) {
+    sanitized.sort = options.sort;
+  }
+  if (typeof options.limit === 'number') {
+    sanitized.limit = options.limit;
+  }
+
+  return sanitized;
+};
+
 export const sanitizeLookupOptions = (
   options?: ILookupOptionsRo | ILookupOptionsVo
 ): ILookupOptionsRo | undefined => {
@@ -41,37 +100,11 @@ export const sanitizeLookupOptions = (
   }
 
   if (isLinkLookupOptions(options)) {
-    const { foreignTableId, lookupFieldId, linkFieldId, filter } = options;
-    const sanitized: Record<string, unknown> = {
-      foreignTableId,
-      lookupFieldId,
-      linkFieldId,
-    };
-    if (filter != null) {
-      sanitized.filter = filter;
-    }
-    return sanitized as ILookupOptionsRo;
+    return sanitizeLinkLookupOptions(options);
   }
 
   if (isConditionalLookupOptions(options)) {
-    const { foreignTableId, lookupFieldId, filter, baseId, sort, limit } = options;
-    const sanitized: Record<string, unknown> = {
-      foreignTableId,
-      lookupFieldId,
-    };
-    if (filter != null) {
-      sanitized.filter = filter;
-    }
-    if (baseId !== undefined) {
-      sanitized.baseId = baseId;
-    }
-    if (sort !== undefined) {
-      sanitized.sort = sort;
-    }
-    if (limit !== undefined) {
-      sanitized.limit = limit;
-    }
-    return sanitized as ILookupOptionsRo;
+    return sanitizeConditionalLookupOptions(options);
   }
 
   return undefined;

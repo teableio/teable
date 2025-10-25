@@ -1566,7 +1566,7 @@ export class RecordService {
       builder: searchWrapBuilder,
       viewCte: searchViewCte,
       enabledFieldIds,
-    } = await this.recordPermissionService.wrapView(tableId, queryBuilder, {
+    } = await this.recordPermissionService.wrapView(tableId, this.knex.queryBuilder(), {
       keepPrimaryKey: Boolean(query.filterLinkCellSelected),
       viewId,
     });
