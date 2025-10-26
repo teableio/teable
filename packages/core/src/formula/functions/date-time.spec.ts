@@ -11,6 +11,7 @@ import {
   DatetimeParse,
   Day,
   FromNow,
+  ToNow,
   Hour,
   IsAfter,
   IsBefore,
@@ -1234,6 +1235,176 @@ describe('DateTime', () => {
       const result = lastModifiedTimeFunc.eval([], context);
 
       expect(result).toBe(date);
+    });
+  });
+
+  describe('DateAdd permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const baseDateIso = '2025-01-01T00:00:00.000Z';
+    const baseNumberValue = 3;
+    const dateAddFunc = new DateAdd();
+    const baseDate = new TypedValue(baseDateIso, CellValueType.DateTime, false);
+    const unitDay = new TypedValue('day', CellValueType.String, false);
+
+    const literalCount = new TypedValue(1, CellValueType.Number, false);
+    const fieldCount = new TypedValue(baseNumberValue, CellValueType.Number, false);
+    const formulaCount = new TypedValue(baseNumberValue * 2, CellValueType.Number, false);
+
+    [
+      { label: 'literal numeric count', count: literalCount, expectedOffset: 1 },
+      { label: 'number field count', count: fieldCount, expectedOffset: baseNumberValue },
+      {
+        label: 'numeric formula field count',
+        count: formulaCount,
+        expectedOffset: baseNumberValue * 2,
+      },
+    ].forEach(({ label, count, expectedOffset }) => {
+      it(`should add days when count argument comes from ${label}`, () => {
+        const result = dateAddFunc.eval([baseDate, count, unitDay], context);
+
+        expect(typeof result).toBe('string');
+        const expectedIso = dayjs(baseDateIso).add(expectedOffset, 'day').toISOString();
+        expect(result).toBe(expectedIso);
+      });
+    });
+  });
+
+  describe('DatetimeParse permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const datetimeParseFunc = new DatetimeParse();
+
+    it('should parse ISO strings from text literals', () => {
+      const textIso = '2025-05-04T12:34:56Z';
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue(textIso, CellValueType.String, false),
+          new TypedValue('YYYY-MM-DDTHH:mm:ss[Z]', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(result).toBe(dayjs(textIso).toISOString());
+    });
+
+    it('should parse ISO strings from formula text output', () => {
+      const formulaIso = '2024-12-31T00:00:00Z';
+      const result = datetimeParseFunc.eval(
+        [
+          new TypedValue(formulaIso, CellValueType.String, false),
+          new TypedValue('YYYY-MM-DD[T]HH:mm:ss[Z]', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(result).toBe(dayjs(formulaIso).toISOString());
+    });
+  });
+
+  describe('FromNow / ToNow permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const fromNowFunc = new FromNow();
+    const toNowFunc = new ToNow();
+
+    it('should evaluate FROMNOW using literal offsets', () => {
+      const targetIso = dayjs().subtract(5, 'day').toISOString();
+      const result = fromNowFunc.eval(
+        [
+          new TypedValue(targetIso, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        context
+      );
+
+      const expectedDiff = Math.abs(dayjs().diff(dayjs(targetIso), 'day', true));
+      expect(typeof result).toBe('number');
+      expect(Math.abs((result as number) - expectedDiff)).toBeLessThan(0.05);
+    });
+
+    it('should evaluate TONOW using literal offsets', () => {
+      const targetIso = dayjs().add(2, 'day').toISOString();
+      const result = toNowFunc.eval(
+        [
+          new TypedValue(targetIso, CellValueType.DateTime, false),
+          new TypedValue('day', CellValueType.String, false),
+          new TypedValue(true, CellValueType.Boolean, false),
+        ],
+        context
+      );
+
+      const expectedDiff = Math.abs(dayjs(targetIso).diff(dayjs(), 'day', true));
+      expect(typeof result).toBe('number');
+      expect(Math.abs((result as number) - expectedDiff)).toBeLessThan(0.05);
+    });
+  });
+
+  describe('WorkdayDiff permutations', () => {
+    const context = {
+      record: {} as IRecord,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const workdayDiffFunc = new WorkdayDiff();
+
+    it('should calculate workday difference with literal holidays', () => {
+      const start = new TypedValue('2025-01-01T00:00:00.000Z', CellValueType.DateTime, false);
+      const end = new TypedValue('2025-01-10T00:00:00.000Z', CellValueType.DateTime, false);
+      const holidays = new TypedValue('2025-01-06', CellValueType.String, false);
+
+      const result = workdayDiffFunc.eval([start, end, holidays], context);
+
+      expect(result).toBe(7);
+    });
+  });
+
+  describe('CreatedTime / LastModifiedTime permutations', () => {
+    const created = '2025-02-01T00:00:00.000Z';
+    const modified = '2025-02-03T12:00:00.000Z';
+    const record: IRecord = {
+      id: 'recMatrix',
+      fields: {},
+      createdTime: created,
+      lastModifiedTime: modified,
+    };
+    const context = {
+      record,
+      dependencies: {},
+      timeZone: 'UTC',
+    };
+    const createdTimeFunc = new CreatedTime();
+    const lastModifiedTimeFunc = new LastModifiedTime();
+    const datetimeDiffFunc = new DatetimeDiff();
+
+    it('should evaluate chained formulas using created and last modified timestamps', () => {
+      const createdTime = createdTimeFunc.eval([], context);
+      const lastModifiedTime = lastModifiedTimeFunc.eval([], context);
+
+      expect(createdTime).toBe(created);
+      expect(lastModifiedTime).toBe(modified);
+
+      const diff = datetimeDiffFunc.eval(
+        [
+          new TypedValue(lastModifiedTime, CellValueType.DateTime, false),
+          new TypedValue(createdTime, CellValueType.DateTime, false),
+          new TypedValue('hour', CellValueType.String, false),
+        ],
+        context
+      );
+
+      expect(typeof diff).toBe('number');
+      expect(diff as number).toBeCloseTo(36, 6);
     });
   });
 });

@@ -1,7 +1,18 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { CellValueType } from '../../models/field/constant';
 import { TypedValue } from '../typed-value';
-import { And, Blank, FormulaBaseError, FormulaError, If, Not, Or, Switch, Xor } from './logical';
+import {
+  And,
+  Blank,
+  FormulaBaseError,
+  FormulaError,
+  If,
+  IsError,
+  Not,
+  Or,
+  Switch,
+  Xor,
+} from './logical';
 
 describe('LogicalFunc', () => {
   describe('If', () => {
@@ -304,6 +315,47 @@ describe('LogicalFunc', () => {
       expect(() =>
         errorFunc.eval([new TypedValue('Name', CellValueType.String, false)])
       ).toThrowError(FormulaBaseError);
+    });
+
+    it('should include user-provided text in the error message', () => {
+      expect(() =>
+        errorFunc.eval([new TypedValue('matrix-text', CellValueType.String, false)])
+      ).toThrowError('#ERROR: matrix-text');
+    });
+  });
+
+  describe('IsError permutations', () => {
+    const isErrorFunc = new IsError();
+    const wrap = (value: unknown): TypedValue<boolean | boolean[] | null[]> =>
+      new TypedValue(value as boolean, CellValueType.String, false) as unknown as TypedValue<
+        boolean | boolean[] | null[]
+      >;
+
+    it('should detect direct FormulaBaseError instances', () => {
+      const errorValue = new FormulaBaseError('matrix failure');
+      const result = isErrorFunc.eval([wrap(errorValue)]);
+
+      expect(result).toBe(true);
+    });
+
+    it('should detect FormulaError outputs from nested evaluations', () => {
+      const errorFunc = new FormulaError();
+      let captured: FormulaBaseError | undefined;
+      try {
+        errorFunc.eval([new TypedValue('nested failure', CellValueType.String, false)]);
+      } catch (error) {
+        captured = error as FormulaBaseError;
+      }
+
+      expect(captured).toBeInstanceOf(FormulaBaseError);
+
+      const result = isErrorFunc.eval([wrap(captured!)]);
+      expect(result).toBe(true);
+    });
+
+    it('should return false when value is not an error', () => {
+      const result = isErrorFunc.eval([wrap('safe value')]);
+      expect(result).toBe(false);
     });
   });
 });
