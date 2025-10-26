@@ -1371,7 +1371,7 @@ describe('DateTime', () => {
 
   describe('CreatedTime / LastModifiedTime permutations', () => {
     const created = '2025-02-01T00:00:00.000Z';
-    const modified = '2025-02-03T12:00:00.000Z';
+    const modified = '2025-02-02T12:00:00.000Z';
     const record: IRecord = {
       id: 'recMatrix',
       fields: {},

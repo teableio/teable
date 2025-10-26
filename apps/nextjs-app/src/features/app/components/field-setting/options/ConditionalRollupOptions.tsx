@@ -144,10 +144,17 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
     expression != null && SORT_LIMIT_ENABLED_EXPRESSIONS.includes(expression);
 
   const availableExpressions = useMemo(() => {
-    return getRollupFunctionsByCellValueType(cellValueType).filter(
+    if (!lookupField) {
+      if (options.lookupFieldId) {
+        // Preserve persisted expression until the lookup field info is ready.
+        return undefined;
+      }
+      return ROLLUP_FUNCTIONS.filter((expr) => expr !== RAW_VALUE_EXPRESSION);
+    }
+    return getRollupFunctionsByCellValueType(lookupField.cellValueType).filter(
       (expr) => expr !== RAW_VALUE_EXPRESSION
     );
-  }, [cellValueType]);
+  }, [lookupField, options.lookupFieldId]);
 
   useEffect(() => {
     if (!supportsSortLimit && (options.sort || options.limit)) {
