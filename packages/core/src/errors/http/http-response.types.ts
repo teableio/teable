@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import type { ILocalization } from '../types';
 
 export type IHttpError = {
   /** a human-readable explanation specific to this occurrence of the problem. */
@@ -58,11 +59,6 @@ export enum HttpErrorCode {
   AUTOMATION_NODE_TEST_OUTDATED = 'automation_node_test_outdated',
 }
 
-export type ICustomHttpExceptionLocalization<T = string> = {
-  i18nKey: T;
-  context?: Record<string, unknown>;
-};
-
-export type ICustomHttpExceptionData<T = string> = Record<string, unknown> & {
-  localization?: ICustomHttpExceptionLocalization<T>;
+export type ICustomHttpExceptionData = Record<string, unknown> & {
+  localization?: ILocalization;
 };

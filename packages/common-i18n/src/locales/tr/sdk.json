@@ -915,6 +915,9 @@
     },
     "view": {
       "viewNotFound": "Görünüm {{viewId}} bulunamadı"
+    },
+    "billing": {
+      "insufficientCredit": "Yetersiz kredi"
     }
   }
 }

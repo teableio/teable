@@ -918,6 +918,9 @@
     },
     "view": {
       "viewNotFound": "Vue {{viewId}} introuvable"
+    },
+    "billing": {
+      "insufficientCredit": "Crédit insuffisant"
     }
   }
 }

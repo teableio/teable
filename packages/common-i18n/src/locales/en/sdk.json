@@ -943,6 +943,9 @@
     },
     "view": {
       "viewNotFound": "View {{viewId}} not found"
+    },
+    "billing": {
+      "insufficientCredit": "Insufficient credit"
     }
   }
 }

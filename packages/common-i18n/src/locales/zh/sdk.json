@@ -943,6 +943,9 @@
     },
     "view": {
       "viewNotFound": "视图 {{viewId}} 不存在"
+    },
+    "billing": {
+      "insufficientCredit": "算力不足"
     }
   }
 }

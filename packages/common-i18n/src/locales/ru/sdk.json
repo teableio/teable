@@ -917,6 +917,9 @@
     },
     "view": {
       "viewNotFound": "Представление {{viewId}} не найдено"
+    },
+    "billing": {
+      "insufficientCredit": "Недостаточно средств"
     }
   }
 }

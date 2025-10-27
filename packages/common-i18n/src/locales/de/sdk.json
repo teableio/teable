@@ -941,6 +941,9 @@
     },
     "view": {
       "viewNotFound": "Ansicht {{viewId}} nicht gefunden"
+    },
+    "billing": {
+      "insufficientCredit": "Unzureichendes Guthaben"
     }
   }
 }

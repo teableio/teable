@@ -1,5 +1,5 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
-import type { ICustomHttpExceptionData, IHttpError } from '@teable/core';
+import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import {
   UsageLimitModalType,
@@ -16,11 +16,20 @@ export function toCamelCaseErrorCode(errorCode: string): string {
     .join('');
 }
 
+export const getLocalizationMessage = (
+  localization: ILocalization,
+  t: ILocaleFunction,
+  prefix?: string
+) => {
+  const { i18nKey, context } = localization;
+  const key = prefix ? `${prefix}:${i18nKey}` : i18nKey;
+  return i18nKey ? t(key as TKey, context ?? {}) : '';
+};
+
 export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?: string) => {
   const { message, data } = error as IHttpError;
-  const { localization } = (data as ICustomHttpExceptionData<TKey>) || {};
-  const { i18nKey, context } = localization || {};
-  return i18nKey ? t(prefix ? (`${prefix}:${i18nKey}` as TKey) : i18nKey, context ?? {}) : message;
+  const { localization } = (data as ICustomHttpExceptionData) || {};
+  return localization ? getLocalizationMessage(localization, t, prefix) : message;
 };
 
 export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {

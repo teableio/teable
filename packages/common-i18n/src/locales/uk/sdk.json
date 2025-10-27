@@ -941,6 +941,9 @@
     },
     "view": {
       "viewNotFound": "Представлення {{viewId}} не знайдено"
+    },
+    "billing": {
+      "insufficientCredit": "Недостатньо коштів"
     }
   }
 }

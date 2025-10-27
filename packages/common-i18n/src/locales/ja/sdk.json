@@ -905,6 +905,9 @@
     },
     "view": {
       "viewNotFound": "ビュー {{viewId}} が見つかりません"
+    },
+    "billing": {
+      "insufficientCredit": "クレジット不足"
     }
   }
 }
