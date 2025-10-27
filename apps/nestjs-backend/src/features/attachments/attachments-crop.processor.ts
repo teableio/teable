@@ -18,7 +18,7 @@ interface IRecordImageJob {
 
 export const ATTACHMENTS_CROP_QUEUE = 'attachments-crop-queue';
 
-export const queueOptions: NestWorkerOptions = {
+const queueOptions: NestWorkerOptions = {
   removeOnComplete: {
     count: 2000,
   },
