@@ -37,8 +37,8 @@ describe('Template Open API Controller (e2e)', () => {
     const appContext = await initApp();
     app = appContext.app;
     prismaService = app.get(PrismaService);
-
-    await prismaService.space.update({
+    const tx = prismaService.txClient();
+    await tx.space.update({
       where: {
         id: 'spcDefaultTempSpcId',
       },
@@ -49,7 +49,7 @@ describe('Template Open API Controller (e2e)', () => {
     const spaceData = await createSpace({
       name: 'test Template Space',
     });
-    await prismaService.space.update({
+    await tx.space.update({
       where: {
         id: spaceData.data.id,
       },
@@ -62,22 +62,6 @@ describe('Template Open API Controller (e2e)', () => {
   });
 
   afterAll(async () => {
-    await prismaService.space.update({
-      where: {
-        id: 'spcDefaultTempSpcId',
-      },
-      data: {
-        isTemplate: true,
-      },
-    });
-    await prismaService.space.update({
-      where: {
-        id: templateSpaceId,
-      },
-      data: {
-        isTemplate: null,
-      },
-    });
     await deleteSpace(templateSpaceId);
   });
 
@@ -92,10 +76,11 @@ describe('Template Open API Controller (e2e)', () => {
   });
 
   afterEach(async () => {
-    await prismaService.templateCategory.deleteMany({
+    const tx = prismaService.txClient();
+    await tx.templateCategory.deleteMany({
       where: {},
     });
-    await prismaService.template.deleteMany({
+    await tx.template.deleteMany({
       where: {},
     });
     await deleteBase(baseId);

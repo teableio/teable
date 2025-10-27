@@ -1,9 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
 import { DriverClient, parseDsn } from '@teable/core';
-import type { Prisma } from '@teable/db-main-prisma';
-import { PrismaService, PrismaClient } from '@teable/db-main-prisma';
+import { Prisma, PrismaService, PrismaClient } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { BASE_READ_ONLY_ROLE_PREFIX, BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME } from './const';
@@ -15,6 +14,7 @@ export class BaseSqlExecutorService {
   private readonly dsn: IDsn;
   readonly driver: DriverClient;
   private hasPgReadAllDataRole?: boolean;
+  private readonly logger = new Logger(BaseSqlExecutorService.name);
 
   constructor(
     private readonly prismaService: PrismaService,
@@ -46,19 +46,32 @@ export class BaseSqlExecutorService {
     const isExistReadOnlyRole = await this.roleExits(BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME);
     if (!isExistReadOnlyRole) {
       await this.prismaService.$tx(async (prisma) => {
-        await prisma.$executeRawUnsafe(
-          this.knex
-            .raw(
-              `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
-              [BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME, this.dsn.pass]
-            )
-            .toQuery()
-        );
-        await prisma.$executeRawUnsafe(
-          this.knex
-            .raw(`GRANT pg_read_all_data TO ??`, [BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME])
-            .toQuery()
-        );
+        try {
+          await prisma.$executeRawUnsafe(
+            this.knex
+              .raw(
+                `CREATE ROLE ?? WITH LOGIN PASSWORD ? NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`,
+                [BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME, this.dsn.pass]
+              )
+              .toQuery()
+          );
+          await prisma.$executeRawUnsafe(
+            this.knex
+              .raw(`GRANT pg_read_all_data TO ??`, [BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME])
+              .toQuery()
+          );
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error?.meta?.code === '42710'
+          ) {
+            this.logger.warn(
+              `read only role ${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME} already exists`
+            );
+            return;
+          }
+          throw error;
+        }
       });
     }
     return `postgresql://${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME}:${this.dsn.pass}@${this.dsn.host}:${this.dsn.port}/${this.dsn.db}${
