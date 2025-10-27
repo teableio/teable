@@ -1,4 +1,5 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
+import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Queue } from 'bullmq';
@@ -17,8 +18,16 @@ interface IRecordImageJob {
 
 export const ATTACHMENTS_CROP_QUEUE = 'attachments-crop-queue';
 
+export const queueOptions: NestWorkerOptions = {
+  removeOnComplete: {
+    count: 2000,
+  },
+  removeOnFail: {
+    count: 2000,
+  },
+};
 @Injectable()
-@Processor(ATTACHMENTS_CROP_QUEUE)
+@Processor(ATTACHMENTS_CROP_QUEUE, queueOptions)
 export class AttachmentsCropQueueProcessor extends WorkerHost {
   private logger = new Logger(AttachmentsCropQueueProcessor.name);
 

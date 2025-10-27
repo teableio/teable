@@ -1,9 +1,9 @@
 import { InjectQueue, Processor, WorkerHost } from '@nestjs/bullmq';
-import { Injectable, Logger } from '@nestjs/common';
+import type { NestWorkerOptions } from '@nestjs/bullmq/dist/interfaces/worker-options.interface';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { MailTransporterType, MailType } from '@teable/openapi';
 import { type Job, type Queue } from 'bullmq';
-import dayjs from 'dayjs';
 import { isUndefined } from 'lodash';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
@@ -26,7 +26,16 @@ interface IMailSenderMergeJob {
   payload: IMailSenderMergePayload | INotifyMailMergeSendPayload;
 }
 
-@Processor(MAIL_SENDER_QUEUE)
+const queueOptions: NestWorkerOptions = {
+  removeOnComplete: {
+    count: 1000,
+  },
+  removeOnFail: {
+    count: 1000,
+  },
+};
+
+@Processor(MAIL_SENDER_QUEUE, queueOptions)
 @Injectable()
 export class MailSenderMergeProcessor extends WorkerHost {
   constructor(
