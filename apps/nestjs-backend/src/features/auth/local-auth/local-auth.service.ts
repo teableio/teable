@@ -579,11 +579,7 @@ export class LocalAuthService {
 
   async genWaitlistInviteCode(limit: number) {
     const code = `${getRandomString(4)}-${getRandomString(4)}`;
-    await this.cacheService.set(
-      `waitlist:invite-code:${code}`,
-      limit,
-      1000 * 60 * 60 * 24 * 30 // 30 days
-    );
+    await this.cacheService.set(`waitlist:invite-code:${code}`, limit, '30d');
     return code;
   }
 }

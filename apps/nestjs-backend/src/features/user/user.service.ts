@@ -113,11 +113,7 @@ export class UserService {
       throw new BadRequestException('Waitlist is enabled, invite code is invalid');
     }
 
-    await this.cacheService.set(
-      `waitlist:invite-code:${inviteCode}`,
-      times - 1,
-      1000 * 60 * 60 * 24 * 30 // 30 days
-    );
+    await this.cacheService.set(`waitlist:invite-code:${inviteCode}`, times - 1, '30d');
 
     return true;
   }

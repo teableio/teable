@@ -82,7 +82,7 @@ export class MailSenderMergeProcessor extends WorkerHost {
     const { to } = payload;
     const list = await this.cacheService.get(`mail-sender:notify-mail-merge:${to}`);
     if (isUndefined(list)) {
-      await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [], 1000 * 60 * 5); // 5 minutes
+      await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [], '5m');
       await this.queue.add(
         MailSenderJob.NotifyMailMergeSend,
         {
@@ -92,7 +92,7 @@ export class MailSenderMergeProcessor extends WorkerHost {
       );
       return true;
     }
-    await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [...list, payload]);
+    await this.cacheService.set(`mail-sender:notify-mail-merge:${to}`, [...list, payload], '5m');
     return false;
   }
 
