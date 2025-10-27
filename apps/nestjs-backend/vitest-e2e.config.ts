@@ -30,11 +30,6 @@ export default defineConfig({
     testTimeout: timeout,
     hookTimeout: timeout,
     passWithNoTests: true,
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage/e2e',
