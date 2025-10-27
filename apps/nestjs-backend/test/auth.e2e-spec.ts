@@ -112,7 +112,7 @@ describe('Auth Controller (e2e)', () => {
   it('api/auth/signup - system email', async () => {
     const error = await getError(() =>
       signup({
-        email: 'automationrobot@system.teable.ai',
+        email: 'anonymous@system.teable.ai',
         password: '12345678a',
       })
     );
