@@ -23,7 +23,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
-import { difference, intersection, isEmpty, isEqual, keyBy, set } from 'lodash';
+import { difference, intersection, isEmpty, isEqual, keyBy, set, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../custom.exception';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
@@ -1094,12 +1094,16 @@ export class FieldConvertingService {
       return oldField.cellValue2String(oldCellValue);
     });
 
+    const oldCvUserStrArr = oldCvStrArr
+      .map((v) => (v ? v.split(',').map((s) => s.trim()) : []))
+      .flat()
+      .filter(Boolean);
     const tableCollaborators = await this.collaboratorService.getUserCollaboratorsByTableId(
       tableId,
       {
         containsIn: {
           keys: ['id', 'name', 'email', 'phone'],
-          values: Array.from(new Set(oldCvStrArr)).filter((cvStr) => cvStr != null) as string[],
+          values: uniq(oldCvUserStrArr),
         },
       }
     );
