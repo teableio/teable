@@ -60,8 +60,9 @@ describe('Auth Controller (e2e)', () => {
   const authTestEmail = 'auth@test-auth.com';
 
   beforeAll(async () => {
-    // Disable signup verification code rate limit for E2E tests
-    process.env.BACKEND_SIGNUP_VERIFICATION_CODE_RATE_LIMIT_SECONDS = '0';
+    process.env.BACKEND_CHANGE_EMAIL_SEND_CODE_MAIL_RATE = '0';
+    process.env.BACKEND_SIGNUP_VERIFICATION_SEND_CODE_MAIL_RATE = '0';
+    process.env.BACKEND_RESET_PASSWORD_SEND_MAIL_RATE = '0';
 
     const appCtx = await initApp();
     app = appCtx.app;
@@ -111,7 +112,7 @@ describe('Auth Controller (e2e)', () => {
   it('api/auth/signup - system email', async () => {
     const error = await getError(() =>
       signup({
-        email: 'anonymous@system.teable.ai',
+        email: 'automationrobot@system.teable.ai',
         password: '12345678a',
       })
     );
