@@ -127,7 +127,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
         {Boolean(aiConfig?.type) && (
           <span
             className="cursor-pointer truncate border-b border-muted-foreground/80 text-xs text-muted-foreground"
-            onClick={() => onChange?.({ aiConfig: undefined })}
+            onClick={() => onChange?.({ aiConfig: null })}
             tabIndex={0}
             role="button"
           >
