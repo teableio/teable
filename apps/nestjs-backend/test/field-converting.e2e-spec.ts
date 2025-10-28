@@ -31,13 +31,22 @@ import {
   CellFormat,
   FieldAIActionType,
   generateWorkflowId,
+  Role as baseRole,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { buttonClick, type ITableFullVo } from '@teable/openapi';
+import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
+import {
+  emailBaseInvitation,
+  USER_ME,
+  buttonClick,
+  deleteBaseCollaborator,
+  PrincipalType,
+} from '@teable/openapi';
 import type { Knex } from 'knex';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { FieldService } from '../src/features/field/field.service';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
   getRecords,
   createField,
@@ -4290,6 +4299,136 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         globalThis.testConfig.userId,
         globalThis.testConfig.userId,
       ]);
+    });
+
+    it('should convert user field with multiple values', async () => {
+      // Create two new users
+      const user1Email = 'multiuser1@example.com';
+      const user2Email = 'multiuser2@example.com';
+      const user1Request = await createNewUserAxios({
+        email: user1Email,
+        password: '12345678',
+      });
+      const user2Request = await createNewUserAxios({
+        email: user2Email,
+        password: '12345678',
+      });
+
+      // Get user information
+      const user1Info = (await user1Request.get<IUserMeVo>(USER_ME)).data;
+      const user2Info = (await user2Request.get<IUserMeVo>(USER_ME)).data;
+
+      // Add users as collaborators to the base
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: {
+          emails: [user1Email, user2Email],
+          role: baseRole.Editor,
+        },
+      });
+
+      const oldFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'UserField',
+        type: FieldType.User,
+        options: {
+          isMultiple: true,
+          shouldNotify: false,
+        },
+      };
+      const { newField: newField, values: values } = await expectUpdate(
+        table1,
+        oldFieldRo,
+        newFieldRo,
+        [
+          `${user1Info.id}, ${user2Info.name}, ${globalThis.testConfig.email}`,
+          `${user1Info.email},${user2Info.id}`,
+        ]
+      );
+      expect(newField.type).toEqual(FieldType.User);
+      expect(values[0]).toHaveLength(3);
+      expect((values[0] as IUserCellValue[]).map((u) => u.id).sort()).toEqual(
+        [user1Info.id, user2Info.id, globalThis.testConfig.userId].sort()
+      );
+      expect(values[1]).toHaveLength(2);
+      expect((values[1] as IUserCellValue[]).map((u) => u.id).sort()).toEqual(
+        [user1Info.id, user2Info.id].sort()
+      );
+
+      // Delete users from collaborators
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: user1Info.id,
+          principalType: PrincipalType.User,
+        },
+      });
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: user2Info.id,
+          principalType: PrincipalType.User,
+        },
+      });
+    });
+
+    it('should convert user field with single value', async () => {
+      // Create two new users
+      const userEmail = 'singleuser@example.com';
+      const userRequest = await createNewUserAxios({
+        email: userEmail,
+        password: '12345678',
+      });
+
+      // Get user information
+      const userInfo = (await userRequest.get<IUserMeVo>(USER_ME)).data;
+
+      // Add users as collaborators to the base
+      await emailBaseInvitation({
+        baseId,
+        emailBaseInvitationRo: {
+          emails: [userEmail],
+          role: baseRole.Editor,
+        },
+      });
+
+      const oldFieldRo: IFieldRo = {
+        name: 'TextField',
+        type: FieldType.SingleLineText,
+      };
+      const newFieldRo: IFieldRo = {
+        name: 'UserField',
+        type: FieldType.User,
+        options: {
+          isMultiple: false,
+          shouldNotify: false,
+        },
+      };
+      const { newField: newField, values: values } = await expectUpdate(
+        table1,
+        oldFieldRo,
+        newFieldRo,
+        [
+          `${userInfo.id}, ${globalThis.testConfig.email}`,
+          `${globalThis.testConfig.email},${userInfo.id}`,
+        ]
+      );
+
+      expect(newField.type).toEqual(FieldType.User);
+      expect((values[0] as IUserCellValue).id).toEqual(userInfo.id);
+      expect((values[1] as IUserCellValue).id).toEqual(globalThis.testConfig.userId);
+
+      // Delete user from collaborators
+      await deleteBaseCollaborator({
+        baseId,
+        deleteBaseCollaboratorRo: {
+          principalId: userInfo.id,
+          principalType: PrincipalType.User,
+        },
+      });
     });
   });
 
