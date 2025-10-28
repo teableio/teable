@@ -60,6 +60,18 @@ export const CommentHeader = (props: ICommentHeaderProps) => {
     }
   };
 
+  const subscribeComment = () => {
+    if (!subscribeStatus) {
+      createSubscribe({ tableId: tableId!, recordId: recordId! });
+    }
+  };
+
+  const unsubscribeComment = () => {
+    if (subscribeStatus) {
+      deleteSubscribeFn({ tableId: tableId!, recordId: recordId! });
+    }
+  };
+
   return (
     <div className="flex h-[52px] items-center justify-between border-b p-1 px-3">
       <div>{t('comment.title')}</div>
@@ -74,10 +86,10 @@ export const CommentHeader = (props: ICommentHeaderProps) => {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent>
-          <DropdownMenuItem className="text-sm" onSelect={() => subscribeHandler()}>
+          <DropdownMenuItem className="text-sm" onSelect={() => subscribeComment()}>
             {t('comment.tip.notifyAll')}
           </DropdownMenuItem>
-          <DropdownMenuItem className="text-sm" onSelect={() => subscribeHandler()}>
+          <DropdownMenuItem className="text-sm" onSelect={() => unsubscribeComment()}>
             {t('comment.tip.notifyRelatedToMe')}
           </DropdownMenuItem>
         </DropdownMenuContent>
