@@ -161,6 +161,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               type="file"
               className="hidden"
               ref={coverInput}
+              accept="image/*"
               onChange={(e) => onFileSelected(e, 'cover')}
             />
             <Pencil />
@@ -200,6 +201,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
             type="file"
             className="hidden"
             ref={logoInput}
+            accept="image/*"
             onChange={(e) => onFileSelected(e, 'logo')}
           />
         </div>
