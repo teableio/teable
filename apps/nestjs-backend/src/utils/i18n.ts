@@ -1,0 +1,19 @@
+import fs from 'fs';
+import path from 'path';
+
+const localPaths = [
+  process.env.I18N_LOCALES_PATH || '',
+  path.join(__dirname, '../../../packages/common-i18n/src/locales'),
+];
+
+export const getI18nPath = () => {
+  console.log('nestjs-backend I18n path checking', __dirname, 'localPaths', localPaths);
+  return localPaths.find((str) => {
+    const exists = fs.existsSync(str);
+    console.log(`nestjs-backend I18n path checking exists ${exists} ${str} `);
+    if (exists) {
+      console.log('nestjs-backend I18n path found', str);
+    }
+    return exists;
+  });
+};

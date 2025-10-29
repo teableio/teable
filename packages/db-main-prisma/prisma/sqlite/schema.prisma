@@ -185,6 +185,7 @@ model User {
   isSystem             Boolean?  @map("is_system")
   isAdmin              Boolean?  @map("is_admin")
   isTrialUsed          Boolean?  @map("is_trial_used")
+  lang                 String?   @map("lang")
   notifyMeta           String?   @map("notify_meta")
   lastSignTime         DateTime? @map("last_sign_time")
   deactivatedTime      DateTime? @map("deactivated_time")

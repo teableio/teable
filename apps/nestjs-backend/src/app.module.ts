@@ -4,6 +4,13 @@ import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigService } from '@nestjs/config';
 import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
+import {
+  I18nModule,
+  QueryResolver,
+  AcceptLanguageResolver,
+  HeaderResolver,
+  CookieResolver,
+} from 'nestjs-i18n';
 import type { ICacheConfig } from './configs/cache.config';
 import { ConfigModule } from './configs/config.module';
 import { AccessTokenModule } from './features/access-token/access-token.module';
@@ -45,6 +52,7 @@ import { UserModule } from './features/user/user.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
+import { getI18nPath } from './utils/i18n';
 import { WsModule } from './ws/ws.module';
 
 export const appModules = {
@@ -115,6 +123,32 @@ export const appModules = {
       }),
       (env) => {
         return Boolean(env.BACKEND_CACHE_REDIS_URI);
+      }
+    ),
+    ConditionalModule.registerWhen(
+      I18nModule.forRootAsync({
+        useFactory: () => ({
+          fallbackLanguage: 'en',
+          loaderOptions: {
+            path: getI18nPath(),
+            watch: process.env.NODE_ENV !== 'production',
+          },
+          formatter: (template: string, ...args: Array<string | Record<string, string>>) => {
+            // replace {{field}} to {$field}
+            const normalized = template.replace(/\{\{\s*(\w+)\s*\}\}/g, '{$1}');
+            const options = I18nModule['sanitizeI18nOptions']();
+            return options.formatter(normalized, ...args);
+          },
+        }),
+        resolvers: [
+          { use: QueryResolver, options: ['lang'] },
+          { use: CookieResolver, options: ['NEXT_LOCALE'] },
+          AcceptLanguageResolver,
+          new HeaderResolver(['x-lang']),
+        ],
+      }),
+      () => {
+        return Boolean(getI18nPath());
       }
     ),
   ],
