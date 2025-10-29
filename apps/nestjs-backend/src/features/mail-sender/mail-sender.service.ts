@@ -201,7 +201,6 @@ export class MailSenderService {
     return {
       subject: this.i18n.t('common.email.templates.invite.subject', {
         args: { name, email, resourceAlias, resourceName, brandName },
-        defaultValue: `${name} (${email}) invited you to their ${resourceAlias} ${resourceName} - ${brandName}`,
       }),
       template: 'normal',
       context: {
@@ -212,16 +211,11 @@ export class MailSenderService {
         inviteUrl,
         partialBody: 'invite',
         brandName,
-        title: this.i18n.t('common.email.templates.invite.title', {
-          defaultValue: 'Invitation to Collaborate',
-        }),
+        title: this.i18n.t('common.email.templates.invite.title'),
         message: this.i18n.t('common.email.templates.invite.message', {
           args: { name, email, resourceAlias, resourceName },
-          defaultValue: `<strong>${name}</strong> (${email}) invited you to their ${resourceAlias} <strong>${resourceName}</strong>.`,
         }),
-        buttonText: this.i18n.t('common.email.templates.invite.buttonText', {
-          defaultValue: 'Accept Invitation',
-        }),
+        buttonText: this.i18n.t('common.email.templates.invite.buttonText'),
       },
     };
   }
@@ -377,22 +371,14 @@ export class MailSenderService {
         args: {
           brandName,
         },
-        defaultValue: `Reset your password - ${brandName}`,
       }),
       template: 'normal',
       context: {
         partialBody: 'reset-password',
         brandName,
-        title: this.i18n.t('common.email.templates.resetPassword.title', {
-          defaultValue: 'Reset Your Password',
-        }),
-        message: this.i18n.t('common.email.templates.resetPassword.message', {
-          defaultValue:
-            'If you did not request this change, please ignore this email. Otherwise, click the button below to reset your password.',
-        }),
-        buttonText: this.i18n.t('common.email.templates.resetPassword.buttonText', {
-          defaultValue: 'Reset Password',
-        }),
+        title: this.i18n.t('common.email.templates.resetPassword.title'),
+        message: this.i18n.t('common.email.templates.resetPassword.message'),
+        buttonText: this.i18n.t('common.email.templates.resetPassword.buttonText'),
         buttonUrl: resetPasswordUrl,
       },
     };
@@ -406,21 +392,17 @@ export class MailSenderService {
         args: {
           brandName,
         },
-        defaultValue: `Signup Verification - ${brandName}`,
       }),
       template: 'normal',
       context: {
         partialBody: 'email-verify-code',
         brandName,
-        title: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.title', {
-          defaultValue: 'Signup Verification',
-        }),
+        title: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.title'),
         message: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.message', {
           args: {
             code,
             expiresIn,
           },
-          defaultValue: `Your verification code is ${code}, please use it within ${expiresIn} minutes.`,
         }),
       },
     };
@@ -439,7 +421,6 @@ export class MailSenderService {
         args: {
           brandName,
         },
-        defaultValue: `Domain Verification - ${brandName}`,
       }),
       template: 'normal',
       context: {
@@ -447,14 +428,12 @@ export class MailSenderService {
         brandName,
         title: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.title', {
           args: { domain, name },
-          defaultValue: `Verify your domain(${domain}) for ${name}`,
         }),
         message: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.message', {
           args: {
             code,
             expiresIn,
           },
-          defaultValue: `Your one-time code is ${code}, expires in ${expiresIn} minutes.`,
         }),
       },
     };
@@ -468,21 +447,17 @@ export class MailSenderService {
         'common.email.templates.emailVerifyCode.changeEmailVerification.subject',
         {
           args: { brandName },
-          defaultValue: `Change Email Verification - ${brandName}`,
         }
       ),
       template: 'normal',
       context: {
         partialBody: 'email-verify-code',
         brandName,
-        title: this.i18n.t('common.email.templates.emailVerifyCode.changeEmailVerification.title', {
-          defaultValue: 'Change Email Verification',
-        }),
+        title: this.i18n.t('common.email.templates.emailVerifyCode.changeEmailVerification.title'),
         message: this.i18n.t(
           'common.email.templates.emailVerifyCode.changeEmailVerification.message',
           {
             args: { code, expiresIn },
-            defaultValue: `Your verification code is ${code}, please use it within ${expiresIn} minutes.`,
           }
         ),
       },
