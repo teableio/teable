@@ -754,7 +754,13 @@
           }
         },
         "exportBase": {
-          "title": "导出空间通知"
+          "title": "导出数据库结果通知",
+          "success": {
+            "message": "{{baseName}} 导出成功: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} 导出失败: {{errorMessage}}"
+          }
         },
         "task": {
           "ai": {

@@ -369,7 +369,11 @@ export class NotificationService {
     });
   }
 
-  async sendExportBaseResultNotify(params: { baseId: string; toUserId: string; message: string }) {
+  async sendExportBaseResultNotify(params: {
+    baseId: string;
+    toUserId: string;
+    message: string | ILocalization;
+  }) {
     const { toUserId, message } = params;
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {

@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkFieldOptions } from '@teable/core';
+import type { ILinkFieldOptions, ILocalization } from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -92,13 +92,26 @@ export class BaseExportService {
             'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
           }
         );
-        const messageString = `${baseName} Export successfully: <a href="${previewUrl}" name="${name}" class="hover:text-blue-500 underline">🗂️ ${name}</a>`;
-        this.notifyExportResult(baseId, messageString, previewUrl);
+        const message = {
+          i18nKey: 'common.email.templates.notify.exportBase.success.message',
+          context: {
+            baseName,
+            previewUrl,
+            name,
+          },
+        };
+        this.notifyExportResult(baseId, message, previewUrl);
       })
       .catch(async (e) => {
         this.logger.error(`export base zip error: ${e.message}`, e?.stack);
-        const messageString = `❌ ${baseName} export failed: ${e.message}`;
-        this.notifyExportResult(baseId, messageString);
+        const message = {
+          i18nKey: 'common.email.templates.notify.exportBase.failed.message',
+          context: {
+            baseName,
+            errorMessage: e.message,
+          },
+        };
+        this.notifyExportResult(baseId, message);
       });
   }
 
@@ -992,7 +1005,11 @@ export class BaseExportService {
     });
   }
 
-  private async notifyExportResult(baseId: string, message: string, previewUrl?: string) {
+  private async notifyExportResult(
+    baseId: string,
+    message: string | ILocalization,
+    previewUrl?: string
+  ) {
     const userId = this.cls.get('user.id');
     await this.eventEmitterService.emit(Events.BASE_EXPORT_COMPLETE, {
       previewUrl,

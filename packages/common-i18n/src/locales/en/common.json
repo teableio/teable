@@ -757,7 +757,13 @@
           }
         },
         "exportBase": {
-          "title": "Export Base Notification"
+          "title": "Export base result notification",
+          "success": {
+            "message": "{{baseName}} Export successfully: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} exported failed: {{errorMessage}}"
+          }
         },
         "task": {
           "ai": {
