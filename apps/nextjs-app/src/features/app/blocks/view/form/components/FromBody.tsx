@@ -177,7 +177,7 @@ export const FormBody = (props: IFormBodyProps) => {
         {name ?? t('untitled')}
       </div>
 
-      {description && <div className="mb-4 w-full px-12">{description}</div>}
+      {description && <div className="mb-4 w-full whitespace-pre-line px-12">{description}</div>}
 
       {Boolean(visibleFields.length) && (
         <div className="w-full px-6 sm:px-12">
