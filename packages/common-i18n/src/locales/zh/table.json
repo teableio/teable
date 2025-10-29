@@ -551,7 +551,8 @@
     "unableAddFieldTip": "不支持添加该字段类型",
     "removeFromFormTip": "从表单中移除该字段",
     "descriptionPlaceholder": "请输入表单描述",
-    "dragToFormTip": "拖拽字段到这里添加至表单"
+    "dragToFormTip": "拖拽字段到这里添加至表单",
+    "protectedFieldTip": "此字段已被设为\"必填\"字段，无法在表单视图中移除，请在字段设置中进行修改。"
   },
   "kanban": {
     "toolbar": {

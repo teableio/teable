@@ -496,7 +496,8 @@
     "unableAddFieldTip": "Impossible d'ajouter ce type de champ",
     "removeFromFormTip": "Supprimer du formulaire",
     "descriptionPlaceholder": "Entrez une description",
-    "dragToFormTip": "Faites glisser le champ ici pour l'ajouter au formulaire"
+    "dragToFormTip": "Faites glisser le champ ici pour l'ajouter au formulaire",
+    "protectedFieldTip": "Ce champ a été défini comme un champ \"requis\" et ne peut pas être supprimé dans la vue formulaire. Veuillez le modifier dans les paramètres du champ."
   },
   "kanban": {
     "toolbar": {

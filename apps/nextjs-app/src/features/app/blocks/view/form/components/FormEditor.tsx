@@ -25,6 +25,7 @@ import type { IFieldInstance } from '@teable/sdk/model';
 import { useEffect, useMemo, useState } from 'react';
 import { FieldSetting } from '../../grid/components';
 import { FORM_SIDEBAR_DROPPABLE_ID } from '../constant';
+import { isProtectedField } from '../util';
 import { FormEditorMain } from './FormEditorMain';
 import { FormFieldEditor } from './FormFieldEditor';
 import { DragItem, FormSidebar } from './FormSidebar';
@@ -111,8 +112,11 @@ export const FormEditor = () => {
     }
 
     if (activeField && overId === FORM_SIDEBAR_DROPPABLE_ID && !additionalFieldData) {
-      const sourceDragId = activeField.id;
-      setSidebarAdditionalFieldId(sourceDragId);
+      const isProtected = isProtectedField(activeField);
+      if (!isProtected) {
+        const sourceDragId = activeField.id;
+        setSidebarAdditionalFieldId(sourceDragId);
+      }
     }
   };
 
@@ -201,15 +205,24 @@ export const FormEditor = () => {
     }
 
     if (activeField && overId === FORM_SIDEBAR_DROPPABLE_ID) {
-      const sourceDragId = activeField.id;
-      await view?.updateColumnMeta([
-        {
-          fieldId: sourceDragId,
-          columnMeta: {
-            visible: false,
+      const hasConfiguredDefault =
+        activeField.options != null &&
+        Object.prototype.hasOwnProperty.call(
+          activeField.options as Record<string, unknown>,
+          'defaultValue'
+        );
+      const isProtected = Boolean(activeField.notNull) && !hasConfiguredDefault;
+      if (!isProtected) {
+        const sourceDragId = activeField.id;
+        await view?.updateColumnMeta([
+          {
+            fieldId: sourceDragId,
+            columnMeta: {
+              visible: false,
+            },
           },
-        },
-      ]);
+        ]);
+      }
     }
   };
 

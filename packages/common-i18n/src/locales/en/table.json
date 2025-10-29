@@ -549,7 +549,8 @@
     "unableAddFieldTip": "Unable to add this type field",
     "removeFromFormTip": "Remove from the form",
     "descriptionPlaceholder": "Enter from description",
-    "dragToFormTip": "Drag the field here to add it to the form"
+    "dragToFormTip": "Drag the field here to add it to the form",
+    "protectedFieldTip": "This field has been set as a \"required\" field, and cannot be removed in the form view. Please modify it in the field settings."
   },
   "kanban": {
     "toolbar": {

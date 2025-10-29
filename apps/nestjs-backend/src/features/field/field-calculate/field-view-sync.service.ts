@@ -5,6 +5,7 @@ import {
   ViewOpBuilder,
   FieldOpBuilder,
   getValidStatisticFunc,
+  ViewType,
 } from '@teable/core';
 import type {
   IFilterSet,
@@ -255,6 +256,28 @@ export class FieldViewSyncService {
               fieldId,
               newColumnMeta: { ...meta, statisticFunc: null },
               oldColumnMeta: { ...meta },
+            });
+            opsMap[viewId] = [...(opsMap[viewId] || []), updateOp];
+          }
+        }
+
+        // For Form views: enforce visibility when field is not null and no default value
+        if (view.type === ViewType.Form) {
+          const defaultValue = (newField.options as { defaultValue?: string })?.defaultValue;
+          const protectedNew = Boolean(newField.notNull) && !defaultValue;
+          const defaultValueOld = (
+            oldField.options as {
+              defaultValue?: string;
+            }
+          )?.defaultValue;
+          const protectedOld = Boolean(oldField.notNull) && !defaultValueOld;
+
+          if (protectedNew && !protectedOld) {
+            const prev = columnMeta[fieldId] ?? {};
+            const updateOp = ViewOpBuilder.editor.updateViewColumnMeta.build({
+              fieldId,
+              newColumnMeta: { ...prev, visible: true } as IColumn,
+              oldColumnMeta: prev as IColumn,
             });
             opsMap[viewId] = [...(opsMap[viewId] || []), updateOp];
           }

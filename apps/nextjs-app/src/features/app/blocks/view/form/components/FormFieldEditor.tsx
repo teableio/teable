@@ -14,6 +14,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { isProtectedField } from '../util';
 
 interface IFormFieldEditorProps {
   field: IFieldInstance;
@@ -29,6 +30,8 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
   if (!view || !tableId) return null;
 
   const { type, name, description, isComputed, isLookup, id: fieldId, aiConfig } = field;
+  const isProtected = isProtectedField(field);
+  const required = isProtected || view.columnMeta[fieldId]?.required;
   const Icon = getFieldStatic(type, {
     isLookup,
     isConditionalLookup: field.isConditionalLookup,
@@ -58,8 +61,6 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
     ]);
   };
 
-  const required = field.notNull || view.columnMeta[fieldId]?.required;
-
   return (
     <div className="relative w-full px-8 py-5">
       <div className="mb-2 flex w-full items-center justify-between">
@@ -73,28 +74,50 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
           {!isComputed && (
             <div className="flex shrink-0 items-center" onClick={(e) => e.stopPropagation()}>
               <Label htmlFor="form-field-required">{t('required')}</Label>
-              <Switch
-                id="form-field-required"
-                className="ml-1 mr-2"
-                checked={required}
-                disabled={field.notNull}
-                onCheckedChange={onRequiredChange}
-              />
+              {isProtected ? (
+                <TooltipProvider>
+                  <Tooltip delayDuration={200}>
+                    <TooltipTrigger asChild>
+                      <span className="flex items-center">
+                        <Switch
+                          id="form-field-required"
+                          className="ml-1 mr-2 cursor-not-allowed"
+                          checked={required}
+                          disabled={isProtected}
+                        />
+                        <EyeOff className="size-6 cursor-not-allowed rounded p-1 opacity-50" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent sideOffset={8} className="max-w-xs">
+                      {t('table:form.protectedFieldTip')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <Switch
+                  id="form-field-required"
+                  className="ml-1 mr-2"
+                  checked={required}
+                  onCheckedChange={onRequiredChange}
+                />
+              )}
             </div>
           )}
-          <TooltipProvider>
-            <Tooltip delayDuration={200}>
-              <TooltipTrigger asChild>
-                <span>
-                  <EyeOff
-                    className="size-6 cursor-pointer rounded p-1 hover:bg-slate-300 dark:hover:bg-slate-600"
-                    onClick={onHidden}
-                  />
-                </span>
-              </TooltipTrigger>
-              <TooltipContent sideOffset={8}>{t('table:form.removeFromFormTip')}</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {!isProtected && (
+            <TooltipProvider>
+              <Tooltip delayDuration={200}>
+                <TooltipTrigger asChild>
+                  <span>
+                    <EyeOff
+                      className="size-6 cursor-pointer rounded p-1 hover:bg-slate-300 dark:hover:bg-slate-600"
+                      onClick={onHidden}
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent sideOffset={8}>{t('table:form.removeFromFormTip')}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </div>
       {description && <div className="mb-2 text-xs text-slate-400">{description}</div>}

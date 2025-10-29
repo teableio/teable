@@ -499,7 +499,8 @@
     "unableAddFieldTip": "No se puede agregar este tipo de campo",
     "removeFromFormTip": "Eliminar del formulario",
     "descriptionPlaceholder": "Ingresa la descripción del formulario",
-    "dragToFormTip": "Arrastra el campo aquí para agregarlo al formulario"
+    "dragToFormTip": "Arrastra el campo aquí para agregarlo al formulario",
+    "protectedFieldTip": "Este campo se ha establecido como campo \"requerido\" y no se puede eliminar en la vista de formulario. Por favor, modifíquelo en la configuración del campo."
   },
   "kanban": {
     "toolbar": {

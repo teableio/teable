@@ -4,8 +4,10 @@ import type {
   IGridColumnMeta,
   ISelectFieldChoice,
   ISelectFieldOptions,
+  IFormColumn,
 } from '@teable/core';
-import { FieldType, ViewType, SortFunc, Colors, StatisticsFunc } from '@teable/core';
+import { FieldKeyType, FieldType, ViewType, SortFunc, Colors, StatisticsFunc } from '@teable/core';
+import { updateRecords } from '@teable/openapi';
 import {
   createTable,
   createView,
@@ -15,6 +17,7 @@ import {
   getViews,
   updateViewColumnMeta,
   convertField,
+  getRecords,
 } from './utils/init-app';
 
 describe('OpenAPI FieldController (e2e)', () => {
@@ -144,6 +147,37 @@ describe('OpenAPI FieldController (e2e)', () => {
     });
 
     expect(formViewAfterDelete?.columnMeta).not.haveOwnProperty(numberField.id);
+  });
+
+  it('should set form column visible after setting field notNull without default', async () => {
+    const textField = fields.find(({ type }) => type === FieldType.SingleLineText) as IFieldVo;
+
+    const formView = await createView(tableId, {
+      type: ViewType.Form,
+      name: 'Form',
+    });
+
+    const recordResult = await getRecords(tableId);
+    await updateRecords(tableId, {
+      fieldKeyType: FieldKeyType.Id,
+      records: recordResult.records.map((rec) => ({
+        id: rec.id,
+        fields: { [textField.id]: 'filled' },
+      })),
+    });
+
+    await convertField(tableId, textField.id, {
+      name: textField.name,
+      dbFieldName: textField.dbFieldName,
+      type: textField.type,
+      options: {},
+      notNull: true,
+    });
+
+    const views = await getViews(tableId);
+    const formAfter = views.find(({ id }) => id === formView.id)!;
+    const formColumnMeta = formAfter.columnMeta as unknown as Record<string, IFormColumn>;
+    expect(formColumnMeta[textField.id]?.visible ?? false).toBe(true);
   });
 
   it('should sync the selected value after update select type field option name', async () => {

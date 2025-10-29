@@ -505,7 +505,8 @@
     "unableAddFieldTip": "Feld dieses Typs kann nicht hinzugefügt werden",
     "removeFromFormTip": "Aus dem Formular entfernen",
     "descriptionPlaceholder": "Aus Beschreibung eingeben",
-    "dragToFormTip": "Ziehen Sie das Feld hierher, um es dem Formular hinzuzufügen"
+    "dragToFormTip": "Ziehen Sie das Feld hierher, um es dem Formular hinzuzufügen",
+    "protectedFieldTip": "Dieses Feld wurde als \"Pflichtfeld\" festgelegt und kann in der Formularansicht nicht entfernt werden. Bitte ändern Sie es in den Feldeinstellungen."
   },
   "kanban": {
     "toolbar": {

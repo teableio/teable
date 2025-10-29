@@ -3,6 +3,7 @@ import type { FormView, IFieldInstance } from '@teable/sdk/model';
 import { useTranslation } from 'next-i18next';
 import type { FC } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { isProtectedField } from '../util';
 import { FormCellEditor } from './FormCellEditor';
 
 interface IFormFieldEditorProps {
@@ -28,7 +29,8 @@ export const FormField: FC<IFormFieldEditorProps> = (props) => {
     hasAiConfig: Boolean(aiConfig),
   }).Icon;
 
-  const required = field.notNull || view?.columnMeta[fieldId]?.required;
+  const isProtected = isProtectedField(field);
+  const required = isProtected || view?.columnMeta[fieldId]?.required;
   const isError = errors.has(fieldId);
 
   return (

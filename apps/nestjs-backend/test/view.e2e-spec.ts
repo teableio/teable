@@ -35,6 +35,7 @@ import {
   updateViewLocked,
   duplicateView,
   installViewPlugin,
+  updateRecords,
 } from '@teable/openapi';
 import { sample } from 'lodash';
 import { ViewService } from '../src/features/view/view.service';
@@ -50,6 +51,7 @@ import {
   getViews,
   getView,
   getTable,
+  convertField,
 } from './utils/init-app';
 
 const defaultViews = [
@@ -180,6 +182,39 @@ describe('OpenAPI ViewController (e2e)', () => {
     const order = columnMetaResponse?.[testFieldId]?.order;
     expect(order).toEqual(assertOrder);
     expect(fields.length).toEqual(Object.keys(columnMetaResponse).length);
+  });
+
+  it('should set protected fields visible when creating form view', async () => {
+    const textField = table.fields.find(
+      ({ type }) => type === FieldType.SingleLineText
+    ) as IFieldVo;
+
+    const recordResult = await getRecords(table.id);
+    await updateRecords(table.id, {
+      fieldKeyType: FieldKeyType.Id,
+      records: recordResult.data.records.map((rec) => ({
+        id: rec.id,
+        fields: { [textField.id]: 'filled' },
+      })),
+    });
+
+    await convertField(table.id, textField.id, {
+      name: textField.name,
+      dbFieldName: textField.dbFieldName,
+      type: textField.type,
+      options: {},
+      notNull: true,
+    });
+
+    const formView = await createView(table.id, {
+      name: 'Form view',
+      type: ViewType.Form,
+    });
+
+    const views = await getViews(table.id);
+    const createdForm = views.find(({ id }) => id === formView.id)!;
+    const formColumnMeta = createdForm.columnMeta as unknown as Record<string, IFormColumn>;
+    expect(formColumnMeta[textField.id]?.visible ?? false).toBe(true);
   });
 
   it('should batch update view when create field', async () => {

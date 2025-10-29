@@ -495,7 +495,8 @@
     "unableAddFieldTip": "このタイプのフィールドを追加できません",
     "removeFromFormTip": "フォームから削除",
     "descriptionPlaceholder": "説明から入力",
-    "dragToFormTip": "フィールドをここにドラッグしてフォームに追加します"
+    "dragToFormTip": "フィールドをここにドラッグしてフォームに追加します",
+    "protectedFieldTip": "このフィールドは「必須」フィールドに設定されており、フォームビューで削除することはできません。フィールド設定で変更してください。"
   },
   "kanban": {
     "toolbar": {

@@ -505,7 +505,8 @@
     "unableAddFieldTip": "Impossibile aggiungere questo tipo di campo",
     "removeFromFormTip": "Rimuovi dal modulo",
     "descriptionPlaceholder": "Inserisci la descrizione del modulo",
-    "dragToFormTip": "Trascina il campo qui per aggiungerlo al modulo"
+    "dragToFormTip": "Trascina il campo qui per aggiungerlo al modulo",
+    "protectedFieldTip": "Questo campo è stato impostato come campo \"obbligatorio\" e non può essere rimosso nella vista modulo. Si prega di modificarlo nelle impostazioni del campo."
   },
   "kanban": {
     "toolbar": {

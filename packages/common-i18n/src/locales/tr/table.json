@@ -476,7 +476,8 @@
     "unableAddFieldTip": "Bu tür alan eklenemiyor",
     "removeFromFormTip": "Formdan kaldır",
     "descriptionPlaceholder": "Form açıklaması girin",
-    "dragToFormTip": "Alanı forma eklemek için buraya sürükleyin"
+    "dragToFormTip": "Alanı forma eklemek için buraya sürükleyin",
+    "protectedFieldTip": "Bu alan \"gerekli\" alan olarak ayarlanmıştır ve form görünümünde kaldırılamaz. Lütfen alan ayarlarından değiştirin."
   },
   "kanban": {
     "toolbar": {
