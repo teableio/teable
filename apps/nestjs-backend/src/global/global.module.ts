@@ -6,6 +6,13 @@ import { PrismaModule } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { nanoid } from 'nanoid';
 import { ClsMiddleware, ClsModule } from 'nestjs-cls';
+import {
+  I18nModule,
+  QueryResolver,
+  AcceptLanguageResolver,
+  HeaderResolver,
+  CookieResolver,
+} from 'nestjs-i18n';
 import { CacheModule } from '../cache/cache.module';
 import { ConfigModule } from '../configs/config.module';
 import { X_REQUEST_ID } from '../const';
@@ -19,6 +26,7 @@ import { ModelModule } from '../features/model/model.module';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
+import { getI18nPath } from '../utils/i18n';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -49,6 +57,27 @@ const globalModules = {
     PermissionModule,
     DataLoaderModule,
     PerformanceCacheModule,
+    I18nModule.forRootAsync({
+      useFactory: () => ({
+        fallbackLanguage: 'en',
+        loaderOptions: {
+          path: getI18nPath(),
+          watch: process.env.NODE_ENV !== 'production',
+        },
+        formatter: (template: string, ...args: Array<string | Record<string, string>>) => {
+          // replace {{field}} to {$field}
+          const normalized = template.replace(/\{\{\s*(\w+)\s*\}\}/g, '{$1}');
+          const options = I18nModule['sanitizeI18nOptions']();
+          return options.formatter(normalized, ...args);
+        },
+      }),
+      resolvers: [
+        { use: QueryResolver, options: ['lang'] },
+        { use: CookieResolver, options: ['NEXT_LOCALE'] },
+        AcceptLanguageResolver,
+        new HeaderResolver(['x-lang']),
+      ],
+    }),
   ],
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [

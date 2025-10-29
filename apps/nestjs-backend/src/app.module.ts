@@ -125,28 +125,6 @@ export const appModules = {
         return Boolean(env.BACKEND_CACHE_REDIS_URI);
       }
     ),
-
-    I18nModule.forRootAsync({
-      useFactory: () => ({
-        fallbackLanguage: 'en',
-        loaderOptions: {
-          path: getI18nPath(),
-          watch: process.env.NODE_ENV !== 'production',
-        },
-        formatter: (template: string, ...args: Array<string | Record<string, string>>) => {
-          // replace {{field}} to {$field}
-          const normalized = template.replace(/\{\{\s*(\w+)\s*\}\}/g, '{$1}');
-          const options = I18nModule['sanitizeI18nOptions']();
-          return options.formatter(normalized, ...args);
-        },
-      }),
-      resolvers: [
-        { use: QueryResolver, options: ['lang'] },
-        { use: CookieResolver, options: ['NEXT_LOCALE'] },
-        AcceptLanguageResolver,
-        new HeaderResolver(['x-lang']),
-      ],
-    }),
   ],
   controllers: [],
 })
