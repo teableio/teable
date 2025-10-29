@@ -118,6 +118,26 @@ const otelSDK = new opentelemetry.NodeSDK({
         ];
         return ignorePaths.some((path) => request.url?.startsWith(path));
       },
+      // 确保追踪 outgoing HTTP 请求（如 AI API 调用）
+      ignoreOutgoingRequestHook: (_options) => {
+        // 不忽略任何出站请求，这样可以追踪到 AI API 调用
+        return false;
+      },
+      // 添加请求和响应钩子以获取更多信息
+      requestHook: (span, request) => {
+        // 为 AI API 请求添加特殊标记
+        if (typeof request === 'object' && 'host' in request) {
+          const host = request.host || '';
+          if (
+            host.includes('api.openai.com') ||
+            host.includes('hash070.com') ||
+            host.includes('opapi.win') ||
+            host.includes('generativelanguage.googleapis.com')
+          ) {
+            span.setAttribute('ai.provider', 'detected');
+          }
+        }
+      },
     }),
     new ExpressInstrumentation({
       ignoreLayersType: [ExpressLayerType.MIDDLEWARE, ExpressLayerType.REQUEST_HANDLER],
