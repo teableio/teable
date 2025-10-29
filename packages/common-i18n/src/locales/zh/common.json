@@ -667,7 +667,105 @@
     "unsubscribeH2": "您即将取消订阅 Teable 未来的促销和产品更新信息。您确定要取消订阅吗？",
     "subscribeH1": "确认订阅",
     "subscribeH2": "您即将订阅 Teable 未来的促销和产品更新信息。您确定要订阅吗？",
-    "unsubscribeListTip": "当前数据库的以下用户已取消订阅，您将无法再向他们发送电子邮件。导入电子邮件时，请将电子邮件地址放在第一列，并将标题命名为 email。"
+    "unsubscribeListTip": "当前数据库的以下用户已取消订阅，您将无法再向他们发送电子邮件。导入电子邮件时，请将电子邮件地址放在第一列，并将标题命名为 email。",
+    "templates": {
+      "resetPassword": {
+        "subject": "重置密码 - {{brandName}}",
+        "title": "重置您的密码",
+        "message": "如果您没有请求此更改，请忽略此电子邮件。否则，请单击下面的按钮重置您的密码。",
+        "buttonText": "重置密码"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "注册验证 - {{brandName}}",
+          "title": "注册验证",
+          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
+        },
+        "domainVerification": {
+          "subject": "域名验证 - {{brandName}}",
+          "title": "域名验证",
+          "message": "您的一次性验证码是：{{code}}，请在 {{expiresIn}} 分钟内使用。"
+        },
+        "changeEmailVerification": {
+          "subject": "更改电子邮件验证 - {{brandName}}",
+          "title": "更改电子邮件验证",
+          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} 添加您到 {{fieldName}} 字段中的记录",
+        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{fieldName}}</strong> 字段中的记录",
+        "buttonText": "查看记录"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} 添加您到 {{refLength}} 条记录",
+        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{refLength}}</strong> 条记录",
+        "buttonText": "查看记录"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) 邀请您到他们的 {{resourceAlias}} {{resourceName}}",
+        "title": "邀请您协作",
+        "message": "<strong>{{name}}</strong> ({{email}}) 邀请您到他们的 {{resourceAlias}} <strong>{{resourceName}}</strong>。",
+        "buttonText": "接受邀请"
+      },
+      "waitlistInvite": {
+        "subject": "欢迎 - {{brandName}}",
+        "title": "欢迎",
+        "message": "您已成功加入 {{brandName}} 的等待列表，请使用以下邀请码注册：{{code}}，该邀请码可使用 {{times}} 次。",
+        "buttonText": "注册"
+      },
+      "test": {
+        "subject": "测试邮件 - {{brandName}}",
+        "title": "测试邮件",
+        "message": "这是一封测试邮件，请忽略。"
+      },
+      "notify": {
+        "subject": "通知 - {{brandName}}",
+        "title": "通知",
+        "buttonText": "查看",
+        "import": {
+          "title": "导入结果通知",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} 导入中断: {{errorMessage}} 失败行范围: [{{range}}]. 请检查此范围内的数据并重试。"
+            },
+            "failed": {
+              "message": "❌ {{tableName}} 导入失败: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} 导入成功。",
+              "inplace": "🎉 {{tableName}} 增量导入成功。"
+            }
+          }
+        },
+        "recordComment": {
+          "title": "记录评论通知",
+          "message": "{{fromUserName}} 在 {{tableName}} {{baseName ? `in ${baseName}` : ''}} 的 {{recordName}} 上评论了"
+        },
+        "automation": {
+          "title": "自动化通知",
+          "failed": {
+            "title": "自动化 {{name}} 运行失败",
+            "message": "自动化 {{name}} 运行失败。点击下面的按钮查看具体错误。"
+          },
+          "insufficientCredit": {
+            "title": "自动化 {{name}} 运行失败，由于算力不足",
+            "message": "自动化 {{name}} 运行失败，由于算力不足。请升级订阅或联系支持。"
+          }
+        },
+        "exportBase": {
+          "title": "导出空间通知"
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "AI 任务失败，表 {{tableName}}",
+              "message": "AI 任务在表 {{tableName}} 的字段 {{fieldName}} 中失败。\n\n{{errorMsg}}\n\n点击下面的按钮查看详细信息。"
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "等待列表",

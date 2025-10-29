@@ -670,7 +670,105 @@
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
     "subscribeH1": "Confirm Subscribe?",
     "subscribeH2": "You're about to subscribe from future Teable promotions and product updates. Are you sure you want to subscribe?",
-    "unsubscribeListTip": "The following users in the current base have unsubscribed, you will no longer be able to send them emails. When importing emails, please place the email addresses in the first column, and name the header \"email\"."
+    "unsubscribeListTip": "The following users in the current base have unsubscribed, you will no longer be able to send them emails. When importing emails, please place the email addresses in the first column, and name the header \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Reset Password - {{brandName}}",
+        "title": "Reset Your Password",
+        "message": "If you did not request this change, please ignore this email. Otherwise, click the button below to reset your password.",
+        "buttonText": "Reset Password"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Signup Verification - {{brandName}}",
+          "title": "Signup Verification",
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
+        },
+        "domainVerification": {
+          "subject": "Domain Verification - {{brandName}}",
+          "title": "Domain Verification",
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
+        },
+        "changeEmailVerification": {
+          "subject": "Change Email Verification - {{brandName}}",
+          "title": "Change Email Verification",
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} added you to the {{fieldName}} field of a record in {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> added you to the <strong>{{fieldName}}</strong> field of a record in <strong>{{tableName}}</strong>",
+        "buttonText": "View record"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} added you to {{refLength}} records in {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> added you to <strong>{{refLength}}</strong> records in <strong>{{tableName}}</strong>",
+        "buttonText": "View records"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) invited you to their {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "Invitation to Collaborate",
+        "message": "<strong>{{name}}</strong> ({{email}}) invited you to their {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "Accept Invitation"
+      },
+      "waitlistInvite": {
+        "subject": "Welcome - {{brandName}}",
+        "title": "Welcome",
+        "message": "You've successfully joined the waitlist of {{brandName}}, please use the following invite code to register: {{code}}, it can be used {{times}} times.",
+        "buttonText": "Register"
+      },
+      "test": {
+        "subject": "Test Email - {{brandName}}",
+        "title": "Test Email",
+        "message": "This is a test email, please ignore."
+      },
+      "notify": {
+        "subject": "Notify - {{brandName}}",
+        "title": "Notify",
+        "buttonText": "View",
+        "import": {
+          "title": "Import Result Notification",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} import aborted: {{errorMessage}} failed row range: [{{range}}]. Please check the data for this range and retry."
+            },
+            "failed": {
+              "message": "❌ {{tableName}} import failed: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} imported successfully.",
+              "inplace": "🎉 {{tableName}} inplace imported successfully."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Record Comment Notification",
+          "message": "{{fromUserName}} made a commented on {{recordName}} in {{tableName}} {{baseName ? `in ${baseName}` : ''}}"
+        },
+        "automation": {
+          "title": "Automation Notification",
+          "failed": {
+            "title": "Automation {{name}} failed",
+            "message": "Your Automation {{name}} has failed to run. Click the button below to view specific errors from the run history."
+          },
+          "insufficientCredit": {
+            "title": "Automation {{name}} failed due to insufficient credit",
+            "message": "Your Automation {{name}} has failed to run due to insufficient credit. please upgrade subscription or contact support."
+          }
+        },
+        "exportBase": {
+          "title": "Export Base Notification"
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "AI task failed in table {{tableName}}",
+              "message": "The AI task for field {{fieldName}} in table {{tableName}} (Record ID: {{recordId}}) has failed.\n\n{{errorMsg}}\n\nClick the button below to view details."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Waitlist",

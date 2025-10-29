@@ -679,7 +679,10 @@ export class CommentOpenApiService {
       new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
     ).filter((userId) => userId !== fromUserId);
 
-    const message = `${fromUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} ${baseName ? `in ${baseName}` : ''}`;
+    const message = {
+      i18nKey: 'common.email.templates.notify.recordComment.message',
+      context: { fromUserName, recordName, tableName, baseName },
+    };
 
     subscribeUsersIds.forEach((userId) => {
       this.notificationService.sendCommentNotify({

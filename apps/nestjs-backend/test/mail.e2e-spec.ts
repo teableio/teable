@@ -143,9 +143,9 @@ describe.skip('Mail sender  (e2e)', () => {
       type: MailType.Notify,
     });
     promises.push(promise2);
-    const emailVerifyCodeEmailOptions = await mailSenderService.sendEmailVerifyCodeEmailOptions({
-      title: 'sendEmailVerifyCodeEmail',
-      message: 'code: 123456',
+    const emailVerifyCodeEmailOptions = await mailSenderService.sendChangeEmailCodeEmailOptions({
+      code: '123456',
+      expiresIn: '10 minutes',
     });
     const mailOptions3 = {
       ...emailVerifyCodeEmailOptions,

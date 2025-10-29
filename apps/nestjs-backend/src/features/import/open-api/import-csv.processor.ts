@@ -31,6 +31,7 @@ import { parseBoolean } from './import.class';
 interface ITableImportCsvJob {
   baseId: string;
   userId: string;
+  lang?: string;
   path: string;
   columnInfo?: IImportColumn[];
   fields: { id: string; type: FieldType }[];
@@ -67,7 +68,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
-    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range } = job.data;
+    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range, lang } =
+      job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
@@ -78,7 +80,16 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
+            message: sourceColumnMap
+              ? {
+                  i18nKey: 'common.email.templates.notify.import.table.success.inplace',
+                  context: { tableName: table.name },
+                }
+              : {
+                  i18nKey: 'common.email.templates.notify.import.table.success.message',
+                  context: { tableName: table.name },
+                },
+            lang,
           });
 
         this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
@@ -107,7 +118,15 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           baseId,
           tableId: table.id,
           toUserId: userId,
-          message: `❌ ${table.name} import aborted: ${err.message} fail row range: [${range}]. Please check the data for this range and retry.`,
+          message: {
+            i18nKey: 'common.email.templates.notify.import.table.aborted.message',
+            context: {
+              tableName: table.name,
+              errorMessage: err.message,
+              range: `${range[0]}, ${range[1]}`,
+            },
+          },
+          lang,
         });
 
       throw err;

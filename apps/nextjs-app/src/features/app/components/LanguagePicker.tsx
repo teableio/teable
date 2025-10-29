@@ -1,3 +1,5 @@
+import { useMutation } from '@tanstack/react-query';
+import { updateUserLang } from '@teable/openapi';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
   DropdownMenu,
@@ -33,15 +35,20 @@ const setCookie = (locale?: string) => {
 
 export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { t, i18n } = useTranslation('common');
+
+  const { mutate: updateLangMutate } = useMutation({
+    mutationFn: (ro: { lang: string }) => updateUserLang(ro),
+    onSuccess: (_data, variables) => {
+      setCookie(variables.lang);
+      i18n.changeLanguage(variables.lang);
+      toast.message(t('actions.updateSucceed'));
+      window.location.reload();
+    },
+  });
+
   const setLanguage = (value: string) => {
-    if (value === 'default') {
-      setCookie();
-    } else {
-      setCookie(value);
-      i18n.changeLanguage(value);
-    }
-    toast.message(t('actions.updateSucceed'));
-    window.location.reload();
+    const lang = value === 'default' ? '' : value;
+    updateLangMutate({ lang });
   };
 
   const currentLanguage = i18n.language.split('-')[0];

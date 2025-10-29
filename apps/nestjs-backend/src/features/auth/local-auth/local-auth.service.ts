@@ -297,9 +297,9 @@ export class LocalAuthService {
           `Sending signup verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
         );
 
-        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Signup verification',
-          message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+        const emailOptions = await this.mailSenderService.sendSignupVerificationEmailOptions({
+          code,
+          expiresIn: this.authConfig.signupVerificationExpiresIn,
         });
 
         await this.mailSenderService.sendMail(
@@ -485,9 +485,9 @@ export class LocalAuthService {
         if (this.baseConfig.enableEmailCodeConsole) {
           console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
         }
-        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Change Email verification',
-          message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
+        const emailOptions = await this.mailSenderService.sendChangeEmailCodeEmailOptions({
+          code,
+          expiresIn: this.baseConfig.emailCodeExpiresIn,
         });
         await this.mailSenderService.sendMail(
           {
@@ -550,12 +550,12 @@ export class LocalAuthService {
     for (const item of updateList) {
       const times = 10;
       const code = await this.genWaitlistInviteCode(times);
-      const mailOptions = await this.mailSenderService.commonEmailOptions({
-        to: item.email,
-        title: 'Welcome',
-        message: `You're off the waitlist!, Here is your invite code: ${code}, it can be used ${times} times`,
-        buttonUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
-        buttonText: 'Signup',
+      const mailOptions = await this.mailSenderService.waitlistInviteEmailOptions({
+        email: item.email,
+        code,
+        times,
+        name: 'Guest',
+        waitlistInviteUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
       });
       res.push({
         email: item.email,

@@ -3,7 +3,7 @@ import { Readable } from 'stream';
 import { Worker } from 'worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
-import type { FieldType } from '@teable/core';
+import type { FieldType, ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
@@ -46,6 +46,7 @@ interface ITableImportChunkJob {
     fields: { id: string; type: FieldType }[];
     sourceColumnMap?: Record<string, number | null>;
   };
+  lang?: string;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -76,18 +77,29 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       table,
       userId,
       options: { notification },
+      lang,
     } = job.data;
 
     try {
       await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
     } catch (error) {
-      let finalMessage = '';
+      let finalMessage: string | ILocalization = '';
       if (error instanceof ImportError && error.range) {
         const range = error.range;
-        finalMessage = `❌ ${table.name} import aborted: ${error.message} fail row range: [${range[0]}, ${range[1]}]. Please check the data for this range and retry`;
+        finalMessage = {
+          i18nKey: 'common.email.templates.notify.import.table.aborted.message',
+          context: {
+            tableName: table.name,
+            errorMessage: error.message,
+            range: `${range[0]}, ${range[1]}`,
+          },
+        };
       } else if (error instanceof Error) {
-        finalMessage = `❌ ${table.name} import failed: ${error.message}`;
+        finalMessage = {
+          i18nKey: 'common.email.templates.notify.import.table.failed.message',
+          context: { tableName: table.name, errorMessage: error.message },
+        };
       }
 
       if (notification && finalMessage) {
@@ -96,6 +108,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           tableId: table.id,
           toUserId: userId,
           message: finalMessage,
+          lang,
         });
       }
 
@@ -205,6 +218,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       table,
       recordsCal,
       options: { notification },
+      lang,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -237,6 +251,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       {
         baseId,
         userId,
+        lang,
         path,
         columnInfo,
         fields,

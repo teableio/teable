@@ -1,16 +1,31 @@
 import { NotificationTypeEnum, type NotificationStatesEnum } from '@teable/core';
 import { type INotificationVo } from '@teable/openapi';
+import { getLocalizationMessage } from '@teable/sdk/context';
+import type { ILocaleFunction } from '@teable/sdk/context/app/i18n';
 import Link from 'next/link';
+import { useTranslation } from 'next-i18next';
 
 interface LinkNotificationProps {
   data: INotificationVo['notifications'][number];
   notifyStatus: NotificationStatesEnum;
 }
 
+const getShowMessage = (message: string, t: ILocaleFunction) => {
+  try {
+    const parsedMessage = JSON.parse(message);
+    return getLocalizationMessage(parsedMessage, t);
+  } catch (error) {
+    return message;
+  }
+};
+
 export const LinkNotification = (props: LinkNotificationProps) => {
   const {
-    data: { url, message, notifyType },
+    data: { url, message: messageString, notifyType },
   } = props;
+
+  const { t } = useTranslation('system');
+  const message = getShowMessage(messageString, t as ILocaleFunction);
 
   return notifyType !== NotificationTypeEnum.ExportBase ? (
     <Link href={url}>

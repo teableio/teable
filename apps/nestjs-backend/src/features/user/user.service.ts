@@ -13,6 +13,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { I18nContext } from 'nestjs-i18n';
 import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
@@ -154,6 +155,7 @@ export class UserService {
         ...user,
         name: user.name ?? user.email.split('@')[0],
         isAdmin: isAdmin ? true : null,
+        lang: I18nContext.current()?.lang,
       },
     });
     const { id, name } = newUser;
@@ -233,6 +235,15 @@ export class UserService {
     await this.prismaService.txClient().user.update({
       data: {
         notifyMeta: JSON.stringify(notifyMetaRo),
+      },
+      where: { id, deletedTime: null },
+    });
+  }
+
+  async updateLang(id: string, lang: string) {
+    await this.prismaService.txClient().user.update({
+      data: {
+        lang,
       },
       where: { id, deletedTime: null },
     });
