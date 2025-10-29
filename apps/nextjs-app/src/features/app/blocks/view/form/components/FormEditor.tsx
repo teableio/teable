@@ -205,13 +205,7 @@ export const FormEditor = () => {
     }
 
     if (activeField && overId === FORM_SIDEBAR_DROPPABLE_ID) {
-      const hasConfiguredDefault =
-        activeField.options != null &&
-        Object.prototype.hasOwnProperty.call(
-          activeField.options as Record<string, unknown>,
-          'defaultValue'
-        );
-      const isProtected = Boolean(activeField.notNull) && !hasConfiguredDefault;
+      const isProtected = isProtectedField(activeField);
       if (!isProtected) {
         const sourceDragId = activeField.id;
         await view?.updateColumnMeta([
