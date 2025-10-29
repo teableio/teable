@@ -11,16 +11,18 @@ interface LinkNotificationProps {
   notifyStatus: NotificationStatesEnum;
 }
 
-const getShowMessage = (message: string, t: ILocaleFunction) => {
+const getShowMessage = (data: INotificationVo['notifications'][number], t: ILocaleFunction) => {
+  const { message, messageI18n } = data;
   try {
-    const parsedMessage = JSON.parse(message);
+    if (!messageI18n) {
+      return message;
+    }
+    const parsedMessage = JSON.parse(messageI18n);
     const { i18nKey = '', context } = parsedMessage as ILocalization;
     if (!i18nKey) {
       return message;
     }
-    // replace first . to :
-    // eg: common.email.templates -> common:email:templates
-    return getLocalizationMessage({ i18nKey: i18nKey.replace(/\./, ':'), context }, t);
+    return getLocalizationMessage({ i18nKey, context }, t);
   } catch (error) {
     return message;
   }
@@ -28,11 +30,12 @@ const getShowMessage = (message: string, t: ILocaleFunction) => {
 
 export const LinkNotification = (props: LinkNotificationProps) => {
   const {
-    data: { url, message: messageString, notifyType },
+    data,
+    data: { url, notifyType },
   } = props;
 
   const { t } = useTranslation(['common']);
-  const message = getShowMessage(messageString, t as ILocaleFunction);
+  const message = getShowMessage(data, t as ILocaleFunction);
 
   return notifyType !== NotificationTypeEnum.ExportBase ? (
     <Link href={url}>

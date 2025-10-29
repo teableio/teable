@@ -113,7 +113,8 @@ export class NotificationService {
       fromUserId,
       toUserId,
       type,
-      message: JSON.stringify(message),
+      message: this.getLocalizationText(message, 'en'),
+      messageI18n: this.getLocalizationJson(message),
       urlPath: notifyPath,
       createdBy: fromUserId,
     };
@@ -125,6 +126,7 @@ export class NotificationService {
       notification: {
         id: notifyData.id,
         message: notifyData.message,
+        messageI18n: notifyData.messageI18n,
         notifyIcon: userIcon,
         notifyType: notifyData.type as NotificationTypeEnum,
         url: this.mailConfig.origin + notifyPath,
@@ -164,6 +166,17 @@ export class NotificationService {
         }) as string);
   }
 
+  getLocalizationJson(localization: string | ILocalization) {
+    return typeof localization === 'string'
+      ? undefined
+      : JSON.stringify({
+          // replace first . to :
+          // eg: common.email.templates -> common:email:templates
+          i18nKey: localization.i18nKey.replace(/\./, ':'),
+          context: localization.context,
+        });
+  }
+
   async sendHtmlContentNotify(
     params: {
       path: string;
@@ -194,7 +207,8 @@ export class NotificationService {
       type,
       urlPath: path,
       createdBy: fromUserId,
-      message: JSON.stringify(params.message),
+      message: this.getLocalizationText(params.message, 'en'),
+      messageI18n: this.getLocalizationJson(params.message),
     };
     const notifyData = await this.createNotify(data);
 
@@ -216,6 +230,7 @@ export class NotificationService {
       notification: {
         id: notifyData.id,
         message: notifyData.message,
+        messageI18n: notifyData.messageI18n,
         notifyType: type,
         url: path,
         notifyIcon: systemNotifyIcon,
@@ -281,7 +296,8 @@ export class NotificationService {
       type,
       urlPath: path,
       createdBy: fromUserId,
-      message: JSON.stringify(params.message),
+      message: this.getLocalizationText(params.message, 'en'),
+      messageI18n: this.getLocalizationJson(params.message),
     };
     const notifyData = await this.createNotify(data);
 
@@ -303,6 +319,7 @@ export class NotificationService {
       notification: {
         id: notifyData.id,
         message: notifyData.message,
+        messageI18n: notifyData.messageI18n,
         notifyType: type,
         url: path,
         notifyIcon: systemNotifyIcon,

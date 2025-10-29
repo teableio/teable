@@ -310,6 +310,7 @@ model Notification {
   toUserId    String   @map("to_user_id")
   type        String   @map("type")
   message     String   @map("message")
+  messageI18n String?  @map("message_i18n")
   urlPath     String?  @map("url_path")
   isRead      Boolean  @default(false) @map("is_read")
   createdTime DateTime @default(now()) @map("created_time")
