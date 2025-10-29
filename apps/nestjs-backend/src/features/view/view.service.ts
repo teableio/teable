@@ -198,38 +198,27 @@ export class ViewService implements IReadonlyAdapterService {
       }
     }
 
-    // Setup default visibility for Form view
     if (viewRo.type === ViewType.Form) {
       const fields = await this.prismaService.txClient().field.findMany({
         where: { tableId, deletedTime: null },
         select: {
           id: true,
           type: true,
-          options: true,
-          notNull: true,
           isComputed: true,
         },
-        orderBy: [
-          { isPrimary: { sort: 'asc', nulls: 'last' } },
-          { order: 'asc' },
-          { createdTime: 'asc' },
-        ],
+        orderBy: [{ order: 'asc' }, { createdTime: 'asc' }],
       });
 
       if (!fields?.length) return innerViewRo;
 
       const columnMeta = innerViewRo.columnMeta ?? {};
       for (const f of fields) {
-        const { id, isComputed, type, notNull, options } = f;
+        const { id, type, isComputed } = f;
 
         if (isComputed || type === FieldType.Button) continue;
 
-        const defaultValue = (options as { defaultValue?: string })?.defaultValue;
-        const isProtected = Boolean(notNull) && !defaultValue;
-        if (isProtected) {
-          const prev = columnMeta[id] ?? {};
-          columnMeta[id] = { ...prev, visible: true } as IColumn;
-        }
+        const prev = columnMeta[id] ?? {};
+        columnMeta[id] = { ...prev, visible: true } as IColumn;
       }
       innerViewRo.columnMeta = columnMeta;
     }

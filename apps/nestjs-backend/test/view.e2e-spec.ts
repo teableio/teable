@@ -35,7 +35,6 @@ import {
   updateViewLocked,
   duplicateView,
   installViewPlugin,
-  updateRecords,
 } from '@teable/openapi';
 import { sample } from 'lodash';
 import { ViewService } from '../src/features/view/view.service';
@@ -51,7 +50,6 @@ import {
   getViews,
   getView,
   getTable,
-  convertField,
 } from './utils/init-app';
 
 const defaultViews = [
@@ -184,28 +182,7 @@ describe('OpenAPI ViewController (e2e)', () => {
     expect(fields.length).toEqual(Object.keys(columnMetaResponse).length);
   });
 
-  it('should set protected fields visible when creating form view', async () => {
-    const textField = table.fields.find(
-      ({ type }) => type === FieldType.SingleLineText
-    ) as IFieldVo;
-
-    const recordResult = await getRecords(table.id);
-    await updateRecords(table.id, {
-      fieldKeyType: FieldKeyType.Id,
-      records: recordResult.data.records.map((rec) => ({
-        id: rec.id,
-        fields: { [textField.id]: 'filled' },
-      })),
-    });
-
-    await convertField(table.id, textField.id, {
-      name: textField.name,
-      dbFieldName: textField.dbFieldName,
-      type: textField.type,
-      options: {},
-      notNull: true,
-    });
-
+  it('should set all eligible fields visible when creating form view', async () => {
     const formView = await createView(table.id, {
       name: 'Form view',
       type: ViewType.Form,
@@ -214,7 +191,14 @@ describe('OpenAPI ViewController (e2e)', () => {
     const views = await getViews(table.id);
     const createdForm = views.find(({ id }) => id === formView.id)!;
     const formColumnMeta = createdForm.columnMeta as unknown as Record<string, IFormColumn>;
-    expect(formColumnMeta[textField.id]?.visible ?? false).toBe(true);
+
+    const eligibleFieldIds = table.fields
+      .filter((f) => !f.isComputed && !f.isLookup && f.type !== FieldType.Button)
+      .map((f) => f.id);
+
+    eligibleFieldIds.forEach((fieldId) => {
+      expect(formColumnMeta[fieldId]?.visible ?? false).toBe(true);
+    });
   });
 
   it('should batch update view when create field', async () => {
@@ -601,8 +585,10 @@ describe('OpenAPI ViewController (e2e)', () => {
             order: index,
           } as unknown as IFormColumnMeta;
           if (index === 0) {
-            (pre[cur.id] as unknown as IFormColumn).visible = false;
             (pre[cur.id] as unknown as IFormColumn).required = true;
+          }
+          if (!cur.isComputed && cur.type !== FieldType.Button) {
+            (pre[cur.id] as unknown as IFormColumn).visible = true;
           }
           return pre;
         },
