@@ -90,7 +90,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   measure: (cell: ISelectCell, props: ICellMeasureProps) => {
     const { displayData, readonly } = cell;
     const { ctx, theme, width, height } = props;
-    const { cellTextColor, fontSizeXS, iconSizeSM } = theme;
+    const { cellTextColor, fontSizeXS, iconSizeSM, fontFamily } = theme;
 
     if (!displayData.length) return { width, height, totalHeight: height };
 
@@ -114,6 +114,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const positions: ISelectRegion[] = [];
 
     for (const text of displayData) {
+      ctx.font = `${fontSizeXS}px ${fontFamily}`;
       const { width: displayWidth } = drawSingleLineText(ctx, {
         text,
         fill: cellTextColor,

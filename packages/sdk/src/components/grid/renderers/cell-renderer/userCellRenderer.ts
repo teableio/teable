@@ -41,7 +41,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
   measure: (cell: IUserCell, props: ICellMeasureProps) => {
     const { data: userSets, readonly } = cell;
     const { ctx, theme, width, height } = props;
-    const { fontSizeXS, iconSizeSM, cellOptionTextColor } = theme;
+    const { fontSizeXS, iconSizeSM, cellOptionTextColor, fontFamily } = theme;
 
     if (!userSets.length) return { width, height, totalHeight: height };
 
@@ -71,6 +71,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     for (const user of userSets) {
       const text = user.name;
+      ctx.font = `${fontSizeXS}px ${fontFamily}`;
       const { width: displayWidth } = drawSingleLineText(ctx, {
         text,
         fill: cellOptionTextColor,

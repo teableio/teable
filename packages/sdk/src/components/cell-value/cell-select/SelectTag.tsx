@@ -19,7 +19,7 @@ export const SelectTag: React.FC<React.PropsWithChildren<ISelectTag>> = (props) 
       style={{ color, backgroundColor }}
       title={label}
     >
-      {label}
+      <span className="min-w-0 truncate">{label}</span>
       {children}
     </div>
   );

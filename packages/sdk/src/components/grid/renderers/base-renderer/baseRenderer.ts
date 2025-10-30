@@ -46,7 +46,8 @@ export const drawMultiLineText = (ctx: CanvasRenderingContext2D, props: IMultiLi
   let currentLine = '';
   let currentLineWidth = 0;
 
-  const cacheKey = `${text}-${fontSize}-${maxWidth}-${maxLines}`;
+  const fontKey = ctx.font || '';
+  const cacheKey = `${fontKey}-${text}-${fontSize}-${maxWidth}-${maxLines}`;
   const cachedLines = multiLineTextInfoCache.get(cacheKey);
 
   if (cachedLines) {
