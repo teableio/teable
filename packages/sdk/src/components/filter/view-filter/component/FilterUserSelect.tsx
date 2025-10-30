@@ -77,8 +77,8 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
             <UserTag
               avatar={
                 isMeTag(option.value) ? (
-                  <span className="flex shrink-0 items-center truncate rounded-full">
-                    <UserIcon className="bg-secondary z-50 size-6 rounded-full border p-1" />
+                  <span className="flex size-5 shrink-0 items-center truncate rounded-full">
+                    <UserIcon className="z-50 size-5 rounded-full border bg-secondary p-[3px]" />
                   </span>
                 ) : (
                   option.avatar
@@ -96,12 +96,12 @@ const FilterUserSelectBase = (props: IFilterUserBaseProps) => {
 
   const optionRender = useCallback((option: (typeof options)[number]) => {
     return (
-      <div key={option.value} className="px text-secondary-foreground w-full truncate rounded-lg">
+      <div key={option.value} className="px w-full truncate rounded-lg text-secondary-foreground">
         <UserOption
           className="w-full gap-2 truncate"
           avatar={
             isMeTag(option.value) ? (
-              <span className="bg-secondary flex size-full items-center justify-center">
+              <span className="flex size-full items-center justify-center bg-secondary">
                 <UserIcon className="size-4" />
               </span>
             ) : (

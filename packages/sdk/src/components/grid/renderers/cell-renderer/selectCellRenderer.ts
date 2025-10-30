@@ -53,7 +53,7 @@ const drawLabel = (
 ) => {
   const { x, y, width, text, maxTextWidth, textColor, bgColor, editable, theme, spriteManager } =
     props;
-  const { fontSizeXS, iconSizeSM, iconSizeXS } = theme;
+  const { fontSizeXS, iconSizeSM } = theme;
 
   drawRect(ctx, {
     x,
@@ -75,9 +75,9 @@ const drawLabel = (
   if (editable) {
     spriteManager.drawSprite(ctx, {
       sprite: GridInnerIcon.Close,
-      x: x + width - iconSizeXS - OPTION_PADDING_HORIZONTAL + 2,
-      y: y + 2,
-      size: iconSizeXS,
+      x: x + width - fontSizeXS - OPTION_PADDING_HORIZONTAL + 2,
+      y: y + (iconSizeSM - fontSizeXS) / 2,
+      size: fontSizeXS,
       theme,
       colors: [textColor, textColor],
     });
@@ -90,7 +90,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
   measure: (cell: ISelectCell, props: ICellMeasureProps) => {
     const { displayData, readonly } = cell;
     const { ctx, theme, width, height } = props;
-    const { cellTextColor, fontSizeXS, iconSizeSM, iconSizeXS } = theme;
+    const { cellTextColor, fontSizeXS, iconSizeSM } = theme;
 
     if (!displayData.length) return { width, height, totalHeight: height };
 
@@ -104,7 +104,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     let lineCount = 1;
     let x = drawArea.x;
     let y = drawArea.y;
-    const deleteBtnWidth = !readonly ? iconSizeXS : 0;
+    const deleteBtnWidth = !readonly ? fontSizeXS : 0;
     const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2 - deleteBtnWidth;
     const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + deleteBtnWidth;
     const rightEdgeOfDrawArea = drawArea.x + drawArea.width;
@@ -141,9 +141,9 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       if (!readonly) {
         positions.push({
           type: ISelectRegionType.DeleteBtn,
-          x: x + width - iconSizeXS - OPTION_PADDING_HORIZONTAL + 2,
-          y: y + 2,
-          width: iconSizeXS,
+          x: x + width - fontSizeXS - OPTION_PADDING_HORIZONTAL + 2,
+          y: y + (iconSizeSM - fontSizeXS) / 2,
+          width: fontSizeXS,
           height: lineHeight,
         });
       }
@@ -167,8 +167,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
     const { displayData, choiceMap, readonly } = cell;
     const { x: _x, y: _y, width, height } = rect;
     const clipEnable = !isActive && displayData.length;
-    const { fontSizeXS, fontFamily, iconSizeXS, iconSizeSM, cellOptionBg, cellOptionTextColor } =
-      theme;
+    const { fontSizeXS, fontFamily, iconSizeSM, cellOptionBg, cellOptionTextColor } = theme;
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
@@ -181,7 +180,7 @@ export const selectCellRenderer: IInternalCellRenderer<ISelectCell> = {
       ? Infinity
       : Math.max(1, Math.floor((drawArea.height - iconSizeSM) / combinedHeight) + 1);
     const editable = !readonly && isActive;
-    const deleteBtnWidth = editable ? iconSizeXS : 0;
+    const deleteBtnWidth = editable ? fontSizeXS : 0;
     const maxTextWidth = drawArea.width - OPTION_GAP_SIZE * 2 - deleteBtnWidth;
     const totalOptionPadding = OPTION_PADDING_HORIZONTAL * 2 + deleteBtnWidth;
     const rightEdgeOfDrawArea = drawArea.x + drawArea.width;

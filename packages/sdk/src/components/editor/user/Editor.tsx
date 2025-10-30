@@ -48,7 +48,7 @@ export const UserEditor = (props: IUserEditorProps) => {
           avatar={avatarUrl}
           suffix={
             <X
-              className="ml-[2px] cursor-pointer opacity-50 hover:opacity-100"
+              className="size-3 cursor-pointer opacity-50 hover:opacity-100"
               onClick={(e) => {
                 e.preventDefault();
                 onDelete(id);
