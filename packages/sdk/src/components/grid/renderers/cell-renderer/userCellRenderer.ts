@@ -17,7 +17,7 @@ import type {
 const ITEM_HEIGHT = 24;
 const ITEM_HORIZONTAL_GAP = 6;
 const ITEM_PADDING_LEFT = 2;
-const CELL_PADDING_TOP = 4;
+const CELL_VERTICAL_PADDING = 4;
 
 enum IUserRegionType {
   DeleteBtn = 'DeleteBtn',
@@ -47,9 +47,9 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     const drawArea: IRectangle = {
       x: cellHorizontalPadding,
-      y: CELL_PADDING_TOP,
+      y: CELL_VERTICAL_PADDING,
       width: width - 2 * cellHorizontalPadding,
-      height: height - CELL_PADDING_TOP,
+      height: height - CELL_VERTICAL_PADDING,
     };
 
     let lineCount = 1;
@@ -107,7 +107,10 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     positionCache.set(cacheKey, positions);
 
-    const totalHeight = CELL_PADDING_TOP + lineCount * lineHeight;
+    const totalHeight =
+      2 * CELL_VERTICAL_PADDING +
+      lineCount * ITEM_HEIGHT +
+      Math.max(0, lineCount - 1) * cellVerticalPaddingSM;
 
     return {
       width,
@@ -135,9 +138,9 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
 
     const drawArea: IRectangle = {
       x: _x + cellHorizontalPadding,
-      y: _y + CELL_PADDING_TOP,
+      y: _y + CELL_VERTICAL_PADDING,
       width: width - 2 * cellHorizontalPadding,
-      height: height - CELL_PADDING_TOP,
+      height: height - 2 * CELL_VERTICAL_PADDING,
     };
     const rows = Math.max(
       1,
