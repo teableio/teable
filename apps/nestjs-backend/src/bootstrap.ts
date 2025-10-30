@@ -1,4 +1,3 @@
-import './instrument';
 import 'dayjs/plugin/timezone';
 import 'dayjs/plugin/utc';
 import fs from 'fs';

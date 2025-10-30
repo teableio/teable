@@ -316,8 +316,8 @@ importers:
         specifier: 4.3.0
         version: 4.3.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       nestjs-pino:
-        specifier: 4.0.0
-        version: 4.0.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(pino-http@9.0.0)
+        specifier: 4.4.1
+        version: 4.4.1(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(pino-http@10.5.0)(pino@9.14.0)(rxjs@7.8.1)
       nestjs-redoc:
         specifier: 2.2.2
         version: 2.2.2(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(@nestjs/swagger@7.3.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1))(reflect-metadata@0.2.1)
@@ -373,8 +373,8 @@ importers:
         specifier: 8.11.5
         version: 8.11.5
       pino-http:
-        specifier: 9.0.0
-        version: 9.0.0
+        specifier: 10.5.0
+        version: 10.5.0
       pino-pretty:
         specifier: 11.0.0
         version: 11.0.0
@@ -1266,7 +1266,7 @@ importers:
         version: 9.1.0(eslint@8.57.0)
       eslint-import-resolver-typescript:
         specifier: 3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import:
         specifier: 2.29.1
         version: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
@@ -1771,7 +1771,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@4.28.1)(typescript@5.4.3)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0))
+        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0))
@@ -5138,6 +5138,10 @@ packages:
     resolution: {integrity: sha512-4MTVwwmLgUh5QrJnZpYo6YRO5IBLAggf2h8gWDblwRagDStY13aEvt7gGk3jewrMaPlHiF83fENhIx0HO97/cQ==}
     engines: {node: '>=14'}
 
+  '@opentelemetry/api-logs@0.57.2':
+    resolution: {integrity: sha512-uIX52NnTM0iBh84MShlpouI7UKqkZ7MrUszTmaypHBu4r7NofznSnQRfJ+uUeDtQDj6w8eFGg5KBLDAwAPz1+A==}
+    engines: {node: '>=14'}
+
   '@opentelemetry/api@1.9.0':
     resolution: {integrity: sha512-3giAOQvZiH5F9bMlMiv8+GSPMeqg0dbaeo58/0SlA9sxSqZhnUtxzX9/2FzyhS9sWQf5S0GJE0AKBrFqjpeYcg==}
     engines: {node: '>=8.0.0'}
@@ -5430,6 +5434,12 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.3.0
 
+  '@opentelemetry/instrumentation@0.57.2':
+    resolution: {integrity: sha512-BdBGhQBh8IjZ2oIIX6F2/Q3LKm/FDDKi6ccYKcBTeilh6SNdNKveDOLk73BkSJjQLJk6qe4Yh+hHw1UPhCDdrg==}
+    engines: {node: '>=14'}
+    peerDependencies:
+      '@opentelemetry/api': ^1.3.0
+
   '@opentelemetry/otlp-exporter-base@0.201.1':
     resolution: {integrity: sha512-FiS/mIWmZXyRxYGyXPHY+I/4+XrYVTD7Fz/zwOHkVPQsA1JTakAOP9fAi6trXMio0dIpzvQujLNiBqGM7ExrQw==}
     engines: {node: ^18.19.0 || >=20.6.0}
@@ -5525,6 +5535,9 @@ packages:
     engines: {node: ^18.19.0 || >=20.6.0}
     peerDependencies:
       '@opentelemetry/api': ^1.1.0
+
+  '@pinojs/redact@0.4.0':
+    resolution: {integrity: sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==}
 
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
@@ -11438,10 +11451,6 @@ packages:
   fast-levenshtein@2.0.6:
     resolution: {integrity: sha512-DCXu6Ifhqcks7TZKY3Hxp3y6qphY5SJZmrWMDrKcERSOXWQdMhU9Ig/PYrzyw/ul9jOIyh0N4M0tbC5hodg8dw==}
 
-  fast-redact@3.5.0:
-    resolution: {integrity: sha512-dwsoQlS7h9hMeYUq1W++23NDcBLV4KqONnITDV9DjfS3q1SgDGVrBdvvTLUotWtPSD7asWDV9/CmsZPy8Hf70A==}
-    engines: {node: '>=6'}
-
   fast-safe-stringify@2.1.1:
     resolution: {integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==}
 
@@ -14078,12 +14087,14 @@ packages:
       reflect-metadata: '*'
       rxjs: '>= 7'
 
-  nestjs-pino@4.0.0:
-    resolution: {integrity: sha512-XhCg/R+l3w0BFP6MHyR6lU/BHVEV0tV9z24G0vuA9FD3sv+TQNvnO9uVsF1l/oVspgGfQ9Qulmb2UbsfYlI0+g==}
+  nestjs-pino@4.4.1:
+    resolution: {integrity: sha512-/E/JOtsUf/yHFGJx+zxBfwjCn1uJVV9AxSyx/mD0oNFCP+psvv9XE7WGh5Cebo6TwukF4qEu37eissGErVwLVg==}
     engines: {node: '>= 14'}
     peerDependencies:
-      '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0
-      pino-http: ^6.4.0 || ^7.0.0 || ^8.0.0 || ^9.0.0
+      '@nestjs/common': ^8.0.0 || ^9.0.0 || ^10.0.0 || ^11.0.0
+      pino: ^7.5.0 || ^8.0.0 || ^9.0.0
+      pino-http: ^6.4.0 || ^7.0.0 || ^8.0.0 || ^9.0.0 || ^10.0.0
+      rxjs: ^7.1.0
 
   nestjs-redoc@2.2.2:
     resolution: {integrity: sha512-BubUvDhBXQ2/PEkI14ASxEut+MLKaW4S2tFX78LFB2WjZsdmBM7EEgWBp+8nGO64bZsAApA+kUPZgQ17x4yaQA==}
@@ -14867,18 +14878,21 @@ packages:
   pino-abstract-transport@1.2.0:
     resolution: {integrity: sha512-Guhh8EZfPCfH+PMXAb6rKOjGQEoy0xlAIn+irODG5kgfYV+BQ0rGYYWTIel3P5mmyXqkYkPmdIkywsn6QKUR1Q==}
 
-  pino-http@9.0.0:
-    resolution: {integrity: sha512-Q9QDNEz0vQmbJtMFjOVr2c9yL92vHudjmr3s3m6J1hbw3DBGFZJm3TIj9TWyynZ4GEsEA9SOtni4heRUr6lNOg==}
+  pino-abstract-transport@2.0.0:
+    resolution: {integrity: sha512-F63x5tizV6WCh4R6RHyi2Ml+M70DNRXt/+HANowMflpgGFMAym/VKm6G7ZOQRjqN7XbGxK1Lg9t6ZrtzOaivMw==}
+
+  pino-http@10.5.0:
+    resolution: {integrity: sha512-hD91XjgaKkSsdn8P7LaebrNzhGTdB086W3pyPihX0EzGPjq5uBJBXo4N5guqNaK6mUjg9aubMF7wDViYek9dRA==}
 
   pino-pretty@11.0.0:
     resolution: {integrity: sha512-YFJZqw59mHIY72wBnBs7XhLGG6qpJMa4pEQTRgEPEbjIYbng2LXEZZF1DoyDg9CfejEy8uZCyzpcBXXG0oOCwQ==}
     hasBin: true
 
-  pino-std-serializers@6.2.2:
-    resolution: {integrity: sha512-cHjPPsE+vhj/tnhCy/wiMh3M3z3h/j15zHQX+S9GkTBgqJuTuJzYJ4gUyACLhDaJ7kk9ba9iRDmbH2tJU03OiA==}
+  pino-std-serializers@7.0.0:
+    resolution: {integrity: sha512-e906FRY0+tV27iq4juKzSYPbUj2do2X2JX4EzSca1631EB2QJQUqGbDuERal7LCtOpxl6x3+nvo9NPZcmjkiFA==}
 
-  pino@8.21.0:
-    resolution: {integrity: sha512-ip4qdzjkAyDDZklUaZkcRFb2iA118H9SgRh8yzTkSQK8HilsOJF7rSY8HoW5+I0M46AZgX/pxbprf2vvzQCE0Q==}
+  pino@9.14.0:
+    resolution: {integrity: sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==}
     hasBin: true
 
   pirates@4.0.6:
@@ -15458,8 +15472,8 @@ packages:
     resolution: {integrity: sha512-JOnOPQ/8TZgjs1JIH/m9ni7FfimjNa/PRx7y/Wb5qdItsnhO0jE4AT7fC0HjC28DUQWDr50dwSYZLdRMlqDq3Q==}
     engines: {node: '>=8'}
 
-  process-warning@3.0.0:
-    resolution: {integrity: sha512-mqn0kFRl0EoqhnL0GQ0veqFHyIN1yig9RHh/InzORTUiZHFRAur+aMtRkELNwGs9aNwKS6tg/An4NYBPGwvtzQ==}
+  process-warning@5.0.0:
+    resolution: {integrity: sha512-a39t9ApHNx2L4+HBnQKqxxHNs1r7KF+Intd8Q/g1bUh6q0WIp9voPXJ/x0j+ZL45KF1pJd9+q2jLIRMfvEshkA==}
 
   process@0.11.10:
     resolution: {integrity: sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A==}
@@ -16798,6 +16812,9 @@ packages:
   sonic-boom@3.8.1:
     resolution: {integrity: sha512-y4Z8LCDBuum+PBP3lSV7RHrXscqksve/bi0as7mhwVnBW+/wUqKT/2Kb7um8yqcFy0duYbbPxzt89Zy2nOCaxg==}
 
+  sonic-boom@4.2.0:
+    resolution: {integrity: sha512-INb7TM37/mAcsGmc9hyyI6+QR3rR1zVRu36B0NeGXKnOOLiZOfER5SA+N7X7k3yUYRzLWafduTDvJAfDswwEww==}
+
   sonner@1.4.41:
     resolution: {integrity: sha512-uG511ggnnsw6gcn/X+YKkWPo5ep9il9wYi3QJxHsYe7yTZ4+cOd1wuodOUmOpFuXL+/RE3R04LczdNCDygTDgQ==}
     peerDependencies:
@@ -17355,8 +17372,8 @@ packages:
   thenify@3.3.1:
     resolution: {integrity: sha512-RVZSIV5IG10Hk3enotrhvz0T9em6cyHBLkH/YAZuKqd8hRkKhSfCGIcP2KUY0EPxndzANBmNllzWPwak+bheSw==}
 
-  thread-stream@2.7.0:
-    resolution: {integrity: sha512-qQiRWsU/wvNolI6tbbCKd9iKaTnCXsTwVxhhKM6nctPdujTyztjlbUkUTUymidWcMnZ5pWR0ej4a0tjsW021vw==}
+  thread-stream@3.1.0:
+    resolution: {integrity: sha512-OqyPZ9u96VohAyMfJykzmivOrY2wfMSf3C5TtFJVgN+Hm6aj+voFhlK+kZEIv2FBh1X6Xp3DlnCOfEQ3B2J86A==}
 
   throttle-debounce@3.0.1:
     resolution: {integrity: sha512-dTEWWNu6JmeVXY0ZYoPuH5cRIwc0MeGbJwah9KUNYSJwommQpCzTySTpEe8Gs1J23aeWEuAobe4Ag7EHVt/LOg==}
@@ -21964,6 +21981,10 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.0
 
+  '@opentelemetry/api-logs@0.57.2':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+
   '@opentelemetry/api@1.9.0': {}
 
   '@opentelemetry/context-async-hooks@2.0.1(@opentelemetry/api@1.9.0)':
@@ -22361,7 +22382,7 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/api-logs': 0.204.0
-      import-in-the-middle: 1.11.3
+      import-in-the-middle: 1.15.0
       require-in-the-middle: 7.4.0
     transitivePeerDependencies:
       - supports-color
@@ -22372,6 +22393,18 @@ snapshots:
       '@opentelemetry/api-logs': 0.54.2
       '@types/shimmer': 1.2.0
       import-in-the-middle: 1.11.3
+      require-in-the-middle: 7.4.0
+      semver: 7.6.3
+      shimmer: 1.2.1
+    transitivePeerDependencies:
+      - supports-color
+
+  '@opentelemetry/instrumentation@0.57.2(@opentelemetry/api@1.9.0)':
+    dependencies:
+      '@opentelemetry/api': 1.9.0
+      '@opentelemetry/api-logs': 0.57.2
+      '@types/shimmer': 1.2.0
+      import-in-the-middle: 1.15.0
       require-in-the-middle: 7.4.0
       semver: 7.6.3
       shimmer: 1.2.1
@@ -22498,6 +22531,8 @@ snapshots:
       '@opentelemetry/api': 1.9.0
       '@opentelemetry/core': 2.2.0(@opentelemetry/api@1.9.0)
 
+  '@pinojs/redact@0.4.0': {}
+
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
@@ -22537,7 +22572,7 @@ snapshots:
   '@prisma/instrumentation@6.15.0(@opentelemetry/api@1.9.0)':
     dependencies:
       '@opentelemetry/api': 1.9.0
-      '@opentelemetry/instrumentation': 0.54.2(@opentelemetry/api@1.9.0)
+      '@opentelemetry/instrumentation': 0.57.2(@opentelemetry/api@1.9.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -23653,6 +23688,14 @@ snapshots:
       picomatch: 4.0.2
     optionalDependencies:
       rollup: 2.78.0
+
+  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
+    dependencies:
+      '@types/estree': 1.0.6
+      estree-walker: 2.0.2
+      picomatch: 4.0.2
+    optionalDependencies:
+      rollup: 2.79.2
 
   '@rollup/pluginutils@5.1.4(rollup@4.28.1)':
     dependencies:
@@ -29619,7 +29662,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.8.0(eslint@8.57.0)
       eslint-plugin-react: 7.34.1(eslint@8.57.0)
@@ -29642,7 +29685,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0):
+  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0):
     dependencies:
       debug: 4.4.0
       enhanced-resolve: 5.17.1
@@ -29687,7 +29730,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -30205,8 +30248,6 @@ snapshots:
   fast-json-stable-stringify@2.1.0: {}
 
   fast-levenshtein@2.0.6: {}
-
-  fast-redact@3.5.0: {}
 
   fast-safe-stringify@2.1.1: {}
 
@@ -33583,10 +33624,12 @@ snapshots:
       reflect-metadata: 0.2.1
       rxjs: 7.8.1
 
-  nestjs-pino@4.0.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(pino-http@9.0.0):
+  nestjs-pino@4.4.1(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(pino-http@10.5.0)(pino@9.14.0)(rxjs@7.8.1):
     dependencies:
       '@nestjs/common': 10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)
-      pino-http: 9.0.0
+      pino: 9.14.0
+      pino-http: 10.5.0
+      rxjs: 7.8.1
 
   nestjs-redoc@2.2.2(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(@nestjs/swagger@7.3.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1))(reflect-metadata@0.2.1):
     dependencies:
@@ -34458,12 +34501,16 @@ snapshots:
       readable-stream: 4.5.2
       split2: 4.2.0
 
-  pino-http@9.0.0:
+  pino-abstract-transport@2.0.0:
+    dependencies:
+      split2: 4.2.0
+
+  pino-http@10.5.0:
     dependencies:
       get-caller-file: 2.0.5
-      pino: 8.21.0
-      pino-std-serializers: 6.2.2
-      process-warning: 3.0.0
+      pino: 9.14.0
+      pino-std-serializers: 7.0.0
+      process-warning: 5.0.0
 
   pino-pretty@11.0.0:
     dependencies:
@@ -34482,21 +34529,21 @@ snapshots:
       sonic-boom: 3.8.1
       strip-json-comments: 3.1.1
 
-  pino-std-serializers@6.2.2: {}
+  pino-std-serializers@7.0.0: {}
 
-  pino@8.21.0:
+  pino@9.14.0:
     dependencies:
+      '@pinojs/redact': 0.4.0
       atomic-sleep: 1.0.0
-      fast-redact: 3.5.0
       on-exit-leak-free: 2.1.2
-      pino-abstract-transport: 1.2.0
-      pino-std-serializers: 6.2.2
-      process-warning: 3.0.0
+      pino-abstract-transport: 2.0.0
+      pino-std-serializers: 7.0.0
+      process-warning: 5.0.0
       quick-format-unescaped: 4.0.4
       real-require: 0.2.0
       safe-stable-stringify: 2.5.0
-      sonic-boom: 3.8.1
-      thread-stream: 2.7.0
+      sonic-boom: 4.2.0
+      thread-stream: 3.1.0
 
   pirates@4.0.6: {}
 
@@ -35120,7 +35167,7 @@ snapshots:
     dependencies:
       fromentries: 1.3.2
 
-  process-warning@3.0.0: {}
+  process-warning@5.0.0: {}
 
   process@0.11.10: {}
 
@@ -36872,6 +36919,10 @@ snapshots:
     dependencies:
       atomic-sleep: 1.0.0
 
+  sonic-boom@4.2.0:
+    dependencies:
+      atomic-sleep: 1.0.0
+
   sonner@1.4.41(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       react: 18.3.1
@@ -37554,7 +37605,7 @@ snapshots:
     dependencies:
       any-promise: 1.3.0
 
-  thread-stream@2.7.0:
+  thread-stream@3.1.0:
     dependencies:
       real-require: 0.2.0
 
@@ -38258,9 +38309,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@4.28.1)(typescript@5.4.3)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0)):
+  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.28.1)
+      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 5.4.11(@types/node@20.9.0)(terser@5.37.0)
