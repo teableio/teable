@@ -1,4 +1,4 @@
-import type { ArgumentsHost, ExceptionFilter, HttpException } from '@nestjs/common';
+import type { ExceptionFilter, HttpException } from '@nestjs/common';
 import {
   BadRequestException,
   Catch,
@@ -7,8 +7,10 @@ import {
   NotFoundException,
   NotImplementedException,
   UnauthorizedException,
+  ArgumentsHost,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SentryExceptionCaptured } from '@sentry/nestjs';
 import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
 import { exceptionParse } from '../utils/exception-parse';
@@ -19,6 +21,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
   constructor(private readonly configService: ConfigService) {}
 
+  @SentryExceptionCaptured()
   catch(exception: Error | HttpException, host: ArgumentsHost) {
     const { enableGlobalErrorLogging } = this.configService.getOrThrow<ILoggerConfig>('logger');
 

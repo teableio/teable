@@ -48,13 +48,13 @@ const logExporterOptions = {
 
 const logExporter = logExporterOptions.url ? new OTLPLogExporter(logExporterOptions) : undefined;
 
-const { SimpleLogRecordProcessor } = opentelemetry.logs;
+const { BatchLogRecordProcessor } = opentelemetry.logs;
 
 const { ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
 
 const otelSDK = new opentelemetry.NodeSDK({
   traceExporter,
-  logRecordProcessors: logExporter ? [new SimpleLogRecordProcessor(logExporter)] : [],
+  logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler: new ParentBasedSampler({
     root: new TraceIdRatioBasedSampler(Number(process.env.OTEL_SAMPLER_RATIO) || 0.1),
   }),

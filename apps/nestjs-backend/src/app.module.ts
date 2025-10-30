@@ -2,6 +2,7 @@ import { BullModule } from '@nestjs/bullmq';
 import type { ModuleMetadata } from '@nestjs/common';
 import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigService } from '@nestjs/config';
+import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
 import type { ICacheConfig } from './configs/cache.config';
 import { ConfigModule } from './configs/config.module';
@@ -15,7 +16,6 @@ import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
 import { DashboardModule } from './features/dashboard/dashboard.module';
-import { DatabaseViewModule } from './features/database-view/database-view.module';
 import { ExportOpenApiModule } from './features/export/open-api/export-open-api.module';
 import { FieldOpenApiModule } from './features/field/open-api/field-open-api.module';
 import { HealthModule } from './features/health/health.module';
@@ -49,6 +49,7 @@ import { WsModule } from './ws/ws.module';
 
 export const appModules = {
   imports: [
+    SentryModule.forRoot(),
     LoggerModule.register(),
     MailSenderOpenApiModule,
     MailSenderMergeModule,
@@ -87,7 +88,6 @@ export const appModules = {
     PluginPanelModule,
     PluginContextMenuModule,
     PluginChartModule,
-    // DatabaseViewModule,
   ],
   providers: [InitBootstrapProvider],
 };
