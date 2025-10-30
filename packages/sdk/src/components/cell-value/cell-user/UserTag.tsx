@@ -16,7 +16,7 @@ export const UserTag = (props: IUserTag) => {
   return (
     <div
       className={cn(
-        'flex items-center h-6 rounded-full bg-secondary text-secondary-foreground pl-[2px] pr-2 py-[2px] gap-1.5',
+        'flex items-center h-6 rounded-full bg-secondary text-secondary-foreground pl-[2px] pr-2 gap-1.5',
         className
       )}
     >

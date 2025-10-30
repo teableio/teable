@@ -257,8 +257,7 @@ export const userCellRenderer: IInternalCellRenderer<IUserCell> = {
       ) {
         if (!shouldCalculate) return { type: CellRegionType.Update, data: null };
 
-        const realIndex = i; // one delete region per item, same order
-        const result = data.filter((_, index) => index !== realIndex);
+        const result = data.filter((_, index) => index !== i);
         return {
           type: CellRegionType.Update,
           data: result.length ? result : null,
