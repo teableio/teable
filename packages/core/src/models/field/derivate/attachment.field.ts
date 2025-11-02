@@ -9,7 +9,7 @@ import {
 } from './attachment-option.schema';
 
 export const attachmentItemSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Attachment),
+  id: z.string().startsWith(IdPrefix.Attachment), // partial in Ro
   name: z.string(),
   path: z.string(),
   token: z.string(),
@@ -22,11 +22,23 @@ export const attachmentItemSchema = z.object({
   lgThumbnailUrl: z.string().optional(),
 });
 
+// Simplified format: only name and token (backend will fetch other fields from DB)
+const attachmentItemRoSchema = z.object({
+  name: z.string(),
+  token: z.string(),
+});
+
 export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;
+
+export type IAttachmentItemRo = z.infer<typeof attachmentItemRoSchema>;
 
 export const attachmentCellValueSchema = z.array(attachmentItemSchema);
 
+export const attachmentCellValueRoSchema = z.array(attachmentItemRoSchema);
+
 export type IAttachmentCellValue = z.infer<typeof attachmentCellValueSchema>;
+
+export type IAttachmentCellValueRo = z.infer<typeof attachmentCellValueRoSchema>;
 
 export class AttachmentFieldCore extends FieldCore {
   type: FieldType.Attachment = FieldType.Attachment;
@@ -78,7 +90,7 @@ export class AttachmentFieldCore extends FieldCore {
   }
 
   validateCellValue(cellValue: unknown) {
-    return attachmentCellValueSchema.nonempty().nullable().safeParse(cellValue);
+    return attachmentCellValueRoSchema.nonempty().nullable().safeParse(cellValue);
   }
 
   item2String(value: unknown) {
