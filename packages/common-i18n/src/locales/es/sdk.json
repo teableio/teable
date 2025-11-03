@@ -900,6 +900,12 @@
       "invalidJoinType": "Tipo de unión no válido: {{joinType}}",
       "tableNotFound": "Tabla {{tableId}} no encontrada en la base {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "No se permite ejecutar SQL con la palabra clave {{keyword}}",
+      "whiteListCheckError": "Ocurrió un error al verificar el acceso a la tabla: {{message}}",
+      "databaseConnectionFailed": "Conexión a la base de datos fallida: {{message}}",
+      "executeQuerySqlFailed": "Error al ejecutar la consulta SQL: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "No tienes permiso para crear registros con campos({{fields}})",
       "deleteRecords": "No tienes permiso para eliminar registros({{recordIds}})",

@@ -919,6 +919,12 @@
       "invalidJoinType": "Invalid join type: {{joinType}}",
       "tableNotFound": "Table {{tableId}} not found in base {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
+      "whiteListCheckError": "An error occurred while checking table access: {{message}}",
+      "databaseConnectionFailed": "Database connection failed: {{message}}",
+      "executeQuerySqlFailed": "Execute query sql failed: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",
       "deleteRecords": "You don't have permission to delete records({{recordIds}})",

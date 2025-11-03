@@ -876,6 +876,12 @@
       "invalidJoinType": "無効な結合タイプ: {{joinType}}",
       "tableNotFound": "ベース {{baseId}} にテーブル {{tableId}} が見つかりません"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "キーワード {{keyword}} を含むSQLの実行は許可されていません",
+      "whiteListCheckError": "テーブルアクセスの確認中にエラーが発生しました: {{message}}",
+      "databaseConnectionFailed": "データベース接続に失敗しました: {{message}}",
+      "executeQuerySqlFailed": "クエリSQLの実行に失敗しました: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
       "deleteRecords": "レコード({{recordIds}})を削除する権限がありません",

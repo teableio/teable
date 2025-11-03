@@ -890,6 +890,12 @@
       "invalidJoinType": "Type de jointure non valide: {{joinType}}",
       "tableNotFound": "Table {{tableId}} non trouvée dans la base {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Non autorisé à exécuter SQL avec le mot-clé {{keyword}}",
+      "whiteListCheckError": "Une erreur s'est produite lors de la vérification de l'accès à la table : {{message}}",
+      "databaseConnectionFailed": "La connexion à la base de données a échoué : {{message}}",
+      "executeQuerySqlFailed": "L'exécution de la requête SQL a échoué : {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
       "deleteRecords": "Vous n'avez pas la permission de supprimer les enregistrements({{recordIds}})",

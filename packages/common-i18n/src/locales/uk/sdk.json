@@ -912,6 +912,12 @@
       "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
       "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Не дозволено виконувати SQL з ключовим словом {{keyword}}",
+      "whiteListCheckError": "Сталася помилка під час перевірки доступу до таблиці: {{message}}",
+      "databaseConnectionFailed": "Не вдалося підключитися до бази даних: {{message}}",
+      "executeQuerySqlFailed": "Не вдалося виконати запит SQL: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
       "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",

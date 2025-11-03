@@ -916,6 +916,12 @@
       "invalidJoinType": "无效的连接类型：{{joinType}}",
       "tableNotFound": "在数据库 {{baseId}} 中未找到表 {{tableId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "不允许执行包含关键字 {{keyword}} 的 SQL",
+      "whiteListCheckError": "检查表访问时发生错误：{{message}}",
+      "databaseConnectionFailed": "数据库连接失败：{{message}}",
+      "executeQuerySqlFailed": "执行查询 SQL 失败：{{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
       "deleteRecords": "没有权限删除记录({{recordIds}})",

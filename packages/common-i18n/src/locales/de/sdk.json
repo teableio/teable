@@ -912,6 +912,12 @@
       "invalidJoinType": "Ungültiger Join-Typ: {{joinType}}",
       "tableNotFound": "Tabelle {{tableId}} nicht gefunden in Base {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Ausführung von SQL mit Schlüsselwort {{keyword}} nicht erlaubt",
+      "whiteListCheckError": "Fehler beim Überprüfen des Tabellenzugriffs: {{message}}",
+      "databaseConnectionFailed": "Datenbankverbindung fehlgeschlagen: {{message}}",
+      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
       "deleteRecords": "Sie haben keine Berechtigung, Datensätze({{recordIds}}) zu löschen",

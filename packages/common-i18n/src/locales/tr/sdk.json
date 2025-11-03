@@ -886,6 +886,12 @@
       "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
       "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
+      "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
+      "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",

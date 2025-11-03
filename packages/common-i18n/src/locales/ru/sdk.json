@@ -888,6 +888,12 @@
       "invalidJoinType": "Недопустимый тип соединения: {{joinType}}",
       "tableNotFound": "Таблица {{tableId}} не найдена в базе {{baseId}}"
     },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Не разрешено выполнять SQL с ключевым словом {{keyword}}",
+      "whiteListCheckError": "Произошла ошибка при проверке доступа к таблице: {{message}}",
+      "databaseConnectionFailed": "Не удалось подключиться к базе данных: {{message}}",
+      "executeQuerySqlFailed": "Не удалось выполнить запрос SQL: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
       "deleteRecords": "У вас нет разрешения на удаление записей({{recordIds}})",
