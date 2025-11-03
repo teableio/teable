@@ -935,6 +935,15 @@
     },
     "billing": {
       "insufficientCredit": "Crédito insuficiente"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Se requiere consulta de búsqueda",
+      "maxSearchIndexResult": "El resultado máximo del índice de búsqueda es 1000",
+      "queryCollectionMustBeTableId": "La colección de consulta debe ser un identificador de tabla",
+      "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo.",
+      "indexNotFound": "Índice no encontrado",
+      "invalidStartDateFieldId": "Identificador de campo de fecha de inicio inválido",
+      "invalidEndDateFieldId": "Identificador de campo de fecha de fin inválido"
     }
   }
 }

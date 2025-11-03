@@ -951,6 +951,15 @@
     },
     "billing": {
       "insufficientCredit": "算力不足"
+    },
+    "aggregation": {
+      "searchQueryRequired": "搜索查询是必需的",
+      "maxSearchIndexResult": "最大搜索索引结果为 1000",
+      "queryCollectionMustBeTableId": "查询集合必须是表格 ID",
+      "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
+      "indexNotFound": "索引未找到",
+      "invalidStartDateFieldId": "开始日期字段 ID 无效",
+      "invalidEndDateFieldId": "结束日期字段 ID 无效"
     }
   }
 }

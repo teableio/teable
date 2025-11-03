@@ -923,6 +923,15 @@
     },
     "billing": {
       "insufficientCredit": "Недостаточно средств"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Требуется поисковой запрос",
+      "maxSearchIndexResult": "Максимальный результат поискового индекса составляет 1000",
+      "queryCollectionMustBeTableId": "Коллекция запросов должна быть идентификатором таблицы",
+      "searchTimeOut": "Поиск завершился, уменьшите область поиска и повторите.",
+      "indexNotFound": "Индекс не найден",
+      "invalidStartDateFieldId": "Недействительный идентификатор поля даты начала",
+      "invalidEndDateFieldId": "Недействительный идентификатор поля даты окончания"
     }
   }
 }

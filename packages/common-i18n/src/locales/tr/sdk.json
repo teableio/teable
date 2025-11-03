@@ -921,6 +921,15 @@
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Arama sorgusu gereklidir",
+      "maxSearchIndexResult": "Maksimum arama indeksi sonucu 1000'dir",
+      "queryCollectionMustBeTableId": "Sorgu koleksiyonu tablo kimliği olmalıdır",
+      "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
+      "indexNotFound": "İndeks bulunamadı",
+      "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
+      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği"
     }
   }
 }

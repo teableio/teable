@@ -764,7 +764,11 @@ export class AggregationService implements IAggregationService {
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
     if (!search) {
-      throw new BadRequestException('Search query is required');
+      throw new CustomHttpException('Search query is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.aggregation.searchQueryRequired',
+        },
+      });
     }
 
     const searchFields = await this.recordService.getSearchFields(
@@ -827,11 +831,23 @@ export class AggregationService implements IAggregationService {
     const { fieldInstanceMap } = await this.getFieldsData(tableId, undefined, false);
 
     if (take > 1000) {
-      throw new BadGatewayException('The maximum search index result is 1000');
+      throw new CustomHttpException(
+        'The maximum search index result is 1000',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.maxSearchIndexResult',
+          },
+        }
+      );
     }
 
     if (!search) {
-      throw new BadRequestException('Search query is required');
+      throw new CustomHttpException('Search query is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.aggregation.searchQueryRequired',
+        },
+      });
     }
 
     const finalProjection = queryProjection
@@ -960,7 +976,11 @@ export class AggregationService implements IAggregationService {
         return result.map((item) => {
           const index = Number(indexResultMap[item.__id]?.row_num);
           if (isNaN(index)) {
-            throw new Error('Index not found');
+            throw new CustomHttpException('Index not found', HttpErrorCode.NOT_FOUND, {
+              localization: {
+                i18nKey: 'httpErrors.aggregation.indexNotFound',
+              },
+            });
           }
           return {
             index,
@@ -973,7 +993,7 @@ export class AggregationService implements IAggregationService {
       if (error instanceof PrismaClientKnownRequestError && error.code === 'P2028') {
         throw new CustomHttpException(`${error.message}`, HttpErrorCode.REQUEST_TIMEOUT, {
           localization: {
-            i18nKey: 'httpErrors.custom.searchTimeOut',
+            i18nKey: 'httpErrors.aggregation.searchTimeOut',
           },
         });
       }
@@ -1003,7 +1023,15 @@ export class AggregationService implements IAggregationService {
     } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
-      throw new InternalServerErrorException('query collection must be table id');
+      throw new CustomHttpException(
+        'query collection must be table id',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.queryCollectionMustBeTableId',
+          },
+        }
+      );
     }
 
     const fields = await this.recordService.getFieldsByProjection(tableId);
@@ -1021,7 +1049,11 @@ export class AggregationService implements IAggregationService {
       startField.cellValueType !== CellValueType.DateTime ||
       startField.isMultipleCellValue
     ) {
-      throw new BadRequestException('Invalid start date field id');
+      throw new CustomHttpException('Invalid start date field id', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.aggregation.invalidStartDateFieldId',
+        },
+      });
     }
 
     const endField = endDateFieldId ? fieldMap[endDateFieldId] : startField;
@@ -1031,7 +1063,11 @@ export class AggregationService implements IAggregationService {
       endField.cellValueType !== CellValueType.DateTime ||
       endField.isMultipleCellValue
     ) {
-      throw new BadRequestException('Invalid end date field id');
+      throw new CustomHttpException('Invalid end date field id', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.aggregation.invalidEndDateFieldId',
+        },
+      });
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;

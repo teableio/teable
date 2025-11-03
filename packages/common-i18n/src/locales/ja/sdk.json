@@ -911,6 +911,15 @@
     },
     "billing": {
       "insufficientCredit": "クレジット不足"
+    },
+    "aggregation": {
+      "searchQueryRequired": "検索クエリが必要です",
+      "maxSearchIndexResult": "最大検索インデックス結果は 1000 です",
+      "queryCollectionMustBeTableId": "クエリコレクションはテーブル ID でなければなりません",
+      "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
+      "indexNotFound": "インデックスが見つかりません",
+      "invalidStartDateFieldId": "無効な開始日フィールド ID",
+      "invalidEndDateFieldId": "無効な終了日フィールド ID"
     }
   }
 }

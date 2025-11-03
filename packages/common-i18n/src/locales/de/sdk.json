@@ -947,6 +947,15 @@
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Suchanfrage ist erforderlich",
+      "maxSearchIndexResult": "Das maximale Suchindexergebnis beträgt 1000",
+      "queryCollectionMustBeTableId": "Die Abfragesammlung muss eine Tabellen-ID sein",
+      "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
+      "indexNotFound": "Index nicht gefunden",
+      "invalidStartDateFieldId": "Ungültige Startdatum-Feld-ID",
+      "invalidEndDateFieldId": "Ungültige Enddatum-Feld-ID"
     }
   }
 }

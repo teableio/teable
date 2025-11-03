@@ -947,6 +947,15 @@
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Пошуковий запит є обов'язковим",
+      "maxSearchIndexResult": "Максимальний результат пошукового індексу становить 1000",
+      "queryCollectionMustBeTableId": "Колекція запитів має бути ідентифікатором таблиці",
+      "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
+      "indexNotFound": "Індекс не знайдено",
+      "invalidStartDateFieldId": "Недійсний ідентифікатор поля дати початку",
+      "invalidEndDateFieldId": "Недійсний ідентифікатор поля дати закінчення"
     }
   }
 }
