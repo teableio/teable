@@ -11,6 +11,7 @@ import { AddDataValidationMutation, UniverDataValidationPlugin } from '@univerjs
 import { defaultTheme, greenTheme } from '@univerjs/design';
 import DesignEnUs from '@univerjs/design/locale/en-US';
 import DesignZhCN from '@univerjs/design/locale/zh-CN';
+import { DarkTheme } from '../theme';
 
 import { UniverDocsPlugin } from '@univerjs/docs';
 import { UniverDocsUIPlugin } from '@univerjs/docs-ui';
@@ -287,7 +288,7 @@ const UniverSheet = forwardRef<IUniverSheetRef, IUniverSheetProps>((props, ref) 
     }
 
     const univer = new Univer({
-      theme: greenTheme || defaultTheme || DarkTheme,
+      theme: DarkTheme,
       locale: resolvedLanguage === 'zh' ? LocaleType.ZH_CN : LocaleType.EN_US,
       locales: {
         [LocaleType.ZH_CN]: Tools.deepMerge(

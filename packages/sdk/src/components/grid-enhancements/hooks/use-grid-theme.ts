@@ -7,45 +7,45 @@ const lightTheme = {} as IGridTheme;
 
 const darkTheme = {
   // Common
-  iconFgCommon: colors.slate[50],
+  iconFgCommon: colors.slate[100],
 
   // Cell
-  cellBg: '#121217',
-  cellBgHovered: colors.neutral[900],
-  cellBgSelected: hexToRGBA(colors.zinc[800], 0.8),
-  cellBgLoading: colors.zinc[800],
-  cellLineColor: '#333338',
-  cellLineColorActived: colors.zinc[400],
-  cellTextColor: colors.zinc[200],
-  cellOptionBg: colors.zinc[700],
-  cellOptionTextColor: colors.zinc[200],
+  cellBg: '#000000',
+  cellBgHovered: '#0a0a0a',
+  cellBgSelected: hexToRGBA('#1a1a1a', 0.9),
+  cellBgLoading: '#1a1a1a',
+  cellLineColor: '#1a1a1a',
+  cellLineColorActived: colors.zinc[300],
+  cellTextColor: colors.zinc[100],
+  cellOptionBg: '#1a1a1a',
+  cellOptionTextColor: colors.zinc[100],
 
   // Group Header
-  groupHeaderBgPrimary: colors.neutral[900],
-  groupHeaderBgSecondary: colors.neutral[800],
-  groupHeaderBgTertiary: colors.neutral[700],
+  groupHeaderBgPrimary: '#0a0a0a',
+  groupHeaderBgSecondary: '#141414',
+  groupHeaderBgTertiary: '#1e1e1e',
 
   // Column Header
-  columnHeaderBg: colors.neutral[900],
-  columnHeaderBgHovered: colors.neutral[800],
-  columnHeaderBgSelected: colors.neutral[700],
-  columnHeaderNameColor: colors.slate[200],
-  columnResizeHandlerBg: colors.zinc[500],
-  columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.2),
+  columnHeaderBg: '#0a0a0a',
+  columnHeaderBgHovered: '#141414',
+  columnHeaderBgSelected: '#1e1e1e',
+  columnHeaderNameColor: colors.slate[100],
+  columnResizeHandlerBg: colors.zinc[400],
+  columnDraggingPlaceholderBg: hexToRGBA(colors.white, 0.15),
 
   // Column Statistic
-  columnStatisticBgHovered: colors.zinc[800],
+  columnStatisticBgHovered: '#1a1a1a',
 
   // Row Header
-  rowHeaderTextColor: colors.zinc[200],
+  rowHeaderTextColor: colors.zinc[100],
 
   // Append Row
-  appendRowBg: colors.neutral[900],
-  appendRowBgHovered: colors.neutral[800],
+  appendRowBg: '#0a0a0a',
+  appendRowBgHovered: '#141414',
 
   // Avatar
-  avatarBg: colors.zinc[900],
-  avatarTextColor: colors.zinc[200],
+  avatarBg: '#1a1a1a',
+  avatarTextColor: colors.zinc[100],
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,
@@ -53,19 +53,19 @@ const darkTheme = {
   themeKey: 'dark',
 
   // ScrollBar
-  scrollBarBg: colors.zinc[700],
+  scrollBarBg: '#2a2a2a',
 
   // interaction
-  interactionLineColorCommon: colors.zinc[600],
-  interactionLineColorHighlight: colors.violet[700],
+  interactionLineColorCommon: colors.zinc[500],
+  interactionLineColorHighlight: colors.violet[600],
 
   // search cursor
-  searchCursorBg: colors.orange[400],
-  searchTargetIndexBg: colors.yellow[700],
+  searchCursorBg: colors.orange[500],
+  searchTargetIndexBg: colors.yellow[600],
 
   // comment
-  commentCountBg: colors.orange[400],
-  commentCountTextColor: colors.zinc[200],
+  commentCountBg: colors.orange[500],
+  commentCountTextColor: colors.zinc[100],
 } as IGridTheme;
 
 export function useGridTheme(): IGridTheme {
