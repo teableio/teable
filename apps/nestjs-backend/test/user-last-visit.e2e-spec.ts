@@ -216,7 +216,6 @@ describe('OpenAPI OAuthController (e2e)', () => {
     const res = await getUserLastVisitListBase();
 
     for (const base of base_21) {
-      await deleteBase(base.id);
       await permanentDeleteBase(base.id);
     }
     expect(userLastVisitListBaseVoSchema.safeParse(res.data).success).toEqual(true);
