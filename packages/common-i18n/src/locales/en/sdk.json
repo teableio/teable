@@ -884,7 +884,7 @@
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
-      "searchTimeOut": "search timeout, please decrease the search scope and try again",
+      "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
     },
     "email": {
@@ -900,6 +900,24 @@
       "nodeParseError": "{{name}} node configuration is incomplete or has errors, please check the node configuration",
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated"
+    },
+    "base": {
+      "notFound": "Base {{baseId}} not found",
+      "cannotAccess": "You don't have permission to access base {{baseId}}",
+      "anchorNotFound": "Anchor base {{anchorId}} not found",
+      "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
+      "templateNotFound": "Template {{templateId}} not found"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Unsupported database driver: {{driver}}",
+      "onlyOwnerCanRemove": "Only the base owner can remove database connection for base {{baseId}}",
+      "onlyOwnerCanCreate": "Only the base owner can create database connection for base {{baseId}}",
+      "roleNotExist": "Database role {{role}} does not exist"
+    },
+    "baseQuery": {
+      "queryFailed": "Query failed: {{message}}",
+      "invalidJoinType": "Invalid join type: {{joinType}}",
+      "tableNotFound": "Table {{tableId}} not found in base {{baseId}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",

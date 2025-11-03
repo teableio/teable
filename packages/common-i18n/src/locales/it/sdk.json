@@ -894,6 +894,24 @@
       "nodeNeedTest": "{{name}} il nodo deve essere testato",
       "nodeTestOutdated": "{{name}} il test del nodo è obsoleto"
     },
+    "base": {
+      "notFound": "Base {{baseId}} non trovata",
+      "cannotAccess": "Non hai il permesso di accedere alla base {{baseId}}",
+      "anchorNotFound": "Base di ancoraggio {{anchorId}} non trovata",
+      "baseAndSpaceMismatch": "Base {{baseId}} e spazio {{spaceId}} non corrispondono",
+      "templateNotFound": "Modello {{templateId}} non trovato"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Driver di database non supportato: {{driver}}",
+      "onlyOwnerCanRemove": "Solo il proprietario della base può rimuovere la connessione al database per la base {{baseId}}",
+      "onlyOwnerCanCreate": "Solo il proprietario della base può creare una connessione al database per la base {{baseId}}",
+      "roleNotExist": "Il ruolo del database {{role}} non esiste"
+    },
+    "baseQuery": {
+      "queryFailed": "Query fallita: {{message}}",
+      "invalidJoinType": "Tipo di join non valido: {{joinType}}",
+      "tableNotFound": "Tabella {{tableId}} non trovata nella base {{baseId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Non hai il permesso di creare record con campi({{fields}})",
       "deleteRecords": "Non hai il permesso di eliminare i record({{recordIds}})",

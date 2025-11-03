@@ -872,6 +872,24 @@
       "nodeNeedTest": "{{name}} le nœud doit être testé",
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète"
     },
+    "base": {
+      "notFound": "Base {{baseId}} non trouvée",
+      "cannotAccess": "Vous n'avez pas la permission d'accéder à la base {{baseId}}",
+      "anchorNotFound": "Base d'ancrage {{anchorId}} non trouvée",
+      "baseAndSpaceMismatch": "La base {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
+      "templateNotFound": "Modèle {{templateId}} non trouvé"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",
+      "onlyOwnerCanRemove": "Seul le propriétaire de la base peut supprimer la connexion à la base de données pour la base {{baseId}}",
+      "onlyOwnerCanCreate": "Seul le propriétaire de la base peut créer une connexion à la base de données pour la base {{baseId}}",
+      "roleNotExist": "Le rôle de base de données {{role}} n'existe pas"
+    },
+    "baseQuery": {
+      "queryFailed": "Échec de la requête: {{message}}",
+      "invalidJoinType": "Type de jointure non valide: {{joinType}}",
+      "tableNotFound": "Table {{tableId}} non trouvée dans la base {{baseId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
       "deleteRecords": "Vous n'avez pas la permission de supprimer les enregistrements({{recordIds}})",

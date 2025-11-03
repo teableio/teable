@@ -870,6 +870,24 @@
       "nodeNeedTest": "{{name}} узел требует тестирования",
       "nodeTestOutdated": "{{name}} тест узла устарел"
     },
+    "base": {
+      "notFound": "База {{baseId}} не найдена",
+      "cannotAccess": "У вас нет разрешения на доступ к базе {{baseId}}",
+      "anchorNotFound": "Якорная база {{anchorId}} не найдена",
+      "baseAndSpaceMismatch": "База {{baseId}} и пространство {{spaceId}} не совпадают",
+      "templateNotFound": "Шаблон {{templateId}} не найден"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Неподдерживаемый драйвер базы данных: {{driver}}",
+      "onlyOwnerCanRemove": "Только владелец базы может удалить подключение к базе данных для базы {{baseId}}",
+      "onlyOwnerCanCreate": "Только владелец базы может создать подключение к базе данных для базы {{baseId}}",
+      "roleNotExist": "Роль базы данных {{role}} не существует"
+    },
+    "baseQuery": {
+      "queryFailed": "Запрос не выполнен: {{message}}",
+      "invalidJoinType": "Недопустимый тип соединения: {{joinType}}",
+      "tableNotFound": "Таблица {{tableId}} не найдена в базе {{baseId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
       "deleteRecords": "У вас нет разрешения на удаление записей({{recordIds}})",

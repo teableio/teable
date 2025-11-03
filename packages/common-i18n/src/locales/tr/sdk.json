@@ -868,6 +868,24 @@
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
     },
+    "base": {
+      "notFound": "Base {{baseId}} bulunamadı",
+      "cannotAccess": "Base {{baseId}} erişim izniniz yok",
+      "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
+      "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
+      "templateNotFound": "Şablon {{templateId}} bulunamadı"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
+      "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",
+      "onlyOwnerCanCreate": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısı oluşturabilir",
+      "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
+    },
+    "baseQuery": {
+      "queryFailed": "Sorgu başarısız: {{message}}",
+      "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
+      "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",

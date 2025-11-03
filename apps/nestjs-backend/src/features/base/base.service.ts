@@ -1,11 +1,5 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId } from '@teable/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { ActionPrefix, actionPrefixMap, generateBaseId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
@@ -20,6 +14,7 @@ import type {
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -64,7 +59,14 @@ export class BaseService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Base not found');
+        throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.base.notFound',
+            context: {
+              baseId,
+            },
+          },
+        });
       });
     const collaborators = await this.prismaService.collaborator.findMany({
       where: {
@@ -74,7 +76,14 @@ export class BaseService {
     });
 
     if (!collaborators.length) {
-      throw new ForbiddenException('cannot access base');
+      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.base.cannotAccess',
+          context: {
+            baseId,
+          },
+        },
+      });
     }
     const role = getMaxLevelRole(collaborators);
     const collaborator = collaborators.find((c) => c.roleName === role);
@@ -215,7 +224,14 @@ export class BaseService {
         where: { id: baseId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Base ${baseId} not found`);
+        throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.base.notFound',
+            context: {
+              baseId,
+            },
+          },
+        });
       });
 
     const anchorBase = await this.prismaService.base
@@ -224,7 +240,14 @@ export class BaseService {
         where: { spaceId: base.spaceId, id: anchorId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Anchor ${anchorId} not found`);
+        throw new CustomHttpException('Anchor base not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.base.anchorNotFound',
+            context: {
+              anchorId,
+            },
+          },
+        });
       });
 
     await updateOrder({
@@ -318,14 +341,33 @@ export class BaseService {
       });
 
       if (base.spaceId !== spaceId) {
-        throw new BadRequestException('baseId and spaceId mismatch');
+        throw new CustomHttpException(
+          'BaseId and spaceId mismatch',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.base.baseAndSpaceMismatch',
+              context: {
+                baseId,
+                spaceId,
+              },
+            },
+          }
+        );
       }
     }
 
     const { baseId: fromBaseId = '' } = template?.snapshot ? JSON.parse(template.snapshot) : {};
 
     if (!template || !fromBaseId) {
-      throw new NotFoundException(`Template ${templateId} not found`);
+      throw new CustomHttpException('Template not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.base.templateNotFound',
+          context: {
+            templateId,
+          },
+        },
+      });
     }
 
     return await this.prismaService.$tx(

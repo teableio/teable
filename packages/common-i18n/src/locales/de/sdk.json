@@ -894,6 +894,24 @@
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet"
     },
+    "base": {
+      "notFound": "Base {{baseId}} nicht gefunden",
+      "cannotAccess": "Sie haben keine Berechtigung, auf Base {{baseId}} zuzugreifen",
+      "anchorNotFound": "Anker-Base {{anchorId}} nicht gefunden",
+      "baseAndSpaceMismatch": "Base {{baseId}} und Space {{spaceId}} stimmen nicht überein",
+      "templateNotFound": "Vorlage {{templateId}} nicht gefunden"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Nicht unterstützter Datenbanktreiber: {{driver}}",
+      "onlyOwnerCanRemove": "Nur der Base-Besitzer kann die Datenbankverbindung für Base {{baseId}} entfernen",
+      "onlyOwnerCanCreate": "Nur der Base-Besitzer kann eine Datenbankverbindung für Base {{baseId}} erstellen",
+      "roleNotExist": "Datenbankrolle {{role}} existiert nicht"
+    },
+    "baseQuery": {
+      "queryFailed": "Abfrage fehlgeschlagen: {{message}}",
+      "invalidJoinType": "Ungültiger Join-Typ: {{joinType}}",
+      "tableNotFound": "Tabelle {{tableId}} nicht gefunden in Base {{baseId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
       "deleteRecords": "Sie haben keine Berechtigung, Datensätze({{recordIds}}) zu löschen",

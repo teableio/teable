@@ -898,6 +898,24 @@
       "nodeNeedTest": "{{name}} 节点需要测试",
       "nodeTestOutdated": "{{name}} 节点测试已过期"
     },
+    "base": {
+      "notFound": "数据库 {{baseId}} 不存在",
+      "cannotAccess": "没有权限访问数据库 {{baseId}}",
+      "anchorNotFound": "锚点数据库 {{anchorId}} 不存在",
+      "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
+      "templateNotFound": "模板 {{templateId}} 不存在"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
+      "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",
+      "onlyOwnerCanCreate": "只有数据库所有者可以创建数据库 {{baseId}} 的连接",
+      "roleNotExist": "数据库角色 {{role}} 不存在"
+    },
+    "baseQuery": {
+      "queryFailed": "查询失败：{{message}}",
+      "invalidJoinType": "无效的连接类型：{{joinType}}",
+      "tableNotFound": "在数据库 {{baseId}} 中未找到表 {{tableId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
       "deleteRecords": "没有权限删除记录({{recordIds}})",

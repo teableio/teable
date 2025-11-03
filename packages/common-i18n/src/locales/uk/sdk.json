@@ -894,6 +894,24 @@
       "nodeNeedTest": "{{name}} вузол потребує тестування",
       "nodeTestOutdated": "{{name}} тест вузла застарів"
     },
+    "base": {
+      "notFound": "База {{baseId}} не знайдена",
+      "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
+      "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
+      "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
+      "templateNotFound": "Шаблон {{templateId}} не знайдено"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
+      "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",
+      "onlyOwnerCanCreate": "Тільки власник бази може створити підключення до бази даних для бази {{baseId}}",
+      "roleNotExist": "Роль бази даних {{role}} не існує"
+    },
+    "baseQuery": {
+      "queryFailed": "Запит не виконано: {{message}}",
+      "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
+      "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
       "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",

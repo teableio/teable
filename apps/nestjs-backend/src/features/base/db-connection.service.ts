@@ -1,18 +1,15 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
-import { DriverClient, parseDsn } from '@teable/core';
+import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IDbConnectionVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { nanoid } from 'nanoid';
 import { InjectModel } from 'nest-knexjs';
 import { BaseConfig, type IBaseConfig } from '../../configs/base.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 
@@ -31,7 +28,14 @@ export class DbConnectionService {
   private getUrlFromDsn(dsn: IDsn): string {
     const { driver, host, port, db, user, pass, params } = dsn;
     if (driver !== DriverClient.Pg) {
-      throw new Error('Unsupported database driver');
+      throw new CustomHttpException('Unsupported database driver', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.dbConnection.unsupportedDriver',
+          context: {
+            driver,
+          },
+        },
+      });
     }
 
     const paramString =
@@ -44,7 +48,14 @@ export class DbConnectionService {
 
   async remove(baseId: string) {
     if (this.dbProvider.driver !== DriverClient.Pg) {
-      throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
+      throw new CustomHttpException('Unsupported database driver', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.dbConnection.unsupportedDriver',
+          context: {
+            driver: this.dbProvider.driver,
+          },
+        },
+      });
     }
 
     const readOnlyRole = `read_only_role_${baseId}`;
@@ -56,7 +67,18 @@ export class DbConnectionService {
           where: { id: baseId, deletedTime: null },
         })
         .catch(() => {
-          throw new BadRequestException('Only the base owner can remove a db connection');
+          throw new CustomHttpException(
+            'Only the base owner can remove a db connection',
+            HttpErrorCode.RESTRICTED_RESOURCE,
+            {
+              localization: {
+                i18nKey: 'httpErrors.dbConnection.onlyOwnerCanRemove',
+                context: {
+                  baseId,
+                },
+              },
+            }
+          );
         });
 
       // Revoke permissions from the role for the schema
@@ -135,7 +157,14 @@ export class DbConnectionService {
 
     // Check if the read-only role already exists
     if (!(await this.roleExits(readOnlyRole))) {
-      throw new InternalServerErrorException(`Role does not exist: ${readOnlyRole}`);
+      throw new CustomHttpException('Role does not exist', HttpErrorCode.INTERNAL_SERVER_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.dbConnection.roleNotExist',
+          context: {
+            role: readOnlyRole,
+          },
+        },
+      });
     }
 
     const currentConnections = await this.getConnectionCount(readOnlyRole);
@@ -201,7 +230,18 @@ export class DbConnectionService {
             where: { id: baseId, deletedTime: null },
           })
           .catch(() => {
-            throw new BadRequestException('only base owner can public db connection');
+            throw new CustomHttpException(
+              'Only base owner can create db connection',
+              HttpErrorCode.RESTRICTED_RESOURCE,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.dbConnection.onlyOwnerCanCreate',
+                  context: {
+                    baseId,
+                  },
+                },
+              }
+            );
           });
 
         await prisma.base.update({
@@ -261,6 +301,13 @@ export class DbConnectionService {
       });
     }
 
-    throw new BadRequestException(`Unsupported database driver: ${this.dbProvider.driver}`);
+    throw new CustomHttpException('Unsupported database driver', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.dbConnection.unsupportedDriver',
+        context: {
+          driver: this.dbProvider.driver,
+        },
+      },
+    });
   }
 }
