@@ -960,6 +960,15 @@
       "indexNotFound": "Index not found",
       "invalidStartDateFieldId": "Invalid start date field id",
       "invalidEndDateFieldId": "Invalid end date field id"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI chat model lg is not set",
+      "chatModelLgProviderNotSet": "AI chat model lg provider is not set",
+      "chatModelSmNotSet": "AI chat model sm is not set",
+      "chatModelMdNotSet": "AI chat model md is not set",
+      "configurationNotSet": "AI configuration is not set",
+      "unsupportedProvider": "Unsupported AI provider {{type}}",
+      "providerConfigurationNotSet": "AI provider configuration is not set"
     }
   }
 }

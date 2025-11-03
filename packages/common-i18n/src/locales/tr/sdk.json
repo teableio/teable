@@ -930,6 +930,15 @@
       "indexNotFound": "İndeks bulunamadı",
       "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
       "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI sohbet modeli lg ayarlanmamış",
+      "chatModelLgProviderNotSet": "AI sohbet modeli lg sağlayıcısı ayarlanmamış",
+      "chatModelSmNotSet": "AI sohbet modeli sm ayarlanmamış",
+      "chatModelMdNotSet": "AI sohbet modeli md ayarlanmamış",
+      "configurationNotSet": "AI yapılandırması ayarlanmamış",
+      "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
+      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış"
     }
   }
 }

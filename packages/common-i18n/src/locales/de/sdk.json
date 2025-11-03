@@ -956,6 +956,15 @@
       "indexNotFound": "Index nicht gefunden",
       "invalidStartDateFieldId": "Ungültige Startdatum-Feld-ID",
       "invalidEndDateFieldId": "Ungültige Enddatum-Feld-ID"
+    },
+    "ai": {
+      "chatModelLgNotSet": "KI-Chat-Modell lg ist nicht festgelegt",
+      "chatModelLgProviderNotSet": "KI-Chat-Modell lg Anbieter ist nicht festgelegt",
+      "chatModelSmNotSet": "KI-Chat-Modell sm ist nicht festgelegt",
+      "chatModelMdNotSet": "KI-Chat-Modell md ist nicht festgelegt",
+      "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
+      "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
+      "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt"
     }
   }
 }

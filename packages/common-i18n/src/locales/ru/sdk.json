@@ -932,6 +932,15 @@
       "indexNotFound": "Индекс не найден",
       "invalidStartDateFieldId": "Недействительный идентификатор поля даты начала",
       "invalidEndDateFieldId": "Недействительный идентификатор поля даты окончания"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Модель чата ИИ lg не установлена",
+      "chatModelLgProviderNotSet": "Провайдер модели чата ИИ lg не установлен",
+      "chatModelSmNotSet": "Модель чата ИИ sm не установлена",
+      "chatModelMdNotSet": "Модель чата ИИ md не установлена",
+      "configurationNotSet": "Конфигурация ИИ не установлена",
+      "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
+      "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена"
     }
   }
 }

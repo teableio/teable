@@ -960,6 +960,15 @@
       "indexNotFound": "索引未找到",
       "invalidStartDateFieldId": "开始日期字段 ID 无效",
       "invalidEndDateFieldId": "结束日期字段 ID 无效"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI 高级对话模型未设置",
+      "chatModelLgProviderNotSet": "AI 高级对话模型提供商未设置",
+      "chatModelSmNotSet": "AI 中级对话模型未设置",
+      "chatModelMdNotSet": "AI 基础对话模型未设置",
+      "configurationNotSet": "AI 配置未设置",
+      "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
+      "providerConfigurationNotSet": "AI 模型提供商配置未设置"
     }
   }
 }

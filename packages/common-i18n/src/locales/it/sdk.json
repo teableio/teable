@@ -956,6 +956,15 @@
       "indexNotFound": "Indice non trovato",
       "invalidStartDateFieldId": "ID campo data di inizio non valido",
       "invalidEndDateFieldId": "ID campo data di fine non valido"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Il modello di chat IA lg non è impostato",
+      "chatModelLgProviderNotSet": "Il fornitore del modello di chat IA lg non è impostato",
+      "chatModelSmNotSet": "Il modello di chat IA sm non è impostato",
+      "chatModelMdNotSet": "Il modello di chat IA md non è impostato",
+      "configurationNotSet": "La configurazione IA non è impostata",
+      "unsupportedProvider": "Fornitore IA non supportato {{type}}",
+      "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata"
     }
   }
 }

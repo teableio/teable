@@ -920,6 +920,15 @@
       "indexNotFound": "インデックスが見つかりません",
       "invalidStartDateFieldId": "無効な開始日フィールド ID",
       "invalidEndDateFieldId": "無効な終了日フィールド ID"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI チャットモデル lg が設定されていません",
+      "chatModelLgProviderNotSet": "AI チャットモデル lg プロバイダーが設定されていません",
+      "chatModelSmNotSet": "AI チャットモデル sm が設定されていません",
+      "chatModelMdNotSet": "AI チャットモデル md が設定されていません",
+      "configurationNotSet": "AI 設定が設定されていません",
+      "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
+      "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません"
     }
   }
 }
