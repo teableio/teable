@@ -9,7 +9,6 @@ export enum UsageFeature {
   AttachmentSize = 'attachmentSize',
   NumDatabaseConnections = 'numDatabaseConnections',
   NumCollaborators = 'numCollaborators',
-  NumAutomationSendEmail = 'numAutomationSendEmail',
 }
 
 export const usageFeatureSchema = z.object({
@@ -17,7 +16,6 @@ export const usageFeatureSchema = z.object({
   [UsageFeature.AttachmentSize]: z.number(),
   [UsageFeature.NumDatabaseConnections]: z.number(),
   [UsageFeature.NumCollaborators]: z.number(),
-  [UsageFeature.NumAutomationSendEmail]: z.number(),
 });
 
 export enum UsageFeatureLimit {
@@ -43,7 +41,6 @@ export enum UsageFeatureLimit {
   ChatAIEnable = 'chatAIEnable',
   AppEnable = 'appEnable',
   CustomDomainEnable = 'customDomainEnable',
-  MaxNumAutomationSendEmail = 'maxNumAutomationSendEmail',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -69,7 +66,6 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.ChatAIEnable]: z.boolean(),
   [UsageFeatureLimit.AppEnable]: z.boolean(),
   [UsageFeatureLimit.CustomDomainEnable]: z.boolean(),
-  [UsageFeatureLimit.MaxNumAutomationSendEmail]: z.number(),
 });
 
 export const usageVoSchema = z.object({
