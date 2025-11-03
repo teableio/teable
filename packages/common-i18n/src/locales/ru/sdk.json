@@ -965,6 +965,17 @@
       "configurationNotSet": "Конфигурация ИИ не установлена",
       "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
       "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена"
+    },
+    "collaborator": {
+      "alreadyExisted": "Соавтор уже существует",
+      "userNotFoundInCollaborator": "Пользователь не найден среди соавторов",
+      "noPermissionToDelete": "У вас нет разрешения на удаление этого соавтора",
+      "noPermissionToUpdate": "У вас нет разрешения на обновление этого соавтора",
+      "noPermissionToOperateRole": "У вас нет разрешения на управление этой ролью",
+      "alreadyExistedInBase": "Соавтор уже существует в базе данных",
+      "userNotFound": "Пользователь не найден: {{userIds}}",
+      "baseNotFound": "База данных не найдена",
+      "noPermissionToAddRole": "У вас нет разрешения на добавление соавтора с этой ролью"
     }
   }
 }

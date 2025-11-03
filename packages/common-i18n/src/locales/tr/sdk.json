@@ -963,6 +963,17 @@
       "configurationNotSet": "AI yapılandırması ayarlanmamış",
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış"
+    },
+    "collaborator": {
+      "alreadyExisted": "İşbirlikçi zaten mevcut",
+      "userNotFoundInCollaborator": "İşbirlikçiler arasında kullanıcı bulunamadı",
+      "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
+      "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
+      "noPermissionToOperateRole": "Bu rolü yönetme izniniz yok",
+      "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
+      "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
+      "baseNotFound": "Veritabanı bulunamadı",
+      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok"
     }
   }
 }

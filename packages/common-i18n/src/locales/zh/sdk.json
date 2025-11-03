@@ -993,6 +993,17 @@
       "configurationNotSet": "AI 配置未设置",
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置"
+    },
+    "collaborator": {
+      "alreadyExisted": "协作者已存在",
+      "userNotFoundInCollaborator": "在协作者中未找到用户",
+      "noPermissionToDelete": "您没有权限删除此协作者",
+      "noPermissionToUpdate": "您没有权限更新此协作者",
+      "noPermissionToOperateRole": "您没有权限操作此角色",
+      "alreadyExistedInBase": "协作者已在数据库中存在",
+      "userNotFound": "未找到用户：{{userIds}}",
+      "baseNotFound": "未找到数据库",
+      "noPermissionToAddRole": "您没有权限添加此角色的协作者"
     }
   }
 }

@@ -989,6 +989,17 @@
       "configurationNotSet": "La configurazione IA non è impostata",
       "unsupportedProvider": "Fornitore IA non supportato {{type}}",
       "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata"
+    },
+    "collaborator": {
+      "alreadyExisted": "Il collaboratore esiste già",
+      "userNotFoundInCollaborator": "Utente non trovato nei collaboratori",
+      "noPermissionToDelete": "Non hai il permesso di eliminare questo collaboratore",
+      "noPermissionToUpdate": "Non hai il permesso di aggiornare questo collaboratore",
+      "noPermissionToOperateRole": "Non hai il permesso di operare questo ruolo",
+      "alreadyExistedInBase": "Il collaboratore esiste già nella base",
+      "userNotFound": "Utente non trovato: {{userIds}}",
+      "baseNotFound": "Base non trovata",
+      "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo"
     }
   }
 }

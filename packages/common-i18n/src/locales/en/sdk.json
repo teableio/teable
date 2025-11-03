@@ -993,6 +993,17 @@
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set"
+    },
+    "collaborator": {
+      "alreadyExisted": "Collaborator has already existed",
+      "userNotFoundInCollaborator": "User not found in collaborator",
+      "noPermissionToDelete": "You do not have permission to delete this collaborator",
+      "noPermissionToUpdate": "You do not have permission to update this collaborator",
+      "noPermissionToOperateRole": "You do not have permission to operate this role",
+      "alreadyExistedInBase": "Collaborator has already existed in base",
+      "userNotFound": "User not found: {{userIds}}",
+      "baseNotFound": "Base not found",
+      "noPermissionToAddRole": "You do not have permission to add this role collaborator"
     }
   }
 }

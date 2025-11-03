@@ -989,6 +989,17 @@
       "configurationNotSet": "Конфігурацію ШІ не встановлено",
       "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
       "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено"
+    },
+    "collaborator": {
+      "alreadyExisted": "Співавтор вже існує",
+      "userNotFoundInCollaborator": "Користувача не знайдено серед співавторів",
+      "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
+      "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
+      "noPermissionToOperateRole": "У вас немає дозволу на управління цією роллю",
+      "alreadyExistedInBase": "Співавтор вже існує в базі даних",
+      "userNotFound": "Користувача не знайдено: {{userIds}}",
+      "baseNotFound": "Базу даних не знайдено",
+      "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю"
     }
   }
 }

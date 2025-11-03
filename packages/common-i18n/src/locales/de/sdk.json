@@ -989,6 +989,17 @@
       "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
       "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt"
+    },
+    "collaborator": {
+      "alreadyExisted": "Mitarbeiter existiert bereits",
+      "userNotFoundInCollaborator": "Benutzer wurde in Mitarbeitern nicht gefunden",
+      "noPermissionToDelete": "Sie haben keine Berechtigung, diesen Mitarbeiter zu löschen",
+      "noPermissionToUpdate": "Sie haben keine Berechtigung, diesen Mitarbeiter zu aktualisieren",
+      "noPermissionToOperateRole": "Sie haben keine Berechtigung, diese Rolle zu verwalten",
+      "alreadyExistedInBase": "Mitarbeiter existiert bereits in der Datenbank",
+      "userNotFound": "Benutzer nicht gefunden: {{userIds}}",
+      "baseNotFound": "Datenbank nicht gefunden",
+      "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen"
     }
   }
 }

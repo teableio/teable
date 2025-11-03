@@ -953,6 +953,17 @@
       "configurationNotSet": "AI 設定が設定されていません",
       "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
       "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません"
+    },
+    "collaborator": {
+      "alreadyExisted": "コラボレーターは既に存在しています",
+      "userNotFoundInCollaborator": "コラボレーターにユーザーが見つかりません",
+      "noPermissionToDelete": "このコラボレーターを削除する権限がありません",
+      "noPermissionToUpdate": "このコラボレーターを更新する権限がありません",
+      "noPermissionToOperateRole": "この役割を操作する権限がありません",
+      "alreadyExistedInBase": "コラボレーターは既にデータベースに存在しています",
+      "userNotFound": "ユーザーが見つかりません：{{userIds}}",
+      "baseNotFound": "データベースが見つかりません",
+      "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません"
     }
   }
 }
