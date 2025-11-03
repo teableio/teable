@@ -1,36 +1,34 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { cn } from '@teable/ui-lib';
 import { useMemo, useRef } from 'react';
-import { useTranslation } from '../context/app/i18n';
-import { useDragFile } from './upload/useDragFile';
+import { useTranslation } from '../../context/app/i18n';
+import { useDragFile } from './useDragFile';
 
 type IAction = 'paste' | 'drop' | 'click';
-
-interface IFileZoneProps {
-  onChange?: (files: File[]) => void;
-  disabled?: boolean;
-  children?: React.ReactNode;
-  className?: string;
-  defaultText?: string | React.ReactNode;
-  action?: IAction | IAction[];
-  fileInputProps?: React.InputHTMLAttributes<HTMLInputElement>;
-}
-
 const defaultZone = ['drop', 'click'] as IAction[];
 
-export const FileZone = (props: IFileZoneProps) => {
-  const { t } = useTranslation();
-
+export const FileZone = (props: {
+  children?: React.ReactNode;
+  action?: IAction | IAction[];
+  hasFile?: boolean;
+  onChange?: (files: File[]) => void;
+  className?: string;
+  zoneClassName?: string;
+  defaultText?: string | React.ReactNode;
+  disabled?: boolean;
+}) => {
   const {
-    className,
-    fileInputProps,
-    onChange,
-    disabled,
     children,
     action = defaultZone,
-    defaultText = 'File upload',
+    onChange,
+    className,
+    zoneClassName,
+    defaultText = 'Click to upload or paste or drag and drop here',
+    disabled,
   } = props;
+  const { t } = useTranslation();
   const actions = useMemo(() => (Array.isArray(action) ? action : [action]), [action]);
+  const fileInput = useRef<HTMLInputElement>(null);
   const { over, bound, dragFileEnter } = useDragFile({
     event: {
       onDrop: (files: File[]) => {
@@ -42,39 +40,35 @@ export const FileZone = (props: IFileZoneProps) => {
     },
   });
 
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  if (!dragFileEnter && children) {
+  if (disabled) {
     return (
-      <div
-        className={cn('min-h-full cursor-default p-[1px]', className)}
-        tabIndex={0}
-        role="button"
-        {...bound}
-      >
+      <div className={cn('flex size-full min-h-[120px] flex-col relative gap-4', className)}>
         {children}
       </div>
     );
   }
 
   return (
-    <div className={cn('flex size-full min-h-[100px] flex-col', className)}>
+    <div
+      className={cn('flex size-full min-h-[120px] flex-col relative gap-4', className)}
+      {...bound}
+    >
       <div
         tabIndex={0}
         role="button"
         className={cn(
-          'flex-1 w-full bg-foreground/5 text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed cursor-default hover:border-foreground focus:border-foreground',
-          over && 'border-foreground',
-          disabled && 'opacity-50 cursor-not-allowed'
+          'w-full bg-muted text-sm text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed cursor-default hover:border-foreground focus:border-foreground',
+          {
+            'absolute inset-0 z-10': dragFileEnter,
+          },
+          zoneClassName
         )}
-        {...bound}
         onClick={() => fileInput.current?.click()}
       >
         {over ? t('editor.attachment.uploadDragOver') : defaultText}
         {actions.includes('click') && (
           <input
             multiple
-            {...fileInputProps}
             ref={fileInput}
             type="file"
             className="hidden"
@@ -82,6 +76,7 @@ export const FileZone = (props: IFileZoneProps) => {
           />
         )}
       </div>
+      {children}
     </div>
   );
 };

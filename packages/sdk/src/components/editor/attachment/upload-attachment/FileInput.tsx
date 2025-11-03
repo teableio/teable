@@ -3,12 +3,13 @@ import { Button } from '@teable/ui-lib';
 import { useRef } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 
-export const FileInput = (props: { onChange?: (files: File[]) => void }) => {
+export const FileInput = (props: { onChange?: (files: File[]) => void; disabled?: boolean }) => {
+  const { onChange, disabled } = props;
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
   const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fileList = e.target.files;
-    fileList && props.onChange?.(Array.from(fileList));
+    fileList && onChange?.(Array.from(fileList));
     e.target.value = '';
   };
 
@@ -17,6 +18,7 @@ export const FileInput = (props: { onChange?: (files: File[]) => void }) => {
       variant={'ghost'}
       className="m-1 gap-2 font-normal"
       onClick={() => fileInput.current?.click()}
+      disabled={disabled}
     >
       <input type="file" className="hidden" multiple ref={fileInput} onChange={handleSelectFiles} />
       <Plus /> {t('editor.attachment.upload')}

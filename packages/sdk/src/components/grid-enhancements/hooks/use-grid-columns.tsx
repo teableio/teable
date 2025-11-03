@@ -446,6 +446,7 @@ export const useCreateCellValue2GridDisplay = (
               type: CellType.Image,
               data,
               displayData,
+              editorWidth: 560,
               onPreview: (activeId: string) => {
                 expandPreviewModal({
                   activeId,

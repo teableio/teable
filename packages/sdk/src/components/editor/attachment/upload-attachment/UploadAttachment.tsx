@@ -16,17 +16,26 @@ import {
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { UploadType, type INotifyVo } from '@teable/openapi';
-import { FilePreviewProvider, Progress, cn, sonner } from '@teable/ui-lib';
+import { FilePreviewProvider, Progress, ScrollArea, cn, isImage, sonner } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
-import { FileZone } from '../../../FileZone';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
+import { EllipsisFileName } from '../../../upload/EllipsisFileName';
+import { FileCover } from '../../../upload/FileCover';
+import { FileZone } from '../../../upload/FileZone';
 import { getFileCover } from '../utils';
 import AttachmentItem from './AttachmentItem';
-import { FileInput } from './FileInput';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
 
@@ -38,205 +47,255 @@ export interface IUploadAttachment {
   attachmentManager?: AttachmentManager;
   onChange?: (attachment: IAttachmentCellValue | null) => void;
   readonly?: boolean;
+  disabled?: boolean;
 }
 
 type IUploadFileMap = { [key: string]: { progress: number; file: File } };
 
 const defaultAttachmentManager = new AttachmentManager(2);
 
-export const UploadAttachment = (props: IUploadAttachment) => {
-  const {
-    className,
-    attachments,
-    onChange,
-    readonly,
-    attachmentManager = defaultAttachmentManager,
-  } = props;
-  const baseId = useBaseId();
-  const [sortData, setSortData] = useState([...attachments]);
-  const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
-  const listRef = useRef<HTMLDivElement>(null);
-  const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
-  const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
-  const { t } = useTranslation();
-  const i18nMap = useAttachmentPreviewI18Map();
+export interface IUploadAttachmentRef {
+  uploadAttachment: (files: File[]) => void;
+}
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachment>(
+  (props, ref) => {
+    const {
+      className,
+      attachments,
+      onChange,
+      readonly,
+      disabled,
+      attachmentManager = defaultAttachmentManager,
+    } = props;
+    const baseId = useBaseId();
+    const [sortData, setSortData] = useState([...attachments]);
+    const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
+    const listRef = useRef<HTMLDivElement>(null);
+    const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
+    const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
+    const { t } = useTranslation();
+    const i18nMap = useAttachmentPreviewI18Map();
 
-  attachmentsRef.current = attachments;
+    const sensors = useSensors(
+      useSensor(PointerSensor, {
+        activationConstraint: { distance: 5 },
+      }),
+      useSensor(KeyboardSensor, {
+        coordinateGetter: sortableKeyboardCoordinates,
+      })
+    );
 
-  useEffect(() => {
-    if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
-      onChange?.(attachmentsRef.current.concat(newAttachments));
-      setNewAttachments([]);
-      setUploadingFiles({});
-    }
-  }, [newAttachments, onChange, uploadingFiles]);
+    attachmentsRef.current = attachments;
 
-  const onDelete = (id: string) => {
-    const finalAttachments = attachments.filter((attachment) => attachment.id !== id);
-    onChange?.(!finalAttachments.length ? null : finalAttachments);
-  };
+    useEffect(() => {
+      if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
+        onChange?.(attachmentsRef.current.concat(newAttachments));
+        setNewAttachments([]);
+        setUploadingFiles({});
+      }
+    }, [newAttachments, onChange, uploadingFiles]);
 
-  const downloadFile = ({ presignedUrl, name }: IAttachmentItem) => {
-    const downloadLink = document.createElement('a');
-    downloadLink.href = presignedUrl || '';
-    downloadLink.target = '_blank';
-    downloadLink.download = name;
-    downloadLink.click();
-  };
-
-  const handleSuccess = useCallback((file: IFile, attachment: INotifyVo) => {
-    const { id, instance } = file;
-    const newAttachment: IAttachmentItem = {
-      id,
-      name: instance.name,
-      ...omit(attachment, ['url']),
+    const onDelete = (id: string) => {
+      const finalAttachments = attachments.filter((attachment) => attachment.id !== id);
+      onChange?.(!finalAttachments.length ? null : finalAttachments);
     };
-    setNewAttachments((pre) => [...pre, newAttachment]);
-  }, []);
 
-  const uploadAttachment = useCallback(
-    (files: File[]) => {
-      const uploadList = files.map((v) => ({ instance: v, id: generateAttachmentId() }));
+    const downloadFile = ({ presignedUrl, name }: IAttachmentItem) => {
+      const downloadLink = document.createElement('a');
+      downloadLink.href = presignedUrl || '';
+      downloadLink.target = '_blank';
+      downloadLink.download = name;
+      downloadLink.click();
+    };
 
-      const newUploadMap = uploadList.reduce((acc: IUploadFileMap, file) => {
-        acc[file.id] = { progress: 0, file: file.instance };
-        return acc;
-      }, {});
-      attachmentManager.upload(
-        uploadList,
-        UploadType.Table,
-        {
-          successCallback: handleSuccess,
-          errorCallback: (file, error, code) => {
-            const curUploadingFiles = { ...uploadingFiles };
-            delete curUploadingFiles[file.id];
-            setUploadingFiles(curUploadingFiles);
+    const handleSuccess = useCallback((file: IFile, attachment: INotifyVo) => {
+      const { id, instance } = file;
+      const newAttachment: IAttachmentItem = {
+        id,
+        name: instance.name,
+        ...omit(attachment, ['url']),
+      };
+      setNewAttachments((pre) => [...pre, newAttachment]);
+    }, []);
 
-            if (code === 402) {
-              return useUsageLimitModalStore.setState({
-                modalType: UsageLimitModalType.Upgrade,
-                modalOpen: true,
-              });
-            }
-            toast.error(error ?? t('common.uploadFailed'));
+    const uploadAttachment = useCallback(
+      (files: File[]) => {
+        const uploadList = files.map((v) => ({ instance: v, id: generateAttachmentId() }));
+
+        const newUploadMap = uploadList.reduce((acc: IUploadFileMap, file) => {
+          acc[file.id] = { progress: 0, file: file.instance };
+          return acc;
+        }, {});
+        attachmentManager.upload(
+          uploadList,
+          UploadType.Table,
+          {
+            successCallback: handleSuccess,
+            errorCallback: (file, error, code) => {
+              const curUploadingFiles = { ...uploadingFiles };
+              delete curUploadingFiles[file.id];
+              setUploadingFiles(curUploadingFiles);
+
+              if (code === 402) {
+                return useUsageLimitModalStore.setState({
+                  modalType: UsageLimitModalType.Upgrade,
+                  modalOpen: true,
+                });
+              }
+              toast.error(error ?? t('common.uploadFailed'));
+            },
+            progressCallback: (file, progress) => {
+              setUploadingFiles((pre) => ({
+                ...pre,
+                [file.id]: { progress, file: file.instance },
+              }));
+            },
           },
-          progressCallback: (file, progress) => {
-            setUploadingFiles((pre) => ({ ...pre, [file.id]: { progress, file: file.instance } }));
-          },
-        },
-        baseId
-      );
-      setUploadingFiles((pre) => ({ ...pre, ...newUploadMap }));
-      setTimeout(() => {
-        scrollBottom();
-      }, 100);
-    },
-    [attachmentManager, baseId, handleSuccess, t, uploadingFiles]
-  );
+          baseId
+        );
+        setUploadingFiles((pre) => ({ ...pre, ...newUploadMap }));
+        setTimeout(() => {
+          scrollBottom();
+        }, 100);
+      },
+      [attachmentManager, baseId, handleSuccess, t, uploadingFiles]
+    );
 
-  const scrollBottom = () => {
-    if (listRef.current) {
-      const scrollHeight = listRef.current.scrollHeight;
-      const height = listRef.current.clientHeight;
-      const maxScrollTop = scrollHeight - height;
-      listRef.current.scrollTop = maxScrollTop > 0 ? maxScrollTop : 0;
-    }
-  };
+    const scrollBottom = () => {
+      if (listRef.current) {
+        const scrollHeight = listRef.current.scrollHeight;
+        const height = listRef.current.clientHeight;
+        const maxScrollTop = scrollHeight - height;
+        listRef.current.scrollTop = maxScrollTop > 0 ? maxScrollTop : 0;
+      }
+    };
 
-  const len = useMemo(() => {
-    return attachments.length + Object.keys(uploadingFiles).length;
-  }, [attachments, uploadingFiles]);
+    const len = useMemo(() => {
+      return attachments.length + Object.keys(uploadingFiles).length;
+    }, [attachments, uploadingFiles]);
 
-  const fileCover = useCallback(({ mimetype, presignedUrl, lgThumbnailUrl }: IAttachmentItem) => {
-    if (!presignedUrl) return '';
-    return lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
-  }, []);
+    const fileCover = useCallback(
+      ({
+        mimetype,
+        presignedUrl,
+        lgThumbnailUrl,
+      }: Pick<IAttachmentItem, 'mimetype' | 'presignedUrl' | 'lgThumbnailUrl'>) => {
+        if (!presignedUrl) return '';
+        return lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
+      },
+      []
+    );
 
-  const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
+    const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
+    const handleDragEnd = (event: DragEndEvent) => {
+      const { active, over } = event;
 
-    if (over && active.id !== over.id) {
-      setSortData((sortData) => {
-        const oldIndex = sortData.findIndex((item) => item.id === active.id);
-        const newIndex = sortData.findIndex((item) => item.id === over.id);
+      if (over && active.id !== over.id) {
+        setSortData((sortData) => {
+          const oldIndex = sortData.findIndex((item) => item.id === active.id);
+          const newIndex = sortData.findIndex((item) => item.id === over.id);
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-          onChange?.(arrayMove(sortData, oldIndex, newIndex));
-          return arrayMove(sortData, oldIndex, newIndex);
-        }
-        return sortData;
-      });
-    }
-  };
+          if (oldIndex !== -1 && newIndex !== -1) {
+            onChange?.(arrayMove(sortData, oldIndex, newIndex));
+            return arrayMove(sortData, oldIndex, newIndex);
+          }
+          return sortData;
+        });
+      }
+    };
 
-  useEffect(() => {
-    if (attachments && attachments.length) {
-      setSortData([...attachments]);
-    }
-  }, [attachments]);
+    useEffect(() => {
+      if (attachments && attachments.length) {
+        setSortData([...attachments]);
+      }
+    }, [attachments]);
 
-  return (
-    <div className={cn('flex h-full flex-col overflow-hidden', className)}>
-      <div className="relative flex-1 overflow-y-auto" ref={listRef}>
-        <FileZone
-          action={['drop', 'paste']}
-          defaultText={readonly ? t('common.empty') : t('editor.attachment.uploadDragDefault')}
-          onChange={uploadAttachment}
-          disabled={readonly}
-        >
-          {len > 0 && (
-            <ul className="-right-2 flex size-full flex-wrap overflow-hidden">
-              <FilePreviewProvider i18nMap={i18nMap}>
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={sortData}
-                    disabled={readonly}
-                    strategy={rectSortingStrategy}
-                  >
-                    {sortData.map((attachment) => (
-                      <AttachmentItem
-                        key={attachment.id}
-                        attachment={attachment}
-                        onDelete={onDelete}
-                        downloadFile={downloadFile}
-                        fileCover={fileCover}
-                        readonly={readonly}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              </FilePreviewProvider>
-              {uploadingFilesList.map(({ id, progress, file }) => (
-                <li key={id} className="mb-2 flex h-32 w-28 flex-col pr-3">
-                  <div className="relative flex w-full flex-1 cursor-pointer flex-col items-center justify-center overflow-hidden rounded-md border border-border px-2">
-                    <Progress value={progress} />
-                    {progress}%
-                  </div>
-                  <span className="w-full truncate text-center" title={file.name}>
-                    {file.name}
+    useImperativeHandle<IUploadAttachmentRef, IUploadAttachmentRef>(ref, () => ({
+      uploadAttachment,
+    }));
+
+    return (
+      <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
+        <div className="relative flex-1 overflow-hidden" ref={listRef}>
+          <FileZone
+            action={['drop', 'paste', 'click']}
+            disabled={disabled}
+            // defaultText={readonly ? t('common.empty') : t('editor.attachment.uploadDragDefault')}
+            onChange={uploadAttachment}
+            zoneClassName={cn('h-12', {
+              'h-[120px]': len === 0,
+            })}
+            className="min-h-[auto]"
+            // disabled={readonly}
+            defaultText={
+              <div className="flex items-center justify-center">
+                <p className="text-sm">
+                  <span className="text-sm text-blue-500">
+                    {t('editor.attachment.uploadBaseTextPrefix')}{' '}
                   </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </FileZone>
+                  {t('editor.attachment.uploadBaseText')}
+                </p>
+              </div>
+            }
+          >
+            {len > 0 && (
+              <ScrollArea className="h-full flex-1">
+                <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden pt-2">
+                  <FilePreviewProvider i18nMap={i18nMap}>
+                    <DndContext
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext
+                        items={sortData}
+                        disabled={readonly}
+                        strategy={rectSortingStrategy}
+                      >
+                        {sortData.map((attachment) => (
+                          <AttachmentItem
+                            key={attachment.id}
+                            attachment={attachment}
+                            onDelete={onDelete}
+                            downloadFile={downloadFile}
+                            fileCover={fileCover}
+                            readonly={readonly}
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  </FilePreviewProvider>
+                  {uploadingFilesList.map(({ id, progress, file }) => (
+                    <li key={id} className="flex h-[156px] w-32 flex-col rounded-lg p-1">
+                      <div className="relative flex-1 overflow-hidden rounded-lg">
+                        <div className="absolute inset-0">
+                          <FileCover
+                            className="size-full object-cover"
+                            mimetype={file.type}
+                            url={isImage(file.type) ? URL.createObjectURL(file) : undefined}
+                            name={file.name}
+                          />
+                        </div>
+                        <div className="absolute inset-0 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-border bg-foreground/50 px-4 text-background">
+                          <Progress indicatorClassName="bg-background" value={progress} />
+                          {progress}%
+                        </div>
+                      </div>
+                      <EllipsisFileName name={file.name} endLength={3} />
+                    </li>
+                  ))}
+                </ul>
+              </ScrollArea>
+            )}
+          </FileZone>
+        </div>
       </div>
-      {!readonly && <FileInput onChange={uploadAttachment} />}
-    </div>
-  );
-};
+    );
+  }
+);
+
+UploadAttachment.displayName = 'UploadAttachment';
+
+export default UploadAttachment;

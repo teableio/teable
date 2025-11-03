@@ -3,7 +3,8 @@ import { CSS } from '@dnd-kit/utilities';
 import type { IAttachmentItem } from '@teable/core';
 import { Download, X } from '@teable/icons';
 import { Button, cn, FilePreviewItem } from '@teable/ui-lib';
-import React from 'react';
+import { EllipsisFileName } from '../../../upload/EllipsisFileName';
+import { FileCover } from '../../../upload/FileCover';
 import { isSystemFileIcon } from '../utils';
 
 interface IUploadAttachment {
@@ -28,26 +29,30 @@ function AttachmentItem(props: IUploadAttachment) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <li key={attachment.id} className="mb-2 flex h-32 w-28 flex-col pr-3">
+      <li
+        key={attachment.id}
+        className="flex h-[156px] w-32 flex-col rounded-lg p-1 hover:bg-accent"
+      >
         <div
           className={cn(
-            'group relative flex-1 cursor-pointer overflow-hidden rounded-md border border-border',
+            'group relative flex-1 cursor-pointer overflow-hidden rounded-lg border border-border',
             {
               'border-none': isSystemFileIcon(attachment.mimetype),
             }
           )}
         >
           <FilePreviewItem
-            className="flex items-center justify-center"
+            className="flex items-center justify-center text-[0px]"
             src={attachment.presignedUrl || ''}
             name={attachment.name}
             mimetype={attachment.mimetype}
             size={attachment.size}
           >
-            <img
-              className="size-full object-contain"
-              src={fileCover(attachment)}
-              alt={attachment.name}
+            <FileCover
+              className="size-full object-cover"
+              mimetype={attachment.mimetype}
+              url={fileCover(attachment) || attachment.presignedUrl}
+              name={attachment.name}
             />
           </FilePreviewItem>
           <ul className="absolute right-0 top-0 hidden w-full justify-end space-x-1 bg-black/40 p-1 group-hover:flex">
@@ -79,9 +84,7 @@ function AttachmentItem(props: IUploadAttachment) {
             </li>
           </ul>
         </div>
-        <span className="mt-1 w-full truncate text-center" title={attachment.name}>
-          {attachment.name}
-        </span>
+        <EllipsisFileName className="mt-1" name={attachment.name} />
       </li>
     </div>
   );

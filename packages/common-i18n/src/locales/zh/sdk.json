@@ -69,8 +69,10 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "释放以上传文件",
+      "uploadBaseTextPrefix": "点击上传 ",
+      "uploadBaseText": "或粘贴或拖放文件到此处上传",
       "uploadDragDefault": "粘贴或拖放文件到此处上传",
-      "upload": "上传"
+      "upload": "上传文件"
     },
     "date": {
       "placeholder": "选择日期",

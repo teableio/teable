@@ -123,7 +123,6 @@ export class AttachmentManager {
   completeUpload(uploadTask: IUploadTask, attachment: INotifyVo) {
     uploadTask.status = Status.Completed;
     uploadTask.successCallback(uploadTask.file, attachment);
-
     // Check if there are pending upload tasks
     if (this.uploadQueue.length > 0) {
       const nextTask = this.uploadQueue.shift();

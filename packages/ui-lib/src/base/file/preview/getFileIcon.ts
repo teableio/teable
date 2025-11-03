@@ -6,21 +6,10 @@ import {
   FilePdf,
   FilePresentation,
   FileSpreadsheet,
-  FileText,
   FileUnknown,
   FileVideo,
 } from '@teable/icons';
-import {
-  isAudio,
-  isExcel,
-  isImage,
-  isPackage,
-  isPdf,
-  isPpt,
-  isText,
-  isVideo,
-  isWord,
-} from './utils';
+import { isAudio, isExcel, isImage, isPackage, isPdf, isPpt, isVideo, isWord } from './utils';
 
 export const getFileIcon = (mimetype: string) => {
   if (isImage(mimetype)) {
@@ -46,9 +35,6 @@ export const getFileIcon = (mimetype: string) => {
   }
   if (isPpt(mimetype)) {
     return FilePresentation;
-  }
-  if (isText(mimetype)) {
-    return FileText;
   }
   return FileUnknown;
 };
