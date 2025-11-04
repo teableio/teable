@@ -1016,6 +1016,11 @@
     },
     "export": {
       "notSupportViewType": "Il tipo di vista {{viewType}} non è supportato per l'esportazione"
+    },
+    "import": {
+      "notSupportedFileFormat": "Formato file non supportato, sono supportati solo {{supportType}}, il tipo di contenuto del file è {{fileFormat}}",
+      "notSupportedFileType": "Tipo di file di importazione non supportato",
+      "exceedMaxFieldsLength": "Il numero di campi nella tabella non può superare {{maxFieldsLength}}, attualmente è {{length}}"
     }
   }
 }

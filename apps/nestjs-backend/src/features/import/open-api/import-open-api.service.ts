@@ -1,6 +1,6 @@
-import { Injectable, Logger, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, getRandomString, TimeFormatting } from '@teable/core';
+import { FieldType, getRandomString, HttpErrorCode, TimeFormatting } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -10,6 +10,7 @@ import type {
 } from '@teable/openapi';
 import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
@@ -141,8 +142,18 @@ export class ImportOpenApiService {
     const length = fieldsRo.length;
 
     if (length > maxFieldsLength) {
-      throw new BadRequestException(
-        `The number of fields in the table cannot exceed ${maxFieldsLength}`
+      throw new CustomHttpException(
+        `The number of fields in the table cannot exceed ${maxFieldsLength}, current is ${length}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.import.exceedMaxFieldsLength',
+            context: {
+              length,
+              maxFieldsLength,
+            },
+          },
+        }
       );
     }
 
@@ -193,7 +204,11 @@ export class ImportOpenApiService {
         select: { name: true },
       })
       .catch(() => {
-        throw new BadRequestException('table is not found');
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
 
     const fieldRaws = await this.prismaService.field.findMany({
@@ -209,7 +224,18 @@ export class ImportOpenApiService {
       const noUpdateFields = difference(inplaceFieldIds, projection);
       if (noUpdateFields.length !== 0) {
         const tips = noUpdateFields.join(',');
-        throw new ForbiddenException(`There is no permission to update there field ${tips}`);
+        throw new CustomHttpException(
+          `There is no permission to update there field ${tips}`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.updateRecordWithDeniedFields',
+              context: {
+                fields: tips,
+              },
+            },
+          }
+        );
       }
     }
 

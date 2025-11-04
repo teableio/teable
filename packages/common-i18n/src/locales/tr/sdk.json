@@ -990,6 +990,11 @@
     },
     "export": {
       "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
+    },
+    "import": {
+      "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
+      "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
+      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}"
     }
   }
 }

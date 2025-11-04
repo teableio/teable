@@ -1020,6 +1020,11 @@
     },
     "export": {
       "notSupportViewType": "{{viewType}} 视图类型不支持导出"
+    },
+    "import": {
+      "notSupportedFileFormat": "文件格式不支持，仅支持 {{supportType}}，您的文件内容类型是 {{fileFormat}}",
+      "notSupportedFileType": "不支持的导入文件类型",
+      "exceedMaxFieldsLength": "表格中的字段数不能超过 {{maxFieldsLength}}，当前为 {{length}}"
     }
   }
 }

@@ -1016,6 +1016,11 @@
     },
     "export": {
       "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"
+    },
+    "import": {
+      "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
+      "notSupportedFileType": "Тип файлу імпорту не підтримується",
+      "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}"
     }
   }
 }

@@ -1020,6 +1020,11 @@
     },
     "export": {
       "notSupportViewType": "{{viewType}} view type is not supported for export"
+    },
+    "import": {
+      "notSupportedFileFormat": "File format is not supported, only {{supportType}} are supported, your file's content type is {{fileFormat}}",
+      "notSupportedFileType": "Import file type not supported",
+      "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}"
     }
   }
 }

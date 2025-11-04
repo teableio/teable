@@ -994,6 +994,11 @@
     },
     "export": {
       "notSupportViewType": "Le type de vue {{viewType}} n'est pas pris en charge pour l'exportation"
+    },
+    "import": {
+      "notSupportedFileFormat": "Format de fichier non pris en charge, seuls {{supportType}} sont pris en charge, le type de contenu de votre fichier est {{fileFormat}}",
+      "notSupportedFileType": "Type de fichier d'importation non pris en charge",
+      "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}"
     }
   }
 }

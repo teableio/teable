@@ -992,6 +992,11 @@
     },
     "export": {
       "notSupportViewType": "Тип представления {{viewType}} не поддерживается для экспорта"
+    },
+    "import": {
+      "notSupportedFileFormat": "Формат файла не поддерживается, поддерживаются только {{supportType}}, тип содержимого вашего файла {{fileFormat}}",
+      "notSupportedFileType": "Тип файла импорта не поддерживается",
+      "exceedMaxFieldsLength": "Количество полей в таблице не может превышать {{maxFieldsLength}}, текущее значение {{length}}"
     }
   }
 }

@@ -980,6 +980,11 @@
     },
     "export": {
       "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
+    },
+    "import": {
+      "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
+      "notSupportedFileType": "インポートファイルタイプがサポートされていません",
+      "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です"
     }
   }
 }

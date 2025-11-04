@@ -1004,6 +1004,11 @@
     },
     "export": {
       "notSupportViewType": "El tipo de vista {{viewType}} no es compatible con la exportación"
+    },
+    "import": {
+      "notSupportedFileFormat": "Formato de archivo no compatible, solo se admiten {{supportType}}, el tipo de contenido de su archivo es {{fileFormat}}",
+      "notSupportedFileType": "Tipo de archivo de importación no compatible",
+      "exceedMaxFieldsLength": "El número de campos en la tabla no puede exceder {{maxFieldsLength}}, el actual es {{length}}"
     }
   }
 }
