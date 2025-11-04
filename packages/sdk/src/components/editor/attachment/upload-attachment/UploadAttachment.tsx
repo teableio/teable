@@ -15,6 +15,7 @@ import {
 } from '@dnd-kit/sortable';
 import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { UploadType, type INotifyVo } from '@teable/openapi';
 import { FilePreviewProvider, Progress, ScrollArea, cn, isImage, sonner } from '@teable/ui-lib';
 import { map, omit } from 'lodash';
@@ -68,6 +69,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       disabled,
       attachmentManager = defaultAttachmentManager,
     } = props;
+    const { resolvedTheme } = useTheme();
     const baseId = useBaseId();
     const [sortData, setSortData] = useState([...attachments]);
     const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
@@ -92,7 +94,9 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
         onChange?.(attachmentsRef.current.concat(newAttachments));
         setNewAttachments([]);
-        setUploadingFiles({});
+        requestAnimationFrame(() => {
+          setUploadingFiles({});
+        });
       }
     }, [newAttachments, onChange, uploadingFiles]);
 
@@ -182,9 +186,11 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
         lgThumbnailUrl,
       }: Pick<IAttachmentItem, 'mimetype' | 'presignedUrl' | 'lgThumbnailUrl'>) => {
         if (!presignedUrl) return '';
-        return lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl);
+        return (
+          lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark')
+        );
       },
-      []
+      [resolvedTheme]
     );
 
     const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
@@ -218,17 +224,15 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
-        <div className="relative flex-1 overflow-hidden" ref={listRef}>
+        <div className="relative flex-1 overflow-hidden">
           <FileZone
             action={['drop', 'paste', 'click']}
-            disabled={disabled}
-            // defaultText={readonly ? t('common.empty') : t('editor.attachment.uploadDragDefault')}
+            disabled={disabled || readonly}
             onChange={uploadAttachment}
             zoneClassName={cn('h-12', {
               'h-[120px]': len === 0,
             })}
             className="min-h-[auto]"
-            // disabled={readonly}
             defaultText={
               <div className="flex items-center justify-center">
                 <p className="text-sm">
@@ -241,7 +245,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             }
           >
             {len > 0 && (
-              <ScrollArea className="h-full flex-1">
+              <ScrollArea className="h-full flex-1" ref={listRef}>
                 <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden pt-2">
                   <FilePreviewProvider i18nMap={i18nMap}>
                     <DndContext

@@ -1,4 +1,5 @@
 import type { IAttachmentCellValue } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { FilePreviewItem, FilePreviewProvider, cn } from '@teable/ui-lib';
 import { getFileCover, isSystemFileIcon } from '../../editor/attachment';
 import { useAttachmentPreviewI18Map } from '../../hooks';
@@ -12,6 +13,7 @@ interface ICellAttachment extends ICellValue<IAttachmentCellValue> {
 export const CellAttachment = (props: ICellAttachment) => {
   const { value, className, style, itemClassName } = props;
   const i18nMap = useAttachmentPreviewI18Map();
+  const { resolvedTheme } = useTheme();
   return (
     <FilePreviewProvider i18nMap={i18nMap}>
       <div className={cn('flex gap-1 flex-wrap', className)} style={style}>
@@ -35,7 +37,10 @@ export const CellAttachment = (props: ICellAttachment) => {
             >
               <img
                 className="size-full object-contain"
-                src={lgThumbnailUrl ?? getFileCover(mimetype, presignedUrl)}
+                src={
+                  lgThumbnailUrl ??
+                  getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark')
+                }
                 alt={name}
               />
             </FilePreviewItem>

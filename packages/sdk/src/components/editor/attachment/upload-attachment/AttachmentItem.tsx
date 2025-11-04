@@ -31,7 +31,7 @@ function AttachmentItem(props: IUploadAttachment) {
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
       <li
         key={attachment.id}
-        className="flex h-[156px] w-32 flex-col rounded-lg p-1 hover:bg-accent"
+        className="flex h-[132px] w-[104px] flex-col rounded-lg p-1 hover:bg-accent"
       >
         <div
           className={cn(
@@ -84,7 +84,7 @@ function AttachmentItem(props: IUploadAttachment) {
             </li>
           </ul>
         </div>
-        <EllipsisFileName className="mt-1" name={attachment.name} />
+        <EllipsisFileName className="mt-2" name={attachment.name} />
       </li>
     </div>
   );

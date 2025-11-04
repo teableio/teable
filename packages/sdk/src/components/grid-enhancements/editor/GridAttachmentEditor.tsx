@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
 import type { IAttachmentCellValue } from '@teable/core';
 import type { IFilePreviewDialogRef } from '@teable/ui-lib';
 import { cn, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
@@ -17,7 +19,7 @@ export const GridAttachmentEditor = forwardRef<
   IGridAttachmentEditorRef,
   IWrapperEditorProps & IEditorProps
 >((props, ref) => {
-  const { record, field, style, rect, isEditing } = props;
+  const { record, field, style, rect, isEditing, setEditing } = props;
   const attachStyle = useGridPopupPosition(rect, 340);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -60,20 +62,23 @@ export const GridAttachmentEditor = forwardRef<
         style={{
           ...style,
           ...attachStyle,
-          maxHeight: '498px',
+          maxHeight: '320px',
         }}
         className={cn(
-          'click-outside-ignore absolute w-full overflow-hidden rounded-md border border-input bg-background shadow-md',
+          'click-outside-ignore flex flex-col absolute w-full overflow-hidden rounded-md border border-input bg-background shadow-md',
           {
-            'h-[498px]': attachments?.length > 8,
+            'h-[320px]': attachments?.length > 4,
           }
         )}
       >
-        <AttachmentEditorMain
-          className="h-full"
-          value={attachments || []}
-          onChange={setAttachments}
-        />
+        <div className="fixed inset-0 cursor-default" onClick={() => setEditing?.(false)} />
+        <div className="relative flex-1 overflow-hidden">
+          <AttachmentEditorMain
+            className="h-full"
+            value={attachments || []}
+            onChange={setAttachments}
+          />
+        </div>
         <FilePreviewProvider i18nMap={i18nMap}>
           <FilePreviewDialog ref={imagePreviewDialogRef} files={previewFiles} />
         </FilePreviewProvider>

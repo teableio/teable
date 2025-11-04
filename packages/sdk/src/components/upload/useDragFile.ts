@@ -32,7 +32,6 @@ export const useDragFile = (props: IUseDragFileProps = {}) => {
   useEffect(() => {
     updateDragFileEnter(hasOver);
   }, [updateDragFileEnter, hasOver]);
-
   return {
     over,
     dragFileEnter,

@@ -33,8 +33,8 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
             </Button>
           </PopoverTrigger>
           <PopoverContent
-            className={cn('max-h-[498px] w-[560px] p-0', {
-              'h-[498px]': value?.length && value.length > 8,
+            className={cn('max-h-[320px] w-[462px] p-0', {
+              'h-[320px]': value?.length && value.length > 4,
             })}
             align="start"
           >
@@ -43,7 +43,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
         </Popover>
       )}
 
-      <div className="max-h-[498px] overflow-auto">
+      <div className="max-h-[320px] overflow-auto">
         <div>
           <UploadAttachment
             ref={uploadAttachmentRef}

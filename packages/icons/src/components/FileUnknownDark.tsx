@@ -1,6 +1,6 @@
 import * as React from 'react';
 import type { SVGProps } from 'react';
-const FileUnknown = (props: SVGProps<SVGSVGElement>) => (
+const FileUnknownDark = (props: SVGProps<SVGSVGElement>) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="120"
@@ -9,15 +9,16 @@ const FileUnknown = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 120 120"
     {...props}
   >
-    <path fill="#F4F4F5" d="M0 0h120v120H0z" />
+    <path fill="#F4F4F5" fillOpacity=".16" d="M0 0h120v120H0z" />
     <g clipPath="url(#a)">
       <path
-        fill="#A1A1AA"
+        fill="#AFAFAF"
         d="M32 30a6 6 0 0 1 6-6h34l16 16v50a6 6 0 0 1-6 6H38a6 6 0 0 1-6-6V30Z"
       />
+      <path fill="#DBDBDB" d="m72 24 16 16H75a3 3 0 0 1-3-3V24Z" />
       <path
-        fill="#E4E4E7"
-        d="m72 24 16 16H75a3 3 0 0 1-3-3V24Zm4.5 58a2.5 2.5 0 0 1 0 5h-33a2.5 2.5 0 0 1 0-5h33Zm-16-9a2.5 2.5 0 0 1 0 5h-17a2.5 2.5 0 0 1 0-5h17Z"
+        fill="#F6F6F6"
+        d="M76.5 82a2.5 2.5 0 0 1 0 5h-33a2.5 2.5 0 0 1 0-5h33Zm-16-9a2.5 2.5 0 0 1 0 5h-17a2.5 2.5 0 0 1 0-5h17Z"
       />
     </g>
     <defs>
@@ -27,4 +28,4 @@ const FileUnknown = (props: SVGProps<SVGSVGElement>) => (
     </defs>
   </svg>
 );
-export default FileUnknown;
+export default FileUnknownDark;

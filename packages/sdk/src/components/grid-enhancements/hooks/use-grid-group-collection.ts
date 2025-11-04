@@ -1,5 +1,6 @@
 import type { IAttachmentCellValue, INumberShowAs, ISingleLineTextShowAs } from '@teable/core';
 import { CellValueType, ColorUtils, FieldType, validateDateFieldValueLoose } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { LRUCache } from 'lru-cache';
 import { useCallback, useMemo } from 'react';
 import { useTranslation } from '../../../context/app/i18n/useTranslation';
@@ -47,6 +48,7 @@ const generateGroupColumns = (fields: IFieldInstance[]): IGridColumn[] => {
 
 const useGenerateGroupCellFn = () => {
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
   return useCallback(
     (fields: IFieldInstance[]) =>
       // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -226,7 +228,7 @@ const useGenerateGroupCellFn = () => {
           case FieldType.Attachment: {
             const cv = (cellValue ?? []) as IAttachmentCellValue;
             const data = cv.map(({ id, mimetype, presignedUrl, smThumbnailUrl }) => {
-              const url = getFileCover(mimetype, presignedUrl);
+              const url = getFileCover(mimetype, presignedUrl, resolvedTheme as 'light' | 'dark');
               return {
                 id,
                 url: isSystemFileIcon(mimetype) ? url : smThumbnailUrl ?? url,
@@ -294,7 +296,7 @@ const useGenerateGroupCellFn = () => {
           }
         }
       },
-    [t]
+    [resolvedTheme, t]
   );
 };
 

@@ -10,14 +10,21 @@ export const EllipsisFileName = (props: {
   const { extension, fileName, end } = useMemo(() => {
     const extension = name.split('.').pop();
     const fileName = name.split('.').slice(0, -1).join('.');
-    const end = fileName.slice(-endLength);
-    return { extension, fileName: fileName.slice(0, fileName.length - endLength - 1), end };
+    const fileNameLength = fileName.length;
+    const end = fileNameLength > endLength ? fileName.slice(-endLength) : '';
+    return {
+      extension,
+      fileName: end ? fileName.slice(0, fileNameLength - endLength) : fileName,
+      end,
+    };
   }, [name, endLength]);
+
   return (
-    <div className={cn('text-center flex items-center justify-center', className)}>
+    <div className={cn('text-center flex items-center justify-center truncate', className)}>
       <span className="truncate text-sm">{fileName}</span>
       <span className="text-sm">
-        {end}.{extension}
+        {end}
+        {extension ? `.${extension}` : ''}
       </span>
     </div>
   );
