@@ -57,12 +57,16 @@ export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
         : t('httpErrors.unknownErrorCode'),
       {
         description,
+        duration: 1000 * 3,
+        closeButton: true,
       }
     );
   }
 
   toast.error(code || 'Unknown Error', {
     description: message,
+    duration: 1000 * 3,
+    closeButton: true,
   });
 };
 
