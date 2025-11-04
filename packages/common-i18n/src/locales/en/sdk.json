@@ -887,6 +887,10 @@
       "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
     },
+    "comment": {
+      "listCountExceeded": "The number of comments requested exceeds the maximum limit of 1000",
+      "invalidContentType": "Invalid comment content type"
+    },
     "email": {
       "testEmailError": "Mail config error {{message}}"
     },

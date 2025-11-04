@@ -861,6 +861,10 @@
     "email": {
       "testEmailError": "Erreur de configuration du courrier {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "Le nombre de commentaires demandés dépasse la limite maximale de 1000",
+      "invalidContentType": "Type de contenu de commentaire non valide"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
       "triggerNotFound": "Déclencheur non trouvé",

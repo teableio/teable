@@ -883,6 +883,10 @@
     "email": {
       "testEmailError": "E-Mail-Konfigurationsfehler {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "Die Anzahl der angeforderten Kommentare übersteigt das maximale Limit von 1000",
+      "invalidContentType": "Ungültiger Kommentarinhaltstyp"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld",
       "triggerNotFound": "Trigger nicht gefunden",

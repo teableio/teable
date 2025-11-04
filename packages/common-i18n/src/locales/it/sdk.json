@@ -883,6 +883,10 @@
     "email": {
       "testEmailError": "Errore di configurazione della posta {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "Il numero di commenti richiesti supera il limite massimo di 1000",
+      "invalidContentType": "Tipo di contenuto del commento non valido"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante",
       "triggerNotFound": "Trigger non trovato",

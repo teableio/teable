@@ -847,6 +847,10 @@
     "email": {
       "testEmailError": "メール設定エラー {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "リクエストされたコメント数が最大制限の 1000 を超えています",
+      "invalidContentType": "無効なコメントコンテンツタイプ"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
       "triggerNotFound": "トリガーが見つかりません",

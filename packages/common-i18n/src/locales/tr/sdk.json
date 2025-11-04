@@ -857,6 +857,10 @@
     "email": {
       "testEmailError": "Posta yapılandırma hatası {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "İstenen yorum sayısı 1000 maksimum sınırını aşıyor",
+      "invalidContentType": "Geçersiz yorum içerik türü"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
       "triggerNotFound": "Tetikleyici bulunamadı",

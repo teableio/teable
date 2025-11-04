@@ -883,6 +883,10 @@
     "email": {
       "testEmailError": "Помилка конфігурації пошти {{message}}"
     },
+    "comment": {
+      "listCountExceeded": "Кількість запитуваних коментарів перевищує максимальний ліміт 1000",
+      "invalidContentType": "Неправильний тип вмісту коментаря"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
       "triggerNotFound": "Тригер не знайдено",
