@@ -36,10 +36,5 @@ if (process.env.BACKEND_SENTRY_DSN) {
       Sentry.functionToStringIntegration(),
       Sentry.linkedErrorsIntegration(),
     ],
-    beforeSendTransaction(event) {
-      console.log('beforeSendTransaction', event);
-
-      return event;
-    },
   });
 }
