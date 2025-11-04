@@ -909,6 +909,12 @@
       "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
       "templateNotFound": "模板 {{templateId}} 不存在"
     },
+    "dashboard": {
+      "notFound": "仪表板不存在"
+    },
+    "plugin": {
+      "notFound": "插件不存在"
+    },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
       "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",

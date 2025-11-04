@@ -893,6 +893,12 @@
       "baseAndSpaceMismatch": "Base {{baseId}} y espacio {{spaceId}} no coinciden",
       "templateNotFound": "Plantilla {{templateId}} no encontrada"
     },
+    "dashboard": {
+      "notFound": "Panel de control no encontrado"
+    },
+    "plugin": {
+      "notFound": "Plugin no encontrado"
+    },
     "dbConnection": {
       "unsupportedDriver": "Driver de base de datos no soportado: {{driver}}",
       "onlyOwnerCanRemove": "Solo el propietario de la base puede eliminar la conexión de base de datos para la base {{baseId}}",

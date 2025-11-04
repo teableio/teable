@@ -905,6 +905,12 @@
       "baseAndSpaceMismatch": "Base {{baseId}} und Space {{spaceId}} stimmen nicht überein",
       "templateNotFound": "Vorlage {{templateId}} nicht gefunden"
     },
+    "dashboard": {
+      "notFound": "Dashboard nicht gefunden"
+    },
+    "plugin": {
+      "notFound": "Plugin nicht gefunden"
+    },
     "dbConnection": {
       "unsupportedDriver": "Nicht unterstützter Datenbanktreiber: {{driver}}",
       "onlyOwnerCanRemove": "Nur der Base-Besitzer kann die Datenbankverbindung für Base {{baseId}} entfernen",

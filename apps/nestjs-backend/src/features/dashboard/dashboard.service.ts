@@ -1,7 +1,13 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
-import { generateDashboardId, generatePluginInstallId, getUniqName, Role } from '@teable/core';
+import {
+  generateDashboardId,
+  generatePluginInstallId,
+  getUniqName,
+  HttpErrorCode,
+  Role,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PluginStatus, PrincipalType } from '@teable/openapi';
 import type {
@@ -17,6 +23,7 @@ import type {
 } from '@teable/openapi';
 import type { IDashboardLayout, IDashboardPluginItem } from '@teable/openapi/src/dashboard/types';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -59,7 +66,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Dashboard not found');
+        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.dashboard.notFound',
+          },
+        });
       });
 
     const plugins = await this.prismaService.pluginInstall.findMany({
@@ -129,7 +140,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Dashboard not found');
+        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.dashboard.notFound',
+          },
+        });
       });
   }
 
@@ -150,7 +165,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Dashboard not found');
+        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.dashboard.notFound',
+          },
+        });
       });
     return {
       ...ro,
@@ -167,7 +186,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Dashboard not found');
+        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.dashboard.notFound',
+          },
+        });
       });
   }
 
@@ -188,7 +211,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin not found');
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
       });
   }
 
@@ -287,7 +314,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Dashboard not found');
+        throw new CustomHttpException('Dashboard not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.dashboard.notFound',
+          },
+        });
       });
   }
 
@@ -314,7 +345,11 @@ export class DashboardService {
           },
         })
         .catch(() => {
-          throw new NotFoundException('Plugin not found');
+          throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.plugin.notFound',
+            },
+          });
         });
       const dashboard = await this.prismaService.txClient().dashboard.findFirstOrThrow({
         where: {
@@ -361,7 +396,11 @@ export class DashboardService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin not found');
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
       });
   }
 

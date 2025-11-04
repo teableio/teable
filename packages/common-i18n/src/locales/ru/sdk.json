@@ -881,6 +881,12 @@
       "baseAndSpaceMismatch": "База {{baseId}} и пространство {{spaceId}} не совпадают",
       "templateNotFound": "Шаблон {{templateId}} не найден"
     },
+    "dashboard": {
+      "notFound": "Панель управления не найдена"
+    },
+    "plugin": {
+      "notFound": "Плагин не найден"
+    },
     "dbConnection": {
       "unsupportedDriver": "Неподдерживаемый драйвер базы данных: {{driver}}",
       "onlyOwnerCanRemove": "Только владелец базы может удалить подключение к базе данных для базы {{baseId}}",

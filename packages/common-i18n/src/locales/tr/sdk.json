@@ -879,6 +879,12 @@
       "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
       "templateNotFound": "Şablon {{templateId}} bulunamadı"
     },
+    "dashboard": {
+      "notFound": "Gösterge paneli bulunamadı"
+    },
+    "plugin": {
+      "notFound": "Eklenti bulunamadı"
+    },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
       "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",

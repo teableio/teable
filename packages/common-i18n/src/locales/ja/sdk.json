@@ -869,6 +869,12 @@
       "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
       "templateNotFound": "テンプレート {{templateId}} が見つかりません"
     },
+    "dashboard": {
+      "notFound": "ダッシュボードが見つかりません"
+    },
+    "plugin": {
+      "notFound": "プラグインが見つかりません"
+    },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
       "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",
