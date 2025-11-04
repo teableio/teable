@@ -91,6 +91,7 @@ export const FloatPlugin = (props: {
         bottomRight: !frozenResize,
       }}
       bounds={'parent'}
+      onPointerDown={(e: React.PointerEvent) => e.stopPropagation()}
       onDrag={() => {
         setIsDragging(true);
       }}

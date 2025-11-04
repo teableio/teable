@@ -227,7 +227,11 @@ export const RecordMenu = () => {
         <PopoverTrigger asChild style={style} className="absolute">
           <div className="size-0 opacity-0" />
         </PopoverTrigger>
-        <PopoverContent className="size-auto min-w-40 rounded-md p-0" align="start">
+        <PopoverContent
+          className="size-auto min-w-40 rounded-md p-0"
+          align="start"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <Command ref={recordMenuRef} className="rounded-md border-none shadow-none" style={style}>
             <CommandList className="max-h-96">
               {menuItemGroups.map((items, index) => {
