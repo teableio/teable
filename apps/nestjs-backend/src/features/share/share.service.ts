@@ -476,7 +476,7 @@ export class ShareService {
 
   async getViewAllCollaborators(
     shareInfo: IShareViewInfo,
-    query?: { skip?: number; take?: number; search?: string }
+    query?: { skip?: number; take?: number; search?: string; fieldId?: string }
   ) {
     const { skip = 0, take = 50, search } = query ?? {};
     const { tableId, view } = shareInfo;
@@ -488,6 +488,7 @@ export class ShareService {
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: view?.id,
       filterHidden: !view?.shareMeta?.includeHiddenField,
+      projection: query?.fieldId ? [query.fieldId] : undefined,
     });
     // If there is no user field, return an empty array
     if (

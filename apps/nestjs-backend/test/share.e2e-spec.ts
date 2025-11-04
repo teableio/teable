@@ -462,6 +462,12 @@ describe('OpenAPI ShareController (e2e)', () => {
         fromViewShareId = shareResult.data.shareId;
       });
       it('should return [], no user cell visible', async () => {
+        await apiUpdateViewColumnMeta(userTableRes.id, formViewId, [
+          {
+            fieldId: userFieldId,
+            columnMeta: { visible: false },
+          },
+        ]);
         const result = await apiGetShareViewCollaborators(fromViewShareId, {
           fieldId: userFieldId,
         });
