@@ -974,6 +974,12 @@
       "userNotFound": "ユーザーが見つかりません：{{userIds}}",
       "baseNotFound": "データベースが見つかりません",
       "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません"
+    },
+    "table": {
+      "notFound": "テーブルが見つかりません"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
     }
   }
 }

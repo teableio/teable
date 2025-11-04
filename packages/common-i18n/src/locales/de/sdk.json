@@ -1010,6 +1010,12 @@
       "userNotFound": "Benutzer nicht gefunden: {{userIds}}",
       "baseNotFound": "Datenbank nicht gefunden",
       "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen"
+    },
+    "table": {
+      "notFound": "Tabelle nicht gefunden"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} Ansichtstyp wird nicht für den Export unterstützt"
     }
   }
 }

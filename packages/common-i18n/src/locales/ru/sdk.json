@@ -986,6 +986,12 @@
       "userNotFound": "Пользователь не найден: {{userIds}}",
       "baseNotFound": "База данных не найдена",
       "noPermissionToAddRole": "У вас нет разрешения на добавление соавтора с этой ролью"
+    },
+    "table": {
+      "notFound": "Таблица не найдена"
+    },
+    "export": {
+      "notSupportViewType": "Тип представления {{viewType}} не поддерживается для экспорта"
     }
   }
 }

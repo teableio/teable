@@ -1,10 +1,11 @@
 import { Readable } from 'stream';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue, IFilter } from '@teable/core';
-import { FieldType, mergeFilter, ViewType } from '@teable/core';
+import { FieldType, HttpErrorCode, mergeFilter, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Response } from 'express';
 import Papa from 'papaparse';
+import { CustomHttpException } from '../../../custom.exception';
 import { FieldService } from '../../field/field.service';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import { RecordService } from '../../record/record.service';
@@ -40,7 +41,11 @@ export class ExportOpenApiService {
         select: { name: true },
       })
       .catch(() => {
-        throw new BadRequestException('table is not found');
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
 
     if (viewId) {
@@ -63,7 +68,18 @@ export class ExportOpenApiService {
         });
 
       if (viewRaw?.type !== ViewType.Grid) {
-        throw new BadRequestException(`${viewRaw?.type} is not support to export`);
+        throw new CustomHttpException(
+          `${viewRaw?.type} is not support to export`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.export.notSupportViewType',
+              context: {
+                viewType: viewRaw?.type,
+              },
+            },
+          }
+        );
       }
     }
 

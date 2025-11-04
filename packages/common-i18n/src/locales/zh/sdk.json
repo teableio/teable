@@ -1014,6 +1014,12 @@
       "userNotFound": "未找到用户：{{userIds}}",
       "baseNotFound": "未找到数据库",
       "noPermissionToAddRole": "您没有权限添加此角色的协作者"
+    },
+    "table": {
+      "notFound": "表格不存在"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} 视图类型不支持导出"
     }
   }
 }

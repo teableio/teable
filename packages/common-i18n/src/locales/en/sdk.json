@@ -1014,6 +1014,12 @@
       "userNotFound": "User not found: {{userIds}}",
       "baseNotFound": "Base not found",
       "noPermissionToAddRole": "You do not have permission to add this role collaborator"
+    },
+    "table": {
+      "notFound": "Table not found"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} view type is not supported for export"
     }
   }
 }

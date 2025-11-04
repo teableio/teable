@@ -984,6 +984,12 @@
       "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
       "baseNotFound": "Veritabanı bulunamadı",
       "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok"
+    },
+    "table": {
+      "notFound": "Tablo bulunamadı"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
     }
   }
 }

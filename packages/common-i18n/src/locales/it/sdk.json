@@ -1010,6 +1010,12 @@
       "userNotFound": "Utente non trovato: {{userIds}}",
       "baseNotFound": "Base non trovata",
       "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo"
+    },
+    "table": {
+      "notFound": "Tabella non trovata"
+    },
+    "export": {
+      "notSupportViewType": "Il tipo di vista {{viewType}} non è supportato per l'esportazione"
     }
   }
 }
