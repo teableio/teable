@@ -4,7 +4,7 @@ import * as Sentry from '@sentry/nestjs';
 if (process.env.BACKEND_SENTRY_DSN) {
   Sentry.init({
     dsn: process.env.BACKEND_SENTRY_DSN,
-    tracesSampleRate: 1.0,
+    tracesSampleRate: Number(process.env.BACKEND_SENTRY_TRACE_SAMPLING_RATE ?? 0.1),
     enableLogs: true,
     release: process.env.NEXT_PUBLIC_BUILD_VERSION || 'development',
     environment: process.env.NODE_ENV || 'development',
@@ -36,5 +36,10 @@ if (process.env.BACKEND_SENTRY_DSN) {
       Sentry.functionToStringIntegration(),
       Sentry.linkedErrorsIntegration(),
     ],
+    beforeSendTransaction(event) {
+      console.log('beforeSendTransaction', event);
+
+      return event;
+    },
   });
 }
