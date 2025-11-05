@@ -3,6 +3,7 @@ export * from './delete';
 export * from './get-list';
 export * from './get';
 export * from './update';
+export * from './revoke-token';
 
 export * from './secret-delete';
 export * from './secret-generate';

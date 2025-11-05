@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { OAuthCreateVo } from '@teable/openapi';
 import {
   deleteOAuthSecret,
@@ -80,5 +81,74 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     const oauth = await oauthGet(res.data.clientId);
     expect(oauth.data.secrets).toBeUndefined();
+  });
+
+  it('test oauth app foreign key', async () => {
+    const prisma = app.get(PrismaService);
+    const clientId = 'test-client-id-' + Date.now();
+    await prisma.oAuthApp.create({
+      data: {
+        name: 'test',
+        clientId,
+        createdBy: 'test',
+        homepage: 'http://localhost:3000',
+      },
+    });
+    const secret = await prisma.oAuthAppSecret.create({
+      data: {
+        clientId,
+        secret: 'test-secret-' + Date.now(),
+        maskedSecret: '**********',
+        createdBy: 'test',
+      },
+    });
+    await prisma.oAuthAppToken.create({
+      data: {
+        appSecretId: secret.id,
+        refreshTokenSign: 'test-refresh-token-sign-' + Date.now(),
+        expiredTime: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+        createdBy: 'test',
+      },
+    });
+    await prisma.oAuthAppAuthorized.create({
+      data: {
+        clientId,
+        userId: 'test',
+        authorizedTime: new Date(),
+      },
+    });
+    await prisma.oAuthApp.delete({
+      where: {
+        clientId,
+      },
+    });
+
+    const oauthRes = await prisma.oAuthApp.findUnique({
+      where: {
+        clientId,
+      },
+    });
+    expect(oauthRes).toBeNull();
+
+    const secretRes = await prisma.oAuthAppSecret.findMany({
+      where: {
+        clientId,
+      },
+    });
+    expect(secretRes).toHaveLength(0);
+
+    const tokenRes = await prisma.oAuthAppToken.findMany({
+      where: {
+        appSecretId: secret.id,
+      },
+    });
+    expect(tokenRes).toHaveLength(0);
+
+    const authorizedRes = await prisma.oAuthAppAuthorized.findMany({
+      where: {
+        clientId,
+      },
+    });
+    expect(authorizedRes).toHaveLength(0);
   });
 });

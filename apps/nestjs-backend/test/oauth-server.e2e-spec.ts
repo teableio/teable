@@ -3,21 +3,25 @@
 import type { INestApplication } from '@nestjs/common';
 import { HttpError } from '@teable/core';
 import {
+  CREATE_BASE,
+  CREATE_SPACE,
   GET_TABLE_LIST,
-  deleteBase,
+  PERMANENT_DELETE_BASE,
+  PERMANENT_DELETE_SPACE,
+  REVOKE_TOKEN,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
   revokeAccess,
   urlBuilder,
 } from '@teable/openapi';
-import type { ITableListVo, OAuthCreateVo } from '@teable/openapi';
+import type { ICreateBaseVo, ICreateSpaceVo, ITableListVo, OAuthCreateVo } from '@teable/openapi';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import axiosInstance from 'axios';
 import { omit } from 'lodash';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { createBase, initApp } from './utils/init-app';
+import { initApp } from './utils/init-app';
 
 const oauthData = {
   name: 'test',
@@ -26,7 +30,7 @@ const oauthData = {
   homepage: 'http://localhost:3000',
 };
 
-const gerAuthorize = async (axios: AxiosInstance, oauth: OAuthCreateVo, state?: string) => {
+const getAuthorize = async (axios: AxiosInstance, oauth: OAuthCreateVo, state?: string) => {
   const res = await axios.get(
     `/oauth/authorize?response_type=code&client_id=${oauth.clientId}&scope=${oauth.scopes?.join(' ')}${state ? '&state=' + state : ''}`,
     {
@@ -57,20 +61,27 @@ const decision = async (axios: AxiosInstance, transactionID: string, cancel?: st
     }
   );
 };
+const testEmail = 'oauth-server@example.com';
 
 describe('OpenAPI OAuthController (e2e)', () => {
   let app: INestApplication;
   let oauth: OAuthCreateVo;
   let axios: AxiosInstance;
+  let spaceId: string;
+  let baseId: string;
   let anonymousAxios: AxiosInstance;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+    const newUserAxios = await createNewUserAxios({
+      email: testEmail,
+      password: '12345678',
+    });
     axios = axiosInstance.create({
       baseURL: `${appCtx.appUrl}/api`,
       headers: {
-        cookie: appCtx.cookie,
+        cookie: newUserAxios.defaults.headers.Cookie,
       },
       validateStatus: function (status) {
         return (status >= 200 && status < 209) || status === 302;
@@ -96,10 +107,22 @@ describe('OpenAPI OAuthController (e2e)', () => {
   beforeEach(async () => {
     const res = await oauthCreate(oauthData);
     oauth = res.data;
+    const spaceRes = await axios.post<ICreateSpaceVo>(CREATE_SPACE, {
+      name: 'test space',
+    });
+    spaceId = spaceRes.data.id;
+
+    const baseRes = await axios.post<ICreateBaseVo>(CREATE_BASE, {
+      name: 'test base',
+      spaceId,
+    });
+    baseId = baseRes.data.id;
   });
 
   afterEach(async () => {
     await oauthDelete(oauth.clientId);
+    await axios.delete<null>(urlBuilder(PERMANENT_DELETE_BASE, { baseId }));
+    await axios.delete<null>(urlBuilder(PERMANENT_DELETE_SPACE, { spaceId }));
   });
 
   afterAll(async () => {
@@ -136,17 +159,17 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('/api/oauth/decision (POST)', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
     const ensure = await decision(axios, transactionID!);
     expect(ensure.status).toBe(302);
     expect(ensure.headers.location).toContain(`${oauth.redirectUris[0]}?code=`);
     // Trust Authorized
-    const { code } = await gerAuthorize(axios, oauth);
+    const { code } = await getAuthorize(axios, oauth);
     expect(code).not.toBeNull();
   });
 
   it('/api/oauth/decision (POST) - state', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth, '123456');
+    const { transactionID } = await getAuthorize(axios, oauth, '123456');
     const ensure = await decision(axios, transactionID!);
     expect(ensure.status).toBe(302);
     expect(ensure.headers.location).toContain(`${oauth.redirectUris[0]}?code=`);
@@ -156,7 +179,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('/api/oauth/decision (POST) - Deny', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
     const decisionRes = await decision(axios, transactionID!, 'Deny');
     expect(decisionRes.status).toBe(302);
     expect(decisionRes.headers.location).toContain(`${oauth.redirectUris[0]}?error=access_denied`);
@@ -168,7 +191,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
   });
 
   it('/api/oauth/decision/:transactionId (GET)', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
 
     const res = await axios.get(`/oauth/decision/${transactionID}`);
     expect(res.status).toBe(200);
@@ -191,14 +214,14 @@ describe('OpenAPI OAuthController (e2e)', () => {
       email: 'oauth1@example.com',
       password: '12345678',
     });
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
     const error = await getError(() => user2Request.get(`/oauth/decision/${transactionID}`));
     expect(error?.status).toBe(400);
     expect(error?.message).toBe('Invalid user');
   });
 
   it('/api/oauth/access_token (POST)', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
 
     const res = await decision(axios, transactionID!);
 
@@ -238,13 +261,13 @@ describe('OpenAPI OAuthController (e2e)', () => {
         Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
       },
     });
-    expect(userInfo.data.email).toEqual(globalThis.testConfig.email);
+    expect(userInfo.data.email).toEqual(testEmail);
   });
 
   it('/api/oauth/access_token (POST) - has decision', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
     await decision(axios, transactionID!);
-    const { code } = await gerAuthorize(axios, oauth);
+    const { code } = await getAuthorize(axios, oauth);
     const secret = await generateOAuthSecret(oauth.clientId);
 
     const tokenRes = await anonymousAxios.post(
@@ -279,7 +302,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
       ...oauthData,
       scopes: ['table|read'],
     });
-    const { transactionID } = await gerAuthorize(axios, oauthRes.data);
+    const { transactionID } = await getAuthorize(axios, oauthRes.data);
 
     const res = await decision(axios, transactionID!);
     const url = new URL(res.headers.location);
@@ -309,12 +332,8 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userInfo.data.email).toBeUndefined();
-    const base = await createBase({
-      spaceId: globalThis.testConfig.spaceId,
-      name: 'oauth-server-test',
-    });
     const tableListRes = await anonymousAxios.get<ITableListVo>(
-      urlBuilder(GET_TABLE_LIST, { baseId: base.id }),
+      urlBuilder(GET_TABLE_LIST, { baseId }),
       {
         headers: {
           Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
@@ -327,7 +346,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     // no scope table|create
     const error = await getError(() =>
       anonymousAxios.post(
-        `/base/${base.id}/table`,
+        `/base/${baseId}/table`,
         {},
         {
           headers: {
@@ -336,12 +355,11 @@ describe('OpenAPI OAuthController (e2e)', () => {
         }
       )
     );
-    await deleteBase(base.id);
     expect(error?.status).toBe(403);
   });
 
   it('/api/oauth/access_token (POST) - refresh token', async () => {
-    const { transactionID } = await gerAuthorize(axios, oauth);
+    const { transactionID } = await getAuthorize(axios, oauth);
 
     const res = await decision(axios, transactionID!);
 
@@ -419,7 +437,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
     let accessToken: string;
 
     beforeEach(async () => {
-      const { transactionID } = await gerAuthorize(axios, oauth);
+      const { transactionID } = await getAuthorize(axios, oauth);
 
       const res = await decision(axios, transactionID!);
 
@@ -470,6 +488,22 @@ describe('OpenAPI OAuthController (e2e)', () => {
 
     it('/api/oauth/client/:clientId/revoke-access (POST)', async () => {
       const revokeRes = await revokeAccess(oauth.clientId);
+      expect(revokeRes.status).toBe(200);
+
+      const error = await getError(() =>
+        anonymousAxios.get(`/auth/user`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        })
+      );
+      expect(error?.status).toBe(401);
+    });
+
+    it('/api/oauth/client/:clientId/revoke-token (POST)', async () => {
+      const revokeRes = await axios.post<void>(
+        urlBuilder(REVOKE_TOKEN, { clientId: oauth.clientId })
+      );
       expect(revokeRes.status).toBe(200);
 
       const error = await getError(() =>

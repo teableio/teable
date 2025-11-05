@@ -1,5 +1,6 @@
 import { axios, SIGN_UP, createAxios, USER_ME, SIGN_IN } from '@teable/openapi';
 import { signupPasswordSchema } from '@teable/openapi/src/auth/types';
+import type { AxiosHeaderValue } from 'axios';
 
 export async function createNewUserAxios({ email, password }: { email: string; password: string }) {
   if (!signupPasswordSchema.safeParse(password).success) {
@@ -20,6 +21,8 @@ export async function createNewUserAxios({ email, password }: { email: string; p
   const cookie = signupRes.headers['set-cookie'];
 
   const newUserAxios = createAxios();
+
+  newUserAxios.defaults.headers.Cookie = cookie as AxiosHeaderValue;
 
   newUserAxios.interceptors.request.use((config) => {
     config.headers.Cookie = cookie;

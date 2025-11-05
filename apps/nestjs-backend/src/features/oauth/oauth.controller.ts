@@ -80,8 +80,14 @@ export class OAuthController {
 
   @Post(':clientId/revoke-access')
   @HttpCode(200)
-  async revokeToken(@Param('clientId') clientId: string) {
+  async revokeAccess(@Param('clientId') clientId: string) {
     return this.oauthService.revokeAccess(clientId);
+  }
+
+  @Post(':clientId/revoke-token')
+  @HttpCode(200)
+  async revokeToken(@Param('clientId') clientId: string) {
+    return this.oauthService.revokeToken(clientId);
   }
 
   @Get(':clientId/revoke-token')
@@ -91,7 +97,7 @@ export class OAuthController {
     if (!accessTokenId) {
       throw new BadRequestException('only access token request can use this endpoint');
     }
-    return this.oauthService.revokeAccess(clientId);
+    return this.oauthService.revokeToken(clientId);
   }
 
   @Get('authorized/list')

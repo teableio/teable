@@ -142,10 +142,17 @@ export class OAuthService {
   }
 
   async deleteOAuth(clientId: string): Promise<void> {
-    await this.prismaService.oAuthApp.delete({
-      where: {
-        clientId,
-      },
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.oAuthApp.delete({
+        where: {
+          clientId,
+        },
+      });
+      await prisma.accessToken.deleteMany({
+        where: {
+          clientId,
+        },
+      });
     });
   }
 
@@ -208,20 +215,38 @@ export class OAuthService {
     if (!app) {
       throw new ForbiddenException('No permission to revoke access: ' + clientId);
     }
-    await this.prismaService.$tx(async () => {
-      await this.prismaService.txClient().oAuthAppAuthorized.deleteMany({
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.oAuthAppAuthorized.deleteMany({
         where: { clientId },
       });
-      const secrets = await this.prismaService.txClient().oAuthAppSecret.findMany({
+      const secrets = await prisma.oAuthAppSecret.findMany({
         where: { clientId },
       });
       const secretIds = secrets.map((s) => s.id);
-      await this.prismaService.txClient().oAuthAppToken.deleteMany({
+      await prisma.oAuthAppToken.deleteMany({
         where: { appSecretId: { in: secretIds } },
       });
       // delete access token
-      await this.prismaService.txClient().accessToken.deleteMany({
+      await prisma.accessToken.deleteMany({
         where: { clientId },
+      });
+    });
+  }
+
+  async revokeToken(clientId: string) {
+    const userId = this.cls.get('user.id');
+    await this.prismaService.$tx(async (prisma) => {
+      await prisma.oAuthAppAuthorized.delete({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        where: { clientId_userId: { clientId, userId } },
+      });
+
+      await prisma.oAuthAppToken.deleteMany({
+        where: { createdBy: userId, oAuthAppSecret: { clientId } },
+      });
+
+      await prisma.accessToken.deleteMany({
+        where: { clientId, userId },
       });
     });
   }
