@@ -78,7 +78,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
     const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
     const { t } = useTranslation();
     const i18nMap = useAttachmentPreviewI18Map();
-
+    const fileInput = useRef<HTMLInputElement>(null);
     const sensors = useSensors(
       useSensor(PointerSensor, {
         activationConstraint: { distance: 5 },
@@ -167,11 +167,12 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
     );
 
     const scrollBottom = () => {
-      if (listRef.current) {
-        const scrollHeight = listRef.current.scrollHeight;
-        const height = listRef.current.clientHeight;
-        const maxScrollTop = scrollHeight - height;
-        listRef.current.scrollTop = maxScrollTop > 0 ? maxScrollTop : 0;
+      const lastChild = listRef.current?.lastElementChild;
+      if (lastChild) {
+        lastChild.scrollTo({
+          top: lastChild.scrollHeight,
+          behavior: 'smooth',
+        });
       }
     };
 
@@ -222,28 +223,43 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       uploadAttachment,
     }));
 
+    const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const fileList = e.target.files;
+      fileList && uploadAttachment(Array.from(fileList));
+      e.target.value = '';
+    };
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
         <div className="relative flex-1 overflow-hidden">
           <FileZone
-            action={['drop', 'paste', 'click']}
+            action={['drop', 'paste']}
             disabled={disabled || readonly}
             onChange={uploadAttachment}
-            zoneClassName={cn('h-12', {
+            zoneClassName={cn('h-12 cursor-default', {
               'h-[120px]': len === 0,
             })}
             className="min-h-[auto]"
             defaultText={
               <div className="flex items-center justify-center">
                 <p className="text-sm">
-                  <span className="text-sm text-blue-500">
-                    {t('editor.attachment.uploadBaseTextPrefix')}{' '}
-                  </span>
+                  <button
+                    className="text-sm text-blue-500"
+                    onClick={() => fileInput.current?.click()}
+                  >
+                    {t('editor.attachment.uploadBaseTextPrefix')}
+                  </button>
                   {t('editor.attachment.uploadBaseText')}
                 </p>
               </div>
             }
           >
+            <input
+              type="file"
+              className="hidden"
+              multiple
+              ref={fileInput}
+              onChange={handleSelectFiles}
+            />
             {len > 0 && (
               <ScrollArea className="h-full flex-1" ref={listRef}>
                 <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden pt-2">
@@ -272,7 +288,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
                     </DndContext>
                   </FilePreviewProvider>
                   {uploadingFilesList.map(({ id, progress, file }) => (
-                    <li key={id} className="flex h-[156px] w-32 flex-col rounded-lg p-1">
+                    <li key={id} className="flex h-[132px] w-[104px] flex-col rounded-lg p-1">
                       <div className="relative flex-1 overflow-hidden rounded-lg">
                         <div className="absolute inset-0">
                           <FileCover
