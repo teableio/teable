@@ -262,7 +262,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             />
             {len > 0 && (
               <ScrollArea className="h-full flex-1" ref={listRef}>
-                <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden pt-2">
+                <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
                   <FilePreviewProvider i18nMap={i18nMap}>
                     <DndContext
                       sensors={sensors}

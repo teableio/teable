@@ -27,7 +27,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
       ) : (
         <Popover modal>
           <PopoverTrigger>
-            <Button variant="outline" className="w-full" disabled={readonly}>
+            <Button variant="outline" size={'sm'} className="w-full" disabled={readonly}>
               <Plus />
               {t('editor.attachment.upload')}
             </Button>
@@ -43,7 +43,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
         </Popover>
       )}
 
-      <div className="max-h-[320px] overflow-auto">
+      <div className="max-h-[320px] overflow-auto pt-2">
         <div>
           <UploadAttachment
             ref={uploadAttachmentRef}
