@@ -315,6 +315,25 @@ export const useSelectionOperation = (props?: {
     [viewId, tableId, fields, t, confirm, baseId, temporaryPasteReq, pasteReq]
   );
 
+  const doFill = useCallback(
+    async (args: Pick<IPasteRo, 'content' | 'ranges' | 'header' | 'type'>) => {
+      const toastId = toast.loading(t('table:table.actionTips.filling'));
+      try {
+        await pasteReq(args);
+        toast.success(t('table:table.actionTips.fillSuccessful'), { id: toastId });
+      } catch (e) {
+        const error = e as HttpError;
+        const description = getHttpErrorMessage(error, t, 'sdk');
+        toast.error(t('table:table.actionTips.fillFailed'), {
+          description,
+          id: toastId,
+        });
+        console.error('Fill error: ', error);
+      }
+    },
+    [pasteReq, t]
+  );
+
   const doClear = useCallback(
     async (selection: CombinedSelection) => {
       if (!viewId || !tableId) return;
@@ -422,5 +441,6 @@ export const useSelectionOperation = (props?: {
     clear: doClear,
     deleteRecords: doDelete,
     syncCopy: doSyncCopy,
+    fill: doFill,
   };
 };

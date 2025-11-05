@@ -26,6 +26,7 @@ import type {
   IGroupCollection,
   DragRegionType,
   IColumnLoading,
+  IRange,
 } from './interface';
 import {
   RegionType,
@@ -122,6 +123,12 @@ export interface IGridExternalProps {
    * Triggered when the mouse clicks the every type of region
    */
   onItemClick?: (type: RegionType, bounds: IRectangle, cellItem: ICellItem) => void;
+
+  /**
+   * Triggered when user drags the fill handle downward to auto-fill cells
+   * Only vertical fill is supported. Provides current selection ranges and the target end real row index
+   */
+  onFillSelection?: (selectionRanges: [IRange, IRange], targetEndRealRowIndex: number) => void;
 }
 
 export interface IGridProps extends IGridExternalProps {
@@ -225,6 +232,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
     onItemHovered,
     onItemClick,
     onScrollChanged,
+    onFillSelection,
   } = props;
 
   useImperativeHandle(forwardRef, () => ({
@@ -703,6 +711,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
             onColumnFreeze={onColumnFreeze}
             onItemHovered={onItemHovered}
             onItemClick={onItemClick}
+            onFillSelection={onFillSelection}
           />
         )}
       </div>

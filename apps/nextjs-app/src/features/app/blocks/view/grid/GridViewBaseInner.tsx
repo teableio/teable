@@ -103,7 +103,8 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
-import { getEffectRows } from './utils';
+import { getEffectRows, generateSeriesForColumn } from './utils';
+import { getSyncCopyData } from './utils/getSyncCopyData';
 
 interface IGridViewBaseInnerProps {
   groupPointsServerData?: IGroupPointsVo;
@@ -208,7 +209,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const { onRowOrdered, setDraggingRecordIds } = useGridRowOrder(recordMap);
 
-  const { copy, paste, clear, deleteRecords, syncCopy } = useSelectionOperation({
+  const { copy, paste, clear, deleteRecords, syncCopy, fill } = useSelectionOperation({
     collapsedGroupIds: viewQuery?.collapsedGroupIds
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
@@ -823,6 +824,91 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     }
   };
 
+  const onFillSelection = (selectionRanges: [IRange, IRange], targetEndRealRowIndex: number) => {
+    const [start, end] = selectionRanges;
+    const startCol = Math.min(start[0], end[0]);
+    const endCol = Math.max(start[0], end[0]);
+    const topRow = Math.min(start[1], end[1]);
+    const bottomRow = Math.max(start[1], end[1]);
+    if (!tableId) return;
+    const isDownward = targetEndRealRowIndex > bottomRow;
+    const isUpward = targetEndRealRowIndex < topRow;
+    if (!isDownward && !isUpward) return;
+
+    const selectionForCopy = new CombinedSelection(SelectionRegionType.Cells, [start, end]);
+    const { headers, rawContent } = getSyncCopyData({
+      recordMap,
+      fields,
+      selection: selectionForCopy,
+    });
+
+    const isEmptyValue = (v: unknown) =>
+      v == null ||
+      (Array.isArray(v) && v.length === 0) ||
+      (typeof v === 'string' && v.trim() === '');
+    const allEmpty = rawContent.every((row) => row.every((v) => isEmptyValue(v)));
+
+    if (allEmpty) return;
+
+    const selectedFields = fields.slice(startCol, endCol + 1);
+    const content: unknown[][] = [];
+
+    if (isDownward) {
+      const rowsToFill = targetEndRealRowIndex - bottomRow;
+      const direction = 'down' as const;
+      const columnsCount = endCol - startCol + 1;
+      const colSeries: unknown[][] = [];
+      for (let c = 0; c < columnsCount; c++) {
+        const baseColValues = rawContent.map((r) => (r ?? [])[c]);
+        const series = generateSeriesForColumn(
+          baseColValues,
+          selectedFields[c].type,
+          rowsToFill,
+          direction
+        );
+        colSeries.push(series);
+      }
+      for (let r = 0; r < rowsToFill; r++) {
+        content.push(colSeries.map((s) => s[r]));
+      }
+      fill({
+        content,
+        header: headers,
+        ranges: [
+          [startCol, bottomRow + 1],
+          [endCol, targetEndRealRowIndex],
+        ],
+      });
+    } else if (isUpward) {
+      const rowsToFill = topRow - targetEndRealRowIndex;
+      const direction = 'up' as const;
+      const columnsCount = endCol - startCol + 1;
+      const colSeries: unknown[][] = [];
+      for (let c = 0; c < columnsCount; c++) {
+        const baseColValues = rawContent.map((r) => (r ?? [])[c]);
+        const series = generateSeriesForColumn(
+          baseColValues,
+          selectedFields[c].type,
+          rowsToFill,
+          direction
+        );
+        colSeries.push(series);
+      }
+      for (let r = 0; r < rowsToFill; r++) {
+        const idx = rowsToFill - 1 - r;
+        content.push(colSeries.map((s) => s[idx]));
+      }
+      fill({
+        content,
+        header: headers,
+        ranges: [
+          [startCol, targetEndRealRowIndex],
+          [endCol, topRow - 1],
+        ],
+      });
+    }
+  };
+
   const componentId = useMemo(() => uniqueId('grid-view-'), []);
 
   const onCellValueHovered = (bounds: IRectangle, cellItem: ICellItem) => {
@@ -1123,6 +1209,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           isTouchDevice ? undefined : getAuthorizedFunction(onRowAppend, 'record|create')
         }
         onCellEdited={getAuthorizedFunction(onCellEdited, 'record|update')}
+        onFillSelection={getAuthorizedFunction(onFillSelection, 'record|update')}
         onCellDblClick={onCellDblClick}
         onColumnAppend={getAuthorizedFunction(onColumnAppend, 'field|create')}
         onColumnFreeze={getAuthorizedFunction(onColumnFreeze, 'view|update')}

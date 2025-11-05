@@ -41,6 +41,8 @@ export interface IRenderLayerProps
     | 'getCellContent'
   > {
   isEditing?: boolean;
+  isFilling?: boolean;
+  isFillEnabled?: boolean;
   visibleRegion: IVisibleRegion;
   activeCell: ICellItem | null;
   activeCellBound: IActiveCellBound | null;
@@ -105,6 +107,8 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     getCellContent,
     real2RowIndex,
     getLinearRow,
+    isFilling,
+    isFillEnabled,
   } = props;
   const { containerWidth } = coordInstance;
   const { x, y, columnIndex, rowIndex, type, isOutOfBounds } = originMouseState;
@@ -162,6 +166,8 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
       hoverCellPosition,
       mouseState: mousePosition ? { ...mouseState, ...mousePosition } : mouseState,
       selection,
+      isFilling,
+      isFillEnabled,
       isSelecting,
       isInteracting,
       coordInstance,
@@ -206,6 +212,8 @@ export const RenderLayer: FC<React.PropsWithChildren<IRenderLayerProps>> = (prop
     columnFreezeState,
     mousePosition,
     selection,
+    isFilling,
+    isFillEnabled,
     isSelecting,
     isInteracting,
     coordInstance,

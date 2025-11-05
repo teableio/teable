@@ -1030,22 +1030,104 @@ export const drawSearchTargetIndex = (ctx: CanvasRenderingContext2D, props: ILay
   }
 };
 
+export const drawFillPreview = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
+  const {
+    selection,
+    mouseState,
+    coordInstance,
+    scrollState,
+    theme,
+    isFilling,
+    isFillEnabled,
+    real2RowIndex,
+    getLinearRow,
+  } = props;
+  if (!isFilling || !isFillEnabled) return;
+  const { isCellSelection, ranges } = selection;
+  if (!isCellSelection) return;
+  const [start, end] = ranges;
+  const startCol = Math.min(start[0], end[0]);
+  const endCol = Math.max(start[0], end[0]);
+  const topRow = Math.min(start[1], end[1]);
+  const bottomRow = Math.max(start[1], end[1]);
+  const hoverLinear = getLinearRow(mouseState.rowIndex);
+  const targetRealRow = hoverLinear.realIndex;
+  const { scrollLeft, scrollTop } = scrollState;
+  const startX = coordInstance.getColumnRelativeOffset(startCol, scrollLeft);
+  const endX =
+    coordInstance.getColumnRelativeOffset(endCol, scrollLeft) +
+    coordInstance.getColumnWidth(endCol);
+  let startY: number | null = null;
+  let endY: number | null = null;
+
+  if (Number.isFinite(targetRealRow) && targetRealRow > bottomRow) {
+    startY = coordInstance.getRowOffset(real2RowIndex(bottomRow + 1)) - scrollTop;
+    endY =
+      coordInstance.getRowOffset(real2RowIndex(targetRealRow)) +
+      coordInstance.getRowHeight(real2RowIndex(targetRealRow)) -
+      scrollTop;
+  } else if (Number.isFinite(targetRealRow) && targetRealRow < topRow) {
+    startY = coordInstance.getRowOffset(real2RowIndex(targetRealRow)) - scrollTop;
+    endY =
+      coordInstance.getRowOffset(real2RowIndex(topRow - 1)) +
+      coordInstance.getRowHeight(real2RowIndex(topRow - 1)) -
+      scrollTop;
+  }
+
+  if (startY != null && endY != null) {
+    const width = endX - startX;
+    const height = endY - startY;
+    drawRect(ctx, {
+      x: startX + 0.5,
+      y: startY + 0.5,
+      width,
+      height,
+      fill: hexToRGBA(theme.interactionLineColorHighlight, 0.12),
+      stroke: theme.interactionLineColorHighlight,
+    });
+  }
+};
+
 export const drawFillHandler = (ctx: CanvasRenderingContext2D, props: ILayoutDrawerProps) => {
-  const { coordInstance, scrollState, selection, isSelecting, isEditing, theme } = props;
+  const {
+    coordInstance,
+    scrollState,
+    selection,
+    isSelecting,
+    isEditing,
+    theme,
+    activeCellBound,
+    isFillEnabled,
+    real2RowIndex,
+    getLinearRow,
+  } = props;
+
+  if (!isFillEnabled || isEditing || isSelecting) return;
+
   const { scrollTop, scrollLeft } = scrollState;
   const { freezeColumnCount, freezeRegionWidth, rowInitSize, containerWidth, containerHeight } =
     coordInstance;
-  if (isEditing || isSelecting) return;
   const maxRange = calculateMaxRange(selection);
+
   if (maxRange == null) return;
 
-  const [columnIndex, rowIndex] = maxRange;
+  const [columnIndex, realRowIndex] = maxRange;
   const { cellBg, cellLineColorActived } = theme;
   const isFreezeRegion = columnIndex < freezeColumnCount;
   const x = coordInstance.getColumnRelativeOffset(columnIndex, scrollLeft);
-  const y = coordInstance.getRowOffset(rowIndex) - scrollTop;
+  const linearRowIndex = real2RowIndex(realRowIndex);
+  const y = coordInstance.getRowOffset(linearRowIndex) - scrollTop;
   const width = coordInstance.getColumnWidth(columnIndex);
-  const height = coordInstance.getRowHeight(rowIndex);
+  const defaultHeight = coordInstance.getRowHeight(linearRowIndex);
+  const isSingleCell =
+    selection.isCellSelection && isEqual(selection.ranges[0], selection.ranges[1]);
+  const isSameAsActive =
+    isSingleCell &&
+    activeCellBound &&
+    activeCellBound.columnIndex === columnIndex &&
+    activeCellBound.rowIndex === realRowIndex &&
+    getLinearRow(linearRowIndex).type === LinearRowType.Row;
+  const height = isSameAsActive && activeCellBound ? activeCellBound.height : defaultHeight;
 
   ctx.save();
   ctx.beginPath();
@@ -2057,10 +2139,12 @@ export const drawGrid = (
 
   drawActiveCell(mainCtx, props);
 
+  drawFillPreview(mainCtx, props);
+
   columnStatistics != null && drawFreezeRegionDivider(mainCtx, props, DividerRegion.Bottom);
 
-  // TODO: Grid Filling Functionality Supplement
-  // drawFillHandler(mainCtx, props);
+  // Fill handle for vertical drag-fill
+  drawFillHandler(mainCtx, props);
 
   drawColumnResizeHandler(mainCtx, props);
 

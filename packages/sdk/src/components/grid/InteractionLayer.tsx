@@ -36,6 +36,7 @@ import type {
   IRectangle,
   IRowControlItem,
   IScrollState,
+  IRange,
 } from './interface';
 import {
   RegionType,
@@ -83,6 +84,7 @@ export interface IInteractionLayerProps
   setMouseState: Dispatch<SetStateAction<IMouseState>>;
   scrollBy: (deltaX: number, deltaY: number) => void;
   scrollToItem: (position: [columnIndex: number, rowIndex: number]) => void;
+  onFillSelection?: (selectionRanges: [IRange, IRange], targetEndRealRowIndex: number) => void;
 }
 
 export interface IInteractionLayerRef {
@@ -152,6 +154,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     onColumnHeaderMenuClick,
     onColumnStatisticClick,
     onCollapsedGroupChanged,
+    onFillSelection,
     onDragStart: _onDragStart,
   } = props;
 
@@ -190,6 +193,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
   const prevActiveCellRef = useRef<ICellItem | null>(null);
   const hoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
   const previousHoveredRegionRef = useRef<IRegionData>(BLANK_REGION_DATA);
+  const isFillingRef = useRef(false);
+  const fillSelectionRef = useRef<CombinedSelection | null>(null);
 
   const mousePosition = useMouse(stageRef);
   const [cellScrollTop, setCellScrollTop] = useState(0);
@@ -339,6 +344,7 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
       theme,
       getLinearRow,
       real2RowIndex,
+      isFillEnabled: onFillSelection != null,
     });
 
     hoveredRegionRef.current = regionData;
@@ -551,6 +557,15 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(mouseState);
     const { rowIndex: hoverRowIndex, columnIndex, type } = mouseState;
     const { realIndex: rowIndex } = getLinearRow(hoverRowIndex);
+
+    // Start fill-drag only when clicking the fill handler
+    if (type === RegionType.FillHandler && onFillSelection) {
+      isFillingRef.current = true;
+      fillSelectionRef.current = selection;
+      setEditing(false);
+      editorContainerRef.current?.saveValue?.();
+      return;
+    }
     if (
       !(
         isCellSelection &&
@@ -628,9 +643,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     setMouseState(() => mouseState);
     setCursorStyle(mouseState.type);
     onCellPosition(mouseState);
+    if (isFillingRef.current) onAutoScroll(mouseState);
     if (isSelecting) onAutoScroll(mouseState);
     if (isDragging) onAutoScroll(mouseState, dragType);
-    onSelectionChange(mouseState);
+    if (!isFillingRef.current) onSelectionChange(mouseState);
     onColumnResizeChange(mouseState, (newWidth, columnIndex) => {
       onColumnResize?.(columns[columnIndex], newWidth, columnIndex);
     });
@@ -648,6 +664,37 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
     const mouseState = getMouseState();
     setMouseState(mouseState);
     onAutoScrollStop();
+    let didFill = false;
+
+    if (isFillingRef.current) {
+      const selectionSnapshot = fillSelectionRef.current;
+      if (selectionSnapshot?.isCellSelection) {
+        const [start, end] = selectionSnapshot.serialize();
+        const minRow = Math.min(start[1], end[1]);
+        const maxRow = Math.max(start[1], end[1]);
+        const { realIndex: targetRealRow } = getLinearRow(mouseState.rowIndex);
+        if (Number.isFinite(targetRealRow) && targetRealRow > maxRow) {
+          onFillSelection?.([start, end] as [IRange, IRange], targetRealRow);
+          const startCol = Math.min(start[0], end[0]);
+          const endCol = Math.max(start[0], end[0]);
+          const startRow = Math.min(start[1], end[1]);
+          const finalStart: IRange = [startCol, startRow];
+          const finalEnd: IRange = [endCol, targetRealRow];
+          setSelection(selection.set(SelectionRegionType.Cells, [finalStart, finalEnd]));
+          didFill = true;
+        } else if (Number.isFinite(targetRealRow) && targetRealRow < minRow) {
+          onFillSelection?.([start, end] as [IRange, IRange], targetRealRow);
+          const startCol = Math.min(start[0], end[0]);
+          const endCol = Math.max(start[0], end[0]);
+          const finalStart: IRange = [startCol, targetRealRow];
+          const finalEnd: IRange = [endCol, maxRow];
+          setSelection(selection.set(SelectionRegionType.Cells, [finalStart, finalEnd]));
+          didFill = true;
+        }
+      }
+      isFillingRef.current = false;
+      fillSelectionRef.current = null;
+    }
     onDragEnd(mouseState, (ranges, dropIndex) => {
       if (dragType === DragRegionType.Columns) {
         onColumnOrdered?.(flatRanges(ranges), dropIndex);
@@ -666,8 +713,10 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
 
         onRowOrdered?.(originRealIndexs, realIndex);
       }
-      setActiveCell(null);
-      setSelection(selection.reset());
+      if (!didFill) {
+        setActiveCell(null);
+        setSelection(selection.reset());
+      }
       setCursor('default');
     });
     onColumnFreezeEnd((columnCount: number) => {
@@ -789,6 +838,8 @@ export const InteractionLayerBase: ForwardRefRenderFunction<
           getCellContent={getCellContent}
           real2RowIndex={real2RowIndex}
           getLinearRow={getLinearRow}
+          isFilling={isFillingRef.current}
+          isFillEnabled={onFillSelection != null}
         />
       </div>
 
