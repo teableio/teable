@@ -2,7 +2,8 @@ import { Loader2 } from '@teable/icons';
 import { LocalStorageKeys } from '@teable/sdk/config';
 import { useFields, useTableId, useView } from '@teable/sdk/hooks';
 import { type FormView } from '@teable/sdk/model';
-import { Button, cn, useToast } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { omit } from 'lodash';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
@@ -23,7 +24,6 @@ export const FormBody = (props: IFormBodyProps) => {
   const tableId = useTableId();
   const view = useView() as FormView | undefined;
   const fields = useFields();
-  const { toast } = useToast();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const localKey = generateUniqLocalKey(tableId, view?.id);
   const [formDataMap, setFormDataMap] = useLocalStorage<Record<string, Record<string, unknown>>>(
@@ -123,11 +123,7 @@ export const FormBody = (props: IFormBodyProps) => {
 
     setTimeout(() => {
       onReset();
-      toast({
-        title: t('actions.submitSucceed'),
-        variant: 'default',
-        duration: 2000,
-      });
+      toast.success(t('actions.submitSucceed'));
     }, 1000);
   };
 

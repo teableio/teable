@@ -7,7 +7,8 @@ import {
   type OAuthUpdateRo,
 } from '@teable/openapi';
 import { FileZone } from '@teable/sdk/components/FileZone';
-import { Button, Input, Separator, Textarea, useToast } from '@teable/ui-lib/shadcn';
+import { Button, Input, Separator, Textarea } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
@@ -63,7 +64,6 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   };
 
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
-  const { toast } = useToast();
   const getPreviewUrl = usePreviewUrl();
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -80,11 +80,11 @@ export const OAuthAppForm = forwardRef<IOAuthAppFormRef, IOAuthAppFormProps>((pr
   const logoChange = (files: File[]) => {
     if (files.length === 0) return;
     if (files.length > 1) {
-      toast({ title: t('oauth:form.logo.lengthError') });
+      toast.warning(t('oauth:form.logo.lengthError'));
       return;
     }
     if (files[0].type.indexOf('image') === -1) {
-      toast({ title: t('oauth:form.logo.typeError') });
+      toast.warning(t('oauth:form.logo.typeError'));
       return;
     }
     uploadLogo(files);

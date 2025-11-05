@@ -2,7 +2,8 @@ import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { Button, Dialog, DialogContent, DialogTrigger, useToast } from '@teable/ui-lib';
+import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib';
+import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { LinkViewProvider, RowCountProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
@@ -40,7 +41,6 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     className,
     displayType = LinkDisplayType.Grid,
   } = props;
-  const { toast } = useToast();
   const listRef = useRef<ILinkListRef>(null);
   const linkEditorMainRef = useRef<ILinkEditorMainRef>(null);
   const [isEditing, setEditing] = useState<boolean>(false);
@@ -83,7 +83,7 @@ export const LinkEditor = (props: ILinkEditorProps) => {
     if (recordId) {
       const existed = document.getElementById(`${foreignTableId}-${recordId}`);
       if (existed) {
-        toast({ description: t('editor.link.alreadyOpen') });
+        toast.warning(t('editor.link.alreadyOpen'));
         return;
       }
     }

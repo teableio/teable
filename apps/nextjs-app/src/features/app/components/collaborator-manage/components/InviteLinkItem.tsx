@@ -8,8 +8,8 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 
 export const InviteLinkItem = (props: {
@@ -20,13 +20,12 @@ export const InviteLinkItem = (props: {
   children: React.ReactNode;
 }) => {
   const { url, createdTime, children, deleteDisabled, onDelete } = props;
-  const { toast } = useToast();
   const { t } = useTranslation('common');
   const dayjs = useLanDayjs();
 
   const copyInviteUrl = async () => {
     syncCopy(url);
-    toast({ title: t('invite.dialog.linkCopySuccess') });
+    toast.success(t('invite.dialog.linkCopySuccess'));
   };
 
   return (

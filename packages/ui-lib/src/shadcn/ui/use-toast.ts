@@ -165,6 +165,9 @@ function toast({ ...props }: Toast) {
   };
 }
 
+/**
+ * @deprecated Use sonner toast instead
+ */
 function useToast() {
   const [state, setState] = React.useState<State>(memoryState);
 

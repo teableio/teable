@@ -17,8 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -41,7 +41,6 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const basePermissions = useBasePermission();
   const canManage = basePermissions?.['base|update'];
   const { brandName } = useBrand();
-  const { toast } = useToast();
 
   const { mutate: deleteDashboardMutate } = useMutation({
     mutationFn: () => deleteDashboard(baseId, dashboardId),
@@ -62,9 +61,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
-      toast({
-        title: t('table:table.actionTips.copySuccessful'),
-      });
+      toast.success(t('table:table.actionTips.copySuccessful'));
     },
   });
 

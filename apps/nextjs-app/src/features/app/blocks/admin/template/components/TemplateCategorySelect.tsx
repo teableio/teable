@@ -21,8 +21,8 @@ import {
   Button,
   cn,
   Input,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useRef, useState } from 'react';
 
@@ -128,7 +128,6 @@ export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
   const { value, onChange, templateId } = props;
   const { t } = useTranslation('common');
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const { data: templateCategoryList } = useQuery({
     queryKey: ReactQueryKeys.templateCategoryList(),
     queryFn: () => getTemplateCategoryList().then((data) => data.data),
@@ -216,9 +215,7 @@ export const TemplateCategorySelect = (props: ITemplateCategorySelectProps) => {
                 size={'xs'}
                 onClick={() => {
                   if (!searchValue) {
-                    toast({
-                      title: t('settings.templateAdmin.tips.addCategoryTips'),
-                    });
+                    toast.warning(t('settings.templateAdmin.tips.addCategoryTips'));
                   }
                   searchValue && createTemplateCategoryFn(searchValue);
                 }}
