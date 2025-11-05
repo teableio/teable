@@ -1,18 +1,19 @@
 'use client';
 
 import { useTheme } from '@teable/next-themes';
-import { Toaster as Sonner, toast } from 'sonner';
+import type { ExternalToast } from 'sonner';
+import { Toaster as Sonner, toast as sonnerToast } from 'sonner';
+import { cn } from '../utils';
 
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = 'system' } = useTheme();
-
   return (
     <Sonner
       theme={theme as ToasterProps['theme']}
       richColors
-      className="toaster group"
+      className={cn('toaster group')}
       toastOptions={{
         classNames: {
           toast:
@@ -26,5 +27,21 @@ const Toaster = ({ ...props }: ToasterProps) => {
     />
   );
 };
+
+const originalError = sonnerToast.error;
+
+const toast: typeof sonnerToast = Object.assign(
+  (...args: Parameters<typeof sonnerToast>) => sonnerToast(...args),
+  {
+    ...sonnerToast,
+    error: (message: string | React.ReactNode, data?: ExternalToast) => {
+      return originalError(message, {
+        closeButton: true,
+        className: 'pointer-events-auto',
+        ...data,
+      });
+    },
+  }
+);
 
 export { Toaster, toast };
