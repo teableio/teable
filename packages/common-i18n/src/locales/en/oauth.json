@@ -64,5 +64,9 @@
   "help": {
     "link": "https://help.teable.ai/en/api-doc/oauth",
     "title": "Learn more"
+  },
+  "deleteConfirm": {
+    "title": "Delete OAuth App",
+    "description": "Are you sure you want to delete the {{name}} OAuth App? This action cannot be undone."
   }
 }

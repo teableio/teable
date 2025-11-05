@@ -64,5 +64,9 @@
   "help": {
     "link": "https://help.teable.cn/zh/api-doc/oauth",
     "title": "了解更多"
+  },
+  "deleteConfirm": {
+    "title": "删除 OAuth 应用",
+    "description": "您确定要删除 {{name}} OAuth 应用吗？此操作无法撤销。"
   }
 }

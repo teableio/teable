@@ -1,11 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
-import { Plus, Settings } from '@teable/icons';
-import { oauthGetList } from '@teable/openapi';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Plus, Settings, Trash2 } from '@teable/icons';
+import type { OAuthGetListVo } from '@teable/openapi';
+import { oauthGetList, oauthDelete } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button, Card, CardContent } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
+import { useEffect, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { usePreviewUrl } from '@/features/app/hooks/usePreviewUrl';
 import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
@@ -13,15 +17,32 @@ import { oauthAppConfig } from '@/features/i18n/oauth-app.config';
 export const OAuthAppList = () => {
   const router = useRouter();
   const { t } = useTranslation(oauthAppConfig.i18nNamespaces);
-
+  const queryClient = useQueryClient();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedApp, setSelectedApp] = useState<OAuthGetListVo[number] | null>(null);
   const { data: oauthApps } = useQuery({
-    queryKey: ['oauth-apps'],
+    queryKey: ReactQueryKeys.oauthAppList(),
     queryFn: () => oauthGetList().then((data) => data.data),
     staleTime: 0,
     refetchOnWindowFocus: false,
   });
 
+  const { mutate: deleteOAuthAppMutate, isLoading: deleteLoading } = useMutation({
+    mutationFn: oauthDelete,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.oauthAppList() });
+      setShowDeleteModal(false);
+      setSelectedApp(null);
+    },
+  });
+
   const getPreviewUrl = usePreviewUrl();
+
+  useEffect(() => {
+    if (!showDeleteModal) {
+      setSelectedApp(null);
+    }
+  }, [showDeleteModal]);
 
   return (
     <div>
@@ -79,22 +100,51 @@ export const OAuthAppList = () => {
                   {app.description}
                 </div>
               </div>
-              <Button
-                className="absolute right-2 top-2 h-5 p-0.5"
-                variant={'ghost'}
-                onClick={() => {
-                  router.push({
-                    pathname: router.pathname,
-                    query: { form: 'edit', id: app.clientId },
-                  });
-                }}
-              >
-                <Settings />
-              </Button>
+              <div className="absolute right-2 top-2 flex items-center gap-2">
+                <Button
+                  className="h-5 p-0.5 text-destructive hover:text-destructive"
+                  variant={'ghost'}
+                  onClick={() => {
+                    setSelectedApp(app);
+                    setShowDeleteModal(true);
+                  }}
+                >
+                  <Trash2 />
+                </Button>
+                <Button
+                  className="h-5 p-0.5"
+                  variant={'ghost'}
+                  onClick={() => {
+                    router.push({
+                      pathname: router.pathname,
+                      query: { form: 'edit', id: app.clientId },
+                    });
+                  }}
+                >
+                  <Settings />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
       </div>
+      <ConfirmDialog
+        open={showDeleteModal}
+        onOpenChange={setShowDeleteModal}
+        title={t('oauth:deleteConfirm.title')}
+        description={t('oauth:deleteConfirm.description', { name: selectedApp?.name })}
+        confirmText={t('common:actions.confirm')}
+        cancelText={t('common:actions.cancel')}
+        confirmLoading={deleteLoading}
+        onConfirm={() => {
+          if (selectedApp) {
+            deleteOAuthAppMutate(selectedApp.clientId);
+          }
+        }}
+        onCancel={() => {
+          setShowDeleteModal(false);
+        }}
+      />
     </div>
   );
 };

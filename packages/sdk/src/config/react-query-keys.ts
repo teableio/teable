@@ -218,4 +218,8 @@ export const ReactQueryKeys = {
   chatHistory: (baseId: string) => ['chat-history', baseId] as const,
 
   recentlyBase: () => ['recently-base'] as const,
+
+  oauthAppList: () => ['oauth-app-list'] as const,
+
+  oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
 };

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Check, Key } from '@teable/icons';
 import type { GenerateOAuthSecretVo, OAuthUpdateRo } from '@teable/openapi';
 import { deleteOAuthSecret, generateOAuthSecret, oauthGet, oauthUpdate } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useLanDayjs } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Badge, Button, Separator, cn } from '@teable/ui-lib/shadcn';
@@ -30,7 +31,7 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
   const [newSecret, setNewSecret] = useState<GenerateOAuthSecretVo>();
 
   const { data: oauthApp, isLoading: queryLoading } = useQuery({
-    queryKey: ['oauthApp', clientId],
+    queryKey: ReactQueryKeys.oauthApp(clientId),
     queryFn: ({ queryKey }) => oauthGet(queryKey[1]).then((data) => data.data),
     cacheTime: 0,
   });
@@ -46,14 +47,14 @@ export const OAuthAppEdit = (props: IOAuthAppEditProps) => {
     mutationFn: generateOAuthSecret,
     onSuccess: (res) => {
       setNewSecret(res.data);
-      queryClient.invalidateQueries(['oauthApp', clientId]);
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.oauthApp(clientId) });
     },
   });
 
   const { mutate: deleteSecretMutate } = useMutation({
     mutationFn: (secretId: string) => deleteOAuthSecret(clientId, secretId),
     onSuccess: () => {
-      queryClient.invalidateQueries(['oauthApp', clientId]);
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.oauthApp(clientId) });
     },
   });
 
