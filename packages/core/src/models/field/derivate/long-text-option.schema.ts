@@ -5,7 +5,8 @@ export const longTextFieldOptionsSchema = z
     defaultValue: z
       .string()
       .optional()
-      .transform((value) => (typeof value === 'string' ? value.trim() : value)),
+      .transform((value) => (typeof value === 'string' ? value.trim() : value))
+      .optional(),
   })
   .strict();
 

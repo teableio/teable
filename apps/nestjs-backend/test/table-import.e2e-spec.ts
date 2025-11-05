@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, defaultDatetimeFormatting } from '@teable/core';
+import { FieldType, TimeFormatting, defaultDatetimeFormatting } from '@teable/core';
 import type { IInplaceImportOptionRo } from '@teable/openapi';
 import {
   getSignature as apiGetSignature,
@@ -334,7 +334,7 @@ describe('OpenAPI ImportController (e2e)', () => {
             options: {
               formatting: {
                 ...defaultDatetimeFormatting,
-                time: 'HH:mm',
+                time: TimeFormatting.Hour24,
               },
             },
           },

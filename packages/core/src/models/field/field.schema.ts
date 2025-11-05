@@ -46,7 +46,7 @@ export const fieldVoSchema = z.object({
     example: 'Tags',
   }),
 
-  type: z.nativeEnum(FieldType).openapi({
+  type: z.enum(FieldType).openapi({
     description: 'The field types supported by teable.',
     example: FieldType.SingleSelect,
   }),
@@ -110,7 +110,7 @@ export const fieldVoSchema = z.object({
       "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
   }),
 
-  cellValueType: z.nativeEnum(CellValueType).openapi({
+  cellValueType: z.enum(CellValueType).openapi({
     description: 'The cell value type of the field.',
   }),
 
@@ -118,7 +118,7 @@ export const fieldVoSchema = z.object({
     description: 'Whether this field has multiple cell value.',
   }),
 
-  dbFieldType: z.nativeEnum(DbFieldType).openapi({
+  dbFieldType: z.enum(DbFieldType).openapi({
     description: 'The field type of database that cellValue really store.',
   }),
 
@@ -186,11 +186,12 @@ export const FIELD_VO_PROPERTIES = [
  * make sure FIELD_VO_PROPERTIES is exactly equals IFieldVo
  * if here shows lint error, you should update FIELD_VO_PROPERTI ES
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* eslint-disable @typescript-eslint/no-unused-vars */
 const _validator2: IEnsureKeysMatchInterface<
   Omit<IFieldVo, 'id'>,
   typeof FIELD_VO_PROPERTIES
 > = true;
+/* eslint-enable @typescript-eslint/no-unused-vars */
 
 export const getOptionsSchema = (type: FieldType) => {
   switch (type) {
@@ -282,43 +283,39 @@ const baseFieldRoSchema = fieldVoSchema
   .required({
     type: true,
   })
-  .merge(
-    z.object({
-      name: fieldVoSchema.shape.name.min(1).optional(),
-      description: fieldVoSchema.shape.description.nullable(),
-      lookupOptions: lookupOptionsRoSchema.optional().openapi({
-        description:
-          'The lookup options for field, you need to configure it when isLookup attribute is true or field type is rollup.',
-      }),
-      options: unionFieldOptionsRoSchema.optional().openapi({
-        description:
-          "The options of the field. The configuration of the field's options depend on the it's specific type.",
-      }),
-      aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
-        description: 'The AI configuration of the field.',
-      }),
-    })
-  );
+  .extend({
+    name: fieldVoSchema.shape.name.min(1).optional(),
+    description: fieldVoSchema.shape.description.nullable().optional(),
+    lookupOptions: lookupOptionsRoSchema.optional().openapi({
+      description:
+        'The lookup options for field, you need to configure it when isLookup attribute is true or field type is rollup.',
+    }),
+    options: unionFieldOptionsRoSchema.optional().openapi({
+      description:
+        "The options of the field. The configuration of the field's options depend on the it's specific type.",
+    }),
+    aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
+      description: 'The AI configuration of the field.',
+    }),
+  });
 
 export const convertFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
 export const createFieldRoSchema = baseFieldRoSchema
-  .merge(
-    z.object({
-      id: z.string().startsWith(IdPrefix.Field).optional().openapi({
-        description:
-          'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. It is sometimes useful to specify an id at creation time',
-        example: 'fldxxxxxxxxxxxxxxxx',
-      }),
-      order: z
-        .object({
-          viewId: z.string().openapi({
-            description: 'You can only specify order in one view when create field',
-          }),
-          orderIndex: z.number(),
-        })
-        .optional(),
-    })
-  )
+  .extend({
+    id: z.string().startsWith(IdPrefix.Field).optional().openapi({
+      description:
+        'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. It is sometimes useful to specify an id at creation time',
+      example: 'fldxxxxxxxxxxxxxxxx',
+    }),
+    order: z
+      .object({
+        viewId: z.string().openapi({
+          description: 'You can only specify order in one view when create field',
+        }),
+        orderIndex: z.number(),
+      })
+      .optional(),
+  })
   .superRefine(refineOptions);
 
 export const updateFieldRoSchema = z.object({

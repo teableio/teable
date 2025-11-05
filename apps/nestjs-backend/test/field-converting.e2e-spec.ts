@@ -4488,7 +4488,7 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
         options: {
           ...buttonFieldRo.options,
           workflow: null,
-        },
+        } as IButtonFieldOptions,
       };
 
       await convertField(table1.id, buttonField.id, newFieldRo);

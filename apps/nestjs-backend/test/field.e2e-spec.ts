@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
+  IDatetimeFormatting,
   IFieldRo,
   IFieldVo,
   ILinkFieldOptions,
@@ -117,7 +118,7 @@ describe('OpenAPI FieldController (e2e)', () => {
             date: 'YYYY-MM-DD',
             time: 'None',
             timeZone: 'Asia/Shanghai',
-          },
+          } as IDatetimeFormatting,
         },
       };
 
@@ -412,20 +413,20 @@ describe('OpenAPI FieldController (e2e)', () => {
         } as ILinkFieldOptionsRo,
       });
 
-      await createFieldWithUnique(
-        FieldType.Rollup,
-        {
-          options: {
-            expression: 'SUM({values})',
-          },
-          lookupOptions: {
-            foreignTableId: table2.id,
-            lookupFieldId: table2.fields[0].id,
-            linkFieldId: linkField.id,
-          },
+      const rollupFieldRo: IFieldRo = {
+        type: FieldType.Rollup,
+        options: {
+          expression: 'SUM({values})',
         },
-        400
-      );
+        lookupOptions: {
+          foreignTableId: table2.id,
+          lookupFieldId: table2.fields[0].id,
+          linkFieldId: linkField.id,
+        } as ILookupOptionsRo,
+        unique: true,
+      };
+
+      await createField(table1.id, rollupFieldRo, 400);
 
       await createFieldWithUnique(FieldType.CreatedTime, undefined, 400);
 
@@ -480,20 +481,20 @@ describe('OpenAPI FieldController (e2e)', () => {
           } as ILinkFieldOptionsRo,
         });
 
-        await createFieldWithNotNull(
-          FieldType.Rollup,
-          {
-            options: {
-              expression: 'SUM({values})',
-            },
-            lookupOptions: {
-              foreignTableId: table2.id,
-              lookupFieldId: table2.fields[0].id,
-              linkFieldId: linkField.id,
-            },
+        const rollupFieldRo: IFieldRo = {
+          type: FieldType.Rollup,
+          options: {
+            expression: 'SUM({values})',
           },
-          400
-        );
+          lookupOptions: {
+            foreignTableId: table2.id,
+            lookupFieldId: table2.fields[0].id,
+            linkFieldId: linkField.id,
+          } as ILookupOptionsRo,
+          notNull: true,
+        };
+
+        await createField(table1.id, rollupFieldRo, 400);
 
         await createFieldWithNotNull(FieldType.CreatedTime, undefined, 400);
 

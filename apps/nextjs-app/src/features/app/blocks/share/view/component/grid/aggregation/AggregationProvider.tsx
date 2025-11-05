@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { IGridColumnMeta, ITableActionKey, IViewActionKey } from '@teable/core';
-import type { IAggregationRo, IShareViewAggregationsRo } from '@teable/openapi';
+import type { IShareViewAggregationsRo, StatisticsFunc } from '@teable/openapi';
 import { getShareViewAggregations } from '@teable/openapi';
 import {
   useView,
@@ -24,17 +24,20 @@ const useAggregationQuery = (): IShareViewAggregationsRo => {
 
   const field = useMemo(
     () =>
-      view?.columnMeta &&
-      Object.entries(view.columnMeta as IGridColumnMeta).reduce<Partial<IAggregationRo['field']>>(
-        (acc, [fieldId, { statisticFunc }]) => {
-          if (statisticFunc && acc) {
-            const existingArr = acc[statisticFunc] || [];
-            acc[statisticFunc] = [...existingArr, fieldId];
-          }
-          return acc;
-        },
-        {}
-      ),
+      view?.columnMeta
+        ? Object.entries(view.columnMeta as IGridColumnMeta).reduce<
+            Record<StatisticsFunc, string[]>
+          >(
+            (acc, [fieldId, { statisticFunc }]) => {
+              if (statisticFunc && acc) {
+                const existingArr = acc[statisticFunc] || [];
+                acc[statisticFunc] = [...existingArr, fieldId];
+              }
+              return acc;
+            },
+            {} as Record<StatisticsFunc, string[]>
+          )
+        : undefined,
     [view?.columnMeta]
   );
   return useMemo(

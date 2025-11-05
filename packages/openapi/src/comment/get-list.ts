@@ -32,7 +32,13 @@ export const getCommentListQueryRoSchema = z.object({
     }),
   cursor: z.string().optional().nullable(),
   includeCursor: z
-    .union([z.boolean(), z.enum(['true', 'false']).transform((value) => value === 'true')])
+    .union([
+      z.boolean(),
+      z
+        .enum(['true', 'false'])
+        .transform((value) => value === 'true')
+        .openapi({ type: 'string' }),
+    ])
     .optional(),
   direction: z.union([z.literal('forward'), z.literal('backward')]).optional(),
 });

@@ -32,6 +32,7 @@ export const LLM_PROVIDER_ICONS = {
   [LLMProviderType.OLLAMA]: Ollama,
   [LLMProviderType.AMAZONBEDROCK]: AmazonBedrock,
   [LLMProviderType.OPENROUTER]: OpenRouter,
+  [LLMProviderType.OPENAI_COMPATIBLE]: Openai,
 };
 
 export const LLM_PROVIDERS = [
@@ -140,5 +141,12 @@ export const LLM_PROVIDERS = [
     baseUrlPlaceholder: 'https://openrouter.ai/api/v1',
     modelsPlaceholder: 'openai/gpt-4o,openai/gpt-4o-mini',
     Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENROUTER],
+  },
+  {
+    value: LLMProviderType.OPENAI_COMPATIBLE,
+    label: 'OpenAI Compatible',
+    baseUrlPlaceholder: 'https://api.openai.com/v1',
+    modelsPlaceholder: 'gpt-4,gpt-4o-mini,gpt-3.5-turbo',
+    Icon: LLM_PROVIDER_ICONS[LLMProviderType.OPENAI_COMPATIBLE],
   },
 ] as const;

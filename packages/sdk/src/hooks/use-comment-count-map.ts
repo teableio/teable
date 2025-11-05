@@ -42,9 +42,11 @@ export const useCommentCountMap = (query?: IGetRecordsRo) => {
 
       if (collapsedGroupIds && collapsedGroupIds.length > LARGE_QUERY_THRESHOLD) {
         const { data } = await saveQueryParams({ params: { collapsedGroupIds } });
-        return getCommentCount(tableId!, { ...rest, queryId: data.queryId }).then(
-          ({ data }) => data
-        );
+        return getCommentCount(tableId!, {
+          ...rest,
+          collapsedGroupIds: undefined,
+          queryId: data.queryId,
+        }).then(({ data }) => data);
       }
       return getCommentCount(tableId!, queryParams).then(({ data }) => data);
     },

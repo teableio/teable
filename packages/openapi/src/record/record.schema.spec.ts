@@ -22,7 +22,7 @@ describe('recordsRoSchema', () => {
     const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
-      expect(result.error.errors[0].message).toEqual('You should at least take 1 record');
+      expect(result.error.issues[0].message).toEqual('You should at least take 1 record');
   });
 
   it('fails for invalid skip', () => {
@@ -30,7 +30,7 @@ describe('recordsRoSchema', () => {
     const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
-      expect(result.error.errors[0].message).toEqual(
+      expect(result.error.issues[0].message).toEqual(
         'You can not skip a negative count of records'
       );
   });
@@ -52,7 +52,7 @@ describe('recordsRoSchema', () => {
     const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
-      expect(result.error.errors[0].message).toEqual('Invalid input: must start with "viw"');
+      expect(result.error.issues[0].message).toEqual('Invalid input: must start with "viw"');
   });
 
   it('fails for invalid cellFormat', () => {
@@ -60,7 +60,7 @@ describe('recordsRoSchema', () => {
     const result = getRecordsRoSchema.safeParse(data);
     expect(result.success).toBe(false);
     !result.success &&
-      expect(result.error.errors[0].message).toEqual(
+      expect(result.error.issues[0].message).toEqual(
         'Error cellFormat, You should set it to "json" or "text"'
       );
   });
@@ -90,7 +90,7 @@ describe('recordSchema', () => {
     const result = recordSchema.safeParse(data);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Required');
+      expect(result.error.issues[0].message).toEqual('Required');
     }
   });
 
@@ -99,7 +99,7 @@ describe('recordSchema', () => {
     const result = recordSchema.safeParse(data);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Expected object, received string');
+      expect(result.error.issues[0].message).toEqual('Expected object, received string');
     }
   });
 
@@ -135,7 +135,7 @@ describe('recordsVoSchema', () => {
     const result = recordsVoSchema.safeParse(data);
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.errors[0].message).toEqual('Expected array, received string');
+      expect(result.error.issues[0].message).toEqual('Expected array, received string');
     }
   });
 });

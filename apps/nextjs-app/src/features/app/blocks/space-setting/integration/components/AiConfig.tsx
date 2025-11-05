@@ -67,7 +67,7 @@ export const AIConfig = (props: IAIConfigProps) => {
       return testIntegrationLLM(spaceId, {
         ...testLLM,
         modelKey: testModel,
-        ability: Object.values(chatModelAbilityType.Values),
+        ability: chatModelAbilityType.options,
       }).then((res) => {
         if (res.success) {
           return res.ability;

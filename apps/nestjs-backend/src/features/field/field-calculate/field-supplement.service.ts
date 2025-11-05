@@ -1200,7 +1200,8 @@ export class FieldSupplementService {
 
   private prepareUserField(field: IFieldRo) {
     const { name } = field;
-    const options: IUserFieldOptions = field.options || UserFieldCore.defaultOptions();
+    const options: IUserFieldOptions =
+      (field.options as IUserFieldOptions) || UserFieldCore.defaultOptions();
     const { isMultiple } = options;
     const defaultValue = options.defaultValue ? [options.defaultValue].flat() : undefined;
 

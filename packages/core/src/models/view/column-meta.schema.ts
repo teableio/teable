@@ -46,62 +46,50 @@ export const columnSchemaBase = z
     description: 'A mapping of field IDs to their corresponding column metadata.',
   });
 
-export const gridColumnSchema = columnSchemaBase.merge(
-  z.object({
-    width: z.number().optional().openapi({
-      description: 'Column width in the view.',
-    }),
-    hidden: z.boolean().optional().openapi({
-      description: 'If column hidden in the view.',
-    }),
-    statisticFunc: z.nativeEnum(StatisticsFunc).nullable().optional().openapi({
-      description: 'Statistic function of the column in the view.',
-    }),
-  })
-);
+export const gridColumnSchema = columnSchemaBase.extend({
+  width: z.number().optional().openapi({
+    description: 'Column width in the view.',
+  }),
+  hidden: z.boolean().optional().openapi({
+    description: 'If column hidden in the view.',
+  }),
+  statisticFunc: z.nativeEnum(StatisticsFunc).nullable().optional().openapi({
+    description: 'Statistic function of the column in the view.',
+  }),
+});
 
-export const kanbanColumnSchema = columnSchemaBase.merge(
-  z.object({
-    visible: z.boolean().optional().openapi({
-      description: 'If column visible in the kanban view.',
-    }),
-  })
-);
+export const kanbanColumnSchema = columnSchemaBase.extend({
+  visible: z.boolean().optional().openapi({
+    description: 'If column visible in the kanban view.',
+  }),
+});
 
-export const galleryColumnSchema = columnSchemaBase.merge(
-  z.object({
-    visible: z.boolean().optional().openapi({
-      description: 'If column visible in the gallery view.',
-    }),
-  })
-);
+export const galleryColumnSchema = columnSchemaBase.extend({
+  visible: z.boolean().optional().openapi({
+    description: 'If column visible in the gallery view.',
+  }),
+});
 
-export const calendarColumnSchema = columnSchemaBase.merge(
-  z.object({
-    visible: z.boolean().optional().openapi({
-      description: 'If column visible in the calendar view.',
-    }),
-  })
-);
+export const calendarColumnSchema = columnSchemaBase.extend({
+  visible: z.boolean().optional().openapi({
+    description: 'If column visible in the calendar view.',
+  }),
+});
 
-export const formColumnSchema = columnSchemaBase.merge(
-  z.object({
-    visible: z.boolean().optional().openapi({
-      description: 'If column visible in the view.',
-    }),
-    required: z.boolean().optional().openapi({
-      description: 'If column is required.',
-    }),
-  })
-);
+export const formColumnSchema = columnSchemaBase.extend({
+  visible: z.boolean().optional().openapi({
+    description: 'If column visible in the view.',
+  }),
+  required: z.boolean().optional().openapi({
+    description: 'If column is required.',
+  }),
+});
 
-export const pluginColumnSchema = columnSchemaBase.merge(
-  z.object({
-    hidden: z.boolean().optional().openapi({
-      description: 'If column hidden in the view.',
-    }),
-  })
-);
+export const pluginColumnSchema = columnSchemaBase.extend({
+  hidden: z.boolean().optional().openapi({
+    description: 'If column hidden in the view.',
+  }),
+});
 
 export const columnSchema = z.union([
   gridColumnSchema.strict(),

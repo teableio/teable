@@ -8,11 +8,9 @@ import { planFieldVoSchema } from './plan';
 
 export const PLAN_FIELD_CONVERT = '/table/{tableId}/field/{fieldId}/plan';
 
-export const planFieldConvertVoSchema = planFieldVoSchema.partial().merge(
-  z.object({
-    skip: z.boolean().optional(),
-  })
-);
+export const planFieldConvertVoSchema = planFieldVoSchema.partial().extend({
+  skip: z.boolean().optional(),
+});
 
 export type IPlanFieldConvertVo = z.infer<typeof planFieldConvertVoSchema>;
 

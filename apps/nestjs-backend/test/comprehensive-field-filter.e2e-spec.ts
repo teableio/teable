@@ -3,7 +3,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IFilter, IOperator } from '@teable/core';
+import type { IFilter, IOperator, IRatingFieldOptions } from '@teable/core';
 import {
   and,
   FieldKeyType,
@@ -178,7 +178,7 @@ describe('Comprehensive Field Filter Tests (e2e)', () => {
             icon: 'star',
             color: 'yellowBright',
             max: 5,
-          },
+          } as IRatingFieldOptions,
         },
       ],
     });

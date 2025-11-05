@@ -121,7 +121,7 @@ export const FieldEditor = (props: {
         options: {
           ...(field.options || {}),
           ...options,
-        },
+        } as IFieldVo['options'],
       });
     },
     [field, setFieldFn]

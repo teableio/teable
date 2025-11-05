@@ -10,7 +10,8 @@ export const getDepartmentUserRoSchema = z.object({
   includeChildrenDepartment: z
     .string()
     .transform((value) => value === 'true')
-    .optional(),
+    .optional()
+    .openapi({ type: 'string' }),
   skip: z.string().or(z.number()).transform(Number).pipe(z.number().min(0)).optional().openapi({
     example: 0,
   }),

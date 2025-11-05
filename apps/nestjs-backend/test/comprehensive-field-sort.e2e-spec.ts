@@ -4,7 +4,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { ISortItem } from '@teable/core';
+import type { IRatingFieldOptions, ISortItem } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -146,7 +146,7 @@ describe('Comprehensive Field Sort Tests (e2e)', () => {
             icon: 'star',
             color: 'yellowBright',
             max: 5,
-          },
+          } as IRatingFieldOptions,
         },
       ],
     });

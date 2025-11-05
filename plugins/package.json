@@ -49,8 +49,7 @@
     "react-i18next": "14.1.0",
     "react-use": "17.5.1",
     "recharts": "2.12.3",
-    "zod": "3.25.76",
-    "zod-i18n-map": "2.27.0"
+    "zod": "4.1.8"
   },
   "devDependencies": {
     "@types/lodash": "4.17.0",

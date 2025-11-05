@@ -73,7 +73,7 @@ export const KanbanContainer = () => {
           if (stack == null) return;
           return choiceMap[stack.data as string];
         })
-        .filter(Boolean);
+        .filter((choice): choice is NonNullable<typeof choice> => Boolean(choice));
       stackField.convert({
         type: fieldType,
         options: { ...stackField.options, choices: newChoices },

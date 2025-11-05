@@ -8,8 +8,8 @@ import fetch from 'node-fetch';
 import sizeof from 'object-sizeof';
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { z } from 'zod';
 import type { ZodType } from 'zod';
-import z from 'zod';
 import { CustomHttpException } from '../../../custom.exception';
 import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
@@ -29,27 +29,38 @@ export const parseBoolean = (value: unknown): boolean => {
 };
 
 const validateZodSchemaMap: Record<IValidateTypes, ZodType> = {
-  [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine((value: unknown) => {
-    if (typeof value === 'boolean') {
-      return true;
-    }
-    if (
-      typeof value === 'string' &&
-      (value.toLowerCase() === 'false' || value.toLowerCase() === 'true')
-    ) {
-      return true;
-    }
-    return false;
-  }),
-  [FieldType.Date]: z.any().refine((value) => {
-    return new Date(value).toString() !== 'Invalid Date';
-  }),
-  [FieldType.Number]: z.any().refine((value) => {
-    return !isNaN(Number(value));
-  }),
+  [FieldType.Checkbox]: z.union([z.string(), z.boolean()]).refine(
+    (value: unknown) => {
+      if (typeof value === 'boolean') {
+        return true;
+      }
+      if (
+        typeof value === 'string' &&
+        (value.toLowerCase() === 'false' || value.toLowerCase() === 'true')
+      ) {
+        return true;
+      }
+      return false;
+    },
+    { message: 'Invalid checkbox value' }
+  ),
+  [FieldType.Date]: z.any().refine(
+    (value) => {
+      return new Date(value).toString() !== 'Invalid Date';
+    },
+    { message: 'Invalid date' }
+  ),
+  [FieldType.Number]: z.any().refine(
+    (value) => {
+      return !isNaN(Number(value));
+    },
+    { message: 'Invalid number' }
+  ),
   [FieldType.LongText]: z
     .string()
-    .refine((value) => z.string().safeParse(value) && /\n/.test(value)),
+    .refine((value) => z.string().safeParse(value) && /\n/.test(value), {
+      message: 'Invalid long text',
+    }),
   [FieldType.SingleLineText]: z.string(),
 };
 
@@ -382,7 +393,7 @@ export class ExcelImporter extends Importer {
 
     const asyncRs = async (stream: NodeJS.ReadableStream): Promise<IParseResult> =>
       new Promise((res, rej) => {
-        const buffers: Buffer[] = [];
+        const buffers: Uint8Array[] = [];
         stream.on('data', function (data) {
           buffers.push(data);
         });

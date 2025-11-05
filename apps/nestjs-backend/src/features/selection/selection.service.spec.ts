@@ -2,7 +2,13 @@
 import { faker } from '@faker-js/faker';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
-import type { IFieldOptionsVo, IFieldVo } from '@teable/core';
+import type {
+  IDatetimeFormatting,
+  IFieldOptionsVo,
+  IFieldVo,
+  IMultiNumberShowAs,
+  ISingleLineTextFieldOptions,
+} from '@teable/core';
 import {
   CellValueType,
   Colors,
@@ -599,7 +605,7 @@ describe('selectionService', () => {
           date: 'MM/DD/YYYY',
           time: 'HH:mm',
           timeZone: TIME_ZONE_LIST[0],
-        },
+        } as IDatetimeFormatting,
       };
 
       const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
@@ -616,7 +622,7 @@ describe('selectionService', () => {
         showAs: {
           type: faker.helpers.arrayElement(Object.values(SingleLineTextDisplayType)),
         },
-      };
+      } as ISingleLineTextFieldOptions;
 
       const result = selectionService['optionsRoToVoByCvType'](cellValueType, options);
 
@@ -718,7 +724,7 @@ describe('selectionService', () => {
             color: Colors.Blue,
             showValue: true,
             maxValue: 100,
-          },
+          } as IMultiNumberShowAs,
         },
         dbFieldType: DbFieldType.Text,
         dbFieldName: '',
@@ -775,7 +781,7 @@ describe('selectionService', () => {
             color: Colors.Blue,
             showValue: true,
             maxValue: 100,
-          },
+          } as IMultiNumberShowAs,
         },
         dbFieldType: DbFieldType.Integer,
         dbFieldName: '',

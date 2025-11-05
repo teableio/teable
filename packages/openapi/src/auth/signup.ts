@@ -16,21 +16,19 @@ export const refMetaSchema = z.object({
 
 export type IRefMeta = z.infer<typeof refMetaSchema>;
 
-export const signupSchema = signinSchema.merge(
-  z.object({
-    defaultSpaceName: z.string().optional(),
-    refMeta: refMetaSchema.optional(),
-    password: signupPasswordSchema,
-    verification: z
-      .object({
-        code: z.string(),
-        token: z.string(),
-      })
-      .optional(),
-    inviteCode: z.string().optional(),
-    turnstileToken: z.string().optional(),
-  })
-);
+export const signupSchema = signinSchema.extend({
+  defaultSpaceName: z.string().optional(),
+  refMeta: refMetaSchema.optional(),
+  password: signupPasswordSchema,
+  verification: z
+    .object({
+      code: z.string(),
+      token: z.string(),
+    })
+    .optional(),
+  inviteCode: z.string().optional(),
+  turnstileToken: z.string().optional(),
+});
 
 export type ISignup = z.infer<typeof signupSchema>;
 

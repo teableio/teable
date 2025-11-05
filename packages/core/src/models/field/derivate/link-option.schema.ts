@@ -65,10 +65,8 @@ export const linkFieldOptionsRoSchema = linkFieldOptionsSchema
     visibleFieldIds: true,
     filter: true,
   })
-  .merge(
-    z.object({
-      lookupFieldId: z.string().optional(),
-    })
-  );
+  .extend({
+    lookupFieldId: z.string().optional(),
+  });
 
 export type ILinkFieldOptionsRo = z.infer<typeof linkFieldOptionsRoSchema>;

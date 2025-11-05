@@ -68,8 +68,8 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
 
   const onOptionUpdate = () => {
     const value = inputRef.current?.value;
-    const newChoice = { ...renamingChoice, name: value };
-    if (!value || isEqual(value, stackData)) return;
+    if (!value || !renamingChoice || isEqual(value, stackData)) return;
+    const newChoice: ISelectFieldChoice = { ...renamingChoice, name: value };
     const newChoices = choices.map((choice) => {
       if (choice.name === stackData) return newChoice;
       return choice;

@@ -121,7 +121,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
           type: FieldType.Link,
           options: {
             foreignTableId: subTable.id,
-            relationship: 'manyMany',
+            relationship: Relationship.ManyMany,
           },
         })
       ).data;
@@ -386,7 +386,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         options: {
           visibleFieldIds: null,
           foreignTableId: table.id,
-          relationship: 'manyMany',
+          relationship: Relationship.ManyMany,
           filter: null,
           filterByViewId: null,
         },
@@ -452,7 +452,7 @@ describe('OpenAPI TableController for duplicate (e2e)', () => {
         options: {
           visibleFieldIds: null,
           foreignTableId: table.id,
-          relationship: 'manyMany',
+          relationship: Relationship.ManyMany,
           filter: null,
           filterByViewId: null,
         },

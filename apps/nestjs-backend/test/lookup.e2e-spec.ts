@@ -12,6 +12,7 @@ import type {
   ILookupLinkOptions,
   ILookupOptionsRo,
   INumberFieldOptions,
+  IUnionShowAs,
   LinkFieldCore,
 } from '@teable/core';
 import {
@@ -666,7 +667,7 @@ describe('OpenAPI Lookup field (e2e)', () => {
             maxValue: 100,
             showValue: true,
             type: 'ring',
-          },
+          } as IUnionShowAs,
         },
         lookupOptions: {
           foreignTableId: table1.id,

@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Keyv from 'keyv';
 import { floor } from 'lodash';
+import type { RedlockAbortSignal } from 'redlock';
 import Redlock, { ExecutionError, ResourceLockedError } from 'redlock';
 import { CacheMetricsService } from './cache-metrics/metrics.service';
 import type { ICacheOptions, ICacheStats, IPerformanceCacheStore } from './types';
@@ -62,7 +63,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         automaticExtensionThreshold: 500, // Auto-extend if <500ms remaining
       });
 
-      this.redlock.on('error', (error) => {
+      this.redlock.on('error', (error: Error) => {
         // Check if it's a ResourceLockedError (normal during contention)
         if (error.name === 'ResourceLockedError') {
           this.logger.debug(`Resource locked (normal contention): ${error.message}`);
@@ -332,27 +333,31 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     const lockResource = `${this.lockPrefix}:${cacheKeyStr}`;
     try {
       // Use redlock.using for automatic lock management
-      return await this.redlock!.using([lockResource], 10000, async (signal) => {
-        // Check if lock extension failed
-        if (signal.aborted) {
-          throw signal.error;
-        }
+      return await this.redlock!.using(
+        [lockResource],
+        10000,
+        async (signal: RedlockAbortSignal) => {
+          // Check if lock extension failed
+          if (signal.aborted) {
+            throw signal.error;
+          }
 
-        // Check cache again in case another instance already populated it
-        const cachedAfterLock = await this.get(key, options);
-        if (cachedAfterLock !== null) {
-          this.logger.debug(`Cache populated by another instance: ${cacheKeyStr}`);
-          return cachedAfterLock?.data as TResult;
-        }
+          // Check cache again in case another instance already populated it
+          const cachedAfterLock = await this.get(key, options);
+          if (cachedAfterLock !== null) {
+            this.logger.debug(`Cache populated by another instance: ${cacheKeyStr}`);
+            return cachedAfterLock?.data as TResult;
+          }
 
-        // Check again before executing (in case of long operations)
-        if (signal.aborted) {
-          throw signal.error;
+          // Check again before executing (in case of long operations)
+          if (signal.aborted) {
+            throw signal.error;
+          }
+          // Execute and cache the result
+          this.logger.debug(`Executing with distributed lock: ${cacheKeyStr}`);
+          return await this.executeAndCache(key, fn, options);
         }
-        // Execute and cache the result
-        this.logger.debug(`Executing with distributed lock: ${cacheKeyStr}`);
-        return await this.executeAndCache(key, fn, options);
-      });
+      );
     } catch (error: unknown) {
       if (error instanceof ResourceLockedError || error instanceof ExecutionError) {
         this.logger.error(`Redlock error for ${cacheKeyStr}: ${error}`);

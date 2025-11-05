@@ -67,8 +67,8 @@ describe('majorFieldKeysChanged', () => {
           formatting: {
             ...(formulaField.options as IFormulaFieldOptions).formatting,
             precision: 2,
-          },
-        },
+          } as INumberFormatting,
+        } as IFormulaFieldOptions,
       })
     ).toBe(false);
   });

@@ -28,7 +28,7 @@ export const datetimeFormattingSchema = z
         'the display formatting of the date. you can use the following presets: ' +
         Object.values(DateFormattingPreset).join(', '),
     }),
-    time: z.nativeEnum(TimeFormatting).openapi({
+    time: z.enum(TimeFormatting).openapi({
       description:
         'the display formatting of the time. you can use the following presets: ' +
         Object.values(TimeFormatting).join(', '),
@@ -43,7 +43,7 @@ export const datetimeFormattingSchema = z
       'caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
   });
 
-export type ITimeZoneString = z.infer<typeof timeZoneStringSchema>;
+export type ITimeZoneString = string;
 
 export type IDatetimeFormatting = z.infer<typeof datetimeFormattingSchema>;
 

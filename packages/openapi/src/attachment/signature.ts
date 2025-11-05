@@ -41,7 +41,9 @@ export const signatureVoSchema = z.object({
   }),
   uploadMethod: z.string().openapi({ example: 'POST', description: 'Upload method' }),
   token: z.string().openapi({ example: 'xxxxxxxx', description: 'Secret key' }),
-  requestHeaders: z.record(z.unknown()).openapi({ example: { 'Content-Type': 'image/png' } }),
+  requestHeaders: z
+    .record(z.string(), z.unknown())
+    .openapi({ example: { 'Content-Type': 'image/png' } }),
 });
 
 export type SignatureVo = z.infer<typeof signatureVoSchema>;

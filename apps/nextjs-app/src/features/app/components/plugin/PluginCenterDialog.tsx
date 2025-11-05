@@ -71,9 +71,11 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
             )}
           >
             {plugins?.map((plugin) => {
-              const name = get(plugin.i18n, [language, 'name']) ?? plugin.name;
-              const description = get(plugin.i18n, [language, 'description']) ?? plugin.description;
-              const detailDesc = get(plugin.i18n, [language, 'detailDesc']) ?? plugin.detailDesc;
+              const name = (get(plugin.i18n, [language, 'name']) ?? plugin.name) as string;
+              const description = (get(plugin.i18n, [language, 'description']) ??
+                plugin.description) as string | undefined;
+              const detailDesc = (get(plugin.i18n, [language, 'detailDesc']) ??
+                plugin.detailDesc) as string | undefined;
               return (
                 <button
                   key={plugin.id}

@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { axios } from '../axios';
 
 export const queryParamsRoSchema = z.object({
-  params: z.record(z.unknown()),
+  params: z.record(z.string(), z.unknown()),
 });
 
 export type IQueryParamsRo = z.infer<typeof queryParamsRoSchema>;

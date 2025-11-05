@@ -6,7 +6,8 @@ export const singlelineTextFieldOptionsSchema = z.object({
   defaultValue: z
     .string()
     .optional()
-    .transform((value) => (typeof value === 'string' ? value.trim() : value)),
+    .transform((value) => (typeof value === 'string' ? value.trim() : value))
+    .optional(),
 });
 
 export type ISingleLineTextFieldOptions = z.infer<typeof singlelineTextFieldOptionsSchema>;

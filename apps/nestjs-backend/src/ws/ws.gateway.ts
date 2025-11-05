@@ -3,7 +3,7 @@ import type { OnGatewayConnection, OnGatewayDisconnect, OnGatewayInit } from '@n
 import { WebSocketGateway } from '@nestjs/websockets';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Request } from 'express';
-import type { Server } from 'ws';
+import type WebSocketLib from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 
 @WebSocketGateway({ path: '/socket', perMessageDeflate: true })
@@ -20,7 +20,7 @@ export class WsGateway implements OnGatewayInit, OnGatewayConnection, OnGatewayD
     this.logger.log('ws:on:connection', client);
   }
 
-  afterInit(server: Server) {
+  afterInit(server: WebSocketLib.Server) {
     this.logger.log('WsGateway afterInit');
     server.on('connection', async (webSocket, request: Request) => {
       try {

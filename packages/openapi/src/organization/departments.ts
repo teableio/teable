@@ -11,7 +11,8 @@ export const getDepartmentListRoSchema = z.object({
   includeChildrenDepartment: z
     .string()
     .transform((value) => value === 'true')
-    .optional(),
+    .optional()
+    .openapi({ type: 'string' }),
 });
 
 export type IGetDepartmentListRo = z.infer<typeof getDepartmentListRoSchema>;

@@ -46,7 +46,7 @@ export const recordSchema = z.object({
     description: 'The record id.',
   }),
   name: z.string().optional().openapi({ description: 'primary field value' }),
-  fields: z.record(z.unknown()).openapi({
+  fields: z.record(z.string(), z.unknown()).openapi({
     description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
   }),
   autoNumber: z.number().optional().openapi({

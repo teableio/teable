@@ -105,7 +105,7 @@ export function AIConfigForm({
     return testLLM({
       ...testLLMProvider,
       modelKey: testModelKey,
-      ability: Object.values(chatModelAbilityType.Values),
+      ability: chatModelAbilityType.options,
     }).then((res) => {
       if (res.success) {
         return res.ability;

@@ -21,12 +21,15 @@ export const getPluginCenterListRoSchema = z.object({
         .safeParse(JSON.parse(value));
       if (!parsingResult.success) {
         parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { path, ...issueWithoutPath } = issue;
+          ctx.addIssue(issueWithoutPath);
         });
         return z.NEVER;
       }
       return Array.from(new Set(parsingResult.data));
-    }),
+    })
+    .openapi({ type: 'string' }),
 });
 
 export type IGetPluginCenterListRo = z.infer<typeof getPluginCenterListRoSchema>;

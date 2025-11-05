@@ -10,9 +10,7 @@ export type { IRecord } from '@teable/core';
 
 export const fieldKeyTypeRoSchema = z
   .nativeEnum(FieldKeyType, {
-    errorMap: () => ({
-      message: 'Error fieldKeyType, You should set it to "name" or "id" or "dbFieldName"',
-    }),
+    message: 'Error fieldKeyType, You should set it to "name" or "id" or "dbFieldName"',
   })
   .default(FieldKeyType.Name) // is not work with optional()...
   .transform((v) => v ?? FieldKeyType.Name)
@@ -49,7 +47,7 @@ export const getRecordQuerySchema = z.object({
     }),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
+      message: 'Error cellFormat, You should set it to "json" or "text"',
     })
     .default(CellFormat.Json)
     .optional()

@@ -19,10 +19,11 @@ export enum LLMProviderType {
   OLLAMA = 'ollama',
   AMAZONBEDROCK = 'amazonBedrock',
   OPENROUTER = 'openRouter',
+  OPENAI_COMPATIBLE = 'openaiCompatible',
 }
 
 export const llmProviderSchema = z.object({
-  type: z.nativeEnum(LLMProviderType),
+  type: z.enum(LLMProviderType),
   name: z.string(),
   apiKey: z.string().optional(),
   baseUrl: z.string().url().optional(),
@@ -65,11 +66,9 @@ export const aiConfigSchema = z.object({
 
 export type IAIConfig = z.infer<typeof aiConfigSchema>;
 
-export const aiConfigVoSchema = aiConfigSchema.merge(
-  z.object({
-    enable: z.boolean().optional(),
-  })
-);
+export const aiConfigVoSchema = aiConfigSchema.extend({
+  enable: z.boolean().optional(),
+});
 
 export const appConfigSchema = z.object({
   apiKey: z.string().optional(),

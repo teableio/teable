@@ -13,8 +13,15 @@ import type {
 } from '@teable/openapi';
 import { chatModelAbilityType, UploadType } from '@teable/openapi';
 import { generateText } from 'ai';
-import type { Attachment, LanguageModel } from 'ai';
+import type { LanguageModel, TextPart, FilePart } from 'ai';
 import { uniq } from 'lodash';
+
+// Attachment type for AI SDK 5.0
+type IAttachment = {
+  url: string;
+  contentType?: string;
+  name?: string;
+};
 import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { CustomHttpException } from '../../../custom.exception';
@@ -95,7 +102,7 @@ export class SettingOpenApiService {
     };
   }
 
-  private async testAttachments(modelInstance: LanguageModel, attachments: Attachment[]) {
+  private async testAttachments(modelInstance: LanguageModel, attachments: IAttachment[]) {
     if (!attachments?.length) {
       return undefined;
     }
@@ -103,13 +110,23 @@ export class SettingOpenApiService {
     const testPrompt = 'Hello, please respond with "Connection successful!"';
 
     try {
+      const textPart: TextPart = {
+        type: 'text',
+        text: testPrompt,
+      };
+
+      const fileParts: FilePart[] = attachments.map((attachment) => ({
+        type: 'file' as const,
+        data: attachment.url,
+        mediaType: attachment.contentType || 'application/octet-stream',
+      }));
+
       const res = await generateText({
-        model: modelInstance as LanguageModel,
+        model: modelInstance,
         messages: [
           {
             role: 'user',
-            content: testPrompt,
-            experimental_attachments: attachments,
+            content: [textPart, ...fileParts],
           },
         ],
         temperature: 1,
@@ -135,7 +152,7 @@ export class SettingOpenApiService {
     const testAbilities = uniq(ability);
     const supportAbilities: ITestLLMRo['ability'] = [];
 
-    if (testAbilities.includes(chatModelAbilityType.Enum.image)) {
+    if (testAbilities.includes(chatModelAbilityType.enum.image)) {
       const supportImage = await this.testAttachments(modelInstance, [
         {
           url: getEmptyImageDataURL(),
@@ -144,10 +161,10 @@ export class SettingOpenApiService {
         },
       ]);
       if (supportImage) {
-        supportAbilities.push(chatModelAbilityType.Enum.image);
+        supportAbilities.push(chatModelAbilityType.enum.image);
       }
     }
-    if (testAbilities.includes(chatModelAbilityType.Enum.pdf)) {
+    if (testAbilities.includes(chatModelAbilityType.enum.pdf)) {
       const supportPDF = await this.testAttachments(modelInstance, [
         {
           url: getEmptyPDFDataURL(),
@@ -156,7 +173,7 @@ export class SettingOpenApiService {
         },
       ]);
       if (supportPDF) {
-        supportAbilities.push(chatModelAbilityType.Enum.pdf);
+        supportAbilities.push(chatModelAbilityType.enum.pdf);
       }
     }
 
@@ -183,13 +200,17 @@ export class SettingOpenApiService {
 
       const provider = modelProviders[type];
 
-      const providerOptions = getAdaptedProviderOptions(type, { baseURL: baseUrl, apiKey });
+      const providerOptions = getAdaptedProviderOptions(type, {
+        name: model,
+        baseURL: baseUrl,
+        apiKey,
+      });
       const modelProvider = provider({
         ...providerOptions,
       }) as OpenAIProvider;
-      const modelInstance = modelProvider(model);
+      const modelInstance = modelProvider(model) as unknown as LanguageModel;
       const { text } = await generateText({
-        model: modelInstance as LanguageModel,
+        model: modelInstance,
         prompt: testPrompt,
         temperature: 1,
       });

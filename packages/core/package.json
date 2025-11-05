@@ -39,7 +39,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "6.4.0",
+    "@asteasolutions/zod-to-openapi": "8.1.0",
     "@httpx/dsn-parser": "1.8.4",
     "@types/color": "3.0.6",
     "@types/papaparse": "5.3.14",
@@ -54,8 +54,8 @@
     "papaparse": "5.4.1",
     "reflect-metadata": "0.2.1",
     "ts-pattern": "5.0.8",
-    "zod": "3.25.76",
-    "zod-validation-error": "3.0.3"
+    "zod": "4.1.8",
+    "zod-validation-error": "4.0.2"
   },
   "devDependencies": {
     "@size-limit/file": "11.1.2",

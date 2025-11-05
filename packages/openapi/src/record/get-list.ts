@@ -43,22 +43,19 @@ export const queryBaseSchema = z.object({
     deprecated: true,
   }),
   filter: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (value == null) {
-        return value;
+    .preprocess((val) => {
+      if (val == null) return val;
+      // If it's a string, parse it to object
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val; // Let the schema validation handle the error
+        }
       }
-
-      const parsingResult = filterSchema.safeParse(JSON.parse(value));
-      if (!parsingResult.success) {
-        parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
-        });
-        return z.NEVER;
-      }
-      return parsingResult.data;
-    })
+      // If it's already an object, return as-is
+      return val;
+    }, filterSchema.optional())
     .openapi({
       type: 'string',
       description: FILTER_DESCRIPTION,
@@ -71,14 +68,17 @@ export const queryBaseSchema = z.object({
         z.string(),
         z.string(),
         z.union([
-          z.string().transform((val) => {
-            if (val === 'true') {
+          z
+            .string()
+            .transform((val) => {
+              if (val === 'true') {
+                return true;
+              } else if (val === 'false') {
+                return false;
+              }
               return true;
-            } else if (val === 'false') {
-              return false;
-            }
-            return true;
-          }),
+            })
+            .openapi({ type: 'string' }),
           z.boolean(),
         ]),
       ]),
@@ -125,65 +125,57 @@ export const orderBySchema = sortItemSchema.array().openapi({
 // with orderBy for content related fetch
 export const contentQueryBaseSchema = queryBaseSchema.extend({
   orderBy: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (value == null) {
-        return value;
+    .preprocess((val) => {
+      if (val == null) return val;
+      // If it's a string, parse it to object
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val; // Let the schema validation handle the error
+        }
       }
-
-      const parsingResult = orderBySchema.safeParse(JSON.parse(value));
-      if (!parsingResult.success) {
-        parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
-        });
-        return z.NEVER;
-      }
-      return parsingResult.data;
-    })
+      // If it's already an object, return as-is
+      return val;
+    }, orderBySchema.optional())
     .openapi({
       type: 'string',
       description: orderByDescription,
     }),
   groupBy: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (value == null) {
-        return value;
+    .preprocess((val) => {
+      if (val == null) return val;
+      // If it's a string, parse it to object
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val; // Let the schema validation handle the error
+        }
       }
-
-      const parsingResult = groupSchema.safeParse(JSON.parse(value));
-      if (!parsingResult.success) {
-        parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
-        });
-        return z.NEVER;
-      }
-      return parsingResult.data;
-    })
+      // If it's already an object, return as-is
+      return val;
+    }, groupSchema.optional())
     .openapi({
       type: 'string',
       description: 'An array of group objects that specifies how the records should be grouped.',
     }),
   collapsedGroupIds: z
-    .string()
-    .optional()
-    .transform((value, ctx) => {
-      if (value == null) {
-        return value;
+    .preprocess((val) => {
+      if (val == null) return val;
+      // If it's a string, parse it to array
+      if (typeof val === 'string') {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return val; // Let the schema validation handle the error
+        }
       }
-
-      const parsingResult = z.array(z.string()).safeParse(JSON.parse(value));
-      if (!parsingResult.success) {
-        parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
-        });
-        return z.NEVER;
-      }
-      return parsingResult.data;
-    })
+      // If it's already an array, return as-is
+      return val;
+    }, z.array(z.string()).optional())
     .openapi({
+      type: 'string',
       description: 'An array of group ids that specifies which groups are collapsed',
     }),
   queryId: z.string().optional().openapi({
@@ -192,7 +184,7 @@ export const contentQueryBaseSchema = queryBaseSchema.extend({
   }),
 });
 
-export const getRecordsRoSchema = getRecordQuerySchema.merge(contentQueryBaseSchema).extend({
+export const getRecordsRoSchema = getRecordQuerySchema.extend(contentQueryBaseSchema.shape).extend({
   take: z
     .string()
     .or(z.number())

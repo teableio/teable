@@ -3,8 +3,7 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "rootDir": "src",
-    "paths": {},
-    "types": ["@ai-sdk/ui-utils"]
+    "paths": {}
   },
   "exclude": ["**/node_modules", "**/.*/", "**/*spec.ts", "./dist", "./coverage"],
   "include": ["src"]

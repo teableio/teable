@@ -9,21 +9,22 @@ export { StatisticsFunc } from '@teable/core';
 
 export const aggregationFieldSchema = z.object({
   fieldId: z.string(),
-  statisticFunc: z.nativeEnum(StatisticsFunc),
+  statisticFunc: z.enum(StatisticsFunc),
   alias: z.string().optional(),
 });
 
 export type IAggregationField = z.infer<typeof aggregationFieldSchema>;
 
 export const aggregationRoSchema = queryBaseSchema
-  .merge(contentQueryBaseSchema.pick({ groupBy: true }))
   .extend({
-    field: z.record(z.nativeEnum(StatisticsFunc), z.string().array()).optional(),
-  });
+    ...contentQueryBaseSchema.pick({ groupBy: true }).partial().shape,
+    field: z.partialRecord(z.enum(StatisticsFunc), z.string().array()),
+  })
+  .partial();
 
 export type IAggregationRo = z.infer<typeof aggregationRoSchema>;
 
-export const aggFuncSchema = z.nativeEnum(StatisticsFunc);
+export const aggFuncSchema = z.enum(StatisticsFunc);
 
 export const rawAggregationsValueSchema = z.object({
   value: z.union([z.string(), z.number()]).nullable(),

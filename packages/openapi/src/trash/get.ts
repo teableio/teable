@@ -23,12 +23,10 @@ export const userMapVoSchema = z.record(
       email: true,
       avatar: true,
     })
-    .merge(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-      })
-    )
+    .extend({
+      id: z.string(),
+      name: z.string(),
+    })
 );
 
 export type IUserMapVo = z.infer<typeof userMapVoSchema>;

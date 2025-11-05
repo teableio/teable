@@ -450,8 +450,9 @@ export const timeZoneStringSchema = z
         return false;
       }
     },
-    (value) => ({ message: `"${value}" is not a valid timezone` })
+    { message: 'Invalid timezone' }
   )
   .openapi({
+    type: 'string',
     description: 'The time zone that should be used to format dates',
   });

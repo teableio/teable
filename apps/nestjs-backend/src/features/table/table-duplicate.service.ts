@@ -563,7 +563,7 @@ export class TableDuplicateService {
           ]),
           // duplicate link field always be one-way, consider that advanced auth control etc.
           isOneWay: true,
-        },
+        } as ILinkFieldOptions,
       });
       await this.fieldDuplicateService.replenishmentConstraint(newField.id, targetTableId, order, {
         notNull,

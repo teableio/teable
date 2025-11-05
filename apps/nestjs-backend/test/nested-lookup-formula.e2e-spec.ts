@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, ILookupOptionsRo } from '@teable/core';
+import type { IFieldRo, ILookupOptionsRo, INumberFieldOptions } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, NumberFormattingType } from '@teable/core';
 import {
   createField,
@@ -34,7 +34,7 @@ describe('Nested Lookup via Formula target (e2e)', () => {
     const numberField: IFieldRo = {
       name: 'Count',
       type: FieldType.Number,
-      options: { formatting: { type: 'decimal', precision: 0 } },
+      options: { formatting: { type: 'decimal', precision: 0 } } as INumberFieldOptions,
     };
 
     const table1 = await createTable(baseId, {

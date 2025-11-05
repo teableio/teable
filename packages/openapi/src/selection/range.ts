@@ -58,7 +58,9 @@ export const rangesQuerySchema = contentQueryBaseSchema.extend({
       const parsingResult = rangesSchema.safeParse(JSON.parse(value));
       if (!parsingResult.success) {
         parsingResult.error.issues.forEach((issue) => {
-          ctx.addIssue(issue);
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          const { path, ...issueWithoutPath } = issue;
+          ctx.addIssue(issueWithoutPath);
         });
         return z.NEVER;
       }

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo, ILookupOptionsRo } from '@teable/core';
-import { FieldKeyType, FieldType, Relationship } from '@teable/core';
+import { FieldKeyType, FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   createField,
@@ -40,7 +40,7 @@ describe('Nested Lookup Field (e2e)', () => {
         name: 'Count',
         type: FieldType.Number,
         options: {
-          formatting: { precision: 0, type: 'decimal' },
+          formatting: { precision: 0, type: NumberFormattingType.Decimal },
         },
       };
 

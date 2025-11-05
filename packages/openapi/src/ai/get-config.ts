@@ -48,11 +48,9 @@ export const modelDefinationMapSchema = z.record(z.string(), modelDefinationSche
 
 export type IModelDefinationMap = z.infer<typeof modelDefinationMapSchema>;
 
-export const getAIConfigSchema = aiConfigSchema.merge(
-  z.object({
-    modelDefinationMap: modelDefinationMapSchema.optional(),
-  })
-);
+export const getAIConfigSchema = aiConfigSchema.extend({
+  modelDefinationMap: modelDefinationMapSchema.optional(),
+});
 
 export type IGetAIConfig = z.infer<typeof getAIConfigSchema>;
 

@@ -16,8 +16,8 @@ export const duplicateTableVoSchema = tableFullVoSchema
     records: true,
   })
   .extend({
-    viewMap: z.record(z.string()),
-    fieldMap: z.record(z.string()),
+    viewMap: z.record(z.string(), z.string()),
+    fieldMap: z.record(z.string(), z.string()),
   });
 
 export type IDuplicateTableVo = z.infer<typeof duplicateTableVoSchema>;

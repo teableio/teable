@@ -37,17 +37,15 @@ export const publicSettingVoSchema = settingVoSchema
     enableWaitlist: true,
     createdTime: true,
   })
-  .merge(
-    z.object({
-      aiConfig: publicAiConfigSchema.nullable(),
-      webSearchEnabled: z.boolean().optional(),
-      appGenerationEnabled: z.boolean().optional(),
-      turnstileSiteKey: z.string().nullable().optional(),
-      changeEmailSendCodeMailRate: z.number().optional(),
-      resetPasswordSendMailRate: z.number().optional(),
-      signupVerificationSendCodeMailRate: z.number().optional(),
-    })
-  );
+  .extend({
+    aiConfig: publicAiConfigSchema.nullable(),
+    webSearchEnabled: z.boolean().optional(),
+    appGenerationEnabled: z.boolean().optional(),
+    turnstileSiteKey: z.string().nullable().optional(),
+    changeEmailSendCodeMailRate: z.number().optional(),
+    resetPasswordSendMailRate: z.number().optional(),
+    signupVerificationSendCodeMailRate: z.number().optional(),
+  });
 export type IPublicSettingVo = z.infer<typeof publicSettingVoSchema>;
 
 export const GET_PUBLIC_SETTING = '/admin/setting/public';

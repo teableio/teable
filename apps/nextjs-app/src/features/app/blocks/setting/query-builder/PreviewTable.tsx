@@ -1,6 +1,6 @@
 import { nullsToUndefinedShallow } from '@teable/core';
 import { ChevronLeft, ChevronRight } from '@teable/icons';
-import { getRecords, type IGetRecordsRo } from '@teable/openapi';
+import { getRecords, type IGetRecordsRo, type IQueryBaseRo } from '@teable/openapi';
 import type { ICell, ICellItem } from '@teable/sdk/components';
 import {
   CellType,
@@ -35,9 +35,13 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
   useEffect(() => {
     if (tableId == null) return;
 
-    Table.getRowCount(tableId, nullsToUndefinedShallow(query) as IGetRecordsRo).then((res) => {
-      setRowCount(res.data.rowCount);
-    });
+    // Extract only IQueryBaseRo fields from query
+    const { projection, cellFormat, fieldKeyType, take, skip, ...queryBaseParams } = query;
+    Table.getRowCount(tableId, nullsToUndefinedShallow(queryBaseParams) as IQueryBaseRo).then(
+      (res) => {
+        setRowCount(res.data.rowCount);
+      }
+    );
   }, [tableId, query]);
 
   const isHydrated = useIsHydrated();

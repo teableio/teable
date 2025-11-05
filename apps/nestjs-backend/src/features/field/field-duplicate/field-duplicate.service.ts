@@ -94,7 +94,7 @@ export class FieldDuplicateService {
           workflow: undefined,
         },
       };
-    });
+    }) as IFieldWithTableIdJson[];
     return await this.createCommonFields(newFields, fieldMap);
   }
 

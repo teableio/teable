@@ -650,7 +650,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     it('should get link view limit by filter', async () => {
       const singleSelectField = table2.fields[2];
       const filter = {
-        conjunction: 'and',
+        conjunction: 'and' as const,
         filterSet: [
           {
             fieldId: singleSelectField.id,
@@ -713,7 +713,7 @@ describe('OpenAPI ShareController (e2e)', () => {
       const visibleFieldIds = fields.slice(0, 3).map((field) => field.id);
 
       const additionalFilter = {
-        conjunction: 'and',
+        conjunction: 'and' as const,
         filterSet: [
           {
             fieldId: textField.id,
@@ -767,7 +767,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     it('should clean link options after filtering field is deleted', async () => {
       const singleSelectField = table2.fields[2];
       const filter = {
-        conjunction: 'and',
+        conjunction: 'and' as const,
         filterSet: [
           {
             fieldId: singleSelectField.id,
@@ -803,7 +803,7 @@ describe('OpenAPI ShareController (e2e)', () => {
     it('should clean link options after filtering field is converted', async () => {
       const singleSelectField = table2.fields[2];
       const filter = {
-        conjunction: 'and',
+        conjunction: 'and' as const,
         filterSet: [
           {
             fieldId: singleSelectField.id,

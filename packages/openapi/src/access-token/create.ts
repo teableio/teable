@@ -21,7 +21,7 @@ export const createAccessTokenRoSchema = z.object({
     .refine(isValidDateString, {
       message: 'expiredTime: Invalid Date ',
     })
-    .openapi({ example: '2024-03-25' }),
+    .openapi({ type: 'string', example: '2024-03-25' }),
 });
 
 export type CreateAccessTokenRo = z.infer<typeof createAccessTokenRoSchema>;

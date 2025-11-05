@@ -82,7 +82,7 @@ export type IUpdateCommentRo = z.infer<typeof updateCommentRoSchema>;
 
 export const commentPatchDataSchema = z.object({
   type: z.nativeEnum(CommentPatchType),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
 });
 
 export type ICommentPatchData = z.infer<typeof commentPatchDataSchema>;

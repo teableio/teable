@@ -201,7 +201,9 @@ export const SignForm: FC<ISignForm> = (props) => {
           if (code === 'too_small') {
             return { error: t('auth:signupError.passwordLength') };
           }
-          if (code === 'invalid_string') {
+          // In Zod 4.x, string validation errors may use different codes
+          // Check for common validation failure codes
+          if (code === 'invalid_format' || code === 'custom') {
             return { error: t('auth:signupError.passwordInvalid') };
           }
         }

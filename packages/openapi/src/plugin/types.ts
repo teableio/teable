@@ -9,7 +9,7 @@ export const pluginI18nJsonSchema: z.ZodType<IPlugin18nJsonType> = z.lazy(() =>
   z.record(z.string(), z.union([z.string(), pluginI18nJsonSchema]))
 );
 
-export const pluginI18nSchema = z.record(z.enum(LOCALES), pluginI18nJsonSchema).openapi({
+export const pluginI18nSchema = z.partialRecord(z.enum(LOCALES), pluginI18nJsonSchema).openapi({
   type: 'object',
   example: {
     en: {
@@ -76,7 +76,9 @@ export const pluginConfigSchema = z
     const res = z.array(z.nativeEnum(PluginPosition)).safeParse(keys);
     if (!res.success) {
       res.error.issues.forEach((issue) => {
-        ctx.addIssue(issue);
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { path, ...issueWithoutPath } = issue;
+        ctx.addIssue(issueWithoutPath);
       });
     }
   });

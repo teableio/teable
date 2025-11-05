@@ -4,14 +4,14 @@ import { ConfigService } from '@nestjs/config';
 import WebSocketJSONStream from '@teamwork/websocket-json-stream';
 import type { Request } from 'express';
 import type { WebSocket } from 'ws';
-import { Server } from 'ws';
+import WebSocketLib from 'ws';
 import { ShareDbService } from '../share-db/share-db.service';
 
 @Injectable()
 export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   private logger = new Logger(DevWsGateway.name);
 
-  server!: Server;
+  server!: WebSocketLib.Server;
 
   constructor(
     private readonly shareDb: ShareDbService,
@@ -40,7 +40,7 @@ export class DevWsGateway implements OnModuleInit, OnModuleDestroy {
   onModuleInit() {
     const port = this.configService.get<number>('SOCKET_PORT');
 
-    this.server = new Server({ port, path: '/socket' });
+    this.server = new WebSocketLib.Server({ port, path: '/socket' });
     this.logger.log(`DevWsGateway afterInit, Port:${port}`);
 
     this.server.on('connection', this.handleConnection);

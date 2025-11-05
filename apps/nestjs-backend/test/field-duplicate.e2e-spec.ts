@@ -1,7 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable sonarjs/cognitive-complexity */
 import type { INestApplication } from '@nestjs/common';
-import type { IButtonFieldCellValue, IFieldRo, ILinkFieldOptions } from '@teable/core';
+import type {
+  IButtonFieldCellValue,
+  IFieldRo,
+  ILinkFieldOptions,
+  INumberFormatting,
+} from '@teable/core';
 import {
   Colors,
   FieldKeyType,
@@ -712,7 +717,7 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
             formatting: {
               precision: 2,
               type: 'decimal',
-            },
+            } as INumberFormatting,
             timeZone: 'Asia/Shanghai',
           },
         })

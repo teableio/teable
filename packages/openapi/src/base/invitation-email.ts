@@ -15,6 +15,7 @@ export const emailBaseInvitationRoSchema = z.object({
 export type EmailBaseInvitationRo = z.infer<typeof emailBaseInvitationRoSchema>;
 
 export const emailBaseInvitationVoSchema = z.record(
+  z.string(),
   z.object({
     invitationId: z.string(),
   })

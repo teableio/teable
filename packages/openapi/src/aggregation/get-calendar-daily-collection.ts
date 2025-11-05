@@ -12,14 +12,12 @@ export const calendarDailyCollectionRoSchema = contentQueryBaseSchema
     search: true,
     ignoreViewQuery: true,
   })
-  .merge(
-    z.object({
-      startDate: z.string(),
-      endDate: z.string(),
-      startDateFieldId: z.string(),
-      endDateFieldId: z.string(),
-    })
-  );
+  .extend({
+    startDate: z.string(),
+    endDate: z.string(),
+    startDateFieldId: z.string(),
+    endDateFieldId: z.string(),
+  });
 
 export type ICalendarDailyCollectionRo = z.infer<typeof calendarDailyCollectionRoSchema>;
 

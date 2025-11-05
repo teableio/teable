@@ -7,13 +7,15 @@ import { registerRoute, urlBuilder } from '../utils';
 
 export const AUTO_FILL_FIELD = '/table/{tableId}/field/{fieldId}/auto-fill';
 
-export const autoFillFieldRoSchema = contentQueryBaseSchema.pick({
-  viewId: true,
-  filter: true,
-  orderBy: true,
-  groupBy: true,
-  ignoreViewQuery: true,
-});
+export const autoFillFieldRoSchema = contentQueryBaseSchema
+  .pick({
+    viewId: true,
+    filter: true,
+    orderBy: true,
+    groupBy: true,
+    ignoreViewQuery: true,
+  })
+  .partial();
 
 export type IAutoFillFieldRo = z.infer<typeof autoFillFieldRoSchema>;
 

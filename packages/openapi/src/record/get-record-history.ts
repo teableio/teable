@@ -20,11 +20,9 @@ export const recordHistoryItemStateVoSchema = z.object({
       isLookup: true,
       isConditionalLookup: true,
     })
-    .merge(
-      z.object({
-        options: z.unknown(),
-      })
-    ),
+    .extend({
+      options: z.unknown(),
+    }),
   data: z.unknown(),
 });
 

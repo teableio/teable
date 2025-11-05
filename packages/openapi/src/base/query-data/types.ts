@@ -48,7 +48,7 @@ export const baseQueryJoinTypeSchema = z.nativeEnum(BaseQueryJoinType);
 export const baseQueryJoinSchema = z.object({
   type: baseQueryJoinTypeSchema,
   table: z.string(),
-  on: z.array(z.string(), z.string()).length(2),
+  on: z.tuple([z.string(), z.string()]),
 });
 
 export type IBaseQueryJoin = z.infer<typeof baseQueryJoinSchema>;

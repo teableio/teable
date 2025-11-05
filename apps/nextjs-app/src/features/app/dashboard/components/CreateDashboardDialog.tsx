@@ -86,7 +86,7 @@ export const CreateDashboardDialog = forwardRef<
                   .min(1)
                   .safeParse(name || undefined);
                 if (!valid.success) {
-                  setError(valid.error.errors?.[0].message);
+                  setError(valid.error.issues?.[0]?.message);
                   return;
                 }
                 createDashboardMutate(name);

@@ -1,5 +1,5 @@
 import { FieldType, timeZoneStringSchema } from '@teable/core';
-import z from 'zod';
+import { z } from 'zod';
 
 export enum SUPPORTEDTYPE {
   CSV = 'csv',
@@ -69,7 +69,7 @@ export const inplaceImportOptionRoSchema = z.object({
   insertConfig: z.object({
     sourceWorkSheetKey: z.string(),
     excludeFirstRow: z.boolean(),
-    sourceColumnMap: z.record(z.number().nullable()),
+    sourceColumnMap: z.record(z.string(), z.number().nullable()),
   }),
   notification: z.boolean().optional(),
 });

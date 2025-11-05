@@ -5,10 +5,11 @@
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "target": "es2022",
-    "moduleResolution": "Node",
+    "moduleResolution": "bundler",
     "declaration": true,
     "declarationDir": "./dist",
-    "module": "CommonJS",
+    "module": "ESNext",
+    "isolatedModules": false,
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,
@@ -16,9 +17,9 @@
     "paths": {
       "@teable/core": ["../../packages/core/src"],
       "@teable/openapi": ["../../packages/openapi/src"],
-      "@teable/db-main-prisma": ["../../packages/db-main-prisma/src"],
+      "@teable/db-main-prisma": ["../../packages/db-main-prisma/src"]
     },
-    "types": ["vitest/globals"],
+    "types": ["vitest/globals"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "dist"],
+  "exclude": ["**/node_modules", "**/.*/", "dist"]
 }

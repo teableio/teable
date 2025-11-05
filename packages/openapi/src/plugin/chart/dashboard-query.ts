@@ -12,7 +12,7 @@ export const getDashboardInstallPluginQueryRoSchema = z.object({
   baseId: z.string(),
   cellFormat: z
     .nativeEnum(CellFormat, {
-      errorMap: () => ({ message: 'Error cellFormat, You should set it to "json" or "text"' }),
+      message: 'Error cellFormat, You should set it to "json" or "text"',
     })
     .optional(),
 });

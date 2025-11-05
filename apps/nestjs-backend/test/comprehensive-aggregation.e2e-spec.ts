@@ -2,7 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import type { IViewVo } from '@teable/core';
+import type { IRatingFieldOptions, IViewVo } from '@teable/core';
 import {
   Colors,
   DateFormattingPreset,
@@ -120,7 +120,7 @@ describe('Comprehensive Aggregation Tests (e2e)', () => {
             icon: 'star',
             color: 'yellowBright',
             max: 5,
-          },
+          } as IRatingFieldOptions,
         },
         {
           name: 'User Field',

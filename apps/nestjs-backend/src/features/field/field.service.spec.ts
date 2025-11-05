@@ -2,7 +2,7 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { CellValueType, DbFieldType, FieldType, OpName } from '@teable/core';
-import type { IFieldVo, ISetFieldPropertyOpContext } from '@teable/core';
+import type { IFieldVo, INumberFormatting, ISetFieldPropertyOpContext } from '@teable/core';
 import { GlobalModule } from '../../global/global.module';
 import { FieldModule } from './field.module';
 import { FieldService } from './field.service';
@@ -79,7 +79,7 @@ describe('FieldService', () => {
           formatting: {
             type: 'decimal',
             precision: 2,
-          },
+          } as INumberFormatting,
         },
       };
 

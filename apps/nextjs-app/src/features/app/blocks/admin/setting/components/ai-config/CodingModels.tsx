@@ -240,7 +240,7 @@ export const CodingModels = ({
           </div>
 
           <div className="flex w-full items-center gap-2">
-            {Object.values(chatModelAbilityType.Values)
+            {chatModelAbilityType.options
               .filter((type) => type !== 'webSearch')
               .map((type) => (
                 <Button

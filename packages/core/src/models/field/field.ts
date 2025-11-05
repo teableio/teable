@@ -1,4 +1,4 @@
-import type { SafeParseReturnType } from 'zod';
+import type { ZodSafeParseResult } from 'zod';
 import type { TableDomain } from '../table';
 import type { IFilter } from '../view/filter';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
@@ -91,9 +91,9 @@ export abstract class FieldCore implements IFieldVo {
    */
   abstract repair(value: unknown): unknown;
 
-  abstract validateOptions(): SafeParseReturnType<unknown, unknown> | undefined;
+  abstract validateOptions(): ZodSafeParseResult<unknown> | undefined;
 
-  abstract validateCellValue(value: unknown): SafeParseReturnType<unknown, unknown> | undefined;
+  abstract validateCellValue(value: unknown): ZodSafeParseResult<unknown> | undefined;
 
   /**
    * Updates the dbFieldType based on the current field type, cellValueType, and isMultipleCellValue

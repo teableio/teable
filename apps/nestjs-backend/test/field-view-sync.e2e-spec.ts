@@ -307,7 +307,7 @@ describe('OpenAPI FieldController (e2e)', () => {
       options: {
         ...selectField.options,
         choices: newChoices,
-      },
+      } as ISelectFieldOptions,
     });
 
     const views = await getViews(tableId);

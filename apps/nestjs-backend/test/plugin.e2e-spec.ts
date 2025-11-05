@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IGetPluginCenterListVo } from '@teable/openapi';
+import type { ICreatePluginRo, IGetPluginCenterListVo } from '@teable/openapi';
 import {
   createPlugin,
   createPluginVoSchema,
@@ -21,7 +21,7 @@ import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
 
-const mockPlugin = {
+const mockPlugin: ICreatePluginRo = {
   name: 'plugin',
   logo: '/plugin/xxxxxxx',
   description: 'desc',

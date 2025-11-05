@@ -14,6 +14,7 @@ export const emailSpaceInvitationRoSchema = z.object({
 export type EmailSpaceInvitationRo = z.infer<typeof emailSpaceInvitationRoSchema>;
 
 export const emailSpaceInvitationVoSchema = z.record(
+  z.string(),
   z.object({
     invitationId: z.string(),
   })
