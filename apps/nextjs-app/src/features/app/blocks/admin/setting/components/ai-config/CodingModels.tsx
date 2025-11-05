@@ -163,7 +163,7 @@ export const CodingModels = ({
             <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
             {key === 'lg' && <div className="h-4 text-red-500">*</div>}
           </div>
-          <div className="text-left text-xs text-zinc-500">
+          <div className="text-left text-xs text-muted-foreground">
             {t(`admin.setting.ai.chatModels.${key}Description`)}
           </div>
 

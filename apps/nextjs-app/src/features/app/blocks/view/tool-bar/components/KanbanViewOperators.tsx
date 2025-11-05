@@ -77,7 +77,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   return (
     <div className="flex items-center gap-2">
       <UndoRedoButtons />
-      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <div className="mx-2 h-4 w-px shrink-0 bg-border"></div>
       <CreateRecordModal>
         <Button
           className="size-6 shrink-0 rounded-full p-0"
@@ -88,7 +88,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
           <Plus className="size-4" />
         </Button>
       </CreateRecordModal>
-      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <div className="mx-2 h-4 w-px shrink-0 bg-border"></div>
       <FieldCreateOrSelectModal
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}

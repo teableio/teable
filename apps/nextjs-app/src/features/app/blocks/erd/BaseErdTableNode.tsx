@@ -61,7 +61,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
   });
 
   return (
-    <div key={tableId} className="min-w-28 max-w-36 rounded-md border bg-white ">
+    <div key={tableId} className="min-w-28 max-w-36 rounded-md border bg-background ">
       <div
         className=" flex h-10 items-center gap-2 border-b px-2 py-4"
         onDoubleClick={() => openTable(crossBaseId ?? baseId, tableId)}
@@ -71,7 +71,7 @@ export const BaseErdTableNode = memo(({ data }: NodeProps<IBaseErdTableNodeProps
         ) : (
           <Table2 className="size-4 shrink-0" />
         )}
-        <span className="text-md  truncate font-bold" title={title}>
+        <span className="text-md  truncate font-semibold" title={title}>
           {title}
         </span>
       </div>

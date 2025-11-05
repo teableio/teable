@@ -158,7 +158,7 @@ export const SettingPage = (props: ISettingPageProps) => {
     <div className="flex h-screen flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-8">
       <div className="pb-6">
         <h1 className="text-2xl font-semibold">{t('admin.setting.instanceTitle')}</h1>
-        <div className="mt-2 text-sm text-zinc-500">{t('admin.setting.description')}</div>
+        <div className="mt-2 text-sm text-muted-foreground">{t('admin.setting.description')}</div>
       </div>
 
       <div className="relative flex flex-1 flex-col overflow-hidden sm:flex-row">
@@ -170,7 +170,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-sign-up">{t('admin.setting.allowSignUp')}</Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {t('admin.setting.allowSignUpDescription')}
                   </div>
                 </div>
@@ -183,7 +183,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label htmlFor="allow-sign-up">{t('admin.setting.allowSpaceInvitation')}</Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {t('admin.setting.allowSpaceInvitationDescription')}
                   </div>
                 </div>
@@ -198,7 +198,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <Label htmlFor="allow-space-creation">
                     {t('admin.setting.allowSpaceCreation')}
                   </Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {t('admin.setting.allowSpaceCreationDescription')}
                   </div>
                 </div>
@@ -213,7 +213,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                   <Label htmlFor="enable-email-verification">
                     {t('admin.setting.enableEmailVerification')}
                   </Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {t('admin.setting.enableEmailVerificationDescription')}
                   </div>
                 </div>
@@ -233,7 +233,7 @@ export const SettingPage = (props: ISettingPageProps) => {
                 <div className="flex items-center justify-between ">
                   <div className="space-y-1">
                     <Label htmlFor="enable-waitlist">{t('admin.setting.enableWaitlist')}</Label>
-                    <div className="text-xs text-zinc-500">
+                    <div className="text-xs text-muted-foreground">
                       {t('admin.setting.enableWaitlistDescription')}
                     </div>
                   </div>
@@ -271,7 +271,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label>{t('email.notify')}</Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {setting.notifyMailTransportConfig
                       ? setting.notifyMailTransportConfig.host
                       : t('email.customNotifyConfig')}
@@ -286,7 +286,7 @@ export const SettingPage = (props: ISettingPageProps) => {
               <div className="flex items-center justify-between space-x-2 rounded-lg border p-4 shadow-sm">
                 <div className="space-y-1">
                   <Label>{t('email.automation')}</Label>
-                  <div className="text-xs text-zinc-500">
+                  <div className="text-xs text-muted-foreground">
                     {setting.automationMailTransportConfig
                       ? setting.automationMailTransportConfig.host
                       : t('email.customAutomationConfig')}

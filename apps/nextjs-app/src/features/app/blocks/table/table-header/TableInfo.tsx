@@ -84,7 +84,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             }}
           />
         )}
-        <div className="hidden text-xs leading-none text-slate-400 @xl/view-header:block">
+        <div className="hidden text-xs leading-none text-muted-foreground @xl/view-header:block">
           {t('table:lastModify')} {isHydrated ? dayjs(table?.lastModifiedTime).fromNow() : ''}
         </div>
       </div>

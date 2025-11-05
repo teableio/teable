@@ -115,7 +115,7 @@ export const FieldCreateOrSelectModal = forwardRef<
           {description && <DialogDescription className="text-xs">{description}</DialogDescription>}
         </DialogHeader>
 
-        <div className="rounded-md bg-gray-50 p-3 pr-0 dark:bg-gray-900">
+        <div className="rounded-md bg-muted p-4 pr-0">
           <ScrollArea className="h-52 w-full" type="always">
             {newField ? (
               <FieldCreator field={newField} setField={setNewField} />

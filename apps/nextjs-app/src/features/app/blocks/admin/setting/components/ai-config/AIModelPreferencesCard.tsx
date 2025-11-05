@@ -69,7 +69,7 @@ export const AIModelPreferencesCard = ({
               <div className="flex flex-col items-center justify-between">
                 <FormLabel className="flex w-full flex-col items-start justify-start gap-2">
                   <span>{t('admin.setting.ai.embeddingModel')}</span>
-                  <FormDescription className="text-left text-xs text-zinc-500">
+                  <FormDescription className="text-left text-xs text-muted-foreground">
                     {t('admin.setting.ai.embeddingModelDescription')}
                   </FormDescription>
                 </FormLabel>

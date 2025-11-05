@@ -68,7 +68,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
               <div className="h-full w-14">
                 <div
                   className={cn(
-                    'h-64 w-full cursor-grab rounded-md border bg-slate-50 hover:bg-slate-100 dark:bg-slate-900 dark:hover:bg-slate-800',
+                    'h-64 w-full cursor-grab rounded-md border bg-slate-50 hover:bg-slate-100 dark:bg-zinc-900 dark:hover:bg-zinc-800',
                     isDragging && 'shadow-md'
                   )}
                   {...dragHandleProps}
@@ -85,7 +85,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
             ) : (
               <div
                 className={cn(
-                  'w-[264px] h-full border bg-slate-50 dark:bg-muted rounded-md shrink-0 flex flex-col',
+                  'w-[264px] h-full border bg-muted rounded-md shrink-0 flex flex-col',
                   isDragging && 'shadow-md'
                 )}
               >

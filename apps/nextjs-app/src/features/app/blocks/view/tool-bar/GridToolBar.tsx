@@ -14,7 +14,7 @@ export const GridToolBar: React.FC = () => {
   return (
     <div className="flex items-center border-t px-1 py-2 sm:gap-1 sm:px-2 md:gap-2 md:px-4">
       <UndoRedoButtons />
-      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <div className="mx-2 h-4 w-px shrink-0 bg-border"></div>
       <CreateRecordModal>
         <Button
           className="size-6 shrink-0 rounded-full p-0"
@@ -25,7 +25,7 @@ export const GridToolBar: React.FC = () => {
           <Plus className="size-4" />
         </Button>
       </CreateRecordModal>
-      <div className="mx-2 h-4 w-px shrink-0 bg-slate-200"></div>
+      <div className="mx-2 h-4 w-px shrink-0 bg-border"></div>
       <div className="flex flex-1 justify-between @container/toolbar">
         <GridViewOperators disabled={!isViewConfigurable} />
         <Others />

@@ -133,7 +133,7 @@ export function AIConfigForm({
                 <FormLabel className="text-lg font-medium">
                   {t('admin.setting.ai.customModel')}
                 </FormLabel>
-                <FormDescription className="text-left text-xs text-zinc-500">
+                <FormDescription className="text-left text-xs text-muted-foreground">
                   {t('admin.setting.ai.customModelDescription')}
                 </FormDescription>
               </div>

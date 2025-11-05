@@ -133,7 +133,7 @@ export const AIConfig = (props: IAIConfigProps) => {
             <div className="text-left text-lg font-semibold text-zinc-900">{t('app.title')}</div>
             <div className="flex flex-col gap-4 overflow-hidden">
               <div className="relative flex flex-col gap-1">
-                <div className="text-left text-xs text-zinc-500">
+                <div className="text-left text-xs text-muted-foreground">
                   <Trans
                     ns="common"
                     i18nKey="app.description"
@@ -181,7 +181,7 @@ export const AIConfig = (props: IAIConfigProps) => {
                 {t('admin.configuration.list.webSearch.title')}
               </div>
               <div className="relative flex flex-col gap-1">
-                <div className="text-left text-xs text-zinc-500">
+                <div className="text-left text-xs text-muted-foreground">
                   <Trans
                     ns="common"
                     i18nKey="admin.setting.webSearch.description"
