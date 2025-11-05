@@ -362,6 +362,8 @@ model OAuthApp {
   createdTime      DateTime  @default(now()) @map("created_time")
   lastModifiedTime DateTime? @updatedAt @map("last_modified_time")
   createdBy        String    @map("created_by")
+  secrets          OAuthAppSecret[]
+  authorized       OAuthAppAuthorized[]
 
   @@map("oauth_app")
 }
@@ -371,6 +373,8 @@ model OAuthAppAuthorized {
   clientId       String   @map("client_id")
   userId         String   @map("user_id")
   authorizedTime DateTime @map("authorized_time")
+
+  oAuthApp OAuthApp @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
 
   @@unique([clientId, userId])
   @@map("oauth_app_authorized")
@@ -384,6 +388,9 @@ model OAuthAppSecret {
   createdTime  DateTime  @default(now()) @map("created_time")
   createdBy    String    @map("created_by")
   lastUsedTime DateTime? @map("last_used_time")
+  tokens       OAuthAppToken[]
+
+  oAuthApp OAuthApp @relation(fields: [clientId], references: [clientId], onDelete: Cascade)
 
   @@map("oauth_app_secret")
 }
@@ -395,6 +402,8 @@ model OAuthAppToken {
   expiredTime      DateTime @map("expired_time")
   createdTime      DateTime @default(now()) @map("created_time")
   createdBy        String   @map("created_by")
+
+  oAuthAppSecret OAuthAppSecret @relation(fields: [appSecretId], references: [id], onDelete: Cascade)
 
   @@map("oauth_app_token")
 }
