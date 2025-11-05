@@ -72,6 +72,7 @@ const {
   columnFreezeHandlerWidth,
   minColumnStatisticWidth,
   fillHandlerSize,
+  fillHandlerPadding,
 } = GRID_DEFAULT;
 
 export const getRegionData = (props: ICheckRegionProps): IRegionData => {
@@ -396,7 +397,7 @@ const checkIsFillHandler = (props: ICheckRegionProps): IRegionData | null => {
   const cellHeight =
     isSameAsActive && activeCellBound ? activeCellBound.height : c.getRowHeight(maxRowLinearIndex);
   const handlerOffsetY = c.getRowOffset(maxRowLinearIndex) + cellHeight - scrollTop;
-  const halfSize = fillHandlerSize / 2 + 8;
+  const halfSize = fillHandlerSize / 2 + fillHandlerPadding;
 
   const minX = handlerOffsetX - halfSize;
   const minY = handlerOffsetY - halfSize;

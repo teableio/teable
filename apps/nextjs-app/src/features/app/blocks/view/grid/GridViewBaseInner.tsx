@@ -103,7 +103,7 @@ import { DomBox } from './DomBox';
 import { useCollaborate, useSelectionOperation } from './hooks';
 import { useIsSelectionLoaded } from './hooks/useIsSelectionLoaded';
 import { useGridSearchStore } from './useGridSearchStore';
-import { getEffectRows, generateSeriesForColumn } from './utils';
+import { getEffectRows, generateSeriesForColumn, isEmptyValue } from './utils';
 import { getSyncCopyData } from './utils/getSyncCopyData';
 
 interface IGridViewBaseInnerProps {
@@ -842,10 +842,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       selection: selectionForCopy,
     });
 
-    const isEmptyValue = (v: unknown) =>
-      v == null ||
-      (Array.isArray(v) && v.length === 0) ||
-      (typeof v === 'string' && v.trim() === '');
     const allEmpty = rawContent.every((row) => row.every((v) => isEmptyValue(v)));
 
     if (allEmpty) return;

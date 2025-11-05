@@ -31,6 +31,7 @@ export const GRID_DEFAULT = {
   cellVerticalPaddingLG: 16,
   cellTextLineHeight: 22,
   fillHandlerSize: 5,
+  fillHandlerPadding: 8,
 
   // Statistics
   columnStatisticHeight: 40,

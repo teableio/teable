@@ -1,6 +1,6 @@
 import { FieldType } from '@teable/core';
 
-const isNumberValue = (v: unknown) => typeof v === 'number' && Number.isFinite(v as number);
+const isNumberValue = (v: unknown) => typeof v === 'number' && Number.isFinite(v);
 const isParsableDate = (v: unknown) =>
   (typeof v === 'string' || typeof v === 'number' || v instanceof Date) &&
   !Number.isNaN(new Date(v as never).getTime());
@@ -11,7 +11,7 @@ const toSameDateType = (base: unknown, ts: number) => {
   return new Date(ts).toISOString();
 };
 
-const isEmptyValue = (v: unknown) =>
+export const isEmptyValue = (v: unknown) =>
   v == null || (Array.isArray(v) && v.length === 0) || (typeof v === 'string' && v.trim() === '');
 
 const shouldGenerateNumberSeries = (values: unknown[]) => {
@@ -73,18 +73,18 @@ export const generateDateSeries = (
     const tsLast = new Date(dates[dates.length - 1] as never).getTime();
     const tsPrev = new Date(dates[dates.length - 2] as never).getTime();
     const stepMs = tsLast - tsPrev || 24 * 60 * 60 * 1000;
-    const baseSample = dates[dates.length - 1];
+    const baseDateValue = dates[dates.length - 1];
     if (direction === 'down') {
       const startTs = tsLast + stepMs;
       return Array.from({ length: outLen }, (_, i) =>
-        toSameDateType(baseSample, startTs + stepMs * i)
+        toSameDateType(baseDateValue, startTs + stepMs * i)
       );
     }
-    const firstSample = dates[0];
-    const firstTs = new Date(firstSample as never).getTime();
+    const firstDateValue = dates[0];
+    const firstTs = new Date(firstDateValue as never).getTime();
     const startTs = firstTs - stepMs;
     return Array.from({ length: outLen }, (_, i) =>
-      toSameDateType(firstSample, startTs - stepMs * i)
+      toSameDateType(firstDateValue, startTs - stepMs * i)
     );
   }
   return null;
