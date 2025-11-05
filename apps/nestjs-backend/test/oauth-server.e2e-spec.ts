@@ -5,17 +5,27 @@ import { HttpError } from '@teable/core';
 import {
   CREATE_BASE,
   CREATE_SPACE,
+  CREATE_TABLE,
   GET_TABLE_LIST,
+  GET_TRASH_ITEMS,
   PERMANENT_DELETE_BASE,
   PERMANENT_DELETE_SPACE,
   REVOKE_TOKEN,
+  ResourceType,
   generateOAuthSecret,
   oauthCreate,
   oauthDelete,
   revokeAccess,
   urlBuilder,
 } from '@teable/openapi';
-import type { ICreateBaseVo, ICreateSpaceVo, ITableListVo, OAuthCreateVo } from '@teable/openapi';
+import type {
+  ICreateBaseVo,
+  ICreateSpaceVo,
+  ITableListVo,
+  ITableVo,
+  ITrashVo,
+  OAuthCreateVo,
+} from '@teable/openapi';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 import axiosInstance from 'axios';
 import { omit } from 'lodash';
@@ -356,6 +366,64 @@ describe('OpenAPI OAuthController (e2e)', () => {
       )
     );
     expect(error?.status).toBe(403);
+  });
+
+  it('/api/oauth/access_token (POST) - scope [trash]', async () => {
+    const oauthRes = await oauthCreate({
+      ...oauthData,
+      scopes: ['table|trash_read'],
+    });
+    const { transactionID } = await getAuthorize(axios, oauthRes.data);
+
+    const res = await decision(axios, transactionID!);
+    const url = new URL(res.headers.location);
+    const code = url.searchParams.get('code');
+    const secret = await generateOAuthSecret(oauthRes.data.clientId);
+
+    const tokenRes = await anonymousAxios.post(
+      `/oauth/access_token`,
+      {
+        grant_type: 'authorization_code',
+        code,
+        client_id: oauthRes.data.clientId,
+        client_secret: secret.data.secret,
+        redirect_uri: oauthRes.data.redirectUris[0],
+      },
+      {
+        maxRedirects: 0,
+        headers: {
+          // eslint-disable-next-line @typescript-eslint/naming-convention
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+      }
+    );
+    const table = await axios
+      .post<ITableVo>(urlBuilder(CREATE_TABLE, { baseId }), {
+        name: 'test table',
+        records: [
+          {
+            fields: {},
+          },
+          {
+            fields: {},
+          },
+          {
+            fields: {},
+          },
+        ],
+      })
+      .then((res) => res.data);
+
+    const trashItemsRes = await anonymousAxios.get<ITrashVo>(GET_TRASH_ITEMS, {
+      params: {
+        resourceId: table.id,
+        resourceType: ResourceType.Table,
+      },
+      headers: {
+        Authorization: `${tokenRes.data.token_type} ${tokenRes.data.access_token}`,
+      },
+    });
+    expect(trashItemsRes.status).toBe(200);
   });
 
   it('/api/oauth/access_token (POST) - refresh token', async () => {
