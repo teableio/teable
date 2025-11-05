@@ -872,8 +872,11 @@
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
     },
+    "space": {
+      "notFound": "Alan bulunamadı"
+    },
     "base": {
-      "notFound": "Base {{baseId}} bulunamadı",
+      "notFound": "Base bulunamadı",
       "cannotAccess": "Base {{baseId}} erişim izniniz yok",
       "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
       "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
@@ -995,6 +998,13 @@
       "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
       "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
       "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
+      "invalidCode": "Geçersiz davet kodu",
+      "linkNotFound": "Davet bağlantısı bulunamadı",
+      "linkExpired": "Davet bağlantısının süresi doldu",
+      "limitExceeded": "Saatte maksimum davet sayısına ulaştınız"
     }
   }
 }

@@ -876,8 +876,11 @@
       "nodeNeedTest": "{{name}} le nœud doit être testé",
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète"
     },
+    "space": {
+      "notFound": "Espace non trouvé"
+    },
     "base": {
-      "notFound": "Base {{baseId}} non trouvée",
+      "notFound": "Base non trouvée",
       "cannotAccess": "Vous n'avez pas la permission d'accéder à la base {{baseId}}",
       "anchorNotFound": "Base d'ancrage {{anchorId}} non trouvée",
       "baseAndSpaceMismatch": "La base {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
@@ -999,6 +1002,13 @@
       "notSupportedFileFormat": "Format de fichier non pris en charge, seuls {{supportType}} sont pris en charge, le type de contenu de votre fichier est {{fileFormat}}",
       "notSupportedFileType": "Type de fichier d'importation non pris en charge",
       "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "L'instance actuelle interdit les invitations d'espace par l'administrateur",
+      "invalidCode": "Code d'invitation invalide",
+      "linkNotFound": "Lien d'invitation non trouvé",
+      "linkExpired": "Le lien d'invitation a expiré",
+      "limitExceeded": "Vous avez atteint le nombre maximum d'invitations par heure"
     }
   }
 }

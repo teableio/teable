@@ -905,8 +905,11 @@
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated"
     },
+    "space": {
+      "notFound": "Space not found"
+    },
     "base": {
-      "notFound": "Base {{baseId}} not found",
+      "notFound": "Base not found",
       "cannotAccess": "You don't have permission to access base {{baseId}}",
       "anchorNotFound": "Anchor base {{anchorId}} not found",
       "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
@@ -1025,6 +1028,13 @@
       "notSupportedFileFormat": "File format is not supported, only {{supportType}} are supported, your file's content type is {{fileFormat}}",
       "notSupportedFileType": "Import file type not supported",
       "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "The current instance disallow space invitation by the administrator",
+      "invalidCode": "Invalid invitation code",
+      "linkNotFound": "Invitation link not found",
+      "linkExpired": "Invitation link has expired",
+      "limitExceeded": "You have reached the maximum number of invitations per hour"
     }
   }
 }

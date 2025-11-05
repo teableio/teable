@@ -902,8 +902,11 @@
       "nodeNeedTest": "{{name}} 节点需要测试",
       "nodeTestOutdated": "{{name}} 节点测试已过期"
     },
+    "space": {
+      "notFound": "空间不存在"
+    },
     "base": {
-      "notFound": "数据库 {{baseId}} 不存在",
+      "notFound": "数据库不存在",
       "cannotAccess": "没有权限访问数据库 {{baseId}}",
       "anchorNotFound": "锚点数据库 {{anchorId}} 不存在",
       "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
@@ -1025,6 +1028,13 @@
       "notSupportedFileFormat": "文件格式不支持，仅支持 {{supportType}}，您的文件内容类型是 {{fileFormat}}",
       "notSupportedFileType": "不支持的导入文件类型",
       "exceedMaxFieldsLength": "表格中的字段数不能超过 {{maxFieldsLength}}，当前为 {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "当前实例管理员已禁止空间邀请",
+      "invalidCode": "无效的邀请码",
+      "linkNotFound": "邀请链接不存在",
+      "linkExpired": "邀请链接已过期",
+      "limitExceeded": "您已达到每小时最大邀请次数限制"
     }
   }
 }

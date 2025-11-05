@@ -62,9 +62,6 @@ export class BaseService {
         throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.base.notFound',
-            context: {
-              baseId,
-            },
           },
         });
       });
@@ -227,9 +224,6 @@ export class BaseService {
         throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.base.notFound',
-            context: {
-              baseId,
-            },
           },
         });
       });

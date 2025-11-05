@@ -874,8 +874,11 @@
       "nodeNeedTest": "{{name}} узел требует тестирования",
       "nodeTestOutdated": "{{name}} тест узла устарел"
     },
+    "space": {
+      "notFound": "Пространство не найдено"
+    },
     "base": {
-      "notFound": "База {{baseId}} не найдена",
+      "notFound": "База не найдена",
       "cannotAccess": "У вас нет разрешения на доступ к базе {{baseId}}",
       "anchorNotFound": "Якорная база {{anchorId}} не найдена",
       "baseAndSpaceMismatch": "База {{baseId}} и пространство {{spaceId}} не совпадают",
@@ -997,6 +1000,13 @@
       "notSupportedFileFormat": "Формат файла не поддерживается, поддерживаются только {{supportType}}, тип содержимого вашего файла {{fileFormat}}",
       "notSupportedFileType": "Тип файла импорта не поддерживается",
       "exceedMaxFieldsLength": "Количество полей в таблице не может превышать {{maxFieldsLength}}, текущее значение {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Текущий экземпляр запрещает приглашения в пространство администратором",
+      "invalidCode": "Неверный код приглашения",
+      "linkNotFound": "Ссылка приглашения не найдена",
+      "linkExpired": "Срок действия ссылки приглашения истек",
+      "limitExceeded": "Вы достигли максимального количества приглашений в час"
     }
   }
 }

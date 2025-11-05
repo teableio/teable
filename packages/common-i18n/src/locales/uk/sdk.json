@@ -898,8 +898,11 @@
       "nodeNeedTest": "{{name}} вузол потребує тестування",
       "nodeTestOutdated": "{{name}} тест вузла застарів"
     },
+    "space": {
+      "notFound": "Простір не знайдено"
+    },
     "base": {
-      "notFound": "База {{baseId}} не знайдена",
+      "notFound": "База не знайдена",
       "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
       "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
       "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
@@ -1021,6 +1024,13 @@
       "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
       "notSupportedFileType": "Тип файлу імпорту не підтримується",
       "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Поточний екземпляр забороняє запрошення до простору адміністратором",
+      "invalidCode": "Недійсний код запрошення",
+      "linkNotFound": "Посилання запрошення не знайдено",
+      "linkExpired": "Термін дії посилання запрошення закінчився",
+      "limitExceeded": "Ви досягли максимальної кількості запрошень на годину"
     }
   }
 }

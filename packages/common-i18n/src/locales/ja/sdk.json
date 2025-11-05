@@ -862,8 +862,11 @@
       "nodeNeedTest": "{{name}} ノードはテストが必要です",
       "nodeTestOutdated": "{{name}} ノードのテストは古くなっています"
     },
+    "space": {
+      "notFound": "スペースが見つかりません"
+    },
     "base": {
-      "notFound": "ベース {{baseId}} が見つかりません",
+      "notFound": "ベース が見つかりません",
       "cannotAccess": "ベース {{baseId}} にアクセスする権限がありません",
       "anchorNotFound": "アンカーベース {{anchorId}} が見つかりません",
       "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
@@ -985,6 +988,13 @@
       "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
       "notSupportedFileType": "インポートファイルタイプがサポートされていません",
       "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "現在のインスタンスでは、管理者によるスペース招待が許可されていません",
+      "invalidCode": "無効な招待コード",
+      "linkNotFound": "招待リンクが見つかりません",
+      "linkExpired": "招待リンクの有効期限が切れています",
+      "limitExceeded": "1時間あたりの最大招待数に達しました"
     }
   }
 }

@@ -898,8 +898,11 @@
       "nodeNeedTest": "{{name}} il nodo deve essere testato",
       "nodeTestOutdated": "{{name}} il test del nodo è obsoleto"
     },
+    "space": {
+      "notFound": "Spazio non trovato"
+    },
     "base": {
-      "notFound": "Base {{baseId}} non trovata",
+      "notFound": "Base non trovata",
       "cannotAccess": "Non hai il permesso di accedere alla base {{baseId}}",
       "anchorNotFound": "Base di ancoraggio {{anchorId}} non trovata",
       "baseAndSpaceMismatch": "Base {{baseId}} e spazio {{spaceId}} non corrispondono",
@@ -1021,6 +1024,13 @@
       "notSupportedFileFormat": "Formato file non supportato, sono supportati solo {{supportType}}, il tipo di contenuto del file è {{fileFormat}}",
       "notSupportedFileType": "Tipo di file di importazione non supportato",
       "exceedMaxFieldsLength": "Il numero di campi nella tabella non può superare {{maxFieldsLength}}, attualmente è {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "L'istanza corrente non consente inviti allo spazio da parte dell'amministratore",
+      "invalidCode": "Codice invito non valido",
+      "linkNotFound": "Link di invito non trovato",
+      "linkExpired": "Il link di invito è scaduto",
+      "limitExceeded": "Hai raggiunto il numero massimo di inviti all'ora"
     }
   }
 }

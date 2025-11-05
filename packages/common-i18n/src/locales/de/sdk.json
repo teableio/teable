@@ -898,8 +898,11 @@
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet"
     },
+    "space": {
+      "notFound": "Space nicht gefunden"
+    },
     "base": {
-      "notFound": "Base {{baseId}} nicht gefunden",
+      "notFound": "Base nicht gefunden",
       "cannotAccess": "Sie haben keine Berechtigung, auf Base {{baseId}} zuzugreifen",
       "anchorNotFound": "Anker-Base {{anchorId}} nicht gefunden",
       "baseAndSpaceMismatch": "Base {{baseId}} und Space {{spaceId}} stimmen nicht überein",
@@ -1021,6 +1024,13 @@
       "notSupportedFileFormat": "Dateiformat wird nicht unterstützt, nur {{supportType}} werden unterstützt, Ihr Dateityp ist {{fileFormat}}",
       "notSupportedFileType": "Import-Dateityp nicht unterstützt",
       "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Die aktuelle Instanz verbietet Raumeinladungen durch den Administrator",
+      "invalidCode": "Ungültiger Einladungscode",
+      "linkNotFound": "Einladungslink nicht gefunden",
+      "linkExpired": "Einladungslink ist abgelaufen",
+      "limitExceeded": "Sie haben die maximale Anzahl an Einladungen pro Stunde erreicht"
     }
   }
 }
