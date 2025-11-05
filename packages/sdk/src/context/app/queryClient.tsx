@@ -59,6 +59,7 @@ export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
         description,
         duration: 1000 * 3,
         closeButton: true,
+        className: 'pointer-events-auto',
       }
     );
   }
