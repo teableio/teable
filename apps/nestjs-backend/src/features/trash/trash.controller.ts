@@ -9,6 +9,7 @@ import {
   IResetTrashItemsRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { TokenAccess } from '../auth/decorators/token.decorator';
 import { TrashService } from './trash.service';
 
 @Controller('api/trash/')
@@ -21,6 +22,7 @@ export class TrashController {
   }
 
   @Get('items')
+  @TokenAccess()
   async getTrashItems(
     @Query(new ZodValidationPipe(trashItemsRoSchema)) query: ITrashItemsRo
   ): Promise<ITrashVo> {
@@ -28,11 +30,13 @@ export class TrashController {
   }
 
   @Post('restore/:trashId')
+  @TokenAccess()
   async restoreTrash(@Param('trashId') trashId: string): Promise<void> {
     return await this.trashService.restoreTrash(trashId);
   }
 
   @Delete('reset-items')
+  @TokenAccess()
   async resetTrashItems(
     @Query(new ZodValidationPipe(resetTrashItemsRoSchema)) query: IResetTrashItemsRo
   ): Promise<void> {
