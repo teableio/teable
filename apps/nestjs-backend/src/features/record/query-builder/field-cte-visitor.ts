@@ -1139,7 +1139,10 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     if (!this.fieldCteMap.has(candidate.id)) {
       this.generateLinkFieldCteForTable(foreignTable, candidate);
     }
-    nestedJoins.add(candidate.id);
+    // Only join nested CTEs that were successfully generated.
+    if (this.fieldCteMap.has(candidate.id)) {
+      nestedJoins.add(candidate.id);
+    }
   }
 
   /**
