@@ -415,6 +415,48 @@ describe('OpenAPI formula (e2e)', () => {
     expect(record2.fields[formulaFieldRo.name]).toEqual('1x');
   });
 
+  it('should batch update records referencing spaced curly field identifiers', async () => {
+    const spacedFormulaField = await createField(table1Id, {
+      name: 'spaced-curly-formula',
+      type: FieldType.Formula,
+      options: {
+        expression: `{ ${numberFieldRo.id} } & '-' & {   ${textFieldRo.id}   }`,
+      },
+    });
+
+    const { records } = await createRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          fields: {
+            [numberFieldRo.name]: 5,
+            [textFieldRo.name]: 'old',
+          },
+        },
+      ],
+    });
+    const recordId = records[0].id;
+
+    const response = await updateRecords(table1Id, {
+      fieldKeyType: FieldKeyType.Name,
+      records: [
+        {
+          id: recordId,
+          fields: {
+            [numberFieldRo.name]: 10,
+            [textFieldRo.name]: 'fresh',
+          },
+        },
+      ],
+    });
+
+    expect(response.status).toBe(200);
+
+    const { data: updatedRecord } = await getRecord(table1Id, recordId);
+    expect(updatedRecord.fields?.[formulaFieldRo.name]).toEqual('10fresh');
+    expect(updatedRecord.fields?.[spacedFormulaField.name]).toEqual('10-fresh');
+  });
+
   it('should concatenate strings with plus operator when operands are blank', async () => {
     const plusNumberSuffixField = await createField(table1Id, {
       name: 'plus-number-suffix',

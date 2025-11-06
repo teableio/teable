@@ -3,6 +3,7 @@ export * from './typed-value';
 export * from './visitor';
 export * from './field-reference.visitor';
 export * from './conversion.visitor';
+export * from './field-reference.util';
 export * from './errors';
 
 export * from './function-call-collector.visitor';

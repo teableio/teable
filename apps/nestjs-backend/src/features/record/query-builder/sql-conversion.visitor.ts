@@ -29,6 +29,8 @@ import {
   isLinkLookupOptions,
   normalizeFunctionNameAlias,
   DbFieldType,
+  extractFieldReferenceId,
+  getFieldReferenceTokenText,
 } from '@teable/core';
 import type {
   FormulaVisitor,
@@ -333,7 +335,9 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
-    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
 
     const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
@@ -786,7 +790,9 @@ abstract class BaseSqlConversionVisitor<
   ): string {
     let normalizedValue = value;
     if (exprCtx instanceof FieldReferenceCurlyContext) {
-      const fieldId = exprCtx.text.slice(1, -1);
+      const normalizedFieldId = extractFieldReferenceId(exprCtx);
+      const rawToken = getFieldReferenceTokenText(exprCtx);
+      const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
       const fieldInfo = this.context.table.getField(fieldId);
       if (fieldInfo?.isMultipleCellValue && this.dialect) {
         // Normalize multi-value references (lookup, link, multi-select, etc.) into a deterministic
@@ -905,7 +911,9 @@ abstract class BaseSqlConversionVisitor<
       return null;
     }
 
-    const fieldId = exprCtx.text.slice(1, -1);
+    const normalizedFieldId = extractFieldReferenceId(exprCtx);
+    const rawToken = getFieldReferenceTokenText(exprCtx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
     const fieldInfo = this.context.table?.getField(fieldId);
     if (!fieldInfo) {
       return null;
@@ -1009,7 +1017,9 @@ abstract class BaseSqlConversionVisitor<
   private inferFieldReferenceType(
     ctx: FieldReferenceCurlyContext
   ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
-    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
     const fieldInfo = this.context.table.getField(fieldId);
 
     if (!fieldInfo) {
@@ -1295,7 +1305,9 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
-    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
     this.dependencies.push(fieldId);
     return super.visitFieldReferenceCurly(ctx);
   }
@@ -1312,7 +1324,9 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
-    const fieldId = ctx.text.slice(1, -1); // Remove curly braces
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
 
     const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {

@@ -231,7 +231,7 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     });
 
-    it.only('computes string formula referencing multi-value field without CASE type mismatch', async () => {
+    it('computes string formula referencing multi-value field without CASE type mismatch', async () => {
       const table = await createTable(baseId, {
         name: 'Formula_String_MultiValue',
         fields: [

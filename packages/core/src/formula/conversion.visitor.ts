@@ -1,5 +1,6 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 import type { TerminalNode } from 'antlr4ts/tree/TerminalNode';
+import { extractFieldReferenceId } from './field-reference.util';
 import type { FieldReferenceCurlyContext } from './parser/Formula';
 
 export class ConversionVisitor extends AbstractParseTreeVisitor<void> {
@@ -21,15 +22,11 @@ export class ConversionVisitor extends AbstractParseTreeVisitor<void> {
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
-    const originalText = ctx.text;
-    let idOrName = originalText;
-
-    if (originalText[0] === '{' && originalText[originalText.length - 1] === '}') {
-      idOrName = idOrName.slice(1, -1);
-    }
-    const nameOrId = this.conversionMap[idOrName] || '#Error';
-    if (this.conversionMap[idOrName] == null) {
-      const errorTxt = `Invalid field name or function name: "${idOrName}"`;
+    const idOrName = extractFieldReferenceId(ctx);
+    const normalized = idOrName ?? '';
+    const nameOrId = this.conversionMap[normalized] || '#Error';
+    if (this.conversionMap[normalized] == null) {
+      const errorTxt = `Invalid field name or function name: "${normalized}"`;
       if (this.noThrow) {
         console.error(errorTxt);
       } else {

@@ -5,6 +5,7 @@ import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor
 import { CellValueType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
 import type { IRecord } from '../models/record';
+import { extractFieldReferenceId } from './field-reference.util';
 import { normalizeFunctionNameAlias } from './function-aliases';
 import { FunctionName } from './functions/common';
 import type { FormulaFunc } from './functions/common';
@@ -404,12 +405,12 @@ export class EvalVisitor
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
-    const fieldId = ctx.field_reference_curly().text;
-    if (fieldId == '') {
-      return new TypedValue('', CellValueType.String);
+    const fieldId = extractFieldReferenceId(ctx);
+    if (!fieldId) {
+      throw new Error('FieldId {} is a invalid field id');
     }
 
-    const field = this.dependencies[fieldId.slice(1, -1)];
+    const field = this.dependencies[fieldId];
     if (!field) {
       throw new Error(`FieldId ${fieldId} is a invalid field id`);
     }

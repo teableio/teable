@@ -27,6 +27,8 @@ import {
   BracketsContext,
   BinaryOpContext,
   DbFieldType,
+  extractFieldReferenceId,
+  getFieldReferenceTokenText,
 } from '@teable/core';
 import { match } from 'ts-pattern';
 import type { IGeneratedColumnQuerySupportValidator } from './sql-conversion.visitor';
@@ -419,7 +421,9 @@ export class FormulaSupportGeneratedColumnValidator {
         visitFieldReferenceCurly(
           ctx: FieldReferenceCurlyContext
         ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
-          const fieldId = ctx.text.slice(1, -1);
+          const normalizedFieldId = extractFieldReferenceId(ctx);
+          const rawToken = getFieldReferenceTokenText(ctx);
+          const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
           const field = this.tableDomain.getField(fieldId);
           if (!field) return 'unknown';
           switch (field.cellValueType) {
@@ -695,7 +699,9 @@ export class FormulaSupportGeneratedColumnValidator {
       return 'boolean';
     }
     if (ctx instanceof FieldReferenceCurlyContext) {
-      const fieldId = ctx.text.slice(1, -1);
+      const normalizedFieldId = extractFieldReferenceId(ctx);
+      const rawToken = getFieldReferenceTokenText(ctx);
+      const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
       const field = this.tableDomain.getField(fieldId);
       if (!field) {
         return 'unknown';

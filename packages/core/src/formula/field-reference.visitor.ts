@@ -1,4 +1,5 @@
 import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
+import { extractFieldReferenceId } from './field-reference.util';
 import type { FieldReferenceCurlyContext } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';
 
@@ -15,6 +16,7 @@ export class FieldReferenceVisitor
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext) {
-    return [ctx.text.slice(1, -1)];
+    const fieldId = extractFieldReferenceId(ctx);
+    return fieldId ? [fieldId] : this.defaultResult();
   }
 }
