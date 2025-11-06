@@ -36,14 +36,19 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
-const originalError = sonnerToast.error;
-
 const toast: typeof sonnerToast = Object.assign(
   (...args: Parameters<typeof sonnerToast>) => sonnerToast(...args),
   {
     ...sonnerToast,
     error: (message: string | React.ReactNode, data?: ExternalToast) => {
-      return originalError(message, {
+      return sonnerToast.error(message, {
+        closeButton: true,
+        className: 'pointer-events-auto',
+        ...data,
+      });
+    },
+    warning: (message: string | React.ReactNode, data?: ExternalToast) => {
+      return sonnerToast.warning(message, {
         closeButton: true,
         className: 'pointer-events-auto',
         ...data,
