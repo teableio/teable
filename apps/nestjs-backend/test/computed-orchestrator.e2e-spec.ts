@@ -231,6 +231,101 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     });
 
+    it.only('computes string formula referencing multi-value field without CASE type mismatch', async () => {
+      const table = await createTable(baseId, {
+        name: 'Formula_String_MultiValue',
+        fields: [
+          {
+            name: 'Brand List',
+            type: FieldType.MultipleSelect,
+            options: {
+              choices: [
+                { id: 'brand-alpha', name: 'Alpha' },
+                { id: 'brand-beta', name: 'Beta' },
+              ],
+            },
+          } as IFieldRo,
+          { name: 'Code', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Display Name', type: FieldType.SingleLineText } as IFieldRo,
+        ],
+      });
+
+      const brandField = table.fields.find((f) => f.name === 'Brand List')!;
+      const codeField = table.fields.find((f) => f.name === 'Code')!;
+      const nameField = table.fields.find((f) => f.name === 'Display Name')!;
+
+      const codeValue = 'BP-001';
+      const nameValue = 'Sample Product';
+
+      const { records } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              'Brand List': ['Alpha', 'Beta'],
+              Code: codeValue,
+              'Display Name': nameValue,
+            },
+          },
+        ],
+      });
+
+      const recordId = records[0].id;
+
+      const expression = `
+IF(
+  OR(
+    LEN({${brandField.id}} & "") = 0,
+    LEN({${codeField.id}} & "") = 0,
+    LEN({${nameField.id}} & "") = 0
+  ),
+  "",
+  "B:/版权品/" &
+  IF(
+    FIND(",", {${brandField.id}} & "") > 0,
+    LEFT({${brandField.id}} & "", FIND(",", {${brandField.id}} & "") - 1),
+    {${brandField.id}}
+  ) &
+  "/" & {${codeField.id}} & " " & {${nameField.id}}
+)`.trim();
+
+      const formulaField = await createField(table.id, {
+        name: 'Computed Path',
+        type: FieldType.Formula,
+        options: { expression },
+      } as IFieldRo);
+
+      // Allow computed orchestrator to backfill existing rows
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const extractFields = (record: any) => record.fields ?? record.data?.fields ?? {};
+
+      const initialRecord = await getRecord(table.id, recordId);
+      const firstValue = extractFields(initialRecord)[formulaField.id];
+      expect(typeof firstValue).toBe('string');
+      expect((firstValue as string).startsWith('B:/版权品/')).toBe(true);
+      expect(firstValue).toContain('Alpha');
+      expect(firstValue).toContain(`${codeValue} ${nameValue}`);
+
+      await updateRecord(table.id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            'Brand List': ['Beta'],
+          },
+        },
+      });
+
+      const updatedRecord = await getRecord(table.id, recordId);
+      const secondValue = extractFields(updatedRecord)[formulaField.id];
+      expect(typeof secondValue).toBe('string');
+      expect((secondValue as string).startsWith('B:/版权品/')).toBe(true);
+      expect(secondValue).toContain('Beta');
+      expect(secondValue).toContain(`${codeValue} ${nameValue}`);
+
+      await permanentDeleteTable(baseId, table.id);
+    });
+
     it('Formula unchanged publishes computed value with empty oldValue', async () => {
       // T with A and F = {A}*{A}; change A: 1 -> -1, F stays 1
       const table = await createTable(baseId, {

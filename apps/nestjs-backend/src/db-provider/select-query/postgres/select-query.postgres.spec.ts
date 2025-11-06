@@ -459,3 +459,51 @@ describe('Select formula string comparisons', () => {
     expect(sql).not.toContain('= "main"."json_col"');
   });
 });
+
+describe('Select formula string branch normalization', () => {
+  const knexClient = knex({ client: 'pg' });
+  const provider = new PostgresProvider(knexClient);
+
+  const jsonFieldVo: IFieldVo = {
+    id: 'fldJson001',
+    name: 'Json Field',
+    type: FieldType.MultipleSelect,
+    options: {},
+    dbFieldName: 'json_col',
+    dbFieldType: DbFieldType.Json,
+    cellValueType: CellValueType.String,
+    isLookup: false,
+    isComputed: false,
+    isMultipleCellValue: true,
+  };
+
+  const jsonField = createFieldInstanceByVo(jsonFieldVo);
+
+  const table = new TableDomain({
+    id: 'tblStringBranches',
+    name: 'String Branch Table',
+    dbTableName: 'string_branch_table',
+    lastModifiedTime: '1970-01-01T00:00:00.000Z',
+    fields: [jsonField],
+  });
+
+  const buildContext = (): ISelectFormulaConversionContext => ({
+    table,
+    tableAlias: 'main',
+    selectionMap: new Map<string, IFieldSelectName>([[jsonField.id, '"main"."json_col"']]),
+    timeZone: 'UTC',
+    preferRawFieldReferences: true,
+  });
+
+  it('casts JSON-backed false branches to text inside IF expressions', () => {
+    const formula = `IF(
+      FIND(",", {${jsonField.id}} & "") > 0,
+      LEFT({${jsonField.id}} & "", FIND(",", {${jsonField.id}} & "") - 1),
+      {${jsonField.id}}
+    )`;
+
+    const sql = provider.convertFormulaToSelectQuery(formula, buildContext());
+
+    expect(sql).toContain('ELSE ("main"."json_col")::text');
+  });
+});
