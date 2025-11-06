@@ -24,7 +24,7 @@ export const deleteUserSchemaRo = z.object({
     .refine((val) => val === 'DELETE', {
       message: 'Please enter DELETE to confirm',
     })
-    .openapi({ type: 'string' }),
+    .meta({ type: 'string' }),
 });
 
 export type IDeleteUserSchema = z.infer<typeof deleteUserSchemaRo>;

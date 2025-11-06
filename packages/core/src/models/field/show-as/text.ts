@@ -8,7 +8,7 @@ export enum SingleLineTextDisplayType {
 
 export const singleLineTextShowAsSchema = z
   .object({
-    type: z.nativeEnum(SingleLineTextDisplayType).openapi({
+    type: z.enum(SingleLineTextDisplayType).meta({
       description:
         'can display as url, email or phone in string field with a button to perform the corresponding action, start a phone call, send an email, or open a link in a new tab',
     }),

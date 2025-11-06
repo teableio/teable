@@ -14,7 +14,7 @@ export const attachmentFieldAIConfigBaseSchema = commonFieldAIConfig.extend({
     .string()
     .regex(/^\d+x\d+$/, { message: 'Size must be in "widthxheight" format, e.g., "1024x1024"' })
     .optional(),
-  quality: z.nativeEnum(ImageQuality).optional(),
+  quality: z.enum(ImageQuality).optional(),
 });
 
 export const attachmentFieldGenerateImageAIConfigSchema = attachmentFieldAIConfigBaseSchema.extend({

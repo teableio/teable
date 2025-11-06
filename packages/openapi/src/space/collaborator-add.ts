@@ -9,7 +9,7 @@ export const ADD_SPACE_COLLABORATOR = '/space/{spaceId}/collaborator';
 
 export const addCollaboratorSchema = z.object({
   principalId: z.string(),
-  principalType: z.nativeEnum(PrincipalType),
+  principalType: z.enum(PrincipalType),
 });
 
 export type IAddCollaborator = z.infer<typeof addCollaboratorSchema>;

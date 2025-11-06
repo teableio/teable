@@ -11,7 +11,7 @@ export enum TableIndex {
 
 export const RecommendedIndexRow = 10000;
 
-export const tableIndexTypeSchema = z.nativeEnum(TableIndex);
+export const tableIndexTypeSchema = z.enum(TableIndex);
 
 export type ITableIndexType = z.infer<typeof tableIndexTypeSchema>;
 

@@ -21,7 +21,7 @@ export const ConvertFieldRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: convertFieldRoSchema.openapi({
+          schema: convertFieldRoSchema.meta({
             description:
               'Provide the complete field configuration including all properties, modified or not',
           }),

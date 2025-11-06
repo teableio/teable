@@ -23,7 +23,7 @@ export enum CommentPatchType {
 }
 
 export const baseCommentContentSchema = z.object({
-  type: z.nativeEnum(CommentNodeType),
+  type: z.enum(CommentNodeType),
   value: z.unknown().optional(),
 });
 
@@ -81,7 +81,7 @@ export type ICreateCommentRo = z.infer<typeof createCommentRoSchema>;
 export type IUpdateCommentRo = z.infer<typeof updateCommentRoSchema>;
 
 export const commentPatchDataSchema = z.object({
-  type: z.nativeEnum(CommentPatchType),
+  type: z.enum(CommentPatchType),
   data: z.record(z.string(), z.unknown()),
 });
 

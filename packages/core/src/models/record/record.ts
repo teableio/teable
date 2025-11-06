@@ -42,32 +42,32 @@ export class RecordCore {
 }
 
 export const recordSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Record).openapi({
+  id: z.string().startsWith(IdPrefix.Record).meta({
     description: 'The record id.',
   }),
-  name: z.string().optional().openapi({ description: 'primary field value' }),
-  fields: z.record(z.string(), z.unknown()).openapi({
+  name: z.string().optional().meta({ description: 'primary field value' }),
+  fields: z.record(z.string(), z.unknown()).meta({
     description: 'Objects with a fields key mapping fieldId or field name to value for that field.',
   }),
-  autoNumber: z.number().optional().openapi({
+  autoNumber: z.number().optional().meta({
     description: 'Auto number, a unique identifier for each record',
   }),
-  createdTime: z.string().optional().openapi({
+  createdTime: z.string().optional().meta({
     description: 'Created time, date ISO string (new Date().toISOString).',
   }),
-  lastModifiedTime: z.string().optional().openapi({
+  lastModifiedTime: z.string().optional().meta({
     description: 'Last modified time, date ISO string (new Date().toISOString).',
   }),
-  createdBy: z.string().optional().openapi({
+  createdBy: z.string().optional().meta({
     description: 'Created by, user name',
   }),
-  lastModifiedBy: z.string().optional().openapi({
+  lastModifiedBy: z.string().optional().meta({
     description: 'Last modified by, user name',
   }),
-  permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional().openapi({
+  permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional().meta({
     description: 'Permissions for the record',
   }),
-  undeletable: z.boolean().optional().openapi({
+  undeletable: z.boolean().optional().meta({
     description: 'Whether the record is undeletable',
   }),
 });

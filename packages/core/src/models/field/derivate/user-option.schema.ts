@@ -6,10 +6,10 @@ const userIdSchema = z
   .or(z.enum(['me']));
 
 export const userFieldOptionsSchema = z.object({
-  isMultiple: z.boolean().optional().openapi({
+  isMultiple: z.boolean().optional().meta({
     description: 'Allow adding multiple users',
   }),
-  shouldNotify: z.boolean().optional().openapi({
+  shouldNotify: z.boolean().optional().meta({
     description: 'Notify users when their name is added to a cell',
   }),
   defaultValue: z.union([userIdSchema, z.array(userIdSchema)]).optional(),

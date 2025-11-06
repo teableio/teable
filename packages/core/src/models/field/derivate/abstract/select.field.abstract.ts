@@ -9,7 +9,7 @@ export const selectFieldChoiceSchema = z.object({
     .string()
     .transform((s) => s.trim())
     .pipe(z.string().min(1)),
-  color: z.nativeEnum(Colors),
+  color: z.enum(Colors),
 });
 
 export const selectFieldChoiceRoSchema = selectFieldChoiceSchema.partial({ id: true, color: true });

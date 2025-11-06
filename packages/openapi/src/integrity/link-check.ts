@@ -21,7 +21,7 @@ export enum IntegrityIssueType {
 
 // Define the schema for a single issue
 export const integrityIssueSchema = z.object({
-  type: z.nativeEnum(IntegrityIssueType),
+  type: z.enum(IntegrityIssueType),
   message: z.string(),
   fieldId: z.string(),
   tableId: z.string().optional(),
@@ -32,7 +32,7 @@ export const linkFieldCheckItemSchema = z.object({
   baseId: z
     .string()
     .optional()
-    .openapi({ description: 'The base id of the link field with is cross-base' }),
+    .meta({ description: 'The base id of the link field with is cross-base' }),
   baseName: z.string().optional(),
   tableId: z.string().optional(),
   tableName: z.string().optional(),

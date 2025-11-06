@@ -7,7 +7,7 @@ import { PinType } from './types';
 export const ADD_PIN = '/pin/';
 
 export const addPinRoSchema = z.object({
-  type: z.nativeEnum(PinType),
+  type: z.enum(PinType),
   id: z.string(),
 });
 

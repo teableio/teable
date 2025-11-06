@@ -1,4 +1,3 @@
-import { extendZodWithOpenApi } from '@asteasolutions/zod-to-openapi';
 import * as Sentry from '@sentry/nextjs';
 import type { IUser } from '@teable/sdk';
 import dayjs from 'dayjs';
@@ -9,7 +8,6 @@ import App from 'next/app';
 import Head from 'next/head';
 import { appWithTranslation } from 'next-i18next';
 import { useEffect } from 'react';
-import { z } from 'zod';
 import { Guide } from '@/components/Guide';
 import { GoogleAnalytics, MicrosoftClarity, Umami } from '@/components/Metrics';
 import RouterProgressBar from '@/components/RouterProgress';
@@ -24,7 +22,6 @@ import 'reactflow/dist/style.css';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-extendZodWithOpenApi(z);
 
 /**
  * Import global styles, global css or polyfills here

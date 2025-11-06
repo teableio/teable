@@ -9,7 +9,7 @@ export const TableRole = {
   Viewer: Role.Viewer,
 } as const;
 
-export const tableRolesSchema = z.nativeEnum(TableRole);
+export const tableRolesSchema = z.enum(TableRole);
 
 export type ITableRole = z.infer<typeof tableRolesSchema>;
 

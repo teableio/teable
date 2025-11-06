@@ -73,7 +73,7 @@ export const usageFeatureLimitSchema = z.object({
 });
 
 export const usageVoSchema = z.object({
-  level: z.nativeEnum(BillingProductLevel),
+  level: z.enum(BillingProductLevel),
   limit: usageFeatureLimitSchema,
 });
 

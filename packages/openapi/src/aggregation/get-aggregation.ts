@@ -35,13 +35,13 @@ export type IRawAggregationsValue = z.infer<typeof rawAggregationsValueSchema>;
 
 export const rawAggregationsSchema = z
   .object({
-    fieldId: z.string().startsWith(IdPrefix.Field).openapi({
+    fieldId: z.string().startsWith(IdPrefix.Field).meta({
       description: 'The id of the field.',
     }),
-    total: rawAggregationsValueSchema.nullable().openapi({
+    total: rawAggregationsValueSchema.nullable().meta({
       description: 'Aggregations by all data in field',
     }),
-    group: z.record(z.string(), rawAggregationsValueSchema).optional().nullable().openapi({
+    group: z.record(z.string(), rawAggregationsValueSchema).optional().nullable().meta({
       description: 'Aggregations by grouped data in field',
     }),
   })

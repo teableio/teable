@@ -7,7 +7,7 @@ import { integrationConfigSchema, IntegrationType } from './integration-get-list
 export const CREATE_INTEGRATION = '/space/{spaceId}/integration';
 
 export const createIntegrationRoSchema = z.object({
-  type: z.nativeEnum(IntegrationType),
+  type: z.enum(IntegrationType),
   enable: z.boolean().optional(),
   config: integrationConfigSchema,
 });

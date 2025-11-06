@@ -13,7 +13,7 @@ export const ReadFileRoute: RouteConfig = registerRoute({
       token: z.string(),
     }),
     query: z.object({
-      filename: z.string().optional().openapi({ description: 'File name for download' }),
+      filename: z.string().optional().meta({ description: 'File name for download' }),
     }),
   },
   responses: {

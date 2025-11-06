@@ -12,7 +12,7 @@ export const getDepartmentListRoSchema = z.object({
     .string()
     .transform((value) => value === 'true')
     .optional()
-    .openapi({ type: 'string' }),
+    .meta({ type: 'string' }),
 });
 
 export type IGetDepartmentListRo = z.infer<typeof getDepartmentListRoSchema>;

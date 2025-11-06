@@ -17,7 +17,7 @@ export const updateRecordRoSchema = z
     }),
     order: recordInsertOrderRoSchema.optional(),
   })
-  .openapi({
+  .meta({
     description: 'Update record by id',
   });
 
@@ -35,7 +35,7 @@ export const updateRecordsRoSchema = z
     ),
     order: recordInsertOrderRoSchema.optional(),
   })
-  .openapi({
+  .meta({
     description: 'Multiple Update records',
   });
 

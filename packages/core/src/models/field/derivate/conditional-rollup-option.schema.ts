@@ -12,7 +12,7 @@ export const conditionalRollupFieldOptionsSchema = rollupFieldOptionsSchema.exte
   sort: z
     .object({
       fieldId: z.string(),
-      order: z.nativeEnum(SortFunc),
+      order: z.enum(SortFunc),
     })
     .optional(),
   limit: z.number().int().positive().max(CONDITIONAL_QUERY_MAX_LIMIT).optional(),

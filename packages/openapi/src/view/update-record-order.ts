@@ -4,11 +4,11 @@ import { registerRoute, urlBuilder } from '../utils';
 import { z } from '../zod';
 
 export const updateRecordOrdersRoSchema = z.object({
-  anchorId: z.string().openapi({
+  anchorId: z.string().meta({
     description: 'Id of the record that you want to move other records around',
   }),
   position: z.enum(['before', 'after']),
-  recordIds: z.string().array().max(1000).openapi({
+  recordIds: z.string().array().max(1000).meta({
     description: 'Ids of those records you want to move',
     maxLength: 1000,
   }),

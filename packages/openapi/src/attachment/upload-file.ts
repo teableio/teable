@@ -18,7 +18,7 @@ export const UploadFileRoute: RouteConfig = registerRoute({
     body: {
       content: {
         'application/json': {
-          schema: z.string().openapi({ format: 'binary' }),
+          schema: z.string().meta({ format: 'binary' }),
         },
       },
       description: 'upload attachment',

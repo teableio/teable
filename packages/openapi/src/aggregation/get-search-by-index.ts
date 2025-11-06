@@ -25,7 +25,7 @@ export const searchIndexByQueryRoSchema = contentQueryBaseSchema
   .extend({
     skip: z.coerce.number().optional(),
     take: z.coerce.number(),
-    projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+    projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().meta({
       description:
         'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
     }),

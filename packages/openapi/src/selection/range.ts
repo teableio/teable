@@ -16,7 +16,7 @@ export const cellSchema = z.tuple([z.number(), z.number()]);
 
 export type ICell = z.infer<typeof cellSchema>;
 
-const rangeTypeSchema = z.nativeEnum(RangeType).optional().openapi({
+const rangeTypeSchema = z.enum(RangeType).optional().meta({
   description: 'Types of non-contiguous selections',
   example: RangeType.Columns,
 });
@@ -30,11 +30,11 @@ export const rangesRoSchema = contentQueryBaseSchema.extend({
   orderBy: orderBySchema.optional(),
   groupBy: groupSchema.optional(),
   collapsedGroupIds: z.array(z.string()).optional(),
-  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().meta({
     description:
       'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
   }),
-  ranges: rangesSchema.openapi({
+  ranges: rangesSchema.meta({
     description:
       'The parameter "ranges" is used to represent the coordinates of a selected range in a table. ',
     example: [
@@ -48,7 +48,7 @@ export const rangesRoSchema = contentQueryBaseSchema.extend({
 export type IRangesRo = z.infer<typeof rangesRoSchema>;
 
 export const rangesQuerySchema = contentQueryBaseSchema.extend({
-  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().meta({
     description:
       'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
   }),
@@ -66,7 +66,7 @@ export const rangesQuerySchema = contentQueryBaseSchema.extend({
       }
       return parsingResult.data;
     })
-    .openapi({
+    .meta({
       type: 'string',
       description:
         'The parameter "ranges" is used to represent the coordinates [column, row][] of a selected range in a table. ',
@@ -82,7 +82,7 @@ export enum IdReturnType {
 }
 
 export const rangesToIdQuerySchema = rangesQuerySchema.extend({
-  returnType: z.nativeEnum(IdReturnType).openapi({ description: 'Define which Id to return.' }),
+  returnType: z.enum(IdReturnType).meta({ description: 'Define which Id to return.' }),
 });
 
 export type IRangesToIdQuery = z.infer<typeof rangesToIdQuerySchema>;

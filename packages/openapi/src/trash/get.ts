@@ -34,7 +34,7 @@ export type IUserMapVo = z.infer<typeof userMapVoSchema>;
 const fieldSnapshotItemVoSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.nativeEnum(FieldType),
+  type: z.enum(FieldType),
   isLookup: z.boolean().nullable(),
   isConditionalLookup: z.boolean().nullable().optional(),
   options: z.array(z.string()).nullish(),
@@ -48,7 +48,7 @@ const recordSnapshotItemVoSchema = z.object({
 const viewSnapshotItemVoSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.nativeEnum(ViewType),
+  type: z.enum(ViewType),
 });
 
 export const resourceMapVoSchema = z.record(

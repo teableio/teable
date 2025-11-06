@@ -31,7 +31,7 @@ export type INotificationUrl = z.infer<typeof notificationUrlSchema>;
 export const notificationSchema = z.object({
   id: z.string().startsWith(IdPrefix.Notification),
   notifyIcon: notificationIconSchema,
-  notifyType: z.nativeEnum(NotificationTypeEnum),
+  notifyType: z.enum(NotificationTypeEnum),
   url: z.string(),
   message: z.string(),
   messageI18n: z.string().nullable().optional(),

@@ -43,7 +43,7 @@ function fixAliases(componentName) {
 
 const args = process.argv.slice(2).join(' ');
 
-execSync(`pnpm shadcn-ui ${args}`, { stdio: 'inherit', cwd: process.cwd() });
+execSync(`pnpm dlx shadcn@latest add ${args}`, { stdio: 'inherit', cwd: process.cwd() });
 
 if (process.argv[2] === 'add') {
   fixAliases(process.argv[3]);

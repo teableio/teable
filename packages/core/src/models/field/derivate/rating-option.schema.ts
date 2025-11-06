@@ -23,7 +23,7 @@ export const ratingColorsSchema = z.enum(RATING_ICON_COLORS);
 export type IRatingColors = z.infer<typeof ratingColorsSchema>;
 
 export const ratingFieldOptionsSchema = z.object({
-  icon: z.nativeEnum(RatingIcon),
+  icon: z.enum(RatingIcon),
   color: ratingColorsSchema,
   max: z.number().int().max(10).min(1),
 });

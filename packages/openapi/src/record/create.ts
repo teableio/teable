@@ -11,7 +11,7 @@ export const recordInsertOrderRoSchema = z
   .object({
     viewId: z
       .string()
-      .openapi({
+      .meta({
         description:
           'You can only specify order in one view when create record (will create a order index automatically)',
       })
@@ -20,13 +20,13 @@ export const recordInsertOrderRoSchema = z
       ),
     anchorId: z
       .string()
-      .openapi({
+      .meta({
         description: 'The record id to anchor to',
       })
       .describe('The record id to anchor to'),
     position: z.enum(['before', 'after']),
   })
-  .openapi({
+  .meta({
     description: 'Where this record to insert to (Optional)',
   });
 
@@ -42,7 +42,7 @@ export const createRecordsRoSchema = z
         fields: recordSchema.shape.fields,
       })
       .array()
-      .openapi({
+      .meta({
         example: [
           {
             fields: {
@@ -53,7 +53,7 @@ export const createRecordsRoSchema = z
         description: 'Array of record objects ',
       }),
   })
-  .openapi({
+  .meta({
     description: 'Multiple Create records',
   });
 

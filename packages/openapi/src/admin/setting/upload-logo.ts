@@ -6,7 +6,7 @@ import { z } from '../../zod';
 export const UPLOAD_LOGO = '/admin/setting/logo';
 
 export const uploadLogoRoSchema = z.object({
-  file: z.string().openapi({ format: 'binary' }),
+  file: z.string().meta({ format: 'binary' }),
 });
 
 export const uploadLogoVoSchema = z.object({

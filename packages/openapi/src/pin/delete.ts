@@ -7,7 +7,7 @@ import { PinType } from './types';
 export const DELETE_PIN = '/pin';
 
 export const deletePinRoSchema = z.object({
-  type: z.nativeEnum(PinType),
+  type: z.enum(PinType),
   id: z.string(),
 });
 

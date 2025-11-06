@@ -7,7 +7,7 @@ import type { IButtonFieldOptions } from './button-option.schema';
 import { buttonFieldOptionsSchema } from './button-option.schema';
 
 export const buttonFieldCelValueSchema = z.object({
-  count: z.number().int().openapi({ description: 'clicked count' }),
+  count: z.number().int().meta({ description: 'clicked count' }),
 });
 
 export type IButtonFieldCellValue = z.infer<typeof buttonFieldCelValueSchema>;

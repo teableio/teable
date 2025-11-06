@@ -13,7 +13,7 @@ export const getBaseItemSchema = z.object({
   spaceId: z.string(),
   icon: z.string().nullable(),
   role: roleSchema,
-  collaboratorType: z.nativeEnum(CollaboratorType).optional(),
+  collaboratorType: z.enum(CollaboratorType).optional(),
   restrictedAuthority: z.boolean().optional(),
   enabledAuthority: z.boolean().optional(),
 });

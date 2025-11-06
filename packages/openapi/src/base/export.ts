@@ -25,7 +25,7 @@ export const viewJsonSchema = viewVoSchema
     isLocked: true,
   })
   .extend({
-    tableId: z.string().startsWith(IdPrefix.Table).openapi({
+    tableId: z.string().startsWith(IdPrefix.Table).meta({
       description: 'The id of the table.',
     }),
   });
@@ -52,25 +52,25 @@ export const fieldJsonSchema = fieldVoSchema
     isMultipleCellValue: true,
   })
   .extend({
-    createdTime: z.string().datetime().openapi({
+    createdTime: z.string().datetime().meta({
       description: 'The create time of the field.',
     }),
-    order: z.number().openapi({
+    order: z.number().meta({
       description: 'The order of the field.',
     }),
   });
 
 export const tableJsonSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Table).openapi({
+  id: z.string().startsWith(IdPrefix.Table).meta({
     description: 'The id of table.',
   }),
-  name: z.string().openapi({
+  name: z.string().meta({
     description: 'The name of the table.',
   }),
-  description: z.string().optional().openapi({
+  description: z.string().optional().meta({
     description: 'The description of the table.',
   }),
-  icon: z.string().emoji().optional().openapi({
+  icon: z.string().emoji().optional().meta({
     description: 'The emoji icon string of the table.',
   }),
   order: z.number(),
@@ -79,32 +79,32 @@ export const tableJsonSchema = z.object({
 });
 
 export const pluginInstallJsonSchema = z.object({
-  id: z.string().startsWith(IdPrefix.PluginInstall).openapi({
+  id: z.string().startsWith(IdPrefix.PluginInstall).meta({
     description: 'The id of the plugin install.',
   }),
-  pluginId: z.string().startsWith(IdPrefix.Plugin).openapi({
+  pluginId: z.string().startsWith(IdPrefix.Plugin).meta({
     description: 'The id of the plugin.',
   }),
-  position: z.nativeEnum(PluginPosition).openapi({
+  position: z.enum(PluginPosition).meta({
     description: 'The position of the plugin.',
   }),
-  name: z.string().openapi({
+  name: z.string().meta({
     description: 'The name of the plugin.',
   }),
   storage: pluginInstallStorageSchema,
 });
 
 export const dashboardJsonSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Dashboard).openapi({
+  id: z.string().startsWith(IdPrefix.Dashboard).meta({
     description: 'The id of dashboard.',
   }),
-  name: z.string().openapi({
+  name: z.string().meta({
     description: 'The name of the dashboard.',
   }),
   layout: z.string().nullable(),
   pluginInstall: pluginInstallJsonSchema
     .extend({
-      positionId: z.string().startsWith(IdPrefix.Dashboard).openapi({
+      positionId: z.string().startsWith(IdPrefix.Dashboard).meta({
         description: 'The id of the dashboard.',
       }),
     })
@@ -112,19 +112,19 @@ export const dashboardJsonSchema = z.object({
 });
 
 export const pluginPanelJsonSchema = z.object({
-  id: z.string().startsWith(IdPrefix.PluginPanel).openapi({
+  id: z.string().startsWith(IdPrefix.PluginPanel).meta({
     description: 'The id of the plugin panel.',
   }),
-  name: z.string().openapi({
+  name: z.string().meta({
     description: 'The name of the plugin panel.',
   }),
-  tableId: z.string().startsWith(IdPrefix.Table).openapi({
+  tableId: z.string().startsWith(IdPrefix.Table).meta({
     description: 'The table id of the plugin panel.',
   }),
   layout: z.string().nullable(),
   pluginInstall: pluginInstallJsonSchema
     .extend({
-      positionId: z.string().startsWith(IdPrefix.PluginPanel).openapi({
+      positionId: z.string().startsWith(IdPrefix.PluginPanel).meta({
         description: 'The id of the panel positionId.',
       }),
     })
@@ -132,11 +132,11 @@ export const pluginPanelJsonSchema = z.object({
 });
 
 export const viewPluginJsonSchema = viewJsonSchema.extend({
-  pluginId: z.string().startsWith(IdPrefix.Plugin).openapi({
+  pluginId: z.string().startsWith(IdPrefix.Plugin).meta({
     description: 'The id of the plugin.',
   }),
   pluginInstall: pluginInstallJsonSchema.extend({
-    positionId: z.string().startsWith(IdPrefix.View).openapi({
+    positionId: z.string().startsWith(IdPrefix.View).meta({
       description: 'The id of the view positionId.',
     }),
   }),

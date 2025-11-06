@@ -30,8 +30,8 @@ export enum SubscriptionStatus {
 
 export const subscriptionSummaryVoSchema = z.object({
   spaceId: z.string(),
-  status: z.nativeEnum(SubscriptionStatus),
-  level: z.nativeEnum(BillingProductLevel),
+  status: z.enum(SubscriptionStatus),
+  level: z.enum(BillingProductLevel),
 });
 
 export type ISubscriptionSummaryVo = z.infer<typeof subscriptionSummaryVoSchema>;

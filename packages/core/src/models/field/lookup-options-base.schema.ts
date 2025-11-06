@@ -5,31 +5,31 @@ import { CONDITIONAL_QUERY_MAX_LIMIT } from './conditional.constants';
 import { Relationship } from './constant';
 
 const lookupLinkOptionsVoSchema = z.object({
-  baseId: z.string().optional().openapi({
+  baseId: z.string().optional().meta({
     description:
       'the base id of the table that this field is linked to, only required for cross base link',
   }),
-  relationship: z.nativeEnum(Relationship).openapi({
+  relationship: z.enum(Relationship).meta({
     description: 'describe the relationship from this table to the foreign table',
   }),
-  foreignTableId: z.string().openapi({
+  foreignTableId: z.string().meta({
     description: 'the table this field is linked to',
   }),
-  lookupFieldId: z.string().openapi({
+  lookupFieldId: z.string().meta({
     description: 'the field in the foreign table that will be displayed as the current field',
   }),
-  fkHostTableName: z.string().openapi({
+  fkHostTableName: z.string().meta({
     description:
       'the table name for storing keys, in many-to-many relationships, keys are stored in a separate intermediate table; in other relationships, keys are stored on one side as needed',
   }),
-  selfKeyName: z.string().openapi({
+  selfKeyName: z.string().meta({
     description: 'the name of the field that stores the current table primary key',
   }),
-  foreignKeyName: z.string().openapi({
+  foreignKeyName: z.string().meta({
     description: 'The name of the field that stores the foreign table primary key',
   }),
   filter: filterSchema.optional(),
-  linkFieldId: z.string().openapi({
+  linkFieldId: z.string().meta({
     description: 'The id of Linked record field to use for lookup',
   }),
 });
@@ -42,33 +42,33 @@ const lookupLinkOptionsRoSchema = lookupLinkOptionsVoSchema.pick({
 });
 
 const lookupConditionalOptionsVoSchema = z.object({
-  baseId: z.string().optional().openapi({
+  baseId: z.string().optional().meta({
     description:
       'the base id of the table that this field is linked to, only required for cross base link',
   }),
-  foreignTableId: z.string().openapi({
+  foreignTableId: z.string().meta({
     description: 'the table this field is linked to',
   }),
-  lookupFieldId: z.string().openapi({
+  lookupFieldId: z.string().meta({
     description: 'the field in the foreign table that will be displayed as the current field',
   }),
-  filter: filterSchema.openapi({
+  filter: filterSchema.meta({
     description: 'Filter to apply when resolving conditional lookup values.',
   }),
   sort: z
     .object({
-      fieldId: z.string().openapi({
+      fieldId: z.string().meta({
         description: 'The field in the foreign table used to order lookup records.',
       }),
       order: z
-        .nativeEnum(SortFunc)
-        .openapi({ description: 'Ordering direction to apply to the sorted field.' }),
+        .enum(SortFunc)
+        .meta({ description: 'Ordering direction to apply to the sorted field.' }),
     })
     .optional()
-    .openapi({
+    .meta({
       description: 'Optional sort configuration applied before aggregating lookup values.',
     }),
-  limit: z.number().int().positive().max(CONDITIONAL_QUERY_MAX_LIMIT).optional().openapi({
+  limit: z.number().int().positive().max(CONDITIONAL_QUERY_MAX_LIMIT).optional().meta({
     description: 'Maximum number of matching records to include in the lookup result.',
   }),
 });

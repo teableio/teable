@@ -12,7 +12,7 @@ export const dbTableNameRoSchema = z.object({
     .regex(/^[a-z_]\w{0,62}$/i, {
       message: 'Invalid name format',
     })
-    .openapi({
+    .meta({
       description:
         'table name in backend database. Limitation: 1-63 characters, start with letter or underscore, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing table name in the base.',
     }),

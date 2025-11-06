@@ -1,10 +1,10 @@
 import { z } from '../../../zod';
 import { SortFunc } from './sort-func.enum';
 
-export const orderSchema = z.nativeEnum(SortFunc);
+export const orderSchema = z.enum(SortFunc);
 
 export const sortItemSchema = z.object({
-  fieldId: z.string().openapi({
+  fieldId: z.string().meta({
     description: 'The id of the field.',
   }),
   order: orderSchema,

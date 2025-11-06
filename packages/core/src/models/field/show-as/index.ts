@@ -20,14 +20,14 @@ export const getShowAsSchema = (
     return singleLineTextShowAsSchema.optional();
   }
 
-  return z.undefined().openapi({
+  return z.undefined().meta({
     description: 'Only string or number cell value type support show as',
   });
 };
 
 export const unionShowAsSchema = z
   .union([singleLineTextShowAsSchema.strict(), numberShowAsSchema])
-  .openapi({
+  .meta({
     description:
       'According to the results of expression parsing to determine different visual effects, where strings, numbers will provide customized "show as"',
   });

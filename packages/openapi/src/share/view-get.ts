@@ -18,10 +18,10 @@ export const shareViewGetVoSchema = z.object({
   shareMeta: shareViewMetaSchema.optional(),
   view: viewVoSchema.optional(),
   fields: fieldVoSchema.array(),
-  records: recordSchema.array().openapi({ description: 'first 50 records' }),
+  records: recordSchema.array().meta({ description: 'first 50 records' }),
   extra: z
     .object({
-      groupPoints: groupPointsVoSchema.optional().openapi({
+      groupPoints: groupPointsVoSchema.optional().meta({
         description: 'Group points for the view',
       }),
       plugin: shareViewPluginSchema.optional(),

@@ -12,6 +12,6 @@ export const Role = {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const RoleLevel = ['owner', 'creator', 'editor', 'commenter', 'viewer'];
 
-export const roleSchema = z.nativeEnum(Role);
+export const roleSchema = z.enum(Role);
 
 export type IRole = z.infer<typeof roleSchema>;

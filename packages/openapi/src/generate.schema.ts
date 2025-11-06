@@ -105,16 +105,16 @@ export async function getOpenApiDocumentation(config: {
       console.error('╚════════════════════════════════════════════════════════════════╝');
       console.error('\n📌 Error:', (error as Error).message);
       console.error('\n💡 Common causes:');
-      console.error('   • Using .refine() without .openapi({ type: "..." })');
-      console.error('   • Using .transform() without .openapi({ type: "..." })');
-      console.error('   • Using z.custom() without .openapi({ type: "..." })');
+      console.error('   • Using .refine() without .meta({ type: "..." })');
+      console.error('   • Using .transform() without .meta({ type: "..." })');
+      console.error('   • Using z.custom() without .meta({ type: "..." })');
       console.error('\n🔍 How to find the problematic schema:');
       console.error('   1. Search for: .refine( | .transform( | z.custom(');
-      console.error('   2. Check if they have .openapi() or .meta() after them');
-      console.error('   3. Add: .openapi({ type: "string" }) (or appropriate type)');
+      console.error('   2. Check if they have .meta() or .meta() after them');
+      console.error('   3. Add: .meta({ type: "string" }) (or appropriate type)');
       console.error('\n📝 Example fix:');
       console.error('   Before: z.string().refine(validate)');
-      console.error('   After:  z.string().refine(validate).openapi({ type: "string" })');
+      console.error('   After:  z.string().refine(validate).meta({ type: "string" })');
       console.error('\n════════════════════════════════════════════════════════════════\n');
     }
     throw error;

@@ -8,7 +8,7 @@ export const DELETE_SPACE_COLLABORATOR = '/space/{spaceId}/collaborators';
 
 export const deleteSpaceCollaboratorRoSchema = z.object({
   principalId: z.string(),
-  principalType: z.nativeEnum(PrincipalType),
+  principalType: z.enum(PrincipalType),
 });
 
 export type DeleteSpaceCollaboratorRo = z.infer<typeof deleteSpaceCollaboratorRoSchema>;

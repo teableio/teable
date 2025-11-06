@@ -23,7 +23,7 @@ export const dbConnectionVoSchema = z.object({
     max: z.number(),
     current: z.number(),
   }),
-  url: z.string().openapi({ description: 'The URL that can be used to connect to the database' }),
+  url: z.string().meta({ description: 'The URL that can be used to connect to the database' }),
 });
 
 export type IDbConnectionVo = z.infer<typeof dbConnectionVoSchema>;

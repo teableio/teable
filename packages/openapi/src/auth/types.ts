@@ -1,6 +1,6 @@
 import { z } from '../zod';
 
-export const passwordSchema = z.string().min(8).openapi({
+export const passwordSchema = z.string().min(8).meta({
   description: 'Minimum 8 chars',
 });
 

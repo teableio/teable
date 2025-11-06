@@ -9,7 +9,7 @@ export const queryParamsRoSchema = z.object({
 export type IQueryParamsRo = z.infer<typeof queryParamsRoSchema>;
 
 export const queryParamsVoSchema = z.object({
-  queryId: z.string().openapi({
+  queryId: z.string().meta({
     example: 'qry_xxxxxxxx',
     description: 'Unique ID for the saved query parameters',
   }),

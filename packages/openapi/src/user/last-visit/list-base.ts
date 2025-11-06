@@ -9,7 +9,7 @@ import { LastVisitResourceType } from './get';
 export const GET_USER_LAST_VISIT_LIST_BASE = '/user/last-visit/list-base';
 
 export const userLastVisitItemBaseVoSchema = z.object({
-  resourceType: z.nativeEnum(LastVisitResourceType),
+  resourceType: z.enum(LastVisitResourceType),
   resourceId: z.string(),
   resource: getBaseItemSchema.omit({ collaboratorType: true }),
   lastVisitTime: z.string().optional(),

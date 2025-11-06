@@ -13,7 +13,7 @@ export const commentReactionSymbolSchema = z
   .refine((value) => {
     return SUPPORT_EMOJIS.includes(value as EmojiSymbol);
   })
-  .openapi({ type: 'string' });
+  .meta({ type: 'string' });
 
 export const commentReactionSchema = z
   .object({

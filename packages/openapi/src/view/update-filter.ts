@@ -20,7 +20,7 @@ export const UpdateViewFilterRoute: RouteConfig = registerRoute({
       content: {
         // TODO zod-to-openapi does not support z.lazy which use in filterSchema
         'application/json': {
-          schema: filterRoSchema.openapi({
+          schema: filterRoSchema.meta({
             type: 'object',
             example: {
               filter: {

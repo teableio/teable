@@ -7,7 +7,7 @@ import { LastVisitResourceType } from './get';
 export const UPDATE_USER_LAST_VISIT = '/user/last-visit';
 
 export const updateUserLastVisitRoSchema = z.object({
-  resourceType: z.nativeEnum(LastVisitResourceType),
+  resourceType: z.enum(LastVisitResourceType),
   resourceId: z.string(),
   parentResourceId: z.string(),
   childResourceId: z.string().optional(),

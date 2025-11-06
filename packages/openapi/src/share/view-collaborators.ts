@@ -10,7 +10,7 @@ export const shareViewCollaboratorsRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
-  type: z.nativeEnum(PrincipalType).optional(),
+  type: z.enum(PrincipalType).optional(),
 });
 
 export type IShareViewCollaboratorsRo = z.infer<typeof shareViewCollaboratorsRoSchema>;

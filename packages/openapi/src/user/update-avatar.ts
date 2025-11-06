@@ -6,7 +6,7 @@ import { z } from '../zod';
 export const UPDATE_USER_AVATAR = '/user/avatar';
 
 export const updateUserAvatarRoSchema = z.object({
-  file: z.string().openapi({ format: 'binary' }),
+  file: z.string().meta({ format: 'binary' }),
 });
 
 export type IUpdateUserAvatarRo = z.infer<typeof updateUserAvatarRoSchema>;

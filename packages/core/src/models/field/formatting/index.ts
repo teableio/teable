@@ -9,7 +9,7 @@ export * from './time-zone';
 
 export const unionFormattingSchema = z
   .union([datetimeFormattingSchema, numberFormattingSchema])
-  .openapi({
+  .meta({
     description:
       'Different cell value types are determined based on the results of expression parsing, where numbers, dates, and formatting options are provided',
   });
@@ -32,7 +32,7 @@ export const getFormattingSchema = (cellValueType: CellValueType) => {
     case CellValueType.DateTime:
       return datetimeFormattingSchema;
     default:
-      return z.undefined().openapi({
+      return z.undefined().meta({
         description: 'Only number and datetime cell value type support formatting',
       });
   }

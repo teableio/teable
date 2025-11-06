@@ -20,7 +20,7 @@ export const updatePluginRoSchema = z.object({
   config: pluginConfigSchema.optional(),
   logo: z.string().optional(),
   helpUrl: z.string().url().optional(),
-  positions: z.array(z.nativeEnum(PluginPosition)).min(1),
+  positions: z.array(z.enum(PluginPosition)).min(1),
   i18n: pluginI18nSchema.optional(),
 });
 
@@ -35,10 +35,10 @@ export const updatePluginVoSchema = z.object({
   config: pluginConfigSchema.optional(),
   url: z.string().optional(),
   helpUrl: z.string().optional(),
-  positions: z.array(z.nativeEnum(PluginPosition)),
+  positions: z.array(z.enum(PluginPosition)),
   i18n: pluginI18nSchema.optional(),
   secret: z.string(),
-  status: z.nativeEnum(PluginStatus),
+  status: z.enum(PluginStatus),
   pluginUser: pluginUserSchema,
   createdTime: z.string(),
   lastModifiedTime: z.string(),

@@ -41,9 +41,9 @@ export const baseErdEdgeSchema = z.object({
     fieldId: z.string(),
     fieldName: z.string(),
   }),
-  relationship: z.nativeEnum(Relationship).optional(),
+  relationship: z.enum(Relationship).optional(),
   isOneWay: z.boolean().optional(),
-  type: z.nativeEnum(FieldType).or(z.literal('lookup')),
+  type: z.enum(FieldType).or(z.literal('lookup')),
 });
 
 export type IBaseErdEdge = z.infer<typeof baseErdEdgeSchema>;

@@ -9,7 +9,7 @@ export const UPDATE_BASE_COLLABORATE = '/base/{baseId}/collaborators';
 
 export const updateBaseCollaborateRoSchema = z.object({
   principalId: z.string(),
-  principalType: z.nativeEnum(PrincipalType),
+  principalType: z.enum(PrincipalType),
   role: baseRolesSchema,
 });
 

@@ -15,7 +15,7 @@ export const listBaseCollaboratorRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
-  type: z.nativeEnum(PrincipalType).optional(),
+  type: z.enum(PrincipalType).optional(),
   role: roleSchema.array().optional(),
 });
 

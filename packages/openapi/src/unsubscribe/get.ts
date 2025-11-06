@@ -7,7 +7,7 @@ import { z } from '../zod';
 export const GET_UNSUBSCRIBE = '/unsubscribe/{token}';
 
 export const unsubscribeBaseSchema = z.object({
-  type: z.nativeEnum(MailType),
+  type: z.enum(MailType),
   baseId: z.string(),
   email: z.string(),
   subscriptionStatus: z.boolean().optional(),

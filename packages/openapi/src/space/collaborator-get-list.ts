@@ -13,7 +13,7 @@ export const listSpaceCollaboratorRoSchema = z.object({
   skip: z.coerce.number().optional(),
   take: z.coerce.number().optional(),
   search: z.string().optional(),
-  type: z.nativeEnum(PrincipalType).optional(),
+  type: z.enum(PrincipalType).optional(),
   orderBy: z.enum(['desc', 'asc']).optional(),
 });
 

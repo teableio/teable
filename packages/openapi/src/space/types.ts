@@ -19,7 +19,7 @@ export const userCollaboratorItem = z.object({
   avatar: z.string().nullable(),
   createdTime: z.string(),
   type: z.literal(PrincipalType.User),
-  resourceType: z.nativeEnum(CollaboratorType),
+  resourceType: z.enum(CollaboratorType),
   isSystem: z.boolean().optional(),
   billable: z.boolean().optional(),
   base: z
@@ -38,7 +38,7 @@ export const departmentCollaboratorItem = z.object({
   role: roleSchema,
   createdTime: z.string(),
   type: z.literal(PrincipalType.Department),
-  resourceType: z.nativeEnum(CollaboratorType),
+  resourceType: z.enum(CollaboratorType),
   base: z
     .object({
       id: z.string(),

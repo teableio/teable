@@ -37,88 +37,88 @@ import { validateFieldOptions } from './zod-error';
 // All union schemas and types are now imported from field-unions.schema.ts
 
 export const fieldVoSchema = z.object({
-  id: z.string().startsWith(IdPrefix.Field).openapi({
+  id: z.string().startsWith(IdPrefix.Field).meta({
     description: 'The id of the field.',
   }),
 
-  name: z.string().openapi({
+  name: z.string().meta({
     description: 'The name of the field. can not be duplicated in the table.',
     example: 'Tags',
   }),
 
-  type: z.enum(FieldType).openapi({
+  type: z.enum(FieldType).meta({
     description: 'The field types supported by teable.',
     example: FieldType.SingleSelect,
   }),
 
-  description: z.string().optional().openapi({
+  description: z.string().optional().meta({
     description: 'The description of the field.',
     example: 'this is a summary',
   }),
 
-  options: unionFieldOptionsVoSchema.openapi({
+  options: unionFieldOptionsVoSchema.meta({
     description:
       "The configuration options of the field. The structure of the field's options depend on the field's type.",
   }),
 
-  meta: unionFieldMetaVoSchema.optional().openapi({
+  meta: unionFieldMetaVoSchema.optional().meta({
     description:
       "The metadata of the field. The structure of the field's meta depend on the field's type. Currently formula and link fields have meta.",
   }),
 
-  aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
+  aiConfig: fieldAIConfigSchema.nullable().optional().meta({
     description: 'The AI configuration of the field.',
   }),
 
-  isLookup: z.boolean().optional().openapi({
+  isLookup: z.boolean().optional().meta({
     description:
       'Whether this field is lookup field. witch means cellValue and [fieldType] is looked up from the linked table.',
   }),
 
-  isConditionalLookup: z.boolean().optional().openapi({
+  isConditionalLookup: z.boolean().optional().meta({
     description:
       'Whether this lookup field applies a conditional filter when resolving linked records.',
   }),
 
-  lookupOptions: lookupOptionsVoSchema.optional().openapi({
+  lookupOptions: lookupOptionsVoSchema.optional().meta({
     description: 'field lookup options.',
   }),
 
-  notNull: z.boolean().optional().openapi({
+  notNull: z.boolean().optional().meta({
     description: 'Whether this field is not null.',
   }),
 
-  unique: z.boolean().optional().openapi({
+  unique: z.boolean().optional().meta({
     description: 'Whether this field is not unique.',
   }),
 
-  isPrimary: z.boolean().optional().openapi({
+  isPrimary: z.boolean().optional().meta({
     description: 'Whether this field is primary field.',
   }),
 
-  isComputed: z.boolean().optional().openapi({
+  isComputed: z.boolean().optional().meta({
     description:
       'Whether this field is computed field, you can not modify cellValue in computed field.',
   }),
 
-  isPending: z.boolean().optional().openapi({
+  isPending: z.boolean().optional().meta({
     description: "Whether this field's calculation is pending.",
   }),
 
-  hasError: z.boolean().optional().openapi({
+  hasError: z.boolean().optional().meta({
     description:
       "Whether This field has a configuration error. Check the fields referenced by this field's formula or configuration.",
   }),
 
-  cellValueType: z.enum(CellValueType).openapi({
+  cellValueType: z.enum(CellValueType).meta({
     description: 'The cell value type of the field.',
   }),
 
-  isMultipleCellValue: z.boolean().optional().openapi({
+  isMultipleCellValue: z.boolean().optional().meta({
     description: 'Whether this field has multiple cell value.',
   }),
 
-  dbFieldType: z.enum(DbFieldType).openapi({
+  dbFieldType: z.enum(DbFieldType).meta({
     description: 'The field type of database that cellValue really store.',
   }),
 
@@ -128,16 +128,16 @@ export const fieldVoSchema = z.object({
     .regex(/^\w{0,63}$/, {
       message: 'Invalid name format',
     })
-    .openapi({
+    .meta({
       description:
         'Field(column) name in backend database. Limitation: 1-63 characters, can only contain letters, numbers and underscore, case sensitive, cannot be duplicated with existing db field name in the table.',
     }),
-  recordRead: z.boolean().optional().openapi({
+  recordRead: z.boolean().optional().meta({
     description:
       'Field record read permission. When set to false, reading records is denied. When true or not set, reading records is allowed.',
   }),
 
-  recordCreate: z.boolean().optional().openapi({
+  recordCreate: z.boolean().optional().meta({
     description:
       'Field record create permission. When set to false, creating records is denied. When true or not set, creating records is allowed.',
   }),
@@ -286,15 +286,15 @@ const baseFieldRoSchema = fieldVoSchema
   .extend({
     name: fieldVoSchema.shape.name.min(1).optional(),
     description: fieldVoSchema.shape.description.nullable().optional(),
-    lookupOptions: lookupOptionsRoSchema.optional().openapi({
+    lookupOptions: lookupOptionsRoSchema.optional().meta({
       description:
         'The lookup options for field, you need to configure it when isLookup attribute is true or field type is rollup.',
     }),
-    options: unionFieldOptionsRoSchema.optional().openapi({
+    options: unionFieldOptionsRoSchema.optional().meta({
       description:
         "The options of the field. The configuration of the field's options depend on the it's specific type.",
     }),
-    aiConfig: fieldAIConfigSchema.nullable().optional().openapi({
+    aiConfig: fieldAIConfigSchema.nullable().optional().meta({
       description: 'The AI configuration of the field.',
     }),
   });
@@ -302,14 +302,14 @@ const baseFieldRoSchema = fieldVoSchema
 export const convertFieldRoSchema = baseFieldRoSchema.superRefine(refineOptions);
 export const createFieldRoSchema = baseFieldRoSchema
   .extend({
-    id: z.string().startsWith(IdPrefix.Field).optional().openapi({
+    id: z.string().startsWith(IdPrefix.Field).optional().meta({
       description:
         'The id of the field that start with "fld", followed by exactly 16 alphanumeric characters `/^fld[\\da-zA-Z]{16}$/`. It is sometimes useful to specify an id at creation time',
       example: 'fldxxxxxxxxxxxxxxxx',
     }),
     order: z
       .object({
-        viewId: z.string().openapi({
+        viewId: z.string().meta({
           description: 'You can only specify order in one view when create field',
         }),
         orderIndex: z.number(),
@@ -331,11 +331,11 @@ export type IConvertFieldRo = z.infer<typeof convertFieldRoSchema>;
 export type IUpdateFieldRo = z.infer<typeof updateFieldRoSchema>;
 
 export const getFieldsQuerySchema = z.object({
-  viewId: z.string().startsWith(IdPrefix.View).optional().openapi({
+  viewId: z.string().startsWith(IdPrefix.View).optional().meta({
     description: 'The id of the view.',
   }),
   filterHidden: z.coerce.boolean().optional(),
-  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().openapi({
+  projection: z.array(z.string().startsWith(IdPrefix.Field)).optional().meta({
     description:
       'If you want to get only some fields, pass in this parameter, otherwise all visible fields will be obtained',
   }),

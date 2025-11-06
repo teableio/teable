@@ -6,11 +6,11 @@ import { z } from '../../zod';
 export const WAITLIST_INVITE_CODE = '/auth/waitlist-invite-code';
 
 export const waitlistInviteCodeRoSchema = z.object({
-  count: z.number().int().openapi({
+  count: z.number().int().meta({
     description: 'The number of invite codes to generate',
     example: 10,
   }),
-  times: z.number().int().openapi({
+  times: z.number().int().meta({
     description: 'The number of invite codes to use',
     example: 10,
   }),

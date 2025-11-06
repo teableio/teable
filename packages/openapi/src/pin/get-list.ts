@@ -10,7 +10,7 @@ export const GET_PIN_LIST = '/pin/list';
 export const IGetPinListVoSchema = z.array(
   z.object({
     id: z.string(),
-    type: z.nativeEnum(PinType),
+    type: z.enum(PinType),
     order: z.number(),
     name: z.string(),
     icon: z.string().optional(),
@@ -18,7 +18,7 @@ export const IGetPinListVoSchema = z.array(
     viewMeta: z
       .object({
         tableId: z.string(),
-        type: z.nativeEnum(ViewType),
+        type: z.enum(ViewType),
         pluginLogo: z.string().optional(),
       })
       .optional(),

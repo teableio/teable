@@ -33,7 +33,7 @@ export type IShareViewMeta = z.infer<typeof shareViewMetaSchema>;
 export const viewVoSchema = z.object({
   id: z.string().startsWith(IdPrefix.View),
   name: z.string(),
-  type: z.nativeEnum(ViewType),
+  type: z.enum(ViewType),
   description: z.string().optional(),
   order: z.number().optional(),
   options: viewOptionsSchema.optional(),
@@ -48,7 +48,7 @@ export const viewVoSchema = z.object({
   lastModifiedBy: z.string().optional(),
   createdTime: z.string(),
   lastModifiedTime: z.string().optional(),
-  columnMeta: columnMetaSchema.openapi({
+  columnMeta: columnMetaSchema.meta({
     description: 'A mapping of view IDs to their corresponding column metadata.',
   }),
   pluginId: z.string().optional(),

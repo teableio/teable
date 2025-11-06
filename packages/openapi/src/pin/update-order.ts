@@ -8,9 +8,9 @@ export const UPDATE_PIN_ORDER = '/pin/order';
 
 export const updatePinOrderRoSchema = z.object({
   id: z.string(),
-  type: z.nativeEnum(PinType),
+  type: z.enum(PinType),
   anchorId: z.string(),
-  anchorType: z.nativeEnum(PinType),
+  anchorType: z.enum(PinType),
   position: z.enum(['before', 'after']),
 });
 

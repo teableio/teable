@@ -6,7 +6,7 @@ export const dateFieldOptionsSchema = z.object({
   defaultValue: z
     .enum(['now'] as const)
     .optional()
-    .openapi({
+    .meta({
       description:
         'Whether the new row is automatically filled with the current time, caveat: the defaultValue is just a flag, it dose not effect the storing value of the record',
     }),

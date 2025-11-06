@@ -13,14 +13,14 @@ export enum MultiNumberDisplayType {
 
 export const singleNumberShowAsSchema = z
   .object({
-    type: z.nativeEnum(SingleNumberDisplayType).openapi({
+    type: z.enum(SingleNumberDisplayType).meta({
       description: 'can display as bar or ring in number field with single cellValue value',
     }),
-    color: z.nativeEnum(Colors),
-    showValue: z.boolean().openapi({
+    color: z.enum(Colors),
+    showValue: z.boolean().meta({
       description: 'whether to displays the specific value on the graph',
     }),
-    maxValue: z.number().openapi({
+    maxValue: z.number().meta({
       description:
         'the value that represents a 100% maximum value, it does not represent a hard limit on the value',
     }),
@@ -29,10 +29,10 @@ export const singleNumberShowAsSchema = z
 
 export const multiNumberShowAsSchema = z
   .object({
-    type: z.nativeEnum(MultiNumberDisplayType).openapi({
+    type: z.enum(MultiNumberDisplayType).meta({
       description: 'can display as bar or line in number field with multiple cellValue value',
     }),
-    color: z.nativeEnum(Colors),
+    color: z.enum(Colors),
   })
   .describe('Only be used in number related field with isMultipleCellValue is true');
 

@@ -14,7 +14,7 @@ export enum LastVisitResourceType {
 }
 
 export const userLastVisitVoSchema = z.object({
-  resourceType: z.nativeEnum(LastVisitResourceType),
+  resourceType: z.enum(LastVisitResourceType),
   resourceId: z.string(),
   childResourceId: z.string().optional(),
 });
@@ -22,7 +22,7 @@ export const userLastVisitVoSchema = z.object({
 export type IUserLastVisitVo = z.infer<typeof userLastVisitVoSchema>;
 
 export const getUserLastVisitRoSchema = z.object({
-  resourceType: z.nativeEnum(LastVisitResourceType),
+  resourceType: z.enum(LastVisitResourceType),
   parentResourceId: z.string(),
 });
 

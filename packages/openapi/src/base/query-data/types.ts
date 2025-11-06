@@ -12,7 +12,7 @@ export enum BaseQueryColumnType {
   Aggregation = 'aggregation',
   Field = 'field',
 }
-export const baseQueryColumnTypeSchema = z.nativeEnum(BaseQueryColumnType);
+export const baseQueryColumnTypeSchema = z.enum(BaseQueryColumnType);
 
 export const baseQueryFilterItemSchema = z.object({
   column: z.string(),
@@ -43,7 +43,7 @@ export enum BaseQueryJoinType {
   Full = 'FULL JOIN',
 }
 
-export const baseQueryJoinTypeSchema = z.nativeEnum(BaseQueryJoinType);
+export const baseQueryJoinTypeSchema = z.enum(BaseQueryJoinType);
 
 export const baseQueryJoinSchema = z.object({
   type: baseQueryJoinTypeSchema,
@@ -74,7 +74,7 @@ export const baseQueryAggregationSchema = z.array(
   z.object({
     column: z.string(),
     type: baseQueryColumnTypeSchema,
-    statisticFunc: z.nativeEnum(StatisticsFunc),
+    statisticFunc: z.enum(StatisticsFunc),
   })
 );
 export type IQueryAggregation = z.infer<typeof baseQueryAggregationSchema>;

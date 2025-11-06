@@ -38,55 +38,55 @@ export type IPluginColumn = z.infer<typeof pluginColumnSchema>;
 
 export const columnSchemaBase = z
   .object({
-    order: z.number().openapi({
+    order: z.number().meta({
       description: 'Order is a floating number, column will sort by it in the view.',
     }),
   })
-  .openapi({
+  .meta({
     description: 'A mapping of field IDs to their corresponding column metadata.',
   });
 
 export const gridColumnSchema = columnSchemaBase.extend({
-  width: z.number().optional().openapi({
+  width: z.number().optional().meta({
     description: 'Column width in the view.',
   }),
-  hidden: z.boolean().optional().openapi({
+  hidden: z.boolean().optional().meta({
     description: 'If column hidden in the view.',
   }),
-  statisticFunc: z.nativeEnum(StatisticsFunc).nullable().optional().openapi({
+  statisticFunc: z.enum(StatisticsFunc).nullable().optional().meta({
     description: 'Statistic function of the column in the view.',
   }),
 });
 
 export const kanbanColumnSchema = columnSchemaBase.extend({
-  visible: z.boolean().optional().openapi({
+  visible: z.boolean().optional().meta({
     description: 'If column visible in the kanban view.',
   }),
 });
 
 export const galleryColumnSchema = columnSchemaBase.extend({
-  visible: z.boolean().optional().openapi({
+  visible: z.boolean().optional().meta({
     description: 'If column visible in the gallery view.',
   }),
 });
 
 export const calendarColumnSchema = columnSchemaBase.extend({
-  visible: z.boolean().optional().openapi({
+  visible: z.boolean().optional().meta({
     description: 'If column visible in the calendar view.',
   }),
 });
 
 export const formColumnSchema = columnSchemaBase.extend({
-  visible: z.boolean().optional().openapi({
+  visible: z.boolean().optional().meta({
     description: 'If column visible in the view.',
   }),
-  required: z.boolean().optional().openapi({
+  required: z.boolean().optional().meta({
     description: 'If column is required.',
   }),
 });
 
 export const pluginColumnSchema = columnSchemaBase.extend({
-  hidden: z.boolean().optional().openapi({
+  hidden: z.boolean().optional().meta({
     description: 'If column hidden in the view.',
   }),
 });
@@ -137,7 +137,7 @@ export const columnMetaRoSchema = z
       .string()
       .startsWith(IdPrefix.Field)
       .describe('Field ID')
-      .openapi({ description: 'Field ID' }),
+      .meta({ description: 'Field ID' }),
     columnMeta: z.union([
       gridColumnSchema.partial().strict(),
       kanbanColumnSchema.partial().strict(),

@@ -9,7 +9,7 @@ export const UPDATE_SPACE_COLLABORATE = '/space/{spaceId}/collaborators';
 
 export const updateSpaceCollaborateRoSchema = z.object({
   principalId: z.string(),
-  principalType: z.nativeEnum(PrincipalType),
+  principalType: z.enum(PrincipalType),
   role: roleSchema,
 });
 

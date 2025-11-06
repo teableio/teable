@@ -23,12 +23,12 @@ export enum TimeFormatting {
 
 export const datetimeFormattingSchema = z
   .object({
-    date: z.string().openapi({
+    date: z.string().meta({
       description:
         'the display formatting of the date. you can use the following presets: ' +
         Object.values(DateFormattingPreset).join(', '),
     }),
-    time: z.enum(TimeFormatting).openapi({
+    time: z.enum(TimeFormatting).meta({
       description:
         'the display formatting of the time. you can use the following presets: ' +
         Object.values(TimeFormatting).join(', '),
@@ -38,7 +38,7 @@ export const datetimeFormattingSchema = z
   .describe(
     'Only be used in date field (date field or formula / rollup field with cellValueType equals dateTime)'
   )
-  .openapi({
+  .meta({
     description:
       'caveat: the formatting is just a formatter, it dose not effect the storing value of the record',
   });

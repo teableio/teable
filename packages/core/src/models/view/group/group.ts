@@ -2,7 +2,7 @@ import { z } from '../../../zod';
 import { orderSchema } from '../sort';
 
 export const groupItemSchema = z.object({
-  fieldId: z.string().openapi({
+  fieldId: z.string().meta({
     description: 'The id of the field.',
   }),
   order: orderSchema,

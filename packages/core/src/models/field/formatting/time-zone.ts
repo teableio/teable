@@ -452,7 +452,7 @@ export const timeZoneStringSchema = z
     },
     { message: 'Invalid timezone' }
   )
-  .openapi({
+  .meta({
     type: 'string',
     description: 'The time zone that should be used to format dates',
   });

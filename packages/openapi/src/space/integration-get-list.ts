@@ -29,7 +29,7 @@ export type IIntegrationConfig = z.infer<typeof integrationConfigSchema>;
 export const integrationItemVoSchema = z.object({
   id: z.string(),
   spaceId: z.string(),
-  type: z.nativeEnum(IntegrationType),
+  type: z.enum(IntegrationType),
   enable: z.boolean().optional(),
   config: integrationConfigSchema,
   createdTime: z.string(),

@@ -8,16 +8,16 @@ import { createBaseVoSchema } from './create';
 export const DUPLICATE_BASE = '/base/duplicate';
 
 export const duplicateBaseRoSchema = z.object({
-  fromBaseId: z.string().openapi({
+  fromBaseId: z.string().meta({
     description: 'The base to duplicate',
   }),
-  spaceId: z.string().openapi({
+  spaceId: z.string().meta({
     description: 'The space to duplicate the base to',
   }),
-  withRecords: z.boolean().optional().openapi({
+  withRecords: z.boolean().optional().meta({
     description: 'Whether to duplicate the records',
   }),
-  name: z.string().optional().openapi({
+  name: z.string().optional().meta({
     description: 'The name of the duplicated base',
   }),
   baseId: z.string().optional(),

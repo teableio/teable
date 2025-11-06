@@ -8,11 +8,11 @@ export enum SUPPORTEDTYPE {
 
 export const analyzeRoSchema = z.object({
   attachmentUrl: z.string(),
-  fileType: z.nativeEnum(SUPPORTEDTYPE),
+  fileType: z.enum(SUPPORTEDTYPE),
 });
 
 export const analyzeColumnSchema = z.object({
-  type: z.nativeEnum(FieldType),
+  type: z.enum(FieldType),
   name: z.string(),
 });
 
@@ -58,14 +58,14 @@ export const importOptionSchema = importSheetItem.pick({
 export const importOptionRoSchema = z.object({
   worksheets: z.record(z.string(), importSheetItem),
   attachmentUrl: z.string(),
-  fileType: z.nativeEnum(SUPPORTEDTYPE),
+  fileType: z.enum(SUPPORTEDTYPE),
   notification: z.boolean().optional(),
   tz: timeZoneStringSchema,
 });
 
 export const inplaceImportOptionRoSchema = z.object({
   attachmentUrl: z.string(),
-  fileType: z.nativeEnum(SUPPORTEDTYPE),
+  fileType: z.enum(SUPPORTEDTYPE),
   insertConfig: z.object({
     sourceWorkSheetKey: z.string(),
     excludeFirstRow: z.boolean(),

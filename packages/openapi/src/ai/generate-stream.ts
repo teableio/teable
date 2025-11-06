@@ -11,11 +11,11 @@ export const AI_GENERATE_STREAM = '/api/{baseId}/ai/generate-stream';
 
 export const aiGenerateRoSchema = z.object({
   prompt: z.string(),
-  task: z.nativeEnum(Task).optional().openapi({
+  task: z.enum(Task).optional().meta({
     description: 'Quick model selection via predefined task type',
     example: Task.Coding,
   }),
-  modelKey: z.string().optional().openapi({
+  modelKey: z.string().optional().meta({
     description: 'Specify an exact model configuration to use',
     example: 'openai@gpt-4o@custom-name',
   }),

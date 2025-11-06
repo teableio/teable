@@ -7,7 +7,7 @@ import { z } from '../zod';
 export const NOTIFICATION_LIST = '/notifications';
 
 export const getNotifyListQuerySchema = z.object({
-  notifyStates: z.nativeEnum(NotificationStatesEnum),
+  notifyStates: z.enum(NotificationStatesEnum),
   cursor: z.string().nullish(),
 });
 

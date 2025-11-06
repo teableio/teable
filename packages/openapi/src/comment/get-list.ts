@@ -26,7 +26,7 @@ export const getCommentListQueryRoSchema = z.object({
     )
     .default(20)
     .optional()
-    .openapi({
+    .meta({
       example: 20,
       description: `The record count you want to take, maximum is ${1000}`,
     }),
@@ -37,7 +37,7 @@ export const getCommentListQueryRoSchema = z.object({
       z
         .enum(['true', 'false'])
         .transform((value) => value === 'true')
-        .openapi({ type: 'string' }),
+        .meta({ type: 'string' }),
     ])
     .optional(),
   direction: z.union([z.literal('forward'), z.literal('backward')]).optional(),

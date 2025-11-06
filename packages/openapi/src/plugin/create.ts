@@ -20,7 +20,7 @@ export const createPluginRoSchema = z.object({
   url: z.string().url().optional(),
   config: pluginConfigSchema.optional(),
   helpUrl: z.string().url().optional(),
-  positions: z.array(z.nativeEnum(PluginPosition)).min(1),
+  positions: z.array(z.enum(PluginPosition)).min(1),
   i18n: pluginI18nSchema.optional(),
   autoCreateMember: z.boolean().optional(),
 });
@@ -36,10 +36,10 @@ export const createPluginVoSchema = z.object({
   url: z.string().optional(),
   config: pluginConfigSchema.optional(),
   helpUrl: z.string().optional(),
-  positions: z.array(z.nativeEnum(PluginPosition)),
+  positions: z.array(z.enum(PluginPosition)),
   i18n: pluginI18nSchema.optional(),
   secret: z.string(),
-  status: z.nativeEnum(PluginStatus),
+  status: z.enum(PluginStatus),
   pluginUser: pluginUserSchema,
   createdTime: z.string(),
 });

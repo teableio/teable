@@ -13,7 +13,7 @@ export const oauthCreateRoSchema = z.object({
   logo: z.string().optional(),
   scopes: z
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    .array(z.nativeEnum(OAUTH_ACTIONS as any))
+    .array(z.enum(OAUTH_ACTIONS as any))
     .transform<string[]>((val) => (val ? Array.from(new Set(val)) : val))
     .optional(),
   redirectUris: z.array(z.string().url()).min(1),

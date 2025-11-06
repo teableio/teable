@@ -11,11 +11,11 @@ export const pasteRoSchema = rangesRoSchema.extend({
   content: z
     .string()
     .or(z.array(z.array(z.unknown())))
-    .openapi({
+    .meta({
       description: 'Content to paste',
       example: 'John\tDoe\tjohn.doe@example.com',
     }),
-  header: z.array(fieldVoSchema).optional().openapi({
+  header: z.array(fieldVoSchema).optional().meta({
     description: 'Table header for paste operation',
     example: [],
   }),

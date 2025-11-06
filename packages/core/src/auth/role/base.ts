@@ -13,7 +13,7 @@ export const BaseRole = {
   Viewer: Role.Viewer,
 } as const;
 
-export const baseRolesSchema = z.nativeEnum(BaseRole);
+export const baseRolesSchema = z.enum(BaseRole);
 
 export type IBaseRole = z.infer<typeof baseRolesSchema>;
 
