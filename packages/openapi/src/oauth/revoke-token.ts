@@ -13,7 +13,7 @@ export const revokeTokenRoute = registerRoute({
     }),
   },
   responses: {
-    201: {
+    200: {
       description: 'Revoke token successfully',
     },
   },
