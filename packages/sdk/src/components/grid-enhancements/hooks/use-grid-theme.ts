@@ -57,7 +57,7 @@ const darkTheme = {
 
   // interaction
   interactionLineColorCommon: colors.zinc[600],
-  interactionLineColorHighlight: colors.violet[700],
+  interactionLineColorHighlight: colors.blue[600],
 
   // search cursor
   searchCursorBg: colors.orange[400],

@@ -132,7 +132,7 @@ export const gridTheme: IGridTheme = {
 
   // interaction
   interactionLineColorCommon: colors.slate[300],
-  interactionLineColorHighlight: colors.violet[500],
+  interactionLineColorHighlight: colors.blue[500],
 
   // search cursor
   searchCursorBg: colors.amber[400],
