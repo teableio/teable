@@ -347,6 +347,95 @@ describe('Computed Orchestrator (e2e)', () => {
       await permanentDeleteTable(baseId, table.id);
     });
 
+    it('skips joining missing nested link CTEs when a foreign table is deleted', async () => {
+      const clients = await createTable(baseId, {
+        name: 'co-nested-link-clients',
+        fields: [{ name: 'Client Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { 'Client Name': 'ACME Corp' } }],
+      });
+      const projects = await createTable(baseId, {
+        name: 'co-nested-link-projects',
+        fields: [{ name: 'Project Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { 'Project Name': 'Apollo' } }],
+      });
+      const tasks = await createTable(baseId, {
+        name: 'co-nested-link-tasks',
+        fields: [{ name: 'Task Name', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { 'Task Name': 'Kickoff' } }],
+      });
+
+      try {
+        const clientNameFieldId = clients.fields.find((field) => field.name === 'Client Name')!.id;
+
+        const projectClientLink = await createField(projects.id, {
+          name: 'Client',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: clients.id,
+          } as ILinkFieldOptions,
+        } as IFieldRo);
+
+        const projectClientLookup = await createField(projects.id, {
+          name: 'Client Name Lookup',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: clients.id,
+            linkFieldId: projectClientLink.id,
+            lookupFieldId: clientNameFieldId,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const taskProjectLink = await createField(tasks.id, {
+          name: 'Project',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: projects.id,
+          } as ILinkFieldOptions,
+        } as IFieldRo);
+
+        const taskClientLookup = await createField(tasks.id, {
+          name: 'Task Client',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: projects.id,
+            linkFieldId: taskProjectLink.id,
+            lookupFieldId: projectClientLookup.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+
+        const clientRecordId = clients.records[0].id;
+        const projectRecordId = projects.records[0].id;
+        const taskRecordId = tasks.records[0].id;
+
+        await updateRecordByApi(projects.id, projectRecordId, projectClientLink.id, {
+          id: clientRecordId,
+        });
+        await updateRecordByApi(tasks.id, taskRecordId, taskProjectLink.id, {
+          id: projectRecordId,
+        });
+
+        const beforeDelete = await getRecord(tasks.id, taskRecordId);
+        expect(beforeDelete.fields?.[taskClientLookup.id]).toBe('ACME Corp');
+
+        await permanentDeleteTable(baseId, clients.id);
+
+        await expect(
+          updateRecordByApi(tasks.id, taskRecordId, taskProjectLink.id, null)
+        ).resolves.toBeDefined();
+
+        const afterUpdate = await getRecord(tasks.id, taskRecordId);
+        expect(afterUpdate.fields?.[taskClientLookup.id]).toBeUndefined();
+      } finally {
+        await permanentDeleteTable(baseId, tasks.id).catch(() => undefined);
+        await permanentDeleteTable(baseId, projects.id).catch(() => undefined);
+        await permanentDeleteTable(baseId, clients.id).catch(() => undefined);
+      }
+    });
+
     it('persists multi-value date lookup formulas without timezone cast regressions', async () => {
       const parent = await createTable(baseId, { name: 'Formula_Lookup_Parent', fields: [] });
       const child = await createTable(baseId, { name: 'Formula_Lookup_Child', fields: [] });

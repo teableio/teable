@@ -248,6 +248,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
    */
   private getFormulaColumnSelector(field: FormulaFieldCore): IFieldSelectName {
     if (!field.isLookup) {
+      if (this.shouldSelectRaw()) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
       // If any referenced field (recursively) is unresolved, fall back to NULL
       if (field.hasUnresolvedReferences(this.table)) {
         const nullExpr = this.buildTypedNull(field);
