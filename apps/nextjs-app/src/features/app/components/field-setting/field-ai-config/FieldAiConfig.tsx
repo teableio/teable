@@ -20,6 +20,7 @@ import { AIModelSelect } from '@/features/app/blocks/admin/setting/components/ai
 import { generateModelKeyList } from '@/features/app/blocks/admin/setting/components/ai-config/utils';
 import { RequireCom } from '@/features/app/blocks/setting/components/RequireCom';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { tableConfig } from '@/features/i18n/table.config';
 import { UpgradeWrapper } from '../../billing/UpgradeWrapper';
 import type { IFieldEditorRo } from '../type';
@@ -50,6 +51,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
   const { type: fieldType, isLookup, aiConfig } = field;
   const usage = useBaseUsage();
   const baseId = useBaseId() as string;
+  const isCloud = useIsCloud();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
 
   const [_isExpanded, setIsExpanded] = useState(!!aiConfig);
@@ -186,7 +188,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
                     className="w-full px-2"
                     modelDefinationMap={modelDefinationMap}
                     needGroup
-                    onlyImageOutput={fieldType === FieldType.Attachment}
+                    onlyImageOutput={isCloud && fieldType === FieldType.Attachment}
                   />
                 </div>
                 <div className="flex h-8 items-center">
