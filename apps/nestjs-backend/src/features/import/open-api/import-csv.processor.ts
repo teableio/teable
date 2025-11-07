@@ -31,7 +31,6 @@ import { parseBoolean } from './import.class';
 interface ITableImportCsvJob {
   baseId: string;
   userId: string;
-  lang?: string;
   path: string;
   columnInfo?: IImportColumn[];
   fields: { id: string; type: FieldType }[];
@@ -68,8 +67,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
-    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range, lang } =
-      job.data;
+    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range } = job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
@@ -89,7 +87,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
                   i18nKey: 'common.email.templates.notify.import.table.success.message',
                   context: { tableName: table.name },
                 },
-            lang,
           });
 
         this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
@@ -126,7 +123,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
               range: `${range[0]}, ${range[1]}`,
             },
           },
-          lang,
         });
 
       throw err;

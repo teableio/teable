@@ -46,7 +46,6 @@ interface ITableImportChunkJob {
     fields: { id: string; type: FieldType }[];
     sourceColumnMap?: Record<string, number | null>;
   };
-  lang?: string;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -77,7 +76,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       table,
       userId,
       options: { notification },
-      lang,
     } = job.data;
 
     try {
@@ -108,7 +106,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
           tableId: table.id,
           toUserId: userId,
           message: finalMessage,
-          lang,
         });
       }
 
@@ -218,7 +215,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       table,
       recordsCal,
       options: { notification },
-      lang,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -251,7 +247,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       {
         baseId,
         userId,
-        lang,
         path,
         columnInfo,
         fields,

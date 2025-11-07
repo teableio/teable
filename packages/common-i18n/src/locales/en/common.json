@@ -687,7 +687,7 @@
         "domainVerification": {
           "subject": "Domain Verification - {{brandName}}",
           "title": "Domain Verification",
-          "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
         },
         "changeEmailVerification": {
           "subject": "Change Email Verification - {{brandName}}",
@@ -743,7 +743,7 @@
         },
         "recordComment": {
           "title": "Record Comment Notification",
-          "message": "{{fromUserName}} made a commented on {{recordName}} in {{tableName}} {{baseName ? `in ${baseName}` : ''}}"
+          "message": "{{fromUserName}} made a comment on {{recordName}} in {{tableName}} in {{baseName}}"
         },
         "automation": {
           "title": "Automation Notification",

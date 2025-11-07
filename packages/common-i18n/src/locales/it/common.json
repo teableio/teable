@@ -535,7 +535,111 @@
     "unsubscribeH2": "Stai per annullare l'iscrizione alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di voler annullare l'iscrizione?",
     "subscribeH1": "Confermare l'iscrizione?",
     "subscribeH2": "Stai per iscriverti alle future promozioni e aggiornamenti dei prodotti Teable. Sei sicuro di volerti iscrivere?",
-    "unsubscribeListTip": "I seguenti utenti nella base corrente si sono disiscritti, non potrai più inviare loro e-mail. Durante l'importazione delle e-mail, posizionare gli indirizzi e-mail nella prima colonna e nominare l'intestazione \"email\"."
+    "unsubscribeListTip": "I seguenti utenti nella base corrente si sono disiscritti, non potrai più inviare loro e-mail. Durante l'importazione delle e-mail, posizionare gli indirizzi e-mail nella prima colonna e nominare l'intestazione \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Reimposta password - {{brandName}}",
+        "title": "Reimposta la tua password",
+        "message": "Se non hai richiesto questa modifica, ignora questa email. Altrimenti, fai clic sul pulsante qui sotto per reimpostare la tua password.",
+        "buttonText": "Reimposta password"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Verifica registrazione - {{brandName}}",
+          "title": "Verifica registrazione",
+          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}}."
+        },
+        "domainVerification": {
+          "subject": "Verifica dominio - {{brandName}}",
+          "title": "Verifica dominio",
+          "message": "Il tuo codice monouso è: {{code}}, usalo entro {{expiresIn}}."
+        },
+        "changeEmailVerification": {
+          "subject": "Verifica cambio email - {{brandName}}",
+          "title": "Verifica cambio email",
+          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}}."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} ti ha aggiunto al campo {{fieldName}} di un record in {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> ti ha aggiunto al campo <strong>{{fieldName}}</strong> di un record in <strong>{{tableName}}</strong>",
+        "buttonText": "Visualizza record"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} ti ha aggiunto a {{refLength}} record in {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> ti ha aggiunto a <strong>{{refLength}}</strong> record in <strong>{{tableName}}</strong>",
+        "buttonText": "Visualizza record"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) ti ha invitato al loro {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "Invito a collaborare",
+        "message": "<strong>{{name}}</strong> ({{email}}) ti ha invitato al loro {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "Accetta invito"
+      },
+      "waitlistInvite": {
+        "subject": "Benvenuto - {{brandName}}",
+        "title": "Benvenuto",
+        "message": "Ti sei unito con successo alla lista d'attesa di {{brandName}}. Usa il seguente codice di invito per registrarti: {{code}}, può essere utilizzato {{times}} volte.",
+        "buttonText": "Registrati"
+      },
+      "test": {
+        "subject": "Email di test - {{brandName}}",
+        "title": "Email di test",
+        "message": "Questa è un'email di test, ignorala."
+      },
+      "notify": {
+        "subject": "Notifica - {{brandName}}",
+        "title": "Notifica",
+        "buttonText": "Visualizza",
+        "import": {
+          "title": "Notifica risultato importazione",
+          "table": {
+            "aborted": {
+              "message": "❌ Importazione di {{tableName}} interrotta: {{errorMessage}} intervallo di righe fallite: [{{range}}]. Verifica i dati di questo intervallo e riprova."
+            },
+            "failed": {
+              "message": "❌ Importazione di {{tableName}} fallita: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} importato con successo.",
+              "inplace": "🎉 {{tableName}} importato in loco con successo."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Notifica commento record",
+          "message": "{{fromUserName}} ha fatto un commento su {{recordName}} in {{tableName}} in {{baseName}}"
+        },
+        "automation": {
+          "title": "Notifica automazione",
+          "failed": {
+            "title": "L'automazione {{name}} è fallita",
+            "message": "La tua automazione {{name}} non è riuscita ad essere eseguita. Fai clic sul pulsante qui sotto per visualizzare errori specifici dalla cronologia di esecuzione."
+          },
+          "insufficientCredit": {
+            "title": "L'automazione {{name}} è fallita a causa di credito insufficiente",
+            "message": "La tua automazione {{name}} non è riuscita ad essere eseguita a causa di credito insufficiente. Aggiorna l'abbonamento o contatta il supporto."
+          }
+        },
+        "exportBase": {
+          "title": "Notifica risultato esportazione base",
+          "success": {
+            "message": "{{baseName}} esportato con successo: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ Esportazione di {{baseName}} fallita: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "Attività AI fallita nella tabella {{tableName}}",
+              "message": "L'attività AI per il campo {{fieldName}} nella tabella {{tableName}} (ID record: {{recordId}}) è fallita.\n\n{{errorMsg}}\n\nFai clic sul pulsante qui sotto per visualizzare i dettagli."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Lista d'attesa",
@@ -556,7 +660,7 @@
     "no": "No",
     "generateCode": "Genera codice di invito",
     "count": "Quantità",
-    "times": "Usages",
+    "times": "Utilizzi",
     "generate": "Genera",
     "code": "Codice di invito",
     "inviteSuccess": "Invito riuscito",
@@ -565,6 +669,7 @@
       "sendErrorToAI": "Invia errore a AI"
     }
   },
+
   "base": {
     "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?"
   }

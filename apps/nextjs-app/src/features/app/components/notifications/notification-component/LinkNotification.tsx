@@ -22,7 +22,7 @@ const getShowMessage = (data: INotificationVo['notifications'][number], t: ILoca
     if (!i18nKey) {
       return message;
     }
-    return getLocalizationMessage({ i18nKey, context }, t);
+    return getLocalizationMessage({ i18nKey, context }, t, 'common');
   } catch (error) {
     return message;
   }

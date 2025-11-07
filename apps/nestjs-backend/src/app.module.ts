@@ -4,13 +4,6 @@ import { Module } from '@nestjs/common';
 import { ConditionalModule, ConfigService } from '@nestjs/config';
 import { SentryModule } from '@sentry/nestjs/setup';
 import Redis from 'ioredis';
-import {
-  I18nModule,
-  QueryResolver,
-  AcceptLanguageResolver,
-  HeaderResolver,
-  CookieResolver,
-} from 'nestjs-i18n';
 import type { ICacheConfig } from './configs/cache.config';
 import { ConfigModule } from './configs/config.module';
 import { AccessTokenModule } from './features/access-token/access-token.module';
@@ -52,7 +45,6 @@ import { UserModule } from './features/user/user.module';
 import { GlobalModule } from './global/global.module';
 import { InitBootstrapProvider } from './global/init-bootstrap.provider';
 import { LoggerModule } from './logger/logger.module';
-import { getI18nPath } from './utils/i18n';
 import { WsModule } from './ws/ws.module';
 
 export const appModules = {

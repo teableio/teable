@@ -3,11 +3,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { HttpErrorCode } from '@teable/core';
 import type { IMailTransportConfig } from '@teable/openapi';
-import { MailType, CollaboratorType, SettingKey, MailTransporterType } from '@teable/openapi';
+import {
+  MailType,
+  CollaboratorType,
+  SettingKey,
+  MailTransporterType,
+  EmailVerifyCodeType,
+} from '@teable/openapi';
 import { isString } from 'lodash';
 import { I18nService } from 'nestjs-i18n';
 import { createTransport } from 'nodemailer';
 import { CacheService } from '../../cache/cache.service';
+import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -23,6 +30,7 @@ export class MailSenderService {
   constructor(
     private readonly mailService: MailerService,
     @MailConfig() private readonly mailConfig: IMailConfig,
+    @BaseConfig() private readonly baseConfig: IBaseConfig,
     private readonly settingOpenApiService: SettingOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cacheService: CacheService,
@@ -384,8 +392,37 @@ export class MailSenderService {
     };
   }
 
-  async sendSignupVerificationEmailOptions(info: { code: string; expiresIn: string }) {
-    const { code, expiresIn } = info;
+  async sendEmailVerifyCodeEmailOptions(
+    payload:
+      | {
+          code: string;
+          expiresIn: string;
+          type: EmailVerifyCodeType.Signup | EmailVerifyCodeType.ChangeEmail;
+        }
+      | {
+          domain: string;
+          name: string;
+          code: string;
+          expiresIn: string;
+          type: EmailVerifyCodeType.DomainVerification;
+        }
+  ) {
+    const { type, code, expiresIn } = payload;
+    if (this.baseConfig.enableEmailCodeConsole) {
+      this.logger.log(`${type} Verification code: ${code} expiresIn ${expiresIn}`);
+    }
+    switch (type) {
+      case EmailVerifyCodeType.Signup:
+        return this.sendSignupVerificationEmailOptions(payload);
+      case EmailVerifyCodeType.ChangeEmail:
+        return this.sendChangeEmailCodeEmailOptions(payload);
+      case EmailVerifyCodeType.DomainVerification:
+        return this.sendDomainVerificationEmailOptions(payload);
+    }
+  }
+
+  private async sendSignupVerificationEmailOptions(payload: { code: string; expiresIn: string }) {
+    const { code, expiresIn } = payload;
     const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.subject', {
@@ -408,13 +445,38 @@ export class MailSenderService {
     };
   }
 
-  async sendDomainVerificationEmailOptions(info: {
+  private async sendChangeEmailCodeEmailOptions(payload: { code: string; expiresIn: string }) {
+    const { code, expiresIn } = payload;
+    const { brandName } = await this.settingOpenApiService.getServerBrand();
+    return {
+      subject: this.i18n.t(
+        'common.email.templates.emailVerifyCode.changeEmailVerification.subject',
+        {
+          args: { brandName },
+        }
+      ),
+      template: 'normal',
+      context: {
+        partialBody: 'email-verify-code',
+        brandName,
+        title: this.i18n.t('common.email.templates.emailVerifyCode.changeEmailVerification.title'),
+        message: this.i18n.t(
+          'common.email.templates.emailVerifyCode.changeEmailVerification.message',
+          {
+            args: { code, expiresIn },
+          }
+        ),
+      },
+    };
+  }
+
+  private async sendDomainVerificationEmailOptions(payload: {
     domain: string;
     name: string;
     code: string;
     expiresIn: string;
   }) {
-    const { domain, name, code, expiresIn } = info;
+    const { domain, name, code, expiresIn } = payload;
     const { brandName } = await this.settingOpenApiService.getServerBrand();
     return {
       subject: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.subject', {
@@ -435,31 +497,6 @@ export class MailSenderService {
             expiresIn,
           },
         }),
-      },
-    };
-  }
-
-  async sendChangeEmailCodeEmailOptions(info: { code: string; expiresIn: string }) {
-    const { code, expiresIn } = info;
-    const { brandName } = await this.settingOpenApiService.getServerBrand();
-    return {
-      subject: this.i18n.t(
-        'common.email.templates.emailVerifyCode.changeEmailVerification.subject',
-        {
-          args: { brandName },
-        }
-      ),
-      template: 'normal',
-      context: {
-        partialBody: 'email-verify-code',
-        brandName,
-        title: this.i18n.t('common.email.templates.emailVerifyCode.changeEmailVerification.title'),
-        message: this.i18n.t(
-          'common.email.templates.emailVerifyCode.changeEmailVerification.message',
-          {
-            args: { code, expiresIn },
-          }
-        ),
       },
     };
   }

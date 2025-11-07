@@ -684,7 +684,7 @@
         "domainVerification": {
           "subject": "域名验证 - {{brandName}}",
           "title": "域名验证",
-          "message": "您的一次性验证码是：{{code}}，请在 {{expiresIn}} 分钟内使用。"
+          "message": "您的一次性验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
         },
         "changeEmailVerification": {
           "subject": "更改电子邮件验证 - {{brandName}}",
@@ -693,13 +693,13 @@
         }
       },
       "collaboratorCellTag": {
-        "subject": "{{fromUserName}} 添加您到 {{fieldName}} 字段中的记录",
-        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{fieldName}}</strong> 字段中的记录",
+        "subject": "{{fromUserName}} 添加您到 {{tableName}} 的 {{fieldName}} 字段中的记录",
+        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{tableName}}</strong> 的 <strong>{{fieldName}}</strong> 字段中的记录",
         "buttonText": "查看记录"
       },
       "collaboratorMultiRowTag": {
-        "subject": "{{fromUserName}} 添加您到 {{refLength}} 条记录",
-        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{refLength}}</strong> 条记录",
+        "subject": "{{fromUserName}} 添加您到 {{tableName}} 的 {{refLength}} 条记录",
+        "title": "<strong>{{fromUserName}}</strong> 添加您到 <strong>{{tableName}}</strong> 的 <strong>{{refLength}}</strong> 条记录",
         "buttonText": "查看记录"
       },
       "invite": {
@@ -740,7 +740,7 @@
         },
         "recordComment": {
           "title": "记录评论通知",
-          "message": "{{fromUserName}} 在 {{tableName}} {{baseName ? `in ${baseName}` : ''}} 的 {{recordName}} 上评论了"
+          "message": "{{fromUserName}} 在数据库 {{baseName}} 的 {{tableName}} 的 {{recordName}} 上评论了"
         },
         "automation": {
           "title": "自动化通知",

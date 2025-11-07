@@ -113,7 +113,6 @@ export class ImportOpenApiService {
               name: table.name,
             },
             userId,
-            lang: I18nContext.current()?.lang,
             importerParams: {
               attachmentUrl,
               fileType,
@@ -231,7 +230,6 @@ export class ImportOpenApiService {
           name: tableRaw.name,
         },
         userId,
-        lang: I18nContext.current()?.lang,
         importerParams: {
           attachmentUrl,
           fileType,

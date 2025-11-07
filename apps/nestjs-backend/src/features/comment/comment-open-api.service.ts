@@ -653,15 +653,14 @@ export class CommentOpenApiService {
       return;
     }
 
-    const { name: baseName } =
-      (await this.prismaService.base.findFirst({
-        where: {
-          id: baseId,
-        },
-        select: {
-          name: true,
-        },
-      })) || {};
+    const { name: baseName } = await this.prismaService.base.findUniqueOrThrow({
+      where: {
+        id: baseId,
+      },
+      select: {
+        name: true,
+      },
+    });
 
     const recordName = await this.recordService.getCellValue(tableId, recordId, fieldId);
 

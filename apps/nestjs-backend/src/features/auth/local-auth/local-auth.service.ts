@@ -10,7 +10,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { MailTransporterType, MailType } from '@teable/openapi';
+import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
 import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
@@ -285,10 +285,6 @@ export class LocalAuthService {
         const code = getRandomString(4, RandomType.Number);
         const token = await this.jwtSignupCode(email, code);
 
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
-
         const user = await this.userService.getUserByEmail(email);
         this.isRegisteredValidate(user);
 
@@ -297,9 +293,10 @@ export class LocalAuthService {
           `Sending signup verification code - email: ${email}, timestamp: ${new Date().toISOString()}`
         );
 
-        const emailOptions = await this.mailSenderService.sendSignupVerificationEmailOptions({
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
           code,
           expiresIn: this.authConfig.signupVerificationExpiresIn,
+          type: EmailVerifyCodeType.Signup,
         });
 
         await this.mailSenderService.sendMail(
@@ -482,12 +479,10 @@ export class LocalAuthService {
           { email, newEmail, code },
           { expiresIn: this.baseConfig.emailCodeExpiresIn }
         );
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
-        const emailOptions = await this.mailSenderService.sendChangeEmailCodeEmailOptions({
+        const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
           code,
           expiresIn: this.baseConfig.emailCodeExpiresIn,
+          type: EmailVerifyCodeType.ChangeEmail,
         });
         await this.mailSenderService.sendMail(
           {

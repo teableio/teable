@@ -36,7 +36,7 @@ const setCookie = (locale?: string) => {
 export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) => {
   const { t, i18n } = useTranslation('common');
 
-  const { mutate: updateLangMutate } = useMutation({
+  const { mutateAsync: updateLangMutate } = useMutation({
     mutationFn: (ro: { lang: string }) => updateUserLang(ro),
     onSuccess: (_data, variables) => {
       setCookie(variables.lang);

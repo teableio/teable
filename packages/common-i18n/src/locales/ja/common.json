@@ -494,7 +494,111 @@
     "unsubscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を解除しようとしています。登録解除してもよろしいですか？",
     "subscribeH1": "登録を確認しますか？",
     "subscribeH2": "今後のTeable のプロモーションや製品アップデート情報の配信を登録しようとしています。登録してもよろしいですか？",
-    "unsubscribeListTip": "現在のベースの以下のユーザーが購読を解除しました。これらのユーザーにはメールを送信できなくなります。メールをインポートする際は、メールアドレスを最初の列に配置し、ヘッダーに「email」という名前を付けてください。"
+    "unsubscribeListTip": "現在のベースの以下のユーザーが購読を解除しました。これらのユーザーにはメールを送信できなくなります。メールをインポートする際は、メールアドレスを最初の列に配置し、ヘッダーに「email」という名前を付けてください。",
+    "templates": {
+      "resetPassword": {
+        "subject": "パスワードをリセット - {{brandName}}",
+        "title": "パスワードをリセット",
+        "message": "この変更をリクエストしていない場合は、このメールを無視してください。それ以外の場合は、下のボタンをクリックしてパスワードをリセットしてください。",
+        "buttonText": "パスワードをリセット"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "登録確認 - {{brandName}}",
+          "title": "登録確認",
+          "message": "確認コードは{{code}}です。{{expiresIn}}以内に使用してください。"
+        },
+        "domainVerification": {
+          "subject": "ドメイン確認 - {{brandName}}",
+          "title": "ドメイン確認",
+          "message": "あなたのワンタイムコードは：{{code}}です。{{expiresIn}}以内に使用してください。"
+        },
+        "changeEmailVerification": {
+          "subject": "メール変更確認 - {{brandName}}",
+          "title": "メール変更確認",
+          "message": "確認コードは{{code}}です。{{expiresIn}}以内に使用してください。"
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}}があなたを{{tableName}}のレコードの{{fieldName}}フィールドに追加しました",
+        "title": "<strong>{{fromUserName}}</strong>があなたを<strong>{{tableName}}</strong>のレコードの<strong>{{fieldName}}</strong>フィールドに追加しました",
+        "buttonText": "レコードを表示"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}}があなたを{{tableName}}の{{refLength}}件のレコードに追加しました",
+        "title": "<strong>{{fromUserName}}</strong>があなたを<strong>{{tableName}}</strong>の<strong>{{refLength}}</strong>件のレコードに追加しました",
+        "buttonText": "レコードを表示"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}})があなたを{{resourceAlias}} {{resourceName}}に招待しました - {{brandName}}",
+        "title": "コラボレーションへの招待",
+        "message": "<strong>{{name}}</strong> ({{email}})があなたを{{resourceAlias}} <strong>{{resourceName}}</strong>に招待しました。",
+        "buttonText": "招待を承諾"
+      },
+      "waitlistInvite": {
+        "subject": "ようこそ - {{brandName}}",
+        "title": "ようこそ",
+        "message": "{{brandName}}のウェイトリストに登録されました。次の招待コードを使用して登録してください：{{code}}、{{times}}回使用できます。",
+        "buttonText": "登録"
+      },
+      "test": {
+        "subject": "テストメール - {{brandName}}",
+        "title": "テストメール",
+        "message": "これはテストメールです。無視してください。"
+      },
+      "notify": {
+        "subject": "通知 - {{brandName}}",
+        "title": "通知",
+        "buttonText": "表示",
+        "import": {
+          "title": "インポート結果通知",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}}のインポートが中止されました：{{errorMessage}} 失敗した行の範囲：[{{range}}]。この範囲のデータを確認して再試行してください。"
+            },
+            "failed": {
+              "message": "❌ {{tableName}}のインポートが失敗しました：{{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}}が正常にインポートされました。",
+              "inplace": "🎉 {{tableName}}が正常にインプレースインポートされました。"
+            }
+          }
+        },
+        "recordComment": {
+          "title": "レコードコメント通知",
+          "message": "{{fromUserName}}が{{baseName}}の{{tableName}}の{{recordName}}にコメントしました"
+        },
+        "automation": {
+          "title": "自動化通知",
+          "failed": {
+            "title": "自動化{{name}}が失敗しました",
+            "message": "自動化{{name}}の実行に失敗しました。下のボタンをクリックして、実行履歴から具体的なエラーを表示してください。"
+          },
+          "insufficientCredit": {
+            "title": "自動化{{name}}がクレジット不足により失敗しました",
+            "message": "自動化{{name}}がクレジット不足により実行に失敗しました。サブスクリプションをアップグレードするか、サポートに連絡してください。"
+          }
+        },
+        "exportBase": {
+          "title": "ベースエクスポート結果通知",
+          "success": {
+            "message": "{{baseName}}が正常にエクスポートされました：<a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}}のエクスポートが失敗しました：{{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "テーブル{{tableName}}でAIタスクが失敗しました",
+              "message": "テーブル{{tableName}}のフィールド{{fieldName}}のAIタスク（レコードID：{{recordId}}）が失敗しました。\n\n{{errorMsg}}\n\n下のボタンをクリックして詳細を表示してください。"
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "待機リスト",

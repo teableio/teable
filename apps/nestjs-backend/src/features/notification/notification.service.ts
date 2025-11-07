@@ -21,7 +21,7 @@ import {
   type IUpdateNotifyStatusRo,
 } from '@teable/openapi';
 import { keyBy } from 'lodash';
-import { I18nService } from 'nestjs-i18n';
+import { I18nContext, I18nService } from 'nestjs-i18n';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -46,6 +46,34 @@ export class NotificationService {
     @MailConfig() private readonly mailConfig: IMailConfig,
     private readonly i18n: I18nService
   ) {}
+
+  private async getUserLang(userId: string) {
+    const user = await this.userService.getUserById(userId);
+    return user?.lang ?? I18nContext.current()?.lang;
+  }
+
+  private getMessage(text: string | ILocalization, lang?: string) {
+    return typeof text === 'string'
+      ? text
+      : (this.i18n.t(text.i18nKey, {
+          args: text.context,
+          lang: lang ?? I18nContext.current()?.lang,
+        }) as string);
+  }
+
+  /**
+   * notification message i18n use common prefix, so we need to remove it to save db
+   */
+  private getMessageI18n(localization: string | ILocalization) {
+    return typeof localization === 'string'
+      ? undefined
+      : JSON.stringify({
+          // remove common prefix
+          // eg: common.email.templates -> email.templates
+          i18nKey: localization.i18nKey.replace(/^common\./, ''),
+          context: localization.context,
+        });
+  }
 
   async sendCollaboratorNotify(params: {
     fromUserId: string;
@@ -113,8 +141,8 @@ export class NotificationService {
       fromUserId,
       toUserId,
       type,
-      message: this.getLocalizationText(message, 'en'),
-      messageI18n: this.getLocalizationJson(message),
+      message: this.getMessage(message, 'en'),
+      messageI18n: this.getMessageI18n(message),
       urlPath: notifyPath,
       createdBy: fromUserId,
     };
@@ -157,32 +185,11 @@ export class NotificationService {
     }
   }
 
-  getLocalizationText(text: string | ILocalization, lang?: string) {
-    return typeof text === 'string'
-      ? text
-      : (this.i18n.t(text.i18nKey, {
-          args: text.context,
-          lang: lang,
-        }) as string);
-  }
-
-  getLocalizationJson(localization: string | ILocalization) {
-    return typeof localization === 'string'
-      ? undefined
-      : JSON.stringify({
-          // replace first . to :
-          // eg: common.email.templates -> common:email:templates
-          i18nKey: localization.i18nKey.replace(/\./, ':'),
-          context: localization.context,
-        });
-  }
-
   async sendHtmlContentNotify(
     params: {
       path: string;
       fromUserId?: string;
       toUserId: string;
-      lang?: string;
       message: string | ILocalization;
       emailConfig?: {
         title: string | ILocalization;
@@ -193,7 +200,7 @@ export class NotificationService {
     },
     type = NotificationTypeEnum.System
   ) {
-    const { toUserId, emailConfig, path, fromUserId = SYSTEM_USER_ID, lang } = params;
+    const { toUserId, emailConfig, path, fromUserId = SYSTEM_USER_ID } = params;
     const notifyId = generateNotificationId();
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
@@ -207,8 +214,8 @@ export class NotificationService {
       type,
       urlPath: path,
       createdBy: fromUserId,
-      message: this.getLocalizationText(params.message, 'en'),
-      messageI18n: this.getLocalizationJson(params.message),
+      message: this.getMessage(params.message, 'en'),
+      messageI18n: this.getMessageI18n(params.message),
     };
     const notifyData = await this.createNotify(data);
 
@@ -243,14 +250,15 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+      const lang = await this.getUserLang(toUserId);
       const emailOptions = await this.mailSenderService.htmlEmailOptions({
         ...emailConfig,
-        title: this.getLocalizationText(emailConfig.title, lang),
-        message: this.getLocalizationText(emailConfig.message, lang),
+        title: this.getMessage(emailConfig.title, lang),
+        message: this.getMessage(emailConfig.message, lang),
         to: toUserId,
         buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
         buttonText: emailConfig.buttonText
-          ? this.getLocalizationText(emailConfig.buttonText, lang)
+          ? this.getMessage(emailConfig.buttonText, lang)
           : this.i18n.t('common.email.templates.notify.buttonText'),
       });
       this.mailSenderService.sendMail(
@@ -271,7 +279,6 @@ export class NotificationService {
       path: string;
       fromUserId?: string;
       toUserId: string;
-      lang?: string;
       message: string | ILocalization;
       emailConfig?: {
         title: string | ILocalization;
@@ -282,7 +289,7 @@ export class NotificationService {
     },
     type = NotificationTypeEnum.System
   ) {
-    const { toUserId, emailConfig, lang, path, fromUserId = SYSTEM_USER_ID } = params;
+    const { toUserId, emailConfig, path, fromUserId = SYSTEM_USER_ID } = params;
     const notifyId = generateNotificationId();
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
@@ -296,8 +303,8 @@ export class NotificationService {
       type,
       urlPath: path,
       createdBy: fromUserId,
-      message: this.getLocalizationText(params.message, 'en'),
-      messageI18n: this.getLocalizationJson(params.message),
+      message: this.getMessage(params.message, 'en'),
+      messageI18n: this.getMessageI18n(params.message),
     };
     const notifyData = await this.createNotify(data);
 
@@ -332,14 +339,15 @@ export class NotificationService {
     this.sendNotifyBySocket(toUser.id, socketNotification);
 
     if (emailConfig && toUser.notifyMeta && toUser.notifyMeta.email) {
+      const lang = await this.getUserLang(toUserId);
       const emailOptions = await this.mailSenderService.commonEmailOptions({
         ...emailConfig,
-        title: this.getLocalizationText(emailConfig.title, lang),
-        message: this.getLocalizationText(emailConfig.message, lang),
+        title: this.getMessage(emailConfig.title, lang),
+        message: this.getMessage(emailConfig.message, lang),
         to: toUserId,
         buttonUrl: emailConfig.buttonUrl || this.mailConfig.origin + path,
         buttonText: emailConfig.buttonText
-          ? this.getLocalizationText(emailConfig.buttonText, lang)
+          ? this.getMessage(emailConfig.buttonText, lang)
           : this.i18n.t('common.email.templates.notify.buttonText'),
       });
       this.mailSenderService.sendMail(
@@ -360,9 +368,8 @@ export class NotificationService {
     baseId: string;
     toUserId: string;
     message: string | ILocalization;
-    lang?: string;
   }) {
-    const { toUserId, tableId, message, baseId, lang } = params;
+    const { toUserId, tableId, message, baseId } = params;
     const toUser = await this.userService.getUserById(toUserId);
     if (!toUser) {
       return;
@@ -377,7 +384,6 @@ export class NotificationService {
     this.sendCommonNotify({
       path: notifyPath,
       toUserId,
-      lang,
       message,
       emailConfig: {
         title: { i18nKey: 'common.email.templates.notify.import.title' },
@@ -486,6 +492,7 @@ export class NotificationService {
         notifyType: v.type as NotificationTypeEnum,
         url: this.mailConfig.origin + v.urlPath,
         message: v.message,
+        messageI18n: v.messageI18n,
         isRead: v.isRead,
         createdTime: v.createdTime.toISOString(),
       };
