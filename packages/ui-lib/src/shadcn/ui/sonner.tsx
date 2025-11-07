@@ -23,7 +23,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
           cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
           icon: 'items-start',
           closeButton:
-            'top-[16px] right-0 left-[unset] border-none !text-foreground !bg-transparent',
+            'top-[12px] right-0 left-[unset] border-none !text-foreground !bg-transparent',
         },
         style: {
           background: 'hsl(var(--background))',
