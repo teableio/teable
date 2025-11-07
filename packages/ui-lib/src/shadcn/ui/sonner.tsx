@@ -13,7 +13,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps['theme']}
       richColors
-      className={cn('toaster group')}
+      className={cn('toaster group pointer-events-auto')}
       toastOptions={{
         classNames: {
           toast:
@@ -36,21 +36,48 @@ const Toaster = ({ ...props }: ToasterProps) => {
   );
 };
 
+const DEFAULT_DURATION = 2 * 1000;
 const toast: typeof sonnerToast = Object.assign(
-  (...args: Parameters<typeof sonnerToast>) => sonnerToast(...args),
+  (message: string | React.ReactNode, data?: ExternalToast) =>
+    sonnerToast(message, {
+      closeButton: true,
+      duration: DEFAULT_DURATION,
+      ...data,
+    }),
   {
     ...sonnerToast,
     error: (message: string | React.ReactNode, data?: ExternalToast) => {
       return sonnerToast.error(message, {
         closeButton: true,
-        className: 'pointer-events-auto',
+        duration: DEFAULT_DURATION,
         ...data,
       });
     },
     warning: (message: string | React.ReactNode, data?: ExternalToast) => {
       return sonnerToast.warning(message, {
         closeButton: true,
-        className: 'pointer-events-auto',
+        duration: DEFAULT_DURATION,
+        ...data,
+      });
+    },
+    success: (message: string | React.ReactNode, data?: ExternalToast) => {
+      return sonnerToast.success(message, {
+        closeButton: true,
+        duration: DEFAULT_DURATION,
+        ...data,
+      });
+    },
+    info: (message: string | React.ReactNode, data?: ExternalToast) => {
+      return sonnerToast.info(message, {
+        closeButton: true,
+        duration: DEFAULT_DURATION,
+        ...data,
+      });
+    },
+    message: (message: string | React.ReactNode, data?: ExternalToast) => {
+      return sonnerToast.message(message, {
+        closeButton: true,
+        duration: DEFAULT_DURATION,
         ...data,
       });
     },
