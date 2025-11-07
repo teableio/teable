@@ -899,7 +899,11 @@
       "nodeTestOutdated": "{{name}} il test del nodo è obsoleto"
     },
     "space": {
-      "notFound": "Spazio non trovato"
+      "notFound": "Spazio non trovato",
+      "noPermission": "Non hai il permesso di accedere a questo spazio",
+      "disallowSpaceCreation": "La creazione di spazi è stata disabilitata dall'amministratore",
+      "cannotChangeOnlyOwnerRole": "Impossibile modificare il ruolo dell'unico proprietario dello spazio",
+      "cannotDeleteOnlyOwner": "Impossibile eliminare l'unico proprietario dello spazio"
     },
     "base": {
       "notFound": "Base non trovata",

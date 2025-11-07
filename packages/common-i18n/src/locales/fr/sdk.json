@@ -877,7 +877,11 @@
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète"
     },
     "space": {
-      "notFound": "Espace non trouvé"
+      "notFound": "Espace non trouvé",
+      "noPermission": "Vous n'avez pas la permission d'accéder à cet espace",
+      "disallowSpaceCreation": "La création d'espaces a été désactivée par l'administrateur",
+      "cannotChangeOnlyOwnerRole": "Impossible de modifier le rôle du seul propriétaire de l'espace",
+      "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace"
     },
     "base": {
       "notFound": "Base non trouvée",

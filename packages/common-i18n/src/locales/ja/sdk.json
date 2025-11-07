@@ -863,7 +863,11 @@
       "nodeTestOutdated": "{{name}} ノードのテストは古くなっています"
     },
     "space": {
-      "notFound": "スペースが見つかりません"
+      "notFound": "スペースが見つかりません",
+      "noPermission": "このスペースにアクセスする権限がありません",
+      "disallowSpaceCreation": "管理者によってスペースの作成が無効化されています",
+      "cannotChangeOnlyOwnerRole": "スペースの唯一の所有者のロールを変更できません",
+      "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません"
     },
     "base": {
       "notFound": "ベース が見つかりません",

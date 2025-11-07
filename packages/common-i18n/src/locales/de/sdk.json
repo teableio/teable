@@ -899,7 +899,11 @@
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet"
     },
     "space": {
-      "notFound": "Space nicht gefunden"
+      "notFound": "Space nicht gefunden",
+      "noPermission": "Sie haben keine Berechtigung, auf diesen Space zuzugreifen",
+      "disallowSpaceCreation": "Die Space-Erstellung wurde vom Administrator deaktiviert",
+      "cannotChangeOnlyOwnerRole": "Die Rolle des einzigen Besitzers des Space kann nicht geändert werden",
+      "cannotDeleteOnlyOwner": "Der einzige Besitzer des Space kann nicht gelöscht werden"
     },
     "base": {
       "notFound": "Base nicht gefunden",

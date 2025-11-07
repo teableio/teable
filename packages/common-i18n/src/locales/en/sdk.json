@@ -906,7 +906,11 @@
       "nodeTestOutdated": "{{name}} node test outdated"
     },
     "space": {
-      "notFound": "Space not found"
+      "notFound": "Space not found",
+      "noPermission": "You have no permission to access this space",
+      "disallowSpaceCreation": "Space creation has been disabled by the administrator",
+      "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
+      "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space"
     },
     "base": {
       "notFound": "Base not found",

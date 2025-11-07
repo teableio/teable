@@ -903,7 +903,11 @@
       "nodeTestOutdated": "{{name}} 节点测试已过期"
     },
     "space": {
-      "notFound": "空间不存在"
+      "notFound": "空间不存在",
+      "noPermission": "您没有权限访问此空间",
+      "disallowSpaceCreation": "管理员已禁用空间创建功能",
+      "cannotChangeOnlyOwnerRole": "无法更改空间唯一所有者的角色",
+      "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者"
     },
     "base": {
       "notFound": "数据库不存在",

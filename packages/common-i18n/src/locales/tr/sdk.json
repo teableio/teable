@@ -873,7 +873,11 @@
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
     },
     "space": {
-      "notFound": "Alan bulunamadı"
+      "notFound": "Alan bulunamadı",
+      "noPermission": "Bu alana erişim izniniz yok",
+      "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
+      "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
+      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez"
     },
     "base": {
       "notFound": "Base bulunamadı",
