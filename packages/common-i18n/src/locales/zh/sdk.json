@@ -1035,6 +1035,11 @@
       "linkNotFound": "邀请链接不存在",
       "linkExpired": "邀请链接已过期",
       "limitExceeded": "您已达到每小时最大邀请次数限制"
+    },
+    "pin": {
+      "alreadyExists": "收藏已存在",
+      "notFound": "未找到收藏",
+      "anchorNotFound": "未找到锚点收藏"
     }
   }
 }

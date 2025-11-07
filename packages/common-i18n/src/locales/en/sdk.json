@@ -1035,6 +1035,11 @@
       "linkNotFound": "Invitation link not found",
       "linkExpired": "Invitation link has expired",
       "limitExceeded": "You have reached the maximum number of invitations per hour"
+    },
+    "pin": {
+      "alreadyExists": "Pin already exists",
+      "notFound": "Pin not found",
+      "anchorNotFound": "Pin anchor not found"
     }
   }
 }

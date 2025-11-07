@@ -1009,6 +1009,11 @@
       "linkNotFound": "Lien d'invitation non trouvé",
       "linkExpired": "Le lien d'invitation a expiré",
       "limitExceeded": "Vous avez atteint le nombre maximum d'invitations par heure"
+    },
+    "pin": {
+      "alreadyExists": "Le favori existe déjà",
+      "notFound": "Favori non trouvé",
+      "anchorNotFound": "Ancre de favori non trouvée"
     }
   }
 }

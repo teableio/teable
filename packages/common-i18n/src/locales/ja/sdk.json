@@ -995,6 +995,11 @@
       "linkNotFound": "招待リンクが見つかりません",
       "linkExpired": "招待リンクの有効期限が切れています",
       "limitExceeded": "1時間あたりの最大招待数に達しました"
+    },
+    "pin": {
+      "alreadyExists": "お気に入りは既に存在します",
+      "notFound": "お気に入りが見つかりません",
+      "anchorNotFound": "アンカーお気に入りが見つかりません"
     }
   }
 }

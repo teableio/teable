@@ -1031,6 +1031,11 @@
       "linkNotFound": "Link di invito non trovato",
       "linkExpired": "Il link di invito è scaduto",
       "limitExceeded": "Hai raggiunto il numero massimo di inviti all'ora"
+    },
+    "pin": {
+      "alreadyExists": "Il preferito esiste già",
+      "notFound": "Preferito non trovato",
+      "anchorNotFound": "Ancoraggio del preferito non trovato"
     }
   }
 }

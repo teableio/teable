@@ -1005,6 +1005,11 @@
       "linkNotFound": "Davet bağlantısı bulunamadı",
       "linkExpired": "Davet bağlantısının süresi doldu",
       "limitExceeded": "Saatte maksimum davet sayısına ulaştınız"
+    },
+    "pin": {
+      "alreadyExists": "Favori zaten mevcut",
+      "notFound": "Favori bulunamadı",
+      "anchorNotFound": "Favori bağlantı noktası bulunamadı"
     }
   }
 }
