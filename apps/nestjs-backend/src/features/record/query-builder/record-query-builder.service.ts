@@ -38,7 +38,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     tableId: string,
     projection?: string[],
-    baseBuilder?: Knex.QueryBuilder
+    baseBuilder?: Knex.QueryBuilder,
+    preloadedTables?: ReadonlyMap<string, TableDomain>
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -48,7 +49,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
   }> {
     const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(
       tableId,
-      projection
+      projection,
+      { preloaded: preloadedTables }
     );
     const table = tables.mustGetEntryTable();
     const mainTableAlias = getTableAliasFromTable(table);
@@ -119,7 +121,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           from,
           tableId,
           options.projection,
-          baseBuilder
+          baseBuilder,
+          options.preloadedTables
         );
       }
     } else {
@@ -127,7 +130,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         from,
         tableId,
         options.projection,
-        baseBuilder
+        baseBuilder,
+        options.preloadedTables
       );
     }
 

@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
-import type { FormulaFieldCore } from '@teable/core';
+import type { FormulaFieldCore, TableDomain } from '@teable/core';
 import { FieldType, IdPrefix, RecordOpBuilder } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { Knex } from 'knex';
@@ -64,6 +64,7 @@ export class ComputedEvaluatorService {
       versionBaseline?: 'previous' | 'current';
       excludeFieldIds?: Set<string>;
       preferAutoNumberPaging?: boolean;
+      tableDomains?: ReadonlyMap<string, TableDomain>;
     }
   ): Promise<number> {
     const excludeFieldIds = opts?.excludeFieldIds ?? new Set<string>();
@@ -101,6 +102,7 @@ export class ComputedEvaluatorService {
         preferRawFieldReferences: true,
         projectionByTable,
         restrictRecordIds: builderRestrictRecordIds,
+        preloadedTables: opts?.tableDomains,
       });
 
       const idCol = alias ? `${alias}.__id` : '__id';

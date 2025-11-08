@@ -13,6 +13,8 @@ export interface IPrepareViewParams {
 export interface ICreateRecordQueryBuilderOptions {
   /** The table ID or database table name */
   tableId: string;
+  /** Optional cache of preloaded table domains to avoid refetching */
+  preloadedTables?: ReadonlyMap<string, TableDomain>;
   /** Optional preconfigured query builder (e.g., with permission CTEs attached) */
   builder?: Knex.QueryBuilder;
   /** Optional view ID for filtering */

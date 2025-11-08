@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
+import type { TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICellContext } from '../../../calculation/utils/changes';
+import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
 import type {
   IComputedImpactByTable,
@@ -15,7 +17,8 @@ export class ComputedOrchestratorService {
   constructor(
     private readonly collector: ComputedDependencyCollectorService,
     private readonly evaluator: ComputedEvaluatorService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   /**
@@ -66,29 +69,31 @@ export class ComputedOrchestratorService {
 
     // 1) Collect impact per source and merge once
     const exclude = Array.from(changedFieldIds);
-    const impacts = await Promise.all(
+    const collectorResults = await Promise.all(
       filtered.map(async ({ tableId, cellContexts }) => {
         return this.collector.collect(tableId, cellContexts, exclude);
       })
     );
 
-    const impactMerged = impacts.reduce(
-      (acc, cur) => {
-        for (const [tid, group] of Object.entries(cur)) {
-          const target = (acc[tid] ||= {
-            fieldIds: new Set<string>(),
-            recordIds: new Set<string>(),
-          });
-          group.fieldIds.forEach((f) => target.fieldIds.add(f));
-          group.recordIds.forEach((r) => target.recordIds.add(r));
-          if (group.preferAutoNumberPaging) {
-            target.preferAutoNumberPaging = true;
-          }
+    const mergedTableDomains = new Map<string, TableDomain>();
+    for (const result of collectorResults) {
+      result.tableDomains.forEach((domain, id) => mergedTableDomains.set(id, domain));
+    }
+
+    const impactMerged = collectorResults.reduce<IComputedImpactByTable>((acc, cur) => {
+      for (const [tid, group] of Object.entries(cur.impact)) {
+        const target = (acc[tid] ||= {
+          fieldIds: new Set<string>(),
+          recordIds: new Set<string>(),
+        });
+        group.fieldIds.forEach((f) => target.fieldIds.add(f));
+        group.recordIds.forEach((r) => target.recordIds.add(r));
+        if (group.preferAutoNumberPaging) {
+          target.preferAutoNumberPaging = true;
         }
-        return acc;
-      },
-      {} as Awaited<ReturnType<typeof this.collector.collect>>
-    );
+      }
+      return acc;
+    }, {} as IComputedImpactByTable);
 
     const impactedTables = Object.keys(impactMerged);
     if (!impactedTables.length) {
@@ -107,12 +112,17 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
+    if (mergedTableDomains.size) {
+      this.tableDomainQueryService.primeTableDomains(mergedTableDomains.values());
+    }
+
     // 2) Perform the actual base update(s) if provided
     await update();
 
     // 3) Evaluate and publish computed values
     const total = await this.evaluator.evaluate(impactMerged, {
       excludeFieldIds: changedFieldIds,
+      tableDomains: mergedTableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactMerged) };
@@ -131,7 +141,8 @@ export class ComputedOrchestratorService {
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
   }> {
-    const impactPre = await this.collector.collectForFieldChanges(sources);
+    const { impact: impactPre, tableDomains } =
+      await this.collector.collectForFieldChanges(sources);
 
     // If nothing impacted, still run update
     if (!Object.keys(impactPre).length) {
@@ -140,8 +151,12 @@ export class ComputedOrchestratorService {
     }
 
     await update();
+    if (tableDomains.size) {
+      this.tableDomainQueryService.primeTableDomains(tableDomains.values());
+    }
     const total = await this.evaluator.evaluate(impactPre, {
       versionBaseline: 'current',
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactPre) };
@@ -161,7 +176,8 @@ export class ComputedOrchestratorService {
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
   }> {
-    const impactPre = await this.collector.collectForFieldChanges(sources);
+    const { impact: impactPre, tableDomains } =
+      await this.collector.collectForFieldChanges(sources);
 
     if (!Object.keys(impactPre).length) {
       await update();
@@ -240,9 +256,13 @@ export class ComputedOrchestratorService {
 
     const exclude = new Set<string>([...startFieldIds, ...actuallyDeleted]);
 
+    if (tableDomains.size) {
+      this.tableDomainQueryService.primeTableDomains(tableDomains.values());
+    }
     const total = await this.evaluator.evaluate(impactPost, {
       versionBaseline: 'current',
       excludeFieldIds: exclude,
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactPost) };
@@ -269,7 +289,7 @@ export class ComputedOrchestratorService {
       for (const fid of source.fieldIds) publishTargetIds.add(fid);
     }
 
-    const impact = await this.collector.collectForFieldChanges(sources);
+    const { impact, tableDomains } = await this.collector.collectForFieldChanges(sources);
     if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
 
     const exclude = new Set<string>();
@@ -281,10 +301,14 @@ export class ComputedOrchestratorService {
       }
     }
 
+    if (tableDomains.size) {
+      this.tableDomainQueryService.primeTableDomains(tableDomains.values());
+    }
     const total = await this.evaluator.evaluate(impact, {
       versionBaseline: 'current',
       preferAutoNumberPaging: true,
       ...(exclude.size ? { excludeFieldIds: exclude } : {}),
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impact) };

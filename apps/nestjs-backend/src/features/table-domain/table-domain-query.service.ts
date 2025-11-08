@@ -29,10 +29,25 @@ export class TableDomainQueryService {
    * @throws NotFoundException - If table is not found or has been deleted
    */
   async getTableDomainById(tableId: string): Promise<TableDomain> {
+    const preloaded = this.getPreloadedTableDomain(tableId);
+    if (preloaded) {
+      return preloaded;
+    }
     this.enableTableDomainDataLoader();
     const tableMeta = await this.getTableMetaById(tableId);
     const fieldRaws = await this.getTableFields(tableMeta.id);
     return this.buildTableDomain(tableMeta, fieldRaws);
+  }
+
+  primeTableDomains(tableDomains: Iterable<TableDomain>): void {
+    if (!this.cls.isActive()) {
+      return;
+    }
+    const existing = this.cls.get('preloadedTableDomains') ?? new Map<string, TableDomain>();
+    for (const domain of tableDomains) {
+      existing.set(domain.id, domain);
+    }
+    this.cls.set('preloadedTableDomains', existing);
   }
 
   /**
@@ -113,8 +128,18 @@ export class TableDomainQueryService {
    * @param fieldIds - Optional projection of field IDs to limit foreign table traversal on the entry table
    * @returns Promise<Tables> - Tables domain object containing all related table domains
    */
-  async getAllRelatedTableDomains(tableId: string, fieldIds?: string[]) {
-    return this.#getAllRelatedTableDomains(tableId, undefined, undefined, fieldIds);
+  async getAllRelatedTableDomains(
+    tableId: string,
+    fieldIds?: string[],
+    opts?: { preloaded?: ReadonlyMap<string, TableDomain> }
+  ) {
+    return this.#getAllRelatedTableDomains(
+      tableId,
+      undefined,
+      undefined,
+      fieldIds,
+      opts?.preloaded
+    );
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -122,14 +147,15 @@ export class TableDomainQueryService {
     tableId: string,
     tables: Tables = new Tables(tableId),
     level = 1,
-    projectionFieldIds?: string[]
+    projectionFieldIds?: string[],
+    preloaded?: ReadonlyMap<string, TableDomain>
   ): Promise<Tables> {
     // Prevent infinite recursion
     if (tables.isVisited(tableId)) {
       return tables;
     }
 
-    const currentTableDomain = await this.getTableDomainById(tableId);
+    const currentTableDomain = preloaded?.get(tableId) ?? (await this.getTableDomainById(tableId));
     tables.addTable(tableId, currentTableDomain);
     // Mark as visited
     tables.markVisited(tableId);
@@ -141,7 +167,13 @@ export class TableDomainQueryService {
     const foreignTableIds = currentTableDomain.getAllForeignTableIds(projection);
     for (const foreignTableId of foreignTableIds) {
       try {
-        await this.#getAllRelatedTableDomains(foreignTableId, tables, level + 1);
+        await this.#getAllRelatedTableDomains(
+          foreignTableId,
+          tables,
+          level + 1,
+          undefined,
+          preloaded
+        );
       } catch (e) {
         // If the related table was deleted or not found, skip it gracefully
         if (e?.constructor?.name === 'NotFoundException') {
@@ -170,5 +202,13 @@ export class TableDomainQueryService {
     if (missingKeys.length) {
       this.cls.set('dataLoaderCache.cacheKeys', [...cacheKeys, ...missingKeys]);
     }
+  }
+
+  private getPreloadedTableDomain(tableId: string): TableDomain | undefined {
+    if (!this.cls.isActive()) {
+      return undefined;
+    }
+    const preloaded = this.cls.get('preloadedTableDomains');
+    return preloaded?.get(tableId);
   }
 }
