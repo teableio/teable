@@ -947,6 +947,7 @@ export class FieldOpenApiService {
     oldField,
     modifiedOps,
     supplementChange,
+    dependentFieldIds,
   }: {
     tableId: string;
     newField: IFieldInstance;
@@ -957,6 +958,7 @@ export class FieldOpenApiService {
       newField: IFieldInstance;
       oldField: IFieldInstance;
     };
+    dependentFieldIds?: string[];
   }): Promise<{ compatibilityIssue: boolean }> {
     let encounteredCompatibilityIssue = false;
 
@@ -983,19 +985,38 @@ export class FieldOpenApiService {
       }
     };
 
+    const sourceMap = new Map<string, Set<string>>();
+    const addSource = (tid: string, fieldIds: string[]) => {
+      const set = sourceMap.get(tid) ?? new Set<string>();
+      fieldIds.forEach((id) => set.add(id));
+      sourceMap.set(tid, set);
+    };
+
+    addSource(tableId, [newField.id]);
+
+    if (dependentFieldIds?.length) {
+      const dependentFields = await this.prismaService.field.findMany({
+        where: { id: { in: dependentFieldIds }, deletedTime: null },
+        select: { id: true, tableId: true },
+      });
+      dependentFields.forEach(({ id, tableId: depTableId }) => addSource(depTableId, [id]));
+    }
+
+    if (supplementChange) {
+      addSource(supplementChange.tableId, [supplementChange.newField.id]);
+    }
+
+    const sources = Array.from(sourceMap.entries()).map(([tid, ids]) => ({
+      tableId: tid,
+      fieldIds: Array.from(ids),
+    }));
+
     // 1. stage close constraint
     await this.fieldConvertingService.closeConstraint(tableId, newField, oldField);
 
     // 2. stage alter + apply record changes and calculate field with computed publishing (atomic)
     await this.prismaService.$tx(
       async () => {
-        const sources = [{ tableId, fieldIds: [newField.id] }];
-        if (supplementChange)
-          sources.push({
-            tableId: supplementChange.tableId,
-            fieldIds: [supplementChange.newField.id],
-          });
-
         const runCompute = async () => {
           // Update dependencies and schema first so evaluate() sees new schema
           await this.fieldViewSyncService.convertDependenciesByFieldIds(
@@ -1086,12 +1107,21 @@ export class FieldOpenApiService {
     const { newField, oldField, modifiedOps, supplementChange, references } =
       await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
 
+    const dependentRefs = await this.prismaService.reference.findMany({
+      where: { fromFieldId: fieldId },
+      select: { toFieldId: true },
+    });
+    const dependentFieldIds = Array.from(
+      new Set([...(references ?? []), ...dependentRefs.map((ref) => ref.toFieldId)])
+    );
+
     const { compatibilityIssue } = await this.performConvertField({
       tableId,
       newField,
       oldField,
       modifiedOps,
       supplementChange,
+      dependentFieldIds,
     });
 
     const shouldForceLookupError =
@@ -1102,20 +1132,37 @@ export class FieldOpenApiService {
         ((newField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null) !==
           ((oldField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null));
 
-    const dependentRefs = await this.prismaService.reference.findMany({
-      where: { fromFieldId: fieldId },
-      select: { toFieldId: true },
-    });
-    const dependentFieldIds = Array.from(
-      new Set([...(references ?? []), ...dependentRefs.map((ref) => ref.toFieldId)])
-    );
-
     if (dependentFieldIds.length) {
       try {
         await this.restoreReference(dependentFieldIds);
         const dependentFieldRaws = await this.prismaService.field.findMany({
           where: { id: { in: dependentFieldIds }, deletedTime: null },
         });
+
+        if (dependentFieldRaws.length) {
+          const dependentSourceMap = dependentFieldRaws.reduce<Record<string, Set<string>>>(
+            (acc, field) => {
+              const set = acc[field.tableId] ?? new Set<string>();
+              set.add(field.id);
+              acc[field.tableId] = set;
+              return acc;
+            },
+            {}
+          );
+          const dependentSources = Object.entries(dependentSourceMap).map(([tid, ids]) => ({
+            tableId: tid,
+            fieldIds: Array.from(ids),
+          }));
+          if (dependentSources.length) {
+            await this.computedOrchestrator.computeCellChangesForFields(
+              dependentSources,
+              async () => {
+                // schema/meta already up to date; nothing additional to run here
+              }
+            );
+          }
+        }
+
         for (const raw of dependentFieldRaws) {
           const instance = createFieldInstanceByRaw(raw);
           const isValid = await this.isFieldConfigurationValid(raw.tableId, instance);

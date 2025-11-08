@@ -1,14 +1,13 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable } from '@nestjs/common';
-import type { FormulaFieldCore } from '@teable/core';
-import { FieldType, IdPrefix, RecordOpBuilder } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import type { FieldCore, FormulaFieldCore, TableDomain } from '@teable/core';
+import { FieldType, IdPrefix, RecordOpBuilder, Tables } from '@teable/core';
 import type { Knex } from 'knex';
 import { RawOpType } from '../../../../share-db/interface';
 import { Timing } from '../../../../utils/timing';
 import { BatchService } from '../../../calculation/batch.service';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
-import { createFieldInstanceByRaw, type IFieldInstance } from '../../../field/model/factory';
+import type { IFieldInstance } from '../../../field/model/factory';
 import { InjectRecordQueryBuilder, type IRecordQueryBuilder } from '../../query-builder';
 import { IComputedImpactByTable } from './computed-dependency-collector.service';
 import {
@@ -31,27 +30,10 @@ export class ComputedEvaluatorService {
   ];
 
   constructor(
-    private readonly prismaService: PrismaService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     private readonly recordComputedUpdateService: RecordComputedUpdateService,
     private readonly batchService: BatchService
   ) {}
-
-  private async getDbTableName(tableId: string): Promise<string> {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    return dbTableName;
-  }
-
-  private async getFieldInstances(tableId: string, fieldIds: string[]): Promise<IFieldInstance[]> {
-    if (!fieldIds.length) return [];
-    const rows = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldIds }, tableId, deletedTime: null },
-    });
-    return rows.map((r) => createFieldInstanceByRaw(r));
-  }
 
   /**
    * For each table, query only the impacted records and dependent fields.
@@ -60,14 +42,15 @@ export class ComputedEvaluatorService {
   @Timing()
   async evaluate(
     impact: IComputedImpactByTable,
-    opts?: {
+    opts: {
       versionBaseline?: 'previous' | 'current';
       excludeFieldIds?: Set<string>;
       preferAutoNumberPaging?: boolean;
+      tableDomains: ReadonlyMap<string, TableDomain>;
     }
   ): Promise<number> {
-    const excludeFieldIds = opts?.excludeFieldIds ?? new Set<string>();
-    const globalPreferAutoNumberPaging = opts?.preferAutoNumberPaging === true;
+    const excludeFieldIds = opts.excludeFieldIds ?? new Set<string>();
+    const globalPreferAutoNumberPaging = opts.preferAutoNumberPaging === true;
     const entries = Object.entries(impact).filter(([, group]) => group.fieldIds.size);
     const projectionByTable = entries.reduce<Record<string, string[]>>((acc, [tableId, group]) => {
       acc[tableId] = Array.from(group.fieldIds);
@@ -75,12 +58,20 @@ export class ComputedEvaluatorService {
     }, {});
 
     let totalOps = 0;
+    const tableDomainCache = opts.tableDomains;
+    if (!tableDomainCache.size) {
+      throw new Error('ComputedEvaluatorService.evaluate requires table domains');
+    }
 
     for (const [tableId, group] of entries) {
       const requestedFieldIds = Array.from(group.fieldIds);
       const preferAutoNumberPaging =
         globalPreferAutoNumberPaging || group.preferAutoNumberPaging === true;
-      const fieldInstances = await this.getFieldInstances(tableId, requestedFieldIds);
+      const tableDomain = tableDomainCache.get(tableId);
+      if (!tableDomain) {
+        throw new Error(`Missing table domain for table ${tableId}`);
+      }
+      const fieldInstances = this.getFieldInstancesFromDomain(tableDomain, requestedFieldIds);
       if (!fieldInstances.length) continue;
 
       const validFieldIdSet = new Set(fieldInstances.map((f) => f.id));
@@ -88,12 +79,13 @@ export class ComputedEvaluatorService {
       if (!impactedFieldIds.size) continue;
 
       const recordIds = Array.from(group.recordIds);
-      const dbTableName = await this.getDbTableName(tableId);
+      const dbTableName = tableDomain.dbTableName;
       const builderRestrictRecordIds =
         !preferAutoNumberPaging && recordIds.length > 0 && recordIds.length <= recordIdBatchSize
           ? recordIds
           : undefined;
 
+      const tablesOverride = this.buildTablesOverride(tableId, tableDomainCache);
       const { qb, alias } = await this.recordQueryBuilder.createRecordQueryBuilder(dbTableName, {
         tableId,
         projection: Array.from(validFieldIdSet),
@@ -101,6 +93,7 @@ export class ComputedEvaluatorService {
         preferRawFieldReferences: true,
         projectionByTable,
         restrictRecordIds: builderRestrictRecordIds,
+        tables: tablesOverride,
       });
 
       const idCol = alias ? `${alias}.__id` : '__id';
@@ -132,6 +125,36 @@ export class ComputedEvaluatorService {
     }
 
     return totalOps;
+  }
+
+  private getFieldInstancesFromDomain(
+    tableDomain: TableDomain,
+    fieldIds: string[]
+  ): IFieldInstance[] {
+    if (!fieldIds.length) {
+      return [];
+    }
+    const requested = new Set(fieldIds);
+    return tableDomain.fieldList
+      .filter((field) => requested.has(field.id))
+      .map((field) => field as unknown as IFieldInstance);
+  }
+
+  private buildTablesOverride(
+    tableId: string,
+    tableDomains?: ReadonlyMap<string, TableDomain>
+  ): Tables | undefined {
+    if (!tableDomains?.size) {
+      return undefined;
+    }
+    if (!tableDomains.has(tableId)) {
+      return undefined;
+    }
+    const materialized =
+      tableDomains instanceof Map
+        ? (tableDomains as Map<string, TableDomain>)
+        : new Map(tableDomains as Iterable<[string, TableDomain]>);
+    return new Tables(tableId, materialized);
   }
 
   private buildEvaluatedRows(

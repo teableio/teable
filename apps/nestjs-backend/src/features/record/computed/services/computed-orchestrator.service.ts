@@ -1,7 +1,9 @@
 /* eslint-disable sonarjs/cognitive-complexity */
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import type { TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICellContext } from '../../../calculation/utils/changes';
+import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
 import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
 import type {
   IComputedImpactByTable,
@@ -15,7 +17,8 @@ export class ComputedOrchestratorService {
   constructor(
     private readonly collector: ComputedDependencyCollectorService,
     private readonly evaluator: ComputedEvaluatorService,
-    private readonly prismaService: PrismaService
+    private readonly prismaService: PrismaService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   /**
@@ -66,29 +69,33 @@ export class ComputedOrchestratorService {
 
     // 1) Collect impact per source and merge once
     const exclude = Array.from(changedFieldIds);
-    const impacts = await Promise.all(
-      filtered.map(async ({ tableId, cellContexts }) => {
-        return this.collector.collect(tableId, cellContexts, exclude);
-      })
+    const results = await Promise.all(
+      filtered.map(({ tableId, cellContexts }) =>
+        this.collector.collect(tableId, cellContexts, exclude)
+      )
     );
 
-    const impactMerged = impacts.reduce(
-      (acc, cur) => {
-        for (const [tid, group] of Object.entries(cur)) {
-          const target = (acc[tid] ||= {
-            fieldIds: new Set<string>(),
-            recordIds: new Set<string>(),
-          });
-          group.fieldIds.forEach((f) => target.fieldIds.add(f));
-          group.recordIds.forEach((r) => target.recordIds.add(r));
-          if (group.preferAutoNumberPaging) {
-            target.preferAutoNumberPaging = true;
-          }
+    const tableDomainSeeds = new Map<string, TableDomain>();
+    const impactMerged: IComputedImpactByTable = {};
+
+    for (const { impact, tableDomains } of results) {
+      for (const [tid, group] of Object.entries(impact)) {
+        const target = (impactMerged[tid] ||= {
+          fieldIds: new Set<string>(),
+          recordIds: new Set<string>(),
+        });
+        group.fieldIds.forEach((f) => target.fieldIds.add(f));
+        group.recordIds.forEach((r) => target.recordIds.add(r));
+        if (group.preferAutoNumberPaging) {
+          target.preferAutoNumberPaging = true;
         }
-        return acc;
-      },
-      {} as Awaited<ReturnType<typeof this.collector.collect>>
-    );
+      }
+      for (const [tid, domain] of tableDomains) {
+        if (!tableDomainSeeds.has(tid)) {
+          tableDomainSeeds.set(tid, domain);
+        }
+      }
+    }
 
     const impactedTables = Object.keys(impactMerged);
     if (!impactedTables.length) {
@@ -107,12 +114,15 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
+    const tableDomains = await this.resolveTableDomains(impactMerged, tableDomainSeeds);
+
     // 2) Perform the actual base update(s) if provided
     await update();
 
     // 3) Evaluate and publish computed values
     const total = await this.evaluator.evaluate(impactMerged, {
       excludeFieldIds: changedFieldIds,
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactMerged) };
@@ -140,8 +150,10 @@ export class ComputedOrchestratorService {
     }
 
     await update();
+    const tableDomains = await this.resolveTableDomains(impactPre);
     const total = await this.evaluator.evaluate(impactPre, {
       versionBaseline: 'current',
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactPre) };
@@ -240,9 +252,11 @@ export class ComputedOrchestratorService {
 
     const exclude = new Set<string>([...startFieldIds, ...actuallyDeleted]);
 
+    const tableDomains = await this.resolveTableDomains(impactPost);
     const total = await this.evaluator.evaluate(impactPost, {
       versionBaseline: 'current',
       excludeFieldIds: exclude,
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impactPost) };
@@ -271,6 +285,7 @@ export class ComputedOrchestratorService {
 
     const impact = await this.collector.collectForFieldChanges(sources);
     if (!Object.keys(impact).length) return { publishedOps: 0, impact: {} };
+    const tableDomains = await this.resolveTableDomains(impact);
 
     const exclude = new Set<string>();
     if (publishTargetIds.size) {
@@ -285,8 +300,87 @@ export class ComputedOrchestratorService {
       versionBaseline: 'current',
       preferAutoNumberPaging: true,
       ...(exclude.size ? { excludeFieldIds: exclude } : {}),
+      tableDomains,
     });
 
     return { publishedOps: total, impact: buildResultImpact(impact) };
+  }
+
+  private async resolveTableDomains(
+    impact: IComputedImpactByTable,
+    seed?: ReadonlyMap<string, TableDomain>
+  ): Promise<Map<string, TableDomain>> {
+    const cache = new Map<string, TableDomain>();
+    if (seed?.size) {
+      for (const [tableId, domain] of seed) {
+        cache.set(tableId, domain);
+      }
+    }
+
+    const impactTableIds = Object.keys(impact);
+    if (!impactTableIds.length) {
+      return cache;
+    }
+
+    const projectionByTable = new Map<string, Set<string> | undefined>();
+    for (const [tableId, group] of Object.entries(impact)) {
+      projectionByTable.set(tableId, new Set(group.fieldIds));
+    }
+
+    const missingImpactIds = impactTableIds.filter((tableId) => !cache.has(tableId));
+    if (missingImpactIds.length) {
+      const fetched = await this.tableDomainQueryService.getTableDomainsByIds(missingImpactIds);
+      for (const [tableId, domain] of fetched) {
+        cache.set(tableId, domain);
+      }
+      const stillMissing = missingImpactIds.filter((tableId) => !cache.has(tableId));
+      if (stillMissing.length) {
+        throw new NotFoundException(`Table(s) not found: ${stillMissing.join(', ')}`);
+      }
+    }
+
+    const processed = new Set<string>();
+    const queue = new Set<string>(impactTableIds);
+
+    while (queue.size) {
+      const batch = Array.from(queue);
+      queue.clear();
+
+      const needFetch = batch.filter((tableId) => !cache.has(tableId));
+      if (needFetch.length) {
+        const fetched = await this.tableDomainQueryService.getTableDomainsByIds(needFetch);
+        for (const [tableId, domain] of fetched) {
+          cache.set(tableId, domain);
+        }
+        const unresolved = needFetch.filter((tableId) => !cache.has(tableId));
+        unresolved.forEach((tableId) => processed.add(tableId));
+      }
+
+      for (const tableId of batch) {
+        if (processed.has(tableId)) {
+          continue;
+        }
+        const domain = cache.get(tableId);
+        if (!domain) {
+          processed.add(tableId);
+          continue;
+        }
+        processed.add(tableId);
+        const projection = projectionByTable.get(tableId);
+        const relatedTableIds = domain.getAllForeignTableIds(
+          projection && projection.size ? Array.from(projection) : undefined
+        );
+        for (const relatedTableId of relatedTableIds) {
+          if (!projectionByTable.has(relatedTableId)) {
+            projectionByTable.set(relatedTableId, undefined);
+          }
+          if (!processed.has(relatedTableId)) {
+            queue.add(relatedTableId);
+          }
+        }
+      }
+    }
+
+    return cache;
   }
 }

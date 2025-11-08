@@ -37,6 +37,7 @@ if (process.env.BACKEND_SENTRY_DSN) {
       Sentry.dedupeIntegration(),
       Sentry.functionToStringIntegration(),
       Sentry.linkedErrorsIntegration(),
+      Sentry.dataloaderIntegration(),
     ],
   });
   Logger.log(`Sentry initialized, tracesSampleRate: ${traceRate}`);

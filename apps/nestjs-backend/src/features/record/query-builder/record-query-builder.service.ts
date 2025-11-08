@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { extractFieldIdsFromFilter, FieldType, SortFunc } from '@teable/core';
-import type { FieldCore, IFilter, ISortItem, TableDomain, Tables } from '@teable/core';
+import { extractFieldIdsFromFilter, FieldType, SortFunc, Tables } from '@teable/core';
+import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -38,7 +38,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     tableId: string,
     projection?: string[],
-    baseBuilder?: Knex.QueryBuilder
+    baseBuilder?: Knex.QueryBuilder,
+    providedTables?: Tables
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -46,10 +47,12 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     table: TableDomain;
     state: IMutableQueryBuilderState;
   }> {
-    const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(
-      tableId,
-      projection
-    );
+    let tables = providedTables;
+    if (!tables || !tables.hasTable(tableId)) {
+      tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableId, projection);
+    } else if (tables.entryTableId !== tableId) {
+      tables = new Tables(tableId, new Map(tables.tableDomains), new Set(tables.visited));
+    }
     const table = tables.mustGetEntryTable();
     const mainTableAlias = getTableAliasFromTable(table);
     const qbSource = baseBuilder ?? this.knex.queryBuilder();
@@ -119,7 +122,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           from,
           tableId,
           options.projection,
-          baseBuilder
+          baseBuilder,
+          options.tables
         );
       }
     } else {
@@ -127,7 +131,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         from,
         tableId,
         options.projection,
-        baseBuilder
+        baseBuilder,
+        options.tables
       );
     }
 
@@ -173,6 +178,7 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       useQueryModel: options.useQueryModel,
       projection: options.projection,
       projectionByTable: options.projectionByTable,
+      tables: options.tables,
       limit: options.limit,
       offset: options.offset,
       filter,

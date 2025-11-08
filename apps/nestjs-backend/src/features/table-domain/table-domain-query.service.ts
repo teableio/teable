@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
+import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { DataLoaderService } from '../data-loader/data-loader.service';
@@ -16,7 +17,8 @@ import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/facto
 export class TableDomainQueryService {
   constructor(
     private readonly dataLoaderService: DataLoaderService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService
   ) {}
 
   /**
@@ -33,6 +35,31 @@ export class TableDomainQueryService {
     const tableMeta = await this.getTableMetaById(tableId);
     const fieldRaws = await this.getTableFields(tableMeta.id);
     return this.buildTableDomain(tableMeta, fieldRaws);
+  }
+
+  async getTableDomainsByIds(tableIds: string[]): Promise<Map<string, TableDomain>> {
+    const uniqueIds = Array.from(new Set(tableIds.filter(Boolean)));
+    if (!uniqueIds.length) {
+      return new Map();
+    }
+
+    const tableMetas = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: uniqueIds }, deletedTime: null },
+      include: {
+        fields: {
+          where: { deletedTime: null },
+        },
+      },
+    });
+
+    const domainMap = new Map<string, TableDomain>();
+    for (const tableMeta of tableMetas) {
+      const sortedFields = this.sortFieldRaws(tableMeta.fields as Field[]);
+      const domain = this.buildTableDomain(tableMeta, sortedFields);
+      domainMap.set(tableMeta.id, domain);
+    }
+
+    return domainMap;
   }
 
   /**
@@ -161,10 +188,7 @@ export class TableDomainQueryService {
     if (this.cls.get('dataLoaderCache.disabled')) {
       return;
     }
-    const cacheKeys = this.cls.get('dataLoaderCache.cacheKeys');
-    if (!cacheKeys) {
-      return;
-    }
+    const cacheKeys = this.cls.get('dataLoaderCache.cacheKeys') ?? [];
     const requiredKeys: ('table' | 'field')[] = ['table', 'field'];
     const missingKeys = requiredKeys.filter((key) => !cacheKeys.includes(key));
     if (missingKeys.length) {

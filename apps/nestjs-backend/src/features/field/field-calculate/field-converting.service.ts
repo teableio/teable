@@ -41,6 +41,7 @@ import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { isLinkCellValue } from '../../calculation/utils/detect-link';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
@@ -71,6 +72,7 @@ export class FieldConvertingService {
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly collaboratorService: CollaboratorService,
     private readonly tableIndexService: TableIndexService,
+    private readonly computedOrchestrator: ComputedOrchestratorService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -955,6 +957,37 @@ export class FieldConvertingService {
     };
   }
 
+  private buildCellContextsFromOps(opsMap: IOpsMap[string] | undefined) {
+    const contexts: ICellContext[] = [];
+    if (!opsMap) {
+      return contexts;
+    }
+    for (const [recordId, ops] of Object.entries(opsMap)) {
+      for (const op of ops) {
+        const context = RecordOpBuilder.editor.setRecord.detect(op);
+        if (!context) {
+          continue;
+        }
+        contexts.push({
+          recordId,
+          fieldId: context.fieldId,
+          oldValue: context.oldCellValue,
+          newValue: context.newCellValue,
+        });
+      }
+    }
+    return contexts;
+  }
+
+  private buildComputedSources(recordOpsMap: IOpsMap) {
+    return Object.entries(recordOpsMap)
+      .map(([tableId, ops]) => ({
+        tableId,
+        cellContexts: this.buildCellContextsFromOps(ops),
+      }))
+      .filter((source) => source.cellContexts.length);
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async calculateAndSaveRecords(
     tableId: string,
@@ -985,7 +1018,17 @@ export class FieldConvertingService {
       }
     }
 
-    await this.batchService.updateRecords(recordOpsMap);
+    const computedSources = this.buildComputedSources(recordOpsMap);
+    if (computedSources.length) {
+      await this.computedOrchestrator.computeCellChangesForRecordsMulti(
+        computedSources,
+        async () => {
+          await this.batchService.updateRecords(recordOpsMap);
+        }
+      );
+    } else {
+      await this.batchService.updateRecords(recordOpsMap);
+    }
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {

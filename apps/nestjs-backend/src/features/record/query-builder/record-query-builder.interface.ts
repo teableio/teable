@@ -1,4 +1,4 @@
-import type { FieldCore, IFilter, IGroup, ISortItem, TableDomain } from '@teable/core';
+import type { FieldCore, IFilter, IGroup, ISortItem, TableDomain, Tables } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from './field-select.type';
@@ -54,6 +54,10 @@ export interface ICreateRecordQueryBuilderOptions {
    * Useful when the caller intends to apply a final WHERE IN "__id" (...) filter anyway.
    */
   restrictRecordIds?: string[];
+  /**
+   * Optional table domain graph to reuse when building the query.
+   */
+  tables?: Tables;
 }
 
 /**
