@@ -39,8 +39,8 @@ export class LinkCascadeResolver {
     if (!anchorClauses.length) {
       return [];
     }
-    const recursiveClauses = this.buildRecursiveClauses(edges);
-    if (!recursiveClauses.length) {
+    const graphEdgeClauses = this.buildGraphEdgeClauses(edges);
+    if (!graphEdgeClauses.length) {
       return [];
     }
 
@@ -48,25 +48,32 @@ export class LinkCascadeResolver {
     const anchorSelects = anchorClauses
       .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, state))
       .join('\nunion all\n');
-    const anchorSql = `select anchor.table_id, anchor.record_id from (${anchorSelects}) as anchor`;
-    const lateralSelects = recursiveClauses.map((clause) =>
-      this.replacePlaceholders(clause.sql, clause.bindings, state)
-    );
-    const lateralSql =
-      lateralSelects.length === 1
-        ? lateralSelects[0]
-        : lateralSelects.map((sql) => `(${sql})`).join('\nunion all\n');
-    const recursiveSql = `select sub.table_id, sub.record_id
-from link_reach lr
-join lateral (
-${lateralSql}
-) as sub on true`;
+    const anchorSql = `select seed.table_id, seed.record_id from (${anchorSelects}) as seed`;
+    const graphEdgeSelects = graphEdgeClauses
+      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, state))
+      .join('\nunion all\n');
 
-    const sql = `with recursive link_reach(table_id, record_id) as (
-(${anchorSql})
-union
-${recursiveSql}
-) select table_id, record_id from link_reach`;
+    const sql = `with recursive
+seed(table_id, record_id) as (
+${anchorSql}
+),
+graph_edges(src_table_id, src_record_id, dst_table_id, dst_record_id) as (
+${graphEdgeSelects}
+),
+link_reach(table_id, record_id) as (
+  select table_id::text, record_id::text
+  from seed
+
+  union
+
+  select ge.dst_table_id::text, ge.dst_record_id::text
+  from link_reach lr
+  join graph_edges ge
+    on ge.src_table_id = lr.table_id
+   and ge.src_record_id = lr.record_id
+)
+select table_id, record_id
+from link_reach`;
 
     const rows = await this.prismaService
       .txClient()
@@ -96,7 +103,7 @@ ${recursiveSql}
       );
       if (explicitRows.length) {
         clauses.push({
-          sql: `select seed.table_id, seed.record_id
+          sql: `select seed.table_id::text, seed.record_id::text
 from jsonb_to_recordset(?::jsonb) as seed(table_id text, record_id text)`,
           bindings: [JSON.stringify(explicitRows)],
         });
@@ -106,7 +113,7 @@ from jsonb_to_recordset(?::jsonb) as seed(table_id text, record_id text)`,
     allTableSeeds.forEach((seed, index) => {
       const alias = `all_seed_${index}`;
       clauses.push({
-        sql: `select ? as table_id, ${alias}."__id" as record_id from ${this.formatQualifiedName(
+        sql: `select ?::text as table_id, ${alias}."__id"::text as record_id from ${this.formatQualifiedName(
           seed.dbTableName
         )} as ${alias}`,
         bindings: [seed.tableId],
@@ -116,22 +123,24 @@ from jsonb_to_recordset(?::jsonb) as seed(table_id text, record_id text)`,
     return clauses;
   }
 
-  private buildRecursiveClauses(edges: ILinkEdge[]): Array<{ sql: string; bindings: unknown[] }> {
+  private buildGraphEdgeClauses(edges: ILinkEdge[]): Array<{ sql: string; bindings: unknown[] }> {
     return edges.map((edge, index) => {
       const alias = `fk_${index}`;
       const fkTableRef = `${this.formatQualifiedName(edge.fkTableName)} as ${alias}`;
-      const selfCol = `${alias}.${this.quoteIdentifier(edge.selfKeyName)}`;
-      const foreignCol = `${alias}.${this.quoteIdentifier(edge.foreignKeyName)}`;
-      const sql = `select ? as table_id, ${selfCol} as record_id
+      const dstCol = `${alias}.${this.quoteIdentifier(edge.selfKeyName)}`;
+      const srcCol = `${alias}.${this.quoteIdentifier(edge.foreignKeyName)}`;
+      const sql = `select
+  ?::text as src_table_id,
+  ${srcCol}::text as src_record_id,
+  ?::text as dst_table_id,
+  ${dstCol}::text as dst_record_id
 from ${fkTableRef}
-where ${selfCol} is not null
-  and ${foreignCol} is not null
-  and lr.table_id = ?
-  and lr.record_id = ${foreignCol}`;
+where ${srcCol} is not null
+  and ${dstCol} is not null`;
 
       return {
         sql,
-        bindings: [edge.hostTableId, edge.foreignTableId],
+        bindings: [edge.foreignTableId, edge.hostTableId],
       };
     });
   }
