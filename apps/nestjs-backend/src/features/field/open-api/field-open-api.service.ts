@@ -986,20 +986,28 @@ export class FieldOpenApiService {
     };
 
     const sourceMap = new Map<string, Set<string>>();
+    const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
     const addSource = (tid: string, fieldIds: string[]) => {
       const set = sourceMap.get(tid) ?? new Set<string>();
       fieldIds.forEach((id) => set.add(id));
       sourceMap.set(tid, set);
     };
 
-    addSource(tableId, [newField.id]);
+    if (shouldRecomputeSelf) {
+      addSource(tableId, [newField.id]);
+    }
 
     if (dependentFieldIds?.length) {
       const dependentFields = await this.prismaService.field.findMany({
         where: { id: { in: dependentFieldIds }, deletedTime: null },
         select: { id: true, tableId: true },
       });
-      dependentFields.forEach(({ id, tableId: depTableId }) => addSource(depTableId, [id]));
+      dependentFields
+        .filter(
+          ({ id, tableId: depTableId }) =>
+            shouldRecomputeSelf || id !== newField.id || depTableId !== tableId
+        )
+        .forEach(({ id, tableId: depTableId }) => addSource(depTableId, [id]));
     }
 
     if (supplementChange) {
@@ -1010,6 +1018,7 @@ export class FieldOpenApiService {
       tableId: tid,
       fieldIds: Array.from(ids),
     }));
+    const hasSources = sources.length > 0;
 
     // 1. stage close constraint
     await this.fieldConvertingService.closeConstraint(tableId, newField, oldField);
@@ -1048,14 +1057,19 @@ export class FieldOpenApiService {
           }
         };
 
-        try {
-          await this.computedOrchestrator.computeCellChangesForFields(sources, runCompute);
-        } catch (error) {
-          if (this.isFieldReferenceCompatibilityError(error)) {
-            encounteredCompatibilityIssue = true;
-            return;
+        if (hasSources) {
+          try {
+            await this.computedOrchestrator.computeCellChangesForFields(sources, runCompute);
+          } catch (error) {
+            if (this.isFieldReferenceCompatibilityError(error)) {
+              encounteredCompatibilityIssue = true;
+              return;
+            }
+
+            throw error;
           }
-          throw error;
+        } else {
+          await runCompute();
         }
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
@@ -1115,13 +1129,18 @@ export class FieldOpenApiService {
       new Set([...(references ?? []), ...dependentRefs.map((ref) => ref.toFieldId)])
     );
 
+    const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
+    const filteredDependentFieldIds = shouldRecomputeSelf
+      ? dependentFieldIds
+      : dependentFieldIds.filter((id) => id !== newField.id);
+
     const { compatibilityIssue } = await this.performConvertField({
       tableId,
       newField,
       oldField,
       modifiedOps,
       supplementChange,
-      dependentFieldIds,
+      dependentFieldIds: filteredDependentFieldIds,
     });
 
     const shouldForceLookupError =
@@ -1132,11 +1151,11 @@ export class FieldOpenApiService {
         ((newField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null) !==
           ((oldField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null));
 
-    if (dependentFieldIds.length) {
+    if (filteredDependentFieldIds.length) {
       try {
-        await this.restoreReference(dependentFieldIds);
+        await this.restoreReference(filteredDependentFieldIds);
         const dependentFieldRaws = await this.prismaService.field.findMany({
-          where: { id: { in: dependentFieldIds }, deletedTime: null },
+          where: { id: { in: filteredDependentFieldIds }, deletedTime: null },
         });
 
         if (dependentFieldRaws.length) {

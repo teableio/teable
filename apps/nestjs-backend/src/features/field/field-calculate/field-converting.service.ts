@@ -1338,7 +1338,35 @@ export class FieldConvertingService {
       return false;
     }
 
-    return majorFieldKeysChanged(oldField, newField);
+    if (majorFieldKeysChanged(oldField, newField)) {
+      return true;
+    }
+
+    if (this.hasConditionalLookupDiff(newField, oldField)) {
+      return true;
+    }
+
+    if (this.hasConditionalRollupDiff(newField, oldField)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private hasConditionalLookupDiff(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (!newField.isConditionalLookup) {
+      return false;
+    }
+
+    return !isEqual(newField.lookupOptions, oldField.lookupOptions);
+  }
+
+  private hasConditionalRollupDiff(newField: IFieldInstance, oldField: IFieldInstance) {
+    if (newField.type !== FieldType.ConditionalRollup) {
+      return false;
+    }
+
+    return !isEqual(newField.options, oldField.options);
   }
 
   private async calculateField(
@@ -1350,7 +1378,11 @@ export class FieldConvertingService {
       return;
     }
 
-    if (!majorFieldKeysChanged(oldField, newField)) {
+    const hasMajorChange = majorFieldKeysChanged(oldField, newField);
+    const conditionalLookupDiff = this.hasConditionalLookupDiff(newField, oldField);
+    const conditionalRollupDiff = this.hasConditionalRollupDiff(newField, oldField);
+
+    if (!hasMajorChange && !conditionalLookupDiff && !conditionalRollupDiff) {
       return;
     }
 
