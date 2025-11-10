@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
+import type { IAttachmentCellValue, IFieldVo, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -87,6 +87,7 @@ import { useTranslation } from 'next-i18next';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useClickAway } from 'react-use';
+import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
@@ -154,7 +155,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
-  const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
+  const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
+    {}) as IGridViewOptions;
+  const frozenColumnCount = useMemo(() => {
+    return computeFrozenColumnCount({
+      isTouchDevice,
+      frozenFieldId,
+      frozenColumnCount: frozenColumnCountOption,
+      visibleColumns: columns,
+      allFields,
+    });
+  }, [isTouchDevice, frozenFieldId, columns, allFields, frozenColumnCountOption]);
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
   const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
   const columnHeaderHeight =
@@ -562,9 +573,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onColumnFreeze = useCallback(
     (count: number) => {
-      view?.updateOption({ frozenColumnCount: count });
+      const anchorId = columns[Math.max(0, count - 1)]?.id;
+      if (!view || !anchorId) return;
+      view.updateOption({ frozenFieldId: anchorId });
     },
-    [view]
+    [view, columns]
   );
 
   const generateRecord = async (

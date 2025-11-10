@@ -155,11 +155,8 @@ export const FieldMenu = () => {
 
   const freezeField = async () => {
     const fieldId = fieldIds[0];
-    const index = allFields.findIndex((f) => f.id === fieldId);
-
-    if (index === -1) return;
-
-    view?.updateOption({ frozenColumnCount: index + 1 });
+    if (!fieldId) return;
+    await view?.updateOption({ frozenFieldId: fieldId });
   };
 
   const menuGroups: IMenuItemProps<MenuItemType>[][] = [

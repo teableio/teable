@@ -13,11 +13,14 @@ export const gridViewOptionSchema = z
       .max(3)
       .optional()
       .openapi({ description: 'The field name display lines in view' }),
-    frozenColumnCount: z
-      .number()
-      .min(0)
+    frozenColumnCount: z.number().min(0).optional().openapi({
+      description:
+        'The frozen column count in view. Deprecated: this field will be removed in a future release and may no longer take effect.',
+    }),
+    frozenFieldId: z
+      .string()
       .optional()
-      .openapi({ description: 'The frozen column count in view' }),
+      .openapi({ description: 'Freeze to the right side of this field id in grid view' }),
   })
   .strict();
 

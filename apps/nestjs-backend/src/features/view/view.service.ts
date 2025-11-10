@@ -17,6 +17,7 @@ import type {
   IGalleryViewOptions,
   ICalendarViewOptions,
   IColumn,
+  IGridColumnMeta,
 } from '@teable/core';
 import {
   getUniqName,
@@ -45,6 +46,7 @@ import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachme
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
+import { adjustFrozenField } from './utils/derive-frozen-fields';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -405,7 +407,9 @@ export class ViewService implements IReadonlyAdapterService {
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { id: { in: updatedViewIds }, tableId, deletedTime: null },
       select: {
-        columnMeta: updateViewKeySet.has('columnMeta'),
+        columnMeta: true,
+        options: true,
+        type: true,
         id: true,
         version: true,
       },
@@ -416,7 +420,7 @@ export class ViewService implements IReadonlyAdapterService {
       id: string;
       values: { [key: string]: unknown };
     }[] = viewRaws.map((view) => {
-      const { id: viewId, version, columnMeta } = view;
+      const { id: viewId, version, columnMeta, options, type } = view;
       const updateView = updateViewMap[viewId];
 
       const values: Record<string, unknown> = {
@@ -432,6 +436,25 @@ export class ViewService implements IReadonlyAdapterService {
           updateView.columnMeta
         );
         values.columnMeta = JSON.stringify(newColumnMeta);
+
+        if (type === ViewType.Grid) {
+          const originOptions = options ? JSON.parse(options) : {};
+          const newOptions = adjustFrozenField(
+            originOptions,
+            originColumnMeta,
+            updateView.columnMeta as IGridColumnMeta
+          );
+
+          if (newOptions) {
+            values.options = JSON.stringify(newOptions);
+            const newOptionsOp = ViewOpBuilder.editor.setViewProperty.build({
+              key: 'options',
+              oldValue: originOptions,
+              newValue: newOptions,
+            });
+            opsMap[viewId] = [...(opsMap[viewId] ?? []), newOptionsOp];
+          }
+        }
       }
 
       return {
