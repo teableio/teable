@@ -649,6 +649,11 @@ export class TableOpenApiService {
     // if the table order has the same order, should shuffle
     const shouldShuffle = uniqOrder.length !== tablesOrder.length;
 
+    if (shouldShuffle) {
+      await this.shuffle(baseId);
+      return;
+    }
+
     await updateOrder({
       query: baseId,
       position,
@@ -675,7 +680,6 @@ export class TableOpenApiService {
         });
       },
       shuffle: this.shuffle.bind(this),
-      shouldShuffle,
     });
   }
 

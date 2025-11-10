@@ -24,9 +24,8 @@ export async function updateOrder<T>(params: {
   ) => Promise<{ id: string; order: number } | null>;
   update: (query: T, id: string, data: { newOrder: number; oldOrder: number }) => Promise<void>;
   shuffle: (query: T) => Promise<void>;
-  shouldShuffle?: boolean;
 }) {
-  const { query, position, item, anchorItem, getNextItem, update, shuffle, shouldShuffle } = params;
+  const { query, position, item, anchorItem, getNextItem, update, shuffle } = params;
   const nextView = await getNextItem(
     { [position === 'before' ? 'lt' : 'gt']: anchorItem.order },
     position === 'before' ? 'desc' : 'asc'
@@ -38,7 +37,7 @@ export async function updateOrder<T>(params: {
 
   const { id, order: oldOrder } = item;
 
-  if (Math.abs(order - anchorItem.order) < Number.EPSILON * 2 || shouldShuffle) {
+  if (Math.abs(order - anchorItem.order) < Number.EPSILON * 2) {
     await shuffle(query);
     // recursive call
     await updateOrder(params);
