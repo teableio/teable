@@ -404,12 +404,13 @@ export class ViewService implements IReadonlyAdapterService {
       return Object.keys(property).length > 0 || Object.keys(columnMeta).length > 0;
     });
 
+    const isColumnMetaUpdated = updateViewKeySet.has('columnMeta');
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { id: { in: updatedViewIds }, tableId, deletedTime: null },
       select: {
-        columnMeta: true,
-        options: true,
-        type: true,
+        columnMeta: isColumnMetaUpdated,
+        options: isColumnMetaUpdated,
+        type: isColumnMetaUpdated,
         id: true,
         version: true,
       },
