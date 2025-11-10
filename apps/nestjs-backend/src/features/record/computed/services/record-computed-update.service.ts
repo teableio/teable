@@ -113,7 +113,7 @@ export class RecordComputedUpdateService {
             Array<{ __id: string; __version: number } & Record<string, unknown>>
           >(selectSql);
       } catch (error) {
-        this.handleRawQueryError(error, selectSql, fields);
+        this.handleRawQueryError(error, selectSql, tableId, fields);
       }
     }
 
@@ -143,7 +143,7 @@ export class RecordComputedUpdateService {
         .txClient()
         .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);
     } catch (error) {
-      this.handleRawQueryError(error, sql, fields);
+      this.handleRawQueryError(error, sql, tableId, fields);
     }
   }
 
@@ -175,25 +175,37 @@ export class RecordComputedUpdateService {
     }
   }
 
-  private handleRawQueryError(error: unknown, sql: string, fields: IFieldInstance[]): never {
+  private handleRawQueryError(
+    error: unknown,
+    sql: string,
+    tableId: string,
+    fields: IFieldInstance[]
+  ): never {
     const fieldSnapshot = this.buildFieldDebugSnapshot(fields);
     const fieldSnapshotString = this.stringifyFieldDebugSnapshot(fieldSnapshot);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
       this.logger.error(
-        `updateFromSelect known request error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+        `updateFromSelect known request error.
+        message: ${error.message}.
+        SQL: ${sql}.
+        Fields: ${fieldSnapshotString}`,
         error.stack ?? undefined
       );
       throw error;
     }
     this.logger.error(
-      `updateFromSelect unexpected query error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+      `updateFromSelect unexpected query error.
+      message: ${(error as Error)?.message}.
+      SQL: ${sql}.
+      tableId: ${tableId}.
+      Fields: ${fieldSnapshotString}`,
       (error as Error)?.stack
     );
     if (error instanceof Error) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
     }
     throw error;
   }
