@@ -307,6 +307,62 @@ export class RecordModifySharedService {
     });
   }
 
+  async ensureReferencedBaseFieldsForNewRecords(
+    records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
+    fieldKeyType: FieldKeyType,
+    fieldRaws: IFieldRaws
+  ) {
+    if (!records.length) return records;
+
+    const baseFieldKeyById = fieldRaws.reduce<Map<string, string | undefined>>((acc, field) => {
+      if (field.isComputed) {
+        return acc;
+      }
+      const key = field[fieldKeyType] as string | undefined;
+      acc.set(field.id, key);
+      return acc;
+    }, new Map());
+    if (!baseFieldKeyById.size) {
+      return records;
+    }
+
+    const referencedRows = await this.prismaService.txClient().reference.findMany({
+      where: {
+        fromFieldId: { in: Array.from(baseFieldKeyById.keys()) },
+      },
+      select: { fromFieldId: true },
+    });
+
+    if (!referencedRows.length) return records;
+
+    const referencedFieldKeys = referencedRows.reduce<Set<string>>((acc, row) => {
+      const key = baseFieldKeyById.get(row.fromFieldId);
+      if (key) {
+        acc.add(key);
+      }
+      return acc;
+    }, new Set());
+
+    if (!referencedFieldKeys.size) return records;
+
+    const hasOwn = Object.prototype.hasOwnProperty;
+
+    return records.map((record) => {
+      let fields = record.fields;
+      let mutated = false;
+      referencedFieldKeys.forEach((key) => {
+        if (!hasOwn.call(fields, key)) {
+          if (!mutated) {
+            fields = { ...fields };
+            mutated = true;
+          }
+          fields[key] = null;
+        }
+      });
+      return mutated ? { ...record, fields } : record;
+    });
+  }
+
   async appendDefaultValue(
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
     fieldKeyType: FieldKeyType,

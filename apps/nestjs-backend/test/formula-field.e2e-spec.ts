@@ -7,8 +7,10 @@ import type { ITableFullVo } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import {
   createField,
+  createRecords,
   createTable,
   deleteTable,
+  getRecord,
   getRecords,
   initApp,
   updateRecordByApi,
@@ -218,6 +220,192 @@ describe('OpenAPI Formula Field (e2e)', () => {
       const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[formulaField.id]).toBe('Hello World - 42.5');
       expect(records[1].fields[formulaField.id]).toBe('Test String - 100');
+    });
+  });
+
+  describe('formula recalculation on record creation', () => {
+    let table: ITableFullVo;
+    let statusFieldId: string;
+    let statusFormulaFieldId: string;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'Formula Status Table',
+        fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Status',
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
+
+      statusFieldId = table.fields.find((f) => f.name === 'Status')!.id;
+
+      const statusFormulaField = await createField(table.id, {
+        type: FieldType.Formula,
+        name: 'Status Formula',
+        options: {
+          expression: `IF({${statusFieldId}}="", 1, 222222)`,
+        },
+      });
+
+      statusFormulaFieldId = statusFormulaField.id;
+    });
+
+    afterEach(async () => {
+      if (table?.id) {
+        await deleteTable(baseId, table.id);
+      }
+    });
+
+    it('should calculate formula when referenced field is omitted on creation', async () => {
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              Name: 'Missing status',
+            },
+          },
+        ],
+      });
+
+      const createdRecordId = created.records[0].id;
+      const record = await getRecord(table.id, createdRecordId);
+
+      expect(record.fields[statusFieldId]).toBeUndefined();
+      expect(record.fields[statusFormulaFieldId]).toBe(1);
+    });
+
+    it('should calculate alternate branch when referenced field has value', async () => {
+      const created = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              Name: 'Has status',
+              Status: 'done',
+            },
+          },
+        ],
+      });
+
+      const createdRecordId = created.records[0].id;
+      const record = await getRecord(table.id, createdRecordId);
+
+      expect(record.fields[statusFormulaFieldId]).toBe(222222);
+    });
+  });
+
+  describe('formula recalculation referencing lookup dependencies', () => {
+    let mainTable: ITableFullVo;
+    let foreignTable: ITableFullVo;
+    let linkField: IFieldVo;
+    let lookupField: IFieldVo;
+    let formulaFieldId: string;
+    let nameFieldId: string;
+
+    beforeEach(async () => {
+      foreignTable = await createTable(baseId, {
+        name: 'Lookup Source Table',
+        fields: [
+          {
+            name: 'Title',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [{ fields: { Title: 'Item A' } }, { fields: { Title: 'Item B' } }],
+      });
+
+      mainTable = await createTable(baseId, {
+        name: 'Lookup Host Table',
+        fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
+
+      nameFieldId = mainTable.fields.find((f) => f.name === 'Name')!.id;
+
+      linkField = await createField(mainTable.id, {
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: foreignTable.id,
+        },
+      });
+
+      const titleFieldId = foreignTable.fields.find((f) => f.name === 'Title')!.id;
+
+      lookupField = await createField(mainTable.id, {
+        type: FieldType.SingleLineText,
+        name: 'Lookup Title',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: foreignTable.id,
+          lookupFieldId: titleFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const formulaField = await createField(mainTable.id, {
+        type: FieldType.Formula,
+        name: 'Lookup Formula',
+        options: {
+          expression: `IF({${lookupField.id}}="", "no lookup", {${lookupField.id}})`,
+        },
+      });
+
+      formulaFieldId = formulaField.id;
+    });
+
+    afterEach(async () => {
+      if (mainTable?.id) {
+        await deleteTable(baseId, mainTable.id);
+      }
+      if (foreignTable?.id) {
+        await deleteTable(baseId, foreignTable.id);
+      }
+    });
+
+    it('should compute lookup-based formula when link is omitted on creation', async () => {
+      const created = await createRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [nameFieldId]: 'No link',
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(mainTable.id, created.records[0].id);
+      expect(record.fields[formulaFieldId]).toBe('no lookup');
+    });
+
+    it('should compute lookup-based formula when link is provided on creation', async () => {
+      const created = await createRecords(mainTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [nameFieldId]: 'Linked record',
+              [linkField.id]: { id: foreignTable.records[0].id },
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(mainTable.id, created.records[0].id);
+      expect(record.fields[lookupField.id]).toBe('Item A');
+      expect(record.fields[formulaFieldId]).toBe('Item A');
     });
   });
 
