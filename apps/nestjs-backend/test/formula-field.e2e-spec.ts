@@ -2,7 +2,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { FormulaFieldCore, IFieldVo } from '@teable/core';
-import { Colors, FieldKeyType, FieldType, Relationship } from '@teable/core';
+import {
+  Colors,
+  DateFormattingPreset,
+  FieldKeyType,
+  FieldType,
+  Relationship,
+  TimeFormatting,
+} from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import {
@@ -630,6 +637,133 @@ describe('OpenAPI Formula Field (e2e)', () => {
       const { records } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
       expect(records[0].fields[formulaField.id]).toBe('Has Link');
       expect(records[1].fields[formulaField.id]).toBe('Has Link');
+    });
+  });
+
+  describe('formula using lookup datetime formatting inside concatenation', () => {
+    let contractTable: ITableFullVo;
+    let projectTable: ITableFullVo;
+    let linkField: IFieldVo;
+    let schoolLookupField: IFieldVo;
+    let dateLookupField: IFieldVo;
+    let projectNameFieldId: string;
+    let folderFormulaFieldId: string;
+
+    beforeEach(async () => {
+      contractTable = await createTable(baseId, {
+        name: 'contract-table',
+        fields: [
+          {
+            name: 'Contract Name',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'School',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Planning Date',
+            type: FieldType.Date,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              'Contract Name': 'Smart Campus Upgrade',
+              School: 'Shenzhen Institute',
+              'Planning Date': '2024-05-20T00:00:00.000Z',
+            },
+          },
+        ],
+      });
+
+      projectTable = await createTable(baseId, {
+        name: 'project-table',
+        fields: [
+          {
+            name: 'Project Name',
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
+
+      projectNameFieldId = projectTable.fields.find((f) => f.name === 'Project Name')!.id;
+
+      linkField = await createField(projectTable.id, {
+        type: FieldType.Link,
+        name: 'Related Contract',
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: contractTable.id,
+        },
+      });
+
+      const schoolFieldId = contractTable.fields.find((f) => f.name === 'School')!.id;
+      schoolLookupField = await createField(projectTable.id, {
+        type: FieldType.SingleLineText,
+        name: 'School Lookup',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: contractTable.id,
+          lookupFieldId: schoolFieldId,
+          linkFieldId: linkField.id,
+        },
+      });
+
+      const planningDateFieldId = contractTable.fields.find((f) => f.name === 'Planning Date')!.id;
+      dateLookupField = await createField(projectTable.id, {
+        type: FieldType.Date,
+        name: 'Planning Date Lookup',
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: contractTable.id,
+          lookupFieldId: planningDateFieldId,
+          linkFieldId: linkField.id,
+        },
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      });
+
+      const folderFormulaField = await createField(projectTable.id, {
+        type: FieldType.Formula,
+        name: 'Folder Path',
+        options: {
+          expression: `"NAS-" & {${schoolLookupField.id}} & "-" & DATETIME_FORMAT({${dateLookupField.id}}, 'YYYYMMDD')`,
+          timeZone: 'Asia/Shanghai',
+        },
+      });
+      folderFormulaFieldId = folderFormulaField.id;
+    });
+
+    afterEach(async () => {
+      if (projectTable?.id) {
+        await deleteTable(baseId, projectTable.id);
+      }
+      if (contractTable?.id) {
+        await deleteTable(baseId, contractTable.id);
+      }
+    });
+
+    it('should concatenate lookup datetime output safely', async () => {
+      const created = await createRecords(projectTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [projectNameFieldId]: 'NAS Folder',
+              [linkField.id]: { id: contractTable.records[0].id },
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(projectTable.id, created.records[0].id);
+      expect(record.fields[folderFormulaFieldId]).toBe('NAS-Shenzhen Institute-20240520');
     });
   });
 

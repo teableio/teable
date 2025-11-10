@@ -1115,17 +1115,22 @@ abstract class BaseSqlConversionVisitor<
 
   private normalizeMultiValueExprToJson(expr: string): string {
     const baseExpr = `(${expr})`;
-    return `(CASE
+    const coercedJson = `(CASE
       WHEN ${baseExpr} IS NULL THEN NULL::jsonb
-      WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN ${baseExpr}::jsonb
-      WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN ${baseExpr}::jsonb
+      WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN (${baseExpr})::text::jsonb
+      WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN (${baseExpr})::text::jsonb
       WHEN pg_typeof(${baseExpr}) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
         CASE
           WHEN NULLIF(BTRIM((${baseExpr})::text), '') IS NULL THEN NULL::jsonb
-          WHEN LEFT(BTRIM((${baseExpr})::text), 1) = '[' THEN (${baseExpr})::jsonb
+          WHEN LEFT(BTRIM((${baseExpr})::text), 1) = '[' THEN (${baseExpr})::text::jsonb
           ELSE jsonb_build_array(to_jsonb(${baseExpr}))
         END
       ELSE to_jsonb(${baseExpr})
+    END)`;
+    return `(CASE
+      WHEN ${coercedJson} IS NULL THEN NULL::jsonb
+      WHEN jsonb_typeof(${coercedJson}) = 'array' THEN ${coercedJson}
+      ELSE jsonb_build_array(${coercedJson})
     END)`;
   }
 
@@ -2006,8 +2011,8 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           return expr;
         }
         const safeJsonExpr = `(CASE
-          WHEN pg_typeof(${expr}) = 'jsonb'::regtype THEN (${expr})::jsonb
-          WHEN pg_typeof(${expr}) = 'json'::regtype THEN (${expr})::jsonb
+          WHEN pg_typeof(${expr}) = 'jsonb'::regtype THEN (${expr})::text::jsonb
+          WHEN pg_typeof(${expr}) = 'json'::regtype THEN (${expr})::text::jsonb
           ELSE NULL::jsonb
         END)`;
         return `(SELECT elem #>> '{}'
