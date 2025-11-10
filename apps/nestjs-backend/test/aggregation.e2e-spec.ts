@@ -8,6 +8,7 @@ import {
   FieldKeyType,
   FieldType,
   Relationship,
+  contains,
   is,
   isGreaterEqual,
   SortFunc,
@@ -182,6 +183,65 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
 
       expect(response.data.rowCount).toEqual(selectedIds.length);
+    });
+
+    describe('row count contains filter with jsonpath literals', () => {
+      const specialName = 'Person "Quote" \\ Slash';
+      let tasksTable: ITableFullVo;
+      let peopleTable: ITableFullVo;
+      let linkFieldId: string;
+
+      beforeAll(async () => {
+        peopleTable = await createTable(baseId, {
+          name: 'agg_row_count_people',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: specialName } }, { fields: { Name: 'Plain Person' } }],
+        });
+
+        tasksTable = await createTable(baseId, {
+          name: 'agg_row_count_tasks',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+          records: [{ fields: { Title: 'Escaped Match' } }, { fields: { Title: 'Other Task' } }],
+        });
+
+        const linkField = (await createField(tasksTable.id, {
+          name: 'Assignee',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: peopleTable.id,
+          },
+        })) as IFieldVo;
+        linkFieldId = linkField.id;
+
+        await updateRecordByApi(tasksTable.id, tasksTable.records[0].id, linkFieldId, {
+          id: peopleTable.records[0].id,
+        });
+        await updateRecordByApi(tasksTable.id, tasksTable.records[1].id, linkFieldId, {
+          id: peopleTable.records[1].id,
+        });
+      });
+
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, tasksTable.id);
+        await permanentDeleteTable(baseId, peopleTable.id);
+      });
+
+      it('should honor contains filter with escaped value', async () => {
+        const filter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: linkFieldId,
+              operator: contains.value,
+              value: specialName,
+            },
+          ],
+        };
+
+        const { rowCount } = (await getRowCount(tasksTable.id, { filter })).data;
+        expect(rowCount).toEqual(1);
+      });
     });
 
     describe('simple aggregation text field record', () => {
