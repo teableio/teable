@@ -63,10 +63,12 @@ export class BaseSqlExecutorService {
         } catch (error) {
           if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
-            (error?.meta?.code === '42710' || error?.meta?.code === '23505')
+            (error?.meta?.code === '42710' ||
+              error?.meta?.code === '23505' ||
+              error?.meta?.code === 'XX000')
           ) {
             this.logger.warn(
-              `read only role ${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME} already exists, error code: ${error?.meta?.code}`
+              `read only role ${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME} already exists or concurrent update detected, error code: ${error?.meta?.code}`
             );
             return;
           }
