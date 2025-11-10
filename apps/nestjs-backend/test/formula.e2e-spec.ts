@@ -335,7 +335,7 @@ describe('OpenAPI formula (e2e)', () => {
     };
 
     table1 = await createTable(baseId, {
-      name: 'table1',
+      name: `table-${Date.now()}`,
       fields: [numberFieldRo, textFieldRo, userFieldRo, multiSelectFieldRo, formulaFieldRo],
     });
     table1Id = table1.id;
