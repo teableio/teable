@@ -651,7 +651,6 @@ export class TableOpenApiService {
 
     if (shouldShuffle) {
       await this.shuffle(baseId);
-      return;
     }
 
     await updateOrder({
