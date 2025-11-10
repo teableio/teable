@@ -616,24 +616,6 @@ export class TableOpenApiService {
   async updateOrder(baseId: string, tableId: string, orderRo: IUpdateOrderRo) {
     const { anchorId, position } = orderRo;
 
-    const table = await this.prismaService.tableMeta
-      .findFirstOrThrow({
-        select: { order: true, id: true },
-        where: { baseId, id: tableId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
-      });
-
-    const anchorTable = await this.prismaService.tableMeta
-      .findFirstOrThrow({
-        select: { order: true, id: true },
-        where: { baseId, id: anchorId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new NotFoundException(`Anchor ${anchorId} not found`);
-      });
-
     const tablesOrder = await this.prismaService.txClient().tableMeta.findMany({
       where: {
         baseId,
@@ -652,6 +634,24 @@ export class TableOpenApiService {
     if (shouldShuffle) {
       await this.shuffle(baseId);
     }
+
+    const table = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: tableId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Table ${tableId} not found`);
+      });
+
+    const anchorTable = await this.prismaService.tableMeta
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { baseId, id: anchorId, deletedTime: null },
+      })
+      .catch(() => {
+        throw new NotFoundException(`Anchor ${anchorId} not found`);
+      });
 
     await updateOrder({
       query: baseId,
