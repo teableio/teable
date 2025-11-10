@@ -2,10 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Knex } from 'knex';
+import { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { retryOnDeadlock } from '../../../../utils/retry-decorator';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
@@ -93,13 +94,14 @@ export class RecordComputedUpdateService {
     return Array.from(new Set(cols));
   }
 
+  @retryOnDeadlock()
   async updateFromSelect(
     tableId: string,
     qb: Knex.QueryBuilder,
     fields: IFieldInstance[],
-    opts?: { restrictRecordIds?: string[] }
+    opts?: { restrictRecordIds?: string[]; dbTableName?: string }
   ): Promise<Array<{ __id: string; __version: number } & Record<string, unknown>>> {
-    const dbTableName = await this.getDbTableName(tableId);
+    const dbTableName = opts?.dbTableName ?? (await this.getDbTableName(tableId));
 
     const columnNames = this.getUpdatableColumns(fields);
     const returningNames = this.getReturningColumns(fields);

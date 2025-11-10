@@ -108,6 +108,7 @@ export class ComputedEvaluatorService {
         idColumn: idCol,
         orderColumn: orderCol,
         fieldInstances,
+        dbTableName,
       });
 
       const strategy = this.selectPaginationStrategy(paginationContext);
@@ -249,6 +250,7 @@ export class ComputedEvaluatorService {
     idColumn: string;
     orderColumn: string;
     fieldInstances: IFieldInstance[];
+    dbTableName: string;
   }): IPaginationContext {
     const {
       tableId,
@@ -258,6 +260,7 @@ export class ComputedEvaluatorService {
       idColumn,
       orderColumn,
       fieldInstances,
+      dbTableName,
     } = params;
 
     return {
@@ -270,7 +273,10 @@ export class ComputedEvaluatorService {
       idColumn,
       orderColumn,
       updateRecords: (qb, options) =>
-        this.recordComputedUpdateService.updateFromSelect(tableId, qb, fieldInstances, options),
+        this.recordComputedUpdateService.updateFromSelect(tableId, qb, fieldInstances, {
+          ...options,
+          dbTableName,
+        }),
     };
   }
 }
