@@ -17,8 +17,7 @@ export class AiController {
     @Body(new ZodValidationPipe(aiGenerateRoSchema), TablePipe) aiGenerateRo: IAiGenerateRo,
     @Res() res: Response
   ) {
-    const result = await this.aiService.generateStream(baseId, aiGenerateRo);
-    result.pipeTextStreamToResponse(res);
+    await this.aiService.generateStream(baseId, aiGenerateRo, res);
   }
 
   @Get('/config')

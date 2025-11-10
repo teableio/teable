@@ -137,6 +137,112 @@ describe('OpenAPI AttachmentController (e2e)', () => {
     expect(attachment.smThumbnailUrl).not.toBe(attachment.presignedUrl);
   });
 
+  it('should write attachment with simplified ro format without typecast', async () => {
+    // Step 1: Upload attachment to get token
+    const field = await createField(table.id, { type: FieldType.Attachment });
+
+    expect(fs.existsSync(filePath)).toBe(true);
+
+    const fileContent = fs.createReadStream(filePath);
+    const uploadResult = await uploadAttachment(
+      table.id,
+      table.records[0].id,
+      field.id,
+      fileContent,
+      {
+        filename: 'test-upload.txt',
+      }
+    );
+
+    expect(uploadResult.status).toBe(201);
+    const uploadedAttachment = (uploadResult.data.fields[field.id] as IAttachmentCellValue)[0]!;
+    expect(uploadedAttachment).toBeDefined();
+    expect(uploadedAttachment.token).toBeDefined();
+    expect(uploadedAttachment.size).toBeDefined();
+    expect(uploadedAttachment.mimetype).toBeDefined();
+
+    // Step 2: Create another field to test writing with simplified format
+    const field2 = await createField(table.id, { type: FieldType.Attachment });
+
+    // Step 3: Write attachment using simplified format WITHOUT typecast
+    const simplifiedAttachmentRo = [
+      {
+        name: 'renamed-file.txt', // User can rename
+        token: uploadedAttachment.token,
+      },
+    ];
+
+    const updateResult = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: false, // ❗ Key point: without typecast
+      record: {
+        fields: {
+          [field2.id]: simplifiedAttachmentRo,
+        },
+      },
+    });
+
+    expect(updateResult.status).toBe(200);
+
+    // Step 4: Re-fetch record to verify data is actually stored in DB
+    const storedRecord = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const resultAttachments = storedRecord.data.fields[field2.id] as IAttachmentCellValue;
+    expect(resultAttachments).toBeDefined();
+    expect(resultAttachments.length).toBe(1);
+
+    // Step 5: Verify all metadata is present from stored data
+    const resultAttachment = resultAttachments[0]!;
+    console.log('resultAttachment from DB:', resultAttachment);
+    expect(resultAttachment.id).toBeDefined();
+    expect(resultAttachment.id).toMatch(/^act/); // Should have attachment ID prefix
+    expect(resultAttachment.name).toBe('renamed-file.txt'); // Should use the name from ro
+    expect(resultAttachment.token).toBe(uploadedAttachment.token); // Same token
+    expect(resultAttachment.size).toBe(uploadedAttachment.size); // Metadata from DB
+    expect(resultAttachment.mimetype).toBe(uploadedAttachment.mimetype); // Metadata from DB
+    expect(resultAttachment.path).toBeDefined(); // Metadata from DB
+    expect(resultAttachment.presignedUrl).toBeDefined();
+
+    // Step 6: Test with optional id (reuse existing attachment id)
+    const field3 = await createField(table.id, { type: FieldType.Attachment });
+    const simplifiedAttachmentRoWithId = [
+      {
+        id: resultAttachment.id, // Reuse the id
+        name: 'renamed-again.txt',
+        token: uploadedAttachment.token,
+      },
+    ];
+
+    const updateResult2 = await updateRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+      typecast: false, // Still without typecast
+      record: {
+        fields: {
+          [field3.id]: simplifiedAttachmentRoWithId,
+        },
+      },
+    });
+
+    expect(updateResult2.status).toBe(200);
+
+    // Step 7: Re-fetch record again to verify id reuse is stored correctly
+    const storedRecord2 = await getRecord(table.id, table.records[0].id, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+    const resultAttachments2 = storedRecord2.data.fields[field3.id] as IAttachmentCellValue;
+    expect(resultAttachments2.length).toBe(1);
+
+    const resultAttachment2 = resultAttachments2[0]!;
+    console.log('resultAttachment2 from DB:', resultAttachment2);
+    expect(resultAttachment2.id).toBe(resultAttachment.id); // Should reuse the same id
+    expect(resultAttachment2.name).toBe('renamed-again.txt');
+    expect(resultAttachment2.token).toBe(uploadedAttachment.token);
+    expect(resultAttachment2.size).toBeDefined();
+    expect(resultAttachment2.mimetype).toBeDefined();
+    expect(resultAttachment2.path).toBeDefined();
+  });
+
   it('should get attachment absolute url by token', async () => {
     const space = await createSpace({ name: 'access token space' }).then((res) => res.data);
     const base = await createBase({ spaceId: space.id, name: 'access token base' }).then(

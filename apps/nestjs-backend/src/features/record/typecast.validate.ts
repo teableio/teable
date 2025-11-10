@@ -1,8 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
 import type {
   FieldCore,
-  IAttachmentCellValue,
+  IAttachmentCellValueRo,
   IAttachmentItem,
+  IAttachmentItemRo,
   ILinkCellValue,
   ISelectFieldChoice,
   ISelectFieldOptions,
@@ -26,7 +27,6 @@ import type { AttachmentsStorageService } from '../attachments/attachments-stora
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { DataLoaderService } from '../data-loader/data-loader.service';
 import type { FieldConvertingService } from '../field/field-calculate/field-converting.service';
-import type { IFieldInstance } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import type { MultipleSelectFieldDto } from '../field/model/field-dto/multiple-select-field.dto';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
@@ -463,7 +463,7 @@ export class TypeCastAndValidate {
         }
       },
       (validatedCellValue: unknown) => {
-        const attachmentCellValue = validatedCellValue as IAttachmentCellValue;
+        const attachmentCellValue = validatedCellValue as IAttachmentCellValueRo;
         const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvMap[v.token]);
         if (notInAttachmentMap) {
           throw new CustomHttpException(
@@ -476,11 +476,17 @@ export class TypeCastAndValidate {
             }
           );
         }
-        return attachmentCellValue.map((v) => {
+        const idsSet = new Set<string>();
+        return attachmentCellValue.map((v: IAttachmentItemRo) => {
+          let id = v.id ?? generateAttachmentId();
+          if (idsSet.has(id)) {
+            id = generateAttachmentId(); // duplicate id, generate new one
+          }
+          idsSet.add(id);
           return {
             ...nullsToUndefined(attachmentCvMap[v.token]),
             name: v.name,
-            id: generateAttachmentId(),
+            id,
           };
         });
       }

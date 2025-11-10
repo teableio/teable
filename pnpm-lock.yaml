@@ -58,38 +58,41 @@ importers:
   apps/nestjs-backend:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: 3.0.50
-        version: 3.0.50(zod@4.1.8)
+        specifier: 4.0.0-beta.55
+        version: 4.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/anthropic':
-        specifier: 2.0.40
-        version: 2.0.40(zod@4.1.8)
+        specifier: 3.0.0-beta.50
+        version: 3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/azure':
-        specifier: 2.0.61
-        version: 2.0.61(zod@4.1.8)
+        specifier: 3.0.0-beta.55
+        version: 3.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/cohere':
-        specifier: 2.0.17
-        version: 2.0.17(zod@4.1.8)
+        specifier: 3.0.0-beta.32
+        version: 3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/deepseek':
-        specifier: 1.0.26
-        version: 1.0.26(zod@4.1.8)
+        specifier: 2.0.0-beta.32
+        version: 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/google':
-        specifier: 2.0.26
-        version: 2.0.26(zod@4.1.8)
+        specifier: 3.0.0-beta.39
+        version: 3.0.0-beta.39(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/mistral':
-        specifier: 2.0.22
-        version: 2.0.22(zod@4.1.8)
+        specifier: 3.0.0-beta.32
+        version: 3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai':
-        specifier: 2.0.60
-        version: 2.0.60(zod@4.1.8)
+        specifier: 3.0.0-beta.54
+        version: 3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai-compatible':
-        specifier: 1.0.25
-        version: 1.0.25(zod@4.1.8)
+        specifier: 2.0.0-beta.32
+        version: 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider-utils':
+        specifier: 4.0.0-beta.31
+        version: 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/togetherai':
-        specifier: 1.0.26
-        version: 1.0.26(zod@4.1.8)
+        specifier: 2.0.0-beta.33
+        version: 2.0.0-beta.33(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/xai':
-        specifier: 2.0.26
-        version: 2.0.26(zod@4.1.8)
+        specifier: 3.0.0-beta.35
+        version: 3.0.0-beta.35(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@aws-sdk/client-s3':
         specifier: 3.609.0
         version: 3.609.0
@@ -149,7 +152,7 @@ importers:
         version: 10.3.5(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@openrouter/ai-sdk-provider':
         specifier: 1.2.0
-        version: 1.2.0(ai@5.0.86(zod@4.1.8))(zod@4.1.8)
+        version: 1.2.0(ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)
       '@opentelemetry/api':
         specifier: 1.9.0
         version: 1.9.0
@@ -216,9 +219,12 @@ importers:
       '@teamwork/websocket-json-stream':
         specifier: 2.0.0
         version: 2.0.0
+      '@valibot/to-json-schema':
+        specifier: 1.3.0
+        version: 1.3.0(valibot@1.1.0(typescript@5.4.3))
       ai:
-        specifier: 5.0.86
-        version: 5.0.86(zod@4.1.8)
+        specifier: 6.0.0-beta.93
+        version: 6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       ajv:
         specifier: 8.12.0
         version: 8.12.0
@@ -261,6 +267,9 @@ importers:
       dayjs:
         specifier: 1.11.10
         version: 1.11.10
+      effect:
+        specifier: 3.19.1
+        version: 3.19.1
       esbuild:
         specifier: 0.23.0
         version: 0.23.0
@@ -1266,7 +1275,7 @@ importers:
         version: 9.1.0(eslint@8.57.0)
       eslint-import-resolver-typescript:
         specifier: 3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import:
         specifier: 2.29.1
         version: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
@@ -2191,74 +2200,62 @@ packages:
   '@adobe/css-tools@4.4.1':
     resolution: {integrity: sha512-12WGKBQzjUAI4ayyF4IAtfw2QR/IDoqk6jTddXDhtYTJF9ASmoE1zst7cVtP0aL/F1jUJL5r+JxKXKEgHNbEUQ==}
 
-  '@ai-sdk/amazon-bedrock@3.0.50':
-    resolution: {integrity: sha512-XkfyNJsUPu0XPQ/9kvFDeMa8P24K+JCc/ETmUJSMidyCwLIFrc4bNvIVeo6M+TNM4y6NBYXdOWWDoH8cU5uzEw==}
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.55':
+    resolution: {integrity: sha512-rvDjfHSOWXH3ufHnMElmYJmL4Ml+cG8im+cS0VgYwOvNNpD9z1dpd+M7K1BTxjAzA2qss5Y5ZcbVKy/KKbwj7A==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/anthropic@2.0.40':
-    resolution: {integrity: sha512-aHtqlIIS8lyesSNFxevLGWozCCZ1xQ4Wy2HfQSVVQu3dWtndfPzF6hbWof2Way+qNrvRtjnBpRQyaVeu6Js4pQ==}
+  '@ai-sdk/anthropic@3.0.0-beta.50':
+    resolution: {integrity: sha512-PKTRpzWhGD449Cm27KL1EVg0vUcgT32Tu7WvxtEXyl+JoD4YVXs353QWNx1tcFqML1TAmuCbVUFq9KvoNYIFLg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/azure@2.0.61':
-    resolution: {integrity: sha512-7fJ38IFj0xSKDPWKScR2qijjvj3Yr0gCM/hEbfYT7UceYKeylzBfc2ujhQKMyZYizNTPh4VrmQKLJzjgZA2vxg==}
+  '@ai-sdk/azure@3.0.0-beta.55':
+    resolution: {integrity: sha512-LJ3OJ7ATutjmw+IEVhn646Yt74/KeWSXXS3SQ+v0K5EPwhrKvR4dit3CRc1HOEqo4M3b5rQF0TQ3rKp8H6tRfQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/cohere@2.0.17':
-    resolution: {integrity: sha512-GbQsJenrNxUzr8VFlYMrbpVvnT6BX4Qwm6mGHVeBMfi+oSB1L9A14ZZyZlLeHOeWzKaDIwjVePuhp6XrIMRFLg==}
+  '@ai-sdk/cohere@3.0.0-beta.32':
+    resolution: {integrity: sha512-Dj7HvelE9sqHgxlt6o0/j54fWttuROtPJizVlYNsXHa9NMreKzC6RBJRhuaqj2ob1MHsaxIb2svsW5A55GYEyA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/deepseek@1.0.26':
-    resolution: {integrity: sha512-HUpDS05A5GEtrWN7LKzG5aTPjETnG/MPB59IwZVvFseKOElAXCNfhMzD3HookIVMwgOYlvpHd8SroFCeKyWAUA==}
+  '@ai-sdk/deepseek@2.0.0-beta.32':
+    resolution: {integrity: sha512-wXGXMekPHIlQ0cMyV/h9ZkEiJPJI5Dm0eNRERPgKbf3FU3oJjQXDktac8kQcA5NI08gJN6u5Wykh6IBPmL0u6w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.5':
-    resolution: {integrity: sha512-5TTDSl0USWY6YGnb4QmJGplFZhk+p9OT7hZevAaER6OGiZ17LB1GypsGYDpNo/MiVMklk8kX4gk6p1/R/EiJ8Q==}
+  '@ai-sdk/gateway@2.0.0-beta.50':
+    resolution: {integrity: sha512-1SkmLI6y2/2YoWtMD6T9QaZZtyyTYbL9aFq6DSLJGklM5uBjeZzYj0L5eL0YCxYdL1PWj/uSsUNPpfuYBol5ew==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google@2.0.26':
-    resolution: {integrity: sha512-LMCT8TDwj1ww4W34f1YJHfk2LggsMV4dqF8qSolJIopdERCclA+S+LzaIaiyeoYDD+slUrf3FXvi1t+yd21jxQ==}
+  '@ai-sdk/google@3.0.0-beta.39':
+    resolution: {integrity: sha512-mo4PXEiRW4Pux8A6l3vXPYhdTyoAdegTSmdWYWzEtJcww9x1uXAV2QeM0uBkgfjSyBFDFuDuoWmf+d3CNxwdIQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/mistral@2.0.22':
-    resolution: {integrity: sha512-/CnLJIzZfVmk7N1f+WRt+/uBV6tmzh77KxzMNxtTnhzIGTgI68ck0NOW5H1VMDBMTsC5D99zsOrbCzn7lreokg==}
+  '@ai-sdk/mistral@3.0.0-beta.32':
+    resolution: {integrity: sha512-ihCRBqgWPuyymYf43r+c2mW5D8ywYMgCJNJqhSCGjkV35XVFO55kWoUy03Dm60DSjZ3vmnVHDCj0SONoUR0PJQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@1.0.22':
-    resolution: {integrity: sha512-Q+lwBIeMprc/iM+vg1yGjvzRrp74l316wDpqWdbmd4VXXlllblzGsUgBLTeKvcEapFTgqk0FRETvSb58Y6dsfA==}
+  '@ai-sdk/openai-compatible@2.0.0-beta.32':
+    resolution: {integrity: sha512-xoGaSaMuOUcbSXjOwbgwhlo+AYo1+1UTDeVTLZVXBvA6ywANUgWuTkNCSAsNkH2AiE3wDVLmK0ADKtNPQGEj/Q==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@1.0.25':
-    resolution: {integrity: sha512-VPylb5ytkOu9Bs1UnVmz4x0wr1VtS30Pw6ghh6GxpGH6lo4GOWqVnYuB+8M755dkof74c5LULZq5C1n/1J4Kvg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/openai@2.0.60':
-    resolution: {integrity: sha512-h7Bg3nY4UYyBj2HDmsFzPxuBhK4ZGGkC2ssZGXOov+81DVSiRJXR4NFfsxbWW/7c6uMCP/YmZ8MiWtvsKMSCHg==}
-    engines: {node: '>=18'}
-    peerDependencies:
-      zod: ^3.25.76 || ^4.1.8
-
-  '@ai-sdk/provider-utils@3.0.12':
-    resolution: {integrity: sha512-ZtbdvYxdMoria+2SlNarEk6Hlgyf+zzcznlD55EAl+7VZvJaSg2sqPvwArY7L6TfDEDJsnCq0fdhBSkYo0Xqdg==}
+  '@ai-sdk/openai@3.0.0-beta.54':
+    resolution: {integrity: sha512-EjCi1brWfDQOm/FXzijl5oujUUk0Y+wxmJGV5uaNqoVo8uIUUM/YoNpQtaarM68QN4BJPJfr90vXV1rH7NkD6A==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2269,18 +2266,38 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
+  '@ai-sdk/provider-utils@4.0.0-beta.31':
+    resolution: {integrity: sha512-IfE4sAYyO4+tUAoJGyvxeEaa0FMhygrvj2OVdDFuMpGOfFBQHETlP+X7bwnJY8M0oYBp9BEB+YF9D5sCx5oc0w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      '@valibot/to-json-schema': ^1.3.0
+      arktype: ^2.1.22
+      effect: ^3.18.4
+      zod: ^3.25.76 || ^4.1.8
+    peerDependenciesMeta:
+      '@valibot/to-json-schema':
+        optional: true
+      arktype:
+        optional: true
+      effect:
+        optional: true
+
   '@ai-sdk/provider@2.0.0':
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/togetherai@1.0.26':
-    resolution: {integrity: sha512-F3nvcS1TNnxPoL8R1Pq6YOxThjPNBkXqywly+EpO5FPvqQx2sL2Cymu1epKlbYWVJXT3ZJAb2+NISH2Fldsv8w==}
+  '@ai-sdk/provider@3.0.0-beta.15':
+    resolution: {integrity: sha512-vHAlJe2yRQvEsB/Ldy799HUjTSDzTWk6w3PIJFAOuhuJ3c2PvOcHrcY3IULPIx6bOnB2OgG3BE6zySey5pnyBQ==}
+    engines: {node: '>=18'}
+
+  '@ai-sdk/togetherai@2.0.0-beta.33':
+    resolution: {integrity: sha512-G5bKq+TDwEn3LI+e/R7SDGswYVP0yNbxRxSJT9pNrBFGTjV4kJyH5EwmKxeRANRRbYY2C0P5HjYj6VASC4Zbmw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/xai@2.0.26':
-    resolution: {integrity: sha512-+VtaLZSxmoKnNeJGM9bbtbZ3QMkPFlBB4N8prngbrSnvU/hG8cNdvvSBW/rIk6/DHrc2R8nFntNIBQoIRuBdQw==}
+  '@ai-sdk/xai@3.0.0-beta.35':
+    resolution: {integrity: sha512-cezBZihPmn+dnM2RRvG7iLQjkORnT1kSrNpOjbpwHSD3dIsSpuAWC3cWJiqF81mtWv5AFEEFW3jsNPEPZXRWqg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -8730,6 +8747,11 @@ packages:
     peerDependencies:
       webpack: ^4.0.0 || ^5.0.0
 
+  '@valibot/to-json-schema@1.3.0':
+    resolution: {integrity: sha512-82Vv6x7sOYhv5YmTRgSppSqj1nn2pMCk5BqCMGWYp0V/fq+qirrbGncqZAtZ09/lrO40ne/7z8ejwE728aVreg==}
+    peerDependencies:
+      valibot: ^1.1.0
+
   '@vercel/oidc@3.0.3':
     resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
     engines: {node: '>= 20'}
@@ -9021,8 +9043,8 @@ packages:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
     engines: {node: '>=8'}
 
-  ai@5.0.86:
-    resolution: {integrity: sha512-ooHwNTkLdedFf98iQhtSc5btc/P4UuXuOpYneoifq0190vqosLunNdW8Hs6CiE0Am7YOGNplDK56JIPlHZIL4w==}
+  ai@6.0.0-beta.93:
+    resolution: {integrity: sha512-HzHA68Toh+Pxn2Jfp6Rs6zIlkd5H/CK5AMextPPZ6JHFJIRO6pMBj5P8QU/NLJzJ41NcirtLlWr7WYRtZziVMQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -10818,6 +10840,9 @@ packages:
   ee-first@1.1.1:
     resolution: {integrity: sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow==}
 
+  effect@3.19.1:
+    resolution: {integrity: sha512-SColjj+hRzL4bPxuE4s5aBBx3jbG5AX28fzHQosB8YzUxCQUUfBILsVW9HOJbXewHajzyFggtrJoK+xyvQYn+g==}
+
   ejs@3.1.10:
     resolution: {integrity: sha512-UeJmFfOrAQS8OJWPZ4qtgHyWExa088/MtK5UEyoJGFH67cDEXkZSviOiKRCZ4Xij0zxI3JECgYs3oKx+AizQBA==}
     engines: {node: '>=0.10.0'}
@@ -11385,6 +11410,10 @@ packages:
   extglob@2.0.4:
     resolution: {integrity: sha512-Nmb6QXkELsuBr24CJSkilo6UHHgbekK5UiZgfE6UHD3Eb27YC6oD+bhcT+tJ6cl8dmsgdQxnWlcry8ksBIBLpw==}
     engines: {node: '>=0.10.0'}
+
+  fast-check@3.23.2:
+    resolution: {integrity: sha512-h5+1OzzfCC3Ef7VbtKdcv7zsstUQwUDlYpUTvjeUsJAssPgLn7QzbboPtL5ro04Mq0rPOsMzl7q5hIbRs2wD1A==}
+    engines: {node: '>=8.0.0'}
 
   fast-copy@3.0.2:
     resolution: {integrity: sha512-dl0O9Vhju8IrcLndv2eU4ldt1ftXMqqfgN4H1cpmGV7P6jeB9FwpN9a2c8DPGE1Ys88rNUJVYDHq73CGAGOPfQ==}
@@ -15565,6 +15594,9 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  pure-rand@6.1.0:
+    resolution: {integrity: sha512-bVWawvoZoBYpp6yIoQtQXHZjmz35RSVHnUOTefl8Vcjr8snTPY1wnpSPMWekcFwbxI6gtmT7rSYPFvz71ldiOA==}
+
   qrcode.react@3.1.0:
     resolution: {integrity: sha512-oyF+Urr3oAMUG/OiOuONL3HXM+53wvuH3mtIWQrYmsXoAq0DkvZp2RYUWFSMFtbdOpuS++9v+WAkzNVkMlNW6Q==}
     peerDependencies:
@@ -17956,6 +17988,14 @@ packages:
   v8-compile-cache-lib@3.0.1:
     resolution: {integrity: sha512-wa7YjyUGfNZngI/vtK0UHAN+lgDCxBPCylVXGp0zu59Fz5aiGtNXaq3DhIov063MorB+VfufLh3JlF2KdTK3xg==}
 
+  valibot@1.1.0:
+    resolution: {integrity: sha512-Nk8lX30Qhu+9txPYTwM0cFlWLdPFsFr6LblzqIySfbZph9+BFsAHsNvHOymEviUepeIW6KFHzpX8TKhbptBXXw==}
+    peerDependencies:
+      typescript: '>=5'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+
   valid-data-url@3.0.1:
     resolution: {integrity: sha512-jOWVmzVceKlVVdwjNSenT4PbGghU0SBIizAev8ofZVgivk/TVHXSbNL8LP6M3spZvkR9/QolkyJavGSX5Cs0UA==}
     engines: {node: '>=10'}
@@ -18509,85 +18549,112 @@ snapshots:
 
   '@adobe/css-tools@4.4.1': {}
 
-  '@ai-sdk/amazon-bedrock@3.0.50(zod@4.1.8)':
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/anthropic': 2.0.40(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/anthropic': 3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@smithy/eventstream-codec': 4.0.5
       '@smithy/util-utf8': 4.0.0
       aws4fetch: 1.0.20
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/anthropic@2.0.40(zod@4.1.8)':
+  '@ai-sdk/anthropic@3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/azure@2.0.61(zod@4.1.8)':
+  '@ai-sdk/azure@3.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai': 2.0.60(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/openai': 3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/cohere@2.0.17(zod@4.1.8)':
+  '@ai-sdk/cohere@3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/deepseek@1.0.26(zod@4.1.8)':
+  '@ai-sdk/deepseek@2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 1.0.25(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/gateway@2.0.5(zod@4.1.8)':
+  '@ai-sdk/gateway@2.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@vercel/oidc': 3.0.3
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/google@2.0.26(zod@4.1.8)':
+  '@ai-sdk/google@3.0.0-beta.39(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/mistral@2.0.22(zod@4.1.8)':
+  '@ai-sdk/mistral@3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/openai-compatible@1.0.22(zod@4.1.8)':
+  '@ai-sdk/openai-compatible@2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
-  '@ai-sdk/openai-compatible@1.0.25(zod@4.1.8)':
+  '@ai-sdk/openai@3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
-
-  '@ai-sdk/openai@2.0.60(zod@4.1.8)':
-    dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
-      zod: 4.1.8
-
-  '@ai-sdk/provider-utils@3.0.12(zod@4.1.8)':
-    dependencies:
-      '@ai-sdk/provider': 2.0.0
-      '@standard-schema/spec': 1.0.0
-      eventsource-parser: 3.0.6
-      zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
   '@ai-sdk/provider-utils@3.0.15(zod@4.1.8)':
     dependencies:
@@ -18596,23 +18663,45 @@ snapshots:
       eventsource-parser: 3.0.6
       zod: 4.1.8
 
+  '@ai-sdk/provider-utils@4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+    dependencies:
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.6
+      zod: 4.1.8
+    optionalDependencies:
+      '@valibot/to-json-schema': 1.3.0(valibot@1.1.0(typescript@5.4.3))
+      effect: 3.19.1
+
   '@ai-sdk/provider@2.0.0':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/togetherai@1.0.26(zod@4.1.8)':
+  '@ai-sdk/provider@3.0.0-beta.15':
     dependencies:
-      '@ai-sdk/openai-compatible': 1.0.25(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
-      zod: 4.1.8
+      json-schema: 0.4.0
 
-  '@ai-sdk/xai@2.0.26(zod@4.1.8)':
+  '@ai-sdk/togetherai@2.0.0-beta.33(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 1.0.22(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.12(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
+
+  '@ai-sdk/xai@3.0.0-beta.35(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+    dependencies:
+      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
   '@alloc/quick-lru@5.2.0': {}
 
@@ -21802,7 +21891,7 @@ snapshots:
       lru-cache: 10.2.0
       npm-pick-manifest: 9.1.0
       proc-log: 4.2.0
-      promise-inflight: 1.0.1
+      promise-inflight: 1.0.1(bluebird@3.7.2)
       promise-retry: 2.0.1
       semver: 7.6.3
       which: 4.0.0
@@ -21850,9 +21939,9 @@ snapshots:
 
   '@one-ini/wasm@0.1.1': {}
 
-  '@openrouter/ai-sdk-provider@1.2.0(ai@5.0.86(zod@4.1.8))(zod@4.1.8)':
+  '@openrouter/ai-sdk-provider@1.2.0(ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)':
     dependencies:
-      ai: 5.0.86(zod@4.1.8)
+      ai: 6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
 
   '@opentelemetry/api-logs@0.201.1':
@@ -26746,6 +26835,10 @@ snapshots:
     dependencies:
       webpack: 5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17))
 
+  '@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3))':
+    dependencies:
+      valibot: 1.1.0(typescript@5.4.3)
+
   '@vercel/oidc@3.0.3': {}
 
   '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.17)(vite@5.4.11(@types/node@20.9.0)(terser@5.37.0))':
@@ -27142,13 +27235,17 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@5.0.86(zod@4.1.8):
+  ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8):
     dependencies:
-      '@ai-sdk/gateway': 2.0.5(zod@4.1.8)
-      '@ai-sdk/provider': 2.0.0
-      '@ai-sdk/provider-utils': 3.0.15(zod@4.1.8)
+      '@ai-sdk/gateway': 2.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@opentelemetry/api': 1.9.0
       zod: 4.1.8
+    transitivePeerDependencies:
+      - '@valibot/to-json-schema'
+      - arktype
+      - effect
 
   airbnb-js-shims@2.2.1:
     dependencies:
@@ -27903,7 +28000,7 @@ snapshots:
       minipass-pipeline: 1.2.4
       mkdirp: 1.0.4
       p-map: 4.0.0
-      promise-inflight: 1.0.1
+      promise-inflight: 1.0.1(bluebird@3.7.2)
       rimraf: 3.0.2
       ssri: 8.0.1
       tar: 6.2.1
@@ -29199,6 +29296,11 @@ snapshots:
 
   ee-first@1.1.1: {}
 
+  effect@3.19.1:
+    dependencies:
+      '@standard-schema/spec': 1.0.0
+      fast-check: 3.23.2
+
   ejs@3.1.10:
     dependencies:
       jake: 10.9.2
@@ -29558,7 +29660,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.8.0(eslint@8.57.0)
       eslint-plugin-react: 7.34.1(eslint@8.57.0)
@@ -29581,7 +29683,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0):
+  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0):
     dependencies:
       debug: 4.4.0
       enhanced-resolve: 5.17.1
@@ -29626,7 +29728,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -30120,6 +30222,10 @@ snapshots:
       to-regex: 3.0.2
     transitivePeerDependencies:
       - supports-color
+
+  fast-check@3.23.2:
+    dependencies:
+      pure-rand: 6.1.0
 
   fast-copy@3.0.2: {}
 
@@ -35070,8 +35176,6 @@ snapshots:
 
   progress@2.0.3: {}
 
-  promise-inflight@1.0.1: {}
-
   promise-inflight@1.0.1(bluebird@3.7.2):
     optionalDependencies:
       bluebird: 3.7.2
@@ -35250,6 +35354,8 @@ snapshots:
   punycode@1.4.1: {}
 
   punycode@2.3.1: {}
+
+  pure-rand@6.1.0: {}
 
   qrcode.react@3.1.0(react@18.3.1):
     dependencies:
@@ -38100,6 +38206,10 @@ snapshots:
       sade: 1.8.1
 
   v8-compile-cache-lib@3.0.1: {}
+
+  valibot@1.1.0(typescript@5.4.3):
+    optionalDependencies:
+      typescript: 5.4.3
 
   valid-data-url@3.0.1: {}
 

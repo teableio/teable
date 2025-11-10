@@ -23,10 +23,8 @@ export const attachmentItemSchema = z.object({
 });
 
 // Simplified format: only name and token (backend will fetch other fields from DB)
-const attachmentItemRoSchema = z.object({
-  name: z.string(),
-  token: z.string(),
-});
+// Optional id: if provided and exists in DB, the attachment will reuse that id
+const attachmentItemRoSchema = attachmentItemSchema.partial().required({ name: true, token: true });
 
 export type IAttachmentItem = z.infer<typeof attachmentItemSchema>;
 

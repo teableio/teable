@@ -6,10 +6,13 @@ import type { IAIConfig, IAiGenerateRo, LLMProvider, LLMProviderType } from '@te
 import { IntegrationType, SettingKey, Task } from '@teable/openapi';
 import type { LanguageModel } from 'ai';
 import { generateText, streamText } from 'ai';
+import type { Response } from 'express';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { CustomHttpException } from '../../custom.exception';
 import { SettingService } from '../setting/setting.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
+
+export type ILanguageModelV2 = Exclude<LanguageModel, string>;
 
 @Injectable()
 export class AiService {
@@ -64,12 +67,12 @@ export class AiService {
     modelKey: string,
     llmProviders?: LLMProvider[],
     isImageGeneration?: false
-  ): Promise<LanguageModel>;
+  ): Promise<ILanguageModelV2>;
   async getModelInstance(
     modelKey: string,
     llmProviders: LLMProvider[] = [],
     isImageGeneration = false
-  ): Promise<LanguageModel | ReturnType<OpenAIProvider['image']>> {
+  ): Promise<ILanguageModelV2 | ReturnType<OpenAIProvider['image']>> {
     const { type, model, baseUrl, apiKey } = await this.getModelConfig(modelKey, llmProviders);
 
     if (!baseUrl || !apiKey) {
@@ -245,14 +248,20 @@ export class AiService {
     return await this.getModelInstance(modelKey, config.llmProviders);
   }
 
-  async generateStream(baseId: string, aiGenerateRo: IAiGenerateRo) {
+  async generateStream(
+    baseId: string,
+    aiGenerateRo: IAiGenerateRo,
+    response: Response
+  ): Promise<void> {
     const { prompt } = aiGenerateRo;
     const modelInstance = await this.getGenerationModelInstance(baseId, aiGenerateRo);
 
-    return await streamText({
+    const result = streamText({
       model: modelInstance,
       prompt: prompt,
     });
+
+    result.pipeTextStreamToResponse(response);
   }
 
   async generateText(baseId: string, aiGenerateRo: IAiGenerateRo) {
