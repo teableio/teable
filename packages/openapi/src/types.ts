@@ -6,3 +6,15 @@ export const getListSchemaVo = <T>(item: z.ZodType<T>) => {
     list: z.array(item),
   });
 };
+
+export enum ResourceType {
+  Space = 'space',
+  Base = 'base',
+  Table = 'table',
+  View = 'view',
+  Field = 'field',
+  Record = 'record',
+  Automation = 'automation',
+  App = 'app',
+  Dashboard = 'dashboard',
+}

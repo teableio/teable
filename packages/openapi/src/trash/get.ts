@@ -2,19 +2,11 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { FieldType, IdPrefix, ViewType } from '@teable/core';
 import { axios } from '../axios';
 import { userCollaboratorItem } from '../space';
+import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 
 export const GET_TRASH = '/trash';
-
-export enum ResourceType {
-  Space = 'space',
-  Base = 'base',
-  Table = 'table',
-  View = 'view',
-  Field = 'field',
-  Record = 'record',
-}
 
 export const userMapVoSchema = z.record(
   z.string().startsWith(IdPrefix.User),

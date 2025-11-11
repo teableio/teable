@@ -1,9 +1,10 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
+import { ResourceType } from '../types';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
 import type { ITrashVo } from './get';
-import { ResourceType, trashVoSchema } from './get';
+import { trashVoSchema } from './get';
 
 export const GET_TRASH_ITEMS = '/trash/items';
 

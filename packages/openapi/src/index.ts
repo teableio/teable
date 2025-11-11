@@ -42,3 +42,4 @@ export * from './automation';
 export * from './mail';
 export * from './formula';
 export * from './unsubscribe';
+export * from './types';

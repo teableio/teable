@@ -810,7 +810,6 @@
       "generateAIFields": "生成 AI 字段",
       "generateLinkFields": "生成关联字段",
       "generateLookupFields": "生成查找字段",
-      "generateLinkFieldsRecords": "生成关联字段记录",
       "generateRollupFields": "生成聚合字段",
       "generateFormulaFields": "生成公式字段",
 

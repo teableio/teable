@@ -808,7 +808,6 @@
       "generateAIFields": "Generate AI fields",
       "generateLinkFields": "Generate link fields",
       "generateLookupFields": "Generate lookup fields",
-      "generateLinkFieldsRecords": "Generate link fields records",
       "generateRollupFields": "Generate rollup fields",
       "generateFormulaFields": "Generate formula fields",
 
