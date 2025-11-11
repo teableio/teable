@@ -24,6 +24,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
           icon: 'items-start',
           closeButton:
             'top-[12px] right-0 left-[unset] border-none !text-foreground !bg-transparent',
+          content:
+            'max-h-[120px] overflow-y-auto scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[4px] will-change-transform',
         },
         style: {
           background: 'hsl(var(--background))',
