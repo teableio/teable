@@ -1,0 +1,63 @@
+{
+  "add": "New OAuth Apps",
+  "title": {
+    "add": "New OAuth Apps",
+    "edit": "Edit OAuth Apps"
+  },
+  "form": {
+    "name": {
+      "label": "OAuth App name",
+      "description": "The name of your OAuth App."
+    },
+    "description": {
+      "label": "Description",
+      "description": "A short description of your OAuth App."
+    },
+    "homePageUrl": {
+      "label": "Homepage URL",
+      "description": "The full URL to your OAuth App’s website."
+    },
+    "logo": {
+      "label": "Logo",
+      "description": "A square image is recommended.",
+      "placeholder": "Drag and drop your logo here or click to upload",
+      "button": "Upload a logo",
+      "clear": "Clear",
+      "lengthError": "Only one file is allowed.",
+      "typeError": "Only image file is allowed."
+    },
+    "callbackUrl": {
+      "label": "Callback URL",
+      "description": "The full URL to redirect to after a user authorizing your integration.",
+      "add": "Add Callback URL"
+    },
+    "scopes": {
+      "label": "Scopes",
+      "description": "The permissions your OAuth App needs."
+    },
+    "secret": {
+      "label": "Client secrets",
+      "add": "Generate a new client secret",
+      "newDescription": "Make sure to copy your new client secret now. You won’t be able to see it again.",
+      "empty": "You need a client secret to authenticate as the application to the API.",
+      "lastUsed": "Last used at {{date}}",
+      "tag": "Client secret",
+      "neverUsed": "Never used"
+    },
+    "clientId": {
+      "label": "Client ID: "
+    }
+  },
+  "formType": {
+    "basic": "Basic information",
+    "scopes": "Scopes",
+    "identify": "Identifying and authorizing users",
+    "clientInfo": "Client information"
+  },
+  "decision": {
+    "title": "{{name}} is requesting access to your account",
+    "scopes": "This application will be able to get the following scopes:",
+    "redirectDescription": "Authorizing will redirect to",
+    "authorize": "Authorize"
+  }
+}

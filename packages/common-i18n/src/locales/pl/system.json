@@ -1,0 +1,16 @@
+{
+  "notFound": {
+    "title": "404 - Page Not Found"
+  },
+  "links": {
+    "backToHome": "Back to home"
+  },
+  "forbidden": {
+    "title": "403 - Forbidden",
+    "description": "You don't have permission to access this page."
+  },
+  "paymentRequired": {
+    "title": "402 - Subscription Upgrade Required",
+    "description": "Your current subscription does not support access to this feature. <br></br>Please upgrade your subscription to continue."
+  }
+}

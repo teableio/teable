@@ -1,0 +1,52 @@
+{
+  "initialSpaceName": "Przestrzeń {{name}}",
+  "page": {
+    "title": "Teable App"
+  },
+  "action": {
+    "createBase": "Stwórz bazę",
+    "createSpace": "Stwórz przestrzeń",
+    "invite": "Zaproś"
+  },
+  "allSpaces": "Wszystkie przestrzenie",
+  "spaceIsEmpty": "Ta przestrzeń jest pusta",
+  "baseModal": {
+    "copy": "Kopia",
+    "duplicate": "Powiel \"{{baseName}}\"",
+    "createBaseFromTemplate": "Tworzenie bazy z szablonu",
+    "duplicateRecords": "Powiel rekordy",
+    "duplicateRecordsTip": "Historia zmian nie zostanie zduplikowana.",
+    "toSpace": "Do przestrzeni",
+    "copyToSpace": "Skopiuj do przestrzeni",
+    "duplicateBase": "Powiel bazę",
+    "missTargetTip": "Wybierz miejsce do powielenia bazy.",
+    "copying": "Trwa duplikowanie bazy, może to chwilę potrwać...",
+    "copyingTemplate": "Trwa tworzenie bazy z szablonu, może to chwilę potrwać...",
+    "howToCreate": "Jak chcesz zacząć?",
+    "fromScratch": "Od zera",
+    "fromTemplate": "Z szablonu"
+  },
+  "spaceSetting": {
+    "title": "Ustawienia przestrzeni",
+    "general": "Ogólne",
+    "collaborators": "Członkowie",
+    "generalDescription": "Zmiana ustawień bieżącej przestrzeni",
+    "collaboratorDescription": "Zarządzaj członkami Twojej przestrzeni i ustaw im uprawnienia dostępu",
+    "spaceName": "Nazwa przestrzeni",
+    "spaceId": "ID przestrzeni"
+  },
+  "pin": {
+    "add": "Dodaj do przypiętych",
+    "remove": "Usuń z przypiętych",
+    "pin": "Przypięte",
+    "empty": "To miejsce na przypięte bazy i przestrzenie"
+  },
+  "tip": {
+    "delete": "Czy na pewno chcesz usunąć <0/>?"
+  },
+  "sharedBase": {
+    "title": "Współdzielone bazy",
+    "description": "Pojawią się tutaj bazy, które zostały udostępnione Tobie.",
+    "empty": "Nie ma jeszcze współdzielonych baz"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "auth": {
+    "title": "Wprowadź hasło, aby wyświetlić tę stronę",
+    "submit": "Prześlij",
+    "password": "Hasło"
+  },
+  "toolbar": {
+    "filterLinkSelectPlaceholder": "Wybierz..."
+  },
+  "openOnNewPage": "Otwórz na nowej stronie",
+  "errorTips": "Macierz uprawnień została aktywowana, wyświetlanie jest niedozwolone"
+}
