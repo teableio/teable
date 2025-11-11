@@ -2,8 +2,7 @@ import type { ILinkCellValue, ILinkFieldOptions } from '@teable/core';
 import { isMultiValueLink } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { Button, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { Button, Dialog, DialogContent, DialogTrigger, sonner } from '@teable/ui-lib';
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { LinkViewProvider, RowCountProvider } from '../../../context';
 import { useTranslation } from '../../../context/app/i18n';
@@ -16,6 +15,7 @@ import { LinkCard } from './LinkCard';
 import type { ILinkListRef } from './LinkList';
 import { LinkList } from './LinkList';
 
+const { toast } = sonner;
 interface ILinkEditorProps {
   options: ILinkFieldOptions;
   fieldId: string;

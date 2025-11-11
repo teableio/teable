@@ -1,6 +1,6 @@
 import type { ILinkCellValue } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import {
@@ -37,6 +37,7 @@ import {
 } from '../../grid-enhancements';
 import { LinkListType } from './interface';
 
+const { toast } = sonner;
 interface ILinkListProps {
   type?: LinkListType;
   rowCount: number;
