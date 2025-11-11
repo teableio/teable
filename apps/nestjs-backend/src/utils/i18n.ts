@@ -19,3 +19,12 @@ export const getI18nPath = () => {
     return exists;
   });
 };
+
+export const getI18nTypesOutputPath = () => {
+  const path = process.env.I18N_TYPES_OUTPUT_PATH;
+  console.log('backend I18n types output path:', path);
+  if (!path) {
+    return undefined;
+  }
+  return path;
+};

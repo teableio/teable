@@ -19,6 +19,7 @@ import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
+import type { I18nTranslations } from '../../types/i18n.generated';
 import { SettingOpenApiService } from '../setting/open-api/setting-open-api.service';
 import { buildEmailFrom, type ISendMailOptions } from './mail-helpers';
 
@@ -34,7 +35,7 @@ export class MailSenderService {
     private readonly settingOpenApiService: SettingOpenApiService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly cacheService: CacheService,
-    private readonly i18n: I18nService
+    private readonly i18n: I18nService<I18nTranslations>
   ) {
     const { host, port, secure, auth, sender, senderName } = this.mailConfig;
     this.defaultTransportConfig = {

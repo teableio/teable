@@ -24,6 +24,7 @@ import { keyBy } from 'lodash';
 import { I18nContext, I18nService } from 'nestjs-i18n';
 import { IMailConfig, MailConfig } from '../../configs/mail.config';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { I18nPath, I18nTranslations } from '../../types/i18n.generated';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { MailSenderService } from '../mail-sender/mail-sender.service';
 import { UserService } from '../user/user.service';
@@ -44,7 +45,7 @@ export class NotificationService {
     private readonly mailSenderService: MailSenderService,
     private readonly userService: UserService,
     @MailConfig() private readonly mailConfig: IMailConfig,
-    private readonly i18n: I18nService
+    private readonly i18n: I18nService<I18nTranslations>
   ) {}
 
   private async getUserLang(userId: string) {
@@ -52,7 +53,7 @@ export class NotificationService {
     return user?.lang ?? I18nContext.current()?.lang;
   }
 
-  private getMessage(text: string | ILocalization, lang?: string) {
+  private getMessage(text: string | ILocalization<I18nPath>, lang?: string) {
     return typeof text === 'string'
       ? text
       : (this.i18n.t(text.i18nKey, {
@@ -64,7 +65,7 @@ export class NotificationService {
   /**
    * notification message i18n use common prefix, so we need to remove it to save db
    */
-  private getMessageI18n(localization: string | ILocalization) {
+  private getMessageI18n(localization: string | ILocalization<I18nPath>) {
     return typeof localization === 'string'
       ? undefined
       : JSON.stringify({
@@ -116,7 +117,7 @@ export class NotificationService {
 
     const notifyPath = this.generateNotifyPath(type as NotificationTypeEnum, urlMeta);
 
-    let message: { i18nKey: string; context: Record<string, string> };
+    let message: string | ILocalization<I18nPath> = '';
     if (refRecord.recordIds.length <= 1) {
       message = {
         i18nKey: 'common.email.templates.collaboratorCellTag.subject',
@@ -190,12 +191,12 @@ export class NotificationService {
       path: string;
       fromUserId?: string;
       toUserId: string;
-      message: string | ILocalization;
+      message: string | ILocalization<I18nPath>;
       emailConfig?: {
-        title: string | ILocalization;
-        message: string | ILocalization;
+        title: string | ILocalization<I18nPath>;
+        message: string | ILocalization<I18nPath>;
         buttonUrl?: string;
-        buttonText?: string | ILocalization;
+        buttonText?: string | ILocalization<I18nPath>;
       };
     },
     type = NotificationTypeEnum.System
@@ -279,12 +280,12 @@ export class NotificationService {
       path: string;
       fromUserId?: string;
       toUserId: string;
-      message: string | ILocalization;
+      message: string | ILocalization<I18nPath>;
       emailConfig?: {
-        title: string | ILocalization;
-        message: string | ILocalization;
+        title: string | ILocalization<I18nPath>;
+        message: string | ILocalization<I18nPath>;
         buttonUrl?: string; // use path as default
-        buttonText?: string | ILocalization; // use 'View' as default
+        buttonText?: string | ILocalization<I18nPath>; // use 'View' as default
       };
     },
     type = NotificationTypeEnum.System
@@ -367,7 +368,7 @@ export class NotificationService {
     tableId: string;
     baseId: string;
     toUserId: string;
-    message: string | ILocalization;
+    message: string | ILocalization<I18nPath>;
   }) {
     const { toUserId, tableId, message, baseId } = params;
     const toUser = await this.userService.getUserById(toUserId);
@@ -395,7 +396,7 @@ export class NotificationService {
   async sendExportBaseResultNotify(params: {
     baseId: string;
     toUserId: string;
-    message: string | ILocalization;
+    message: string | ILocalization<I18nPath>;
   }) {
     const { toUserId, message } = params;
     const toUser = await this.userService.getUserById(toUserId);
@@ -424,7 +425,7 @@ export class NotificationService {
     recordId: string;
     commentId: string;
     toUserId: string;
-    message: string | ILocalization;
+    message: string | ILocalization<I18nPath>;
     fromUserId: string;
   }) {
     const { toUserId, tableId, message, baseId, commentId, recordId, fromUserId } = params;

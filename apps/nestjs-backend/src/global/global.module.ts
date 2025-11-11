@@ -26,7 +26,7 @@ import { ModelModule } from '../features/model/model.module';
 import { RequestInfoMiddleware } from '../middleware/request-info.middleware';
 import { PerformanceCacheModule } from '../performance-cache';
 import { RouteTracingInterceptor } from '../tracing/route-tracing.interceptor';
-import { getI18nPath } from '../utils/i18n';
+import { getI18nPath, getI18nTypesOutputPath } from '../utils/i18n';
 import { KnexModule } from './knex';
 
 const globalModules = {
@@ -58,19 +58,24 @@ const globalModules = {
     DataLoaderModule,
     PerformanceCacheModule,
     I18nModule.forRootAsync({
-      useFactory: () => ({
-        fallbackLanguage: 'en',
-        loaderOptions: {
-          path: getI18nPath(),
-          watch: process.env.NODE_ENV !== 'production',
-        },
-        formatter: (template: string, ...args: Array<string | Record<string, string>>) => {
-          // replace {{field}} to {$field}
-          const normalized = template.replace(/\{\{\s*(\w+)\s*\}\}/g, '{$1}');
-          const options = I18nModule['sanitizeI18nOptions']();
-          return options.formatter(normalized, ...args);
-        },
-      }),
+      useFactory: () => {
+        const i18nPath = getI18nPath();
+        const typesOutputPath = getI18nTypesOutputPath();
+        return {
+          fallbackLanguage: 'en',
+          loaderOptions: {
+            path: i18nPath,
+            watch: process.env.NODE_ENV !== 'production',
+          },
+          typesOutputPath,
+          formatter: (template: string, ...args: Array<string | Record<string, string>>) => {
+            // replace {{field}} to {$field}
+            const normalized = template.replace(/\{\{\s*(\w+)\s*\}\}/g, '{$1}');
+            const options = I18nModule['sanitizeI18nOptions']();
+            return options.formatter(normalized, ...args);
+          },
+        };
+      },
       resolvers: [
         { use: QueryResolver, options: ['lang'] },
         { use: CookieResolver, options: ['NEXT_LOCALE'] },
@@ -79,6 +84,7 @@ const globalModules = {
       ],
     }),
   ],
+
   // for overriding the default TablePermissionService, FieldPermissionService, RecordPermissionService, and ViewPermissionService
   providers: [
     DbProvider,

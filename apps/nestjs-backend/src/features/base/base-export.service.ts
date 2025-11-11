@@ -19,6 +19,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
+import type { I18nPath } from '../../types/i18n.generated';
 import { second } from '../../utils/second';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -26,7 +27,6 @@ import { createFieldInstanceByRaw } from '../field/model/factory';
 import { NotificationService } from '../notification/notification.service';
 import { createViewVoByRaw } from '../view/model/factory';
 import { EXCLUDE_SYSTEM_FIELDS } from './constant';
-
 @Injectable()
 export class BaseExportService {
   public static CSV_CHUNK = 500;
@@ -92,7 +92,7 @@ export class BaseExportService {
             'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
           }
         );
-        const message = {
+        const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.success.message',
           context: {
             baseName,
@@ -104,7 +104,7 @@ export class BaseExportService {
       })
       .catch(async (e) => {
         this.logger.error(`export base zip error: ${e.message}`, e?.stack);
-        const message = {
+        const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
           context: {
             baseName,
@@ -1007,7 +1007,7 @@ export class BaseExportService {
 
   private async notifyExportResult(
     baseId: string,
-    message: string | ILocalization,
+    message: string | ILocalization<I18nPath>,
     previewUrl?: string
   ) {
     const userId = this.cls.get('user.id');

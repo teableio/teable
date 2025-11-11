@@ -10,6 +10,7 @@ import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import Papa from 'papaparse';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
@@ -82,7 +83,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
     } catch (error) {
-      let finalMessage: string | ILocalization = '';
+      let finalMessage: string | ILocalization<I18nPath> = '';
       if (error instanceof ImportError && error.range) {
         const range = error.range;
         finalMessage = {
