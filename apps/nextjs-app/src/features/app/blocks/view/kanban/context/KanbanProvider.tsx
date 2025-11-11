@@ -22,8 +22,9 @@ import {
   usePersonalView,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
+import { useRouter } from 'next/router';
 import type { ReactNode } from 'react';
-import { useContext, useMemo, useState } from 'react';
+import { useContext, useEffect, useMemo, useState } from 'react';
 import { UNCATEGORIZED_STACK_ID } from '../constant';
 import { KanbanContext } from './KanbanContext';
 
@@ -48,6 +49,18 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   const fieldPermission = useFieldPermission();
   const [expandRecordId, setExpandRecordId] = useState<string>();
   const groupPoints = useGroupPoint();
+  const router = useRouter();
+  const {
+    recordId: routerRecordId,
+    showHistory: routerShowHistory,
+    showComment: routerShowComment,
+  } = router.query;
+  const showHistory = routerShowHistory === 'true';
+  const showComment = { true: true, false: false }[routerShowComment as string];
+
+  useEffect(() => {
+    setExpandRecordId(routerRecordId as string);
+  }, [routerRecordId, setExpandRecordId]);
 
   const recordQuery = useMemo(() => {
     const { ignoreViewQuery } = personalViewCommonQuery ?? {};
@@ -259,6 +272,26 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     setExpandRecordId,
   ]);
 
+  const onClose = () => {
+    setExpandRecordId(undefined);
+    const {
+      recordId: _recordId,
+      showHistory: _showHistory,
+      showComment: _showComment,
+      ...resetQuery
+    } = router.query;
+    router.push(
+      {
+        pathname: router.pathname,
+        query: resetQuery,
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   return (
     <KanbanContext.Provider value={value}>
       {children}
@@ -268,7 +301,9 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
           viewId={view?.id}
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
-          onClose={() => setExpandRecordId(undefined)}
+          onClose={onClose}
+          showHistory={showHistory}
+          showComment={showComment}
         />
       )}
     </KanbanContext.Provider>

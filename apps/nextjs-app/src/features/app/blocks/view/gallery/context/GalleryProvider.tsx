@@ -9,7 +9,8 @@ import {
   usePersonalView,
 } from '@teable/sdk/hooks';
 import type { AttachmentField, GalleryView, IFieldInstance } from '@teable/sdk/model';
-import { useContext, useMemo, useState, type ReactNode } from 'react';
+import { useRouter } from 'next/router';
+import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { GalleryContext } from './GalleryContext';
 
 export const GalleryProvider = ({ children }: { children: ReactNode }) => {
@@ -23,6 +24,18 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
   const allFields = useFields({ withHidden: true, withDenied: true });
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
   const [expandRecordId, setExpandRecordId] = useState<string>();
+  const router = useRouter();
+  const {
+    recordId: routerRecordId,
+    showHistory: routerShowHistory,
+    showComment: routerShowComment,
+  } = router.query;
+  const showHistory = routerShowHistory === 'true';
+  const showComment = { true: true, false: false }[routerShowComment as string];
+
+  useEffect(() => {
+    setExpandRecordId(routerRecordId as string);
+  }, [routerRecordId, setExpandRecordId]);
 
   const recordQuery = useMemo(() => {
     const { ignoreViewQuery } = personalViewCommonQuery ?? {};
@@ -95,6 +108,26 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
     setExpandRecordId,
   ]);
 
+  const onClose = () => {
+    setExpandRecordId(undefined);
+    const {
+      recordId: _recordId,
+      showHistory: _showHistory,
+      showComment: _showComment,
+      ...resetQuery
+    } = router.query;
+    router.push(
+      {
+        pathname: router.pathname,
+        query: resetQuery,
+      },
+      undefined,
+      {
+        shallow: true,
+      }
+    );
+  };
+
   return (
     <GalleryContext.Provider value={value}>
       {primaryField && children}
@@ -104,7 +137,9 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
           viewId={view?.id}
           recordId={expandRecordId}
           recordIds={expandRecordId ? [expandRecordId] : []}
-          onClose={() => setExpandRecordId(undefined)}
+          onClose={onClose}
+          showHistory={showHistory}
+          showComment={showComment}
         />
       )}
     </GalleryContext.Provider>

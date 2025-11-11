@@ -256,6 +256,8 @@
     "duplicateRecord": "Datensatz duplizieren",
     "copyRecordUrl": "Datensatz URL kopieren",
     "deleteRecord": "Datensatz löschen",
+    "addRecordComment": "Kommentar hinzufügen",
+    "viewRecordHistory": "Datensatzverlauf anzeigen",
     "recordHistory": {
       "hiddenRecordHistory": "Datensatz Historie verstecken",
       "showRecordHistory": "Datensatz Historie anzeigen",

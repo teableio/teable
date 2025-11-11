@@ -1,4 +1,4 @@
-import { Trash2, ArrowUp, ArrowDown, Copy } from '@teable/icons';
+import { History, Trash2, ArrowUp, ArrowDown, Copy, Link, MessageSquare } from '@teable/icons';
 import { useGridViewStore } from '@teable/sdk/components';
 import { useTableId, useTablePermission, useView } from '@teable/sdk/hooks';
 import {
@@ -44,10 +44,13 @@ interface InsertRecordRender {
 
 enum MenuItemType {
   Copy = 'Copy',
+  CopyLink = 'CopyLink',
   Delete = 'Delete',
   InsertAbove = 'InsertAbove',
   InsertBelow = 'InsertBelow',
   Duplicate = 'Duplicate',
+  ViewHistory = 'ViewHistory',
+  AddComment = 'AddComment',
 }
 
 const iconClassName = 'mr-2 h-4 w-4 shrink-0';
@@ -193,6 +196,41 @@ export const RecordMenu = () => {
         onClick: async () => {
           if (tableId && recordMenu?.duplicateRecord) {
             await recordMenu.duplicateRecord();
+          }
+        },
+      },
+      {
+        type: MenuItemType.CopyLink,
+        name: t('sdk:expandRecord.copyRecordUrl'),
+        icon: <Link className={iconClassName} />,
+        hidden: isMultipleSelected,
+        onClick: async () => {
+          if (tableId && recordMenu?.copyRecordUrl) {
+            await recordMenu.copyRecordUrl();
+          }
+        },
+      },
+    ],
+    [
+      {
+        type: MenuItemType.ViewHistory,
+        name: t('sdk:expandRecord.recordHistory.showRecordHistory'),
+        icon: <History className={iconClassName} />,
+        hidden: isMultipleSelected,
+        onClick: async () => {
+          if (tableId && recordMenu?.viewRecordHistory) {
+            await recordMenu.viewRecordHistory();
+          }
+        },
+      },
+      {
+        type: MenuItemType.AddComment,
+        name: t('sdk:expandRecord.addRecordComment'),
+        icon: <MessageSquare className={iconClassName} />,
+        hidden: isMultipleSelected,
+        onClick: async () => {
+          if (tableId && recordMenu?.addRecordComment) {
+            await recordMenu.addRecordComment();
           }
         },
       },

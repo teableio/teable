@@ -247,6 +247,8 @@
     "duplicateRecord": "Kaydı çoğalt",
     "copyRecordUrl": "Kayıt URL'sini kopyala",
     "deleteRecord": "Kaydı sil",
+    "addRecordComment": "Yorum ekle",
+    "viewRecordHistory": "Kayıt geçmişini görüntüle",
     "recordHistory": {
       "hiddenRecordHistory": "Kayıt geçmişini gizle",
       "showRecordHistory": "Kayıt geçmişini göster",

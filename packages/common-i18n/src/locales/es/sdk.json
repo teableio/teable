@@ -637,6 +637,8 @@
     "duplicateRecord": "Récord duplicado",
     "copyRecordUrl": "Copiar URL de registro",
     "deleteRecord": "Eliminar registro",
+    "addRecordComment": "Agregar comentario",
+    "viewRecordHistory": "Ver historial del registro",
     "recordHistory": {
       "hiddenRecordHistory": "Ocultar historia de registro",
       "showRecordHistory": "Mostrar historia discográfica",

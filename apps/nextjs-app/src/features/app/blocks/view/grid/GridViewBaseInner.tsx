@@ -95,6 +95,7 @@ import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
+import { useContextMenu } from '../hooks/useContextMenu';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
@@ -225,6 +226,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
   });
+
+  const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
   const {
     activeCell,
@@ -491,6 +494,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           deleteRecords: async () => {
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
+          },
+          copyRecordUrl: async () => {
+            await copyRecordUrl(record?.id);
+          },
+          viewRecordHistory: async () => {
+            await viewRecordHistory(record?.id);
+          },
+          addRecordComment: async () => {
+            await addRecordComment(record?.id);
           },
           isMultipleSelected: false,
         });

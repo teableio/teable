@@ -234,6 +234,8 @@
     "copy": "クリップボードにコピー",
     "copyRecordUrl": "レコードのURLをコピー",
     "deleteRecord": "レコードを削除",
+    "addRecordComment": "コメントを追加",
+    "viewRecordHistory": "レコード履歴を表示",
     "recordHistory": {
       "hiddenRecordHistory": "レコードの履歴を非表示",
       "showRecordHistory": "レコードの履歴を表示",

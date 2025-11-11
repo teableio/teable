@@ -231,6 +231,9 @@
   "expandRecord": {
     "copy": "Copier dans le presse-papiers",
     "copyRecordUrl": "Copier l'URL de l'enregistrement",
+    "deleteRecord": "Supprimer l'enregistrement",
+    "addRecordComment": "Ajouter un commentaire",
+    "viewRecordHistory": "Voir l'historique de l'enregistrement",
     "recordHistory": {
       "hiddenRecordHistory": "Masquer l'historique des enregistrements",
       "showRecordHistory": "Afficher l'historique des enregistrements",

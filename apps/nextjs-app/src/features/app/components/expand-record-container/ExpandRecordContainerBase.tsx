@@ -25,8 +25,17 @@ export const ExpandRecordContainerBase = forwardRef<
     buttonClickStatusHook,
   } = props;
   const router = useRouter();
-  const recordId = router.query.recordId as string;
-  const commentId = router.query.commentId as string;
+  const {
+    recordId: routerRecordId,
+    commentId: routerCommentId,
+    showHistory: routerShowHistory,
+    showComment: routerShowComment,
+  } = router.query;
+  const recordId = routerRecordId as string;
+  const commentId = routerCommentId as string;
+  const showHistory = routerShowHistory === 'true';
+  const showComment = { true: true, false: false }[routerShowComment as string];
+
   const [recordIds, setRecordIds] = useState<string[]>();
 
   useImperativeHandle(forwardRef, () => ({
@@ -45,6 +54,8 @@ export const ExpandRecordContainerBase = forwardRef<
       onClose={onClose}
       onUpdateRecordIdCallback={onUpdateRecordIdCallback}
       buttonClickStatusHook={buttonClickStatusHook}
+      showHistory={showHistory}
+      showComment={showComment}
     />
   );
 });
