@@ -438,7 +438,7 @@ export class MailSenderService {
         message: this.i18n.t('common.email.templates.emailVerifyCode.signupVerification.message', {
           args: {
             code,
-            expiresIn,
+            expiresIn: parseInt(expiresIn),
           },
         }),
       },
@@ -463,7 +463,10 @@ export class MailSenderService {
         message: this.i18n.t(
           'common.email.templates.emailVerifyCode.changeEmailVerification.message',
           {
-            args: { code, expiresIn },
+            args: {
+              code,
+              expiresIn: parseInt(expiresIn),
+            },
           }
         ),
       },
@@ -494,7 +497,7 @@ export class MailSenderService {
         message: this.i18n.t('common.email.templates.emailVerifyCode.domainVerification.message', {
           args: {
             code,
-            expiresIn,
+            expiresIn: parseInt(expiresIn),
           },
         }),
       },

@@ -682,17 +682,17 @@
         "signupVerification": {
           "subject": "Signup Verification - {{brandName}}",
           "title": "Signup Verification",
-          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         },
         "domainVerification": {
           "subject": "Domain Verification - {{brandName}}",
           "title": "Domain Verification",
-          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         },
         "changeEmailVerification": {
           "subject": "Change Email Verification - {{brandName}}",
           "title": "Change Email Verification",
-          "message": "Your verification code is {{code}}, please use it within {{expiresIn}}."
+          "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         }
       },
       "collaboratorCellTag": {

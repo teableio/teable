@@ -547,17 +547,17 @@
         "signupVerification": {
           "subject": "Verifica registrazione - {{brandName}}",
           "title": "Verifica registrazione",
-          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}}."
+          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}} minuti."
         },
         "domainVerification": {
           "subject": "Verifica dominio - {{brandName}}",
           "title": "Verifica dominio",
-          "message": "Il tuo codice monouso è: {{code}}, usalo entro {{expiresIn}}."
+          "message": "Il tuo codice monouso è: {{code}}, usalo entro {{expiresIn}} minuti."
         },
         "changeEmailVerification": {
           "subject": "Verifica cambio email - {{brandName}}",
           "title": "Verifica cambio email",
-          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}}."
+          "message": "Il tuo codice di verifica è {{code}}, usalo entro {{expiresIn}} minuti."
         }
       },
       "collaboratorCellTag": {

@@ -550,17 +550,17 @@
         "signupVerification": {
           "subject": "Registrierungsbestätigung - {{brandName}}",
           "title": "Registrierungsbestätigung",
-          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}}."
+          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
         },
         "domainVerification": {
           "subject": "Domain-Verifizierung - {{brandName}}",
           "title": "Domain-Verifizierung",
-          "message": "Ihr Einmalcode lautet: {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}}."
+          "message": "Ihr Einmalcode lautet: {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
         },
         "changeEmailVerification": {
           "subject": "E-Mail-Änderungsbestätigung - {{brandName}}",
           "title": "E-Mail-Änderungsbestätigung",
-          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}}."
+          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
         }
       },
       "collaboratorCellTag": {

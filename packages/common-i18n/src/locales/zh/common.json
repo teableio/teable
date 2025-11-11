@@ -679,17 +679,17 @@
         "signupVerification": {
           "subject": "注册验证 - {{brandName}}",
           "title": "注册验证",
-          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
+          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 分钟内使用。"
         },
         "domainVerification": {
           "subject": "域名验证 - {{brandName}}",
           "title": "域名验证",
-          "message": "您的一次性验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
+          "message": "您的一次性验证码是：{{code}}，请在 {{expiresIn}} 分钟内使用。"
         },
         "changeEmailVerification": {
           "subject": "更改电子邮件验证 - {{brandName}}",
           "title": "更改电子邮件验证",
-          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 内使用。"
+          "message": "您的验证码是：{{code}}，请在 {{expiresIn}} 分钟内使用。"
         }
       },
       "collaboratorCellTag": {

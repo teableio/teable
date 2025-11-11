@@ -530,17 +530,17 @@
         "signupVerification": {
           "subject": "Verificación de registro - {{brandName}}",
           "title": "Verificación de registro",
-          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}}."
+          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}} minutos."
         },
         "domainVerification": {
           "subject": "Verificación de dominio - {{brandName}}",
           "title": "Verificación de dominio",
-          "message": "Tu código de un solo uso es: {{code}}, úsalo dentro de {{expiresIn}}."
+          "message": "Tu código de un solo uso es: {{code}}, úsalo dentro de {{expiresIn}} minutos."
         },
         "changeEmailVerification": {
           "subject": "Verificación de cambio de correo electrónico - {{brandName}}",
           "title": "Verificación de cambio de correo electrónico",
-          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}}."
+          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}} minutos."
         }
       },
       "collaboratorCellTag": {

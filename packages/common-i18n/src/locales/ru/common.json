@@ -508,17 +508,17 @@
         "signupVerification": {
           "subject": "Подтверждение регистрации - {{brandName}}",
           "title": "Подтверждение регистрации",
-          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}}."
+          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}} минут."
         },
         "domainVerification": {
           "subject": "Подтверждение домена - {{brandName}}",
           "title": "Подтверждение домена",
-          "message": "Ваш одноразовый код: {{code}}, используйте его в течение {{expiresIn}}."
+          "message": "Ваш одноразовый код: {{code}}, используйте его в течение {{expiresIn}} минут."
         },
         "changeEmailVerification": {
           "subject": "Подтверждение смены email - {{brandName}}",
           "title": "Подтверждение смены email",
-          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}}."
+          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}} минут."
         }
       },
       "collaboratorCellTag": {

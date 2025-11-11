@@ -506,17 +506,17 @@
         "signupVerification": {
           "subject": "登録確認 - {{brandName}}",
           "title": "登録確認",
-          "message": "確認コードは{{code}}です。{{expiresIn}}以内に使用してください。"
+          "message": "確認コードは{{code}}です。{{expiresIn}}分以内に使用してください。"
         },
         "domainVerification": {
           "subject": "ドメイン確認 - {{brandName}}",
           "title": "ドメイン確認",
-          "message": "あなたのワンタイムコードは：{{code}}です。{{expiresIn}}以内に使用してください。"
+          "message": "あなたのワンタイムコードは：{{code}}です。{{expiresIn}}分以内に使用してください。"
         },
         "changeEmailVerification": {
           "subject": "メール変更確認 - {{brandName}}",
           "title": "メール変更確認",
-          "message": "確認コードは{{code}}です。{{expiresIn}}以内に使用してください。"
+          "message": "確認コードは{{code}}です。{{expiresIn}}分以内に使用してください。"
         }
       },
       "collaboratorCellTag": {

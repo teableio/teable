@@ -485,17 +485,17 @@
         "signupVerification": {
           "subject": "Vérification d'inscription - {{brandName}}",
           "title": "Vérification d'inscription",
-          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}}."
+          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
         },
         "domainVerification": {
           "subject": "Vérification de domaine - {{brandName}}",
           "title": "Vérification de domaine",
-          "message": "Votre code à usage unique est : {{code}}, veuillez l'utiliser dans {{expiresIn}}."
+          "message": "Votre code à usage unique est : {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
         },
         "changeEmailVerification": {
           "subject": "Vérification de changement d'e-mail - {{brandName}}",
           "title": "Vérification de changement d'e-mail",
-          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}}."
+          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
         }
       },
       "collaboratorCellTag": {
