@@ -49,7 +49,8 @@
   },
   "welcome": {
     "title": "开始",
-    "description": "点击左侧 + 号创建或者导入表格。",
+    "emptyTitle": "开始构建您的数据库",
+    "description": "点击侧边栏中的“+”按钮添加资源，开始高效管理您的数据",
     "help": "访问 <HelpCenter /> 获取更多信息。",
     "helpCenter": "帮助中心"
   },

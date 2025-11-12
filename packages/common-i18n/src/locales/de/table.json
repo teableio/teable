@@ -40,7 +40,7 @@
         "collaborative": "Kollaboration",
         "dialog": {
           "title": "In den Kollaborationsmodus wechseln",
-          "description": "Wenn Sie inin den Kollaborationsmodus wechslen, wird die persönliche Konfiguration der Ansicht mit allen synchronisiert. Bitte bestätigen Sie, ob Sie synchronisieren möchten",
+          "description": "Klicken Sie auf die \"+\"-Schaltfläche in der Seitenleiste, um Ressourcen hinzuzufügen, und beginnen Sie, Ihre Daten effizient zu verwalten",
           "cancelText": "Nicht synchronisieren",
           "confirmText": "Synchronisieren"
         }
@@ -49,6 +49,7 @@
   },
   "welcome": {
     "title": "Willkommen",
+    "emptyTitle": "Beginnen Sie mit dem Aufbau Ihrer Datenbank",
     "description": "Klicken Sie auf das + Zeichen in der linken Seitenleiste, um eine Tabelle zu erstellen.",
     "help": "Weitere Informationen finden Sie im <HelpCenter />.",
     "helpCenter": "Hilfe-Center"

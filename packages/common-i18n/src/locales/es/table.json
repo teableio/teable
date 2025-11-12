@@ -49,7 +49,8 @@
   },
   "welcome": {
     "title": "Bienvenido",
-    "description": "Comienza a organizar tus datos",
+    "emptyTitle": "Comienza a construir tu base de datos",
+    "description": "Haz clic en el botón \"+\" de la barra lateral para agregar recursos y comienza a gestionar tus datos eficientemente",
     "help": "Visite el <HelpCenter /> para obtener más información.",
     "helpCenter": "Centro de ayuda"
   },

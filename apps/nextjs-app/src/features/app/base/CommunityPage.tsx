@@ -1,5 +1,7 @@
+import { useTheme } from '@teable/next-themes';
 import { BillingProductLevel } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
+import Image from 'next/image';
 import { Trans, useTranslation } from 'next-i18next';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useBaseUsageWithLoading } from '../hooks/useBaseUsage';
@@ -13,6 +15,9 @@ export const CommunityPage = ({
   const { loading, isFetched, baseUsage } = useBaseUsageWithLoading();
 
   const { level } = baseUsage || {};
+
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   // free user or community user
   const isCommunityOrFreeUser = level === BillingProductLevel.Free || level === undefined;
@@ -28,8 +33,15 @@ export const CommunityPage = ({
         <div className="items-center justify-between space-y-2 px-8 pb-2 pt-6 lg:flex">
           <h2 className="text-3xl font-bold tracking-tight">{t('table:welcome.title')}</h2>
         </div>
-        <div className="flex h-full flex-col items-center justify-center p-4">
-          <ul className="mb-4 space-y-2 text-left">
+        <div className="flex h-full flex-col items-center justify-center p-4 ">
+          <Image
+            src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
+            alt="No roles available"
+            width={240}
+            height={240}
+          />
+          <ul className="my-4 flex flex-col justify-center items-center space-y-2 max-w-[720px] text-center">
+            <li className="text-lg font-semibold">{t('table:welcome.emptyTitle')}</li>
             <li>{t('table:welcome.description')}</li>
             <li>
               <Trans
