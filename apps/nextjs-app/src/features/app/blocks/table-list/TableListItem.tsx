@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { useGridSearchStore } from '../view/grid/useGridSearchStore';
 import { TableOperation } from './TableOperation';
 
 interface IProps {
@@ -30,6 +31,8 @@ export const TableListItem: React.FC<IProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const viewId = router.query.viewId;
+  const { highlightedTableId } = useGridSearchStore();
+  const isHighlighted = highlightedTableId === table.id;
 
   const navigateHandler = async () => {
     router.push(href, undefined, { shallow: Boolean(viewId) });
@@ -58,7 +61,8 @@ export const TableListItem: React.FC<IProps> = ({
           'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group bg-transparent hover:bg-accent',
           className,
           {
-            'bg-accent': isActive,
+            'bg-accent': isActive && !isHighlighted,
+            'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
           }
         )}
         onClick={navigateHandler}

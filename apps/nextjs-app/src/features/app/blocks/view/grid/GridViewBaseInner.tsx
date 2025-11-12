@@ -175,7 +175,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
-  const { setGridRef, searchCursor, setRecordMap } = useGridSearchStore();
+  const { setGridRef, searchCursor, setRecordMap, setFields } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
   const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
   const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
@@ -327,6 +327,10 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   useEffect(() => {
     setRecordMap(recordMap);
   }, [recordMap, setRecordMap]);
+
+  useEffect(() => {
+    setFields(fields);
+  }, [fields, setFields]);
 
   useEffect(() => {
     if (preTableId && preTableId !== tableId) {

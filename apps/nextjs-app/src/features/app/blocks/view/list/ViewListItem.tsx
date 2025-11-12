@@ -45,6 +45,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const { t } = useTranslation('table');
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const viewItemRef = useRef<HTMLDivElement>(null);
+  const { highlightedViewId } = useGridSearchStore();
+  const isHighlighted = highlightedViewId === view.id;
   const { mutateAsync: duplicateViewFn, isLoading: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId!, view.id),
     onSuccess: (data) => {
@@ -153,7 +155,8 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       className={cn(
         'flex h-7 max-w-52 items-center overflow-hidden rounded-md p-1 text-sm hover:bg-accent',
         {
-          'bg-accent': isActive,
+          'bg-accent': isActive && !isHighlighted,
+          'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
         }
       )}
       onDoubleClick={() => {
@@ -182,7 +185,10 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
         <Button
           variant="ghost"
           size="xs"
-          className={cn('m-0 flex w-full rounded-sm hover:bg-transparent p-0')}
+          className={cn('m-0 flex w-full rounded-sm hover:bg-transparent p-0', {
+            'bg-secondary': isActive && !isHighlighted,
+            'bg-orange-300/40': isHighlighted,
+          })}
         >
           {isActive && showViewMenu ? (
             <PopoverTrigger asChild>{commonPart}</PopoverTrigger>
