@@ -873,7 +873,6 @@
     "databaseConnectionUnavailable": "Database Connection Unavailable",
     "gatewayTimeout": "Gateway Timeout",
     "unknownErrorCode": "Unknown Error Code",
-    "viewNotFound": "View Not Found",
     "requestTimeout": "Request Timeout",
     "failedDependency": "Failed Dependency",
     "automationNodeParseError": "Automation Node Parse Error",
@@ -924,7 +923,8 @@
       "notFound": "Dashboard not found"
     },
     "plugin": {
-      "notFound": "Plugin not found"
+      "notFound": "Plugin not found",
+      "notSupportInstallInView": "Plugin does not support installation in view"
     },
     "dbConnection": {
       "unsupportedDriver": "Unsupported database driver: {{driver}}",
@@ -961,7 +961,7 @@
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
       "fieldNameAlreadyExists": "Field name {{name}} already exists",
       "fieldNotFound": "field {{fieldId}} not found",
-      "fieldNotFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
+      "notFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
       "deleteFieldsNotFound": "Delete fields {{fieldIds}} not found in table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues should be array when link field is multiple cell value",
       "linkCellValuesShouldBeArray": "linkCellValues should be array when link field is multiple cell value",
@@ -989,7 +989,17 @@
       "foreignKeyDuplicate": "Foreign key duplicate"
     },
     "view": {
-      "viewNotFound": "View {{viewId}} not found"
+      "notFound": "View not found",
+      "propertyParseError": "Failed to parse view property",
+      "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
+      "filterUnsupportedFieldType": "Filter unsupported field type",
+      "sortUnsupportedFieldType": "Sort unsupported field type",
+      "groupUnsupportedFieldType": "Group unsupported field type",
+      "anchorNotFound": "Anchor view not found",
+      "notEnoughGapToShuffleRow": "Not enough gap to shuffle the row",
+      "shareNotEnabled": "View sharing is not enabled",
+      "shareAlreadyEnabled": "View sharing is already enabled",
+      "shareAlreadyDisabled": "View sharing is already disabled"
     },
     "billing": {
       "insufficientCredit": "Insufficient credit"

@@ -842,7 +842,6 @@
     "databaseConnectionUnavailable": "Недоступная база данных",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Неизвестный код ошибки",
-    "viewNotFound": "Не найден вид",
     "requestTimeout": "Таймаут запроса",
     "failedDependency": "Ошибка зависимости",
     "automationNodeParseError": "Ошибка разбора узла автоматизации",
@@ -893,7 +892,8 @@
       "notFound": "Панель управления не найдена"
     },
     "plugin": {
-      "notFound": "Плагин не найден"
+      "notFound": "Плагин не найден",
+      "notSupportInstallInView": "Плагин не поддерживает установку в представление"
     },
     "dbConnection": {
       "unsupportedDriver": "Неподдерживаемый драйвер базы данных: {{driver}}",
@@ -930,7 +930,7 @@
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] ошибка проверки поля",
       "fieldNameAlreadyExists": "Имя поля {{name}} уже существует",
       "fieldNotFound": "Поле {{fieldId}} не найдено",
-      "fieldNotFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
+      "notFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
       "deleteFieldsNotFound": "Поля для удаления {{fieldIds}} не найдены в таблице {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
       "linkCellValuesShouldBeArray": "linkCellValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
@@ -961,7 +961,17 @@
       "foreignKeyDuplicate": "Дубликат внешнего ключа"
     },
     "view": {
-      "viewNotFound": "Представление {{viewId}} не найдено"
+      "notFound": "Представление не найдено",
+      "propertyParseError": "Не удалось разобрать свойство представления",
+      "primaryFieldCannotBeHidden": "Первичное поле не может быть скрыто",
+      "filterUnsupportedFieldType": "Фильтр не поддерживает тип поля",
+      "sortUnsupportedFieldType": "Сортировка не поддерживает тип поля",
+      "groupUnsupportedFieldType": "Группировка не поддерживает тип поля",
+      "anchorNotFound": "Якорное представление не найдено",
+      "notEnoughGapToShuffleRow": "Недостаточно места для перемешивания строки",
+      "shareNotEnabled": "Общий доступ к представлению не включен",
+      "shareAlreadyEnabled": "Общий доступ к представлению уже включен",
+      "shareAlreadyDisabled": "Общий доступ к представлению уже отключен"
     },
     "billing": {
       "insufficientCredit": "Недостаточно средств"

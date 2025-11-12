@@ -854,7 +854,6 @@
     "databaseConnectionUnavailable": "Conexión de base de datos no disponible",
     "gatewayTimeout": "Tiempo de espera de puerta de enlace",
     "unknownErrorCode": "Código de error desconocido",
-    "viewNotFound": "Vista no encontrada",
     "requestTimeout": "El tiempo de espera de la solicitud ha excedido",
     "failedDependency": "Dependencia fallida",
     "automationNodeParseError": "Error de análisis del nodo de automatización",
@@ -905,7 +904,8 @@
       "notFound": "Panel de control no encontrado"
     },
     "plugin": {
-      "notFound": "Plugin no encontrado"
+      "notFound": "Plugin no encontrado",
+      "notSupportInstallInView": "El plugin no admite instalación en la vista"
     },
     "dbConnection": {
       "unsupportedDriver": "Driver de base de datos no soportado: {{driver}}",
@@ -942,7 +942,7 @@
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] error de validación de campo",
       "fieldNameAlreadyExists": "El nombre del campo {{name}} ya existe",
       "fieldNotFound": "Campo {{fieldId}} no encontrado",
-      "fieldNotFoundInTable": "Campo {{fieldId}} no encontrado en la tabla {{tableId}}",
+      "notFoundInTable": "Campo {{fieldId}} no encontrado en la tabla {{tableId}}",
       "deleteFieldsNotFound": "Campos a eliminar {{fieldIds}} no encontrados en la tabla {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues debe ser un array cuando el campo de enlace tiene múltiples valores de celda",
       "linkCellValuesShouldBeArray": "linkCellValues debe ser un array cuando el campo de enlace tiene múltiples valores de celda",
@@ -973,7 +973,17 @@
       "foreignKeyDuplicate": "Clave externa duplicada"
     },
     "view": {
-      "viewNotFound": "Vista {{viewId}} no encontrada"
+      "notFound": "Vista no encontrada",
+      "propertyParseError": "Error al analizar la propiedad de la vista",
+      "primaryFieldCannotBeHidden": "El campo primario no se puede ocultar",
+      "filterUnsupportedFieldType": "Tipo de campo no compatible con el filtro",
+      "sortUnsupportedFieldType": "Tipo de campo no compatible con la ordenación",
+      "groupUnsupportedFieldType": "Tipo de campo no compatible con la agrupación",
+      "anchorNotFound": "Vista de anclaje no encontrada",
+      "notEnoughGapToShuffleRow": "No hay suficiente espacio para mezclar la fila",
+      "shareNotEnabled": "El uso compartido de vistas no está habilitado",
+      "shareAlreadyEnabled": "El uso compartido de vistas ya está habilitado",
+      "shareAlreadyDisabled": "El uso compartido de vistas ya está deshabilitado"
     },
     "billing": {
       "insufficientCredit": "Crédito insuficiente"

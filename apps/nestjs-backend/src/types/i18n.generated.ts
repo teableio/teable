@@ -2073,7 +2073,6 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
-            "viewNotFound": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;
@@ -2125,6 +2124,7 @@ export type I18nTranslations = {
             };
             "plugin": {
                 "notFound": string;
+                "notSupportInstallInView": string;
             };
             "dbConnection": {
                 "unsupportedDriver": string;
@@ -2161,7 +2161,7 @@ export type I18nTranslations = {
                 "fieldValidationError": string;
                 "fieldNameAlreadyExists": string;
                 "fieldNotFound": string;
-                "fieldNotFoundInTable": string;
+                "notFoundInTable": string;
                 "deleteFieldsNotFound": string;
                 "lookupValuesShouldBeArray": string;
                 "linkCellValuesShouldBeArray": string;
@@ -2192,7 +2192,17 @@ export type I18nTranslations = {
                 "foreignKeyDuplicate": string;
             };
             "view": {
-                "viewNotFound": string;
+                "notFound": string;
+                "propertyParseError": string;
+                "primaryFieldCannotBeHidden": string;
+                "filterUnsupportedFieldType": string;
+                "sortUnsupportedFieldType": string;
+                "groupUnsupportedFieldType": string;
+                "anchorNotFound": string;
+                "notEnoughGapToShuffleRow": string;
+                "shareNotEnabled": string;
+                "shareAlreadyEnabled": string;
+                "shareAlreadyDisabled": string;
             };
             "billing": {
                 "insufficientCredit": string;

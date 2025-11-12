@@ -672,7 +672,7 @@ export class FieldService implements IReadonlyAdapterService {
         HttpErrorCode.NOT_FOUND,
         {
           localization: {
-            i18nKey: 'httpErrors.field.fieldNotFoundInTable',
+            i18nKey: 'httpErrors.field.notFoundInTable',
             context: { tableId, fieldId },
           },
         }
@@ -724,8 +724,7 @@ export class FieldService implements IReadonlyAdapterService {
       if (!curView) {
         throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
-            i18nKey: 'httpErrors.view.viewNotFound',
-            context: { viewId },
+            i18nKey: 'httpErrors.view.notFound',
           },
         });
       }

@@ -866,7 +866,6 @@
     "databaseConnectionUnavailable": "Недоступна база даних",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Невідомий код помилки",
-    "viewNotFound": "Не знайдено вид",
     "requestTimeout": "Таймаут запиту",
     "failedDependency": "Залежність не виконана",
     "automationNodeParseError": "Помилка аналізу вузла автоматизації",
@@ -917,7 +916,8 @@
       "notFound": "Панель управління не знайдена"
     },
     "plugin": {
-      "notFound": "Плагін не знайдено"
+      "notFound": "Плагін не знайдено",
+      "notSupportInstallInView": "Плагін не підтримує встановлення у вид"
     },
     "dbConnection": {
       "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
@@ -954,7 +954,7 @@
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
       "fieldNameAlreadyExists": "Ім'я поля {{name}} вже існує",
       "fieldNotFound": "Поле {{fieldId}} не знайдено",
-      "fieldNotFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
+      "notFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
       "deleteFieldsNotFound": "Поля для видалення {{fieldIds}} не знайдені в таблиці {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
       "linkCellValuesShouldBeArray": "linkCellValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
@@ -985,7 +985,17 @@
       "foreignKeyDuplicate": "Дублікат зовнішнього ключа"
     },
     "view": {
-      "viewNotFound": "Представлення {{viewId}} не знайдено"
+      "notFound": "Представлення не знайдено",
+      "propertyParseError": "Не вдалося розібрати властивість представлення",
+      "primaryFieldCannotBeHidden": "Первинне поле не може бути приховане",
+      "filterUnsupportedFieldType": "Фільтр не підтримує тип поля",
+      "sortUnsupportedFieldType": "Сортування не підтримує тип поля",
+      "groupUnsupportedFieldType": "Групування не підтримує тип поля",
+      "anchorNotFound": "Якірне представлення не знайдено",
+      "notEnoughGapToShuffleRow": "Недостатньо місця для перемішування рядка",
+      "shareNotEnabled": "Спільний доступ до представлення не ввімкнено",
+      "shareAlreadyEnabled": "Спільний доступ до представлення вже ввімкнено",
+      "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено"
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів"

@@ -866,7 +866,6 @@
     "databaseConnectionUnavailable": "Connessione al database non disponibile",
     "gatewayTimeout": "Timeout del gateway",
     "unknownErrorCode": "Codice errore sconosciuto",
-    "viewNotFound": "Vista non trovata",
     "requestTimeout": "Timeout della richiesta",
     "failedDependency": "Errore di dipendenza",
     "automationNodeParseError": "Errore di analisi del nodo di automazione",
@@ -917,7 +916,8 @@
       "notFound": "Dashboard non trovato"
     },
     "plugin": {
-      "notFound": "Plugin non trovato"
+      "notFound": "Plugin non trovato",
+      "notSupportInstallInView": "Il plugin non supporta l'installazione nella vista"
     },
     "dbConnection": {
       "unsupportedDriver": "Driver di database non supportato: {{driver}}",
@@ -954,7 +954,7 @@
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] errore di validazione del campo",
       "fieldNameAlreadyExists": "Il nome del campo {{name}} esiste già",
       "fieldNotFound": "Campo {{fieldId}} non trovato",
-      "fieldNotFoundInTable": "Campo {{fieldId}} non trovato nella tabella {{tableId}}",
+      "notFoundInTable": "Campo {{fieldId}} non trovato nella tabella {{tableId}}",
       "deleteFieldsNotFound": "Campi da eliminare {{fieldIds}} non trovati nella tabella {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues dovrebbe essere un array quando il campo di collegamento ha più valori di cella",
       "linkCellValuesShouldBeArray": "linkCellValues dovrebbe essere un array quando il campo di collegamento ha più valori di cella",
@@ -985,7 +985,17 @@
       "foreignKeyDuplicate": "Chiave esterna duplicata"
     },
     "view": {
-      "viewNotFound": "Vista {{viewId}} non trovata"
+      "notFound": "Vista non trovata",
+      "propertyParseError": "Impossibile analizzare la proprietà della vista",
+      "primaryFieldCannotBeHidden": "Il campo primario non può essere nascosto",
+      "filterUnsupportedFieldType": "Tipo di campo non supportato dal filtro",
+      "sortUnsupportedFieldType": "Tipo di campo non supportato dall'ordinamento",
+      "groupUnsupportedFieldType": "Tipo di campo non supportato dal raggruppamento",
+      "anchorNotFound": "Vista di ancoraggio non trovata",
+      "notEnoughGapToShuffleRow": "Spazio insufficiente per mescolare la riga",
+      "shareNotEnabled": "La condivisione della vista non è abilitata",
+      "shareAlreadyEnabled": "La condivisione della vista è già abilitata",
+      "shareAlreadyDisabled": "La condivisione della vista è già disabilitata"
     },
     "billing": {
       "insufficientCredit": "Credito insufficiente"

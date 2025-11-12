@@ -840,7 +840,6 @@
     "databaseConnectionUnavailable": "Veritabanı Bağlantısı Mevcut Değil",
     "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
     "unknownErrorCode": "Bilinmeyen Hata Kodu",
-    "viewNotFound": "Görünüm Bulunamadı",
     "requestTimeout": "İstek Zaman Aşımı",
     "failedDependency": "Bağımlılık Hatası",
     "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",
@@ -891,7 +890,8 @@
       "notFound": "Gösterge paneli bulunamadı"
     },
     "plugin": {
-      "notFound": "Eklenti bulunamadı"
+      "notFound": "Eklenti bulunamadı",
+      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor"
     },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
@@ -928,7 +928,7 @@
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
       "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
       "fieldNotFound": "Alan {{fieldId}} bulunamadı",
-      "fieldNotFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
+      "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
       "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
       "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
       "linkCellValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda linkCellValues dizi olmalıdır",
@@ -959,7 +959,17 @@
       "foreignKeyDuplicate": "Yabancı anahtar yineleniyor"
     },
     "view": {
-      "viewNotFound": "Görünüm {{viewId}} bulunamadı"
+      "notFound": "Görünüm bulunamadı",
+      "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
+      "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
+      "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
+      "sortUnsupportedFieldType": "Sıralama desteklenmeyen alan türü",
+      "groupUnsupportedFieldType": "Gruplama desteklenmeyen alan türü",
+      "anchorNotFound": "Bağlantı görünümü bulunamadı",
+      "notEnoughGapToShuffleRow": "Satırı karıştırmak için yeterli boşluk yok",
+      "shareNotEnabled": "Görünüm paylaşımı etkinleştirilmedi",
+      "shareAlreadyEnabled": "Görünüm paylaşımı zaten etkinleştirildi",
+      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi"

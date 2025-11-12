@@ -844,7 +844,6 @@
     "databaseConnectionUnavailable": "Connexion à la base de données non disponible",
     "gatewayTimeout": "Temps d'attente de la passerelle",
     "unknownErrorCode": "Code d'erreur inconnu",
-    "viewNotFound": "Vue non trouvée",
     "requestTimeout": "Temps d'attente de la requête dépassé",
     "failedDependency": "Échec de dépendance",
     "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",
@@ -895,7 +894,8 @@
       "notFound": "Tableau de bord non trouvé"
     },
     "plugin": {
-      "notFound": "Plugin non trouvé"
+      "notFound": "Plugin non trouvé",
+      "notSupportInstallInView": "Le plugin ne prend pas en charge l'installation dans la vue"
     },
     "dbConnection": {
       "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",
@@ -932,7 +932,7 @@
       "fieldValidationError": "Champ {{name}}[{{fieldId}}] erreur de validation de champ",
       "fieldNameAlreadyExists": "Le nom du champ {{name}} existe déjà",
       "fieldNotFound": "Champ {{fieldId}} introuvable",
-      "fieldNotFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
+      "notFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
       "deleteFieldsNotFound": "Champs à supprimer {{fieldIds}} introuvables dans la table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
       "linkCellValuesShouldBeArray": "linkCellValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
@@ -963,7 +963,17 @@
       "foreignKeyDuplicate": "Clé étrangère en double"
     },
     "view": {
-      "viewNotFound": "Vue {{viewId}} introuvable"
+      "notFound": "Vue introuvable",
+      "propertyParseError": "Échec de l'analyse de la propriété de la vue",
+      "primaryFieldCannotBeHidden": "Le champ primaire ne peut pas être masqué",
+      "filterUnsupportedFieldType": "Type de champ non pris en charge par le filtre",
+      "sortUnsupportedFieldType": "Type de champ non pris en charge par le tri",
+      "groupUnsupportedFieldType": "Type de champ non pris en charge par le regroupement",
+      "anchorNotFound": "Vue d'ancrage introuvable",
+      "notEnoughGapToShuffleRow": "Pas assez d'espace pour mélanger la ligne",
+      "shareNotEnabled": "Le partage de vue n'est pas activé",
+      "shareAlreadyEnabled": "Le partage de vue est déjà activé",
+      "shareAlreadyDisabled": "Le partage de vue est déjà désactivé"
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant"

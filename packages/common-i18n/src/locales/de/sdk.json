@@ -866,7 +866,6 @@
     "databaseConnectionUnavailable": "Datenbankverbindung nicht verfügbar",
     "gatewayTimeout": "Gateway Timeout",
     "unknownErrorCode": "Unbekannter Fehlercode",
-    "viewNotFound": "Ansicht nicht gefunden",
     "requestTimeout": "Operationen außerhalb des Bereichs",
     "failedDependency": "Abhängigkeitsfehler",
     "automationNodeParseError": "Automatisierungsknoten-Analysefehler",
@@ -917,7 +916,8 @@
       "notFound": "Dashboard nicht gefunden"
     },
     "plugin": {
-      "notFound": "Plugin nicht gefunden"
+      "notFound": "Plugin nicht gefunden",
+      "notSupportInstallInView": "Plugin unterstützt keine Installation in der Ansicht"
     },
     "dbConnection": {
       "unsupportedDriver": "Nicht unterstützter Datenbanktreiber: {{driver}}",
@@ -954,7 +954,7 @@
       "fieldValidationError": "Feld {{name}}[{{fieldId}}] Feldvalidierungsfehler",
       "fieldNameAlreadyExists": "Feldname {{name}} existiert bereits",
       "fieldNotFound": "Feld {{fieldId}} nicht gefunden",
-      "fieldNotFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
+      "notFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
       "deleteFieldsNotFound": "Zu löschende Felder {{fieldIds}} nicht in Tabelle {{tableId}} gefunden",
       "lookupValuesShouldBeArray": "lookupValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
       "linkCellValuesShouldBeArray": "linkCellValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
@@ -985,7 +985,17 @@
       "foreignKeyDuplicate": "Fremdschlüssel dupliziert"
     },
     "view": {
-      "viewNotFound": "Ansicht {{viewId}} nicht gefunden"
+      "notFound": "Ansicht nicht gefunden",
+      "propertyParseError": "Fehler beim Parsen der Ansichtseigenschaft",
+      "primaryFieldCannotBeHidden": "Primärfeld kann nicht ausgeblendet werden",
+      "filterUnsupportedFieldType": "Filter unterstützt Feldtyp nicht",
+      "sortUnsupportedFieldType": "Sortierung unterstützt Feldtyp nicht",
+      "groupUnsupportedFieldType": "Gruppierung unterstützt Feldtyp nicht",
+      "anchorNotFound": "Anker-Ansicht nicht gefunden",
+      "notEnoughGapToShuffleRow": "Nicht genügend Platz zum Mischen der Zeile",
+      "shareNotEnabled": "Ansichtsfreigabe ist nicht aktiviert",
+      "shareAlreadyEnabled": "Ansichtsfreigabe ist bereits aktiviert",
+      "shareAlreadyDisabled": "Ansichtsfreigabe ist bereits deaktiviert"
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben"

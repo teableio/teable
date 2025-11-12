@@ -874,7 +874,6 @@
     "gatewayTimeout": "服务器未及时收到上游服务器的响应",
     "unknownErrorCode": "发生未知错误",
     "requestTimeout": "请求超时",
-    "viewNotFound": "请求的视图不存在",
     "failedDependency": "依赖操作失败",
     "automationNodeParseError": "自动化节点解析错误",
     "automationNodeNeedTest": "自动化节点需要测试",
@@ -921,7 +920,8 @@
       "notFound": "仪表板不存在"
     },
     "plugin": {
-      "notFound": "插件不存在"
+      "notFound": "插件不存在",
+      "notSupportInstallInView": "插件不支持在视图中安装"
     },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
@@ -958,7 +958,7 @@
       "fieldValidationError": "字段 {{name}}[{{fieldId}}] 字段验证错误",
       "fieldNameAlreadyExists": "字段名 {{name}} 已存在",
       "fieldNotFound": "字段 {{fieldId}} 不存在",
-      "fieldNotFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
+      "notFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
       "deleteFieldsNotFound": "删除字段 {{fieldIds}} 不在表 {{tableId}} 中",
       "lookupValuesShouldBeArray": "当链接字段为多选时，lookupValues 应为数组",
       "linkCellValuesShouldBeArray": "当链接字段为多选时，linkCellValues 应为数组",
@@ -989,7 +989,17 @@
       "foreignKeyDuplicate": "外键重复"
     },
     "view": {
-      "viewNotFound": "视图 {{viewId}} 不存在"
+      "notFound": "视图不存在",
+      "propertyParseError": "视图属性解析失败",
+      "primaryFieldCannotBeHidden": "主字段不能被隐藏",
+      "filterUnsupportedFieldType": "筛选不支持的字段类型",
+      "sortUnsupportedFieldType": "排序不支持的字段类型",
+      "groupUnsupportedFieldType": "分组不支持的字段类型",
+      "anchorNotFound": "未找到锚点视图",
+      "notEnoughGapToShuffleRow": "没有足够的间隙来重新排列记录顺序",
+      "shareNotEnabled": "视图分享未启用",
+      "shareAlreadyEnabled": "视图分享已启用",
+      "shareAlreadyDisabled": "视图分享已禁用"
     },
     "billing": {
       "insufficientCredit": "算力不足"

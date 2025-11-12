@@ -830,7 +830,6 @@
     "databaseConnectionUnavailable": "データベース接続不可",
     "gatewayTimeout": "ゲートウェイタイムアウト",
     "unknownErrorCode": "不明なエラーコード",
-    "viewNotFound": "ビューが見つかりません",
     "requestTimeout": "要求タイムアウト",
     "failedDependency": "依存操作失敗",
     "automationNodeParseError": "自動化ノード解析エラー",
@@ -881,7 +880,8 @@
       "notFound": "ダッシュボードが見つかりません"
     },
     "plugin": {
-      "notFound": "プラグインが見つかりません"
+      "notFound": "プラグインが見つかりません",
+      "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません"
     },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
@@ -918,7 +918,7 @@
       "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",
       "fieldNameAlreadyExists": "フィールド名 {{name}} は既に存在します",
       "fieldNotFound": "フィールド {{fieldId}} が見つかりません",
-      "fieldNotFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
+      "notFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
       "deleteFieldsNotFound": "削除するフィールド {{fieldIds}} がテーブル {{tableId}} に見つかりません",
       "lookupValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、lookupValues は配列である必要があります",
       "linkCellValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、linkCellValues は配列である必要があります",
@@ -949,7 +949,17 @@
       "foreignKeyDuplicate": "外部キーが重複しています"
     },
     "view": {
-      "viewNotFound": "ビュー {{viewId}} が見つかりません"
+      "notFound": "ビューが見つかりません",
+      "propertyParseError": "ビュープロパティの解析に失敗しました",
+      "primaryFieldCannotBeHidden": "プライマリフィールドを非表示にできません",
+      "filterUnsupportedFieldType": "フィルターでサポートされていないフィールドタイプ",
+      "sortUnsupportedFieldType": "ソートでサポートされていないフィールドタイプ",
+      "groupUnsupportedFieldType": "グループ化でサポートされていないフィールドタイプ",
+      "anchorNotFound": "アンカービューが見つかりません",
+      "notEnoughGapToShuffleRow": "行をシャッフルするための十分なギャップがありません",
+      "shareNotEnabled": "ビュー共有が有効になっていません",
+      "shareAlreadyEnabled": "ビュー共有はすでに有効になっています",
+      "shareAlreadyDisabled": "ビュー共有はすでに無効になっています"
     },
     "billing": {
       "insufficientCredit": "クレジット不足"
