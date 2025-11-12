@@ -398,7 +398,8 @@
       },
       "pasteError": {
         "noPermission": "Vous n'avez pas l'autorisation de coller des enregistrements"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} ne peuvent pas être vides. Veuillez les remplir avant de soumettre."
     },
     "graph": {
       "tableLabel": "Étiquette de la table",

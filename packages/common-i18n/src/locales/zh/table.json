@@ -432,7 +432,8 @@
       },
       "pasteError": {
         "noPermission": "您没有权限粘贴记录"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} 字段不能为空，请填写完整后再提交"
     },
     "graph": {
       "tableLabel": "表格名称",

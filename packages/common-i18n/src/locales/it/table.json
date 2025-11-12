@@ -407,7 +407,8 @@
       },
       "pasteError": {
         "noPermission": "Non hai l'autorizzazione per incollare i record"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} non possono essere vuoti. Compila i campi prima di inviare."
     },
     "graph": {
       "tableLabel": "Etichetta della tabella",

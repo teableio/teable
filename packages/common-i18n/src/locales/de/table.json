@@ -407,7 +407,8 @@
       },
       "pasteError": {
         "noPermission": "Sie haben keine Berechtigung, Datensätze einzufügen"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} dürfen nicht leer sein. Bitte füllen Sie die Felder vor dem Absenden aus."
     },
     "graph": {
       "tableLabel": "Tabelle Label",

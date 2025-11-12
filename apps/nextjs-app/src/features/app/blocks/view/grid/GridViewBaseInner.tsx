@@ -1151,13 +1151,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
   }, [inPrefilling, inPresorting]);
 
-  useClickAway(
-    containerRef,
-    () => {
-      gridRef.current?.resetState();
-    },
-    ['pointerdown', 'mousedown', 'touchstart']
-  );
+  useClickAway(containerRef, () => {
+    gridRef.current?.resetState();
+  });
 
   useScrollFrameRate(gridRef.current?.scrollBy);
 
@@ -1318,6 +1314,27 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           isLoading={isCreatingRecord}
           onClickOutside={async () => {
             if (isCreatingRecord || !prefillingRows.length) return;
+            const requiredFieldIds = allFields
+              .filter((f) => !f.isComputed && f.notNull)
+              .map((f) => f.id);
+            if (!requiredFieldIds.length) return;
+            const missingFieldIdSet = new Set<string>();
+            for (const row of prefillingRows) {
+              for (const fid of requiredFieldIds) {
+                if (isEmptyValue((row.fields ?? {})[fid])) {
+                  missingFieldIdSet.add(fid);
+                }
+              }
+            }
+            if (!missingFieldIdSet.size) return;
+            const missingNames = allFields
+              .filter((f) => missingFieldIdSet.has(f.id))
+              .map((f) => f.name);
+            return toast.warning(
+              t('table:table.actionTips.requiredFieldsMissing', {
+                fieldNames: missingNames.join(', '),
+              })
+            );
             await mutateCreateRecord(prefillingRows.map((r) => ({ fields: r.fields })));
           }}
           onCancel={() => {

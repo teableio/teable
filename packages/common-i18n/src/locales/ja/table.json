@@ -398,7 +398,8 @@
       },
       "pasteError": {
         "noPermission": "レコードを貼り付ける権限がありません"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} は空にできません。送信する前に入力してください。"
     },
     "graph": {
       "tableLabel": "テーブルラベル",

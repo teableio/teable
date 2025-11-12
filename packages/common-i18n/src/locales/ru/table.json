@@ -398,7 +398,8 @@
       },
       "pasteError": {
         "noPermission": "У вас нет прав вставлять записи"
-      }
+      },
+      "requiredFieldsMissing": "Поля {{fieldNames}} не могут быть пустыми. Заполните их перед отправкой."
     },
     "graph": {
       "tableLabel": "Метка таблицы",

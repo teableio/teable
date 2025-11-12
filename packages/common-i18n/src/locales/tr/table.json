@@ -396,7 +396,8 @@
       },
       "pasteError": {
         "noPermission": "Kayıtları yapıştırma izniniz yok"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} boş bırakılamaz. Lütfen göndermeden önce doldurun."
     },
     "graph": {
       "tableLabel": "Tablo etiketi",

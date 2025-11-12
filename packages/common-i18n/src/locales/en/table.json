@@ -431,7 +431,8 @@
       },
       "pasteError": {
         "noPermission": "You don't have permission to paste records"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} fields cannot be empty. Please complete them before submitting."
     },
     "graph": {
       "tableLabel": "Table label",

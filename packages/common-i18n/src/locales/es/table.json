@@ -403,7 +403,8 @@
       },
       "pasteError": {
         "noPermission": "No tienes permiso para pegar registros"
-      }
+      },
+      "requiredFieldsMissing": "{{fieldNames}} no pueden estar vacíos. Complete los campos antes de enviar."
     },
     "graph": {
       "tableLabel": "Etiqueta de mesa",
