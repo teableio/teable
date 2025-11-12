@@ -885,7 +885,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
       "searchTimeOut": "Search timeout, please decrease the search scope and try again",
-      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
+      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
+      "invalidOperation": "Invalid operation detected, please check operation parameters"
     },
     "comment": {
       "listCountExceeded": "The number of comments requested exceeds the maximum limit of 1000",

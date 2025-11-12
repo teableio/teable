@@ -1,12 +1,18 @@
 import { HttpException, HttpStatus } from '@nestjs/common';
 import type { ICustomHttpExceptionData } from '@teable/core';
 import { ErrorCodeToStatusMap, HttpErrorCode } from '@teable/core';
+import type { Path } from 'nestjs-i18n';
+import type { I18nTranslations } from './types/i18n.generated';
 
 export class CustomHttpException extends HttpException {
   code: string;
   data?: ICustomHttpExceptionData;
 
-  constructor(message: string, code: HttpErrorCode, data?: ICustomHttpExceptionData) {
+  constructor(
+    message: string,
+    code: HttpErrorCode,
+    data?: ICustomHttpExceptionData<Path<I18nTranslations['sdk']>>
+  ) {
     super(message, ErrorCodeToStatusMap[code]);
     this.code = code;
     this.data = data;

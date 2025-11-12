@@ -856,7 +856,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement",
       "requestTimeout": "L'action actuelle est trop grande, veuillez réessayer avec un étendue plus petite.",
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
-      "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés"
+      "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés",
+      "invalidOperation": "Opération non valide détectée, veuillez vérifier les paramètres de l'opération"
     },
     "email": {
       "testEmailError": "Erreur de configuration du courrier {{message}}"

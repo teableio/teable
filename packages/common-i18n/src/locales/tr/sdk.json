@@ -852,7 +852,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor.",
       "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin.",
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
-      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
+      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin",
+      "invalidOperation": "Geçersiz işlem tespit edildi, lütfen işlem parametrelerini kontrol edin"
     },
     "email": {
       "testEmailError": "Posta yapılandırma hatası {{message}}"

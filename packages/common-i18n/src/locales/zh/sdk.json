@@ -885,7 +885,8 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
-      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
+      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试",
+      "invalidOperation": "检测到无效操作，请检查操作参数"
     },
     "comment": {
       "listCountExceeded": "请求的评论数量超过最大限制 1000",

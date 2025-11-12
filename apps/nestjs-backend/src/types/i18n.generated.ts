@@ -2086,9 +2086,14 @@ export type I18nTranslations = {
                 "requestTimeout": string;
                 "searchTimeOut": string;
                 "dependencyNodeRequire": string;
+                "invalidOperation": string;
             };
             "email": {
                 "testEmailError": string;
+            };
+            "comment": {
+                "listCountExceeded": string;
+                "invalidContentType": string;
             };
             "automation": {
                 "buttonClickTriggerDuplicated": string;
@@ -2100,6 +2105,43 @@ export type I18nTranslations = {
                 "nodeParseError": string;
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
+            };
+            "space": {
+                "notFound": string;
+                "noPermission": string;
+                "disallowSpaceCreation": string;
+                "cannotChangeOnlyOwnerRole": string;
+                "cannotDeleteOnlyOwner": string;
+            };
+            "base": {
+                "notFound": string;
+                "cannotAccess": string;
+                "anchorNotFound": string;
+                "baseAndSpaceMismatch": string;
+                "templateNotFound": string;
+            };
+            "dashboard": {
+                "notFound": string;
+            };
+            "plugin": {
+                "notFound": string;
+            };
+            "dbConnection": {
+                "unsupportedDriver": string;
+                "onlyOwnerCanRemove": string;
+                "onlyOwnerCanCreate": string;
+                "roleNotExist": string;
+            };
+            "baseQuery": {
+                "queryFailed": string;
+                "invalidJoinType": string;
+                "tableNotFound": string;
+            };
+            "baseSqlExecutor": {
+                "notAllowedToExecuteSqlWithKeyword": string;
+                "whiteListCheckError": string;
+                "databaseConnectionFailed": string;
+                "executeQuerySqlFailed": string;
             };
             "permission": {
                 "createRecordWithDeniedFields": string;
@@ -2154,6 +2196,58 @@ export type I18nTranslations = {
             };
             "billing": {
                 "insufficientCredit": string;
+            };
+            "aggregation": {
+                "searchQueryRequired": string;
+                "maxSearchIndexResult": string;
+                "queryCollectionMustBeTableId": string;
+                "searchTimeOut": string;
+                "indexNotFound": string;
+                "invalidStartDateFieldId": string;
+                "invalidEndDateFieldId": string;
+            };
+            "ai": {
+                "chatModelLgNotSet": string;
+                "chatModelLgProviderNotSet": string;
+                "chatModelSmNotSet": string;
+                "chatModelMdNotSet": string;
+                "configurationNotSet": string;
+                "unsupportedProvider": string;
+                "providerConfigurationNotSet": string;
+            };
+            "collaborator": {
+                "alreadyExisted": string;
+                "userNotFoundInCollaborator": string;
+                "noPermissionToDelete": string;
+                "noPermissionToUpdate": string;
+                "noPermissionToOperateRole": string;
+                "alreadyExistedInBase": string;
+                "userNotFound": string;
+                "baseNotFound": string;
+                "noPermissionToAddRole": string;
+            };
+            "table": {
+                "notFound": string;
+            };
+            "export": {
+                "notSupportViewType": string;
+            };
+            "import": {
+                "notSupportedFileFormat": string;
+                "notSupportedFileType": string;
+                "exceedMaxFieldsLength": string;
+            };
+            "invitation": {
+                "disallowSpaceInvitation": string;
+                "invalidCode": string;
+                "linkNotFound": string;
+                "linkExpired": string;
+                "limitExceeded": string;
+            };
+            "pin": {
+                "alreadyExists": string;
+                "notFound": string;
+                "anchorNotFound": string;
             };
         };
         "spaceRole": {
