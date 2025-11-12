@@ -933,6 +933,7 @@
     "field": {
       "unsupportedFieldType": "Tipo de campo no compatible {{type}}",
       "unsupportedPrimaryFieldType": "Tipo de campo no compatible {{type}} como campo primario",
+      "primaryFieldNotSupported": "El tipo de campo no es compatible como campo primario",
       "calculateRecordNotFound": "Registro no encontrado para: {{value}}, fieldId: {{fieldId}}, al calcular {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds o fromRecordIds es requerido para campo computado normal",
       "recordFieldsRequired": "Los campos de registro no están definidos",
@@ -974,6 +975,7 @@
     },
     "view": {
       "notFound": "Vista no encontrada",
+      "defaultViewNotFound": "Vista predeterminada no encontrada",
       "propertyParseError": "Error al analizar la propiedad de la vista",
       "primaryFieldCannotBeHidden": "El campo primario no se puede ocultar",
       "filterUnsupportedFieldType": "Tipo de campo no compatible con el filtro",
@@ -1006,8 +1008,12 @@
       "unsupportedProvider": "Proveedor de IA no compatible {{type}}",
       "providerConfigurationNotSet": "La configuración del proveedor de IA no está configurada"
     },
+    "role": {
+      "notFound": "Rol no encontrado"
+    },
     "collaborator": {
       "alreadyExisted": "El colaborador ya existe",
+      "notFound": "Colaborador no encontrado",
       "userNotFoundInCollaborator": "Usuario no encontrado en colaboradores",
       "noPermissionToDelete": "No tienes permiso para eliminar este colaborador",
       "noPermissionToUpdate": "No tienes permiso para actualizar este colaborador",
@@ -1018,7 +1024,13 @@
       "noPermissionToAddRole": "No tienes permiso para agregar un colaborador con este rol"
     },
     "table": {
-      "notFound": "Tabla no encontrada"
+      "notFound": "Tabla no encontrada",
+      "dbTableNameAlreadyExists": "El nombre de la tabla de base de datos ya existe",
+      "anchorNotFound": "Tabla de anclaje no encontrada",
+      "notInTrash": "La tabla no está en la papelera",
+      "notSupportTableIndex": "El tipo de índice de tabla no es compatible",
+      "createTableIndexError": "Error al crear el índice de tabla",
+      "dropTableIndexError": "Error al eliminar el índice de tabla"
     },
     "export": {
       "notSupportViewType": "El tipo de vista {{viewType}} no es compatible con la exportación"

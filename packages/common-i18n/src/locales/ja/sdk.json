@@ -909,6 +909,7 @@
     "field": {
       "unsupportedFieldType": "サポートされていないフィールドタイプ {{type}}",
       "unsupportedPrimaryFieldType": "プライマリフィールドとしてサポートされていないフィールドタイプ {{type}}",
+      "primaryFieldNotSupported": "フィールドタイプはプライマリフィールドとしてサポートされていません",
       "calculateRecordNotFound": "レコードが見つかりません: {{value}}、fieldId: {{fieldId}}、{{recordId}} の計算時",
       "toRecordIdsOrFromRecordIdsRequired": "通常の計算フィールドには toRecordIds または fromRecordIds が必要です",
       "recordFieldsRequired": "レコードフィールドが未定義です",
@@ -950,6 +951,7 @@
     },
     "view": {
       "notFound": "ビューが見つかりません",
+      "defaultViewNotFound": "デフォルトビューが見つかりません",
       "propertyParseError": "ビュープロパティの解析に失敗しました",
       "primaryFieldCannotBeHidden": "プライマリフィールドを非表示にできません",
       "filterUnsupportedFieldType": "フィルターでサポートされていないフィールドタイプ",
@@ -982,8 +984,12 @@
       "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
       "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません"
     },
+    "role": {
+      "notFound": "ロールが見つかりません"
+    },
     "collaborator": {
       "alreadyExisted": "コラボレーターは既に存在しています",
+      "notFound": "コラボレーターが見つかりません",
       "userNotFoundInCollaborator": "コラボレーターにユーザーが見つかりません",
       "noPermissionToDelete": "このコラボレーターを削除する権限がありません",
       "noPermissionToUpdate": "このコラボレーターを更新する権限がありません",
@@ -994,7 +1000,13 @@
       "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません"
     },
     "table": {
-      "notFound": "テーブルが見つかりません"
+      "notFound": "テーブルが見つかりません",
+      "dbTableNameAlreadyExists": "データベーステーブル名は既に存在します",
+      "anchorNotFound": "アンカーテーブルが見つかりません",
+      "notInTrash": "テーブルはごみ箱にありません",
+      "notSupportTableIndex": "テーブルインデックスタイプはサポートされていません",
+      "createTableIndexError": "テーブルインデックスの作成に失敗しました",
+      "dropTableIndexError": "テーブルインデックスの削除に失敗しました"
     },
     "export": {
       "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"

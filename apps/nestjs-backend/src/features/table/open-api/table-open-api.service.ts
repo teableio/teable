@@ -1,10 +1,4 @@
-import {
-  BadRequestException,
-  NotFoundException,
-  Injectable,
-  Logger,
-  ForbiddenException,
-} from '@nestjs/common';
+import { NotFoundException, Injectable, Logger } from '@nestjs/common';
 import type {
   FieldAction,
   IFieldRo,
@@ -21,6 +15,7 @@ import {
   ActionPrefix,
   FieldKeyType,
   FieldType,
+  HttpErrorCode,
   IdPrefix,
   actionPrefixMap,
   getBasePermission,
@@ -40,6 +35,7 @@ import type {
 } from '@teable/openapi';
 import { nanoid } from 'nanoid';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { RawOpType } from '../../../share-db/interface';
@@ -89,7 +85,15 @@ export class TableOpenApiService {
     const fieldNameSet = new Set<string>();
     for (const fieldVo of fieldVos) {
       if (fieldNameSet.has(fieldVo.name)) {
-        throw new BadRequestException(`duplicate field name: ${fieldVo.name}`);
+        throw new CustomHttpException(
+          `Field name ${fieldVo.name} already exists`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+            },
+          }
+        );
       }
       fieldNameSet.add(fieldVo.name);
       const fieldInstance = createFieldInstanceByVo(fieldVo);
@@ -104,7 +108,15 @@ export class TableOpenApiService {
 
     for (const fieldVo of fieldVos) {
       if (fieldNameSet.has(fieldVo.name)) {
-        throw new BadRequestException(`duplicate field name: ${fieldVo.name}`);
+        throw new CustomHttpException(
+          `Field name ${fieldVo.name} already exists`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNameAlreadyExists',
+            },
+          }
+        );
       }
       fieldNameSet.add(fieldVo.name);
     }
@@ -239,7 +251,11 @@ export class TableOpenApiService {
     return tablesMeta.map((tableMeta, i) => {
       const defaultViewId = tableDefaultViewIds[i];
       if (!defaultViewId) {
-        throw new Error('defaultViewId is not found');
+        throw new CustomHttpException('defaultViewId is not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.view.defaultViewNotFound',
+          },
+        });
       }
       return {
         ...tableMeta,
@@ -453,8 +469,14 @@ export class TableOpenApiService {
         });
 
         if (!deletedTime) {
-          throw new ForbiddenException(
-            'Unable to restore this table because it is not in the trash'
+          throw new CustomHttpException(
+            'Unable to restore this table because it is not in the trash',
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.table.notInTrash',
+              },
+            }
           );
         }
 
@@ -535,7 +557,15 @@ export class TableOpenApiService {
       });
 
     if (existDbTableName) {
-      throw new BadRequestException(`dbTableName ${dbTableNameRo} already exists`);
+      throw new CustomHttpException(
+        `dbTableName ${dbTableNameRo} already exists`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.dbTableNameAlreadyExists',
+          },
+        }
+      );
     }
 
     const { dbTableName: oldDbTableName } = await this.prismaService.tableMeta
@@ -544,7 +574,11 @@ export class TableOpenApiService {
         select: { dbTableName: true },
       })
       .catch(() => {
-        throw new NotFoundException(`table ${tableId} not found`);
+        throw new CustomHttpException(`table ${tableId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
 
     const linkFieldsQuery = this.dbProvider.optionsQuery(
@@ -641,7 +675,11 @@ export class TableOpenApiService {
         where: { baseId, id: tableId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
+        throw new CustomHttpException(`Table ${tableId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
 
     const anchorTable = await this.prismaService.tableMeta
@@ -650,7 +688,11 @@ export class TableOpenApiService {
         where: { baseId, id: anchorId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Anchor ${anchorId} not found`);
+        throw new CustomHttpException(`Anchor ${anchorId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.anchorNotFound',
+          },
+        });
       });
 
     await updateOrder({
@@ -689,7 +731,11 @@ export class TableOpenApiService {
       role = await this.permissionService.getRoleBySpaceId(spaceId);
     }
     if (!role) {
-      throw new NotFoundException(`Role not found`);
+      throw new CustomHttpException(`Role not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.role.notFound',
+        },
+      });
     }
     return this.getPermissionByRole(tableId, role);
   }

@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { TableDomain, Tables } from '@teable/core';
+import { HttpErrorCode, TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/factory';
@@ -70,7 +71,15 @@ export class TableDomainQueryService {
     const [tableMeta] = (await this.dataLoaderService.table.loadByIds([tableId])) as TableMeta[];
 
     if (!tableMeta) {
-      throw new NotFoundException(`Table with ID ${tableId} not found`);
+      throw new CustomHttpException(
+        `Table not found with id: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        }
+      );
     }
 
     return tableMeta;

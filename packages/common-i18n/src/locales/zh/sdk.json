@@ -949,6 +949,7 @@
     "field": {
       "unsupportedFieldType": "不支持的字段类型 {{type}}",
       "unsupportedPrimaryFieldType": "不支持的字段类型 {{type}} 作为主字段",
+      "primaryFieldNotSupported": "字段类型不支持作为主字段",
       "calculateRecordNotFound": "计算 {{recordId}} 时未找到记录：{{value}}，字段ID：{{fieldId}}",
       "toRecordIdsOrFromRecordIdsRequired": "普通计算字段需要 toRecordIds 或 fromRecordIds",
       "recordFieldsRequired": "记录字段为空",
@@ -990,6 +991,7 @@
     },
     "view": {
       "notFound": "视图不存在",
+      "defaultViewNotFound": "默认视图不存在",
       "propertyParseError": "视图属性解析失败",
       "primaryFieldCannotBeHidden": "主字段不能被隐藏",
       "filterUnsupportedFieldType": "筛选不支持的字段类型",
@@ -1022,8 +1024,12 @@
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置"
     },
+    "role": {
+      "notFound": "角色不存在"
+    },
     "collaborator": {
       "alreadyExisted": "协作者已存在",
+      "notFound": "协作者不存在",
       "userNotFoundInCollaborator": "在协作者中未找到用户",
       "noPermissionToDelete": "您没有权限删除此协作者",
       "noPermissionToUpdate": "您没有权限更新此协作者",
@@ -1034,7 +1040,13 @@
       "noPermissionToAddRole": "您没有权限添加此角色的协作者"
     },
     "table": {
-      "notFound": "表格不存在"
+      "notFound": "表格不存在",
+      "dbTableNameAlreadyExists": "数据库表名已存在",
+      "anchorNotFound": "锚点表格不存在",
+      "notInTrash": "表格不在回收站中",
+      "notSupportTableIndex": "不支持的表格索引类型",
+      "createTableIndexError": "创建表格索引失败",
+      "dropTableIndexError": "删除表格索引失败"
     },
     "export": {
       "notSupportViewType": "{{viewType}} 视图类型不支持导出"

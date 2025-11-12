@@ -919,6 +919,7 @@
     "field": {
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
       "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",
+      "primaryFieldNotSupported": "Alan türü birincil alan olarak desteklenmiyor",
       "calculateRecordNotFound": "Kayıt bulunamadı: {{value}}, fieldId: {{fieldId}}, {{recordId}} hesaplanırken",
       "toRecordIdsOrFromRecordIdsRequired": "Normal hesaplanan alan için toRecordIds veya fromRecordIds gereklidir",
       "recordFieldsRequired": "Kayıt alanları tanımsız",
@@ -960,6 +961,7 @@
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
+      "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
       "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
       "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
       "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
@@ -992,8 +994,12 @@
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış"
     },
+    "role": {
+      "notFound": "Rol bulunamadı"
+    },
     "collaborator": {
       "alreadyExisted": "İşbirlikçi zaten mevcut",
+      "notFound": "İşbirlikçi bulunamadı",
       "userNotFoundInCollaborator": "İşbirlikçiler arasında kullanıcı bulunamadı",
       "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
       "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
@@ -1004,7 +1010,13 @@
       "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok"
     },
     "table": {
-      "notFound": "Tablo bulunamadı"
+      "notFound": "Tablo bulunamadı",
+      "dbTableNameAlreadyExists": "Veritabanı tablo adı zaten mevcut",
+      "anchorNotFound": "Bağlantı tablosu bulunamadı",
+      "notInTrash": "Tablo çöp kutusunda değil",
+      "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
+      "createTableIndexError": "Tablo dizini oluşturulamadı",
+      "dropTableIndexError": "Tablo dizini silinemedi"
     },
     "export": {
       "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"

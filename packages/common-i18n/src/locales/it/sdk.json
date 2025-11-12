@@ -945,6 +945,7 @@
     "field": {
       "unsupportedFieldType": "Tipo di campo non supportato {{type}}",
       "unsupportedPrimaryFieldType": "Tipo di campo non supportato {{type}} come campo primario",
+      "primaryFieldNotSupported": "Il tipo di campo non è supportato come campo primario",
       "calculateRecordNotFound": "Record non trovato per: {{value}}, fieldId: {{fieldId}}, durante il calcolo {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds o fromRecordIds è richiesto per il campo calcolato normale",
       "recordFieldsRequired": "I campi del record non sono definiti",
@@ -986,6 +987,7 @@
     },
     "view": {
       "notFound": "Vista non trovata",
+      "defaultViewNotFound": "Vista predefinita non trovata",
       "propertyParseError": "Impossibile analizzare la proprietà della vista",
       "primaryFieldCannotBeHidden": "Il campo primario non può essere nascosto",
       "filterUnsupportedFieldType": "Tipo di campo non supportato dal filtro",
@@ -1018,8 +1020,12 @@
       "unsupportedProvider": "Fornitore IA non supportato {{type}}",
       "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata"
     },
+    "role": {
+      "notFound": "Ruolo non trovato"
+    },
     "collaborator": {
       "alreadyExisted": "Il collaboratore esiste già",
+      "notFound": "Collaboratore non trovato",
       "userNotFoundInCollaborator": "Utente non trovato nei collaboratori",
       "noPermissionToDelete": "Non hai il permesso di eliminare questo collaboratore",
       "noPermissionToUpdate": "Non hai il permesso di aggiornare questo collaboratore",
@@ -1030,7 +1036,13 @@
       "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo"
     },
     "table": {
-      "notFound": "Tabella non trovata"
+      "notFound": "Tabella non trovata",
+      "dbTableNameAlreadyExists": "Il nome della tabella del database esiste già",
+      "anchorNotFound": "Tabella di ancoraggio non trovata",
+      "notInTrash": "La tabella non è nel cestino",
+      "notSupportTableIndex": "Il tipo di indice della tabella non è supportato",
+      "createTableIndexError": "Impossibile creare l'indice della tabella",
+      "dropTableIndexError": "Impossibile eliminare l'indice della tabella"
     },
     "export": {
       "notSupportViewType": "Il tipo di vista {{viewType}} non è supportato per l'esportazione"

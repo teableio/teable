@@ -945,6 +945,7 @@
     "field": {
       "unsupportedFieldType": "Непідтримуваний тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Непідтримуваний тип поля {{type}} як первинне поле",
+      "primaryFieldNotSupported": "Тип поля не підтримується як первинне поле",
       "calculateRecordNotFound": "Запис не знайдено для: {{value}}, fieldId: {{fieldId}}, під час обчислення {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds або fromRecordIds потрібен для звичайного обчислюваного поля",
       "recordFieldsRequired": "Поля запису не визначені",
@@ -986,6 +987,7 @@
     },
     "view": {
       "notFound": "Представлення не знайдено",
+      "defaultViewNotFound": "Представлення за замовчуванням не знайдено",
       "propertyParseError": "Не вдалося розібрати властивість представлення",
       "primaryFieldCannotBeHidden": "Первинне поле не може бути приховане",
       "filterUnsupportedFieldType": "Фільтр не підтримує тип поля",
@@ -1018,8 +1020,12 @@
       "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
       "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено"
     },
+    "role": {
+      "notFound": "Роль не знайдено"
+    },
     "collaborator": {
       "alreadyExisted": "Співавтор вже існує",
+      "notFound": "Співавтора не знайдено",
       "userNotFoundInCollaborator": "Користувача не знайдено серед співавторів",
       "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
       "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
@@ -1030,7 +1036,13 @@
       "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю"
     },
     "table": {
-      "notFound": "Таблицю не знайдено"
+      "notFound": "Таблицю не знайдено",
+      "dbTableNameAlreadyExists": "Ім'я таблиці бази даних вже існує",
+      "anchorNotFound": "Якірну таблицю не знайдено",
+      "notInTrash": "Таблиця не в кошику",
+      "notSupportTableIndex": "Тип індексу таблиці не підтримується",
+      "createTableIndexError": "Не вдалося створити індекс таблиці",
+      "dropTableIndexError": "Не вдалося видалити індекс таблиці"
     },
     "export": {
       "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"

@@ -945,6 +945,7 @@
     "field": {
       "unsupportedFieldType": "Nicht unterstützter Feldtyp {{type}}",
       "unsupportedPrimaryFieldType": "Nicht unterstützter Feldtyp {{type}} als Primärfeld",
+      "primaryFieldNotSupported": "Feldtyp wird nicht als Primärfeld unterstützt",
       "calculateRecordNotFound": "Datensatz nicht gefunden für: {{value}}, fieldId: {{fieldId}}, bei Berechnung {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds oder fromRecordIds ist für normales berechnetes Feld erforderlich",
       "recordFieldsRequired": "Datensatzfelder sind undefiniert",
@@ -986,6 +987,7 @@
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
+      "defaultViewNotFound": "Standardansicht nicht gefunden",
       "propertyParseError": "Fehler beim Parsen der Ansichtseigenschaft",
       "primaryFieldCannotBeHidden": "Primärfeld kann nicht ausgeblendet werden",
       "filterUnsupportedFieldType": "Filter unterstützt Feldtyp nicht",
@@ -1018,8 +1020,12 @@
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
       "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt"
     },
+    "role": {
+      "notFound": "Rolle nicht gefunden"
+    },
     "collaborator": {
       "alreadyExisted": "Mitarbeiter existiert bereits",
+      "notFound": "Mitarbeiter nicht gefunden",
       "userNotFoundInCollaborator": "Benutzer wurde in Mitarbeitern nicht gefunden",
       "noPermissionToDelete": "Sie haben keine Berechtigung, diesen Mitarbeiter zu löschen",
       "noPermissionToUpdate": "Sie haben keine Berechtigung, diesen Mitarbeiter zu aktualisieren",
@@ -1030,7 +1036,13 @@
       "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen"
     },
     "table": {
-      "notFound": "Tabelle nicht gefunden"
+      "notFound": "Tabelle nicht gefunden",
+      "dbTableNameAlreadyExists": "Datenbanktabellenname existiert bereits",
+      "anchorNotFound": "Anker-Tabelle nicht gefunden",
+      "notInTrash": "Tabelle befindet sich nicht im Papierkorb",
+      "notSupportTableIndex": "Tabellenindex-Typ wird nicht unterstützt",
+      "createTableIndexError": "Fehler beim Erstellen des Tabellenindex",
+      "dropTableIndexError": "Fehler beim Löschen des Tabellenindex"
     },
     "export": {
       "notSupportViewType": "{{viewType}} Ansichtstyp wird nicht für den Export unterstützt"

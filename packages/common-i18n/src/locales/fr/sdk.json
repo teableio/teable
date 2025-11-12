@@ -923,6 +923,7 @@
     "field": {
       "unsupportedFieldType": "Type de champ non pris en charge {{type}}",
       "unsupportedPrimaryFieldType": "Type de champ non pris en charge {{type}} comme champ primaire",
+      "primaryFieldNotSupported": "Le type de champ n'est pas pris en charge comme champ primaire",
       "calculateRecordNotFound": "Enregistrement introuvable pour: {{value}}, fieldId: {{fieldId}}, lors du calcul {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds ou fromRecordIds est requis pour le champ calculé normal",
       "recordFieldsRequired": "Les champs d'enregistrement ne sont pas définis",
@@ -964,6 +965,7 @@
     },
     "view": {
       "notFound": "Vue introuvable",
+      "defaultViewNotFound": "Vue par défaut introuvable",
       "propertyParseError": "Échec de l'analyse de la propriété de la vue",
       "primaryFieldCannotBeHidden": "Le champ primaire ne peut pas être masqué",
       "filterUnsupportedFieldType": "Type de champ non pris en charge par le filtre",
@@ -996,8 +998,12 @@
       "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
       "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie"
     },
+    "role": {
+      "notFound": "Rôle introuvable"
+    },
     "collaborator": {
       "alreadyExisted": "Le collaborateur existe déjà",
+      "notFound": "Collaborateur introuvable",
       "userNotFoundInCollaborator": "Utilisateur non trouvé dans les collaborateurs",
       "noPermissionToDelete": "Vous n'avez pas la permission de supprimer ce collaborateur",
       "noPermissionToUpdate": "Vous n'avez pas la permission de mettre à jour ce collaborateur",
@@ -1008,7 +1014,13 @@
       "noPermissionToAddRole": "Vous n'avez pas la permission d'ajouter un collaborateur avec ce rôle"
     },
     "table": {
-      "notFound": "Table non trouvée"
+      "notFound": "Table non trouvée",
+      "dbTableNameAlreadyExists": "Le nom de la table de base de données existe déjà",
+      "anchorNotFound": "Table d'ancrage non trouvée",
+      "notInTrash": "La table n'est pas dans la corbeille",
+      "notSupportTableIndex": "Le type d'index de table n'est pas pris en charge",
+      "createTableIndexError": "Échec de la création de l'index de table",
+      "dropTableIndexError": "Échec de la suppression de l'index de table"
     },
     "export": {
       "notSupportViewType": "Le type de vue {{viewType}} n'est pas pris en charge pour l'exportation"

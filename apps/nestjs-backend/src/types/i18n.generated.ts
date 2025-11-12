@@ -2152,6 +2152,7 @@ export type I18nTranslations = {
             "field": {
                 "unsupportedFieldType": string;
                 "unsupportedPrimaryFieldType": string;
+                "primaryFieldNotSupported": string;
                 "calculateRecordNotFound": string;
                 "toRecordIdsOrFromRecordIdsRequired": string;
                 "recordFieldsRequired": string;
@@ -2193,6 +2194,7 @@ export type I18nTranslations = {
             };
             "view": {
                 "notFound": string;
+                "defaultViewNotFound": string;
                 "propertyParseError": string;
                 "primaryFieldCannotBeHidden": string;
                 "filterUnsupportedFieldType": string;
@@ -2225,8 +2227,12 @@ export type I18nTranslations = {
                 "unsupportedProvider": string;
                 "providerConfigurationNotSet": string;
             };
+            "role": {
+                "notFound": string;
+            };
             "collaborator": {
                 "alreadyExisted": string;
+                "notFound": string;
                 "userNotFoundInCollaborator": string;
                 "noPermissionToDelete": string;
                 "noPermissionToUpdate": string;
@@ -2238,6 +2244,12 @@ export type I18nTranslations = {
             };
             "table": {
                 "notFound": string;
+                "dbTableNameAlreadyExists": string;
+                "anchorNotFound": string;
+                "notInTrash": string;
+                "notSupportTableIndex": string;
+                "createTableIndexError": string;
+                "dropTableIndexError": string;
             };
             "export": {
                 "notSupportViewType": string;

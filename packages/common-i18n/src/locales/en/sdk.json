@@ -952,6 +952,7 @@
     "field": {
       "unsupportedFieldType": "Unsupported field type {{type}}",
       "unsupportedPrimaryFieldType": "Unsupported field type {{type}} as primary field",
+      "primaryFieldNotSupported": "Field type is not supported as primary field",
       "calculateRecordNotFound": "Record not found for: {{value}}, fieldId: {{fieldId}}, when calculate {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds or fromRecordIds is required for normal computed field",
       "recordFieldsRequired": "Record fields is undefined",
@@ -990,6 +991,7 @@
     },
     "view": {
       "notFound": "View not found",
+      "defaultViewNotFound": "Default view not found",
       "propertyParseError": "Failed to parse view property",
       "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
       "filterUnsupportedFieldType": "Filter unsupported field type",
@@ -1022,8 +1024,12 @@
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set"
     },
+    "role": {
+      "notFound": "Role not found"
+    },
     "collaborator": {
       "alreadyExisted": "Collaborator has already existed",
+      "notFound": "Collaborator not found",
       "userNotFoundInCollaborator": "User not found in collaborator",
       "noPermissionToDelete": "You do not have permission to delete this collaborator",
       "noPermissionToUpdate": "You do not have permission to update this collaborator",
@@ -1034,7 +1040,13 @@
       "noPermissionToAddRole": "You do not have permission to add this role collaborator"
     },
     "table": {
-      "notFound": "Table not found"
+      "notFound": "Table not found",
+      "dbTableNameAlreadyExists": "Database table name already exists",
+      "anchorNotFound": "Anchor table not found",
+      "notInTrash": "Table is not in trash",
+      "notSupportTableIndex": "Table index type is not supported",
+      "createTableIndexError": "Failed to create table index",
+      "dropTableIndexError": "Failed to drop table index"
     },
     "export": {
       "notSupportViewType": "{{viewType}} view type is not supported for export"

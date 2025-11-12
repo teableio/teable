@@ -1,5 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { CellValueType, FieldType } from '@teable/core';
+import { CellValueType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
 import type { IGetAbnormalVo, ITableIndexType, IToggleIndexRo } from '@teable/openapi';
@@ -7,6 +8,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -75,14 +77,30 @@ export class TableIndexService {
 
       return result;
     } else {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
   }
 
   async toggleIndex(tableId: string, enableRo: IToggleIndexRo) {
     const { type } = enableRo;
     if (type !== TableIndex.search) {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
 
     const index = await this.getActivatedTableIndexes(tableId);
@@ -112,7 +130,15 @@ export class TableIndexService {
               await prisma.$executeRawUnsafe(sql);
             } catch (error) {
               console.error('toggleSearchIndex:create:error', sql);
-              throw error;
+              throw new CustomHttpException(
+                `Create table index error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                HttpErrorCode.VALIDATION_ERROR,
+                {
+                  localization: {
+                    i18nKey: 'httpErrors.table.createTableIndexError',
+                  },
+                }
+              );
             }
           }
         },
@@ -125,7 +151,15 @@ export class TableIndexService {
       return await this.prismaService.$executeRawUnsafe(sql);
     } catch (error) {
       console.error('toggleSearchIndex:drop:error', sql);
-      throw error;
+      throw new CustomHttpException(
+        `Drop table index error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.dropTableIndexError',
+          },
+        }
+      );
     }
   }
 
@@ -217,7 +251,15 @@ export class TableIndexService {
 
   async repairIndex(tableId: string, type: TableIndex) {
     if (type !== TableIndex.search) {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
 
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
