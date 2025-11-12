@@ -934,6 +934,39 @@ describe('OpenAPI Record-Search-Query (e2e)', async () => {
         const result2 = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
         expect(result2.data.length).toBe(0);
       });
+
+      it('should not create search index when field type is button', async () => {
+        const tableIndexService = await getTableIndexService(app);
+        await toggleTableIndex(baseId, table.id, { type: TableIndex.search });
+        const indexBefore = (await tableIndexService.getIndexInfo(table.id)) as {
+          indexname: string;
+        }[];
+
+        // create button type field
+        const buttonField = await createField(table.id, {
+          name: 'buttonField',
+          type: FieldType.Button,
+        });
+
+        const indexAfter = (await tableIndexService.getIndexInfo(table.id)) as {
+          indexname: string;
+        }[];
+
+        // verify index count has not changed (button field should not create index)
+        expect(indexAfter.length).toBe(indexBefore.length);
+
+        // verify no index was created for button field
+        const buttonIndexName = getSearchIndexName(
+          tableName,
+          buttonField.data.dbFieldName,
+          buttonField.data.id
+        );
+        const hasButtonIndex = indexAfter.some((idx) => idx.indexname === buttonIndexName);
+        expect(hasButtonIndex).toBe(false);
+
+        const result = await getTableAbnormalIndex(baseId, table.id, TableIndex.search);
+        expect(result.data.length).toBe(0);
+      });
     }
   );
 });

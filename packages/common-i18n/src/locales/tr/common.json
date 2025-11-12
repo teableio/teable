@@ -511,7 +511,111 @@
     "unsubscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerinden aboneliğinizi iptal etmek üzeresiniz. Abonelikten çıkmak istediğinizden emin misiniz?",
     "subscribeH1": "Aboneliği onaylıyor musunuz?",
     "subscribeH2": "Gelecekteki Teable promosyonları ve ürün güncellemelerine abone olmak üzeresiniz. Abone olmak istediğinizden emin misiniz?",
-    "unsubscribeListTip": "Mevcut tabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın."
+    "unsubscribeListTip": "Mevcut tabanındaki aşağıdaki kullanıcılar abonelikten çıkmıştır, artık onlara e-posta gönderemeyeceksiniz. E-postaları içe aktarırken, lütfen e-posta adreslerini ilk sütuna yerleştirin ve başlığı \"email\" olarak adlandırın.",
+    "templates": {
+      "resetPassword": {
+        "subject": "Şifreyi Sıfırla - {{brandName}}",
+        "title": "Şifrenizi sıfırlayın",
+        "message": "Bu değişikliği talep etmediyseniz, lütfen bu e-postayı görmezden gelin. Aksi takdirde, şifrenizi sıfırlamak için aşağıdaki düğmeye tıklayın.",
+        "buttonText": "Şifreyi Sıfırla"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Kayıt Doğrulama - {{brandName}}",
+          "title": "Kayıt Doğrulama",
+          "message": "Doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        },
+        "domainVerification": {
+          "subject": "Alan Adı Doğrulama - {{brandName}}",
+          "title": "Alan Adı Doğrulama",
+          "message": "Tek kullanımlık kodunuz: {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        },
+        "changeEmailVerification": {
+          "subject": "E-posta Değiştirme Doğrulama - {{brandName}}",
+          "title": "E-posta Değiştirme Doğrulama",
+          "message": "Doğrulama kodunuz {{code}}, lütfen {{expiresIn}} dakika içinde kullanın."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} sizi {{tableName}} tablosundaki bir kaydın {{fieldName}} alanına ekledi",
+        "title": "<strong>{{fromUserName}}</strong> sizi <strong>{{tableName}}</strong> tablosundaki bir kaydın <strong>{{fieldName}}</strong> alanına ekledi",
+        "buttonText": "Kaydı görüntüle"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} sizi {{tableName}} tablosundaki {{refLength}} kayda ekledi",
+        "title": "<strong>{{fromUserName}}</strong> sizi <strong>{{tableName}}</strong> tablosundaki <strong>{{refLength}}</strong> kayda ekledi",
+        "buttonText": "Kayıtları görüntüle"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) sizi {{resourceAlias}} {{resourceName}}'e davet etti - {{brandName}}",
+        "title": "İşbirliğine davet",
+        "message": "<strong>{{name}}</strong> ({{email}}) sizi {{resourceAlias}} <strong>{{resourceName}}</strong>'e davet etti.",
+        "buttonText": "Daveti kabul et"
+      },
+      "waitlistInvite": {
+        "subject": "Hoş geldiniz - {{brandName}}",
+        "title": "Hoş geldiniz",
+        "message": "{{brandName}} bekleme listesine başarıyla katıldınız. Kayıt olmak için aşağıdaki davet kodunu kullanın: {{code}}, {{times}} kez kullanılabilir.",
+        "buttonText": "Kayıt ol"
+      },
+      "test": {
+        "subject": "Test E-postası - {{brandName}}",
+        "title": "Test E-postası",
+        "message": "Bu bir test e-postasıdır, lütfen görmezden gelin."
+      },
+      "notify": {
+        "subject": "Bildirim - {{brandName}}",
+        "title": "Bildirim",
+        "buttonText": "Görüntüle",
+        "import": {
+          "title": "İçe Aktarma Sonuç Bildirimi",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} içe aktarma iptal edildi: {{errorMessage}} başarısız satır aralığı: [{{range}}]. Lütfen bu aralıktaki verileri kontrol edin ve tekrar deneyin."
+            },
+            "failed": {
+              "message": "❌ {{tableName}} içe aktarma başarısız oldu: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} başarıyla içe aktarıldı.",
+              "inplace": "🎉 {{tableName}} yerinde başarıyla içe aktarıldı."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Kayıt Yorumu Bildirimi",
+          "message": "{{fromUserName}}, {{baseName}} içindeki {{tableName}} tablosundaki {{recordName}} kaydına yorum yaptı"
+        },
+        "automation": {
+          "title": "Otomasyon Bildirimi",
+          "failed": {
+            "title": "Otomasyon {{name}} başarısız oldu",
+            "message": "Otomasyonunuz {{name}} çalıştırılamadı. Çalıştırma geçmişinden belirli hataları görmek için aşağıdaki düğmeye tıklayın."
+          },
+          "insufficientCredit": {
+            "title": "Otomasyon {{name}} yetersiz kredi nedeniyle başarısız oldu",
+            "message": "Otomasyonunuz {{name}} yetersiz kredi nedeniyle çalıştırılamadı. Lütfen aboneliği yükseltin veya destekle iletişime geçin."
+          }
+        },
+        "exportBase": {
+          "title": "Veritabanı Dışa Aktarma Sonuç Bildirimi",
+          "success": {
+            "message": "{{baseName}} başarıyla dışa aktarıldı: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} dışa aktarma başarısız oldu: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "AI görevi {{tableName}} tablosunda başarısız oldu",
+              "message": "{{tableName}} tablosundaki {{fieldName}} alanı için AI görevi (Kayıt ID: {{recordId}}) başarısız oldu.\n\n{{errorMsg}}\n\nAyrıntıları görmek için aşağıdaki düğmeye tıklayın."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Bekleme Listesi",

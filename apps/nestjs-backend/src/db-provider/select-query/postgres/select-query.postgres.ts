@@ -69,8 +69,9 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `NULLIF(${sanitized}, '')::double precision`;
   }
 
-  private coalesceNumeric(expr: string): string {
-    return `COALESCE(${this.toNumericSafe(expr)}, 0)`;
+  private collapseNumeric(expr: string): string {
+    const numericValue = this.toNumericSafe(expr);
+    return `COALESCE(${numericValue}, 0)`;
   }
 
   private isEmptyStringLiteral(value: string): boolean {
@@ -342,7 +343,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       return '0';
     }
 
-    const terms = params.map((param) => this.coalesceNumeric(param));
+    const terms = params.map((param) => this.collapseNumeric(param));
     if (terms.length === 1) {
       return terms[0];
     }
@@ -844,33 +845,33 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
 
   // Binary Operations
   add(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
     return `((${l}) + (${r}))`;
   }
 
   subtract(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
     return `((${l}) - (${r}))`;
   }
 
   multiply(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(${l} * ${r})`;
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
+    return `((${l}) * (${r}))`;
   }
 
   divide(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE (${l} / ${r}) END)`;
+    const numerator = this.collapseNumeric(left);
+    const denominator = this.toNumericSafe(right);
+    return `(CASE WHEN (${denominator}) IS NULL OR (${denominator}) = 0 THEN NULL ELSE (${numerator} / ${denominator}) END)`;
   }
 
   modulo(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE MOD((${l})::numeric, (${r})::numeric)::double precision END)`;
+    const dividend = this.collapseNumeric(left);
+    const divisor = this.toNumericSafe(right);
+    return `(CASE WHEN (${divisor}) IS NULL OR (${divisor}) = 0 THEN NULL ELSE MOD((${dividend})::numeric, (${divisor})::numeric)::double precision END)`;
   }
 
   // Comparison Operations

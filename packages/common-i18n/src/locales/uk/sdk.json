@@ -256,6 +256,8 @@
     "duplicateRecord": "Дублювати запис",
     "copyRecordUrl": "Копіювати URL записи",
     "deleteRecord": "Видалити запис",
+    "addRecordComment": "Додати коментар",
+    "viewRecordHistory": "Переглянути історію запису",
     "recordHistory": {
       "hiddenRecordHistory": "Приховати історію запису",
       "showRecordHistory": "Показати історію запису",

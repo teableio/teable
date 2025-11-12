@@ -2,13 +2,14 @@
 import type { IRecord } from '@teable/core';
 import { RecordCore, FieldKeyType, RecordOpBuilder, FieldType } from '@teable/core';
 import { updateRecord } from '@teable/openapi';
-import { toast } from '@teable/ui-lib/src/shadcn/ui/sonner';
+import { sonner } from '@teable/ui-lib';
 import { isEqual, isEmpty } from 'lodash';
 import type { Doc } from 'sharedb/lib/client';
 import { getHttpErrorMessage } from '../../context';
 import type { ILocaleFunction } from '../../context/app/i18n';
 import type { IFieldInstance } from '../field/factory';
 
+const { toast } = sonner;
 export class Record extends RecordCore {
   private _title?: {
     value?: string;

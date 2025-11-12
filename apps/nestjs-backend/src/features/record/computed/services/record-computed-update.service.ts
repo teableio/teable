@@ -2,10 +2,11 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Knex } from 'knex';
+import { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { retryOnDeadlock } from '../../../../utils/retry-decorator';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
@@ -93,13 +94,14 @@ export class RecordComputedUpdateService {
     return Array.from(new Set(cols));
   }
 
+  @retryOnDeadlock()
   async updateFromSelect(
     tableId: string,
     qb: Knex.QueryBuilder,
     fields: IFieldInstance[],
-    opts?: { restrictRecordIds?: string[] }
+    opts?: { restrictRecordIds?: string[]; dbTableName?: string }
   ): Promise<Array<{ __id: string; __version: number } & Record<string, unknown>>> {
-    const dbTableName = await this.getDbTableName(tableId);
+    const dbTableName = opts?.dbTableName ?? (await this.getDbTableName(tableId));
 
     const columnNames = this.getUpdatableColumns(fields);
     const returningNames = this.getReturningColumns(fields);
@@ -113,7 +115,7 @@ export class RecordComputedUpdateService {
             Array<{ __id: string; __version: number } & Record<string, unknown>>
           >(selectSql);
       } catch (error) {
-        this.handleRawQueryError(error, selectSql, fields);
+        this.handleRawQueryError(error, selectSql, tableId, fields);
       }
     }
 
@@ -143,7 +145,7 @@ export class RecordComputedUpdateService {
         .txClient()
         .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);
     } catch (error) {
-      this.handleRawQueryError(error, sql, fields);
+      this.handleRawQueryError(error, sql, tableId, fields);
     }
   }
 
@@ -175,25 +177,37 @@ export class RecordComputedUpdateService {
     }
   }
 
-  private handleRawQueryError(error: unknown, sql: string, fields: IFieldInstance[]): never {
+  private handleRawQueryError(
+    error: unknown,
+    sql: string,
+    tableId: string,
+    fields: IFieldInstance[]
+  ): never {
     const fieldSnapshot = this.buildFieldDebugSnapshot(fields);
     const fieldSnapshotString = this.stringifyFieldDebugSnapshot(fieldSnapshot);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
       this.logger.error(
-        `updateFromSelect known request error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+        `updateFromSelect known request error.
+        message: ${error.message}.
+        SQL: ${sql}.
+        Fields: ${fieldSnapshotString}`,
         error.stack ?? undefined
       );
       throw error;
     }
     this.logger.error(
-      `updateFromSelect unexpected query error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+      `updateFromSelect unexpected query error.
+      message: ${(error as Error)?.message}.
+      SQL: ${sql}.
+      tableId: ${tableId}.
+      Fields: ${fieldSnapshotString}`,
       (error as Error)?.stack
     );
     if (error instanceof Error) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
     }
     throw error;
   }

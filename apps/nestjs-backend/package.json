@@ -204,6 +204,7 @@
     "nanoid": "3.3.7",
     "nest-knexjs": "0.0.22",
     "nestjs-cls": "4.3.0",
+    "nestjs-i18n": "10.5.1",
     "nestjs-pino": "4.4.1",
     "nestjs-redoc": "2.2.2",
     "next": "14.2.14",

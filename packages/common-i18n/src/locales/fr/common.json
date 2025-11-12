@@ -473,7 +473,111 @@
     "unsubscribeH2": "Vous êtes sur le point de vous désabonner des futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous désabonner ?",
     "subscribeH1": "Confirmer l'abonnement ?",
     "subscribeH2": "Vous êtes sur le point de vous abonner aux futures promotions et mises à jour de produits Teable. Êtes-vous sûr de vouloir vous abonner ?",
-    "unsubscribeListTip": "Les utilisateurs suivants de la base actuelle se sont désabonnés, vous ne pourrez plus leur envoyer d'e-mails. Lors de l'importation d'e-mails, veuillez placer les adresses e-mail dans la première colonne et nommer l'en-tête \"email\"."
+    "unsubscribeListTip": "Les utilisateurs suivants de la base actuelle se sont désabonnés, vous ne pourrez plus leur envoyer d'e-mails. Lors de l'importation d'e-mails, veuillez placer les adresses e-mail dans la première colonne et nommer l'en-tête \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Réinitialiser le mot de passe - {{brandName}}",
+        "title": "Réinitialisez votre mot de passe",
+        "message": "Si vous n'avez pas demandé ce changement, veuillez ignorer cet e-mail. Sinon, cliquez sur le bouton ci-dessous pour réinitialiser votre mot de passe.",
+        "buttonText": "Réinitialiser le mot de passe"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Vérification d'inscription - {{brandName}}",
+          "title": "Vérification d'inscription",
+          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
+        },
+        "domainVerification": {
+          "subject": "Vérification de domaine - {{brandName}}",
+          "title": "Vérification de domaine",
+          "message": "Votre code à usage unique est : {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
+        },
+        "changeEmailVerification": {
+          "subject": "Vérification de changement d'e-mail - {{brandName}}",
+          "title": "Vérification de changement d'e-mail",
+          "message": "Votre code de vérification est {{code}}, veuillez l'utiliser dans {{expiresIn}} minutes."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} vous a ajouté au champ {{fieldName}} d'un enregistrement dans {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> vous a ajouté au champ <strong>{{fieldName}}</strong> d'un enregistrement dans <strong>{{tableName}}</strong>",
+        "buttonText": "Voir l'enregistrement"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} vous a ajouté à {{refLength}} enregistrements dans {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> vous a ajouté à <strong>{{refLength}}</strong> enregistrements dans <strong>{{tableName}}</strong>",
+        "buttonText": "Voir les enregistrements"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) vous a invité à leur {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "Invitation à collaborer",
+        "message": "<strong>{{name}}</strong> ({{email}}) vous a invité à leur {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "Accepter l'invitation"
+      },
+      "waitlistInvite": {
+        "subject": "Bienvenue - {{brandName}}",
+        "title": "Bienvenue",
+        "message": "Vous avez rejoint avec succès la liste d'attente de {{brandName}}. Veuillez utiliser le code d'invitation suivant pour vous inscrire: {{code}}, il peut être utilisé {{times}} fois.",
+        "buttonText": "S'inscrire"
+      },
+      "test": {
+        "subject": "E-mail de test - {{brandName}}",
+        "title": "E-mail de test",
+        "message": "Ceci est un e-mail de test, veuillez l'ignorer."
+      },
+      "notify": {
+        "subject": "Notification - {{brandName}}",
+        "title": "Notification",
+        "buttonText": "Voir",
+        "import": {
+          "title": "Notification de résultat d'importation",
+          "table": {
+            "aborted": {
+              "message": "❌ Importation de {{tableName}} interrompue: {{errorMessage}} plage de lignes échouées: [{{range}}]. Veuillez vérifier les données de cette plage et réessayer."
+            },
+            "failed": {
+              "message": "❌ Importation de {{tableName}} échouée: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} importé avec succès.",
+              "inplace": "🎉 {{tableName}} importé en place avec succès."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Notification de commentaire d'enregistrement",
+          "message": "{{fromUserName}} a fait un commentaire sur {{recordName}} dans {{tableName}} dans {{baseName}}"
+        },
+        "automation": {
+          "title": "Notification d'automatisation",
+          "failed": {
+            "title": "L'automatisation {{name}} a échoué",
+            "message": "Votre automatisation {{name}} n'a pas pu s'exécuter. Cliquez sur le bouton ci-dessous pour voir les erreurs spécifiques de l'historique d'exécution."
+          },
+          "insufficientCredit": {
+            "title": "L'automatisation {{name}} a échoué en raison d'un crédit insuffisant",
+            "message": "Votre automatisation {{name}} n'a pas pu s'exécuter en raison d'un crédit insuffisant. Veuillez mettre à niveau votre abonnement ou contacter le support."
+          }
+        },
+        "exportBase": {
+          "title": "Notification de résultat d'exportation de base",
+          "success": {
+            "message": "{{baseName}} exporté avec succès: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ Exportation de {{baseName}} échouée: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "Tâche IA échouée dans la table {{tableName}}",
+              "message": "La tâche IA pour le champ {{fieldName}} dans la table {{tableName}} (ID d'enregistrement: {{recordId}}) a échoué.\n\n{{errorMsg}}\n\nCliquez sur le bouton ci-dessous pour voir les détails."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Liste d'attente",
@@ -503,6 +607,7 @@
       "sendErrorToAI": "Envoyer l'erreur à AI"
     }
   },
+
   "base": {
     "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" base?"
   }

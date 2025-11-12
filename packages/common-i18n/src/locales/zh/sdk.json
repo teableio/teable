@@ -276,6 +276,8 @@
     "duplicateRecord": "复制记录",
     "copyRecordUrl": "复制记录链接",
     "deleteRecord": "删除记录",
+    "addRecordComment": "添加评论",
+    "viewRecordHistory": "查看记录历史",
     "recordHistory": {
       "hiddenRecordHistory": "隐藏记录历史",
       "showRecordHistory": "显示记录历史",

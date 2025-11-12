@@ -2200,6 +2200,90 @@ describe('OpenAPI formula (e2e)', () => {
       }
     });
 
+    it('should format lookup-to-link titles with DATETIME_FORMAT results', async () => {
+      const detailTitle = 'Example Asset';
+      const dateValue = '2025-03-14T00:00:00.000Z';
+      const detailTable = await createTable(baseId, {
+        name: 'Lookup Details',
+        fields: [{ name: 'Detail Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { 'Detail Title': detailTitle } }],
+      });
+      let platformTable: ITableFullVo | undefined;
+      let summaryTable: ITableFullVo | undefined;
+      try {
+        platformTable = await createTable(baseId, {
+          name: 'Link Layer',
+          fields: [{ name: 'Link Name', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { 'Link Name': 'Platform Alpha' } }],
+        });
+        summaryTable = await createTable(baseId, {
+          name: 'Aggregated Reports',
+          fields: [{ name: 'Report Date', type: FieldType.Date } as IFieldRo],
+          records: [{ fields: { 'Report Date': dateValue } }],
+        });
+
+        const platformToDetail = await createField(platformTable.id, {
+          name: 'Linked Detail',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: detailTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+        const reportToPlatform = await createField(summaryTable.id, {
+          name: 'Linked Platform',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: platformTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const lookupField = await createField(summaryTable.id, {
+          name: 'Platform Detail Lookup',
+          type: FieldType.Link,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: platformTable.id,
+            linkFieldId: reportToPlatform.id,
+            lookupFieldId: platformToDetail.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+        const dateFieldId = summaryTable.fields.find((f) => f.name === 'Report Date')!.id;
+        const labelField = await createField(summaryTable.id, {
+          name: 'Label',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${lookupField.id}} & '-' & DATETIME_FORMAT({${dateFieldId}}, "YY-MM-DD")`,
+          },
+        } as IFieldRo);
+
+        await updateRecordByApi(
+          platformTable.id,
+          platformTable.records[0].id,
+          platformToDetail.id,
+          [{ id: detailTable.records[0].id }]
+        );
+        await updateRecordByApi(summaryTable.id, summaryTable.records[0].id, reportToPlatform.id, {
+          id: platformTable.records[0].id,
+        });
+
+        const { data: record } = await getRecord(summaryTable.id, summaryTable.records[0].id);
+        const lookupValue = record.fields[lookupField.name] as Array<{ title: string }>;
+        expect(lookupValue).toHaveLength(1);
+        expect(lookupValue?.[0]?.title).toBe(detailTitle);
+        expect(record.fields[labelField.name]).toBe('Example Asset-25-03-14');
+      } finally {
+        if (summaryTable) {
+          await permanentDeleteTable(baseId, summaryTable.id);
+        }
+        if (platformTable) {
+          await permanentDeleteTable(baseId, platformTable.id);
+        }
+        await permanentDeleteTable(baseId, detailTable.id);
+      }
+    });
+
     it('should keep concatenated formula after updating referenced date field', async () => {
       const followDateField = await createField(table1Id, {
         name: 'follow date',

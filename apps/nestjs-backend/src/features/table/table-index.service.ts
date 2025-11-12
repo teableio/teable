@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { CellValueType } from '@teable/core';
+import { CellValueType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
 import type { IGetAbnormalVo, ITableIndexType, IToggleIndexRo } from '@teable/openapi';
@@ -26,6 +26,25 @@ export class TableIndexService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
+
+  async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
+    const fieldsRaw = await this.prismaService.field.findMany({
+      where: {
+        tableId,
+        deletedTime: null,
+      },
+    });
+    return fieldsRaw
+      .filter(
+        ({ cellValueType, type }) =>
+          cellValueType !== CellValueType.DateTime && type !== FieldType.Button
+      )
+      .map((field) => createFieldInstanceByRaw(field))
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      })) as IFieldInstance[];
+  }
 
   async getActivatedTableIndexes(
     tableId: string,
@@ -68,17 +87,7 @@ export class TableIndexService {
 
     const index = await this.getActivatedTableIndexes(tableId);
 
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
-
-    const fields = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({ ...field, isStructuredCellValue: field.isStructuredCellValue }))
-      .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean) as IFieldInstance[];
+    const fields = await this.getSearchIndexFields(tableId);
 
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
@@ -135,6 +144,12 @@ export class TableIndexService {
   }
 
   async createSearchFieldSingleIndex(tableId: string, fieldInstance: IFieldInstance) {
+    if (
+      fieldInstance.cellValueType === CellValueType.DateTime ||
+      fieldInstance.type === FieldType.Button
+    ) {
+      return;
+    }
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
@@ -182,12 +197,6 @@ export class TableIndexService {
     if (!index.includes(type)) {
       return [] as IGetAbnormalVo;
     }
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
 
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
@@ -197,12 +206,7 @@ export class TableIndexService {
 
     const { dbTableName } = tableRaw;
 
-    const fieldInstances = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      })) as IFieldInstance[];
+    const fieldInstances = await this.getSearchIndexFields(tableId);
 
     const indexInfo = await this.getIndexInfo(tableId);
 
@@ -226,20 +230,9 @@ export class TableIndexService {
       },
     });
 
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
     const { dbTableName } = tableRaw;
     const dropSql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
-    const fieldInstances = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      })) as IFieldInstance[];
+    const fieldInstances = await this.getSearchIndexFields(tableId);
     const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
     await this.prismaService.$tx(
       async (prisma) => {

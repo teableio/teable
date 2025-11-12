@@ -246,6 +246,8 @@
     "copy": "Копировать в буфер обмена",
     "copyRecordUrl": "Копировать URL записи",
     "deleteRecord": "Удалить запись",
+    "addRecordComment": "Добавить комментарий",
+    "viewRecordHistory": "Посмотреть историю записи",
     "recordHistory": {
       "hiddenRecordHistory": "Скрыть историю записи",
       "showRecordHistory": "Показать историю записи",

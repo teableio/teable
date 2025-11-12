@@ -226,7 +226,7 @@ describe('Computed Orchestrator (e2e)', () => {
 
       await updateRecordByApi(table.id, recordId, aField.id, null);
       const updatedRecord = await getRecord(table.id, recordId);
-      expect(updatedRecord.fields[formulaField.id]).toBeUndefined();
+      expect(updatedRecord.fields[formulaField.id]).toBe(0);
 
       await permanentDeleteTable(baseId, table.id);
     });

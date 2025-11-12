@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Component, Database, Plus } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
-import { getBaseAll, getSpaceList } from '@teable/openapi';
+import { getBaseAll, getSharedBase, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -49,6 +49,11 @@ export const AccessSelect = (props: IFormAccess) => {
     queryFn: () => getBaseAll().then((data) => data.data),
   });
 
+  const { data: sharedBaseList, isLoading: sharedBaseListLoading } = useQuery({
+    queryKey: ReactQueryKeys.getSharedBase(),
+    queryFn: () => getSharedBase().then((data) => data.data),
+  });
+
   const baseMap = useMemo(
     () =>
       baseList?.reduce(
@@ -90,7 +95,7 @@ export const AccessSelect = (props: IFormAccess) => {
     });
   };
 
-  if (spaceListLoading || baseListLoading) {
+  if (spaceListLoading || baseListLoading || sharedBaseListLoading) {
     return <Spin className="size-5" />;
   }
 
@@ -138,6 +143,32 @@ export const AccessSelect = (props: IFormAccess) => {
               <CommandInput placeholder={t('accessSelect.inputPlaceholder')} className="h-9" />
               <CommandEmpty>{t('accessSelect.empty')}</CommandEmpty>
               <CommandList>
+                {Boolean(sharedBaseList?.length) && (
+                  <CommandGroup
+                    heading={
+                      <div className="truncate text-sm font-bold">
+                        {t('accessSelect.sharedBase')}
+                      </div>
+                    }
+                  >
+                    {sharedBaseList
+                      ?.filter(({ id: baseId }) => !bases.includes(baseId))
+                      ?.map((base) => (
+                        <CommandItem
+                          key={base.id}
+                          value={`${base.id}-${base.name}`}
+                          title={base.name}
+                          onSelect={() => {
+                            setBases((prev) => [...prev, base.id]);
+                            setOpen(false);
+                            onChangeInner(undefined, base.id);
+                          }}
+                        >
+                          {base.name}
+                        </CommandItem>
+                      ))}
+                  </CommandGroup>
+                )}
                 {spaceList
                   ?.filter(({ id: spaceId }) => !spaces.includes(spaceId))
                   ?.map(({ id, name }) => (

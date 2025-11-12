@@ -3,7 +3,8 @@ import { type HttpError } from '@teable/core';
 import { resetPassword } from '@teable/openapi';
 import { passwordSchema } from '@teable/openapi/src/auth/types';
 import { Spin, Error } from '@teable/ui-lib/base';
-import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
+import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
@@ -18,7 +19,6 @@ export const ResetPasswordPage = () => {
   const code = router.query.code as string;
   const { t } = useTranslation(authConfig.i18nNamespaces);
   useAutoFavicon();
-  const { toast } = useToast();
 
   const {
     mutate: resetPasswordMutate,
@@ -27,8 +27,7 @@ export const ResetPasswordPage = () => {
   } = useMutation({
     mutationFn: resetPassword,
     onSuccess: () => {
-      toast({
-        title: t('auth:resetPassword.success.title'),
+      toast.success(t('auth:resetPassword.success.title'), {
         description: t('auth:resetPassword.success.description'),
       });
       setTimeout(() => {

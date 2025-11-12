@@ -256,6 +256,8 @@
     "duplicateRecord": "Duplica record",
     "copyRecordUrl": "Copia URL del record",
     "deleteRecord": "Elimina record",
+    "addRecordComment": "Aggiungi commento",
+    "viewRecordHistory": "Visualizza cronologia del record",
     "recordHistory": {
       "hiddenRecordHistory": "Nascondi cronologia del record",
       "showRecordHistory": "Mostra cronologia del record",

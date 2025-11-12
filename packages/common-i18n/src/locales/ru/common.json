@@ -496,7 +496,111 @@
     "unsubscribeH2": "Вы собираетесь отписаться от будущих рекламных акций и обновлений продуктов Teable. Вы уверены, что хотите отписаться?",
     "subscribeH1": "Подтвердить подписку?",
     "subscribeH2": "Вы собираетесь подписаться на будущие рекламные акции и обновления продуктов Teable. Вы уверены, что хотите подписаться?",
-    "unsubscribeListTip": "Следующие пользователи текущей базы отписались, вы больше не сможете отправлять им электронные письма. При импорте электронных писем, пожалуйста, поместите адреса электронной почты в первый столбец и назовите заголовок \"email\"."
+    "unsubscribeListTip": "Следующие пользователи текущей базы отписались, вы больше не сможете отправлять им электронные письма. При импорте электронных писем, пожалуйста, поместите адреса электронной почты в первый столбец и назовите заголовок \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Сброс пароля - {{brandName}}",
+        "title": "Сбросьте ваш пароль",
+        "message": "Если вы не запрашивали это изменение, проигнорируйте это письмо. В противном случае нажмите кнопку ниже, чтобы сбросить пароль.",
+        "buttonText": "Сбросить пароль"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Подтверждение регистрации - {{brandName}}",
+          "title": "Подтверждение регистрации",
+          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}} минут."
+        },
+        "domainVerification": {
+          "subject": "Подтверждение домена - {{brandName}}",
+          "title": "Подтверждение домена",
+          "message": "Ваш одноразовый код: {{code}}, используйте его в течение {{expiresIn}} минут."
+        },
+        "changeEmailVerification": {
+          "subject": "Подтверждение смены email - {{brandName}}",
+          "title": "Подтверждение смены email",
+          "message": "Ваш код подтверждения {{code}}, используйте его в течение {{expiresIn}} минут."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} добавил вас в поле {{fieldName}} записи в {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> добавил вас в поле <strong>{{fieldName}}</strong> записи в <strong>{{tableName}}</strong>",
+        "buttonText": "Посмотреть запись"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} добавил вас в {{refLength}} записей в {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> добавил вас в <strong>{{refLength}}</strong> записей в <strong>{{tableName}}</strong>",
+        "buttonText": "Посмотреть записи"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) пригласил вас в {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "Приглашение к сотрудничеству",
+        "message": "<strong>{{name}}</strong> ({{email}}) пригласил вас в {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "Принять приглашение"
+      },
+      "waitlistInvite": {
+        "subject": "Добро пожаловать - {{brandName}}",
+        "title": "Добро пожаловать",
+        "message": "Вы успешно присоединились к списку ожидания {{brandName}}. Используйте следующий код приглашения для регистрации: {{code}}, его можно использовать {{times}} раз.",
+        "buttonText": "Зарегистрироваться"
+      },
+      "test": {
+        "subject": "Тестовое письмо - {{brandName}}",
+        "title": "Тестовое письмо",
+        "message": "Это тестовое письмо, проигнорируйте его."
+      },
+      "notify": {
+        "subject": "Уведомление - {{brandName}}",
+        "title": "Уведомление",
+        "buttonText": "Посмотреть",
+        "import": {
+          "title": "Уведомление о результате импорта",
+          "table": {
+            "aborted": {
+              "message": "❌ Импорт {{tableName}} прерван: {{errorMessage}} диапазон неудачных строк: [{{range}}]. Проверьте данные этого диапазона и повторите попытку."
+            },
+            "failed": {
+              "message": "❌ Импорт {{tableName}} не удался: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} успешно импортирована.",
+              "inplace": "🎉 {{tableName}} успешно импортирована на месте."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Уведомление о комментарии к записи",
+          "message": "{{fromUserName}} оставил комментарий к {{recordName}} в {{tableName}} в {{baseName}}"
+        },
+        "automation": {
+          "title": "Уведомление об автоматизации",
+          "failed": {
+            "title": "Автоматизация {{name}} не удалась",
+            "message": "Ваша автоматизация {{name}} не смогла выполниться. Нажмите кнопку ниже, чтобы просмотреть конкретные ошибки из истории выполнения."
+          },
+          "insufficientCredit": {
+            "title": "Автоматизация {{name}} не удалась из-за недостатка кредита",
+            "message": "Ваша автоматизация {{name}} не смогла выполниться из-за недостатка кредита. Обновите подписку или обратитесь в поддержку."
+          }
+        },
+        "exportBase": {
+          "title": "Уведомление о результате экспорта базы",
+          "success": {
+            "message": "{{baseName}} успешно экспортирована: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ Экспорт {{baseName}} не удался: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "Задача ИИ не удалась в таблице {{tableName}}",
+              "message": "Задача ИИ для поля {{fieldName}} в таблице {{tableName}} (ID записи: {{recordId}}) не удалась.\n\n{{errorMsg}}\n\nНажмите кнопку ниже, чтобы просмотреть детали."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Список ожидания",
@@ -526,6 +630,7 @@
       "sendErrorToAI": "Отправить ошибку в AI"
     }
   },
+
   "base": {
     "deleteTip": "Вы уверены, что хотите удалить \"{{name}}\" базу?"
   }

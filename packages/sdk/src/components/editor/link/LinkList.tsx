@@ -1,6 +1,6 @@
 import type { ILinkCellValue } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
-import { useToast } from '@teable/ui-lib';
+import { sonner } from '@teable/ui-lib';
 import { uniqueId } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import {
@@ -37,6 +37,7 @@ import {
 } from '../../grid-enhancements';
 import { LinkListType } from './interface';
 
+const { toast } = sonner;
 interface ILinkListProps {
   type?: LinkListType;
   rowCount: number;
@@ -178,8 +179,6 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     [recordMap, columns, cellValue2GridDisplay]
   );
 
-  const { toast } = useToast();
-
   // eslint-disable-next-line sonarjs/cognitive-complexity
   const onSelectionChanged = (selection: CombinedSelection) => {
     const { type } = selection;
@@ -198,10 +197,7 @@ const LinkListBase: ForwardRefRenderFunction<ILinkListRef, ILinkListProps> = (
     const totalRows =
       selection?.ranges?.reduce((acc, range) => acc + range[1] - range[0] + 1, 0) ?? 0;
     if (totalRows > LOAD_PAGE_SIZE) {
-      toast({
-        variant: 'default',
-        description: t('editor.link.selectTooManyRecords', { maxCount: LOAD_PAGE_SIZE }),
-      });
+      toast.warning(t('editor.link.selectTooManyRecords', { maxCount: LOAD_PAGE_SIZE }));
       return;
     }
 

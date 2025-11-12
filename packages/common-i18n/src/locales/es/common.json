@@ -518,7 +518,111 @@
     "unsubscribeH2": "Estás a punto de cancelar la suscripción a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas cancelar la suscripción?",
     "subscribeH1": "¿Confirmar suscripción?",
     "subscribeH2": "Estás a punto de suscribirte a futuras promociones y actualizaciones de productos de Teable. ¿Estás seguro de que deseas suscribirte?",
-    "unsubscribeListTip": "Los siguientes usuarios de la base actual se han dado de baja, ya no podrás enviarles correos electrónicos. Al importar correos electrónicos, coloque las direcciones de correo electrónico en la primera columna y nombre el encabezado \"email\"."
+    "unsubscribeListTip": "Los siguientes usuarios de la base actual se han dado de baja, ya no podrás enviarles correos electrónicos. Al importar correos electrónicos, coloque las direcciones de correo electrónico en la primera columna y nombre el encabezado \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Restablecer contraseña - {{brandName}}",
+        "title": "Restablece tu contraseña",
+        "message": "Si no solicitaste este cambio, ignora este correo electrónico. De lo contrario, haz clic en el botón a continuación para restablecer tu contraseña.",
+        "buttonText": "Restablecer contraseña"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Verificación de registro - {{brandName}}",
+          "title": "Verificación de registro",
+          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}} minutos."
+        },
+        "domainVerification": {
+          "subject": "Verificación de dominio - {{brandName}}",
+          "title": "Verificación de dominio",
+          "message": "Tu código de un solo uso es: {{code}}, úsalo dentro de {{expiresIn}} minutos."
+        },
+        "changeEmailVerification": {
+          "subject": "Verificación de cambio de correo electrónico - {{brandName}}",
+          "title": "Verificación de cambio de correo electrónico",
+          "message": "Tu código de verificación es {{code}}, úsalo dentro de {{expiresIn}} minutos."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} te agregó al campo {{fieldName}} de un registro en {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> te agregó al campo <strong>{{fieldName}}</strong> de un registro en <strong>{{tableName}}</strong>",
+        "buttonText": "Ver registro"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} te agregó a {{refLength}} registros en {{tableName}}",
+        "title": "<strong>{{fromUserName}}</strong> te agregó a <strong>{{refLength}}</strong> registros en <strong>{{tableName}}</strong>",
+        "buttonText": "Ver registros"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) te invitó a su {{resourceAlias}} {{resourceName}} - {{brandName}}",
+        "title": "Invitación a colaborar",
+        "message": "<strong>{{name}}</strong> ({{email}}) te invitó a su {{resourceAlias}} <strong>{{resourceName}}</strong>.",
+        "buttonText": "Aceptar invitación"
+      },
+      "waitlistInvite": {
+        "subject": "Bienvenido - {{brandName}}",
+        "title": "Bienvenido",
+        "message": "Te has unido exitosamente a la lista de espera de {{brandName}}. Usa el siguiente código de invitación para registrarte: {{code}}, se puede usar {{times}} veces.",
+        "buttonText": "Registrarse"
+      },
+      "test": {
+        "subject": "Correo de prueba - {{brandName}}",
+        "title": "Correo de prueba",
+        "message": "Este es un correo de prueba, por favor ignóralo."
+      },
+      "notify": {
+        "subject": "Notificación - {{brandName}}",
+        "title": "Notificación",
+        "buttonText": "Ver",
+        "import": {
+          "title": "Notificación de resultado de importación",
+          "table": {
+            "aborted": {
+              "message": "❌ Importación de {{tableName}} abortada: {{errorMessage}} rango de filas fallidas: [{{range}}]. Por favor verifica los datos para este rango e intenta nuevamente."
+            },
+            "failed": {
+              "message": "❌ Importación de {{tableName}} fallida: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} importado exitosamente.",
+              "inplace": "🎉 {{tableName}} importado incrementalmente exitosamente."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Notificación de comentario de registro",
+          "message": "{{fromUserName}} hizo un comentario en {{recordName}} en {{tableName}} en {{baseName}}"
+        },
+        "automation": {
+          "title": "Notificación de automatización",
+          "failed": {
+            "title": "La automatización {{name}} falló",
+            "message": "Tu automatización {{name}} no se pudo ejecutar. Haz clic en el botón a continuación para ver los errores específicos del historial de ejecución."
+          },
+          "insufficientCredit": {
+            "title": "La automatización {{name}} falló por crédito insuficiente",
+            "message": "Tu automatización {{name}} no se pudo ejecutar por crédito insuficiente. Por favor actualiza la suscripción o contacta con soporte."
+          }
+        },
+        "exportBase": {
+          "title": "Notificación de resultado de exportación de base",
+          "success": {
+            "message": "{{baseName}} exportado exitosamente: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ Exportación de {{baseName}} fallida: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "Tarea de IA falló en la tabla {{tableName}}",
+              "message": "La tarea de IA para el campo {{fieldName}} en la tabla {{tableName}} (ID de registro: {{recordId}}) ha fallado.\n\n{{errorMsg}}\n\nHaz clic en el botón a continuación para ver los detalles."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Lista de espera",

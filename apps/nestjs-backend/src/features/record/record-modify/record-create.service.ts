@@ -74,12 +74,21 @@ export class RecordCreateService {
       },
     });
     await this.recordService.batchCreateRecords(tableId, records, fieldKeyType, fieldRaws);
-    const plainRecords = await this.shared.appendDefaultValue(records, fieldKeyType, fieldRaws);
-    const recordIds = plainRecords.map((r) => r.id);
+    const recordsWithDefaults = await this.shared.appendDefaultValue(
+      records,
+      fieldKeyType,
+      fieldRaws
+    );
+    const contextReadyRecords = await this.shared.ensureReferencedBaseFieldsForNewRecords(
+      recordsWithDefaults,
+      fieldKeyType,
+      fieldRaws
+    );
+    const recordIds = contextReadyRecords.map((r) => r.id);
     const createCtxs = await this.shared.generateCellContexts(
       tableId,
       fieldKeyType,
-      plainRecords,
+      contextReadyRecords,
       true
     );
     await this.linkService.getDerivateByLink(tableId, createCtxs);

@@ -10,7 +10,6 @@ import type {
 } from '@teable/openapi';
 import { chunk, difference } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';

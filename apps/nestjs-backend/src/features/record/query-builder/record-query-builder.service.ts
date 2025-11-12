@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { extractFieldIdsFromFilter, FieldType, SortFunc, Tables } from '@teable/core';
+import { DbFieldType, extractFieldIdsFromFilter, FieldType, SortFunc, Tables } from '@teable/core';
 import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
@@ -310,12 +310,17 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const selectionExpression =
       typeof selection === 'string' ? selection : selection ? selection.toQuery() : undefined;
 
+    const orderableSelection = selectionExpression ?? quotedAlias;
     if (field.type === FieldType.SingleSelect) {
       const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
       const choices = Array.isArray(rawChoices) ? rawChoices : [];
       if (choices.length) {
         const placeholders = choices.map(() => '?').join(', ');
-        const arrayPositionExpr = `ARRAY_POSITION(ARRAY[${placeholders}], ${quotedAlias})`;
+        const normalizedExpr = this.normalizeOrderableTextExpression(
+          orderableSelection,
+          field.dbFieldType
+        );
+        const arrayPositionExpr = `ARRAY_POSITION(ARRAY[${placeholders}], ${normalizedExpr})`;
         qb.orderByRaw(
           `${arrayPositionExpr} ${direction} ${nullOrdering}`,
           choices.map(({ name }) => name)
@@ -342,6 +347,27 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     }
 
     qb.orderByRaw(`${quotedAlias} ${direction} ${nullOrdering}`);
+  }
+
+  private normalizeOrderableTextExpression(expr: string, dbFieldType: DbFieldType): string {
+    if (!expr || dbFieldType !== DbFieldType.Json) {
+      return expr;
+    }
+    const wrappedExpr = `(${expr})`;
+    const jsonbValue = `to_jsonb${wrappedExpr}`;
+    const firstArrayElement = `jsonb_path_query_first(${jsonbValue}, '$[0]')`;
+    return `(CASE
+      WHEN ${wrappedExpr} IS NULL THEN NULL
+      ELSE
+        CASE jsonb_typeof(${jsonbValue})
+          WHEN 'string' THEN ${jsonbValue} #>> '{}'
+          WHEN 'number' THEN ${jsonbValue} #>> '{}'
+          WHEN 'boolean' THEN ${jsonbValue} #>> '{}'
+          WHEN 'null' THEN NULL
+          WHEN 'array' THEN ${firstArrayElement} #>> '{}'
+          ELSE ${jsonbValue}::text
+        END
+    END)`;
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity

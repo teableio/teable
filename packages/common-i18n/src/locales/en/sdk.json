@@ -262,6 +262,8 @@
     "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Copy record URL",
     "deleteRecord": "Delete record",
+    "addRecordComment": "Add comment",
+    "viewRecordHistory": "View record history",
     "recordHistory": {
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",

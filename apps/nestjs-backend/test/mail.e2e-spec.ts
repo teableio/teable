@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { ISetSettingMailTransportConfigRo, ITestMailTransportConfigRo } from '@teable/openapi';
 import {
+  EmailVerifyCodeType,
   MailTransporterType,
   MailType,
   setSettingMailTransportConfig,
@@ -144,8 +145,9 @@ describe.skip('Mail sender  (e2e)', () => {
     });
     promises.push(promise2);
     const emailVerifyCodeEmailOptions = await mailSenderService.sendEmailVerifyCodeEmailOptions({
-      title: 'sendEmailVerifyCodeEmail',
-      message: 'code: 123456',
+      code: '123456',
+      expiresIn: '10 minutes',
+      type: EmailVerifyCodeType.ChangeEmail,
     });
     const mailOptions3 = {
       ...emailVerifyCodeEmailOptions,

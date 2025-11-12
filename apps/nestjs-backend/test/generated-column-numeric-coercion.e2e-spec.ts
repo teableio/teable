@@ -108,4 +108,111 @@ describe('Generated column numeric coercion (e2e)', () => {
       expect(finalRecord.fields[progressField.id]).toBeCloseTo(4 / 12, 2);
     });
   });
+
+  describe('blank arithmetic operands', () => {
+    let table: ITableFullVo;
+    let valueField: IFieldVo;
+    let optionalField: IFieldVo;
+    let addField: IFieldVo;
+    let subtractField: IFieldVo;
+    let multiplyField: IFieldVo;
+    let divideValueByOptionalField: IFieldVo;
+    let divideOptionalByValueField: IFieldVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'generated_blank_arithmetic',
+        fields: [
+          {
+            name: 'Value',
+            type: FieldType.Number,
+          },
+          {
+            name: 'Optional',
+            type: FieldType.Number,
+          },
+        ],
+        records: [
+          {
+            fields: {
+              Value: 10,
+            },
+          },
+          {
+            fields: {
+              Optional: 4,
+            },
+          },
+        ],
+      });
+
+      const fieldMap = new Map(table.fields.map((field) => [field.name, field]));
+      valueField = fieldMap.get('Value')!;
+      optionalField = fieldMap.get('Optional')!;
+
+      addField = await createField(table.id, {
+        name: 'Add',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${valueField.id}} + {${optionalField.id}}`,
+        },
+      });
+
+      subtractField = await createField(table.id, {
+        name: 'Subtract',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${valueField.id}} - {${optionalField.id}}`,
+        },
+      });
+
+      multiplyField = await createField(table.id, {
+        name: 'Multiply',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${valueField.id}} * {${optionalField.id}}`,
+        },
+      });
+
+      divideValueByOptionalField = await createField(table.id, {
+        name: 'Value / Optional',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${valueField.id}} / {${optionalField.id}}`,
+        },
+      });
+
+      divideOptionalByValueField = await createField(table.id, {
+        name: 'Optional / Value',
+        type: FieldType.Formula,
+        options: {
+          expression: `{${optionalField.id}} / {${valueField.id}}`,
+        },
+      });
+    });
+
+    afterEach(async () => {
+      if (table) {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('treats blank operands as zero in arithmetic formulas', async () => {
+      const [valueOnlyRecord, optionalOnlyRecord] = table.records;
+
+      const recordWithValue = await getRecord(table.id, valueOnlyRecord.id);
+      expect(recordWithValue.fields[addField.id]).toBe(10);
+      expect(recordWithValue.fields[subtractField.id]).toBe(10);
+      expect(recordWithValue.fields[multiplyField.id]).toBe(0);
+      expect(recordWithValue.fields[divideOptionalByValueField.id]).toBe(0);
+      expect(recordWithValue.fields[divideValueByOptionalField.id]).toBeUndefined();
+
+      const recordWithOptional = await getRecord(table.id, optionalOnlyRecord.id);
+      expect(recordWithOptional.fields[addField.id]).toBe(4);
+      expect(recordWithOptional.fields[subtractField.id]).toBe(-4);
+      expect(recordWithOptional.fields[multiplyField.id]).toBe(0);
+      expect(recordWithOptional.fields[divideValueByOptionalField.id]).toBe(0);
+      expect(recordWithOptional.fields[divideOptionalByValueField.id]).toBeUndefined();
+    });
+  });
 });

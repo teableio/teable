@@ -78,7 +78,15 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
+            message: sourceColumnMap
+              ? {
+                  i18nKey: 'common.email.templates.notify.import.table.success.inplace',
+                  context: { tableName: table.name },
+                }
+              : {
+                  i18nKey: 'common.email.templates.notify.import.table.success.message',
+                  context: { tableName: table.name },
+                },
           });
 
         this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
@@ -107,7 +115,14 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           baseId,
           tableId: table.id,
           toUserId: userId,
-          message: `❌ ${table.name} import aborted: ${err.message} fail row range: [${range}]. Please check the data for this range and retry.`,
+          message: {
+            i18nKey: 'common.email.templates.notify.import.table.aborted.message',
+            context: {
+              tableName: table.name,
+              errorMessage: err.message,
+              range: `${range[0]}, ${range[1]}`,
+            },
+          },
         });
 
       throw err;

@@ -57,6 +57,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `NULLIF(${sanitized}, '')::double precision`;
   }
 
+  private collapseNumeric(expr: string): string {
+    const numericValue = this.toNumericSafe(expr);
+    return `COALESCE(${numericValue}, 0)`;
+  }
+
   private normalizeBlankComparable(value: string): string {
     const comparable = this.coerceToTextComparable(value);
     return `COALESCE(NULLIF(${comparable}, ''), '')`;
@@ -194,20 +199,20 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   override add(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
     return `((${l}) + (${r}))`;
   }
 
   override subtract(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
     return `((${l}) - (${r}))`;
   }
 
   override multiply(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left);
+    const r = this.collapseNumeric(right);
     return `((${l}) * (${r}))`;
   }
 
@@ -217,15 +222,15 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   override divide(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE (${l} / ${r}) END)`;
+    const numerator = this.collapseNumeric(left);
+    const denominator = this.toNumericSafe(right);
+    return `(CASE WHEN (${denominator}) IS NULL OR (${denominator}) = 0 THEN NULL ELSE (${numerator} / ${denominator}) END)`;
   }
 
   override modulo(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE MOD((${l})::numeric, (${r})::numeric)::double precision END)`;
+    const dividend = this.collapseNumeric(left);
+    const divisor = this.toNumericSafe(right);
+    return `(CASE WHEN (${divisor}) IS NULL OR (${divisor}) = 0 THEN NULL ELSE MOD((${dividend})::numeric, (${divisor})::numeric)::double precision END)`;
   }
 
   private normalizeBooleanCondition(condition: string): string {
@@ -254,13 +259,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.toNumericSafe(param)})`);
+    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
     return `(${numericParams.join(' + ')})`;
   }
 
   average(params: string[]): string {
     // Use addition and division instead of AVG() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.toNumericSafe(param)})`);
+    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
     return `(${numericParams.join(' + ')}) / ${params.length}`;
   }
 

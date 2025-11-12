@@ -5,6 +5,7 @@ import {
   BadGatewayException,
   BadRequestException,
 } from '@nestjs/common';
+import type { ILocalization } from '@teable/core';
 import { generateCommentId, getCommentChannel, getTableCommentChannel } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -23,6 +24,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
+import type { I18nPath } from '../../types/i18n.generated';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -653,15 +655,14 @@ export class CommentOpenApiService {
       return;
     }
 
-    const { name: baseName } =
-      (await this.prismaService.base.findFirst({
-        where: {
-          id: baseId,
-        },
-        select: {
-          name: true,
-        },
-      })) || {};
+    const { name: baseName } = await this.prismaService.base.findUniqueOrThrow({
+      where: {
+        id: baseId,
+      },
+      select: {
+        name: true,
+      },
+    });
 
     const recordName = await this.recordService.getCellValue(tableId, recordId, fieldId);
 
@@ -679,7 +680,10 @@ export class CommentOpenApiService {
       new Set([...notifyUsers.map(({ createdBy }) => createdBy), ...relativeUsers])
     ).filter((userId) => userId !== fromUserId);
 
-    const message = `${fromUserName} made a commented on ${recordName ? recordName : 'a record'} in ${tableName} ${baseName ? `in ${baseName}` : ''}`;
+    const message: ILocalization<I18nPath> = {
+      i18nKey: 'common.email.templates.notify.recordComment.message',
+      context: { fromUserName, recordName, tableName, baseName },
+    };
 
     subscribeUsersIds.forEach((userId) => {
       this.notificationService.sendCommentNotify({

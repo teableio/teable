@@ -10,7 +10,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { MailTransporterType, MailType } from '@teable/openapi';
+import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
 import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
@@ -285,10 +285,6 @@ export class LocalAuthService {
         const code = getRandomString(4, RandomType.Number);
         const token = await this.jwtSignupCode(email, code);
 
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
-
         const user = await this.userService.getUserByEmail(email);
         this.isRegisteredValidate(user);
 
@@ -298,8 +294,9 @@ export class LocalAuthService {
         );
 
         const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Signup verification',
-          message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+          code,
+          expiresIn: this.authConfig.signupVerificationExpiresIn,
+          type: EmailVerifyCodeType.Signup,
         });
 
         await this.mailSenderService.sendMail(
@@ -482,12 +479,10 @@ export class LocalAuthService {
           { email, newEmail, code },
           { expiresIn: this.baseConfig.emailCodeExpiresIn }
         );
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
         const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Change Email verification',
-          message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
+          code,
+          expiresIn: this.baseConfig.emailCodeExpiresIn,
+          type: EmailVerifyCodeType.ChangeEmail,
         });
         await this.mailSenderService.sendMail(
           {
@@ -550,12 +545,12 @@ export class LocalAuthService {
     for (const item of updateList) {
       const times = 10;
       const code = await this.genWaitlistInviteCode(times);
-      const mailOptions = await this.mailSenderService.commonEmailOptions({
-        to: item.email,
-        title: 'Welcome',
-        message: `You're off the waitlist!, Here is your invite code: ${code}, it can be used ${times} times`,
-        buttonUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
-        buttonText: 'Signup',
+      const mailOptions = await this.mailSenderService.waitlistInviteEmailOptions({
+        email: item.email,
+        code,
+        times,
+        name: 'Guest',
+        waitlistInviteUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
       });
       res.push({
         email: item.email,

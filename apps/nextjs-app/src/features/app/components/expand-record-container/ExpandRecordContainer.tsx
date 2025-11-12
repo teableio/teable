@@ -24,6 +24,8 @@ export const ExpandRecordContainer = forwardRef<
       recordId: _recordId,
       fromNotify: _fromNotify,
       commentId: _commentId,
+      showHistory: _showHistory,
+      showComment: _showComment,
       ...resetQuery
     } = router.query;
     router.push(

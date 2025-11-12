@@ -1,7 +1,16 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { DraggableProvided } from '@hello-pangea/dnd';
 import { FieldKeyType, type IAttachmentCellValue } from '@teable/core';
-import { ArrowDown, ArrowUp, Copy, Maximize2, Trash2 } from '@teable/icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  History,
+  Link,
+  Maximize2,
+  MessageSquare,
+  Trash2,
+} from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -19,6 +28,7 @@ import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CardCarousel } from '../../gallery/components';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import type { IKanbanContext } from '../context';
 import { useKanban } from '../hooks';
 import type { IStackData } from '../type';
@@ -47,6 +57,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     isFieldNameHidden,
     setExpandRecordId,
   } = useKanban() as Required<IKanbanContext>;
+  const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
   const { cardCreatable, cardDeletable } = permission;
   const { id: fieldId } = stackField;
@@ -97,6 +108,20 @@ export const KanbanCard = (props: IKanbanCardProps) => {
     if (record != null) {
       setExpandRecordId(record.id);
     }
+  };
+
+  const onCopyRecordUrl = async () => {
+    await copyRecordUrl(card.id);
+  };
+
+  const onViewRecordHistory = async () => {
+    setExpandRecordId(card.id);
+    await viewRecordHistory(card.id);
+  };
+
+  const onAddRecordComment = async () => {
+    setExpandRecordId(card.id);
+    await addRecordComment(card.id);
   };
 
   return (
@@ -171,6 +196,19 @@ export const KanbanCard = (props: IKanbanCardProps) => {
         <ContextMenuItem onClick={onExpand}>
           <Maximize2 className="mr-2 size-4" />
           {t('table:kanban.cardMenu.expandCard')}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onCopyRecordUrl}>
+          <Link className="mr-2 size-4" />
+          {t('sdk:expandRecord.copyRecordUrl')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onViewRecordHistory}>
+          <History className="mr-2 size-4" />
+          {t('sdk:expandRecord.viewRecordHistory')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onAddRecordComment}>
+          <MessageSquare className="mr-2 size-4" />
+          {t('sdk:expandRecord.addRecordComment')}
         </ContextMenuItem>
         {cardDeletable && !card.undeletable && (
           <>
