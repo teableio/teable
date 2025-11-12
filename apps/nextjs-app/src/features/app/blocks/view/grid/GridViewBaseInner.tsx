@@ -1326,15 +1326,17 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
                 }
               }
             }
-            if (!missingFieldIdSet.size) return;
-            const missingNames = allFields
-              .filter((f) => missingFieldIdSet.has(f.id))
-              .map((f) => f.name);
-            return toast.warning(
-              t('table:table.actionTips.requiredFieldsMissing', {
-                fieldNames: missingNames.join(', '),
-              })
-            );
+            if (missingFieldIdSet.size) {
+              const missingNames = allFields
+                .filter((f) => missingFieldIdSet.has(f.id))
+                .map((f) => f.name);
+              return toast.warning(
+                t('table:table.actionTips.requiredFieldsMissing', {
+                  fieldNames: missingNames.join(', '),
+                })
+              );
+            }
+
             await mutateCreateRecord(prefillingRows.map((r) => ({ fields: r.fields })));
           }}
           onCancel={() => {
