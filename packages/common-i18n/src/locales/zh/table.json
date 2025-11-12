@@ -429,6 +429,9 @@
       "copyError": {
         "noFocus": "请保持页面激活，不要切换窗口",
         "noPermission": "您没有权限复制记录"
+      },
+      "pasteError": {
+        "noPermission": "您没有权限粘贴记录"
       }
     },
     "graph": {

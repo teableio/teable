@@ -734,15 +734,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onPaste = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
-      return toast({ title: 'Unable to paste' });
+      return toast({ title: t('table:table.actionTips.pasteError.noPermission') });
     }
     await paste(e, selection, recordMap);
   };
 
   const onPasteForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {
-    if (!permission['record|update'] || !localRecords.length) {
-      return toast({ title: 'Unable to paste' });
-    }
+    if (!localRecords.length) return;
     const [start, end] = selection.serialize();
     const startRow = Math.min(start[1], end[1]);
     const endRow = Math.max(start[1], end[1]);
@@ -772,7 +770,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const onPasteForPresort = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!presortRecord) return;
     if (!permission['record|update']) {
-      return toast({ title: 'Unable to paste' });
+      return toast({ title: t('table:table.actionTips.pasteError.noPermission') });
     }
     paste(e, selection, { 0: presortRecord }, (records) => {
       updateRecord({

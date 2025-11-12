@@ -404,6 +404,9 @@
       "pasteFileFailed": "I file possono essere incollati solo in un campo di allegato",
       "copyError": {
         "noFocus": "Si prega di mantenere la pagina attiva e non cambiare finestra"
+      },
+      "pasteError": {
+        "noPermission": "Non hai l'autorizzazione per incollare i record"
       }
     },
     "graph": {

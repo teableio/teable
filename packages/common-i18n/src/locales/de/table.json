@@ -404,6 +404,9 @@
       "pasteFileFailed": "Dateien können nur in ein Anhangsfeld eingefügt werden",
       "copyError": {
         "noFocus": "Bitte lassen Sie die Seite aktiv und wechseln Sie nicht das Fenster"
+      },
+      "pasteError": {
+        "noPermission": "Sie haben keine Berechtigung, Datensätze einzufügen"
       }
     },
     "graph": {

@@ -428,6 +428,9 @@
       "copyError": {
         "noFocus": "Please keep the page active and do not switch windows",
         "noPermission": "You don't have permission to copy records"
+      },
+      "pasteError": {
+        "noPermission": "You don't have permission to paste records"
       }
     },
     "graph": {

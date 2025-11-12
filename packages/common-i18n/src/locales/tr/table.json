@@ -393,6 +393,9 @@
       "pasteFileFailed": "Dosyalar yalnızca bir ek alanına yapıştırılabilir",
       "copyError": {
         "noFocus": "Lütfen pencereyi değiştirmeyin"
+      },
+      "pasteError": {
+        "noPermission": "Kayıtları yapıştırma izniniz yok"
       }
     },
     "graph": {
