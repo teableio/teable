@@ -20,51 +20,47 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
 
   const [prefillingRowOrder, setPrefillingRowOrder] = useState<IUpdateOrderRo>();
   const [prefillingRowIndex, setPrefillingRowIndex] = useState<number>();
-  const [prefillingFieldValueMap, setPrefillingFieldValueMap] = useState<
-    { [fieldId: string]: unknown } | undefined
-  >();
+  const [prefillingRows, setPrefillingRows] = useState<
+    { fields: { [fieldId: string]: unknown } }[]
+  >([]);
 
-  const localRecord = useMemo(() => {
-    if (prefillingFieldValueMap == null) {
-      return null;
-    }
-
-    const record = createRecordInstance({
-      id: '',
-      fields: prefillingFieldValueMap,
-    });
-    record.getCellValue = (fieldId: string) => {
-      return prefillingFieldValueMap[fieldId];
-    };
-    record.updateCell = (fieldId: string, newValue: unknown) => {
-      record.fields[fieldId] = newValue;
-      setPrefillingFieldValueMap({
-        ...prefillingFieldValueMap,
-        [fieldId]: newValue,
+  const localRecords = useMemo(() => {
+    return prefillingRows.map((row, index) => {
+      const record = createRecordInstance({
+        id: '',
+        fields: row.fields as never,
       });
-      return Promise.resolve();
-    };
+      record.getCellValue = (fieldId: string) => {
+        return prefillingRows[index]?.fields?.[fieldId];
+      };
+      record.updateCell = (fieldId: string, newValue: unknown) => {
+        setPrefillingRows((prev) => {
+          const next = [...prev];
+          const current = next[index] ?? { fields: {} };
+          next[index] = { fields: { ...current.fields, [fieldId]: newValue } };
+          return next;
+        });
+        return Promise.resolve();
+      };
+      return record;
+    });
+  }, [prefillingRows, setPrefillingRows]);
 
-    return record;
-  }, [prefillingFieldValueMap]);
   const createCellValue2GridDisplay = useCreateCellValue2GridDisplay();
   const getPrefillingCellContent = useCallback<(cell: ICellItem) => ICell>(
     (cell) => {
-      const [columnIndex] = cell;
+      const [columnIndex, rowIndex] = cell;
       const cellValue2GridDisplay = createCellValue2GridDisplay(fields);
-      if (localRecord != null) {
-        const fieldId = columns[columnIndex]?.id;
-        if (!fieldId) return { type: CellType.Loading };
-        return cellValue2GridDisplay(localRecord, columnIndex, true);
-      }
-      return { type: CellType.Loading };
+      const record = localRecords[rowIndex ?? 0];
+      if (!record) return { type: CellType.Loading };
+      if (columns[columnIndex]?.id == null) return { type: CellType.Loading };
+      return cellValue2GridDisplay(record, columnIndex, true);
     },
-    [columns, createCellValue2GridDisplay, fields, localRecord]
+    [columns, createCellValue2GridDisplay, fields, localRecords]
   );
 
   useEffect(() => {
     if (prefillingRowIndex == null) return;
-
     const updateDefaultValue = async () => {
       const fieldValue = await extractDefaultFieldsFromFilters({
         filter,
@@ -74,12 +70,11 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
         tableId,
         isAsync: true,
       });
-      setPrefillingFieldValueMap((prev) => {
-        if (prev == null) return;
-        return {
-          ...prev,
-          ...fieldValue,
-        };
+      setPrefillingRows((prev) => {
+        const next = prev.length ? [...prev] : [{ fields: {} }];
+        const first = next[0] ?? { fields: {} };
+        next[0] = { fields: { ...first.fields, ...fieldValue } };
+        return next;
       });
     };
     updateDefaultValue();
@@ -88,13 +83,10 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
 
   const onPrefillingCellEdited = useCallback(
     (cell: ICellItem, newVal: IInnerCell) => {
-      if (localRecord == null) return;
-
-      const [col] = cell;
+      const [col, rowIndex = 0] = cell;
       const fieldId = columns[col].id;
       const { type, data } = newVal;
       let newCellValue: unknown = null;
-
       switch (type) {
         case CellType.Select:
           newCellValue = data?.length ? data : null;
@@ -105,35 +97,32 @@ export const useGridPrefillingRow = (columns: (IGridColumn & { id: string })[]) 
         default:
           newCellValue = data === '' ? null : data;
       }
-      const oldCellValue = localRecord.getCellValue(fieldId) ?? null;
+      const record = localRecords[rowIndex];
+      const oldCellValue = record?.getCellValue(fieldId) ?? null;
       if (isEqual(newCellValue, oldCellValue)) return;
-      localRecord.updateCell(fieldId, newCellValue);
-      return localRecord;
+      if (record?.updateCell) {
+        record.updateCell(fieldId, newCellValue);
+      } else {
+        setPrefillingRows((prev) => {
+          const next = prev.length ? [...prev] : [{ fields: {} }];
+          const row = next[rowIndex] ?? { fields: {} };
+          next[rowIndex] = { fields: { ...row.fields, [fieldId]: newCellValue } };
+          return next;
+        });
+      }
     },
-    [localRecord, columns]
+    [columns, localRecords, setPrefillingRows]
   );
 
-  return useMemo(() => {
-    return {
-      localRecord,
-      prefillingRowIndex,
-      prefillingRowOrder,
-      prefillingFieldValueMap,
-      setPrefillingRowIndex,
-      setPrefillingRowOrder,
-      onPrefillingCellEdited,
-      getPrefillingCellContent,
-      setPrefillingFieldValueMap,
-    };
-  }, [
-    localRecord,
+  return {
+    prefillingRows,
     prefillingRowIndex,
     prefillingRowOrder,
-    prefillingFieldValueMap,
+    localRecords,
+    setPrefillingRows,
     setPrefillingRowIndex,
     setPrefillingRowOrder,
     onPrefillingCellEdited,
     getPrefillingCellContent,
-    setPrefillingFieldValueMap,
-  ]);
+  };
 };

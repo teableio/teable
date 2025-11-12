@@ -1,5 +1,4 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue, IFieldVo, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -8,6 +7,7 @@ import {
   fieldVoSchema,
   stringifyClipboardText,
 } from '@teable/core';
+import type { IAttachmentCellValue, IFieldVo, IGridViewOptions } from '@teable/core';
 import type { ICreateRecordsRo, IGroupPointsVo, IUpdateOrderRo } from '@teable/openapi';
 import { createRecords, stopFillField, UploadType } from '@teable/openapi';
 import type {
@@ -96,8 +96,6 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
-import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
-import { ConfirmNewRecords } from './components/ConfirmNewRecords';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
@@ -112,7 +110,8 @@ interface IGridViewBaseInnerProps {
   onRowExpand?: (recordId: string) => void;
 }
 
-const { scrollBuffer, columnAppendBtnWidth } = GRID_DEFAULT;
+const { scrollBuffer, columnAppendBtnWidth, columnStatisticHeight } = GRID_DEFAULT;
+const MAX_PREFILLING_REGION_HEIGHT = 163;
 
 export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   props: IGridViewBaseInnerProps
@@ -152,10 +151,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const preTableId = usePrevious(tableId);
   const isTouchDevice = useIsTouchDevice();
-  const sort = view?.sort;
-  const group = view?.group;
+  const { sort, group, filter, options } = view ?? {};
   const isAutoSort = sort && !sort?.manualSort;
-  const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
+  const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (options ??
     {}) as IGridViewOptions;
   const frozenColumnCount = useMemo(() => {
     return computeFrozenColumnCount({
@@ -167,9 +165,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
   }, [isTouchDevice, frozenFieldId, columns, allFields, frozenColumnCountOption]);
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
-  const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
+  const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[options?.rowHeight ?? RowHeightLevel.Short];
   const columnHeaderHeight =
-    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
+    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
   const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
@@ -177,7 +175,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const { undo, redo } = useUndoRedo();
   const { setGridRef, searchCursor, setRecordMap } = useGridSearchStore();
   const [expandRecord, setExpandRecord] = useState<{ tableId: string; recordId: string }>();
-  const [newRecords, setNewRecords] = useState<ICreateRecordsRo['records']>();
   const [autoFillFieldId, setAutoFillFieldId] = useState<string | undefined>();
 
   const { fieldAIEnable = false } = usage?.limit ?? {};
@@ -194,7 +191,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const prefillingGridRef = useRef<IGridRef>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
-  const confirmNewRecordsRef = useRef<IConfirmNewRecordsRef>(null);
 
   const groupCollection = useGridGroupCollection();
 
@@ -237,19 +233,44 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   } = useGridSelection({ recordMap, columns, viewQuery, gridRef });
 
   const {
-    localRecord,
+    localRecords,
+    prefillingRows,
     prefillingRowIndex,
     prefillingRowOrder,
-    prefillingFieldValueMap,
+    setPrefillingRows,
     setPrefillingRowIndex,
     setPrefillingRowOrder,
     onPrefillingCellEdited,
     getPrefillingCellContent,
-    setPrefillingFieldValueMap,
   } = useGridPrefillingRow(columns);
 
   const inPresorting = presortRecord != null;
   const inPrefilling = prefillingRowIndex != null;
+
+  const buildPrefillingInitialFields = useCallback(
+    async (baseValueMap: { [fieldId: string]: unknown } = {}) => {
+      const filterValueMap = await extractDefaultFieldsFromFilters({
+        filter,
+        fieldMap: keyBy(allFields, 'id'),
+        currentUserId: user.id,
+      });
+      let groupValueMap: { [fieldId: string]: unknown } = {};
+      if (group?.length && prefillingRowIndex != null) {
+        const refRecord = recordMap[prefillingRowIndex];
+        if (refRecord) {
+          groupValueMap = group.reduce(
+            (prev, { fieldId }) => {
+              prev[fieldId] = refRecord.getCellValue(fieldId);
+              return prev;
+            },
+            {} as { [fieldId: string]: unknown }
+          );
+        }
+      }
+      return { ...baseValueMap, ...groupValueMap, ...filterValueMap };
+    },
+    [allFields, group, prefillingRowIndex, recordMap, user.id, filter]
+  );
 
   const onValidation = useCallback(
     (cell: ICellItem) => {
@@ -281,18 +302,21 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onPrefillingCellDrop = useCallback(
     async (cell: ICellItem, files: FileList) => {
-      if (!localRecord) return;
-
       const attachments = await uploadFiles(files, UploadType.Table, baseId);
-      const [columnIndex] = cell;
+      const [columnIndex, rowIndex] = cell;
       const field = fields[columnIndex];
-      const oldCellValue = (localRecord.getCellValue(field.id) as IAttachmentCellValue) || [];
-      setPrefillingFieldValueMap((prev) => ({
-        ...prev,
-        [field.id]: [...oldCellValue, ...attachments],
-      }));
+      setPrefillingRows((prev) => {
+        const next = [...prev];
+        const row = next[rowIndex];
+        if (!row) return prev;
+        const oldCellValue = (row.fields[field.id] as IAttachmentCellValue) || [];
+        next[rowIndex] = {
+          fields: { ...row.fields, [field.id]: [...oldCellValue, ...attachments] },
+        };
+        return next;
+      });
     },
-    [baseId, fields, localRecord, setPrefillingFieldValueMap]
+    [baseId, fields, setPrefillingRows]
   );
 
   useGridFileEvent({
@@ -318,8 +342,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const resetNewRecords = () => {
     setPrefillingRowIndex(undefined);
-    setPrefillingFieldValueMap(undefined);
-    setNewRecords(undefined);
+    setPrefillingRows([]);
   };
 
   useEffect(() => {
@@ -587,43 +610,25 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     num?: number
   ) => {
     const index = targetIndex ?? Math.max(realRowCount - 1, 0);
-    if (num === 0) {
-      return;
-    }
+
+    if (num === 0) return;
+
     setPrefillingRowOrder(rowOrder);
 
-    const filter = view?.filter;
-    const fieldMap = keyBy(allFields, 'id');
-
-    if (num === 1 || num === undefined) {
-      setPrefillingFieldValueMap(fieldValueMap);
-
-      setPrefillingRowIndex(index);
-      setSelection(emptySelection);
-      gridRef.current?.setSelection(emptySelection);
-      setTimeout(() => {
-        prefillingGridRef.current?.setSelection(
-          new CombinedSelection(SelectionRegionType.Cells, [
-            [0, 0],
-            [0, 0],
-          ])
-        );
-      });
-    } else {
-      const filterValueMap = await extractDefaultFieldsFromFilters({
-        filter,
-        fieldMap,
-        currentUserId: user.id,
-      });
-      // insert empty records
-      const emptyRecords = Array.from({ length: num }).fill({
-        fields: {
-          ...fieldValueMap,
-          ...filterValueMap,
-        },
-      }) as ICreateRecordsRo['records'];
-      mutateCreateRecord(emptyRecords);
-    }
+    const count = num ?? 1;
+    const initialFields = await buildPrefillingInitialFields(fieldValueMap);
+    setPrefillingRows(Array.from({ length: count }).map(() => ({ fields: initialFields })));
+    setPrefillingRowIndex(index);
+    setSelection(emptySelection);
+    gridRef.current?.setSelection(emptySelection);
+    setTimeout(() => {
+      prefillingGridRef.current?.setSelection(
+        new CombinedSelection(SelectionRegionType.Cells, [
+          [0, 0],
+          [0, 0],
+        ])
+      );
+    });
   };
 
   const onRowAppend = (targetIndex?: number) => {
@@ -685,7 +690,6 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       return;
     }
     if (isSelectionLoaded({ selection, recordMap, rowCount: realRowCount })) {
-      // sync copy
       syncCopy(e, { selection, recordMap });
       return;
     }
@@ -719,6 +723,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     syncCopy(e, { getCopyData });
   };
 
+  const onCopyForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {
+    if (!localRecords.length) return;
+    const recordMapForCopy: { [key: number]: Record } = {};
+    for (let i = 0; i < localRecords.length; i++) {
+      recordMapForCopy[i] = localRecords[i];
+    }
+    syncCopy(e, { selection, recordMap: recordMapForCopy });
+  };
+
   const onPaste = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
       return toast({ title: 'Unable to paste' });
@@ -727,16 +740,32 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onPasteForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {
-    if (!permission['record|update'] || localRecord == null) {
+    if (!permission['record|update'] || !localRecords.length) {
       return toast({ title: 'Unable to paste' });
     }
-    paste(e, selection, { 0: localRecord }, (records) => {
-      if (records.length > 1) {
-        confirmNewRecordsRef.current?.setOpen(true, records.length);
-        setNewRecords(records);
-        return;
-      }
-      setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...records[0].fields });
+    const [start, end] = selection.serialize();
+    const startRow = Math.min(start[1], end[1]);
+    const endRow = Math.max(start[1], end[1]);
+    const recordMapForPaste: { [key: number]: Record } = {};
+    for (let r = startRow; r <= endRow; r++) {
+      recordMapForPaste[r - startRow] = localRecords[r];
+    }
+    paste(e, selection, recordMapForPaste, (records) => {
+      setPrefillingRows((prev) => {
+        if (records.length <= 0) return prev;
+        const baseIndex = startRow;
+        const next = [...prev];
+        for (let i = 0; i < records.length; i++) {
+          const idx = baseIndex + i;
+          const rec = records[i];
+          if (next[idx]) {
+            next[idx] = { fields: { ...(next[idx].fields ?? {}), ...(rec.fields ?? {}) } };
+          } else {
+            next[idx] = { fields: { ...(rec.fields ?? {}) } };
+          }
+        }
+        return next.filter(Boolean);
+      });
     });
   };
 
@@ -760,19 +789,26 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   };
 
   const onDeleteForPrefilling = (selection: CombinedSelection) => {
-    if (localRecord == null || prefillingFieldValueMap == null) return;
-
     const [start, end] = selection.serialize();
     const startCol = Math.min(start[0], end[0]);
     const endCol = Math.max(start[0], end[0]);
-
-    const updated: { [fieldId: string]: unknown } = { ...prefillingFieldValueMap };
-    for (let col = startCol; col <= endCol; col++) {
-      const fieldId = columns[col]?.id;
-      if (!fieldId) continue;
-      updated[fieldId] = null;
-    }
-    setPrefillingFieldValueMap(updated);
+    const startRow = Math.min(start[1], end[1]);
+    const endRow = Math.max(start[1], end[1]);
+    setPrefillingRows((prev) => {
+      const next = [...prev];
+      for (let row = startRow; row <= endRow; row++) {
+        const rowData = next[row];
+        if (!rowData) continue;
+        const updated: { [fieldId: string]: unknown } = { ...rowData.fields };
+        for (let col = startCol; col <= endCol; col++) {
+          const fieldId = columns[col]?.id;
+          if (!fieldId) continue;
+          updated[fieldId] = null;
+        }
+        next[row] = { fields: updated };
+      }
+      return next;
+    });
   };
 
   const onDeleteForPresort = (selection: CombinedSelection) => {
@@ -1059,20 +1095,27 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const prefillingRowStyle = useMemo(() => {
     const defaultTop = rowHeight;
-    const height = rowHeight + 5;
+    const height = rowHeight * Math.max(prefillingRows.length, 1) + 3;
 
     if (gridRef.current == null || prefillingRowIndex == null) {
       return { top: 0, height };
     }
 
+    const minTop = GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short];
+    const baseTop = gridRef.current.getRowOffset(prefillingRowIndex) + defaultTop;
+    const containerHeight = containerRef.current?.clientHeight ?? 0;
+    const effectiveHeight = Math.min(height, MAX_PREFILLING_REGION_HEIGHT);
+    const bottomSafe = GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short] + columnStatisticHeight;
+    const maxTop =
+      containerHeight > 0
+        ? Math.max(minTop, containerHeight - effectiveHeight - bottomSafe)
+        : Infinity;
+
     return {
-      top: Math.max(
-        gridRef.current.getRowOffset(prefillingRowIndex) + defaultTop,
-        GIRD_ROW_HEIGHT_DEFINITIONS[RowHeightLevel.Short]
-      ),
+      top: Math.min(Math.max(baseTop, minTop), maxTop),
       height,
     };
-  }, [rowHeight, prefillingRowIndex]);
+  }, [rowHeight, prefillingRowIndex, prefillingRows.length]);
 
   const presortRowStyle = useMemo(() => {
     const height = rowHeight + 5;
@@ -1259,15 +1302,32 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       )}
       {inPrefilling && (
         <PrefillingRowContainer
-          style={prefillingRowStyle}
+          style={{
+            ...prefillingRowStyle,
+            maxHeight: MAX_PREFILLING_REGION_HEIGHT,
+          }}
           isLoading={isCreatingRecord}
           onClickOutside={async () => {
-            if (isCreatingRecord || newRecords?.length) return;
-            await mutateCreateRecord([{ fields: prefillingFieldValueMap! }]);
+            if (isCreatingRecord || !prefillingRows.length) return;
+            await mutateCreateRecord(prefillingRows.map((r) => ({ fields: r.fields })));
           }}
           onCancel={() => {
             setPrefillingRowIndex(undefined);
-            setPrefillingFieldValueMap(undefined);
+            setPrefillingRows([]);
+          }}
+          onAddRow={async () => {
+            const initialFields = await buildPrefillingInitialFields();
+            setPrefillingRows((prev) => [...prev, { fields: initialFields }]);
+            const prefillingRowCount = prefillingRows.length;
+            prefillingGridRef.current?.scrollToItem([0, prefillingRowCount]);
+            setTimeout(() => {
+              prefillingGridRef.current?.setSelection(
+                new CombinedSelection(SelectionRegionType.Cells, [
+                  [0, prefillingRowCount],
+                  [0, prefillingRowCount],
+                ])
+              );
+            });
           }}
         >
           <Grid
@@ -1277,10 +1337,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
             }
             scrollBufferY={0}
-            scrollBarVisible={false}
-            rowCount={1}
+            scrollBarXVisible={false}
+            rowCount={prefillingRows.length || 1}
             rowHeight={rowHeight}
-            rowIndexVisible={false}
             rowControls={rowControls}
             draggable={DraggableType.None}
             selectable={SelectableType.Cell}
@@ -1292,7 +1351,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             getCellContent={getPrefillingCellContent}
             onScrollChanged={onPrefillingGridScrollChanged}
             onCellEdited={onPrefillingCellEdited}
-            onCopy={(selection, e) => onCopyForSingleRow(e, selection, prefillingFieldValueMap)}
+            onCopy={onCopyForPrefilling}
             onPaste={onPasteForPrefilling}
             onDelete={getAuthorizedFunction(onDeleteForPrefilling, 'record|update')}
           />
@@ -1311,7 +1370,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
               permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
             }
             scrollBufferY={0}
-            scrollBarVisible={false}
+            scrollBarXVisible={false}
+            scrollBarYVisible={false}
             rowCount={1}
             rowHeight={rowHeight}
             rowIndexVisible={false}
@@ -1351,14 +1411,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
           buttonClickStatusHook={buttonClickStatusHook}
         />
       )}
-      <ConfirmNewRecords
-        ref={confirmNewRecordsRef}
-        onCancel={() => {
-          setPrefillingFieldValueMap({ ...prefillingFieldValueMap, ...newRecords?.[0].fields });
-          setNewRecords(undefined);
-        }}
-        onConfirm={() => newRecords && mutateCreateRecord(newRecords)}
-      />
+      {/* removed legacy ConfirmNewRecords flow */}
       <ConfirmDialog
         open={Boolean(autoFillFieldId)}
         onOpenChange={(val) => {

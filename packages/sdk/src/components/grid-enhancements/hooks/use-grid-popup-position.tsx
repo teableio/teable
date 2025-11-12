@@ -24,7 +24,7 @@ export const useGridPopupPosition = (rect: IEditorProps['rect'], maxHeight?: num
     return {
       top: isAbove ? 'unset' : height + 1,
       bottom: isAbove ? height : 'unset',
-      maxHeight: finalHeight,
+      maxHeight: maxHeight ?? finalHeight,
     };
   }, [editorId, y, height, maxHeight]);
 };
