@@ -1067,6 +1067,13 @@
       "alreadyExists": "Pin already exists",
       "notFound": "Pin not found",
       "anchorNotFound": "Pin anchor not found"
+    },
+    "trash": {
+      "invalidResourceType": "Invalid resource type",
+      "notFound": "Trash item not found",
+      "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
+      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
+      "tableNotFound": "Table trash item not found"
     }
   }
 }

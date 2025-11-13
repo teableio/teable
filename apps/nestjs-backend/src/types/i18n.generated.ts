@@ -2271,6 +2271,13 @@ export type I18nTranslations = {
                 "notFound": string;
                 "anchorNotFound": string;
             };
+            "trash": {
+                "invalidResourceType": string;
+                "notFound": string;
+                "parentSpaceTrashed": string;
+                "parentBaseOrSpaceTrashed": string;
+                "tableNotFound": string;
+            };
         };
         "spaceRole": {
             "role": {

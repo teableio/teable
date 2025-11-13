@@ -1063,6 +1063,13 @@
       "alreadyExists": "Il preferito esiste già",
       "notFound": "Preferito non trovato",
       "anchorNotFound": "Ancoraggio del preferito non trovato"
+    },
+    "trash": {
+      "invalidResourceType": "Tipo di risorsa non valido",
+      "notFound": "Elemento del cestino non trovato",
+      "parentSpaceTrashed": "Impossibile ripristinare questa base perché il suo spazio padre è anche nel cestino",
+      "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
+      "tableNotFound": "Elemento del cestino della tabella non trovato"
     }
   }
 }

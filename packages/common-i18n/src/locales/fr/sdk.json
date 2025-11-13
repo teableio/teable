@@ -1041,6 +1041,13 @@
       "alreadyExists": "Le favori existe déjà",
       "notFound": "Favori non trouvé",
       "anchorNotFound": "Ancre de favori non trouvée"
+    },
+    "trash": {
+      "invalidResourceType": "Type de ressource non valide",
+      "notFound": "Élément de la corbeille introuvable",
+      "parentSpaceTrashed": "Impossible de restaurer cette base car son espace parent est également dans la corbeille",
+      "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
+      "tableNotFound": "Élément de corbeille de table introuvable"
     }
   }
 }

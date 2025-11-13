@@ -1051,6 +1051,13 @@
       "alreadyExists": "El favorito ya existe",
       "notFound": "Favorito no encontrado",
       "anchorNotFound": "Anclaje de favorito no encontrado"
+    },
+    "trash": {
+      "invalidResourceType": "Tipo de recurso no válido",
+      "notFound": "Elemento de la papelera no encontrado",
+      "parentSpaceTrashed": "No se puede restaurar esta base porque su espacio principal también está en la papelera",
+      "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
+      "tableNotFound": "Elemento de papelera de tabla no encontrado"
     }
   }
 }

@@ -1063,6 +1063,13 @@
       "alreadyExists": "Favorit bereits vorhanden",
       "notFound": "Favorit nicht gefunden",
       "anchorNotFound": "Anker-Favorit nicht gefunden"
+    },
+    "trash": {
+      "invalidResourceType": "Ungültiger Ressourcentyp",
+      "notFound": "Papierkorb-Element nicht gefunden",
+      "parentSpaceTrashed": "Diese Basis kann nicht wiederhergestellt werden, da der übergeordnete Bereich ebenfalls im Papierkorb ist",
+      "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
+      "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
     }
   }
 }

@@ -1027,6 +1027,13 @@
       "alreadyExists": "お気に入りは既に存在します",
       "notFound": "お気に入りが見つかりません",
       "anchorNotFound": "アンカーお気に入りが見つかりません"
+    },
+    "trash": {
+      "invalidResourceType": "無効なリソースタイプ",
+      "notFound": "ゴミ箱のアイテムが見つかりません",
+      "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
+      "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     }
   }
 }

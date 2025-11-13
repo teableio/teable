@@ -1037,6 +1037,13 @@
       "alreadyExists": "Favori zaten mevcut",
       "notFound": "Favori bulunamadı",
       "anchorNotFound": "Favori bağlantı noktası bulunamadı"
+    },
+    "trash": {
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Çöp kutusu öğesi bulunamadı",
+      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
+      "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     }
   }
 }
