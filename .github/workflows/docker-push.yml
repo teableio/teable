@@ -1,6 +1,6 @@
 name: Build and Push to Docker Registry
 
-concurrency: 
+concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
@@ -58,7 +58,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20.9.0
+          node-version: 22.18.0
       - name: ⚙️ Install zx
         run: npm install -g zx
 
@@ -122,7 +122,7 @@ jobs:
         run: |
           REGISTRIES=("registry.cn-shenzhen.aliyuncs.com/teable" "ghcr.io/teableio" "docker.io/teableio")
           TAGS=("latest" "sha-${{ github.sha }}")
-          
+
           for REGISTRY in "${REGISTRIES[@]}"; do
             for TAG in "${TAGS[@]}"; do
               docker manifest create $REGISTRY/${{ matrix.image }}:$TAG \

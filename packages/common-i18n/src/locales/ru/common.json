@@ -369,6 +369,14 @@
       },
       "webSearch": {
         "description": "Настройте API ключ Firecrawl для включения функции веб-поиска, перейдите в <a>настройки Firecrawl</a> для получения API ключа"
+      },
+      "app": {
+        "domain": "Домен",
+        "v0ApiKey": "Ключ API V0",
+        "customDomain": "Пользовательский домен (необязательно)",
+        "customDomainDescription": "Настройте свой пользовательский домен для развертывания приложения, перейдите в <a>домен Vercel</a> для получения пользовательского домена",
+        "vercelToken": "Токен API Vercel",
+        "vercelTokenDescription": "Перейдите в <a>настройки Vercel</a> для получения токена API"
       }
     },
     "action": {

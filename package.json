@@ -78,7 +78,7 @@
     "zx": "7.2.3"
   },
   "engines": {
-    "node": ">=20.0.0",
+    "node": ">=22.0.0",
     "pnpm": ">=9.13.0",
     "npm": "please-use-pnpm"
   },

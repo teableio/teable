@@ -367,6 +367,14 @@
       },
       "webSearch": {
         "description": "ウェブ検索機能を有効にするためにFirecrawl APIキーを設定し、APIキーを取得するために<a>Firecrawl設定</a>にアクセスしてください"
+      },
+      "app": {
+        "domain": "ドメイン",
+        "v0ApiKey": "V0 APIキー",
+        "customDomain": "カスタムドメイン（オプション）",
+        "customDomainDescription": "アプリのデプロイ用のカスタムドメインを設定し、<a>Vercelドメイン</a>にアクセスしてカスタムドメインを取得してください",
+        "vercelToken": "Vercel APIトークン",
+        "vercelTokenDescription": "APIトークンを取得するために<a>Vercel設定</a>にアクセスしてください"
       }
     },
     "action": {

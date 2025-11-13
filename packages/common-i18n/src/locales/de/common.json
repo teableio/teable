@@ -401,6 +401,14 @@
       },
       "webSearch": {
         "description": "Konfigurieren Sie den Firecrawl API-Schlüssel, um die Websuchfunktion zu aktivieren. Gehen Sie zu <a>Firecrawl-Einstellungen</a>, um den API-Schlüssel zu erhalten"
+      },
+      "app": {
+        "domain": "Domain",
+        "v0ApiKey": "V0 API Schlüssel",
+        "customDomain": "Benutzerdefinierte Domain (Optional)",
+        "customDomainDescription": "Legen Sie Ihre benutzerdefinierte Domain für die App-Bereitstellung fest, besuchen Sie <a>Vercel Domain</a> um eine benutzerdefinierte Domain zu erhalten",
+        "vercelToken": "Vercel API Token",
+        "vercelTokenDescription": "Besuchen Sie <a>Vercel Einstellungen</a> um das API Token zu erhalten"
       }
     },
     "action": {

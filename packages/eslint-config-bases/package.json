@@ -132,7 +132,7 @@
   "devDependencies": {
     "@testing-library/jest-dom": "6.4.2",
     "@testing-library/react": "14.2.2",
-    "@types/node": "20.9.0",
+    "@types/node": "22.18.0",
     "@types/react": "18.2.69",
     "@types/react-dom": "18.2.22",
     "es-check": "7.1.1",

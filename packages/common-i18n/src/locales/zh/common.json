@@ -542,6 +542,14 @@
       },
       "webSearch": {
         "description": "配置 Firecrawl API 密钥以启用网络搜索功能，访问 <a>Firecrawl 设置</a> 获取 API 密钥"
+      },
+      "app": {
+        "domain": "域名",
+        "v0ApiKey": "V0 API 密钥",
+        "customDomain": "自定义域名 (可选)",
+        "customDomainDescription": "设置应用部署的自定义域名，访问 <a>Vercel 域名</a> 获取自定义域名",
+        "vercelToken": "Vercel API 密钥",
+        "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥"
       }
     },
     "action": {

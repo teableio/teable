@@ -240,7 +240,7 @@ export class MinioStorage implements StorageAdapter {
           .getObject(bucket, objectName)
           .then((stream) => {
             stream.pipe(writeStream);
-            writeStream.on('finish', resolve);
+            writeStream.on('finish', () => resolve(null));
             writeStream.on('error', reject);
             stream.on('error', reject);
           })

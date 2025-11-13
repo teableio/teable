@@ -545,6 +545,14 @@
       },
       "webSearch": {
         "description": "Configure Firecrawl API key to enable web search feature, access <a>Firecrawl settings</a> to get API key"
+      },
+      "app": {
+        "domain": "Domain",
+        "v0ApiKey": "V0 API Key",
+        "customDomain": "Custom Domain (Optional)",
+        "customDomainDescription": "Set your custom domain for app deployment, access <a>Vercel domain</a> to get custom domain",
+        "vercelToken": "Vercel API Token",
+        "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token"
       }
     },
     "action": {

@@ -374,6 +374,14 @@
       },
       "webSearch": {
         "description": "Web arama özelliğini etkinleştirmek için Firecrawl API anahtarını yapılandırın, API anahtarını almak için <a>Firecrawl ayarlarına</a> erişin"
+      },
+      "app": {
+        "domain": "Alan Adı",
+        "v0ApiKey": "V0 API Anahtarı",
+        "customDomain": "Özel Alan Adı (İsteğe Bağlı)",
+        "customDomainDescription": "Uygulama dağıtımı için özel alan adınızı ayarlayın, özel alan adı almak için <a>Vercel alan adına</a> erişin",
+        "vercelToken": "Vercel API Token",
+        "vercelTokenDescription": "API token almak için <a>Vercel ayarlarına</a> erişin"
       }
     },
     "action": {

@@ -61,7 +61,7 @@
     "@size-limit/file": "11.1.2",
     "@teable/eslint-config-bases": "workspace:^",
     "@types/lodash": "4.17.0",
-    "@types/node": "20.9.0",
+    "@types/node": "22.18.0",
     "@vitest/coverage-v8": "2.1.5",
     "antlr4ts-cli": "0.5.0-alpha.4",
     "cross-env": "7.0.3",

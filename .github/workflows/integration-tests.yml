@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [20.9.0]
+        node-version: [22.18.0]
         database-type: [postgres]
         shard: [1/4, 2/4, 3/4, 4/4]
     env:

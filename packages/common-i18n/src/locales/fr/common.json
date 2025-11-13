@@ -362,6 +362,14 @@
       },
       "webSearch": {
         "description": "Configurez la clé API Firecrawl pour activer la fonction de recherche web, accédez aux <a>paramètres Firecrawl</a> pour obtenir la clé API"
+      },
+      "app": {
+        "domain": "Domaine",
+        "v0ApiKey": "Clé API V0",
+        "customDomain": "Domaine Personnalisé (Optionnel)",
+        "customDomainDescription": "Définissez votre domaine personnalisé pour le déploiement de l'application, accédez au <a>domaine Vercel</a> pour obtenir un domaine personnalisé",
+        "vercelToken": "Token API Vercel",
+        "vercelTokenDescription": "Accédez aux <a>paramètres Vercel</a> pour obtenir le token API"
       }
     },
     "action": {

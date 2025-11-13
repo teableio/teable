@@ -917,6 +917,21 @@
       "ask": "提问",
       "analyze": "分析",
       "build": "构建"
+    },
+    "buildApp": {
+      "thinking": {
+        "duration": "思考用时 {{duration}} 秒"
+      },
+      "task": {
+        "searching": "搜索 \"{{query}}\"",
+        "readingFiles": "读取文件:",
+        "foundResults": "找到 {{count}} 个结果",
+        "noIssuesFound": "未发现问题",
+        "defaultTitle": "任务"
+      },
+      "codeProject": {
+        "defaultTitle": "代码项目"
+      }
     }
   }
 }

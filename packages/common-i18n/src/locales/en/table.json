@@ -914,6 +914,21 @@
       "ask": "Ask",
       "analyze": "Analyze",
       "build": "Build"
+    },
+    "buildApp": {
+      "thinking": {
+        "duration": "Thought for {{duration}}s"
+      },
+      "task": {
+        "searching": "Searching \"{{query}}\"",
+        "readingFiles": "Reading files:",
+        "foundResults": "Found {{count}} results",
+        "noIssuesFound": "No issues found",
+        "defaultTitle": "Task"
+      },
+      "codeProject": {
+        "defaultTitle": "Code Project"
+      }
     }
   }
 }

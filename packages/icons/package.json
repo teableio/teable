@@ -43,7 +43,7 @@
     "@svgr/plugin-prettier": "8.1.0",
     "@svgr/plugin-svgo": "8.1.0",
     "@types/fs-extra": "11.0.4",
-    "@types/node": "20.9.0",
+    "@types/node": "22.18.0",
     "@types/react": "18.2.69",
     "axios": "1.7.7",
     "chalk": "5.3.0",

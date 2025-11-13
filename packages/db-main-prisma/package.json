@@ -55,7 +55,7 @@
     "@httpx/dsn-parser": "1.8.4",
     "@faker-js/faker": "8.4.1",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/node": "20.9.0",
+    "@types/node": "22.18.0",
     "@types/bcrypt": "5.0.2",
     "camelcase": "8.0.0",
     "cross-env": "7.0.3",

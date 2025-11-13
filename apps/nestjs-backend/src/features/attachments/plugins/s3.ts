@@ -451,7 +451,7 @@ export class S3Storage implements StorageAdapter {
     await new Promise((resolve, reject) => {
       const writeStream = fse.createWriteStream(sourceFilePath);
       (stream as Readable).pipe(writeStream);
-      writeStream.on('finish', resolve);
+      writeStream.on('finish', () => resolve(null));
       writeStream.on('error', reject);
       (stream as Readable).on('error', reject);
     });

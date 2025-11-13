@@ -30,7 +30,7 @@
   "dependencies": {
     "@asteasolutions/zod-to-openapi": "8.1.0",
     "@teable/core": "workspace:^",
-    "@types/node": "20.9.0",
+    "@types/node": "22.18.0",
     "axios": "1.7.7",
     "form-data": "4.0.0",
     "httpsnippet-lite": "3.0.5",
