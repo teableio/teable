@@ -1082,6 +1082,16 @@
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
       "tableNotFound": "Table trash item not found"
     },
+    "user": {
+      "disallowSignUp": "The current instance disallows sign up by the administrator",
+      "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
+      "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
+      "systemUser": "User is a system user",
+      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Invalid resource type"
+    },
     "template": {
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",

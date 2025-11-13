@@ -2285,6 +2285,16 @@ export type I18nTranslations = {
                 "parentBaseOrSpaceTrashed": string;
                 "tableNotFound": string;
             };
+            "user": {
+                "disallowSignUp": string;
+                "waitlistInviteCodeRequired": string;
+                "waitlistInviteCodeInvalid": string;
+                "systemUser": string;
+                "collaboratorsInSpaces": string;
+            };
+            "lastVisit": {
+                "invalidResourceType": string;
+            };
             "template": {
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;

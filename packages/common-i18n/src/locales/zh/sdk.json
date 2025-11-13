@@ -1082,6 +1082,16 @@
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
       "tableNotFound": "表格回收站项目未找到"
     },
+    "user": {
+      "disallowSignUp": "管理员已禁止当前实例的用户注册",
+      "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
+      "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
+      "systemUser": "用户是系统用户",
+      "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）"
+    },
+    "lastVisit": {
+      "invalidResourceType": "无效的资源类型"
+    },
     "template": {
       "snapshotRequired": "此模板无法发布，因为缺少快照",
       "sourceTemplateNotFound": "源模板不存在",

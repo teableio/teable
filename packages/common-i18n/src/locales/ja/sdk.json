@@ -1042,6 +1042,16 @@
       "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     },
+    "user": {
+      "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
+      "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
+      "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
+      "systemUser": "ユーザーはシステムユーザーです",
+      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）"
+    },
+    "lastVisit": {
+      "invalidResourceType": "無効なリソースタイプ"
+    },
     "template": {
       "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",

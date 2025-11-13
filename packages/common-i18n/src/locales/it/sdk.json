@@ -1078,6 +1078,16 @@
       "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
     },
+    "user": {
+      "disallowSignUp": "L'istanza attuale non consente la registrazione da parte dell'amministratore",
+      "waitlistInviteCodeRequired": "La lista d'attesa è abilitata, è richiesto un codice di invito",
+      "waitlistInviteCodeInvalid": "La lista d'attesa è abilitata, il codice di invito non è valido",
+      "systemUser": "L'utente è un utente di sistema",
+      "collaboratorsInSpaces": "L'utente ha collaboratori negli spazi (o spazi eliminati nel cestino)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Tipo di risorsa non valido"
+    },
     "template": {
       "snapshotRequired": "Questo modello non può essere pubblicato perché manca l'istantanea",
       "sourceTemplateNotFound": "Modello di origine non trovato",

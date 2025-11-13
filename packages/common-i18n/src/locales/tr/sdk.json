@@ -1052,6 +1052,16 @@
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
+    "user": {
+      "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
+      "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
+      "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
+      "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
+      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Geçersiz kaynak türü"
+    },
     "template": {
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",

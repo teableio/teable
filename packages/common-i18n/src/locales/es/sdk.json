@@ -1066,6 +1066,16 @@
       "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
       "tableNotFound": "Elemento de papelera de tabla no encontrado"
     },
+    "user": {
+      "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",
+      "waitlistInviteCodeRequired": "La lista de espera está habilitada, se requiere código de invitación",
+      "waitlistInviteCodeInvalid": "La lista de espera está habilitada, el código de invitación no es válido",
+      "systemUser": "El usuario es un usuario del sistema",
+      "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Tipo de recurso no válido"
+    },
     "template": {
       "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",

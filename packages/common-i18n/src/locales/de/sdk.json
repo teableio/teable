@@ -1078,6 +1078,16 @@
       "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
     },
+    "user": {
+      "disallowSignUp": "Die aktuelle Instanz erlaubt keine Anmeldungen durch den Administrator",
+      "waitlistInviteCodeRequired": "Warteliste ist aktiviert, Einladungscode ist erforderlich",
+      "waitlistInviteCodeInvalid": "Warteliste ist aktiviert, Einladungscode ist ungültig",
+      "systemUser": "Benutzer ist ein Systembenutzer",
+      "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Ungültiger Ressourcentyp"
+    },
     "template": {
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",

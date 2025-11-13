@@ -1056,6 +1056,16 @@
       "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
       "tableNotFound": "Élément de corbeille de table introuvable"
     },
+    "user": {
+      "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
+      "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
+      "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
+      "systemUser": "L'utilisateur est un utilisateur système",
+      "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Type de ressource non valide"
+    },
     "template": {
       "snapshotRequired": "Ce modèle n'a pas pu être publié en raison d'un instantané manquant",
       "sourceTemplateNotFound": "Modèle source introuvable",
