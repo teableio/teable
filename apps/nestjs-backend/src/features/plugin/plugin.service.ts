@@ -230,7 +230,7 @@ export class PluginService {
           },
         })
         .catch(() => {
-          throw new CustomHttpException('Plugin not found', HttpErrorCode.VALIDATION_ERROR, {
+          throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
             localization: {
               i18nKey: 'httpErrors.plugin.notFound',
             },
@@ -274,7 +274,7 @@ export class PluginService {
         where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
       })
       .catch(() => {
-        throw new CustomHttpException('Plugin not found', HttpErrorCode.VALIDATION_ERROR, {
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
           localization: {
             i18nKey: 'httpErrors.plugin.notFound',
           },

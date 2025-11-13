@@ -62,7 +62,7 @@ export class PluginContextMenuService {
     });
 
     if (!plugin) {
-      throw new CustomHttpException('Plugin not found', HttpErrorCode.VALIDATION_ERROR, {
+      throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.plugin.notFound',
         },
