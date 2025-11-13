@@ -57,6 +57,7 @@ export enum Events {
   // USER_PASSWORD_RESET = 'user.password.reset',
   USER_PASSWORD_CHANGE = 'user.password.change',
   // USER_PASSWORD_FORGOT = 'user.password.forgot'
+  USER_EMAIL_CHANGE = 'user.email.change',
 
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
