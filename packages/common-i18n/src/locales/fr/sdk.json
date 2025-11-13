@@ -895,7 +895,11 @@
     },
     "plugin": {
       "notFound": "Plugin non trouvé",
-      "notSupportInstallInView": "Le plugin ne prend pas en charge l'installation dans la vue"
+      "notSupportInstallInView": "Le plugin ne prend pas en charge l'installation dans la vue",
+      "userNotFound": "Utilisateur du plugin introuvable",
+      "invalidSecret": "Secret invalide",
+      "invalidRefreshToken": "Jeton de rafraîchissement invalide",
+      "anomalousToken": "Jeton anormal"
     },
     "pluginPanel": {
       "notFound": "Panneau de plugin non trouvé"
@@ -906,6 +910,9 @@
     "pluginContextMenu": {
       "notFound": "Menu contextuel du plugin non trouvé",
       "anchorNotFound": "Ancre du menu contextuel du plugin non trouvée"
+    },
+    "pluginChart": {
+      "queryNotFound": "Requête du graphique du plugin non trouvée"
     },
     "dbConnection": {
       "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",

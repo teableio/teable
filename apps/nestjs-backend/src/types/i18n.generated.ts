@@ -2125,6 +2125,10 @@ export type I18nTranslations = {
             "plugin": {
                 "notFound": string;
                 "notSupportInstallInView": string;
+                "userNotFound": string;
+                "invalidSecret": string;
+                "invalidRefreshToken": string;
+                "anomalousToken": string;
             };
             "pluginPanel": {
                 "notFound": string;
@@ -2135,6 +2139,9 @@ export type I18nTranslations = {
             "pluginContextMenu": {
                 "notFound": string;
                 "anchorNotFound": string;
+            };
+            "pluginChart": {
+                "queryNotFound": string;
             };
             "dbConnection": {
                 "unsupportedDriver": string;

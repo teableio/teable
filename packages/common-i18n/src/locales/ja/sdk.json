@@ -881,7 +881,11 @@
     },
     "plugin": {
       "notFound": "プラグインが見つかりません",
-      "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません"
+      "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません",
+      "userNotFound": "プラグインユーザーが見つかりません",
+      "invalidSecret": "無効なシークレット",
+      "invalidRefreshToken": "無効なリフレッシュトークン",
+      "anomalousToken": "異常なトークン"
     },
     "pluginPanel": {
       "notFound": "プラグインパネルが見つかりません"
@@ -892,6 +896,9 @@
     "pluginContextMenu": {
       "notFound": "プラグインコンテキストメニューが見つかりません",
       "anchorNotFound": "プラグインコンテキストメニューのアンカーが見つかりません"
+    },
+    "pluginChart": {
+      "queryNotFound": "プラグインチャートのクエリが見つかりません"
     },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",

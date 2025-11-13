@@ -924,7 +924,11 @@
     },
     "plugin": {
       "notFound": "Plugin not found",
-      "notSupportInstallInView": "Plugin does not support installation in view"
+      "notSupportInstallInView": "Plugin does not support installation in view",
+      "userNotFound": "Plugin user not found",
+      "invalidSecret": "Invalid secret",
+      "invalidRefreshToken": "Invalid refresh token",
+      "anomalousToken": "Anomalous token"
     },
     "pluginPanel": {
       "notFound": "Plugin panel not found"
@@ -935,6 +939,9 @@
     "pluginContextMenu": {
       "notFound": "Plugin context menu not found",
       "anchorNotFound": "Plugin context menu anchor not found"
+    },
+    "pluginChart": {
+      "queryNotFound": "Plugin chart query not found"
     },
     "dbConnection": {
       "unsupportedDriver": "Unsupported database driver: {{driver}}",

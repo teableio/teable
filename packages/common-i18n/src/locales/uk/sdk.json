@@ -917,7 +917,11 @@
     },
     "plugin": {
       "notFound": "Плагін не знайдено",
-      "notSupportInstallInView": "Плагін не підтримує встановлення у вид"
+      "notSupportInstallInView": "Плагін не підтримує встановлення у вид",
+      "userNotFound": "Користувач плагіна не знайдений",
+      "invalidSecret": "Недійсний секрет",
+      "invalidRefreshToken": "Недійсний токен оновлення",
+      "anomalousToken": "Аномальний токен"
     },
     "pluginPanel": {
       "notFound": "Панель плагінів не знайдена"
@@ -928,6 +932,9 @@
     "pluginContextMenu": {
       "notFound": "Контекстне меню плагіна не знайдено",
       "anchorNotFound": "Якір контекстного меню плагіна не знайдено"
+    },
+    "pluginChart": {
+      "queryNotFound": "Запит діаграми плагіна не знайдено"
     },
     "dbConnection": {
       "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",

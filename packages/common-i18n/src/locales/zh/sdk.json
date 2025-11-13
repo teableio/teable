@@ -921,7 +921,11 @@
     },
     "plugin": {
       "notFound": "插件不存在",
-      "notSupportInstallInView": "插件不支持在视图中安装"
+      "notSupportInstallInView": "插件不支持在视图中安装",
+      "userNotFound": "插件用户不存在",
+      "invalidSecret": "无效的密钥",
+      "invalidRefreshToken": "无效的刷新令牌",
+      "anomalousToken": "异常令牌"
     },
     "pluginPanel": {
       "notFound": "插件面板不存在"
@@ -932,6 +936,9 @@
     "pluginContextMenu": {
       "notFound": "未找到插件右键菜单",
       "anchorNotFound": "未找到插件右键菜单锚点"
+    },
+    "pluginChart": {
+      "queryNotFound": "未找到插件图表查询"
     },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",

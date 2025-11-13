@@ -891,7 +891,11 @@
     },
     "plugin": {
       "notFound": "Eklenti bulunamadı",
-      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor"
+      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor",
+      "userNotFound": "Eklenti kullanıcısı bulunamadı",
+      "invalidSecret": "Geçersiz gizli anahtar",
+      "invalidRefreshToken": "Geçersiz yenileme belirteci",
+      "anomalousToken": "Anormal belirteç"
     },
     "pluginPanel": {
       "notFound": "Eklenti paneli bulunamadı"
@@ -902,6 +906,9 @@
     "pluginContextMenu": {
       "notFound": "Eklenti bağlam menüsü bulunamadı",
       "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"
+    },
+    "pluginChart": {
+      "queryNotFound": "Eklenti grafik sorgusu bulunamadı"
     },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
