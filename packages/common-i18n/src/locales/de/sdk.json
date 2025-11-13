@@ -1042,7 +1042,8 @@
       "chatModelMdNotSet": "KI-Chat-Modell md ist nicht festgelegt",
       "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
-      "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt"
+      "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt",
+      "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen"
     },
     "role": {
       "notFound": "Rolle nicht gefunden"

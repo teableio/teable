@@ -1046,7 +1046,8 @@
       "chatModelMdNotSet": "AI chat model md is not set",
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
-      "providerConfigurationNotSet": "AI provider configuration is not set"
+      "providerConfigurationNotSet": "AI provider configuration is not set",
+      "testLLMFailed": "LLM connection test failed"
     },
     "role": {
       "notFound": "Role not found"

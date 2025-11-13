@@ -1042,7 +1042,8 @@
       "chatModelMdNotSet": "Il modello di chat IA md non è impostato",
       "configurationNotSet": "La configurazione IA non è impostata",
       "unsupportedProvider": "Fornitore IA non supportato {{type}}",
-      "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata"
+      "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata",
+      "testLLMFailed": "Test di connessione LLM fallito"
     },
     "role": {
       "notFound": "Ruolo non trovato"

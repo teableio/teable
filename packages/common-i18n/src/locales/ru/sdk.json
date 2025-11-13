@@ -1018,7 +1018,8 @@
       "chatModelMdNotSet": "Модель чата ИИ md не установлена",
       "configurationNotSet": "Конфигурация ИИ не установлена",
       "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
-      "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена"
+      "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена",
+      "testLLMFailed": "Тест подключения LLM не прошел"
     },
     "role": {
       "notFound": "Роль не найдена"

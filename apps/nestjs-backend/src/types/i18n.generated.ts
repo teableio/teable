@@ -2250,6 +2250,7 @@ export type I18nTranslations = {
                 "configurationNotSet": string;
                 "unsupportedProvider": string;
                 "providerConfigurationNotSet": string;
+                "testLLMFailed": string;
             };
             "role": {
                 "notFound": string;

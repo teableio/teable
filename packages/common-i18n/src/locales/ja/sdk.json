@@ -1006,7 +1006,8 @@
       "chatModelMdNotSet": "AI チャットモデル md が設定されていません",
       "configurationNotSet": "AI 設定が設定されていません",
       "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
-      "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません"
+      "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません",
+      "testLLMFailed": "LLM 接続テストに失敗しました"
     },
     "role": {
       "notFound": "ロールが見つかりません"

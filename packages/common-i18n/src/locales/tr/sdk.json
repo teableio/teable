@@ -1016,7 +1016,8 @@
       "chatModelMdNotSet": "AI sohbet modeli md ayarlanmamış",
       "configurationNotSet": "AI yapılandırması ayarlanmamış",
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
-      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış"
+      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "testLLMFailed": "LLM bağlantı testi başarısız oldu"
     },
     "role": {
       "notFound": "Rol bulunamadı"

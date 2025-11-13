@@ -1046,7 +1046,8 @@
       "chatModelMdNotSet": "AI 基础对话模型未设置",
       "configurationNotSet": "AI 配置未设置",
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
-      "providerConfigurationNotSet": "AI 模型提供商配置未设置"
+      "providerConfigurationNotSet": "AI 模型提供商配置未设置",
+      "testLLMFailed": "LLM 连接测试失败"
     },
     "role": {
       "notFound": "角色不存在"
