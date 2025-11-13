@@ -1,25 +1,19 @@
 import 'dayjs/plugin/timezone';
 import 'dayjs/plugin/utc';
-import fs from 'fs';
-import path from 'path';
 import type { INestApplication } from '@nestjs/common';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WsAdapter } from '@nestjs/platform-ws';
-import type { OpenAPIObject } from '@nestjs/swagger';
-import { SwaggerModule } from '@nestjs/swagger';
-import { getOpenApiDocumentation } from '@teable/openapi';
 import { json, urlencoded } from 'express';
 import helmet from 'helmet';
 import isPortReachable from 'is-port-reachable';
 import { Logger } from 'nestjs-pino';
-import type { RedocOptions } from 'nestjs-redoc';
-import { RedocModule } from 'nestjs-redoc';
 import { AppModule } from './app.module';
 import type { IBaseConfig } from './configs/base.config';
 import type { ISecurityWebConfig, IApiDocConfig } from './configs/bootstrap.config';
 import { GlobalExceptionFilter } from './filter/global-exception.filter';
+import { setupSwagger } from './swagger';
 import otelSDK from './tracing';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,23 +35,7 @@ export async function setUpAppMiddleware(app: INestApplication, configService: C
   const securityWebConfig = configService.get<ISecurityWebConfig>('security.web');
   const baseConfig = configService.get<IBaseConfig>('base');
   if (!apiDocConfig?.disabled) {
-    const openApiDocumentation = await getOpenApiDocumentation({
-      origin: baseConfig?.publicOrigin,
-      snippet: apiDocConfig?.enabledSnippet,
-    });
-
-    const jsonString = JSON.stringify(openApiDocumentation);
-    fs.writeFileSync(path.join(__dirname, '/openapi.json'), jsonString);
-    SwaggerModule.setup('/docs', app, openApiDocumentation as OpenAPIObject);
-
-    // Instead of using SwaggerModule.setup() you call this module
-    const redocOptions: RedocOptions = {
-      logo: {
-        backgroundColor: '#F0F0F0',
-        altText: 'Teable logo',
-      },
-    };
-    await RedocModule.setup('/redocs', app, openApiDocumentation as OpenAPIObject, redocOptions);
+    await setupSwagger(app, baseConfig?.publicOrigin ?? '', apiDocConfig?.enabledSnippet ?? false);
   }
 
   if (securityWebConfig?.cors.enabled) {
