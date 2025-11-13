@@ -893,6 +893,12 @@
       "notFound": "Eklenti bulunamadı",
       "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor"
     },
+    "pluginPanel": {
+      "notFound": "Eklenti paneli bulunamadı"
+    },
+    "pluginInstall": {
+      "notFound": "Eklenti yüklenmemiş"
+    },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
       "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",

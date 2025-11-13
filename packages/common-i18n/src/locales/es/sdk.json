@@ -907,6 +907,12 @@
       "notFound": "Plugin no encontrado",
       "notSupportInstallInView": "El plugin no admite instalación en la vista"
     },
+    "pluginPanel": {
+      "notFound": "Panel de plugin no encontrado"
+    },
+    "pluginInstall": {
+      "notFound": "Plugin no instalado"
+    },
     "dbConnection": {
       "unsupportedDriver": "Driver de base de datos no soportado: {{driver}}",
       "onlyOwnerCanRemove": "Solo el propietario de la base puede eliminar la conexión de base de datos para la base {{baseId}}",

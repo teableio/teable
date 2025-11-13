@@ -919,6 +919,12 @@
       "notFound": "Плагін не знайдено",
       "notSupportInstallInView": "Плагін не підтримує встановлення у вид"
     },
+    "pluginPanel": {
+      "notFound": "Панель плагінів не знайдена"
+    },
+    "pluginInstall": {
+      "notFound": "Плагін не встановлено"
+    },
     "dbConnection": {
       "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
       "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",

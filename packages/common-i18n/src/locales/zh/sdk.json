@@ -923,6 +923,12 @@
       "notFound": "插件不存在",
       "notSupportInstallInView": "插件不支持在视图中安装"
     },
+    "pluginPanel": {
+      "notFound": "插件面板不存在"
+    },
+    "pluginInstall": {
+      "notFound": "插件未安装"
+    },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
       "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",

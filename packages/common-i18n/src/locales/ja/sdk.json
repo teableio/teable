@@ -883,6 +883,12 @@
       "notFound": "プラグインが見つかりません",
       "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません"
     },
+    "pluginPanel": {
+      "notFound": "プラグインパネルが見つかりません"
+    },
+    "pluginInstall": {
+      "notFound": "プラグインがインストールされていません"
+    },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
       "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",
