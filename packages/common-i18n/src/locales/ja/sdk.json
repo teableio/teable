@@ -1034,6 +1034,11 @@
       "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
       "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
+    },
+    "template": {
+      "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
+      "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
+      "noMinOrderFound": "最小順序が見つかりません"
     }
   }
 }

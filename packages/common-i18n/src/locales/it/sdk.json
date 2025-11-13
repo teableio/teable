@@ -1070,6 +1070,11 @@
       "parentSpaceTrashed": "Impossibile ripristinare questa base perché il suo spazio padre è anche nel cestino",
       "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
+    },
+    "template": {
+      "snapshotRequired": "Questo modello non può essere pubblicato perché manca l'istantanea",
+      "sourceTemplateNotFound": "Modello di origine non trovato",
+      "noMinOrderFound": "Nessun ordine minimo trovato"
     }
   }
 }

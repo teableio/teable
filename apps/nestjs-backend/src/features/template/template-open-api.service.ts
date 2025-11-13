@@ -1,5 +1,5 @@
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
-import { generateTemplateCategoryId, generateTemplateId } from '@teable/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
 import { UploadType } from '@teable/openapi';
@@ -13,6 +13,7 @@ import type {
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -140,8 +141,14 @@ export class TemplateOpenApiService {
     });
 
     if (updateTemplateRo.isPublished && !originalTemplate.snapshot) {
-      throw new BadGatewayException(
-        'This template could not be published, causing the lacking of snapshot'
+      throw new CustomHttpException(
+        'This template could not be published, causing the lacking of snapshot',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.template.snapshotRequired',
+          },
+        }
       );
     }
 
@@ -166,7 +173,11 @@ export class TemplateOpenApiService {
     });
 
     if (!templateRaw.baseId) {
-      throw new Error('source template not found');
+      throw new CustomHttpException('Source template not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.template.sourceTemplateNotFound',
+        },
+      });
     }
 
     const templateSpaceId = await prisma.space.findFirstOrThrow({
@@ -287,7 +298,11 @@ export class TemplateOpenApiService {
     });
 
     if (!isNumber(result._min.order)) {
-      throw new BadGatewayException('No min order found');
+      throw new CustomHttpException('No min order found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.template.noMinOrderFound',
+        },
+      });
     }
 
     await this.prismaService.template.update({

@@ -1044,6 +1044,11 @@
       "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
+    },
+    "template": {
+      "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
+      "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
+      "noMinOrderFound": "Minimum sıra bulunamadı"
     }
   }
 }

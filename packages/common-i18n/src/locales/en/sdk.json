@@ -1074,6 +1074,11 @@
       "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
       "tableNotFound": "Table trash item not found"
+    },
+    "template": {
+      "snapshotRequired": "This template could not be published due to missing snapshot",
+      "sourceTemplateNotFound": "Source template not found",
+      "noMinOrderFound": "No minimum order found"
     }
   }
 }

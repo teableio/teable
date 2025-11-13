@@ -1070,6 +1070,11 @@
       "parentSpaceTrashed": "Diese Basis kann nicht wiederhergestellt werden, da der übergeordnete Bereich ebenfalls im Papierkorb ist",
       "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
+    },
+    "template": {
+      "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
+      "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
+      "noMinOrderFound": "Keine Minimalreihenfolge gefunden"
     }
   }
 }

@@ -2278,6 +2278,11 @@ export type I18nTranslations = {
                 "parentBaseOrSpaceTrashed": string;
                 "tableNotFound": string;
             };
+            "template": {
+                "snapshotRequired": string;
+                "sourceTemplateNotFound": string;
+                "noMinOrderFound": string;
+            };
         };
         "spaceRole": {
             "role": {

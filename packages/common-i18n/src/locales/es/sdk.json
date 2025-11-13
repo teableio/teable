@@ -1058,6 +1058,11 @@
       "parentSpaceTrashed": "No se puede restaurar esta base porque su espacio principal también está en la papelera",
       "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
       "tableNotFound": "Elemento de papelera de tabla no encontrado"
+    },
+    "template": {
+      "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
+      "sourceTemplateNotFound": "Plantilla de origen no encontrada",
+      "noMinOrderFound": "No se encontró el orden mínimo"
     }
   }
 }

@@ -1074,6 +1074,11 @@
       "parentSpaceTrashed": "无法恢复此数据库，因为其父空间也在回收站中",
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
       "tableNotFound": "表格回收站项目未找到"
+    },
+    "template": {
+      "snapshotRequired": "此模板无法发布，因为缺少快照",
+      "sourceTemplateNotFound": "源模板不存在",
+      "noMinOrderFound": "未找到最小排序值"
     }
   }
 }
