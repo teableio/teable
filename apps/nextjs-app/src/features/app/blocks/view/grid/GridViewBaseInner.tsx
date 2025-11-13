@@ -1317,12 +1317,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             const requiredFieldIds = allFields
               .filter((f) => !f.isComputed && f.notNull)
               .map((f) => f.id);
-            if (!requiredFieldIds.length) return;
             const missingFieldIdSet = new Set<string>();
-            for (const row of prefillingRows) {
-              for (const fid of requiredFieldIds) {
-                if (isEmptyValue((row.fields ?? {})[fid])) {
-                  missingFieldIdSet.add(fid);
+            if (requiredFieldIds.length) {
+              for (const row of prefillingRows) {
+                for (const fid of requiredFieldIds) {
+                  if (isEmptyValue((row.fields ?? {})[fid])) {
+                    missingFieldIdSet.add(fid);
+                  }
                 }
               }
             }
