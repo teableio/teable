@@ -15,11 +15,12 @@ import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
-import { getRandomString } from '@teable/core';
+import { getRandomString, HttpErrorCode } from '@teable/core';
 import * as fse from 'fs-extra';
 import ms from 'ms';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IObjectMeta, IRespHeaders } from './types';
@@ -114,22 +115,54 @@ export class S3Storage implements StorageAdapter {
   private checkConfig() {
     const { tokenExpireIn } = this.config;
     if (ms(tokenExpireIn) >= ms('7d')) {
-      throw new BadRequestException('Token expire in must be more than 7 days');
+      throw new CustomHttpException(
+        'Token expire in must be more than 7 days',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.tokenExpireInTooLong',
+          },
+        }
+      );
     }
     if (!this.config.s3.region) {
-      throw new BadRequestException('S3 region is required');
+      throw new CustomHttpException('S3 region is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.s3RegionRequired',
+        },
+      });
     }
     if (!this.config.s3.endpoint) {
-      throw new BadRequestException('S3 endpoint is required');
+      throw new CustomHttpException('S3 endpoint is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.s3EndpointRequired',
+        },
+      });
     }
     if (!this.config.s3.accessKey) {
-      throw new BadRequestException('S3 access key is required');
+      throw new CustomHttpException('S3 access key is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.s3AccessKeyRequired',
+        },
+      });
     }
     if (!this.config.s3.secretKey) {
-      throw new BadRequestException('S3 secret key is required');
+      throw new CustomHttpException('S3 secret key is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.s3SecretKeyRequired',
+        },
+      });
     }
     if (this.config.uploadMethod.toLocaleLowerCase() !== 'put') {
-      throw new BadRequestException('S3 upload method must be put');
+      throw new CustomHttpException(
+        'S3 upload method must be put',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.s3UploadMethodMustBePut',
+          },
+        }
+      );
     }
   }
 
@@ -179,7 +212,15 @@ export class S3Storage implements StorageAdapter {
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`S3 presigned error${e?.message ? `: ${e.message}` : ''}`);
+      throw new CustomHttpException(
+        `S3 presigned error${e?.message ? `: ${e.message}` : ''}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.presignedError',
+          },
+        }
+      );
     }
   }
   async getObjectMeta(bucket: string, path: string): Promise<IObjectMeta> {
@@ -195,7 +236,11 @@ export class S3Storage implements StorageAdapter {
     } = await this.s3ClientPrivateNetwork.send(command);
     const mimetype = s3Mimetype || 'application/octet-stream';
     if (!size || !mimetype || !hash) {
-      throw new BadRequestException('Invalid object meta');
+      throw new CustomHttpException('Invalid object meta', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidObjectMeta',
+        },
+      });
     }
     if (!mimetype?.startsWith('image/')) {
       return {
@@ -213,7 +258,11 @@ export class S3Storage implements StorageAdapter {
     const { Body } = await this.s3ClientPrivateNetwork.send(getObjectCommand);
     const stream = Body as Readable;
     if (!stream) {
-      throw new BadRequestException('Invalid image stream');
+      throw new CustomHttpException('Invalid image stream', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImageStream',
+        },
+      });
     }
     try {
       const sharpReader = stream.pipe(metaReader);
@@ -227,7 +276,15 @@ export class S3Storage implements StorageAdapter {
         height,
       };
     } catch (error) {
-      throw new BadRequestException(`Calculate image size failed: ${(error as Error).message}`);
+      throw new CustomHttpException(
+        `Calculate image size failed: ${(error as Error).message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.calculateImageSizeFailed',
+          },
+        }
+      );
     } finally {
       stream?.destroy();
     }
@@ -319,7 +376,15 @@ export class S3Storage implements StorageAdapter {
           (stream as Readable)?.removeAllListeners?.();
           (stream as Readable)?.destroy?.();
         }
-        throw new BadRequestException(`S3 upload failed: ${error?.message || 'Unknown error'}`);
+        throw new CustomHttpException(
+          `S3 upload failed: ${error?.message || 'Unknown error'}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.attachment.uploadFailed',
+            },
+          }
+        );
       })
       .finally(() => {
         if (stream && typeof stream !== 'string' && 'destroy' in stream) {
@@ -369,10 +434,18 @@ export class S3Storage implements StorageAdapter {
     const { Body: stream, ContentType: mimetype } = await this.s3ClientPrivateNetwork.send(command);
     if (!mimetype?.startsWith('image/')) {
       (stream as Readable)?.destroy?.();
-      throw new BadRequestException('Invalid image');
+      throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImage',
+        },
+      });
     }
     if (!stream) {
-      throw new BadRequestException("can't get image stream");
+      throw new CustomHttpException("can't get image stream", HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.cantGetImageStream',
+        },
+      });
     }
     const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
     await new Promise((resolve, reject) => {

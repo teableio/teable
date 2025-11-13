@@ -2094,6 +2094,32 @@ export type I18nTranslations = {
                 "listCountExceeded": string;
                 "invalidContentType": string;
             };
+            "attachment": {
+                "tokenExpireInTooLong": string;
+                "s3RegionRequired": string;
+                "s3EndpointRequired": string;
+                "s3AccessKeyRequired": string;
+                "s3SecretKeyRequired": string;
+                "s3UploadMethodMustBePut": string;
+                "presignedError": string;
+                "invalidObjectMeta": string;
+                "invalidImageStream": string;
+                "calculateImageSizeFailed": string;
+                "uploadFailed": string;
+                "invalidImage": string;
+                "cantGetImageStream": string;
+                "invalidProvider": string;
+                "failedToDeleteDirectory": string;
+                "invalidToken": string;
+                "tokenExpired": string;
+                "sizeMismatch": string;
+                "notAllowUploadFileType": string;
+                "notFound": string;
+                "invalidPath": string;
+                "fileSizeExceedsMaximumLimit": string;
+                "invalidUploadType": string;
+                "urlReject": string;
+            };
             "automation": {
                 "buttonClickTriggerDuplicated": string;
                 "triggerNotFound": string;

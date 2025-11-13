@@ -1,11 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { Provider } from '@nestjs/common';
 import { Inject, Logger } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import { baseConfig, type IBaseConfig } from '../../../configs/base.config';
 import type { IStorageConfig } from '../../../configs/storage';
 import { storageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AliyunStorage } from './aliyun';
 import { LocalStorage } from './local';
@@ -35,7 +37,11 @@ export const storageAdapterProvider: Provider = {
       case 'aliyun':
         return new AliyunStorage(config);
       default:
-        throw new Error('Invalid storage provider');
+        throw new CustomHttpException('Invalid storage provider', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidProvider',
+          },
+        });
     }
   },
   inject: [storageConfig.KEY, baseConfig.KEY, CacheService, ClsService],

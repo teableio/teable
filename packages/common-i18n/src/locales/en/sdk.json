@@ -891,6 +891,32 @@
       "listCountExceeded": "The number of comments requested exceeds the maximum limit of 1000",
       "invalidContentType": "Invalid comment content type"
     },
+    "attachment": {
+      "tokenExpireInTooLong": "Token expiration must be less than 7 days",
+      "s3RegionRequired": "S3 region is required",
+      "s3EndpointRequired": "S3 endpoint is required",
+      "s3AccessKeyRequired": "S3 access key is required",
+      "s3SecretKeyRequired": "S3 secret key is required",
+      "s3UploadMethodMustBePut": "S3 upload method must be PUT",
+      "presignedError": "Failed to generate presigned URL",
+      "invalidObjectMeta": "Invalid object metadata",
+      "invalidImageStream": "Invalid image stream",
+      "calculateImageSizeFailed": "Failed to calculate image size",
+      "uploadFailed": "Upload failed",
+      "invalidImage": "Invalid image",
+      "cantGetImageStream": "Cannot get image stream",
+      "invalidProvider": "Invalid storage provider",
+      "failedToDeleteDirectory": "Failed to delete directory",
+      "invalidToken": "Invalid token",
+      "tokenExpired": "Token has expired",
+      "sizeMismatch": "File size mismatch",
+      "notAllowUploadFileType": "File type not allowed for upload",
+      "notFound": "Attachment not found",
+      "invalidPath": "Invalid attachment path",
+      "fileSizeExceedsMaximumLimit": "File size exceeds the maximum limit",
+      "invalidUploadType": "Invalid upload type",
+      "urlReject": "URL rejected or inaccessible"
+    },
     "email": {
       "testEmailError": "Mail config error {{message}}"
     },
