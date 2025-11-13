@@ -893,6 +893,29 @@
     "pluginInstall": {
       "notFound": "プラグインがインストールされていません"
     },
+    "share": {
+      "incorrectPassword": "パスワードが正しくありません",
+      "notAllowedToSubmit": "フォームの送信は許可されていません",
+      "viewRequired": "この操作にはビューが必要です",
+      "hiddenFieldsSubmissionNotAllowed": "非表示フィールドが含まれている場合、フォームの送信は許可されません",
+      "submitRecordsError": "レコードの送信に失敗しました",
+      "notAllowedToCopy": "コピー操作は許可されていません",
+      "fieldHiddenNotAllowed": "フィールドは非表示でアクセスできません",
+      "fieldTypeNotLinkField": "フィールドはリンクフィールドではありません",
+      "fieldIdRequired": "フィールドIDが必要です",
+      "fieldNotUserRelatedField": "フィールドはユーザー関連フィールドではありません",
+      "viewTypeNotAllowed": "このビュータイプはこの操作では許可されていません"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "この共有ビューではパスワード制限が有効になっていません",
+      "shareViewNotFound": "共有ビューが見つからないか、共有が無効になっています",
+      "linkFieldNotFound": "リンクフィールドが見つかりません"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "このビューにアクセスする権限がありません",
+      "fieldPermissionNotAllowed": "これらのフィールドにアクセスする権限がありません",
+      "recordPermissionNotAllowed": "これらのレコードにアクセスする権限がありません"
+    },
     "pluginContextMenu": {
       "notFound": "プラグインコンテキストメニューが見つかりません",
       "anchorNotFound": "プラグインコンテキストメニューのアンカーが見つかりません"

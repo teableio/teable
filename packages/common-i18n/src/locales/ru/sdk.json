@@ -905,6 +905,29 @@
     "pluginInstall": {
       "notFound": "Плагин не установлен"
     },
+    "share": {
+      "incorrectPassword": "Неверный пароль",
+      "notAllowedToSubmit": "Отправка формы не разрешена",
+      "viewRequired": "Для этой операции требуется представление",
+      "hiddenFieldsSubmissionNotAllowed": "Отправка формы не разрешена при наличии скрытых полей",
+      "submitRecordsError": "Ошибка отправки записи",
+      "notAllowedToCopy": "Операция копирования не разрешена",
+      "fieldHiddenNotAllowed": "Поле скрыто и недоступно",
+      "fieldTypeNotLinkField": "Поле не является полем связи",
+      "fieldIdRequired": "Требуется ID поля",
+      "fieldNotUserRelatedField": "Поле не связано с пользователем",
+      "viewTypeNotAllowed": "Этот тип представления не разрешен для данной операции"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Ограничение паролем не включено для этого общего представления",
+      "shareViewNotFound": "Общее представление не найдено или общий доступ отключен",
+      "linkFieldNotFound": "Поле связи не найдено"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "У вас нет разрешения на доступ к этому представлению",
+      "fieldPermissionNotAllowed": "У вас нет разрешения на доступ к этим полям",
+      "recordPermissionNotAllowed": "У вас нет разрешения на доступ к этим записям"
+    },
     "pluginContextMenu": {
       "notFound": "Контекстное меню плагина не найдено",
       "anchorNotFound": "Якорь контекстного меню плагина не найден"

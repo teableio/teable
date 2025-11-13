@@ -929,6 +929,29 @@
     "pluginInstall": {
       "notFound": "Плагін не встановлено"
     },
+    "share": {
+      "incorrectPassword": "Неправильний пароль",
+      "notAllowedToSubmit": "Відправлення форми не дозволено",
+      "viewRequired": "Для цієї операції потрібне подання",
+      "hiddenFieldsSubmissionNotAllowed": "Відправлення форми не дозволено, коли включені приховані поля",
+      "submitRecordsError": "Помилка відправлення запису",
+      "notAllowedToCopy": "Операція копіювання не дозволена",
+      "fieldHiddenNotAllowed": "Поле приховано і недоступне",
+      "fieldTypeNotLinkField": "Поле не є полем зв'язку",
+      "fieldIdRequired": "Потрібен ID поля",
+      "fieldNotUserRelatedField": "Поле не пов'язане з користувачем",
+      "viewTypeNotAllowed": "Цей тип подання не дозволений для цієї операції"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Обмеження паролем не ввімкнено для цього спільного подання",
+      "shareViewNotFound": "Спільне подання не знайдено або спільний доступ вимкнено",
+      "linkFieldNotFound": "Поле зв'язку не знайдено"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "У вас немає дозволу на доступ до цього подання",
+      "fieldPermissionNotAllowed": "У вас немає дозволу на доступ до цих полів",
+      "recordPermissionNotAllowed": "У вас немає дозволу на доступ до цих записів"
+    },
     "pluginContextMenu": {
       "notFound": "Контекстне меню плагіна не знайдено",
       "anchorNotFound": "Якір контекстного меню плагіна не знайдено"

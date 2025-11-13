@@ -907,6 +907,29 @@
     "pluginInstall": {
       "notFound": "Plugin non installé"
     },
+    "share": {
+      "incorrectPassword": "Mot de passe incorrect",
+      "notAllowedToSubmit": "La soumission du formulaire n'est pas autorisée",
+      "viewRequired": "La vue est requise pour cette opération",
+      "hiddenFieldsSubmissionNotAllowed": "La soumission du formulaire n'est pas autorisée lorsque des champs masqués sont inclus",
+      "submitRecordsError": "Échec de la soumission de l'enregistrement",
+      "notAllowedToCopy": "L'opération de copie n'est pas autorisée",
+      "fieldHiddenNotAllowed": "Le champ est masqué et ne peut pas être accédé",
+      "fieldTypeNotLinkField": "Le champ n'est pas un champ de liaison",
+      "fieldIdRequired": "L'ID du champ est requis",
+      "fieldNotUserRelatedField": "Le champ n'est pas un champ lié à l'utilisateur",
+      "viewTypeNotAllowed": "Ce type de vue n'est pas autorisé pour cette opération"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "La restriction par mot de passe n'est pas activée pour cette vue partagée",
+      "shareViewNotFound": "Vue partagée introuvable ou le partage est désactivé",
+      "linkFieldNotFound": "Champ de liaison introuvable"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "Vous n'avez pas la permission d'accéder à cette vue",
+      "fieldPermissionNotAllowed": "Vous n'avez pas la permission d'accéder à ces champs",
+      "recordPermissionNotAllowed": "Vous n'avez pas la permission d'accéder à ces enregistrements"
+    },
     "pluginContextMenu": {
       "notFound": "Menu contextuel du plugin non trouvé",
       "anchorNotFound": "Ancre du menu contextuel du plugin non trouvée"

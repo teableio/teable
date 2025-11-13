@@ -936,6 +936,29 @@
     "pluginInstall": {
       "notFound": "Plugin not installed"
     },
+    "share": {
+      "incorrectPassword": "Incorrect password",
+      "notAllowedToSubmit": "Form submission is not allowed",
+      "viewRequired": "View is required for this operation",
+      "hiddenFieldsSubmissionNotAllowed": "Form submission is not allowed when hidden fields are included",
+      "submitRecordsError": "Record submission failed",
+      "notAllowedToCopy": "Copy operation is not allowed",
+      "fieldHiddenNotAllowed": "Field is hidden and cannot be accessed",
+      "fieldTypeNotLinkField": "Field is not a link field",
+      "fieldIdRequired": "Field ID is required",
+      "fieldNotUserRelatedField": "Field is not a user-related field",
+      "viewTypeNotAllowed": "This view type is not allowed for this operation"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Password restriction is not enabled for this shared view",
+      "shareViewNotFound": "Shared view not found or sharing is disabled",
+      "linkFieldNotFound": "Link field not found"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "You do not have permission to access this view",
+      "fieldPermissionNotAllowed": "You do not have permission to access these fields",
+      "recordPermissionNotAllowed": "You do not have permission to access these records"
+    },
     "pluginContextMenu": {
       "notFound": "Plugin context menu not found",
       "anchorNotFound": "Plugin context menu anchor not found"

@@ -917,6 +917,29 @@
     "pluginInstall": {
       "notFound": "Plugin no instalado"
     },
+    "share": {
+      "incorrectPassword": "Contraseña incorrecta",
+      "notAllowedToSubmit": "No se permite el envío de formularios",
+      "viewRequired": "Se requiere vista para esta operación",
+      "hiddenFieldsSubmissionNotAllowed": "No se permite el envío de formularios cuando se incluyen campos ocultos",
+      "submitRecordsError": "Error al enviar el registro",
+      "notAllowedToCopy": "No se permite la operación de copia",
+      "fieldHiddenNotAllowed": "El campo está oculto y no se puede acceder",
+      "fieldTypeNotLinkField": "El campo no es un campo de enlace",
+      "fieldIdRequired": "Se requiere ID de campo",
+      "fieldNotUserRelatedField": "El campo no es un campo relacionado con el usuario",
+      "viewTypeNotAllowed": "Este tipo de vista no está permitido para esta operación"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "La restricción de contraseña no está habilitada para esta vista compartida",
+      "shareViewNotFound": "Vista compartida no encontrada o el uso compartido está deshabilitado",
+      "linkFieldNotFound": "Campo de enlace no encontrado"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "No tiene permiso para acceder a esta vista",
+      "fieldPermissionNotAllowed": "No tiene permiso para acceder a estos campos",
+      "recordPermissionNotAllowed": "No tiene permiso para acceder a estos registros"
+    },
     "pluginContextMenu": {
       "notFound": "Menú contextual de plugin no encontrado",
       "anchorNotFound": "Ancla de menú contextual de plugin no encontrada"

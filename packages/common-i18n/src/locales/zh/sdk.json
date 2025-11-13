@@ -933,6 +933,29 @@
     "pluginInstall": {
       "notFound": "插件未安装"
     },
+    "share": {
+      "incorrectPassword": "密码错误",
+      "notAllowedToSubmit": "不允许提交表单",
+      "viewRequired": "此操作需要视图",
+      "hiddenFieldsSubmissionNotAllowed": "表单包含隐藏字段，不允许提交",
+      "submitRecordsError": "记录提交失败",
+      "notAllowedToCopy": "不允许复制",
+      "fieldHiddenNotAllowed": "字段已隐藏，无法访问",
+      "fieldTypeNotLinkField": "字段类型不是关联字段",
+      "fieldIdRequired": "字段 ID 不能为空",
+      "fieldNotUserRelatedField": "字段不是用户相关字段",
+      "viewTypeNotAllowed": "此视图类型不允许执行该操作"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "此共享视图未启用密码限制",
+      "shareViewNotFound": "共享视图不存在或已禁用分享",
+      "linkFieldNotFound": "关联字段不存在"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "您没有权限访问此视图",
+      "fieldPermissionNotAllowed": "您没有权限访问这些字段",
+      "recordPermissionNotAllowed": "您没有权限访问这些记录"
+    },
     "pluginContextMenu": {
       "notFound": "未找到插件右键菜单",
       "anchorNotFound": "未找到插件右键菜单锚点"

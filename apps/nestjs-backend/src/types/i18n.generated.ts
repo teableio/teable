@@ -2136,6 +2136,29 @@ export type I18nTranslations = {
             "pluginInstall": {
                 "notFound": string;
             };
+            "share": {
+                "incorrectPassword": string;
+                "notAllowedToSubmit": string;
+                "viewRequired": string;
+                "hiddenFieldsSubmissionNotAllowed": string;
+                "submitRecordsError": string;
+                "notAllowedToCopy": string;
+                "fieldHiddenNotAllowed": string;
+                "fieldTypeNotLinkField": string;
+                "fieldIdRequired": string;
+                "fieldNotUserRelatedField": string;
+                "viewTypeNotAllowed": string;
+            };
+            "shareAuth": {
+                "passwordRestrictionNotEnabled": string;
+                "shareViewNotFound": string;
+                "linkFieldNotFound": string;
+            };
+            "shareSocket": {
+                "viewPermissionNotAllowed": string;
+                "fieldPermissionNotAllowed": string;
+                "recordPermissionNotAllowed": string;
+            };
             "pluginContextMenu": {
                 "notFound": string;
                 "anchorNotFound": string;

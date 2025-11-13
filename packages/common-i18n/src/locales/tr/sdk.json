@@ -903,6 +903,29 @@
     "pluginInstall": {
       "notFound": "Eklenti yüklenmemiş"
     },
+    "share": {
+      "incorrectPassword": "Yanlış şifre",
+      "notAllowedToSubmit": "Form gönderimi izin verilmiyor",
+      "viewRequired": "Bu işlem için görünüm gereklidir",
+      "hiddenFieldsSubmissionNotAllowed": "Gizli alanlar dahil edildiğinde form gönderimi izin verilmiyor",
+      "submitRecordsError": "Kayıt gönderimi başarısız oldu",
+      "notAllowedToCopy": "Kopyalama işlemi izin verilmiyor",
+      "fieldHiddenNotAllowed": "Alan gizli ve erişilemez",
+      "fieldTypeNotLinkField": "Alan bir bağlantı alanı değil",
+      "fieldIdRequired": "Alan kimliği gereklidir",
+      "fieldNotUserRelatedField": "Alan kullanıcıyla ilgili bir alan değil",
+      "viewTypeNotAllowed": "Bu görünüm türü bu işlem için izin verilmiyor"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Bu paylaşılan görünüm için şifre kısıtlaması etkin değil",
+      "shareViewNotFound": "Paylaşılan görünüm bulunamadı veya paylaşım devre dışı",
+      "linkFieldNotFound": "Bağlantı alanı bulunamadı"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "Bu görünüme erişim izniniz yok",
+      "fieldPermissionNotAllowed": "Bu alanlara erişim izniniz yok",
+      "recordPermissionNotAllowed": "Bu kayıtlara erişim izniniz yok"
+    },
     "pluginContextMenu": {
       "notFound": "Eklenti bağlam menüsü bulunamadı",
       "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"

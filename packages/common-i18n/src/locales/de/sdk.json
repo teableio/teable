@@ -929,6 +929,29 @@
     "pluginInstall": {
       "notFound": "Plugin nicht installiert"
     },
+    "share": {
+      "incorrectPassword": "Falsches Passwort",
+      "notAllowedToSubmit": "Formularübermittlung nicht erlaubt",
+      "viewRequired": "Ansicht ist für diesen Vorgang erforderlich",
+      "hiddenFieldsSubmissionNotAllowed": "Formularübermittlung nicht erlaubt, wenn versteckte Felder enthalten sind",
+      "submitRecordsError": "Datensatzübermittlung fehlgeschlagen",
+      "notAllowedToCopy": "Kopieren nicht erlaubt",
+      "fieldHiddenNotAllowed": "Feld ist versteckt und kann nicht aufgerufen werden",
+      "fieldTypeNotLinkField": "Feld ist kein Verknüpfungsfeld",
+      "fieldIdRequired": "Feld-ID ist erforderlich",
+      "fieldNotUserRelatedField": "Feld ist kein benutzerbezogenes Feld",
+      "viewTypeNotAllowed": "Dieser Ansichtstyp ist für diesen Vorgang nicht erlaubt"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Passwortbeschränkung ist für diese geteilte Ansicht nicht aktiviert",
+      "shareViewNotFound": "Geteilte Ansicht nicht gefunden oder Freigabe ist deaktiviert",
+      "linkFieldNotFound": "Verknüpfungsfeld nicht gefunden"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "Sie haben keine Berechtigung, auf diese Ansicht zuzugreifen",
+      "fieldPermissionNotAllowed": "Sie haben keine Berechtigung, auf diese Felder zuzugreifen",
+      "recordPermissionNotAllowed": "Sie haben keine Berechtigung, auf diese Datensätze zuzugreifen"
+    },
     "pluginContextMenu": {
       "notFound": "Plugin-Kontextmenü nicht gefunden",
       "anchorNotFound": "Plugin-Kontextmenü-Anker nicht gefunden"
