@@ -739,6 +739,14 @@ export type I18nTranslations = {
                 "webSearch": {
                     "description": string;
                 };
+                "app": {
+                    "domain": string;
+                    "v0ApiKey": string;
+                    "customDomain": string;
+                    "customDomainDescription": string;
+                    "vercelToken": string;
+                    "vercelTokenDescription": string;
+                };
                 "instanceTitle": string;
             };
             "action": {
@@ -3504,7 +3512,6 @@ export type I18nTranslations = {
                 "generateAIFields": string;
                 "generateLinkFields": string;
                 "generateLookupFields": string;
-                "generateLinkFieldsRecords": string;
                 "generateRollupFields": string;
                 "generateFormulaFields": string;
                 "generateWorkflow": string;
@@ -3577,6 +3584,21 @@ export type I18nTranslations = {
                 "ask": string;
                 "analyze": string;
                 "build": string;
+            };
+            "buildApp": {
+                "thinking": {
+                    "duration": string;
+                };
+                "task": {
+                    "searching": string;
+                    "readingFiles": string;
+                    "foundResults": string;
+                    "noIssuesFound": string;
+                    "defaultTitle": string;
+                };
+                "codeProject": {
+                    "defaultTitle": string;
+                };
             };
         };
         "plugin": {
