@@ -1034,7 +1034,7 @@
       "searchQueryRequired": "Search query is required",
       "maxSearchIndexResult": "The maximum search index result is 1000",
       "queryCollectionMustBeTableId": "Query collection must be table id",
-      "searchTimeOut": "search timeout, please decrease the search scope and try again",
+      "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "indexNotFound": "Index not found",
       "invalidStartDateFieldId": "Invalid start date field id",
       "invalidEndDateFieldId": "Invalid end date field id"
