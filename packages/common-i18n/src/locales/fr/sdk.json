@@ -920,6 +920,13 @@
       "readRecordWithDeniedFields": "Vous n'avez pas la permission de lire les champs({{fields}}) dans l'enregistrement({{recordId}})",
       "updateRecordWithDeniedFields": "Vous n'avez pas la permission de mettre à jour les champs({{fields}}) dans l'enregistrement({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Type de retour invalide",
+      "exceedMaxReadRows": "Limite maximale de lignes à lire dépassée",
+      "invalidCellValueType": "Type de valeur de cellule invalide",
+      "exceedMaxCopyCells": "Limite maximale de cellules à copier dépassée",
+      "exceedMaxPasteCells": "Limite maximale de cellules à coller dépassée"
+    },
     "field": {
       "unsupportedFieldType": "Type de champ non pris en charge {{type}}",
       "unsupportedPrimaryFieldType": "Type de champ non pris en charge {{type}} comme champ primaire",

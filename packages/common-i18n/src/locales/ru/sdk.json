@@ -918,6 +918,13 @@
       "readRecordWithDeniedFields": "У вас нет разрешения на чтение полей({{fields}}) в записи({{recordId}})",
       "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Неверный тип возврата",
+      "exceedMaxReadRows": "Превышен максимальный лимит чтения строк",
+      "invalidCellValueType": "Неверный тип значения ячейки",
+      "exceedMaxCopyCells": "Превышен максимальный лимит копируемых ячеек",
+      "exceedMaxPasteCells": "Превышен максимальный лимит вставляемых ячеек"
+    },
     "field": {
       "unsupportedFieldType": "Неподдерживаемый тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Неподдерживаемый тип поля {{type}} в качестве первичного поля",

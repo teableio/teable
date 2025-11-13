@@ -942,6 +942,13 @@
       "readRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu lesen",
       "updateRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu aktualisieren"
     },
+    "selection": {
+      "invalidReturnType": "Ungültiger Rückgabetyp",
+      "exceedMaxReadRows": "Maximale Anzahl der zu lesenden Zeilen überschritten",
+      "invalidCellValueType": "Ungültiger Zellentyp",
+      "exceedMaxCopyCells": "Maximale Anzahl der zu kopierenden Zellen überschritten",
+      "exceedMaxPasteCells": "Maximale Anzahl der einzufügenden Zellen überschritten"
+    },
     "field": {
       "unsupportedFieldType": "Nicht unterstützter Feldtyp {{type}}",
       "unsupportedPrimaryFieldType": "Nicht unterstützter Feldtyp {{type}} als Primärfeld",

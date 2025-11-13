@@ -2149,6 +2149,13 @@ export type I18nTranslations = {
                 "readRecordWithDeniedFields": string;
                 "updateRecordWithDeniedFields": string;
             };
+            "selection": {
+                "invalidReturnType": string;
+                "exceedMaxReadRows": string;
+                "invalidCellValueType": string;
+                "exceedMaxCopyCells": string;
+                "exceedMaxPasteCells": string;
+            };
             "field": {
                 "unsupportedFieldType": string;
                 "unsupportedPrimaryFieldType": string;

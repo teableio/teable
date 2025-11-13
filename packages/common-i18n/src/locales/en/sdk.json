@@ -949,6 +949,13 @@
       "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
       "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Invalid return type",
+      "exceedMaxReadRows": "Exceed max read rows limit",
+      "invalidCellValueType": "Invalid cell value type",
+      "exceedMaxCopyCells": "Exceed max copy cells limit",
+      "exceedMaxPasteCells": "Exceed max paste cells limit"
+    },
     "field": {
       "unsupportedFieldType": "Unsupported field type {{type}}",
       "unsupportedPrimaryFieldType": "Unsupported field type {{type}} as primary field",

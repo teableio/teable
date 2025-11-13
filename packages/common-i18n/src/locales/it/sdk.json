@@ -942,6 +942,13 @@
       "readRecordWithDeniedFields": "Non hai il permesso di leggere i campi({{fields}}) nel record({{recordId}})",
       "updateRecordWithDeniedFields": "Non hai il permesso di aggiornare i campi({{fields}}) nel record({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Tipo di ritorno non valido",
+      "exceedMaxReadRows": "Superato il limite massimo di righe da leggere",
+      "invalidCellValueType": "Tipo di valore di cella non valido",
+      "exceedMaxCopyCells": "Superato il limite massimo di celle da copiare",
+      "exceedMaxPasteCells": "Superato il limite massimo di celle da incollare"
+    },
     "field": {
       "unsupportedFieldType": "Tipo di campo non supportato {{type}}",
       "unsupportedPrimaryFieldType": "Tipo di campo non supportato {{type}} come campo primario",

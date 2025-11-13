@@ -942,6 +942,13 @@
       "readRecordWithDeniedFields": "У вас немає дозволу на читання полів({{fields}}) у записі({{recordId}})",
       "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Недійсний тип повернення",
+      "exceedMaxReadRows": "Перевищено максимальний ліміт читання рядків",
+      "invalidCellValueType": "Недійсний тип значення комірки",
+      "exceedMaxCopyCells": "Перевищено максимальний ліміт копіювання комірок",
+      "exceedMaxPasteCells": "Перевищено максимальний ліміт вставки комірок"
+    },
     "field": {
       "unsupportedFieldType": "Непідтримуваний тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Непідтримуваний тип поля {{type}} як первинне поле",

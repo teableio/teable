@@ -946,6 +946,13 @@
       "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
       "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})"
     },
+    "selection": {
+      "invalidReturnType": "无效的返回类型",
+      "exceedMaxReadRows": "超出最大读取行数限制",
+      "invalidCellValueType": "无效的单元格值类型",
+      "exceedMaxCopyCells": "超出最大复制单元格数限制",
+      "exceedMaxPasteCells": "超出最大粘贴单元格数限制"
+    },
     "field": {
       "unsupportedFieldType": "不支持的字段类型 {{type}}",
       "unsupportedPrimaryFieldType": "不支持的字段类型 {{type}} 作为主字段",

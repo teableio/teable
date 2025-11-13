@@ -916,6 +916,13 @@
       "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
       "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok"
     },
+    "selection": {
+      "invalidReturnType": "Geçersiz dönüş türü",
+      "exceedMaxReadRows": "Maksimum okuma satırı sınırı aşıldı",
+      "invalidCellValueType": "Geçersiz hücre değeri türü",
+      "exceedMaxCopyCells": "Maksimum kopyalama hücresi sınırı aşıldı",
+      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
+    },
     "field": {
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
       "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",

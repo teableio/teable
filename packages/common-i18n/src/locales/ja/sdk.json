@@ -906,6 +906,13 @@
       "readRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を読み取る権限がありません",
       "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません"
     },
+    "selection": {
+      "invalidReturnType": "無効な戻り値の型",
+      "exceedMaxReadRows": "最大読み取り行数の制限を超えました",
+      "invalidCellValueType": "無効なセル値の型",
+      "exceedMaxCopyCells": "最大コピーセル数の制限を超えました",
+      "exceedMaxPasteCells": "最大貼り付けセル数の制限を超えました"
+    },
     "field": {
       "unsupportedFieldType": "サポートされていないフィールドタイプ {{type}}",
       "unsupportedPrimaryFieldType": "プライマリフィールドとしてサポートされていないフィールドタイプ {{type}}",
