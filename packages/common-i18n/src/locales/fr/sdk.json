@@ -673,7 +673,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Renvoie la date et l'heure de la dernière modification effectuée par un utilisateur dans un champ non calculé du tableau.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Renvoie le nombre total d'éléments, y compris les textes et les cases vides.",

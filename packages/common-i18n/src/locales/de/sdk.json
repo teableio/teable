@@ -686,7 +686,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Gibt das Datum und die Uhrzeit der letzten Änderung zurück, die von einem Benutzer in einem nicht berechneten Feld der Tabelle vorgenommen wurde.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Gibt die Anzahl aller Elemente einschließlich Text und Leerzeichen zurück.",

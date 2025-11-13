@@ -669,7 +669,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Tablodaki hesaplanmayan bir alanda bir kullanıcı tarafından yapılan en son değişikliğin tarih ve saatini döndürür.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Metin ve boşluklar dahil tüm öğelerin sayısını döndürür.",

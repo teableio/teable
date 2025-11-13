@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { IRecord } from '../../models';
 import { CellValueType } from '../../models/field/constant';
+import type { FieldCore } from '../../models/field/field';
 import { TypedValue } from '../typed-value';
 import {
   CreatedTime,
@@ -1235,6 +1236,22 @@ describe('DateTime', () => {
       const result = lastModifiedTimeFunc.eval([], context);
 
       expect(result).toBe(date);
+    });
+
+    it('should allow a field reference parameter', () => {
+      const mockField = { id: 'fldTracked' } as unknown as FieldCore;
+      const fieldParam = new TypedValue('ignored', CellValueType.String, false, mockField);
+      const result = lastModifiedTimeFunc.eval([fieldParam], context);
+
+      expect(result).toBe(date);
+    });
+
+    it('should throw when the parameter is not a field reference', () => {
+      const literalParam = new TypedValue('2023-09-08', CellValueType.String, false);
+
+      expect(() => lastModifiedTimeFunc.eval([literalParam], context)).toThrow(
+        'LAST_MODIFIED_TIME parameter must be a field reference'
+      );
     });
   });
 

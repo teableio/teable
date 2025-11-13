@@ -692,8 +692,8 @@
       "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
     },
     "LAST_MODIFIED_TIME": {
-      "summary": "返回用户在表格的非计算字段中进行的最近修改的日期和时间。",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "summary": "返回用户在表格的非计算字段中进行的最近修改的日期和时间，可选地传入一个字段以仅跟踪该列的更新。",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "返回包括文本和空白在内的所有元素的数量。",

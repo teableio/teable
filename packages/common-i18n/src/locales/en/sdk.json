@@ -692,8 +692,8 @@
       "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
     },
     "LAST_MODIFIED_TIME": {
-      "summary": "Returns the date and time of the most recent modification made by a user in a non-computed field in the table.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "summary": "Returns the date and time of the most recent modification made by a user in a non-computed field in the table. Optionally pass a field to track updates for that column only.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Returns the number of all elements including text and blanks.",

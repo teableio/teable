@@ -751,18 +751,35 @@ export class CreatedTime extends DateTimeFunc {
 export class LastModifiedTime extends DateTimeFunc {
   name = FunctionName.LastModifiedTime;
 
-  acceptValueType = new Set([CellValueType.DateTime]);
+  acceptValueType = new Set([
+    CellValueType.String,
+    CellValueType.Number,
+    CellValueType.Boolean,
+    CellValueType.DateTime,
+  ]);
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  validateParams(params: TypedValue[]): void {
+    if (!params.length) {
+      return;
+    }
+
+    if (params.length > 1) {
+      throw new Error(`${FunctionName.LastModifiedTime} accepts at most 1 parameter`);
+    }
+
+    if (!params[0]?.field) {
+      throw new Error(`${FunctionName.LastModifiedTime} parameter must be a field reference`);
+    }
+  }
 
   getReturnType() {
     return { type: CellValueType.DateTime };
   }
 
   eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    this.validateParams(params);
     return context.record.lastModifiedTime ?? null;
   }
 }

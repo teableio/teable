@@ -659,7 +659,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "テーブル内の非計算フィールドでユーザーが最後に変更した日時を返します。",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "テキストと空白を含むすべての要素の数を返します。",

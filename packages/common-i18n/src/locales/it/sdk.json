@@ -686,7 +686,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Restituisce la data e l'ora dell'ultima modifica effettuata da un utente in un campo non calcolato nella tabella.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Restituisce il numero di tutti gli elementi inclusi testo e vuoti.",
