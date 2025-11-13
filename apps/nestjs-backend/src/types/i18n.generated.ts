@@ -2132,6 +2132,10 @@ export type I18nTranslations = {
             "pluginInstall": {
                 "notFound": string;
             };
+            "pluginContextMenu": {
+                "notFound": string;
+                "anchorNotFound": string;
+            };
             "dbConnection": {
                 "unsupportedDriver": string;
                 "onlyOwnerCanRemove": string;

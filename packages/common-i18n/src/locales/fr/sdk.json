@@ -903,6 +903,10 @@
     "pluginInstall": {
       "notFound": "Plugin non installé"
     },
+    "pluginContextMenu": {
+      "notFound": "Menu contextuel du plugin non trouvé",
+      "anchorNotFound": "Ancre du menu contextuel du plugin non trouvée"
+    },
     "dbConnection": {
       "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",
       "onlyOwnerCanRemove": "Seul le propriétaire de la base peut supprimer la connexion à la base de données pour la base {{baseId}}",

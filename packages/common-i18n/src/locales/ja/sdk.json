@@ -889,6 +889,10 @@
     "pluginInstall": {
       "notFound": "プラグインがインストールされていません"
     },
+    "pluginContextMenu": {
+      "notFound": "プラグインコンテキストメニューが見つかりません",
+      "anchorNotFound": "プラグインコンテキストメニューのアンカーが見つかりません"
+    },
     "dbConnection": {
       "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
       "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",

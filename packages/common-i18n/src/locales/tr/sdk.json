@@ -899,6 +899,10 @@
     "pluginInstall": {
       "notFound": "Eklenti yüklenmemiş"
     },
+    "pluginContextMenu": {
+      "notFound": "Eklenti bağlam menüsü bulunamadı",
+      "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"
+    },
     "dbConnection": {
       "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
       "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",

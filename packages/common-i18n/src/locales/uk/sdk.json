@@ -925,6 +925,10 @@
     "pluginInstall": {
       "notFound": "Плагін не встановлено"
     },
+    "pluginContextMenu": {
+      "notFound": "Контекстне меню плагіна не знайдено",
+      "anchorNotFound": "Якір контекстного меню плагіна не знайдено"
+    },
     "dbConnection": {
       "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
       "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",

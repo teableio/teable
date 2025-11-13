@@ -929,6 +929,10 @@
     "pluginInstall": {
       "notFound": "插件未安装"
     },
+    "pluginContextMenu": {
+      "notFound": "未找到插件右键菜单",
+      "anchorNotFound": "未找到插件右键菜单锚点"
+    },
     "dbConnection": {
       "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
       "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",
