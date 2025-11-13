@@ -116,7 +116,7 @@ describe('OpenAPI ViewController (e2e) columnMeta(PUT) update hidden', () => {
       },
     ];
     await expect(updateViewColumnMeta(tableId, viewId, fieldColumnMetas)).rejects.toMatchObject({
-      status: 403,
+      status: 400,
     });
   });
 });

@@ -840,7 +840,6 @@
     "databaseConnectionUnavailable": "Veritabanı Bağlantısı Mevcut Değil",
     "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
     "unknownErrorCode": "Bilinmeyen Hata Kodu",
-    "viewNotFound": "Görünüm Bulunamadı",
     "requestTimeout": "İstek Zaman Aşımı",
     "failedDependency": "Bağımlılık Hatası",
     "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",
@@ -852,10 +851,15 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor.",
       "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin.",
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
-      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
+      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin",
+      "invalidOperation": "Geçersiz işlem tespit edildi, lütfen işlem parametrelerini kontrol edin"
     },
     "email": {
       "testEmailError": "Posta yapılandırma hatası {{message}}"
+    },
+    "comment": {
+      "listCountExceeded": "İstenen yorum sayısı 1000 maksimum sınırını aşıyor",
+      "invalidContentType": "Geçersiz yorum içerik türü"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
@@ -868,15 +872,78 @@
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
       "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
     },
+    "space": {
+      "notFound": "Alan bulunamadı",
+      "noPermission": "Bu alana erişim izniniz yok",
+      "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
+      "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
+      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez"
+    },
+    "base": {
+      "notFound": "Base bulunamadı",
+      "cannotAccess": "Base {{baseId}} erişim izniniz yok",
+      "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
+      "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
+      "templateNotFound": "Şablon {{templateId}} bulunamadı"
+    },
+    "dashboard": {
+      "notFound": "Gösterge paneli bulunamadı"
+    },
+    "plugin": {
+      "notFound": "Eklenti bulunamadı",
+      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor",
+      "userNotFound": "Eklenti kullanıcısı bulunamadı",
+      "invalidSecret": "Geçersiz gizli anahtar",
+      "invalidRefreshToken": "Geçersiz yenileme belirteci",
+      "anomalousToken": "Anormal belirteç"
+    },
+    "pluginPanel": {
+      "notFound": "Eklenti paneli bulunamadı"
+    },
+    "pluginInstall": {
+      "notFound": "Eklenti yüklenmemiş"
+    },
+    "pluginContextMenu": {
+      "notFound": "Eklenti bağlam menüsü bulunamadı",
+      "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"
+    },
+    "pluginChart": {
+      "queryNotFound": "Eklenti grafik sorgusu bulunamadı"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
+      "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",
+      "onlyOwnerCanCreate": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısı oluşturabilir",
+      "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
+    },
+    "baseQuery": {
+      "queryFailed": "Sorgu başarısız: {{message}}",
+      "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
+      "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
+      "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
+      "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
       "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
       "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok"
     },
+    "selection": {
+      "invalidReturnType": "Geçersiz dönüş türü",
+      "exceedMaxReadRows": "Maksimum okuma satırı sınırı aşıldı",
+      "invalidCellValueType": "Geçersiz hücre değeri türü",
+      "exceedMaxCopyCells": "Maksimum kopyalama hücresi sınırı aşıldı",
+      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
+    },
     "field": {
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
       "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",
+      "primaryFieldNotSupported": "Alan türü birincil alan olarak desteklenmiyor",
       "calculateRecordNotFound": "Kayıt bulunamadı: {{value}}, fieldId: {{fieldId}}, {{recordId}} hesaplanırken",
       "toRecordIdsOrFromRecordIdsRequired": "Normal hesaplanan alan için toRecordIds veya fromRecordIds gereklidir",
       "recordFieldsRequired": "Kayıt alanları tanımsız",
@@ -886,7 +953,7 @@
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
       "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
       "fieldNotFound": "Alan {{fieldId}} bulunamadı",
-      "fieldNotFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
+      "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
       "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
       "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
       "linkCellValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda linkCellValues dizi olmalıdır",
@@ -917,10 +984,106 @@
       "foreignKeyDuplicate": "Yabancı anahtar yineleniyor"
     },
     "view": {
-      "viewNotFound": "Görünüm {{viewId}} bulunamadı"
+      "notFound": "Görünüm bulunamadı",
+      "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
+      "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
+      "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
+      "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
+      "sortUnsupportedFieldType": "Sıralama desteklenmeyen alan türü",
+      "groupUnsupportedFieldType": "Gruplama desteklenmeyen alan türü",
+      "anchorNotFound": "Bağlantı görünümü bulunamadı",
+      "notEnoughGapToShuffleRow": "Satırı karıştırmak için yeterli boşluk yok",
+      "shareNotEnabled": "Görünüm paylaşımı etkinleştirilmedi",
+      "shareAlreadyEnabled": "Görünüm paylaşımı zaten etkinleştirildi",
+      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Arama sorgusu gereklidir",
+      "maxSearchIndexResult": "Maksimum arama indeksi sonucu 1000'dir",
+      "queryCollectionMustBeTableId": "Sorgu koleksiyonu tablo kimliği olmalıdır",
+      "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
+      "indexNotFound": "İndeks bulunamadı",
+      "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
+      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI sohbet modeli lg ayarlanmamış",
+      "chatModelLgProviderNotSet": "AI sohbet modeli lg sağlayıcısı ayarlanmamış",
+      "chatModelSmNotSet": "AI sohbet modeli sm ayarlanmamış",
+      "chatModelMdNotSet": "AI sohbet modeli md ayarlanmamış",
+      "configurationNotSet": "AI yapılandırması ayarlanmamış",
+      "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
+      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "testLLMFailed": "LLM bağlantı testi başarısız oldu"
+    },
+    "role": {
+      "notFound": "Rol bulunamadı"
+    },
+    "collaborator": {
+      "alreadyExisted": "İşbirlikçi zaten mevcut",
+      "notFound": "İşbirlikçi bulunamadı",
+      "userNotFoundInCollaborator": "İşbirlikçiler arasında kullanıcı bulunamadı",
+      "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
+      "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
+      "noPermissionToOperateRole": "Bu rolü yönetme izniniz yok",
+      "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
+      "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
+      "baseNotFound": "Veritabanı bulunamadı",
+      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok"
+    },
+    "table": {
+      "notFound": "Tablo bulunamadı",
+      "dbTableNameAlreadyExists": "Veritabanı tablo adı zaten mevcut",
+      "anchorNotFound": "Bağlantı tablosu bulunamadı",
+      "notInTrash": "Tablo çöp kutusunda değil",
+      "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
+      "createTableIndexError": "Tablo dizini oluşturulamadı",
+      "dropTableIndexError": "Tablo dizini silinemedi"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
+    },
+    "import": {
+      "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
+      "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
+      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
+      "invalidCode": "Geçersiz davet kodu",
+      "linkNotFound": "Davet bağlantısı bulunamadı",
+      "linkExpired": "Davet bağlantısının süresi doldu",
+      "limitExceeded": "Saatte maksimum davet sayısına ulaştınız"
+    },
+    "pin": {
+      "alreadyExists": "Favori zaten mevcut",
+      "notFound": "Favori bulunamadı",
+      "anchorNotFound": "Favori bağlantı noktası bulunamadı"
+    },
+    "trash": {
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Çöp kutusu öğesi bulunamadı",
+      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
+      "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
+    },
+    "user": {
+      "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
+      "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
+      "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
+      "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
+      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Geçersiz kaynak türü"
+    },
+    "template": {
+      "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
+      "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
+      "noMinOrderFound": "Minimum sıra bulunamadı"
     }
   }
 }

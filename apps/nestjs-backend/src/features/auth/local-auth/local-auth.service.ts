@@ -24,7 +24,10 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import { UserSignUpEvent } from '../../../event-emitter/events/user/user.event';
+import {
+  UserSignUpEvent,
+  UserEmailChangeEvent,
+} from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
@@ -440,6 +443,10 @@ export class LocalAuthService {
       where: { id: user.id, deletedTime: null, deactivatedTime: null },
       data: { email: newEmail },
     });
+    this.eventEmitterService.emitAsync(
+      Events.USER_EMAIL_CHANGE,
+      new UserEmailChangeEvent(user.id, currentEmail, newEmail)
+    );
     // clear session
     await this.sessionStoreService.clearByUserId(user.id);
   }

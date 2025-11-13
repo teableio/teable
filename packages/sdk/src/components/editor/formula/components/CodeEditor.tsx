@@ -4,7 +4,11 @@ import { EditorState, StateEffect } from '@codemirror/state';
 import { EditorView, placeholder as placeholderExtension } from '@codemirror/view';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
-import { AUTOCOMPLETE_EXTENSIONS, HISTORY_EXTENSIONS } from '../extensions';
+import {
+  AUTOCOMPLETE_EXTENSIONS,
+  CLOSE_BRACKETS_EXTENSION,
+  HISTORY_EXTENSIONS,
+} from '../extensions';
 
 interface ICodeEditorProps {
   value?: string;
@@ -31,12 +35,14 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
   const editorRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
   const isUserInput = useRef(false);
+  const isComposingRef = useRef(false);
+  const pendingReconfigureRef = useRef<Extension[] | null>(null);
 
   useImperativeHandle(ref, () => ({
     getEditorView: () => editorViewRef.current,
   }));
 
-  const allExtensions = useMemo(() => {
+  const { allExtensionsWithCB, allExtensionsWithoutCB } = useMemo(() => {
     const updateListener = EditorView.updateListener.of((v) => {
       if (v.docChanged) {
         isUserInput.current = true;
@@ -52,7 +58,7 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
     });
     const highlight = syntaxHighlighting(defaultHighlightStyle, { fallback: true });
 
-    return [
+    const withCB: Extension[] = [
       ...HISTORY_EXTENSIONS,
       ...AUTOCOMPLETE_EXTENSIONS,
       highlight,
@@ -61,6 +67,17 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
       placeholderExtension(placeholder ?? ''),
       ...extensions,
     ];
+    const withoutCB: Extension[] = [
+      ...HISTORY_EXTENSIONS,
+      ...AUTOCOMPLETE_EXTENSIONS.filter((e) => e !== CLOSE_BRACKETS_EXTENSION),
+      highlight,
+      updateListener,
+      EditorView.lineWrapping,
+      placeholderExtension(placeholder ?? ''),
+      ...extensions,
+    ];
+
+    return { allExtensionsWithCB: withCB, allExtensionsWithoutCB: withoutCB };
   }, [extensions, onChange, onSelectionChange, placeholder]);
 
   useEffect(() => {
@@ -68,7 +85,7 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
 
     const state = EditorState.create({
       doc: value,
-      extensions: allExtensions,
+      extensions: allExtensionsWithCB,
     });
 
     const editorView = new EditorView({
@@ -76,8 +93,32 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
       parent: editorRef.current,
     });
     editorViewRef.current = editorView;
+    const dom = editorView.dom;
+    const onCompositionStart = () => {
+      isComposingRef.current = true;
+      editorViewRef.current?.dispatch({
+        effects: StateEffect.reconfigure.of(allExtensionsWithoutCB),
+      });
+    };
+    const onCompositionEnd = () => {
+      isComposingRef.current = false;
+      if (pendingReconfigureRef.current) {
+        editorViewRef.current?.dispatch({
+          effects: StateEffect.reconfigure.of(pendingReconfigureRef.current),
+        });
+        pendingReconfigureRef.current = null;
+      } else {
+        editorViewRef.current?.dispatch({
+          effects: StateEffect.reconfigure.of(allExtensionsWithCB),
+        });
+      }
+    };
+    dom.addEventListener('compositionstart', onCompositionStart);
+    dom.addEventListener('compositionend', onCompositionEnd);
 
     return () => {
+      dom.removeEventListener('compositionstart', onCompositionStart);
+      dom.removeEventListener('compositionend', onCompositionEnd);
       editorView.destroy();
       editorViewRef.current = null;
     };
@@ -98,8 +139,14 @@ const CodeEditorBase: ForwardRefRenderFunction<ICodeEditorRef, ICodeEditorProps>
   }, [value]);
 
   useEffect(() => {
-    editorViewRef.current?.dispatch({ effects: StateEffect.reconfigure.of(allExtensions) });
-  }, [allExtensions]);
+    if (isComposingRef.current) {
+      pendingReconfigureRef.current = allExtensionsWithCB;
+      return;
+    }
+    editorViewRef.current?.dispatch({
+      effects: StateEffect.reconfigure.of(allExtensionsWithCB),
+    });
+  }, [allExtensionsWithCB]);
 
   return <div className="w-full" ref={editorRef} />;
 };

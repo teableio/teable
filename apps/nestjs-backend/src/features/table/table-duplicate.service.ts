@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
@@ -6,6 +6,7 @@ import {
   FieldType,
   ViewType,
   generatePluginInstallId,
+  HttpErrorCode,
 } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -15,6 +16,7 @@ import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -651,7 +653,15 @@ export class TableDuplicateService {
     for (const view of pluginViews) {
       const plugin = view.options ? JSON.parse(view.options) : null;
       if (!plugin) {
-        throw new BadGatewayException('Duplicate plugin view error: pluginId not found');
+        throw new CustomHttpException(
+          `Duplicate plugin view error: plugin not found`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.plugin.notFound',
+            },
+          }
+        );
       }
       const { pluginInstallId, pluginId } = plugin;
 

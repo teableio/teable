@@ -1,7 +1,6 @@
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { BadRequestException } from '@nestjs/common';
-import { getUniqName, FieldType } from '@teable/core';
+import { getUniqName, FieldType, HttpErrorCode } from '@teable/core';
 import type { IValidateTypes, IAnalyzeVo } from '@teable/openapi';
 import { SUPPORTEDTYPE, importTypeMap } from '@teable/openapi';
 import { zip, toString, intersection, chunk as chunkArray } from 'lodash';
@@ -11,6 +10,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import type { ZodType } from 'zod';
 import z from 'zod';
+import { CustomHttpException } from '../../../custom.exception';
 import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
 
@@ -120,15 +120,19 @@ export abstract class Importer {
       ?.split(';')
       ?.map((item: string) => item.trim());
 
-    // if (!fileFormat?.length) {
-    //   throw new BadRequestException(
-    //     `Input url is not a standard document service without right content-type`
-    //   );
-    // }
-
     if (fileFormat?.length && !intersection(fileFormat, supportType).length) {
-      throw new BadRequestException(
-        `File format is not supported, only ${supportType.join(',')} are supported, your file's content type is ${fileFormat.join(';')}`
+      throw new CustomHttpException(
+        `File format is not supported, only ${supportType.join(',')} are supported, your file's content type is ${fileFormat.join(';')}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.import.notSupportedFileFormat',
+            context: {
+              supportType: supportType.join(','),
+              fileFormat: fileFormat?.join(';'),
+            },
+          },
+        }
       );
     }
 
@@ -439,7 +443,15 @@ export const importerFactory = (type: SUPPORTEDTYPE, config: IImportConstructorP
     case SUPPORTEDTYPE.EXCEL:
       return new ExcelImporter(config);
     default:
-      throw new BadRequestException('Import file type not support');
+      throw new CustomHttpException(
+        'Import file type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.import.notSupportedFileType',
+          },
+        }
+      );
   }
 };
 

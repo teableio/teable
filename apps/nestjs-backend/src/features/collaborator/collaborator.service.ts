@@ -1,7 +1,14 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import { canManageRole, getRandomString, Role, type IBaseRole, type IRole } from '@teable/core';
+import {
+  canManageRole,
+  getRandomString,
+  HttpErrorCode,
+  Role,
+  type IBaseRole,
+  type IRole,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   AddBaseCollaboratorRo,
@@ -15,6 +22,7 @@ import { Knex } from 'knex';
 import { difference, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -63,7 +71,15 @@ export class CollaboratorService {
       },
     });
     if (exist) {
-      throw new BadRequestException('has already existed in space');
+      throw new CustomHttpException(
+        'Collaborator has already existed in space',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.alreadyExisted',
+          },
+        }
+      );
     }
     // if has exist base collaborator, then delete it
     const bases = await this.prismaService.txClient().base.findMany({
@@ -528,7 +544,15 @@ export class CollaboratorService {
     const currentColl = colls.find((coll) => coll.principalId === currentPrincipalId);
     const targetColl = colls.find((coll) => coll.principalId === targetPrincipalId);
     if (!currentColl || !targetColl) {
-      throw new BadRequestException('User not found in collaborator');
+      throw new CustomHttpException(
+        'User not found in collaborator',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.userNotFoundInCollaborator',
+          },
+        }
+      );
     }
     return { currentColl, targetColl };
   }
@@ -576,8 +600,14 @@ export class CollaboratorService {
       currentColl.roleName !== Role.Owner &&
       !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
     ) {
-      throw new ForbiddenException(
-        `You do not have permission to delete this collaborator: ${principalId}`
+      throw new CustomHttpException(
+        'You do not have permission to delete this collaborator',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.noPermissionToDelete',
+          },
+        }
       );
     }
     const result = await this.prismaService.txClient().collaborator.delete({
@@ -632,14 +662,28 @@ export class CollaboratorService {
       currentColl.roleName !== targetColl.roleName &&
       !canManageRole(currentColl.roleName as IRole, targetColl.roleName)
     ) {
-      throw new ForbiddenException(
-        `You do not have permission to operator this collaborator: ${principalId}`
+      throw new CustomHttpException(
+        `You do not have permission to operator this collaborator: ${principalId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.noPermissionToUpdate',
+          },
+        }
       );
     }
 
     // validate user can operator target role
     if (role !== currentColl.roleName && !canManageRole(currentColl.roleName as IRole, role)) {
-      throw new ForbiddenException(`You do not have permission to operator this role: ${role}`);
+      throw new CustomHttpException(
+        `You do not have permission to operator this role: ${role}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.noPermissionToOperateRole',
+          },
+        }
+      );
     }
 
     return this.prismaService.txClient().collaborator.updateMany({
@@ -719,7 +763,15 @@ export class CollaboratorService {
     });
     // if has exist space collaborator
     if (exist) {
-      throw new BadRequestException('has already existed in base');
+      throw new CustomHttpException(
+        'Collaborator has already existed in base',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.alreadyExistedInBase',
+          },
+        }
+      );
     }
 
     const res = await this.prismaService.txClient().collaborator.createMany({
@@ -804,7 +856,16 @@ export class CollaboratorService {
       users.map((u) => u.id)
     );
     if (diffIds.length > 0) {
-      throw new BadRequestException(`User not found: ${diffIds.join(', ')}`);
+      throw new CustomHttpException(
+        `User not found: ${diffIds.join(', ')}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.userNotFound',
+            context: { userIds: diffIds.join(', ') },
+          },
+        }
+      );
     }
   }
 
@@ -876,7 +937,11 @@ export class CollaboratorService {
           },
         })
         .catch(() => {
-          throw new BadRequestException('Base not found');
+          throw new CustomHttpException('Base not found', HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.collaborator.baseNotFound',
+            },
+          });
         });
       spaceId = base.spaceId;
     }
@@ -889,7 +954,15 @@ export class CollaboratorService {
       },
     });
     if (collaborators.length === 0) {
-      throw new BadRequestException('User not found in collaborator');
+      throw new CustomHttpException(
+        'User not found in collaborator',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.userNotFoundInCollaborator',
+          },
+        }
+      );
     }
     const userRole = getMaxLevelRole(collaborators);
 
@@ -897,8 +970,14 @@ export class CollaboratorService {
       return;
     }
     if (!canManageRole(userRole, addRole)) {
-      throw new ForbiddenException(
-        `You do not have permission to add this role collaborator: ${addRole}`
+      throw new CustomHttpException(
+        `You do not have permission to add this role collaborator: ${addRole}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.collaborator.noPermissionToAddRole',
+          },
+        }
       );
     }
   }

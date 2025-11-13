@@ -72,7 +72,7 @@ export class LinkService {
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
-              i18nKey: 'httpErrors.custom.linkCellRecordIdAlreadyExists',
+              i18nKey: 'httpErrors.field.linkCellRecordIdAlreadyExists',
               context: { recordId: v.id },
             },
           }
@@ -251,7 +251,7 @@ export class LinkService {
             HttpErrorCode.VALIDATION_ERROR,
             {
               localization: {
-                i18nKey: 'httpErrors.custom.linkConsistencyError',
+                i18nKey: 'httpErrors.field.linkConsistencyError',
                 context: { recordId: foreignRecordId },
               },
             }
@@ -328,7 +328,7 @@ export class LinkService {
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
-              i18nKey: 'httpErrors.custom.linkConsistencyError',
+              i18nKey: 'httpErrors.field.linkConsistencyError',
               context: { recordId: newKey },
             },
           }
@@ -694,8 +694,8 @@ export class LinkService {
               localization: {
                 i18nKey:
                   relationship === Relationship.OneOne
-                    ? 'httpErrors.custom.oneOneLinkCellValueCannotBeArray'
-                    : 'httpErrors.custom.manyOneLinkCellValueCannotBeArray',
+                    ? 'httpErrors.field.oneOneLinkCellValueCannotBeArray'
+                    : 'httpErrors.field.manyOneLinkCellValueCannotBeArray',
               },
             }
           );
@@ -704,7 +704,7 @@ export class LinkService {
         if ((foreignKeys?.length ?? 0) > 1) {
           throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
             localization: {
-              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+              i18nKey: 'httpErrors.field.foreignKeyDuplicate',
             },
           });
         }
@@ -742,8 +742,8 @@ export class LinkService {
               localization: {
                 i18nKey:
                   relationship === Relationship.OneMany
-                    ? 'httpErrors.custom.oneManyLinkCellValueShouldBeArray'
-                    : 'httpErrors.custom.manyManyLinkCellValueShouldBeArray',
+                    ? 'httpErrors.field.oneManyLinkCellValueShouldBeArray'
+                    : 'httpErrors.field.manyManyLinkCellValueShouldBeArray',
               },
             }
           );
@@ -1675,7 +1675,7 @@ export class LinkService {
         if ((foreignKeys?.length ?? 0) > 1) {
           throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
             localization: {
-              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+              i18nKey: 'httpErrors.field.foreignKeyDuplicate',
             },
           });
         }

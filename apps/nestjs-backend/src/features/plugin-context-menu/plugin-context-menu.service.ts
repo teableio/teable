@@ -1,6 +1,6 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
-import { generatePluginInstallId, Role } from '@teable/core';
+import { generatePluginInstallId, HttpErrorCode, Role } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PluginPosition, PrincipalType } from '@teable/openapi';
@@ -13,6 +13,7 @@ import type {
   IPluginConfig,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -40,7 +41,11 @@ export class PluginContextMenuService {
       select: { baseId: true },
     });
     if (!base) {
-      throw new NotFoundException('Table not found');
+      throw new CustomHttpException('Table not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.table.notFound',
+        },
+      });
     }
     return base.baseId;
   }
@@ -57,7 +62,11 @@ export class PluginContextMenuService {
     });
 
     if (!plugin) {
-      throw new NotFoundException('Plugin not found');
+      throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.notFound',
+        },
+      });
     }
 
     const baseId = await this.getBaseId(tableId);
@@ -186,7 +195,11 @@ export class PluginContextMenuService {
       },
     });
     if (!res) {
-      throw new NotFoundException('Plugin install not found');
+      throw new CustomHttpException('Plugin install not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.pluginInstall.notFound',
+        },
+      });
     }
     return {
       name: res.name,
@@ -220,7 +233,11 @@ export class PluginContextMenuService {
       },
     });
     if (!res) {
-      throw new NotFoundException('Plugin install not found');
+      throw new CustomHttpException('Plugin install not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.pluginInstall.notFound',
+        },
+      });
     }
     return {
       tableId,
@@ -313,7 +330,15 @@ export class PluginContextMenuService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin Context Menu not found');
+        throw new CustomHttpException(
+          'Plugin Context Menu not found',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.pluginContextMenu.notFound',
+            },
+          }
+        );
       })
       .then((item) => ({
         ...item,
@@ -329,7 +354,15 @@ export class PluginContextMenuService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin Context Menu Anchor not found');
+        throw new CustomHttpException(
+          'Plugin Context Menu Anchor not found',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.pluginContextMenu.anchorNotFound',
+            },
+          }
+        );
       })
       .then((item) => ({
         ...item,

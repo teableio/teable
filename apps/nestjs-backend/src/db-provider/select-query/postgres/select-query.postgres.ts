@@ -1,5 +1,6 @@
-import { DbFieldType } from '@teable/core';
+import { DbFieldType, FieldType } from '@teable/core';
 import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
+import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import { SelectQueryAbstract } from '../select-query.abstract';
 
 /**
@@ -577,14 +578,16 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   datetimeParse(dateString: string, format?: string): string {
+    const valueExpr = `(${dateString})`;
+    const needsGuard = !this.isDirectDatetimeFieldParam(0);
+
     if (format == null) {
-      return dateString;
+      return needsGuard ? this.guardDefaultDatetimeParse(valueExpr) : valueExpr;
     }
     const normalized = format.trim();
     if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
-      return dateString;
+      return needsGuard ? this.guardDefaultDatetimeParse(valueExpr) : valueExpr;
     }
-    const valueExpr = `(${dateString})`;
     const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${format})`;
     const guardPattern = this.buildDatetimeParseGuardRegex(normalized);
     if (!guardPattern) {
@@ -990,6 +993,14 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return `(${expression})`;
   }
 
+  private guardDefaultDatetimeParse(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
     if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
       return null;
@@ -1041,5 +1052,24 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     }
     pattern += '$';
     return pattern;
+  }
+
+  private isDirectDatetimeFieldParam(index: number): boolean {
+    const metadata = this.currentCallMetadata?.[index];
+    if (!metadata?.isFieldReference || !metadata.field) {
+      return false;
+    }
+    if (metadata.field.isMultiple) {
+      return false;
+    }
+    if (metadata.field.isLookup && metadata.field.dbFieldType === DbFieldType.Json) {
+      return false;
+    }
+    const fieldType = metadata.field.type;
+    return (
+      fieldType === FieldType.Date ||
+      fieldType === FieldType.CreatedTime ||
+      fieldType === FieldType.LastModifiedTime
+    );
   }
 }

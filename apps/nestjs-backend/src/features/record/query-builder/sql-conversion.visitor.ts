@@ -44,6 +44,9 @@ import type {
   LastModifiedTimeFieldCore,
   FormulaFieldCore,
   IFieldWithExpression,
+  IFormulaParamMetadata,
+  IFormulaParamFieldMetadata,
+  FormulaParamType,
 } from '@teable/core';
 import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
 import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
@@ -445,286 +448,301 @@ abstract class BaseSqlConversionVisitor<
     const exprContexts = ctx.expr();
     let params = exprContexts.map((exprCtx) => exprCtx.accept(this));
     params = this.normalizeFunctionParamsForMultiplicity(fnName, params, exprContexts);
+    const paramMetadata = exprContexts.map((exprCtx) => this.buildParamMetadata(exprCtx));
+    this.formulaQuery.setCallMetadata(paramMetadata);
 
-    const multiValueFormat = this.tryBuildMultiValueAggregator(fnName, params, exprContexts);
-    if (multiValueFormat) {
-      return multiValueFormat;
-    }
+    const execute = () => {
+      const multiValueFormat = this.tryBuildMultiValueAggregator(fnName, params, exprContexts);
+      if (multiValueFormat) {
+        return multiValueFormat;
+      }
 
-    return (
-      match(fnName)
-        // Numeric Functions
-        .with(FunctionName.Sum, () => this.formulaQuery.sum(params))
-        .with(FunctionName.Average, () => this.formulaQuery.average(params))
-        .with(FunctionName.Max, () => this.formulaQuery.max(params))
-        .with(FunctionName.Min, () => this.formulaQuery.min(params))
-        .with(FunctionName.Round, () => this.formulaQuery.round(params[0], params[1]))
-        .with(FunctionName.RoundUp, () => this.formulaQuery.roundUp(params[0], params[1]))
-        .with(FunctionName.RoundDown, () => this.formulaQuery.roundDown(params[0], params[1]))
-        .with(FunctionName.Ceiling, () => this.formulaQuery.ceiling(params[0]))
-        .with(FunctionName.Floor, () => this.formulaQuery.floor(params[0]))
-        .with(FunctionName.Even, () => this.formulaQuery.even(params[0]))
-        .with(FunctionName.Odd, () => this.formulaQuery.odd(params[0]))
-        .with(FunctionName.Int, () => this.formulaQuery.int(params[0]))
-        .with(FunctionName.Abs, () => this.formulaQuery.abs(params[0]))
-        .with(FunctionName.Sqrt, () => this.formulaQuery.sqrt(params[0]))
-        .with(FunctionName.Power, () => this.formulaQuery.power(params[0], params[1]))
-        .with(FunctionName.Exp, () => this.formulaQuery.exp(params[0]))
-        .with(FunctionName.Log, () => this.formulaQuery.log(params[0], params[1]))
-        .with(FunctionName.Mod, () => this.formulaQuery.mod(params[0], params[1]))
-        .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
+      return (
+        match(fnName)
+          // Numeric Functions
+          .with(FunctionName.Sum, () => this.formulaQuery.sum(params))
+          .with(FunctionName.Average, () => this.formulaQuery.average(params))
+          .with(FunctionName.Max, () => this.formulaQuery.max(params))
+          .with(FunctionName.Min, () => this.formulaQuery.min(params))
+          .with(FunctionName.Round, () => this.formulaQuery.round(params[0], params[1]))
+          .with(FunctionName.RoundUp, () => this.formulaQuery.roundUp(params[0], params[1]))
+          .with(FunctionName.RoundDown, () => this.formulaQuery.roundDown(params[0], params[1]))
+          .with(FunctionName.Ceiling, () => this.formulaQuery.ceiling(params[0]))
+          .with(FunctionName.Floor, () => this.formulaQuery.floor(params[0]))
+          .with(FunctionName.Even, () => this.formulaQuery.even(params[0]))
+          .with(FunctionName.Odd, () => this.formulaQuery.odd(params[0]))
+          .with(FunctionName.Int, () => this.formulaQuery.int(params[0]))
+          .with(FunctionName.Abs, () => this.formulaQuery.abs(params[0]))
+          .with(FunctionName.Sqrt, () => this.formulaQuery.sqrt(params[0]))
+          .with(FunctionName.Power, () => this.formulaQuery.power(params[0], params[1]))
+          .with(FunctionName.Exp, () => this.formulaQuery.exp(params[0]))
+          .with(FunctionName.Log, () => this.formulaQuery.log(params[0], params[1]))
+          .with(FunctionName.Mod, () => this.formulaQuery.mod(params[0], params[1]))
+          .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
 
-        // Text Functions
-        .with(FunctionName.Concatenate, () => {
-          const coerced = params.map((param, index) =>
-            this.coerceToStringForConcatenation(param, exprContexts[index])
-          );
-          return this.formulaQuery.concatenate(coerced);
-        })
-        .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
-        .with(FunctionName.Search, () => this.formulaQuery.search(params[0], params[1], params[2]))
-        .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
-        .with(FunctionName.Left, () => {
-          const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
-          const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
-          return this.formulaQuery.left(textOperand, sliceLength);
-        })
-        .with(FunctionName.Right, () => {
-          const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
-          const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
-          return this.formulaQuery.right(textOperand, sliceLength);
-        })
-        .with(FunctionName.Replace, () =>
-          this.formulaQuery.replace(params[0], params[1], params[2], params[3])
-        )
-        .with(FunctionName.RegExpReplace, () =>
-          this.formulaQuery.regexpReplace(params[0], params[1], params[2])
-        )
-        .with(FunctionName.Substitute, () =>
-          this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
-        )
-        .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
-        .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
-        .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
-        .with(FunctionName.Trim, () => this.formulaQuery.trim(params[0]))
-        .with(FunctionName.Len, () => this.formulaQuery.len(params[0]))
-        .with(FunctionName.T, () => this.formulaQuery.t(params[0]))
-        .with(FunctionName.EncodeUrlComponent, () =>
-          this.formulaQuery.encodeUrlComponent(params[0])
-        )
+          // Text Functions
+          .with(FunctionName.Concatenate, () => {
+            const coerced = params.map((param, index) =>
+              this.coerceToStringForConcatenation(param, exprContexts[index])
+            );
+            return this.formulaQuery.concatenate(coerced);
+          })
+          .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
+          .with(FunctionName.Search, () =>
+            this.formulaQuery.search(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
+          .with(FunctionName.Left, () => {
+            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
+            return this.formulaQuery.left(textOperand, sliceLength);
+          })
+          .with(FunctionName.Right, () => {
+            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
+            return this.formulaQuery.right(textOperand, sliceLength);
+          })
+          .with(FunctionName.Replace, () =>
+            this.formulaQuery.replace(params[0], params[1], params[2], params[3])
+          )
+          .with(FunctionName.RegExpReplace, () =>
+            this.formulaQuery.regexpReplace(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Substitute, () =>
+            this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
+          )
+          .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
+          .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
+          .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
+          .with(FunctionName.Trim, () => this.formulaQuery.trim(params[0]))
+          .with(FunctionName.Len, () => this.formulaQuery.len(params[0]))
+          .with(FunctionName.T, () => this.formulaQuery.t(params[0]))
+          .with(FunctionName.EncodeUrlComponent, () =>
+            this.formulaQuery.encodeUrlComponent(params[0])
+          )
 
-        // DateTime Functions
-        .with(FunctionName.Now, () => this.formulaQuery.now())
-        .with(FunctionName.Today, () => this.formulaQuery.today())
-        .with(FunctionName.DateAdd, () =>
-          this.formulaQuery.dateAdd(params[0], params[1], params[2])
-        )
-        .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
-        .with(FunctionName.DatetimeDiff, () => {
-          const unitExpr = params[2] ?? `'day'`;
-          return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
-        })
-        .with(FunctionName.DatetimeFormat, () =>
-          this.formulaQuery.datetimeFormat(params[0], params[1])
-        )
-        .with(FunctionName.DatetimeParse, () =>
-          this.formulaQuery.datetimeParse(params[0], params[1])
-        )
-        .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
-        .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
-        .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
-        .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
-        .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
-        .with(FunctionName.IsSame, () => this.formulaQuery.isSame(params[0], params[1], params[2]))
-        .with(FunctionName.LastModifiedTime, () => this.formulaQuery.lastModifiedTime())
-        .with(FunctionName.Minute, () => this.formulaQuery.minute(params[0]))
-        .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
-        .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
-        .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
-        .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
-        .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
-        .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
-        .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
-        .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
-        .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
-        .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
+          // DateTime Functions
+          .with(FunctionName.Now, () => this.formulaQuery.now())
+          .with(FunctionName.Today, () => this.formulaQuery.today())
+          .with(FunctionName.DateAdd, () =>
+            this.formulaQuery.dateAdd(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
+          .with(FunctionName.DatetimeDiff, () => {
+            const unitExpr = params[2] ?? `'day'`;
+            return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
+          })
+          .with(FunctionName.DatetimeFormat, () =>
+            this.formulaQuery.datetimeFormat(params[0], params[1])
+          )
+          .with(FunctionName.DatetimeParse, () =>
+            this.formulaQuery.datetimeParse(params[0], params[1])
+          )
+          .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
+          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
+          .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
+          .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
+          .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
+          .with(FunctionName.IsSame, () =>
+            this.formulaQuery.isSame(params[0], params[1], params[2])
+          )
+          .with(FunctionName.LastModifiedTime, () => this.formulaQuery.lastModifiedTime())
+          .with(FunctionName.Minute, () => this.formulaQuery.minute(params[0]))
+          .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
+          .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
+          .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
+          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
+          .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
+          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
+          .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
+          .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
+          .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
+          .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
 
-        // Logical Functions
-        .with(FunctionName.If, () => {
-          const [conditionSql, trueSql, falseSql] = params;
-          let coercedTrue = trueSql;
-          let coercedFalse = falseSql;
+          // Logical Functions
+          .with(FunctionName.If, () => {
+            const [conditionSql, trueSql, falseSql] = params;
+            let coercedTrue = trueSql;
+            let coercedFalse = falseSql;
 
-          const trueExprCtx = exprContexts[1];
-          const falseExprCtx = exprContexts[2];
-          const trueType = this.inferExpressionType(trueExprCtx);
-          const falseType = this.inferExpressionType(falseExprCtx);
-          const trueIsBlank = this.isBlankLikeExpression(trueExprCtx) || trueSql.trim() === "''";
-          const falseIsBlank = this.isBlankLikeExpression(falseExprCtx) || falseSql.trim() === "''";
+            const trueExprCtx = exprContexts[1];
+            const falseExprCtx = exprContexts[2];
+            const trueType = this.inferExpressionType(trueExprCtx);
+            const falseType = this.inferExpressionType(falseExprCtx);
+            const trueIsBlank = this.isBlankLikeExpression(trueExprCtx) || trueSql.trim() === "''";
+            const falseIsBlank =
+              this.isBlankLikeExpression(falseExprCtx) || falseSql.trim() === "''";
 
-          const shouldNullOutTrueBranch = trueIsBlank && falseType !== 'string';
-          const shouldNullOutFalseBranch = falseIsBlank && trueType !== 'string';
+            const shouldNullOutTrueBranch = trueIsBlank && falseType !== 'string';
+            const shouldNullOutFalseBranch = falseIsBlank && trueType !== 'string';
 
-          if (shouldNullOutTrueBranch) {
-            coercedTrue = 'NULL';
-          }
+            if (shouldNullOutTrueBranch) {
+              coercedTrue = 'NULL';
+            }
 
-          if (shouldNullOutFalseBranch) {
-            coercedFalse = 'NULL';
-          }
+            if (shouldNullOutFalseBranch) {
+              coercedFalse = 'NULL';
+            }
 
-          if (this.inferExpressionType(ctx) === 'string') {
-            coercedTrue = this.coerceCaseBranchToText(coercedTrue);
-            coercedFalse = this.coerceCaseBranchToText(coercedFalse);
-          }
+            if (this.inferExpressionType(ctx) === 'string') {
+              coercedTrue = this.coerceCaseBranchToText(coercedTrue);
+              coercedFalse = this.coerceCaseBranchToText(coercedFalse);
+            }
 
-          return this.formulaQuery.if(conditionSql, coercedTrue, coercedFalse);
-        })
-        .with(FunctionName.And, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.and(booleanParams);
-        })
-        .with(FunctionName.Or, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.or(booleanParams);
-        })
-        .with(FunctionName.Not, () => {
-          const booleanParam = this.normalizeBooleanExpression(params[0], exprContexts[0]);
-          return this.formulaQuery.not(booleanParam);
-        })
-        .with(FunctionName.Xor, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.xor(booleanParams);
-        })
-        .with(FunctionName.Blank, () => this.formulaQuery.blank())
-        .with(FunctionName.IsError, () => this.formulaQuery.isError(params[0]))
-        .with(FunctionName.Switch, () => {
-          // Handle switch function with variable number of case-result pairs
-          const expression = params[0];
-          const cases: Array<{ case: string; result: string }> = [];
-          let defaultResult: string | undefined;
+            return this.formulaQuery.if(conditionSql, coercedTrue, coercedFalse);
+          })
+          .with(FunctionName.And, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.and(booleanParams);
+          })
+          .with(FunctionName.Or, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.or(booleanParams);
+          })
+          .with(FunctionName.Not, () => {
+            const booleanParam = this.normalizeBooleanExpression(params[0], exprContexts[0]);
+            return this.formulaQuery.not(booleanParam);
+          })
+          .with(FunctionName.Xor, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.xor(booleanParams);
+          })
+          .with(FunctionName.Blank, () => this.formulaQuery.blank())
+          .with(FunctionName.IsError, () => this.formulaQuery.isError(params[0]))
+          .with(FunctionName.Switch, () => {
+            // Handle switch function with variable number of case-result pairs
+            const expression = params[0];
+            const cases: Array<{ case: string; result: string }> = [];
+            let defaultResult: string | undefined;
 
-          type SwitchResultEntry = {
-            sql: string;
-            ctx: ExprContext;
-            type: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
-          };
+            type SwitchResultEntry = {
+              sql: string;
+              ctx: ExprContext;
+              type: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
+            };
 
-          const resultEntries: SwitchResultEntry[] = [];
+            const resultEntries: SwitchResultEntry[] = [];
 
-          // Helper to normalize blank-like results when other branches require stricter typing
-          const normalizeBlankResults = () => {
-            const hasNumber = resultEntries.some((entry) => entry.type === 'number');
-            const hasBoolean = resultEntries.some((entry) => entry.type === 'boolean');
-            const hasDatetime = resultEntries.some((entry) => entry.type === 'datetime');
+            // Helper to normalize blank-like results when other branches require stricter typing
+            const normalizeBlankResults = () => {
+              const hasNumber = resultEntries.some((entry) => entry.type === 'number');
+              const hasBoolean = resultEntries.some((entry) => entry.type === 'boolean');
+              const hasDatetime = resultEntries.some((entry) => entry.type === 'datetime');
 
-            const requiresNumeric = hasNumber;
-            const requiresBoolean = hasBoolean;
-            const requiresDatetime = hasDatetime;
+              const requiresNumeric = hasNumber;
+              const requiresBoolean = hasBoolean;
+              const requiresDatetime = hasDatetime;
 
-            const shouldNullifyEntry = (entry: SwitchResultEntry): boolean => {
-              const isBlank = this.isBlankLikeExpression(entry.ctx) || entry.sql.trim() === "''";
+              const shouldNullifyEntry = (entry: SwitchResultEntry): boolean => {
+                const isBlank = this.isBlankLikeExpression(entry.ctx) || entry.sql.trim() === "''";
 
-              if (!isBlank) {
+                if (!isBlank) {
+                  return false;
+                }
+
+                if (requiresNumeric && entry.type !== 'number') {
+                  return true;
+                }
+
+                if (requiresBoolean && entry.type !== 'boolean') {
+                  return true;
+                }
+
+                if (requiresDatetime && entry.type !== 'datetime') {
+                  return true;
+                }
+
                 return false;
-              }
+              };
 
-              if (requiresNumeric && entry.type !== 'number') {
-                return true;
+              for (const entry of resultEntries) {
+                if (shouldNullifyEntry(entry)) {
+                  entry.sql = 'NULL';
+                }
               }
-
-              if (requiresBoolean && entry.type !== 'boolean') {
-                return true;
-              }
-
-              if (requiresDatetime && entry.type !== 'datetime') {
-                return true;
-              }
-
-              return false;
             };
 
-            for (const entry of resultEntries) {
-              if (shouldNullifyEntry(entry)) {
-                entry.sql = 'NULL';
+            // Collect case/result pairs and default (if any)
+            for (let i = 1; i < params.length; i += 2) {
+              if (i + 1 < params.length) {
+                const resultCtx = exprContexts[i + 1];
+                resultEntries.push({
+                  sql: params[i + 1],
+                  ctx: resultCtx,
+                  type: this.inferExpressionType(resultCtx),
+                });
+
+                cases.push({
+                  case: params[i],
+                  result: params[i + 1],
+                });
+              } else {
+                const resultCtx = exprContexts[i];
+                resultEntries.push({
+                  sql: params[i],
+                  ctx: resultCtx,
+                  type: this.inferExpressionType(resultCtx),
+                });
+                defaultResult = params[i];
               }
             }
-          };
 
-          // Collect case/result pairs and default (if any)
-          for (let i = 1; i < params.length; i += 2) {
-            if (i + 1 < params.length) {
-              const resultCtx = exprContexts[i + 1];
-              resultEntries.push({
-                sql: params[i + 1],
-                ctx: resultCtx,
-                type: this.inferExpressionType(resultCtx),
-              });
+            // Normalize blank results only after we have collected all branch types
+            normalizeBlankResults();
 
-              cases.push({
-                case: params[i],
-                result: params[i + 1],
-              });
-            } else {
-              const resultCtx = exprContexts[i];
-              resultEntries.push({
-                sql: params[i],
-                ctx: resultCtx,
-                type: this.inferExpressionType(resultCtx),
-              });
-              defaultResult = params[i];
+            if (this.inferExpressionType(ctx) === 'string') {
+              for (const entry of resultEntries) {
+                entry.sql = this.coerceCaseBranchToText(entry.sql);
+              }
             }
-          }
 
-          // Normalize blank results only after we have collected all branch types
-          normalizeBlankResults();
-
-          if (this.inferExpressionType(ctx) === 'string') {
-            for (const entry of resultEntries) {
-              entry.sql = this.coerceCaseBranchToText(entry.sql);
+            // Apply normalized SQL back to cases/default
+            let resultIndex = 0;
+            for (let i = 0; i < cases.length; i++) {
+              cases[i] = {
+                case: cases[i].case,
+                result: resultEntries[resultIndex++].sql,
+              };
             }
-          }
 
-          // Apply normalized SQL back to cases/default
-          let resultIndex = 0;
-          for (let i = 0; i < cases.length; i++) {
-            cases[i] = {
-              case: cases[i].case,
-              result: resultEntries[resultIndex++].sql,
-            };
-          }
+            if (defaultResult !== undefined) {
+              defaultResult = resultEntries[resultIndex]?.sql;
+            }
 
-          if (defaultResult !== undefined) {
-            defaultResult = resultEntries[resultIndex]?.sql;
-          }
+            return this.formulaQuery.switch(expression, cases, defaultResult);
+          })
 
-          return this.formulaQuery.switch(expression, cases, defaultResult);
-        })
+          // Array Functions
+          .with(FunctionName.Count, () => this.formulaQuery.count(params))
+          .with(FunctionName.CountA, () => this.formulaQuery.countA(params))
+          .with(FunctionName.CountAll, () => this.formulaQuery.countAll(params[0]))
+          .with(FunctionName.ArrayJoin, () => this.formulaQuery.arrayJoin(params[0], params[1]))
+          .with(FunctionName.ArrayUnique, () => this.formulaQuery.arrayUnique(params[0]))
+          .with(FunctionName.ArrayFlatten, () => this.formulaQuery.arrayFlatten(params[0]))
+          .with(FunctionName.ArrayCompact, () => this.formulaQuery.arrayCompact(params[0]))
 
-        // Array Functions
-        .with(FunctionName.Count, () => this.formulaQuery.count(params))
-        .with(FunctionName.CountA, () => this.formulaQuery.countA(params))
-        .with(FunctionName.CountAll, () => this.formulaQuery.countAll(params[0]))
-        .with(FunctionName.ArrayJoin, () => this.formulaQuery.arrayJoin(params[0], params[1]))
-        .with(FunctionName.ArrayUnique, () => this.formulaQuery.arrayUnique(params[0]))
-        .with(FunctionName.ArrayFlatten, () => this.formulaQuery.arrayFlatten(params[0]))
-        .with(FunctionName.ArrayCompact, () => this.formulaQuery.arrayCompact(params[0]))
+          // System Functions
+          .with(FunctionName.RecordId, () => this.formulaQuery.recordId())
+          .with(FunctionName.AutoNumber, () => this.formulaQuery.autoNumber())
+          .with(FunctionName.TextAll, () => this.formulaQuery.textAll(params[0]))
 
-        // System Functions
-        .with(FunctionName.RecordId, () => this.formulaQuery.recordId())
-        .with(FunctionName.AutoNumber, () => this.formulaQuery.autoNumber())
-        .with(FunctionName.TextAll, () => this.formulaQuery.textAll(params[0]))
+          .otherwise((fn) => {
+            throw new Error(`Unsupported function: ${fn}`);
+          })
+      );
+    };
 
-        .otherwise((fn) => {
-          throw new Error(`Unsupported function: ${fn}`);
-        })
-    );
+    try {
+      return execute();
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
+    }
   }
 
   visitBinaryOp(ctx: BinaryOpContext): string {
@@ -1459,10 +1477,7 @@ abstract class BaseSqlConversionVisitor<
   private inferFieldReferenceType(
     ctx: FieldReferenceCurlyContext
   ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
-    const normalizedFieldId = extractFieldReferenceId(ctx);
-    const rawToken = getFieldReferenceTokenText(ctx);
-    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
-    const fieldInfo = this.context.table.getField(fieldId);
+    const { fieldInfo } = this.resolveFieldReference(ctx);
 
     if (!fieldInfo) {
       return 'unknown';
@@ -1484,6 +1499,41 @@ abstract class BaseSqlConversionVisitor<
     }
 
     return this.mapFieldTypeToBasicType(fieldInfo);
+  }
+
+  private resolveFieldReference(ctx: FieldReferenceCurlyContext): {
+    fieldId: string;
+    fieldInfo?: FieldCore;
+  } {
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
+    const fieldInfo = this.context.table.getField(fieldId);
+    return { fieldId, fieldInfo };
+  }
+
+  private buildParamMetadata(exprCtx: ExprContext): IFormulaParamMetadata {
+    const type = this.inferExpressionType(exprCtx) as FormulaParamType;
+    if (exprCtx instanceof FieldReferenceCurlyContext) {
+      const { fieldId, fieldInfo } = this.resolveFieldReference(exprCtx);
+      const fieldMetadata: IFormulaParamFieldMetadata = {
+        id: fieldId,
+        type: fieldInfo?.type as FieldType | undefined,
+        cellValueType: fieldInfo?.cellValueType,
+        isMultiple: Boolean(fieldInfo?.isMultipleCellValue),
+        isLookup: Boolean(fieldInfo?.isLookup),
+        dbFieldType: fieldInfo?.dbFieldType,
+      };
+      return {
+        type,
+        isFieldReference: true,
+        field: fieldMetadata,
+      };
+    }
+    return {
+      type,
+      isFieldReference: false,
+    };
   }
 
   /**
@@ -1798,8 +1848,8 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     // Handle different field types that use CTEs
     if (isLinkField(fieldInfo)) {
-      // Prefer CTE map resolution when available
-      if (cteMap?.has(fieldId)) {
+      // Prefer direct column when raw references are requested; otherwise fallback to CTE mapping
+      if (!preferRaw && cteMap?.has(fieldId)) {
         const cteName = cteMap.get(fieldId)!;
         selectionSql = `"${cteName}"."link_value"`;
       }

@@ -1,10 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   generatePluginId,
   generatePluginUserId,
   getPluginEmail,
   nullsToUndefined,
+  HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType, PluginStatus } from '@teable/openapi';
@@ -23,6 +24,7 @@ import type {
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
@@ -228,7 +230,11 @@ export class PluginService {
           },
         })
         .catch(() => {
-          throw new NotFoundException('Plugin not found');
+          throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.plugin.notFound',
+            },
+          });
         });
 
       if (name && res.pluginUser) {
@@ -268,7 +274,11 @@ export class PluginService {
         where: { id, createdBy: isAdmin ? { in: ['system', userId] } : userId },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin not found');
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
       });
     const userMap = res.pluginUser ? await this.getUserMap([res.pluginUser]) : {};
     return this.convertToVo({

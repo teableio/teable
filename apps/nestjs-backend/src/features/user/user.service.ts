@@ -1,10 +1,11 @@
 import https from 'https';
 import { join } from 'path';
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
   generateUserId,
+  HttpErrorCode,
   minidenticon,
   Role,
 } from '@teable/core';
@@ -17,6 +18,7 @@ import { I18nContext } from 'nestjs-i18n';
 import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
@@ -95,7 +97,15 @@ export class UserService {
   ) {
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
-      throw new BadRequestException('The current instance disallow sign up by the administrator');
+      throw new CustomHttpException(
+        'The current instance disallow sign up by the administrator',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.disallowSignUp',
+          },
+        }
+      );
     }
     if (setting.enableWaitlist) {
       await this.checkWaitlistInviteCode(inviteCode);
@@ -106,12 +116,28 @@ export class UserService {
 
   async checkWaitlistInviteCode(inviteCode?: string) {
     if (!inviteCode) {
-      throw new BadRequestException('Waitlist is enabled, invite code is required');
+      throw new CustomHttpException(
+        'Waitlist is enabled, invite code is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.waitlistInviteCodeRequired',
+          },
+        }
+      );
     }
 
     const times = await this.cacheService.get(`waitlist:invite-code:${inviteCode}`);
     if (!times || times <= 0) {
-      throw new BadRequestException('Waitlist is enabled, invite code is invalid');
+      throw new CustomHttpException(
+        'Waitlist is enabled, invite code is invalid',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.waitlistInviteCodeInvalid',
+          },
+        }
+      );
     }
 
     await this.cacheService.set(`waitlist:invite-code:${inviteCode}`, times - 1, '30d');
@@ -332,7 +358,11 @@ export class UserService {
       // user exist check
       const existUser = await this.getUserByEmail(email);
       if (existUser && existUser.isSystem) {
-        throw new UnauthorizedException('User is system user');
+        throw new CustomHttpException('User is system user', HttpErrorCode.UNAUTHORIZED, {
+          localization: {
+            i18nKey: 'httpErrors.user.systemUser',
+          },
+        });
       }
       if (!existUser) {
         const userId = generateUserId();

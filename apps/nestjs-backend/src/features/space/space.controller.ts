@@ -1,16 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  Body,
-  Controller,
-  Param,
-  Patch,
-  Post,
-  Get,
-  Delete,
-  Query,
-  BadRequestException,
-} from '@nestjs/common';
-import { Role } from '@teable/core';
+import { Body, Controller, Param, Patch, Post, Get, Delete, Query } from '@nestjs/common';
+import { HttpErrorCode, Role } from '@teable/core';
 import type {
   ICreateSpaceVo,
   IUpdateSpaceVo,
@@ -22,7 +12,6 @@ import type {
   ListSpaceCollaboratorVo,
   IGetBaseAllVo,
   ITestLLMVo,
-  IAIIntegrationAISetting,
 } from '@teable/openapi';
 import {
   createSpaceRoSchema,
@@ -53,6 +42,7 @@ import {
   IntegrationType,
 } from '@teable/openapi';
 import { omit } from 'lodash';
+import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
@@ -205,7 +195,15 @@ export class SpaceController {
         updateSpaceCollaborateRo.principalId
       ))
     ) {
-      throw new BadRequestException('Cannot change the role of the only owner of the space');
+      throw new CustomHttpException(
+        'Cannot change the role of the only owner of the space',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.cannotChangeOnlyOwnerRole',
+          },
+        }
+      );
     }
     await this.collaboratorService.updateCollaborator({
       resourceId: spaceId,
@@ -226,7 +224,15 @@ export class SpaceController {
         deleteSpaceCollaboratorRo.principalId
       )
     ) {
-      throw new BadRequestException('Cannot delete the only owner of the space');
+      throw new CustomHttpException(
+        'Cannot delete the only owner of the space',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.cannotDeleteOnlyOwner',
+          },
+        }
+      );
     }
     await this.collaboratorService.deleteCollaborator({
       resourceId: spaceId,

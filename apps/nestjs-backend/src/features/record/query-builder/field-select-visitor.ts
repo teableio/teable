@@ -59,11 +59,24 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
      * This avoids type mismatches when propagating values back into physical columns (e.g. timestamptz).
      */
     private readonly rawProjection: boolean = false,
-    private readonly preferRawFieldReferences: boolean = false
+    private readonly preferRawFieldReferences: boolean = false,
+    private readonly blockedLinkFieldIds?: ReadonlySet<string>,
+    private readonly readyLinkFieldIds?: ReadonlySet<string>,
+    private readonly currentLinkFieldId?: string
   ) {}
 
   private get tableAlias() {
     return this.aliasOverride || getTableAliasFromTable(this.table);
+  }
+
+  private isLinkFieldBlocked(fieldId?: string | null): boolean {
+    return !!fieldId && !!this.blockedLinkFieldIds?.has(fieldId);
+  }
+
+  private isLinkFieldReady(fieldId?: string | null): boolean {
+    if (!fieldId) return false;
+    if (!this.readyLinkFieldIds) return true;
+    return this.readyLinkFieldIds.has(fieldId);
   }
 
   private isViewContext(): boolean {
@@ -192,7 +205,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       }
 
       // Conditional lookup CTEs are stored against the field itself.
-      if (field.isConditionalLookup && fieldCteMap.has(field.id)) {
+      if (
+        field.isConditionalLookup &&
+        fieldCteMap.has(field.id) &&
+        this.isLinkFieldReady(field.id)
+      ) {
         const conditionalCteName = fieldCteMap.get(field.id)!;
         const column =
           field.type === FieldType.ConditionalRollup
@@ -206,7 +223,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       // For regular lookup fields, use the corresponding link field CTE
       if (field.lookupOptions && isLinkLookupOptions(field.lookupOptions)) {
         const { linkFieldId } = field.lookupOptions;
-        if (linkFieldId && fieldCteMap.has(linkFieldId)) {
+        if (
+          linkFieldId &&
+          fieldCteMap.has(linkFieldId) &&
+          !this.isLinkFieldBlocked(linkFieldId) &&
+          this.isLinkFieldReady(linkFieldId)
+        ) {
           const cteName = fieldCteMap.get(linkFieldId)!;
           const flattenedExpr = this.dialect.flattenLookupCteValue(
             cteName,
@@ -356,7 +378,12 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
     }
 
     const fieldCteMap = this.state.getFieldCteMap();
-    if (!fieldCteMap?.has(field.id)) {
+    const cteName = fieldCteMap?.get(field.id);
+    const canUseCte =
+      !!cteName && !this.isLinkFieldBlocked(field.id) && this.isLinkFieldReady(field.id);
+    const isSelfReference = this.currentLinkFieldId === field.id;
+
+    if (!canUseCte || isSelfReference) {
       // If we are selecting from a materialized view, the view already exposes
       // the projected column for this field, so select the physical column.
       if (this.shouldSelectRaw()) {
@@ -365,6 +392,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
         return columnSelector;
       }
       if (this.rawProjection) {
+        const columnSelector = this.getColumnSelector(field);
+        this.state.setSelection(field.id, columnSelector);
+        return columnSelector;
+      }
+      if (!field.hasError) {
         const columnSelector = this.getColumnSelector(field);
         this.state.setSelection(field.id, columnSelector);
         return columnSelector;
@@ -378,11 +410,11 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return raw;
     }
 
-    const cteName = fieldCteMap.get(field.id)!;
+    const resolvedCteName = cteName!;
     // Return Raw expression for selecting from CTE
-    const rawExpression = this.qb.client.raw(`??."link_value"`, [cteName]);
+    const rawExpression = this.qb.client.raw(`??."link_value"`, [resolvedCteName]);
     // For WHERE clauses, store the CTE column reference
-    this.state.setSelection(field.id, `"${cteName}"."link_value"`);
+    this.state.setSelection(field.id, `"${resolvedCteName}"."link_value"`);
     return rawExpression;
   }
 
@@ -410,7 +442,13 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const linkLookupOptions = field.lookupOptions;
 
-    if (!fieldCteMap?.has(linkLookupOptions.linkFieldId)) {
+    const linkFieldId = linkLookupOptions.linkFieldId;
+    if (
+      !linkFieldId ||
+      !fieldCteMap?.has(linkFieldId) ||
+      this.isLinkFieldBlocked(linkFieldId) ||
+      !this.isLinkFieldReady(linkFieldId)
+    ) {
       if (this.rawProjection) {
         const columnSelector = this.getColumnSelector(field);
         this.state.setSelection(field.id, columnSelector);
@@ -444,7 +482,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       this.state.setSelection(field.id, nullExpr);
       return this.qb.client.raw(nullExpr);
     }
-    const cteName = fieldCteMap.get(linkLookupOptions.linkFieldId)!;
+    const cteName = fieldCteMap.get(linkFieldId)!;
 
     // Return Raw expression for selecting pre-computed rollup value from link CTE
     const rawExpression = this.qb.client.raw(`??."rollup_${field.id}"`, [cteName]);
@@ -460,7 +498,7 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const fieldCteMap = this.state.getFieldCteMap();
 
-    if (this.rawProjection && !fieldCteMap.has(field.id)) {
+    if (this.rawProjection && (!fieldCteMap.has(field.id) || !this.isLinkFieldReady(field.id))) {
       const columnSelector = this.getColumnSelector(field);
       this.state.setSelection(field.id, columnSelector);
       return columnSelector;

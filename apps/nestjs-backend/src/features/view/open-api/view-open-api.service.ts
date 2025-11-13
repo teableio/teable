@@ -1,10 +1,5 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-  ForbiddenException,
-} from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Injectable, Logger } from '@nestjs/common';
 import type {
   IOtOperation,
   IViewRo,
@@ -32,6 +27,7 @@ import {
   generatePluginInstallId,
   generateOperationId,
   extractFieldIdsFromFilter,
+  HttpErrorCode,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, PluginStatus } from '@teable/openapi';
@@ -48,6 +44,7 @@ import { keyBy, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
@@ -197,7 +194,15 @@ export class ViewOpenApiService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('view found column meta error');
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
 
     // validate field legal
@@ -216,7 +221,19 @@ export class ViewOpenApiService {
     const fieldIds = columnMetaRo.map(({ fieldId }) => fieldId);
 
     if (!fieldIds.every((id) => fields.map(({ id }) => id).includes(id))) {
-      throw new BadRequestException('field is not found in table');
+      throw new CustomHttpException(
+        `Fields ${fieldIds.join(', ')} not found in table ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notFoundInTable',
+            context: {
+              fieldIds: fieldIds.join(', '),
+              tableId,
+            },
+          },
+        }
+      );
     }
 
     const allowHiddenPrimaryType = [ViewType.Calendar, ViewType.Form];
@@ -225,7 +242,15 @@ export class ViewOpenApiService {
      * only form view or list view(todo) can hidden primary field
      */
     if (isHiddenPrimaryField && !allowHiddenPrimaryType.includes(view.type as ViewType)) {
-      throw new ForbiddenException('primary field can not be hidden');
+      throw new CustomHttpException(
+        `Primary field can not be hidden for view type ${view.type}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.primaryFieldCannotBeHidden',
+          },
+        }
+      );
     }
 
     const curColumnMeta = JSON.parse(view.columnMeta);
@@ -265,8 +290,14 @@ export class ViewOpenApiService {
         select: { id: true },
       });
       if (unsupportedFields.length > 0) {
-        throw new BadRequestException(
-          `Cannot modify filter for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        throw new CustomHttpException(
+          `Filter fields ${unsupportedFields.map((f) => f.id).join(', ')} are unsupported ${FieldType.Button} type fields`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.filterUnsupportedFieldType',
+            },
+          }
         );
       }
     }
@@ -280,8 +311,14 @@ export class ViewOpenApiService {
         select: { id: true },
       });
       if (unsupportedFields.length > 0) {
-        throw new BadRequestException(
-          `Cannot modify sort for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        throw new CustomHttpException(
+          `Sort fields ${unsupportedFields.map((f) => f.id).join(', ')} are unsupported ${FieldType.Button} type fields`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.sortUnsupportedFieldType',
+            },
+          }
         );
       }
     }
@@ -295,8 +332,14 @@ export class ViewOpenApiService {
         select: { id: true },
       });
       if (unsupportedFields.length > 0) {
-        throw new BadRequestException(
-          `Cannot modify group for unsupported button field ${unsupportedFields.map((f) => f.id).join(', ')}`
+        throw new CustomHttpException(
+          `Group fields ${unsupportedFields.map((f) => f.id).join(', ')} are unsupported ${FieldType.Button} type fields`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.groupUnsupportedFieldType',
+            },
+          }
         );
       }
     }
@@ -315,7 +358,15 @@ export class ViewOpenApiService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new BadRequestException('View not found');
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
 
     if (key === 'filter') {
@@ -375,7 +426,15 @@ export class ViewOpenApiService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new BadRequestException('View option not found');
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
     const { options, type: viewType } = curView;
 
@@ -383,7 +442,15 @@ export class ViewOpenApiService {
     try {
       validateOptionsType(viewType as ViewType, viewOptions);
     } catch (err) {
-      throw new BadRequestException(err);
+      throw new CustomHttpException(
+        `View option parse error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.propertyParseError',
+          },
+        }
+      );
     }
 
     const oldOptions = options ? JSON.parse(options) : options;
@@ -450,7 +517,15 @@ export class ViewOpenApiService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`View ${viewId} not found in the table`);
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
 
     const anchorView = await this.prismaService.view
@@ -459,7 +534,15 @@ export class ViewOpenApiService {
         where: { tableId, id: anchorId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
+        throw new CustomHttpException(
+          `Anchor not found with id: ${anchorId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.anchorNotFound',
+            },
+          }
+        );
       });
 
     await updateOrder({
@@ -510,7 +593,15 @@ export class ViewOpenApiService {
   async shuffleRecords(dbTableName: string, indexField: string) {
     const recordCount = await this.recordService.getAllRecordCount(dbTableName);
     if (recordCount > 100_000) {
-      throw new BadRequestException('Not enough gap to move the row here');
+      throw new CustomHttpException(
+        `Not enough gap to shuffle the row here, record count: ${recordCount}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notEnoughGapToShuffleRow',
+          },
+        }
+      );
     }
 
     const sql = this.updateRecordOrderSql(
@@ -552,7 +643,15 @@ export class ViewOpenApiService {
       });
 
     if (!anchorRecord) {
-      throw new NotFoundException(`Anchor ${anchorId} not found in the table`);
+      throw new CustomHttpException(
+        `Anchor not found with id: ${anchorId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.anchorNotFound',
+          },
+        }
+      );
     }
 
     await updateMultipleOrders({
@@ -674,11 +773,27 @@ export class ViewOpenApiService {
       select: { shareId: true, enableShare: true },
     });
     if (!view) {
-      throw new NotFoundException(`View ${viewId} does not exist`);
+      throw new CustomHttpException(
+        `View not found with id: ${viewId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
     }
     const { enableShare } = view;
     if (!enableShare) {
-      throw new BadRequestException(`View ${viewId} has not been enabled share`);
+      throw new CustomHttpException(
+        `View ${viewId} has not been enabled share`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.shareNotEnabled',
+          },
+        }
+      );
     }
     const newShareId = generateShareId();
     const setShareIdOp = ViewOpBuilder.editor.setViewProperty.build({
@@ -695,11 +810,27 @@ export class ViewOpenApiService {
       where: { id: viewId, tableId, deletedTime: null },
     });
     if (!view) {
-      throw new NotFoundException(`View ${viewId} does not exist`);
+      throw new CustomHttpException(
+        `View not found with id: ${viewId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
     }
     const { enableShare, shareId } = view;
     if (enableShare) {
-      throw new BadRequestException(`View ${viewId} has already been enabled share`);
+      throw new CustomHttpException(
+        `View ${viewId} has already been enabled share`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.shareAlreadyEnabled',
+          },
+        }
+      );
     }
     const newShareId = generateShareId();
     const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
@@ -733,11 +864,27 @@ export class ViewOpenApiService {
       select: { shareId: true, enableShare: true, shareMeta: true },
     });
     if (!view) {
-      throw new NotFoundException(`View ${viewId} does not exist`);
+      throw new CustomHttpException(
+        `View not found with id: ${viewId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
     }
     const { enableShare } = view;
     if (!enableShare) {
-      throw new BadRequestException(`View ${viewId} has already been disable share`);
+      throw new CustomHttpException(
+        `View ${viewId} has already been disable share`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.shareAlreadyDisabled',
+          },
+        }
+      );
     }
     const enableShareOp = ViewOpBuilder.editor.setViewProperty.build({
       key: 'enableShare',
@@ -899,10 +1046,26 @@ export class ViewOpenApiService {
       select: { id: true, name: true, logo: true, positions: true },
     });
     if (!plugin) {
-      throw new NotFoundException(`Plugin ${pluginId} not found`);
+      throw new CustomHttpException(
+        `Plugin not found with id: ${pluginId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        }
+      );
     }
     if (!plugin.positions.includes(PluginPosition.View)) {
-      throw new BadRequestException(`Plugin ${pluginId} does not support install in view`);
+      throw new CustomHttpException(
+        `Plugin ${pluginId} does not support install in view`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notSupportInstallInView',
+          },
+        }
+      );
     }
     const viewName = name || plugin.name;
     return this.prismaService.$tx(async (prisma) => {
@@ -949,7 +1112,15 @@ export class ViewOpenApiService {
       select: { id: true },
     });
     if (!pluginInstall) {
-      throw new NotFoundException(`Plugin install not found`);
+      throw new CustomHttpException(
+        `Plugin install not found with viewId: ${viewId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        }
+      );
     }
     return this.prismaService.pluginInstall.update({
       where: { id: pluginInstall.id },
@@ -975,7 +1146,15 @@ export class ViewOpenApiService {
       },
     });
     if (!pluginInstall) {
-      throw new NotFoundException(`Plugin install not found`);
+      throw new CustomHttpException(
+        `Plugin install not found with viewId: ${viewId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        }
+      );
     }
     return {
       name: pluginInstall.name,

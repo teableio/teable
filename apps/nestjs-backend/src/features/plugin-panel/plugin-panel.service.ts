@@ -1,10 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IBaseRole } from '@teable/core';
 import {
   generatePluginInstallId,
   generatePluginPanelId,
   getUniqName,
+  HttpErrorCode,
   nullsToUndefined,
   Role,
 } from '@teable/core';
@@ -23,6 +24,7 @@ import type {
   IDuplicatePluginPanelInstalledPluginRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -78,7 +80,11 @@ export class PluginPanelService {
     });
 
     if (!panel) {
-      throw new NotFoundException('Plugin panel not found');
+      throw new CustomHttpException('Plugin panel not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.pluginPanel.notFound',
+        },
+      });
     }
 
     const plugins = await this.prismaService.pluginInstall.findMany({
@@ -170,7 +176,11 @@ export class PluginPanelService {
       },
     });
     if (!base) {
-      throw new NotFoundException('Table not found');
+      throw new CustomHttpException('Table not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.table.notFound',
+        },
+      });
     }
     return base.baseId;
   }
@@ -190,7 +200,11 @@ export class PluginPanelService {
         },
       });
       if (!plugin) {
-        throw new NotFoundException('Plugin not found');
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
       }
       const pluginInstall = await prisma.pluginInstall.create({
         data: {
@@ -247,7 +261,11 @@ export class PluginPanelService {
         },
       });
       if (!pluginPanel) {
-        throw new NotFoundException('Plugin panel not found');
+        throw new CustomHttpException('Plugin panel not found', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.pluginPanel.notFound',
+          },
+        });
       }
       const layout = pluginPanel.layout ? (JSON.parse(pluginPanel.layout) as IDashboardLayout) : [];
       layout.push({
@@ -283,7 +301,11 @@ export class PluginPanelService {
         },
       });
       if (!pluginPanel) {
-        throw new NotFoundException('Plugin panel not found');
+        throw new CustomHttpException('Plugin panel not found', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.pluginPanel.notFound',
+          },
+        });
       }
       const layout = pluginPanel.layout ? (JSON.parse(pluginPanel.layout) as IDashboardLayout) : [];
       const index = layout.findIndex((item) => item.pluginInstallId === pluginInstallId);
@@ -358,7 +380,11 @@ export class PluginPanelService {
       },
     });
     if (!pluginInstall) {
-      throw new NotFoundException('Plugin install not found');
+      throw new CustomHttpException('Plugin install not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.pluginInstall.notFound',
+        },
+      });
     }
     return {
       baseId,

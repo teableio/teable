@@ -14,7 +14,13 @@ export { FormulaLexer } from './parser/FormulaLexer';
 export { FUNCTIONS } from './functions/factory';
 export * from './parser/Formula';
 export type { FormulaVisitor } from './parser/FormulaVisitor';
-export type { IFieldMap } from './function-convertor.interface';
+export type {
+  IFieldMap,
+  IFormulaParamMetadata,
+  IFormulaParamFieldMetadata,
+  ITeableToDbFunctionConverter,
+  FormulaParamType,
+} from './function-convertor.interface';
 
 export { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
 export type { RuleNode } from 'antlr4ts/tree/RuleNode';

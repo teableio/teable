@@ -23,6 +23,10 @@ export class GeneratedColumnQuerySupportValidatorSqlite
     this.context = context;
   }
 
+  setCallMetadata(): void {
+    // No-op for validator
+  }
+
   // Numeric Functions - Most are supported
   sum(_params: string[]): boolean {
     // Use addition instead of SUM() aggregation function

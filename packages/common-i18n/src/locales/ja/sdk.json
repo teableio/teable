@@ -830,7 +830,6 @@
     "databaseConnectionUnavailable": "データベース接続不可",
     "gatewayTimeout": "ゲートウェイタイムアウト",
     "unknownErrorCode": "不明なエラーコード",
-    "viewNotFound": "ビューが見つかりません",
     "requestTimeout": "要求タイムアウト",
     "failedDependency": "依存操作失敗",
     "automationNodeParseError": "自動化ノード解析エラー",
@@ -842,10 +841,15 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" フィールドは同じレコードに複数の関連付けを許可しません。",
       "requestTimeout": "操作範囲が大きすぎます。範囲を縮小して再試行してください。",
       "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
-      "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。"
+      "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。",
+      "invalidOperation": "無効な操作が検出されました。操作パラメータを確認してください"
     },
     "email": {
       "testEmailError": "メール設定エラー {{message}}"
+    },
+    "comment": {
+      "listCountExceeded": "リクエストされたコメント数が最大制限の 1000 を超えています",
+      "invalidContentType": "無効なコメントコンテンツタイプ"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
@@ -858,15 +862,78 @@
       "nodeNeedTest": "{{name}} ノードはテストが必要です",
       "nodeTestOutdated": "{{name}} ノードのテストは古くなっています"
     },
+    "space": {
+      "notFound": "スペースが見つかりません",
+      "noPermission": "このスペースにアクセスする権限がありません",
+      "disallowSpaceCreation": "管理者によってスペースの作成が無効化されています",
+      "cannotChangeOnlyOwnerRole": "スペースの唯一の所有者のロールを変更できません",
+      "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません"
+    },
+    "base": {
+      "notFound": "ベース が見つかりません",
+      "cannotAccess": "ベース {{baseId}} にアクセスする権限がありません",
+      "anchorNotFound": "アンカーベース {{anchorId}} が見つかりません",
+      "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
+      "templateNotFound": "テンプレート {{templateId}} が見つかりません"
+    },
+    "dashboard": {
+      "notFound": "ダッシュボードが見つかりません"
+    },
+    "plugin": {
+      "notFound": "プラグインが見つかりません",
+      "notSupportInstallInView": "プラグインはビューへのインストールをサポートしていません",
+      "userNotFound": "プラグインユーザーが見つかりません",
+      "invalidSecret": "無効なシークレット",
+      "invalidRefreshToken": "無効なリフレッシュトークン",
+      "anomalousToken": "異常なトークン"
+    },
+    "pluginPanel": {
+      "notFound": "プラグインパネルが見つかりません"
+    },
+    "pluginInstall": {
+      "notFound": "プラグインがインストールされていません"
+    },
+    "pluginContextMenu": {
+      "notFound": "プラグインコンテキストメニューが見つかりません",
+      "anchorNotFound": "プラグインコンテキストメニューのアンカーが見つかりません"
+    },
+    "pluginChart": {
+      "queryNotFound": "プラグインチャートのクエリが見つかりません"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "サポートされていないデータベースドライバー: {{driver}}",
+      "onlyOwnerCanRemove": "ベース {{baseId}} のデータベース接続を削除できるのはベース所有者のみです",
+      "onlyOwnerCanCreate": "ベース {{baseId}} のデータベース接続を作成できるのはベース所有者のみです",
+      "roleNotExist": "データベースロール {{role}} は存在しません"
+    },
+    "baseQuery": {
+      "queryFailed": "クエリが失敗しました: {{message}}",
+      "invalidJoinType": "無効な結合タイプ: {{joinType}}",
+      "tableNotFound": "ベース {{baseId}} にテーブル {{tableId}} が見つかりません"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "キーワード {{keyword}} を含むSQLの実行は許可されていません",
+      "whiteListCheckError": "テーブルアクセスの確認中にエラーが発生しました: {{message}}",
+      "databaseConnectionFailed": "データベース接続に失敗しました: {{message}}",
+      "executeQuerySqlFailed": "クエリSQLの実行に失敗しました: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
       "deleteRecords": "レコード({{recordIds}})を削除する権限がありません",
       "readRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を読み取る権限がありません",
       "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません"
     },
+    "selection": {
+      "invalidReturnType": "無効な戻り値の型",
+      "exceedMaxReadRows": "最大読み取り行数の制限を超えました",
+      "invalidCellValueType": "無効なセル値の型",
+      "exceedMaxCopyCells": "最大コピーセル数の制限を超えました",
+      "exceedMaxPasteCells": "最大貼り付けセル数の制限を超えました"
+    },
     "field": {
       "unsupportedFieldType": "サポートされていないフィールドタイプ {{type}}",
       "unsupportedPrimaryFieldType": "プライマリフィールドとしてサポートされていないフィールドタイプ {{type}}",
+      "primaryFieldNotSupported": "フィールドタイプはプライマリフィールドとしてサポートされていません",
       "calculateRecordNotFound": "レコードが見つかりません: {{value}}、fieldId: {{fieldId}}、{{recordId}} の計算時",
       "toRecordIdsOrFromRecordIdsRequired": "通常の計算フィールドには toRecordIds または fromRecordIds が必要です",
       "recordFieldsRequired": "レコードフィールドが未定義です",
@@ -876,7 +943,7 @@
       "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",
       "fieldNameAlreadyExists": "フィールド名 {{name}} は既に存在します",
       "fieldNotFound": "フィールド {{fieldId}} が見つかりません",
-      "fieldNotFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
+      "notFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
       "deleteFieldsNotFound": "削除するフィールド {{fieldIds}} がテーブル {{tableId}} に見つかりません",
       "lookupValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、lookupValues は配列である必要があります",
       "linkCellValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、linkCellValues は配列である必要があります",
@@ -907,10 +974,106 @@
       "foreignKeyDuplicate": "外部キーが重複しています"
     },
     "view": {
-      "viewNotFound": "ビュー {{viewId}} が見つかりません"
+      "notFound": "ビューが見つかりません",
+      "defaultViewNotFound": "デフォルトビューが見つかりません",
+      "propertyParseError": "ビュープロパティの解析に失敗しました",
+      "primaryFieldCannotBeHidden": "プライマリフィールドを非表示にできません",
+      "filterUnsupportedFieldType": "フィルターでサポートされていないフィールドタイプ",
+      "sortUnsupportedFieldType": "ソートでサポートされていないフィールドタイプ",
+      "groupUnsupportedFieldType": "グループ化でサポートされていないフィールドタイプ",
+      "anchorNotFound": "アンカービューが見つかりません",
+      "notEnoughGapToShuffleRow": "行をシャッフルするための十分なギャップがありません",
+      "shareNotEnabled": "ビュー共有が有効になっていません",
+      "shareAlreadyEnabled": "ビュー共有はすでに有効になっています",
+      "shareAlreadyDisabled": "ビュー共有はすでに無効になっています"
     },
     "billing": {
       "insufficientCredit": "クレジット不足"
+    },
+    "aggregation": {
+      "searchQueryRequired": "検索クエリが必要です",
+      "maxSearchIndexResult": "最大検索インデックス結果は 1000 です",
+      "queryCollectionMustBeTableId": "クエリコレクションはテーブル ID でなければなりません",
+      "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
+      "indexNotFound": "インデックスが見つかりません",
+      "invalidStartDateFieldId": "無効な開始日フィールド ID",
+      "invalidEndDateFieldId": "無効な終了日フィールド ID"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI チャットモデル lg が設定されていません",
+      "chatModelLgProviderNotSet": "AI チャットモデル lg プロバイダーが設定されていません",
+      "chatModelSmNotSet": "AI チャットモデル sm が設定されていません",
+      "chatModelMdNotSet": "AI チャットモデル md が設定されていません",
+      "configurationNotSet": "AI 設定が設定されていません",
+      "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
+      "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません",
+      "testLLMFailed": "LLM 接続テストに失敗しました"
+    },
+    "role": {
+      "notFound": "ロールが見つかりません"
+    },
+    "collaborator": {
+      "alreadyExisted": "コラボレーターは既に存在しています",
+      "notFound": "コラボレーターが見つかりません",
+      "userNotFoundInCollaborator": "コラボレーターにユーザーが見つかりません",
+      "noPermissionToDelete": "このコラボレーターを削除する権限がありません",
+      "noPermissionToUpdate": "このコラボレーターを更新する権限がありません",
+      "noPermissionToOperateRole": "この役割を操作する権限がありません",
+      "alreadyExistedInBase": "コラボレーターは既にデータベースに存在しています",
+      "userNotFound": "ユーザーが見つかりません：{{userIds}}",
+      "baseNotFound": "データベースが見つかりません",
+      "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません"
+    },
+    "table": {
+      "notFound": "テーブルが見つかりません",
+      "dbTableNameAlreadyExists": "データベーステーブル名は既に存在します",
+      "anchorNotFound": "アンカーテーブルが見つかりません",
+      "notInTrash": "テーブルはごみ箱にありません",
+      "notSupportTableIndex": "テーブルインデックスタイプはサポートされていません",
+      "createTableIndexError": "テーブルインデックスの作成に失敗しました",
+      "dropTableIndexError": "テーブルインデックスの削除に失敗しました"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
+    },
+    "import": {
+      "notSupportedFileFormat": "ファイル形式がサポートされていません。{{supportType}} のみがサポートされており、ファイルのコンテンツタイプは {{fileFormat}} です",
+      "notSupportedFileType": "インポートファイルタイプがサポートされていません",
+      "exceedMaxFieldsLength": "テーブル内のフィールド数は {{maxFieldsLength}} を超えることができません。現在は {{length}} です"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "現在のインスタンスでは、管理者によるスペース招待が許可されていません",
+      "invalidCode": "無効な招待コード",
+      "linkNotFound": "招待リンクが見つかりません",
+      "linkExpired": "招待リンクの有効期限が切れています",
+      "limitExceeded": "1時間あたりの最大招待数に達しました"
+    },
+    "pin": {
+      "alreadyExists": "お気に入りは既に存在します",
+      "notFound": "お気に入りが見つかりません",
+      "anchorNotFound": "アンカーお気に入りが見つかりません"
+    },
+    "trash": {
+      "invalidResourceType": "無効なリソースタイプ",
+      "notFound": "ゴミ箱のアイテムが見つかりません",
+      "parentSpaceTrashed": "親スペースもゴミ箱にあるため、このベースを復元できません",
+      "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
+      "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
+    },
+    "user": {
+      "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
+      "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
+      "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
+      "systemUser": "ユーザーはシステムユーザーです",
+      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）"
+    },
+    "lastVisit": {
+      "invalidResourceType": "無効なリソースタイプ"
+    },
+    "template": {
+      "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
+      "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
+      "noMinOrderFound": "最小順序が見つかりません"
     }
   }
 }

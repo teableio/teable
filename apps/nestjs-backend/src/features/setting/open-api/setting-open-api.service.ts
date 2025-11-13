@@ -1,6 +1,7 @@
 import { join } from 'path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ISetSettingMailTransportConfigRo,
@@ -16,6 +17,7 @@ import type { Attachment, LanguageModel } from 'ai';
 import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
 import StorageAdapter from '../../attachments/plugins/adapter';
@@ -199,7 +201,15 @@ export class SettingOpenApiService {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'unknown error';
-      throw new BadGatewayException(message);
+      throw new CustomHttpException(
+        'LLM test failed with error: ' + message,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.testLLMFailed',
+          },
+        }
+      );
     }
   }
 

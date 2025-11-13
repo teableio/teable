@@ -844,7 +844,6 @@
     "databaseConnectionUnavailable": "Connexion à la base de données non disponible",
     "gatewayTimeout": "Temps d'attente de la passerelle",
     "unknownErrorCode": "Code d'erreur inconnu",
-    "viewNotFound": "Vue non trouvée",
     "requestTimeout": "Temps d'attente de la requête dépassé",
     "failedDependency": "Échec de dépendance",
     "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",
@@ -856,10 +855,15 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" champ ne permet pas les associations dupliquées avec le même enregistrement",
       "requestTimeout": "L'action actuelle est trop grande, veuillez réessayer avec un étendue plus petite.",
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
-      "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés"
+      "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés",
+      "invalidOperation": "Opération non valide détectée, veuillez vérifier les paramètres de l'opération"
     },
     "email": {
       "testEmailError": "Erreur de configuration du courrier {{message}}"
+    },
+    "comment": {
+      "listCountExceeded": "Le nombre de commentaires demandés dépasse la limite maximale de 1000",
+      "invalidContentType": "Type de contenu de commentaire non valide"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
@@ -872,15 +876,78 @@
       "nodeNeedTest": "{{name}} le nœud doit être testé",
       "nodeTestOutdated": "{{name}} le test du nœud est obsolète"
     },
+    "space": {
+      "notFound": "Espace non trouvé",
+      "noPermission": "Vous n'avez pas la permission d'accéder à cet espace",
+      "disallowSpaceCreation": "La création d'espaces a été désactivée par l'administrateur",
+      "cannotChangeOnlyOwnerRole": "Impossible de modifier le rôle du seul propriétaire de l'espace",
+      "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace"
+    },
+    "base": {
+      "notFound": "Base non trouvée",
+      "cannotAccess": "Vous n'avez pas la permission d'accéder à la base {{baseId}}",
+      "anchorNotFound": "Base d'ancrage {{anchorId}} non trouvée",
+      "baseAndSpaceMismatch": "La base {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
+      "templateNotFound": "Modèle {{templateId}} non trouvé"
+    },
+    "dashboard": {
+      "notFound": "Tableau de bord non trouvé"
+    },
+    "plugin": {
+      "notFound": "Plugin non trouvé",
+      "notSupportInstallInView": "Le plugin ne prend pas en charge l'installation dans la vue",
+      "userNotFound": "Utilisateur du plugin introuvable",
+      "invalidSecret": "Secret invalide",
+      "invalidRefreshToken": "Jeton de rafraîchissement invalide",
+      "anomalousToken": "Jeton anormal"
+    },
+    "pluginPanel": {
+      "notFound": "Panneau de plugin non trouvé"
+    },
+    "pluginInstall": {
+      "notFound": "Plugin non installé"
+    },
+    "pluginContextMenu": {
+      "notFound": "Menu contextuel du plugin non trouvé",
+      "anchorNotFound": "Ancre du menu contextuel du plugin non trouvée"
+    },
+    "pluginChart": {
+      "queryNotFound": "Requête du graphique du plugin non trouvée"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Pilote de base de données non pris en charge: {{driver}}",
+      "onlyOwnerCanRemove": "Seul le propriétaire de la base peut supprimer la connexion à la base de données pour la base {{baseId}}",
+      "onlyOwnerCanCreate": "Seul le propriétaire de la base peut créer une connexion à la base de données pour la base {{baseId}}",
+      "roleNotExist": "Le rôle de base de données {{role}} n'existe pas"
+    },
+    "baseQuery": {
+      "queryFailed": "Échec de la requête: {{message}}",
+      "invalidJoinType": "Type de jointure non valide: {{joinType}}",
+      "tableNotFound": "Table {{tableId}} non trouvée dans la base {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Non autorisé à exécuter SQL avec le mot-clé {{keyword}}",
+      "whiteListCheckError": "Une erreur s'est produite lors de la vérification de l'accès à la table : {{message}}",
+      "databaseConnectionFailed": "La connexion à la base de données a échoué : {{message}}",
+      "executeQuerySqlFailed": "L'exécution de la requête SQL a échoué : {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
       "deleteRecords": "Vous n'avez pas la permission de supprimer les enregistrements({{recordIds}})",
       "readRecordWithDeniedFields": "Vous n'avez pas la permission de lire les champs({{fields}}) dans l'enregistrement({{recordId}})",
       "updateRecordWithDeniedFields": "Vous n'avez pas la permission de mettre à jour les champs({{fields}}) dans l'enregistrement({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Type de retour invalide",
+      "exceedMaxReadRows": "Limite maximale de lignes à lire dépassée",
+      "invalidCellValueType": "Type de valeur de cellule invalide",
+      "exceedMaxCopyCells": "Limite maximale de cellules à copier dépassée",
+      "exceedMaxPasteCells": "Limite maximale de cellules à coller dépassée"
+    },
     "field": {
       "unsupportedFieldType": "Type de champ non pris en charge {{type}}",
       "unsupportedPrimaryFieldType": "Type de champ non pris en charge {{type}} comme champ primaire",
+      "primaryFieldNotSupported": "Le type de champ n'est pas pris en charge comme champ primaire",
       "calculateRecordNotFound": "Enregistrement introuvable pour: {{value}}, fieldId: {{fieldId}}, lors du calcul {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds ou fromRecordIds est requis pour le champ calculé normal",
       "recordFieldsRequired": "Les champs d'enregistrement ne sont pas définis",
@@ -890,7 +957,7 @@
       "fieldValidationError": "Champ {{name}}[{{fieldId}}] erreur de validation de champ",
       "fieldNameAlreadyExists": "Le nom du champ {{name}} existe déjà",
       "fieldNotFound": "Champ {{fieldId}} introuvable",
-      "fieldNotFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
+      "notFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
       "deleteFieldsNotFound": "Champs à supprimer {{fieldIds}} introuvables dans la table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
       "linkCellValuesShouldBeArray": "linkCellValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
@@ -921,10 +988,106 @@
       "foreignKeyDuplicate": "Clé étrangère en double"
     },
     "view": {
-      "viewNotFound": "Vue {{viewId}} introuvable"
+      "notFound": "Vue introuvable",
+      "defaultViewNotFound": "Vue par défaut introuvable",
+      "propertyParseError": "Échec de l'analyse de la propriété de la vue",
+      "primaryFieldCannotBeHidden": "Le champ primaire ne peut pas être masqué",
+      "filterUnsupportedFieldType": "Type de champ non pris en charge par le filtre",
+      "sortUnsupportedFieldType": "Type de champ non pris en charge par le tri",
+      "groupUnsupportedFieldType": "Type de champ non pris en charge par le regroupement",
+      "anchorNotFound": "Vue d'ancrage introuvable",
+      "notEnoughGapToShuffleRow": "Pas assez d'espace pour mélanger la ligne",
+      "shareNotEnabled": "Le partage de vue n'est pas activé",
+      "shareAlreadyEnabled": "Le partage de vue est déjà activé",
+      "shareAlreadyDisabled": "Le partage de vue est déjà désactivé"
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant"
+    },
+    "aggregation": {
+      "searchQueryRequired": "La requête de recherche est requise",
+      "maxSearchIndexResult": "Le résultat de l'index de recherche maximal est de 1000",
+      "queryCollectionMustBeTableId": "La collection de requête doit être un identifiant de table",
+      "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
+      "indexNotFound": "Index non trouvé",
+      "invalidStartDateFieldId": "Identifiant de champ de date de début invalide",
+      "invalidEndDateFieldId": "Identifiant de champ de date de fin invalide"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Le modèle de chat IA lg n'est pas défini",
+      "chatModelLgProviderNotSet": "Le fournisseur du modèle de chat IA lg n'est pas défini",
+      "chatModelSmNotSet": "Le modèle de chat IA sm n'est pas défini",
+      "chatModelMdNotSet": "Le modèle de chat IA md n'est pas défini",
+      "configurationNotSet": "La configuration IA n'est pas définie",
+      "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
+      "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie",
+      "testLLMFailed": "Le test de connexion LLM a échoué"
+    },
+    "role": {
+      "notFound": "Rôle introuvable"
+    },
+    "collaborator": {
+      "alreadyExisted": "Le collaborateur existe déjà",
+      "notFound": "Collaborateur introuvable",
+      "userNotFoundInCollaborator": "Utilisateur non trouvé dans les collaborateurs",
+      "noPermissionToDelete": "Vous n'avez pas la permission de supprimer ce collaborateur",
+      "noPermissionToUpdate": "Vous n'avez pas la permission de mettre à jour ce collaborateur",
+      "noPermissionToOperateRole": "Vous n'avez pas la permission d'opérer ce rôle",
+      "alreadyExistedInBase": "Le collaborateur existe déjà dans la base",
+      "userNotFound": "Utilisateur non trouvé : {{userIds}}",
+      "baseNotFound": "Base non trouvée",
+      "noPermissionToAddRole": "Vous n'avez pas la permission d'ajouter un collaborateur avec ce rôle"
+    },
+    "table": {
+      "notFound": "Table non trouvée",
+      "dbTableNameAlreadyExists": "Le nom de la table de base de données existe déjà",
+      "anchorNotFound": "Table d'ancrage non trouvée",
+      "notInTrash": "La table n'est pas dans la corbeille",
+      "notSupportTableIndex": "Le type d'index de table n'est pas pris en charge",
+      "createTableIndexError": "Échec de la création de l'index de table",
+      "dropTableIndexError": "Échec de la suppression de l'index de table"
+    },
+    "export": {
+      "notSupportViewType": "Le type de vue {{viewType}} n'est pas pris en charge pour l'exportation"
+    },
+    "import": {
+      "notSupportedFileFormat": "Format de fichier non pris en charge, seuls {{supportType}} sont pris en charge, le type de contenu de votre fichier est {{fileFormat}}",
+      "notSupportedFileType": "Type de fichier d'importation non pris en charge",
+      "exceedMaxFieldsLength": "Le nombre de champs dans la table ne peut pas dépasser {{maxFieldsLength}}, actuellement {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "L'instance actuelle interdit les invitations d'espace par l'administrateur",
+      "invalidCode": "Code d'invitation invalide",
+      "linkNotFound": "Lien d'invitation non trouvé",
+      "linkExpired": "Le lien d'invitation a expiré",
+      "limitExceeded": "Vous avez atteint le nombre maximum d'invitations par heure"
+    },
+    "pin": {
+      "alreadyExists": "Le favori existe déjà",
+      "notFound": "Favori non trouvé",
+      "anchorNotFound": "Ancre de favori non trouvée"
+    },
+    "trash": {
+      "invalidResourceType": "Type de ressource non valide",
+      "notFound": "Élément de la corbeille introuvable",
+      "parentSpaceTrashed": "Impossible de restaurer cette base car son espace parent est également dans la corbeille",
+      "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
+      "tableNotFound": "Élément de corbeille de table introuvable"
+    },
+    "user": {
+      "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
+      "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
+      "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
+      "systemUser": "L'utilisateur est un utilisateur système",
+      "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Type de ressource non valide"
+    },
+    "template": {
+      "snapshotRequired": "Ce modèle n'a pas pu être publié en raison d'un instantané manquant",
+      "sourceTemplateNotFound": "Modèle source introuvable",
+      "noMinOrderFound": "Aucun ordre minimum trouvé"
     }
   }
 }

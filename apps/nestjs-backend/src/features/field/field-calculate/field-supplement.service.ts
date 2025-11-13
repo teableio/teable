@@ -804,7 +804,7 @@ export class FieldSupplementService {
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
-            i18nKey: 'editor.error.rollupExpressionParseError',
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
           },
         }
       );

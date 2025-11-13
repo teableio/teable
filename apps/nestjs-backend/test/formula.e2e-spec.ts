@@ -4244,6 +4244,79 @@ describe('OpenAPI formula (e2e)', () => {
       }
     );
 
+    it('should treat DATETIME_PARSE without format as null when generated string is invalid', async () => {
+      const dateField = await createField(table1Id, {
+        name: 'source-birthday',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'birthday-anniversary',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_PARSE(YEAR(TODAY()) & '-' & MONTH({${dateField.id}}) & '-' & DAY({${dateField.id}}))`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, records[0].id);
+      const value = recordAfterFormula.data.fields[formulaField.name] ?? null;
+      expect(value).toBeNull();
+    });
+
+    it('should bypass DATETIME_PARSE guard for direct date field references', async () => {
+      const dateField = await createField(table1Id, {
+        name: 'source-date-field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'UTC',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'date-passthrough',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_PARSE({${dateField.id}})`,
+        },
+      });
+
+      const sourceIso = '2024-05-20T09:30:00.000Z';
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [dateField.name]: sourceIso,
+            },
+          },
+        ],
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, records[0].id);
+      const value = recordAfterFormula.data.fields[formulaField.name];
+      expect(value).toBe(sourceIso);
+    });
+
     it('should coerce blank IF branch to null for datetime results', async () => {
       const dateField = await createField(table1Id, {
         name: 'source-date',

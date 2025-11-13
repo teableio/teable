@@ -92,7 +92,11 @@ export class SelectionService {
       };
     }
 
-    throw new BadRequestException('Invalid return type');
+    throw new CustomHttpException('Invalid return type', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.selection.invalidReturnType',
+      },
+    });
   }
 
   private async columnSelectionToIds(tableId: string, query: IRangesToIdQuery): Promise<string[]> {
@@ -136,7 +140,15 @@ export class SelectionService {
       let recordIds: string[] = [];
       const total = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
       if (total > this.thresholdConfig.maxReadRows) {
-        throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+        throw new CustomHttpException(
+          `Exceed max read rows ${this.thresholdConfig.maxReadRows}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.selection.exceedMaxReadRows',
+            },
+          }
+        );
       }
       for (const [start, end] of ranges) {
         const result = await this.recordService.getDocIdsByQuery(
@@ -159,7 +171,15 @@ export class SelectionService {
     const [start, end] = ranges;
     const total = end[1] - start[1] + 1;
     if (total > this.thresholdConfig.maxReadRows) {
-      throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+      throw new CustomHttpException(
+        `Exceed max read rows ${this.thresholdConfig.maxReadRows}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxReadRows',
+          },
+        }
+      );
     }
     const result = await this.recordService.getDocIdsByQuery(
       tableId,
@@ -353,7 +373,11 @@ export class SelectionService {
         };
       }
       default:
-        throw new BadRequestException('Invalid cellValueType');
+        throw new CustomHttpException('Invalid cellValueType', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.selection.invalidCellValueType',
+          },
+        });
     }
   }
 
@@ -575,7 +599,15 @@ export class SelectionService {
     const { cellCount } = await this.parseRange(tableId, rangesRo);
 
     if (cellCount > this.thresholdConfig.maxCopyCells) {
-      throw new BadRequestException(`Exceed max copy cells ${this.thresholdConfig.maxCopyCells}`);
+      throw new CustomHttpException(
+        `Exceed max copy cells ${this.thresholdConfig.maxCopyCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxCopyCells',
+          },
+        }
+      );
     }
 
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
@@ -658,7 +690,15 @@ export class SelectionService {
     const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     const pasteContentSize = pasteContent.length * pasteContent[0].length;
     if (pasteContentSize > this.thresholdConfig.maxPasteCells) {
-      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+      throw new CustomHttpException(
+        `Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxPasteCells',
+          },
+        }
+      );
     }
 
     const fields = await this.fieldService.getFieldInstances(tableId, {
@@ -727,7 +767,15 @@ export class SelectionService {
       cellCount > this.thresholdConfig.maxPasteCells ||
       pasteContentSize > this.thresholdConfig.maxPasteCells
     ) {
-      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+      throw new CustomHttpException(
+        `Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxPasteCells',
+          },
+        }
+      );
     }
 
     const { rowCount: rowCountInView } = await this.aggregationService.performRowCount(

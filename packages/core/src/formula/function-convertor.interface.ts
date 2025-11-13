@@ -1,4 +1,23 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { FieldType, DbFieldType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
+
+export type FormulaParamType = 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
+
+export interface IFormulaParamFieldMetadata {
+  id: string;
+  type?: FieldType;
+  cellValueType?: string;
+  isMultiple?: boolean;
+  isLookup?: boolean;
+  dbFieldType?: DbFieldType;
+}
+
+export interface IFormulaParamMetadata {
+  type: FormulaParamType;
+  isFieldReference: boolean;
+  field?: IFormulaParamFieldMetadata;
+}
 
 /**
  * Generic field map type for formula conversion contexts
@@ -13,6 +32,7 @@ export type IFieldMap<T extends FieldCore = FieldCore> = Map<string, T>;
 export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   // Context management
   setContext(context: TContext): void;
+  setCallMetadata(metadata?: IFormulaParamMetadata[]): void;
   // Numeric Functions
   sum(params: string[]): TReturn;
   average(params: string[]): TReturn;

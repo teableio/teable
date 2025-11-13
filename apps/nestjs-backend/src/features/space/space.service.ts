@@ -1,6 +1,7 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IRole } from '@teable/core';
 import {
+  HttpErrorCode,
   Role,
   canManageRole,
   generateIntegrationId,
@@ -21,6 +22,7 @@ import { ResourceType, CollaboratorType, PrincipalType, IntegrationType } from '
 import { map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { PerformanceCache, PerformanceCacheService } from '../../performance-cache';
 import { generateIntegrationCacheKey } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
@@ -79,11 +81,23 @@ export class SpaceService {
       },
     });
     if (!space) {
-      throw new NotFoundException('Space not found');
+      throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.space.notFound',
+        },
+      });
     }
     const role = await this.permissionService.getRoleBySpaceId(spaceId);
     if (!role) {
-      throw new ForbiddenException();
+      throw new CustomHttpException(
+        'You have no permission to access this space',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.noPermission',
+          },
+        }
+      );
     }
     return {
       ...space,
@@ -155,8 +169,14 @@ export class SpaceService {
     if (!isAdmin) {
       const setting = await this.settingService.getSetting();
       if (setting?.disallowSpaceCreation) {
-        throw new ForbiddenException(
-          'The current instance disallow space creation by the administrator'
+        throw new CustomHttpException(
+          'The current instance disallow space creation by the administrator',
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.space.disallowSpaceCreation',
+            },
+          }
         );
       }
     }
@@ -217,7 +237,11 @@ export class SpaceService {
           },
         })
         .catch(() => {
-          throw new NotFoundException('Space not found');
+          throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.space.notFound',
+            },
+          });
         });
     });
   }
@@ -226,7 +250,15 @@ export class SpaceService {
     const { spaceIds, roleMap } =
       await this.collaboratorService.getCurrentUserCollaboratorsBaseAndSpaceArray();
     if (!spaceIds.includes(spaceId)) {
-      throw new ForbiddenException();
+      throw new CustomHttpException(
+        'You have no permission to access this space',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.noPermission',
+          },
+        }
+      );
     }
     const baseList = await this.prismaService.base.findMany({
       select: {

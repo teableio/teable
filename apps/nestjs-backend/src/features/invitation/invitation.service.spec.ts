@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import { getPermissions, Role } from '@teable/core';
@@ -8,6 +7,7 @@ import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import { getError } from '../../../test/utils/get-error';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
@@ -285,10 +285,14 @@ describe('InvitationService', () => {
           ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
-        async () =>
-          await expect(() =>
+        async () => {
+          const error = await getError(() =>
             invitationService.acceptInvitationLink(errorAcceptInvitationLinkRo)
-          ).rejects.toThrow(BadRequestException)
+          );
+          expect(error).toBeDefined();
+          expect(error?.status).toBe(400);
+          expect(error?.message).toBe('Invalid invitation code');
+        }
       );
     });
     it('should throw NotFoundException for not found link invitation', async () => {
@@ -299,10 +303,14 @@ describe('InvitationService', () => {
           ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
-        async () =>
-          await expect(() =>
+        async () => {
+          const error = await getError(() =>
             invitationService.acceptInvitationLink(acceptInvitationLinkRo)
-          ).rejects.toThrow(NotFoundException)
+          );
+          expect(error).toBeDefined();
+          expect(error?.status).toBe(404);
+          expect(error?.message).toBe('Invitation link not found');
+        }
       );
     });
     it('should throw ForbiddenException for expired link', async () => {
@@ -325,10 +333,14 @@ describe('InvitationService', () => {
           ...defaultCls,
           permissions: getPermissions(Role.Owner),
         },
-        async () =>
-          await expect(() =>
+        async () => {
+          const error = await getError(() =>
             invitationService.acceptInvitationLink(acceptInvitationLinkRo)
-          ).rejects.toThrow(ForbiddenException)
+          );
+          expect(error).toBeDefined();
+          expect(error?.status).toBe(400);
+          expect(error?.message).toBe('Invitation link has expired');
+        }
       );
     });
     it('should return success for email', async () => {

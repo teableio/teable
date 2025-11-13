@@ -866,7 +866,6 @@
     "databaseConnectionUnavailable": "Datenbankverbindung nicht verfügbar",
     "gatewayTimeout": "Gateway Timeout",
     "unknownErrorCode": "Unbekannter Fehlercode",
-    "viewNotFound": "Ansicht nicht gefunden",
     "requestTimeout": "Operationen außerhalb des Bereichs",
     "failedDependency": "Abhängigkeitsfehler",
     "automationNodeParseError": "Automatisierungsknoten-Analysefehler",
@@ -878,10 +877,15 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" Feld darf keine doppelten Werte enthalten, bitte einen eindeutigen Wert vor dem Absenden ausfüllen.",
       "requestTimeout": "Der aktuelle Vorgangsbereich ist zu groß, bitte versuchen Sie es mit einem kleineren Bereich erneut.",
       "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
-      "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden"
+      "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden",
+      "invalidOperation": "Ungültige Operation erkannt, bitte überprüfen Sie die Operationsparameter"
     },
     "email": {
       "testEmailError": "E-Mail-Konfigurationsfehler {{message}}"
+    },
+    "comment": {
+      "listCountExceeded": "Die Anzahl der angeforderten Kommentare übersteigt das maximale Limit von 1000",
+      "invalidContentType": "Ungültiger Kommentarinhaltstyp"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld",
@@ -894,15 +898,78 @@
       "nodeNeedTest": "{{name}} Knoten muss getestet werden",
       "nodeTestOutdated": "{{name}} Knotentest ist veraltet"
     },
+    "space": {
+      "notFound": "Space nicht gefunden",
+      "noPermission": "Sie haben keine Berechtigung, auf diesen Space zuzugreifen",
+      "disallowSpaceCreation": "Die Space-Erstellung wurde vom Administrator deaktiviert",
+      "cannotChangeOnlyOwnerRole": "Die Rolle des einzigen Besitzers des Space kann nicht geändert werden",
+      "cannotDeleteOnlyOwner": "Der einzige Besitzer des Space kann nicht gelöscht werden"
+    },
+    "base": {
+      "notFound": "Base nicht gefunden",
+      "cannotAccess": "Sie haben keine Berechtigung, auf Base {{baseId}} zuzugreifen",
+      "anchorNotFound": "Anker-Base {{anchorId}} nicht gefunden",
+      "baseAndSpaceMismatch": "Base {{baseId}} und Space {{spaceId}} stimmen nicht überein",
+      "templateNotFound": "Vorlage {{templateId}} nicht gefunden"
+    },
+    "dashboard": {
+      "notFound": "Dashboard nicht gefunden"
+    },
+    "plugin": {
+      "notFound": "Plugin nicht gefunden",
+      "notSupportInstallInView": "Plugin unterstützt keine Installation in der Ansicht",
+      "userNotFound": "Plugin-Benutzer nicht gefunden",
+      "invalidSecret": "Ungültiges Geheimnis",
+      "invalidRefreshToken": "Ungültiges Aktualisierungstoken",
+      "anomalousToken": "Anomales Token"
+    },
+    "pluginPanel": {
+      "notFound": "Plugin-Panel nicht gefunden"
+    },
+    "pluginInstall": {
+      "notFound": "Plugin nicht installiert"
+    },
+    "pluginContextMenu": {
+      "notFound": "Plugin-Kontextmenü nicht gefunden",
+      "anchorNotFound": "Plugin-Kontextmenü-Anker nicht gefunden"
+    },
+    "pluginChart": {
+      "queryNotFound": "Plugin-Diagramm-Abfrage nicht gefunden"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Nicht unterstützter Datenbanktreiber: {{driver}}",
+      "onlyOwnerCanRemove": "Nur der Base-Besitzer kann die Datenbankverbindung für Base {{baseId}} entfernen",
+      "onlyOwnerCanCreate": "Nur der Base-Besitzer kann eine Datenbankverbindung für Base {{baseId}} erstellen",
+      "roleNotExist": "Datenbankrolle {{role}} existiert nicht"
+    },
+    "baseQuery": {
+      "queryFailed": "Abfrage fehlgeschlagen: {{message}}",
+      "invalidJoinType": "Ungültiger Join-Typ: {{joinType}}",
+      "tableNotFound": "Tabelle {{tableId}} nicht gefunden in Base {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Ausführung von SQL mit Schlüsselwort {{keyword}} nicht erlaubt",
+      "whiteListCheckError": "Fehler beim Überprüfen des Tabellenzugriffs: {{message}}",
+      "databaseConnectionFailed": "Datenbankverbindung fehlgeschlagen: {{message}}",
+      "executeQuerySqlFailed": "Ausführung der Abfrage-SQL fehlgeschlagen: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
       "deleteRecords": "Sie haben keine Berechtigung, Datensätze({{recordIds}}) zu löschen",
       "readRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu lesen",
       "updateRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu aktualisieren"
     },
+    "selection": {
+      "invalidReturnType": "Ungültiger Rückgabetyp",
+      "exceedMaxReadRows": "Maximale Anzahl der zu lesenden Zeilen überschritten",
+      "invalidCellValueType": "Ungültiger Zellentyp",
+      "exceedMaxCopyCells": "Maximale Anzahl der zu kopierenden Zellen überschritten",
+      "exceedMaxPasteCells": "Maximale Anzahl der einzufügenden Zellen überschritten"
+    },
     "field": {
       "unsupportedFieldType": "Nicht unterstützter Feldtyp {{type}}",
       "unsupportedPrimaryFieldType": "Nicht unterstützter Feldtyp {{type}} als Primärfeld",
+      "primaryFieldNotSupported": "Feldtyp wird nicht als Primärfeld unterstützt",
       "calculateRecordNotFound": "Datensatz nicht gefunden für: {{value}}, fieldId: {{fieldId}}, bei Berechnung {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds oder fromRecordIds ist für normales berechnetes Feld erforderlich",
       "recordFieldsRequired": "Datensatzfelder sind undefiniert",
@@ -912,7 +979,7 @@
       "fieldValidationError": "Feld {{name}}[{{fieldId}}] Feldvalidierungsfehler",
       "fieldNameAlreadyExists": "Feldname {{name}} existiert bereits",
       "fieldNotFound": "Feld {{fieldId}} nicht gefunden",
-      "fieldNotFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
+      "notFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
       "deleteFieldsNotFound": "Zu löschende Felder {{fieldIds}} nicht in Tabelle {{tableId}} gefunden",
       "lookupValuesShouldBeArray": "lookupValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
       "linkCellValuesShouldBeArray": "linkCellValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
@@ -943,10 +1010,106 @@
       "foreignKeyDuplicate": "Fremdschlüssel dupliziert"
     },
     "view": {
-      "viewNotFound": "Ansicht {{viewId}} nicht gefunden"
+      "notFound": "Ansicht nicht gefunden",
+      "defaultViewNotFound": "Standardansicht nicht gefunden",
+      "propertyParseError": "Fehler beim Parsen der Ansichtseigenschaft",
+      "primaryFieldCannotBeHidden": "Primärfeld kann nicht ausgeblendet werden",
+      "filterUnsupportedFieldType": "Filter unterstützt Feldtyp nicht",
+      "sortUnsupportedFieldType": "Sortierung unterstützt Feldtyp nicht",
+      "groupUnsupportedFieldType": "Gruppierung unterstützt Feldtyp nicht",
+      "anchorNotFound": "Anker-Ansicht nicht gefunden",
+      "notEnoughGapToShuffleRow": "Nicht genügend Platz zum Mischen der Zeile",
+      "shareNotEnabled": "Ansichtsfreigabe ist nicht aktiviert",
+      "shareAlreadyEnabled": "Ansichtsfreigabe ist bereits aktiviert",
+      "shareAlreadyDisabled": "Ansichtsfreigabe ist bereits deaktiviert"
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Suchanfrage ist erforderlich",
+      "maxSearchIndexResult": "Das maximale Suchindexergebnis beträgt 1000",
+      "queryCollectionMustBeTableId": "Die Abfragesammlung muss eine Tabellen-ID sein",
+      "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
+      "indexNotFound": "Index nicht gefunden",
+      "invalidStartDateFieldId": "Ungültige Startdatum-Feld-ID",
+      "invalidEndDateFieldId": "Ungültige Enddatum-Feld-ID"
+    },
+    "ai": {
+      "chatModelLgNotSet": "KI-Chat-Modell lg ist nicht festgelegt",
+      "chatModelLgProviderNotSet": "KI-Chat-Modell lg Anbieter ist nicht festgelegt",
+      "chatModelSmNotSet": "KI-Chat-Modell sm ist nicht festgelegt",
+      "chatModelMdNotSet": "KI-Chat-Modell md ist nicht festgelegt",
+      "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
+      "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
+      "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt",
+      "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen"
+    },
+    "role": {
+      "notFound": "Rolle nicht gefunden"
+    },
+    "collaborator": {
+      "alreadyExisted": "Mitarbeiter existiert bereits",
+      "notFound": "Mitarbeiter nicht gefunden",
+      "userNotFoundInCollaborator": "Benutzer wurde in Mitarbeitern nicht gefunden",
+      "noPermissionToDelete": "Sie haben keine Berechtigung, diesen Mitarbeiter zu löschen",
+      "noPermissionToUpdate": "Sie haben keine Berechtigung, diesen Mitarbeiter zu aktualisieren",
+      "noPermissionToOperateRole": "Sie haben keine Berechtigung, diese Rolle zu verwalten",
+      "alreadyExistedInBase": "Mitarbeiter existiert bereits in der Datenbank",
+      "userNotFound": "Benutzer nicht gefunden: {{userIds}}",
+      "baseNotFound": "Datenbank nicht gefunden",
+      "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen"
+    },
+    "table": {
+      "notFound": "Tabelle nicht gefunden",
+      "dbTableNameAlreadyExists": "Datenbanktabellenname existiert bereits",
+      "anchorNotFound": "Anker-Tabelle nicht gefunden",
+      "notInTrash": "Tabelle befindet sich nicht im Papierkorb",
+      "notSupportTableIndex": "Tabellenindex-Typ wird nicht unterstützt",
+      "createTableIndexError": "Fehler beim Erstellen des Tabellenindex",
+      "dropTableIndexError": "Fehler beim Löschen des Tabellenindex"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} Ansichtstyp wird nicht für den Export unterstützt"
+    },
+    "import": {
+      "notSupportedFileFormat": "Dateiformat wird nicht unterstützt, nur {{supportType}} werden unterstützt, Ihr Dateityp ist {{fileFormat}}",
+      "notSupportedFileType": "Import-Dateityp nicht unterstützt",
+      "exceedMaxFieldsLength": "Die Anzahl der Felder in der Tabelle darf {{maxFieldsLength}} nicht überschreiten, aktuell ist {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Die aktuelle Instanz verbietet Raumeinladungen durch den Administrator",
+      "invalidCode": "Ungültiger Einladungscode",
+      "linkNotFound": "Einladungslink nicht gefunden",
+      "linkExpired": "Einladungslink ist abgelaufen",
+      "limitExceeded": "Sie haben die maximale Anzahl an Einladungen pro Stunde erreicht"
+    },
+    "pin": {
+      "alreadyExists": "Favorit bereits vorhanden",
+      "notFound": "Favorit nicht gefunden",
+      "anchorNotFound": "Anker-Favorit nicht gefunden"
+    },
+    "trash": {
+      "invalidResourceType": "Ungültiger Ressourcentyp",
+      "notFound": "Papierkorb-Element nicht gefunden",
+      "parentSpaceTrashed": "Diese Basis kann nicht wiederhergestellt werden, da der übergeordnete Bereich ebenfalls im Papierkorb ist",
+      "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
+      "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
+    },
+    "user": {
+      "disallowSignUp": "Die aktuelle Instanz erlaubt keine Anmeldungen durch den Administrator",
+      "waitlistInviteCodeRequired": "Warteliste ist aktiviert, Einladungscode ist erforderlich",
+      "waitlistInviteCodeInvalid": "Warteliste ist aktiviert, Einladungscode ist ungültig",
+      "systemUser": "Benutzer ist ein Systembenutzer",
+      "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Ungültiger Ressourcentyp"
+    },
+    "template": {
+      "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
+      "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
+      "noMinOrderFound": "Keine Minimalreihenfolge gefunden"
     }
   }
 }

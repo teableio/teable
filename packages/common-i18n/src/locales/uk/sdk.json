@@ -866,7 +866,6 @@
     "databaseConnectionUnavailable": "Недоступна база даних",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Невідомий код помилки",
-    "viewNotFound": "Не знайдено вид",
     "requestTimeout": "Таймаут запиту",
     "failedDependency": "Залежність не виконана",
     "automationNodeParseError": "Помилка аналізу вузла автоматизації",
@@ -878,10 +877,15 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускає дублікатів зв'язків з одним і тим самим запису",
       "requestTimeout": "Текущая операция слишком велика, пожалуйста, попробуйте снова с меньшим диапазоном.",
       "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
-      "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані"
+      "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані",
+      "invalidOperation": "Виявлено недопустиму операцію, будь ласка, перевірте параметри операції"
     },
     "email": {
       "testEmailError": "Помилка конфігурації пошти {{message}}"
+    },
+    "comment": {
+      "listCountExceeded": "Кількість запитуваних коментарів перевищує максимальний ліміт 1000",
+      "invalidContentType": "Неправильний тип вмісту коментаря"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
@@ -894,15 +898,78 @@
       "nodeNeedTest": "{{name}} вузол потребує тестування",
       "nodeTestOutdated": "{{name}} тест вузла застарів"
     },
+    "space": {
+      "notFound": "Простір не знайдено",
+      "noPermission": "У вас немає дозволу на доступ до цього простору",
+      "disallowSpaceCreation": "Створення просторів вимкнено адміністратором",
+      "cannotChangeOnlyOwnerRole": "Неможливо змінити роль єдиного власника простору",
+      "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору"
+    },
+    "base": {
+      "notFound": "База не знайдена",
+      "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
+      "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
+      "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
+      "templateNotFound": "Шаблон {{templateId}} не знайдено"
+    },
+    "dashboard": {
+      "notFound": "Панель управління не знайдена"
+    },
+    "plugin": {
+      "notFound": "Плагін не знайдено",
+      "notSupportInstallInView": "Плагін не підтримує встановлення у вид",
+      "userNotFound": "Користувач плагіна не знайдений",
+      "invalidSecret": "Недійсний секрет",
+      "invalidRefreshToken": "Недійсний токен оновлення",
+      "anomalousToken": "Аномальний токен"
+    },
+    "pluginPanel": {
+      "notFound": "Панель плагінів не знайдена"
+    },
+    "pluginInstall": {
+      "notFound": "Плагін не встановлено"
+    },
+    "pluginContextMenu": {
+      "notFound": "Контекстне меню плагіна не знайдено",
+      "anchorNotFound": "Якір контекстного меню плагіна не знайдено"
+    },
+    "pluginChart": {
+      "queryNotFound": "Запит діаграми плагіна не знайдено"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
+      "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",
+      "onlyOwnerCanCreate": "Тільки власник бази може створити підключення до бази даних для бази {{baseId}}",
+      "roleNotExist": "Роль бази даних {{role}} не існує"
+    },
+    "baseQuery": {
+      "queryFailed": "Запит не виконано: {{message}}",
+      "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
+      "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Не дозволено виконувати SQL з ключовим словом {{keyword}}",
+      "whiteListCheckError": "Сталася помилка під час перевірки доступу до таблиці: {{message}}",
+      "databaseConnectionFailed": "Не вдалося підключитися до бази даних: {{message}}",
+      "executeQuerySqlFailed": "Не вдалося виконати запит SQL: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
       "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",
       "readRecordWithDeniedFields": "У вас немає дозволу на читання полів({{fields}}) у записі({{recordId}})",
       "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Недійсний тип повернення",
+      "exceedMaxReadRows": "Перевищено максимальний ліміт читання рядків",
+      "invalidCellValueType": "Недійсний тип значення комірки",
+      "exceedMaxCopyCells": "Перевищено максимальний ліміт копіювання комірок",
+      "exceedMaxPasteCells": "Перевищено максимальний ліміт вставки комірок"
+    },
     "field": {
       "unsupportedFieldType": "Непідтримуваний тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Непідтримуваний тип поля {{type}} як первинне поле",
+      "primaryFieldNotSupported": "Тип поля не підтримується як первинне поле",
       "calculateRecordNotFound": "Запис не знайдено для: {{value}}, fieldId: {{fieldId}}, під час обчислення {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds або fromRecordIds потрібен для звичайного обчислюваного поля",
       "recordFieldsRequired": "Поля запису не визначені",
@@ -912,7 +979,7 @@
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
       "fieldNameAlreadyExists": "Ім'я поля {{name}} вже існує",
       "fieldNotFound": "Поле {{fieldId}} не знайдено",
-      "fieldNotFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
+      "notFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
       "deleteFieldsNotFound": "Поля для видалення {{fieldIds}} не знайдені в таблиці {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
       "linkCellValuesShouldBeArray": "linkCellValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
@@ -943,10 +1010,106 @@
       "foreignKeyDuplicate": "Дублікат зовнішнього ключа"
     },
     "view": {
-      "viewNotFound": "Представлення {{viewId}} не знайдено"
+      "notFound": "Представлення не знайдено",
+      "defaultViewNotFound": "Представлення за замовчуванням не знайдено",
+      "propertyParseError": "Не вдалося розібрати властивість представлення",
+      "primaryFieldCannotBeHidden": "Первинне поле не може бути приховане",
+      "filterUnsupportedFieldType": "Фільтр не підтримує тип поля",
+      "sortUnsupportedFieldType": "Сортування не підтримує тип поля",
+      "groupUnsupportedFieldType": "Групування не підтримує тип поля",
+      "anchorNotFound": "Якірне представлення не знайдено",
+      "notEnoughGapToShuffleRow": "Недостатньо місця для перемішування рядка",
+      "shareNotEnabled": "Спільний доступ до представлення не ввімкнено",
+      "shareAlreadyEnabled": "Спільний доступ до представлення вже ввімкнено",
+      "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено"
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Пошуковий запит є обов'язковим",
+      "maxSearchIndexResult": "Максимальний результат пошукового індексу становить 1000",
+      "queryCollectionMustBeTableId": "Колекція запитів має бути ідентифікатором таблиці",
+      "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
+      "indexNotFound": "Індекс не знайдено",
+      "invalidStartDateFieldId": "Недійсний ідентифікатор поля дати початку",
+      "invalidEndDateFieldId": "Недійсний ідентифікатор поля дати закінчення"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Модель чату ШІ lg не встановлено",
+      "chatModelLgProviderNotSet": "Провайдер моделі чату ШІ lg не встановлено",
+      "chatModelSmNotSet": "Модель чату ШІ sm не встановлено",
+      "chatModelMdNotSet": "Модель чату ШІ md не встановлено",
+      "configurationNotSet": "Конфігурацію ШІ не встановлено",
+      "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
+      "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено",
+      "testLLMFailed": "Тест підключення LLM не пройшов"
+    },
+    "role": {
+      "notFound": "Роль не знайдено"
+    },
+    "collaborator": {
+      "alreadyExisted": "Співавтор вже існує",
+      "notFound": "Співавтора не знайдено",
+      "userNotFoundInCollaborator": "Користувача не знайдено серед співавторів",
+      "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
+      "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
+      "noPermissionToOperateRole": "У вас немає дозволу на управління цією роллю",
+      "alreadyExistedInBase": "Співавтор вже існує в базі даних",
+      "userNotFound": "Користувача не знайдено: {{userIds}}",
+      "baseNotFound": "Базу даних не знайдено",
+      "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю"
+    },
+    "table": {
+      "notFound": "Таблицю не знайдено",
+      "dbTableNameAlreadyExists": "Ім'я таблиці бази даних вже існує",
+      "anchorNotFound": "Якірну таблицю не знайдено",
+      "notInTrash": "Таблиця не в кошику",
+      "notSupportTableIndex": "Тип індексу таблиці не підтримується",
+      "createTableIndexError": "Не вдалося створити індекс таблиці",
+      "dropTableIndexError": "Не вдалося видалити індекс таблиці"
+    },
+    "export": {
+      "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"
+    },
+    "import": {
+      "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
+      "notSupportedFileType": "Тип файлу імпорту не підтримується",
+      "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Поточний екземпляр забороняє запрошення до простору адміністратором",
+      "invalidCode": "Недійсний код запрошення",
+      "linkNotFound": "Посилання запрошення не знайдено",
+      "linkExpired": "Термін дії посилання запрошення закінчився",
+      "limitExceeded": "Ви досягли максимальної кількості запрошень на годину"
+    },
+    "pin": {
+      "alreadyExists": "Вибране вже існує",
+      "notFound": "Вибране не знайдено",
+      "anchorNotFound": "Якір вибраного не знайдено"
+    },
+    "trash": {
+      "invalidResourceType": "Недійсний тип ресурсу",
+      "notFound": "Елемент кошика не знайдено",
+      "parentSpaceTrashed": "Неможливо відновити цю базу, оскільки її батьківський простір також знаходиться в кошику",
+      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківська база або простір також знаходиться в кошику",
+      "tableNotFound": "Елемент кошика таблиці не знайдено"
+    },
+    "user": {
+      "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
+      "waitlistInviteCodeRequired": "Список очікування увімкнено, потрібен код запрошення",
+      "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
+      "systemUser": "Користувач є системним користувачем",
+      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Недійсний тип ресурсу"
+    },
+    "template": {
+      "snapshotRequired": "Цей шаблон не можна опублікувати через відсутність знімка",
+      "sourceTemplateNotFound": "Вихідний шаблон не знайдено",
+      "noMinOrderFound": "Мінімальний порядок не знайдено"
     }
   }
 }

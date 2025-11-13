@@ -115,7 +115,7 @@ export class BatchService {
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
-              i18nKey: 'httpErrors.custom.recordNotFound',
+              i18nKey: 'httpErrors.field.recordNotFound',
               context: {
                 recordId,
                 tableId,

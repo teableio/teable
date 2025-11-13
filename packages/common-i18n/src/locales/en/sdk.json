@@ -873,7 +873,6 @@
     "databaseConnectionUnavailable": "Database Connection Unavailable",
     "gatewayTimeout": "Gateway Timeout",
     "unknownErrorCode": "Unknown Error Code",
-    "viewNotFound": "View Not Found",
     "requestTimeout": "Request Timeout",
     "failedDependency": "Failed Dependency",
     "automationNodeParseError": "Automation Node Parse Error",
@@ -884,8 +883,13 @@
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
       "linkFieldValueDuplicate": "\"{{fieldName}}\" field does not allow duplicate associations with the same record",
       "requestTimeout": "This action is too large, please try with a smaller scope.",
-      "searchTimeOut": "search timeout, please decrease the search scope and try again",
-      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested"
+      "searchTimeOut": "Search timeout, please decrease the search scope and try again",
+      "dependencyNodeRequire": "Dependency node not tested, please check if all previous nodes have been tested",
+      "invalidOperation": "Invalid operation detected, please check operation parameters"
+    },
+    "comment": {
+      "listCountExceeded": "The number of comments requested exceeds the maximum limit of 1000",
+      "invalidContentType": "Invalid comment content type"
     },
     "email": {
       "testEmailError": "Mail config error {{message}}"
@@ -901,15 +905,78 @@
       "nodeNeedTest": "{{name}} node needs to be tested",
       "nodeTestOutdated": "{{name}} node test outdated"
     },
+    "space": {
+      "notFound": "Space not found",
+      "noPermission": "You have no permission to access this space",
+      "disallowSpaceCreation": "Space creation has been disabled by the administrator",
+      "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
+      "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space"
+    },
+    "base": {
+      "notFound": "Base not found",
+      "cannotAccess": "You don't have permission to access base {{baseId}}",
+      "anchorNotFound": "Anchor base {{anchorId}} not found",
+      "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
+      "templateNotFound": "Template {{templateId}} not found"
+    },
+    "dashboard": {
+      "notFound": "Dashboard not found"
+    },
+    "plugin": {
+      "notFound": "Plugin not found",
+      "notSupportInstallInView": "Plugin does not support installation in view",
+      "userNotFound": "Plugin user not found",
+      "invalidSecret": "Invalid secret",
+      "invalidRefreshToken": "Invalid refresh token",
+      "anomalousToken": "Anomalous token"
+    },
+    "pluginPanel": {
+      "notFound": "Plugin panel not found"
+    },
+    "pluginInstall": {
+      "notFound": "Plugin not installed"
+    },
+    "pluginContextMenu": {
+      "notFound": "Plugin context menu not found",
+      "anchorNotFound": "Plugin context menu anchor not found"
+    },
+    "pluginChart": {
+      "queryNotFound": "Plugin chart query not found"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Unsupported database driver: {{driver}}",
+      "onlyOwnerCanRemove": "Only the base owner can remove database connection for base {{baseId}}",
+      "onlyOwnerCanCreate": "Only the base owner can create database connection for base {{baseId}}",
+      "roleNotExist": "Database role {{role}} does not exist"
+    },
+    "baseQuery": {
+      "queryFailed": "Query failed: {{message}}",
+      "invalidJoinType": "Invalid join type: {{joinType}}",
+      "tableNotFound": "Table {{tableId}} not found in base {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Not allowed to execute sql with keyword {{keyword}}",
+      "whiteListCheckError": "An error occurred while checking table access: {{message}}",
+      "databaseConnectionFailed": "Database connection failed: {{message}}",
+      "executeQuerySqlFailed": "Execute query sql failed: {{message}}"
+    },
     "permission": {
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",
       "deleteRecords": "You don't have permission to delete records({{recordIds}})",
       "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
       "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})"
     },
+    "selection": {
+      "invalidReturnType": "Invalid return type",
+      "exceedMaxReadRows": "Exceed max read rows limit",
+      "invalidCellValueType": "Invalid cell value type",
+      "exceedMaxCopyCells": "Exceed max copy cells limit",
+      "exceedMaxPasteCells": "Exceed max paste cells limit"
+    },
     "field": {
       "unsupportedFieldType": "Unsupported field type {{type}}",
       "unsupportedPrimaryFieldType": "Unsupported field type {{type}} as primary field",
+      "primaryFieldNotSupported": "Field type is not supported as primary field",
       "calculateRecordNotFound": "Record not found for: {{value}}, fieldId: {{fieldId}}, when calculate {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds or fromRecordIds is required for normal computed field",
       "recordFieldsRequired": "Record fields is undefined",
@@ -919,7 +986,7 @@
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
       "fieldNameAlreadyExists": "Field name {{name}} already exists",
       "fieldNotFound": "field {{fieldId}} not found",
-      "fieldNotFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
+      "notFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
       "deleteFieldsNotFound": "Delete fields {{fieldIds}} not found in table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues should be array when link field is multiple cell value",
       "linkCellValuesShouldBeArray": "linkCellValues should be array when link field is multiple cell value",
@@ -947,10 +1014,106 @@
       "foreignKeyDuplicate": "Foreign key duplicate"
     },
     "view": {
-      "viewNotFound": "View {{viewId}} not found"
+      "notFound": "View not found",
+      "defaultViewNotFound": "Default view not found",
+      "propertyParseError": "Failed to parse view property",
+      "primaryFieldCannotBeHidden": "Primary field cannot be hidden",
+      "filterUnsupportedFieldType": "Filter unsupported field type",
+      "sortUnsupportedFieldType": "Sort unsupported field type",
+      "groupUnsupportedFieldType": "Group unsupported field type",
+      "anchorNotFound": "Anchor view not found",
+      "notEnoughGapToShuffleRow": "Not enough gap to shuffle the row",
+      "shareNotEnabled": "View sharing is not enabled",
+      "shareAlreadyEnabled": "View sharing is already enabled",
+      "shareAlreadyDisabled": "View sharing is already disabled"
     },
     "billing": {
       "insufficientCredit": "Insufficient credit"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Search query is required",
+      "maxSearchIndexResult": "The maximum search index result is 1000",
+      "queryCollectionMustBeTableId": "Query collection must be table id",
+      "searchTimeOut": "Search timeout, please decrease the search scope and try again",
+      "indexNotFound": "Index not found",
+      "invalidStartDateFieldId": "Invalid start date field id",
+      "invalidEndDateFieldId": "Invalid end date field id"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI chat model lg is not set",
+      "chatModelLgProviderNotSet": "AI chat model lg provider is not set",
+      "chatModelSmNotSet": "AI chat model sm is not set",
+      "chatModelMdNotSet": "AI chat model md is not set",
+      "configurationNotSet": "AI configuration is not set",
+      "unsupportedProvider": "Unsupported AI provider {{type}}",
+      "providerConfigurationNotSet": "AI provider configuration is not set",
+      "testLLMFailed": "LLM connection test failed"
+    },
+    "role": {
+      "notFound": "Role not found"
+    },
+    "collaborator": {
+      "alreadyExisted": "Collaborator has already existed",
+      "notFound": "Collaborator not found",
+      "userNotFoundInCollaborator": "User not found in collaborator",
+      "noPermissionToDelete": "You do not have permission to delete this collaborator",
+      "noPermissionToUpdate": "You do not have permission to update this collaborator",
+      "noPermissionToOperateRole": "You do not have permission to operate this role",
+      "alreadyExistedInBase": "Collaborator has already existed in base",
+      "userNotFound": "User not found: {{userIds}}",
+      "baseNotFound": "Base not found",
+      "noPermissionToAddRole": "You do not have permission to add this role collaborator"
+    },
+    "table": {
+      "notFound": "Table not found",
+      "dbTableNameAlreadyExists": "Database table name already exists",
+      "anchorNotFound": "Anchor table not found",
+      "notInTrash": "Table is not in trash",
+      "notSupportTableIndex": "Table index type is not supported",
+      "createTableIndexError": "Failed to create table index",
+      "dropTableIndexError": "Failed to drop table index"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} view type is not supported for export"
+    },
+    "import": {
+      "notSupportedFileFormat": "File format is not supported, only {{supportType}} are supported, your file's content type is {{fileFormat}}",
+      "notSupportedFileType": "Import file type not supported",
+      "exceedMaxFieldsLength": "The number of fields in the table cannot exceed {{maxFieldsLength}}, current is {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "The current instance disallow space invitation by the administrator",
+      "invalidCode": "Invalid invitation code",
+      "linkNotFound": "Invitation link not found",
+      "linkExpired": "Invitation link has expired",
+      "limitExceeded": "You have reached the maximum number of invitations per hour"
+    },
+    "pin": {
+      "alreadyExists": "Pin already exists",
+      "notFound": "Pin not found",
+      "anchorNotFound": "Pin anchor not found"
+    },
+    "trash": {
+      "invalidResourceType": "Invalid resource type",
+      "notFound": "Trash item not found",
+      "parentSpaceTrashed": "Unable to restore this base because its parent space is also in trash",
+      "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
+      "tableNotFound": "Table trash item not found"
+    },
+    "user": {
+      "disallowSignUp": "The current instance disallows sign up by the administrator",
+      "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
+      "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
+      "systemUser": "User is a system user",
+      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Invalid resource type"
+    },
+    "template": {
+      "snapshotRequired": "This template could not be published due to missing snapshot",
+      "sourceTemplateNotFound": "Source template not found",
+      "noMinOrderFound": "No minimum order found"
     }
   }
 }

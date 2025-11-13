@@ -1,5 +1,6 @@
 /* eslint-disable no-useless-escape */
-import { DbFieldType } from '@teable/core';
+import { DbFieldType, FieldType } from '@teable/core';
+import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -626,19 +627,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   dateAdd(date: string, count: string, unit: string): string {
     const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
     const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    const timestampExpr = this.castToTimestamp(date);
     if (cleanUnit === 'quarter') {
-      return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 month'`;
+      return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 month'`;
     }
-    return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
+    return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
   datestr(date: string): string {
-    return `${date}::date::text`;
+    return `${this.castToTimestamp(date)}::date::text`;
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
     const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
-    const diffSeconds = `EXTRACT(EPOCH FROM ${startDate}::timestamp - ${endDate}::timestamp)`;
+    const startExpr = this.castToTimestamp(startDate);
+    const endExpr = this.castToTimestamp(endDate);
+    const diffSeconds = `EXTRACT(EPOCH FROM ${startExpr} - ${endExpr})`;
     switch (diffUnit) {
       case 'millisecond':
         return `(${diffSeconds}) * 1000`;
@@ -657,18 +661,20 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    return `TO_CHAR(${date}::timestamp, ${format})`;
+    return `TO_CHAR(${this.castToTimestamp(date)}, ${format})`;
   }
 
   datetimeParse(dateString: string, format?: string): string {
+    const valueExpr = `(${dateString})`;
+    const needsGuard = !this.isDirectDatetimeFieldParam(0);
+
     if (format == null) {
-      return dateString;
+      return needsGuard ? this.guardDefaultDatetimeParse(valueExpr) : valueExpr;
     }
     const normalized = format.trim();
     if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
-      return dateString;
+      return needsGuard ? this.guardDefaultDatetimeParse(valueExpr) : valueExpr;
     }
-    const valueExpr = `(${dateString})`;
     const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${format})`;
     const guardPattern = this.buildDatetimeParseGuardRegex(normalized);
     if (!guardPattern) {
@@ -680,28 +686,28 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   day(date: string): string {
-    return `EXTRACT(DAY FROM ${date}::timestamp)`;
+    return `EXTRACT(DAY FROM ${this.castToTimestamp(date)})`;
   }
 
   fromNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${date}::timestamp)`;
+      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${this.castToTimestamp(date)})`;
     }
-    return `EXTRACT(EPOCH FROM NOW() - ${date}::timestamp)`;
+    return `EXTRACT(EPOCH FROM NOW() - ${this.castToTimestamp(date)})`;
   }
 
   hour(date: string): string {
-    return `EXTRACT(HOUR FROM ${date}::timestamp)`;
+    return `EXTRACT(HOUR FROM ${this.castToTimestamp(date)})`;
   }
 
   isAfter(date1: string, date2: string): string {
-    return `${date1}::timestamp > ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} > ${this.castToTimestamp(date2)}`;
   }
 
   isBefore(date1: string, date2: string): string {
-    return `${date1}::timestamp < ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} < ${this.castToTimestamp(date2)}`;
   }
 
   isSame(date1: string, date2: string, unit?: string): string {
@@ -711,11 +717,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         const literal = trimmed.slice(1, -1);
         const normalized = this.normalizeTruncateUnit(literal);
         const safeUnit = normalized.replace(/'/g, "''");
-        return `DATE_TRUNC('${safeUnit}', ${date1}::timestamp) = DATE_TRUNC('${safeUnit}', ${date2}::timestamp)`;
+        return `DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(date1)}) = DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(date2)})`;
       }
-      return `DATE_TRUNC(${unit}, ${date1}::timestamp) = DATE_TRUNC(${unit}, ${date2}::timestamp)`;
+      return `DATE_TRUNC(${unit}, ${this.castToTimestamp(date1)}) = DATE_TRUNC(${unit}, ${this.castToTimestamp(date2)})`;
     }
-    return `${date1}::timestamp = ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} = ${this.castToTimestamp(date2)}`;
   }
 
   lastModifiedTime(): string {
@@ -724,50 +730,50 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   minute(date: string): string {
-    return `EXTRACT(MINUTE FROM ${date}::timestamp)`;
+    return `EXTRACT(MINUTE FROM ${this.castToTimestamp(date)})`;
   }
 
   month(date: string): string {
-    return `EXTRACT(MONTH FROM ${date}::timestamp)`;
+    return `EXTRACT(MONTH FROM ${this.castToTimestamp(date)})`;
   }
 
   second(date: string): string {
-    return `EXTRACT(SECOND FROM ${date}::timestamp)`;
+    return `EXTRACT(SECOND FROM ${this.castToTimestamp(date)})`;
   }
 
   timestr(date: string): string {
-    return `${date}::time::text`;
+    return `(${this.castToTimestamp(date)})::time::text`;
   }
 
   toNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM ${date}::timestamp - '${currentTimestamp}'::timestamp)`;
+      return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date)} - '${currentTimestamp}'::timestamp)`;
     }
-    return `EXTRACT(EPOCH FROM ${date}::timestamp - NOW())`;
+    return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date)} - NOW())`;
   }
 
   weekNum(date: string): string {
-    return `EXTRACT(WEEK FROM ${date}::timestamp)`;
+    return `EXTRACT(WEEK FROM ${this.castToTimestamp(date)})`;
   }
 
   weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${date}::timestamp)`;
+    return `EXTRACT(DOW FROM ${this.castToTimestamp(date)})`;
   }
 
   workday(startDate: string, days: string): string {
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${startDate}::date + INTERVAL '1 day' * ${days}::integer`;
+    return `${this.castToTimestamp(startDate)}::date + INTERVAL '1 day' * ${days}::integer`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${endDate}::date - ${startDate}::date`;
+    return `${this.castToTimestamp(endDate)}::date - ${this.castToTimestamp(startDate)}::date`;
   }
 
   year(date: string): string {
-    return `EXTRACT(YEAR FROM ${date}::timestamp)`;
+    return `EXTRACT(YEAR FROM ${this.castToTimestamp(date)})`;
   }
 
   createdTime(): string {
@@ -923,6 +929,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `"${identifier.replace(/"/g, '""')}"`;
   }
 
+  private guardDefaultDatetimeParse(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
     if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
       return null;
@@ -974,5 +988,27 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
     pattern += '$';
     return pattern;
+  }
+  private castToTimestamp(date: string): string {
+    return `(${date})::timestamp`;
+  }
+
+  private isDirectDatetimeFieldParam(index: number): boolean {
+    const metadata = this.currentCallMetadata?.[index];
+    if (!metadata?.isFieldReference || !metadata.field) {
+      return false;
+    }
+    if (metadata.field.isMultiple) {
+      return false;
+    }
+    if (metadata.field.isLookup && metadata.field.dbFieldType === DbFieldType.Json) {
+      return false;
+    }
+    const fieldType = metadata.field.type;
+    return (
+      fieldType === FieldType.Date ||
+      fieldType === FieldType.CreatedTime ||
+      fieldType === FieldType.LastModifiedTime
+    );
   }
 }

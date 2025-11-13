@@ -1,7 +1,7 @@
-import { BadRequestException } from '@nestjs/common';
-import { DriverClient } from '@teable/core';
+import { DriverClient, HttpErrorCode } from '@teable/core';
 import type { AST } from 'node-sql-parser';
 import { Parser } from 'node-sql-parser';
+import { CustomHttpException } from '../../custom.exception';
 
 export const validateRoleOperations = (sql: string) => {
   const removeQuotedContent = (sql: string) => {
@@ -15,7 +15,18 @@ export const validateRoleOperations = (sql: string) => {
 
   for (const pattern of roleOperationPatterns) {
     if (pattern.test(sqlWithoutQuotes)) {
-      throw new BadRequestException(`not allowed to execute sql with keyword: ${pattern.source}`);
+      throw new CustomHttpException(
+        `not allowed to execute sql with keyword ${pattern.source}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseSqlExecutor.notAllowedToExecuteSqlWithKeyword',
+            context: {
+              keyword: pattern.source,
+            },
+          },
+        }
+      );
     }
   }
 };
@@ -69,8 +80,17 @@ export const checkTableAccess = (
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
-    throw new BadRequestException(
-      error?.message || 'An error occurred while checking table access.'
+    throw new CustomHttpException(
+      `An error occurred while checking table access: ${error?.message}`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.baseSqlExecutor.whiteListCheckError',
+          context: {
+            message: error?.message,
+          },
+        },
+      }
     );
   }
 };

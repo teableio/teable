@@ -1,12 +1,11 @@
-import {
-  Injectable,
-  Logger,
-  ForbiddenException,
-  BadGatewayException,
-  BadRequestException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ILocalization } from '@teable/core';
-import { generateCommentId, getCommentChannel, getTableCommentChannel } from '@teable/core';
+import {
+  generateCommentId,
+  getCommentChannel,
+  getTableCommentChannel,
+  HttpErrorCode,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ICreateCommentRo,
@@ -22,6 +21,7 @@ import { CommentNodeType, CommentPatchType, UploadType } from '@teable/openapi';
 import { uniq } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
+import { CustomHttpException } from '../../custom.exception';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import type { I18nPath } from '../../types/i18n.generated';
@@ -161,7 +161,15 @@ export class CommentOpenApiService {
             }),
           };
         default:
-          throw new Error('Invalid comment content type');
+          throw new CustomHttpException(
+            `Invalid comment content type: ${(item as IParagraphCommentContent)?.type}`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.comment.invalidContentType',
+              },
+            }
+          );
       }
     });
   }
@@ -227,7 +235,15 @@ export class CommentOpenApiService {
     const { cursor, take = 20, direction = 'forward', includeCursor = true } = getCommentListQuery;
 
     if (take > 1000) {
-      throw new BadRequestException(`${take} exceed the max count comment list count 1000`);
+      throw new CustomHttpException(
+        `take ${take} exceed the max count comment list count 1000`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.comment.listCountExceeded',
+          },
+        }
+      );
     }
 
     const takeWithDirection = direction === 'forward' ? -(take + 1) : take + 1;
@@ -371,20 +387,16 @@ export class CommentOpenApiService {
     commentId: string,
     updateCommentRo: IUpdateCommentRo
   ) {
-    const result = await this.prismaService.comment
-      .update({
-        where: {
-          id: commentId,
-          createdBy: this.cls.get('user.id'),
-        },
-        data: {
-          content: JSON.stringify(updateCommentRo.content),
-          lastModifiedTime: new Date().toISOString(),
-        },
-      })
-      .catch(() => {
-        throw new ForbiddenException('You have no permission to delete this comment');
-      });
+    const result = await this.prismaService.comment.update({
+      where: {
+        id: commentId,
+        createdBy: this.cls.get('user.id'),
+      },
+      data: {
+        content: JSON.stringify(updateCommentRo.content),
+        lastModifiedTime: new Date().toISOString(),
+      },
+    });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.UpdateComment, result);
     await this.sendCommentNotify(tableId, recordId, commentId, {
@@ -394,19 +406,15 @@ export class CommentOpenApiService {
   }
 
   async deleteComment(tableId: string, recordId: string, commentId: string) {
-    await this.prismaService.comment
-      .update({
-        where: {
-          id: commentId,
-          createdBy: this.cls.get('user.id'),
-        },
-        data: {
-          deletedTime: new Date().toISOString(),
-        },
-      })
-      .catch(() => {
-        throw new ForbiddenException('You have no permission to delete this comment');
-      });
+    await this.prismaService.comment.update({
+      where: {
+        id: commentId,
+        createdBy: this.cls.get('user.id'),
+      },
+      data: {
+        deletedTime: new Date().toISOString(),
+      },
+    });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteComment, { id: commentId });
     this.sendTableCommentPatch(tableId, recordId, CommentPatchType.DeleteComment);
@@ -439,19 +447,15 @@ export class CommentOpenApiService {
       }
     }
 
-    const result = await this.prismaService.comment
-      .update({
-        where: {
-          id: commentId,
-        },
-        data: {
-          reaction: data.length ? JSON.stringify(data) : null,
-          lastModifiedTime: commentRaw?.lastModifiedTime,
-        },
-      })
-      .catch((e) => {
-        throw new BadGatewayException(e);
-      });
+    const result = await this.prismaService.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        reaction: data.length ? JSON.stringify(data) : null,
+        lastModifiedTime: commentRaw?.lastModifiedTime,
+      },
+    });
 
     this.sendCommentPatch(tableId, recordId, CommentPatchType.DeleteReaction, result);
   }
@@ -490,19 +494,15 @@ export class CommentOpenApiService {
       ];
     }
 
-    const result = await this.prismaService.comment
-      .update({
-        where: {
-          id: commentId,
-        },
-        data: {
-          reaction: JSON.stringify(data),
-          lastModifiedTime: commentRaw?.lastModifiedTime,
-        },
-      })
-      .catch((e) => {
-        throw new BadGatewayException(e);
-      });
+    const result = await this.prismaService.comment.update({
+      where: {
+        id: commentId,
+      },
+      data: {
+        reaction: JSON.stringify(data),
+        lastModifiedTime: commentRaw?.lastModifiedTime,
+      },
+    });
 
     await this.sendCommentPatch(tableId, recordId, CommentPatchType.CreateReaction, result);
     await this.sendCommentNotify(tableId, recordId, commentId, {

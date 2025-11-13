@@ -1023,7 +1023,7 @@ export class FieldConvertingService {
       await this.computedOrchestrator.computeCellChangesForRecordsMulti(
         computedSources,
         async () => {
-          await this.batchService.updateRecords(recordOpsMap);
+          await this.batchService.updateRecords(recordOpsMap!);
         }
       );
     } else {

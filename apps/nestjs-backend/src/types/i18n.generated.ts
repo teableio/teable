@@ -2073,7 +2073,6 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
-            "viewNotFound": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;
@@ -2086,9 +2085,14 @@ export type I18nTranslations = {
                 "requestTimeout": string;
                 "searchTimeOut": string;
                 "dependencyNodeRequire": string;
+                "invalidOperation": string;
             };
             "email": {
                 "testEmailError": string;
+            };
+            "comment": {
+                "listCountExceeded": string;
+                "invalidContentType": string;
             };
             "automation": {
                 "buttonClickTriggerDuplicated": string;
@@ -2101,15 +2105,78 @@ export type I18nTranslations = {
                 "nodeNeedTest": string;
                 "nodeTestOutdated": string;
             };
+            "space": {
+                "notFound": string;
+                "noPermission": string;
+                "disallowSpaceCreation": string;
+                "cannotChangeOnlyOwnerRole": string;
+                "cannotDeleteOnlyOwner": string;
+            };
+            "base": {
+                "notFound": string;
+                "cannotAccess": string;
+                "anchorNotFound": string;
+                "baseAndSpaceMismatch": string;
+                "templateNotFound": string;
+            };
+            "dashboard": {
+                "notFound": string;
+            };
+            "plugin": {
+                "notFound": string;
+                "notSupportInstallInView": string;
+                "userNotFound": string;
+                "invalidSecret": string;
+                "invalidRefreshToken": string;
+                "anomalousToken": string;
+            };
+            "pluginPanel": {
+                "notFound": string;
+            };
+            "pluginInstall": {
+                "notFound": string;
+            };
+            "pluginContextMenu": {
+                "notFound": string;
+                "anchorNotFound": string;
+            };
+            "pluginChart": {
+                "queryNotFound": string;
+            };
+            "dbConnection": {
+                "unsupportedDriver": string;
+                "onlyOwnerCanRemove": string;
+                "onlyOwnerCanCreate": string;
+                "roleNotExist": string;
+            };
+            "baseQuery": {
+                "queryFailed": string;
+                "invalidJoinType": string;
+                "tableNotFound": string;
+            };
+            "baseSqlExecutor": {
+                "notAllowedToExecuteSqlWithKeyword": string;
+                "whiteListCheckError": string;
+                "databaseConnectionFailed": string;
+                "executeQuerySqlFailed": string;
+            };
             "permission": {
                 "createRecordWithDeniedFields": string;
                 "deleteRecords": string;
                 "readRecordWithDeniedFields": string;
                 "updateRecordWithDeniedFields": string;
             };
+            "selection": {
+                "invalidReturnType": string;
+                "exceedMaxReadRows": string;
+                "invalidCellValueType": string;
+                "exceedMaxCopyCells": string;
+                "exceedMaxPasteCells": string;
+            };
             "field": {
                 "unsupportedFieldType": string;
                 "unsupportedPrimaryFieldType": string;
+                "primaryFieldNotSupported": string;
                 "calculateRecordNotFound": string;
                 "toRecordIdsOrFromRecordIdsRequired": string;
                 "recordFieldsRequired": string;
@@ -2119,7 +2186,7 @@ export type I18nTranslations = {
                 "fieldValidationError": string;
                 "fieldNameAlreadyExists": string;
                 "fieldNotFound": string;
-                "fieldNotFoundInTable": string;
+                "notFoundInTable": string;
                 "deleteFieldsNotFound": string;
                 "lookupValuesShouldBeArray": string;
                 "linkCellValuesShouldBeArray": string;
@@ -2150,10 +2217,106 @@ export type I18nTranslations = {
                 "foreignKeyDuplicate": string;
             };
             "view": {
-                "viewNotFound": string;
+                "notFound": string;
+                "defaultViewNotFound": string;
+                "propertyParseError": string;
+                "primaryFieldCannotBeHidden": string;
+                "filterUnsupportedFieldType": string;
+                "sortUnsupportedFieldType": string;
+                "groupUnsupportedFieldType": string;
+                "anchorNotFound": string;
+                "notEnoughGapToShuffleRow": string;
+                "shareNotEnabled": string;
+                "shareAlreadyEnabled": string;
+                "shareAlreadyDisabled": string;
             };
             "billing": {
                 "insufficientCredit": string;
+            };
+            "aggregation": {
+                "searchQueryRequired": string;
+                "maxSearchIndexResult": string;
+                "queryCollectionMustBeTableId": string;
+                "searchTimeOut": string;
+                "indexNotFound": string;
+                "invalidStartDateFieldId": string;
+                "invalidEndDateFieldId": string;
+            };
+            "ai": {
+                "chatModelLgNotSet": string;
+                "chatModelLgProviderNotSet": string;
+                "chatModelSmNotSet": string;
+                "chatModelMdNotSet": string;
+                "configurationNotSet": string;
+                "unsupportedProvider": string;
+                "providerConfigurationNotSet": string;
+                "testLLMFailed": string;
+            };
+            "role": {
+                "notFound": string;
+            };
+            "collaborator": {
+                "alreadyExisted": string;
+                "notFound": string;
+                "userNotFoundInCollaborator": string;
+                "noPermissionToDelete": string;
+                "noPermissionToUpdate": string;
+                "noPermissionToOperateRole": string;
+                "alreadyExistedInBase": string;
+                "userNotFound": string;
+                "baseNotFound": string;
+                "noPermissionToAddRole": string;
+            };
+            "table": {
+                "notFound": string;
+                "dbTableNameAlreadyExists": string;
+                "anchorNotFound": string;
+                "notInTrash": string;
+                "notSupportTableIndex": string;
+                "createTableIndexError": string;
+                "dropTableIndexError": string;
+            };
+            "export": {
+                "notSupportViewType": string;
+            };
+            "import": {
+                "notSupportedFileFormat": string;
+                "notSupportedFileType": string;
+                "exceedMaxFieldsLength": string;
+            };
+            "invitation": {
+                "disallowSpaceInvitation": string;
+                "invalidCode": string;
+                "linkNotFound": string;
+                "linkExpired": string;
+                "limitExceeded": string;
+            };
+            "pin": {
+                "alreadyExists": string;
+                "notFound": string;
+                "anchorNotFound": string;
+            };
+            "trash": {
+                "invalidResourceType": string;
+                "notFound": string;
+                "parentSpaceTrashed": string;
+                "parentBaseOrSpaceTrashed": string;
+                "tableNotFound": string;
+            };
+            "user": {
+                "disallowSignUp": string;
+                "waitlistInviteCodeRequired": string;
+                "waitlistInviteCodeInvalid": string;
+                "systemUser": string;
+                "collaboratorsInSpaces": string;
+            };
+            "lastVisit": {
+                "invalidResourceType": string;
+            };
+            "template": {
+                "snapshotRequired": string;
+                "sourceTemplateNotFound": string;
+                "noMinOrderFound": string;
             };
         };
         "spaceRole": {
