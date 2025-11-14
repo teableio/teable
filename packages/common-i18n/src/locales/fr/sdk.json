@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Le nom du champ de base de données {{dbFieldName}} existe déjà",
       "fieldValidationError": "Champ {{name}}[{{fieldId}}] erreur de validation de champ",
       "fieldNameAlreadyExists": "Le nom du champ {{name}} existe déjà",
-      "fieldNotFound": "Champ {{fieldId}} introuvable",
+      "notFound": "Champ introuvable",
       "notFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
       "deleteFieldsNotFound": "Champs à supprimer {{fieldIds}} introuvables dans la table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "Clé étrangère en double",
       "linkConsistencyError": "Erreur de cohérence, recordId {{recordId}} n'existe pas",
       "oneManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien un-à-plusieurs doivent être un tableau",
-      "manyManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien plusieurs-à-plusieurs doivent être un tableau"
+      "manyManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien plusieurs-à-plusieurs doivent être un tableau",
+      "onlyLinkFieldCanBeFiltered": "Seuls les champs de lien peuvent être utilisés pour le filtrage",
+      "notLinkedToCurrentTable": "Le champ n'est pas lié à la table actuelle",
+      "notAttachment": "Le champ n'est pas un champ de pièce jointe",
+      "isComputed": "Le champ est calculé et ne peut pas être modifié",
+      "button": {
+        "clickCountReachedMaxCount": "Le nombre de clics sur le bouton a atteint la limite maximale",
+        "notSupportReset": "Le champ de bouton ne prend pas en charge la réinitialisation"
+      }
     },
     "view": {
       "notFound": "Vue introuvable",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "Le partage de vue est déjà désactivé"
     },
     "billing": {
-      "insufficientCredit": "Crédit insuffisant"
+      "insufficientCredit": "Crédit insuffisant",
+      "exceedMaxRowLimit": "Limite maximale de lignes dépassée"
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "La recherche a expiré, veuillez réduire l'ambito de la recherche et réessayer.",
       "indexNotFound": "Index non trouvé",
       "invalidStartDateFieldId": "Identifiant de champ de date de début invalide",
-      "invalidEndDateFieldId": "Identifiant de champ de date de fin invalide"
+      "invalidEndDateFieldId": "Identifiant de champ de date de fin invalide",
+      "fieldMapRequired": "La carte des champs est requise lorsque la recherche est définie",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected et filterLinkCellCandidate ne peuvent pas être définis en même temps"
     },
     "ai": {
       "chatModelLgNotSet": "Le modèle de chat IA lg n'est pas défini",
@@ -1150,7 +1161,8 @@
       "notInTrash": "La table n'est pas dans la corbeille",
       "notSupportTableIndex": "Le type d'index de table n'est pas pris en charge",
       "createTableIndexError": "Échec de la création de l'index de table",
-      "dropTableIndexError": "Échec de la suppression de l'index de table"
+      "dropTableIndexError": "Échec de la suppression de l'index de table",
+      "notFoundPrimaryField": "Champ primaire non trouvé dans la table"
     },
     "export": {
       "notSupportViewType": "Le type de vue {{viewType}} n'est pas pris en charge pour l'exportation"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
       "systemUser": "L'utilisateur est un utilisateur système",
       "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)",
-      "notFound": "User not found"
+      "notFound": "Utilisateur non trouvé"
+    },
+    "record": {
+      "notFound": "Enregistrement non trouvé",
+      "deletedIdsNotFound": "Certains enregistrements à supprimer sont introuvables",
+      "updateFailed": "Échec de la mise à jour de l'enregistrement",
+      "noFileOrUrlProvided": "Aucun fichier ou URL fourni",
+      "createRecordsEmpty": "La création d'enregistrements ne peut pas être vide",
+      "duplicateFailed": "Échec de la duplication de l'enregistrement"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Échec de la validation de la valeur de cellule"
+    },
+    "workflow": {
+      "notActive": "Le flux de travail n'est pas actif"
     },
     "lastVisit": {
       "invalidResourceType": "Type de ressource non valide"

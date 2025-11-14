@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "データベースフィールド名 {{dbFieldName}} は既に存在します",
       "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",
       "fieldNameAlreadyExists": "フィールド名 {{name}} は既に存在します",
-      "fieldNotFound": "フィールド {{fieldId}} が見つかりません",
+      "notFound": "フィールド が見つかりません",
       "notFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
       "deleteFieldsNotFound": "削除するフィールド {{fieldIds}} がテーブル {{tableId}} に見つかりません",
       "lookupValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、lookupValues は配列である必要があります",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "外部キーが重複しています",
       "linkConsistencyError": "整合性エラー、recordId {{recordId}} が存在しません",
       "oneManyLinkCellValueShouldBeArray": "1対多リンクフィールドの値は配列である必要があります",
-      "manyManyLinkCellValueShouldBeArray": "多対多リンクフィールドの値は配列である必要があります"
+      "manyManyLinkCellValueShouldBeArray": "多対多リンクフィールドの値は配列である必要があります",
+      "onlyLinkFieldCanBeFiltered": "リンクフィールドのみフィルタリングに使用できます",
+      "notLinkedToCurrentTable": "フィールドは現在のテーブルにリンクされていません",
+      "notAttachment": "フィールドは添付ファイルフィールドではありません",
+      "isComputed": "フィールドは計算されており、変更できません",
+      "button": {
+        "clickCountReachedMaxCount": "ボタンのクリック数が最大制限に達しました",
+        "notSupportReset": "ボタンはリセットをサポートしていません"
+      }
     },
     "view": {
       "notFound": "ビューが見つかりません",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "ビュー共有はすでに無効になっています"
     },
     "billing": {
-      "insufficientCredit": "クレジット不足"
+      "insufficientCredit": "クレジット不足",
+      "exceedMaxRowLimit": "最大行数制限を超えました"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "検索が期限切れ、検索範囲を狭めて再試行してください。",
       "indexNotFound": "インデックスが見つかりません",
       "invalidStartDateFieldId": "無効な開始日フィールド ID",
-      "invalidEndDateFieldId": "無効な終了日フィールド ID"
+      "invalidEndDateFieldId": "無効な終了日フィールド ID",
+      "fieldMapRequired": "検索が設定されている場合、フィールドマップが必要です",
+      "filterLinkCellQueryConflict": "filterLinkCellSelectedとfilterLinkCellCandidateは同時に設定できません"
     },
     "ai": {
       "chatModelLgNotSet": "AI チャットモデル lg が設定されていません",
@@ -1150,7 +1161,8 @@
       "notInTrash": "テーブルはごみ箱にありません",
       "notSupportTableIndex": "テーブルインデックスタイプはサポートされていません",
       "createTableIndexError": "テーブルインデックスの作成に失敗しました",
-      "dropTableIndexError": "テーブルインデックスの削除に失敗しました"
+      "dropTableIndexError": "テーブルインデックスの削除に失敗しました",
+      "notFoundPrimaryField": "テーブル内にプライマリフィールドが見つかりません"
     },
     "export": {
       "notSupportViewType": "{{viewType}} ビュータイプはエクスポートに対応していません"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
       "systemUser": "ユーザーはシステムユーザーです",
       "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）",
-      "notFound": "User not found"
+      "notFound": "ユーザーが見つかりません"
+    },
+    "record": {
+      "notFound": "レコードが見つかりません",
+      "deletedIdsNotFound": "削除するレコードの一部が見つかりません",
+      "updateFailed": "レコードの更新に失敗しました",
+      "noFileOrUrlProvided": "ファイルまたはURLが提供されていません",
+      "createRecordsEmpty": "レコードの作成を空にすることはできません",
+      "duplicateFailed": "レコードの複製に失敗しました"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "セル値の検証に失敗しました"
+    },
+    "workflow": {
+      "notActive": "自動化が開いていません"
     },
     "lastVisit": {
       "invalidResourceType": "無効なリソースタイプ"

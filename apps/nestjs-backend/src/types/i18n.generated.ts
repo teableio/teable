@@ -2259,7 +2259,7 @@ export type I18nTranslations = {
                 "dbFieldNameAlreadyExists": string;
                 "fieldValidationError": string;
                 "fieldNameAlreadyExists": string;
-                "fieldNotFound": string;
+                "notFound": string;
                 "notFoundInTable": string;
                 "deleteFieldsNotFound": string;
                 "lookupValuesShouldBeArray": string;
@@ -2289,6 +2289,14 @@ export type I18nTranslations = {
                 "linkConsistencyError": string;
                 "oneManyLinkCellValueShouldBeArray": string;
                 "manyManyLinkCellValueShouldBeArray": string;
+                "onlyLinkFieldCanBeFiltered": string;
+                "notLinkedToCurrentTable": string;
+                "notAttachment": string;
+                "isComputed": string;
+                "button": {
+                    "clickCountReachedMaxCount": string;
+                    "notSupportReset": string;
+                };
             };
             "view": {
                 "notFound": string;
@@ -2306,6 +2314,7 @@ export type I18nTranslations = {
             };
             "billing": {
                 "insufficientCredit": string;
+                "exceedMaxRowLimit": string;
             };
             "aggregation": {
                 "searchQueryRequired": string;
@@ -2315,6 +2324,8 @@ export type I18nTranslations = {
                 "indexNotFound": string;
                 "invalidStartDateFieldId": string;
                 "invalidEndDateFieldId": string;
+                "fieldMapRequired": string;
+                "filterLinkCellQueryConflict": string;
             };
             "ai": {
                 "chatModelLgNotSet": string;
@@ -2349,6 +2360,7 @@ export type I18nTranslations = {
                 "notSupportTableIndex": string;
                 "createTableIndexError": string;
                 "dropTableIndexError": string;
+                "notFoundPrimaryField": string;
             };
             "export": {
                 "notSupportViewType": string;
@@ -2384,6 +2396,20 @@ export type I18nTranslations = {
                 "systemUser": string;
                 "collaboratorsInSpaces": string;
                 "notFound": string;
+            };
+            "record": {
+                "notFound": string;
+                "deletedIdsNotFound": string;
+                "updateFailed": string;
+                "noFileOrUrlProvided": string;
+                "createRecordsEmpty": string;
+                "duplicateFailed": string;
+            };
+            "typecast": {
+                "cellValueValidationFailed": string;
+            };
+            "workflow": {
+                "notActive": string;
             };
             "lastVisit": {
                 "invalidResourceType": string;

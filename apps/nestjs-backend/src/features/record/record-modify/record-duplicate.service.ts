@@ -1,7 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType } from '@teable/core';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { FieldKeyType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecordInsertOrderRo, IRecord } from '@teable/openapi';
+import { CustomHttpException } from '../../../custom.exception';
 import { TableDomainQueryService } from '../../table-domain';
 import { RecordService } from '../record.service';
 import { RecordCreateService } from './record-create.service';
@@ -25,7 +26,11 @@ export class RecordDuplicateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const result = await this.recordService.getRecord(tableId, recordId, query).catch(() => null);
     if (!result) {
-      throw new NotFoundException(`Record ${recordId} not found`);
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
     const records = { fields: result.fields };
     const createRecordsRo = {
@@ -43,7 +48,13 @@ export class RecordDuplicateService {
         )
       )
       .then((res) => {
-        if (!res.records[0]) throw new BadRequestException('Duplicate record failed');
+        if (!res.records[0]) {
+          throw new CustomHttpException('Duplicate record failed', HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.record.duplicateFailed',
+            },
+          });
+        }
         return res.records[0];
       });
   }

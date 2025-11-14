@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Ім'я поля бази даних {{dbFieldName}} вже існує",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
       "fieldNameAlreadyExists": "Ім'я поля {{name}} вже існує",
-      "fieldNotFound": "Поле {{fieldId}} не знайдено",
+      "notFound": "Поле не знайдено",
       "notFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
       "deleteFieldsNotFound": "Поля для видалення {{fieldIds}} не знайдені в таблиці {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "Дублікат зовнішнього ключа",
       "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneManyLinkCellValueShouldBeArray": "Значення поля зв'язку один-до-багатьох повинні бути масивом",
-      "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом"
+      "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом",
+      "onlyLinkFieldCanBeFiltered": "Тільки поля зв'язку можуть використовуватися для фільтрації",
+      "notLinkedToCurrentTable": "Поле не пов'язане з поточною таблицею",
+      "notAttachment": "Поле не є полем вкладення",
+      "isComputed": "Поле обчислюється і не може бути змінене",
+      "button": {
+        "clickCountReachedMaxCount": "Кількість натискань кнопки досягла максимальної межі",
+        "notSupportReset": "Кнопка не підтримує скидання"
+      }
     },
     "view": {
       "notFound": "Представлення не знайдено",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено"
     },
     "billing": {
-      "insufficientCredit": "Недостатньо коштів"
+      "insufficientCredit": "Недостатньо коштів",
+      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків"
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
       "indexNotFound": "Індекс не знайдено",
       "invalidStartDateFieldId": "Недійсний ідентифікатор поля дати початку",
-      "invalidEndDateFieldId": "Недійсний ідентифікатор поля дати закінчення"
+      "invalidEndDateFieldId": "Недійсний ідентифікатор поля дати закінчення",
+      "fieldMapRequired": "Карта полів потрібна при встановленні пошуку",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected та filterLinkCellCandidate не можна встановити одночасно"
     },
     "ai": {
       "chatModelLgNotSet": "Модель чату ШІ lg не встановлено",
@@ -1150,7 +1161,8 @@
       "notInTrash": "Таблиця не в кошику",
       "notSupportTableIndex": "Тип індексу таблиці не підтримується",
       "createTableIndexError": "Не вдалося створити індекс таблиці",
-      "dropTableIndexError": "Не вдалося видалити індекс таблиці"
+      "dropTableIndexError": "Не вдалося видалити індекс таблиці",
+      "notFoundPrimaryField": "Первинне поле не знайдено в таблиці"
     },
     "export": {
       "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
       "systemUser": "Користувач є системним користувачем",
       "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)",
-      "notFound": "User not found"
+      "notFound": "Користувача не знайдено"
+    },
+    "record": {
+      "notFound": "Запис не знайдено",
+      "deletedIdsNotFound": "Деякі записи для видалення не знайдено",
+      "updateFailed": "Не вдалося оновити запис",
+      "noFileOrUrlProvided": "Файл або URL не надано",
+      "createRecordsEmpty": "Створення записів не може бути порожнім",
+      "duplicateFailed": "Не вдалося дублювати запис"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Помилка перевірки значення комірки"
+    },
+    "workflow": {
+      "notActive": "Автоматизація не відкрита"
     },
     "lastVisit": {
       "invalidResourceType": "Недійсний тип ресурсу"

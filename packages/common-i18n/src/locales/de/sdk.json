@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Datenbankfeldname {{dbFieldName}} existiert bereits",
       "fieldValidationError": "Feld {{name}}[{{fieldId}}] Feldvalidierungsfehler",
       "fieldNameAlreadyExists": "Feldname {{name}} existiert bereits",
-      "fieldNotFound": "Feld {{fieldId}} nicht gefunden",
+      "notFound": "Feld nicht gefunden",
       "notFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
       "deleteFieldsNotFound": "Zu löschende Felder {{fieldIds}} nicht in Tabelle {{tableId}} gefunden",
       "lookupValuesShouldBeArray": "lookupValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "Fremdschlüssel dupliziert",
       "linkConsistencyError": "Konsistenzfehler, recordId {{recordId}} existiert nicht",
       "oneManyLinkCellValueShouldBeArray": "Eins-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
-      "manyManyLinkCellValueShouldBeArray": "Viele-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein"
+      "manyManyLinkCellValueShouldBeArray": "Viele-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
+      "onlyLinkFieldCanBeFiltered": "Nur Verknüpfungsfelder können zum Filtern verwendet werden",
+      "notLinkedToCurrentTable": "Feld ist nicht mit der aktuellen Tabelle verknüpft",
+      "notAttachment": "Feld ist kein Anhangfeld",
+      "isComputed": "Feld ist berechnet und kann nicht geändert werden",
+      "button": {
+        "clickCountReachedMaxCount": "Anzahl der Schaltflächenklicks hat das Maximum erreicht",
+        "notSupportReset": "Schaltflächenfeld unterstützt kein Zurücksetzen"
+      }
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "Ansichtsfreigabe ist bereits deaktiviert"
     },
     "billing": {
-      "insufficientCredit": "Unzureichendes Guthaben"
+      "insufficientCredit": "Unzureichendes Guthaben",
+      "exceedMaxRowLimit": "Maximale Zeilenanzahl überschritten"
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "Suche ist abgelaufen, bitte die Suchbegriffe reduzieren und erneut versuchen.",
       "indexNotFound": "Index nicht gefunden",
       "invalidStartDateFieldId": "Ungültige Startdatum-Feld-ID",
-      "invalidEndDateFieldId": "Ungültige Enddatum-Feld-ID"
+      "invalidEndDateFieldId": "Ungültige Enddatum-Feld-ID",
+      "fieldMapRequired": "Feldkarte ist erforderlich, wenn Suche festgelegt ist",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected und filterLinkCellCandidate können nicht gleichzeitig festgelegt werden"
     },
     "ai": {
       "chatModelLgNotSet": "KI-Chat-Modell lg ist nicht festgelegt",
@@ -1150,7 +1161,8 @@
       "notInTrash": "Tabelle befindet sich nicht im Papierkorb",
       "notSupportTableIndex": "Tabellenindex-Typ wird nicht unterstützt",
       "createTableIndexError": "Fehler beim Erstellen des Tabellenindex",
-      "dropTableIndexError": "Fehler beim Löschen des Tabellenindex"
+      "dropTableIndexError": "Fehler beim Löschen des Tabellenindex",
+      "notFoundPrimaryField": "Primärfeld in Tabelle nicht gefunden"
     },
     "export": {
       "notSupportViewType": "{{viewType}} Ansichtstyp wird nicht für den Export unterstützt"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "Warteliste ist aktiviert, Einladungscode ist ungültig",
       "systemUser": "Benutzer ist ein Systembenutzer",
       "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)",
-      "notFound": "User not found"
+      "notFound": "Benutzer nicht gefunden"
+    },
+    "record": {
+      "notFound": "Datensatz nicht gefunden",
+      "deletedIdsNotFound": "Einige zu löschende Datensätze wurden nicht gefunden",
+      "updateFailed": "Fehler beim Aktualisieren des Datensatzes",
+      "noFileOrUrlProvided": "Keine Datei oder URL bereitgestellt",
+      "createRecordsEmpty": "Datensätze erstellen darf nicht leer sein",
+      "duplicateFailed": "Fehler beim Duplizieren des Datensatzes"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Zellenwertvalidierung fehlgeschlagen"
+    },
+    "workflow": {
+      "notActive": "Workflow ist nicht aktiv"
     },
     "lastVisit": {
       "invalidResourceType": "Ungültiger Ressourcentyp"

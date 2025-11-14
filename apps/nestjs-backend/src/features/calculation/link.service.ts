@@ -840,8 +840,7 @@ export class LinkService {
       if (!field) {
         throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
-            i18nKey: 'httpErrors.field.fieldNotFound',
-            context: { fieldId },
+            i18nKey: 'httpErrors.field.notFound',
           },
         });
       }
@@ -852,8 +851,7 @@ export class LinkService {
           HttpErrorCode.NOT_FOUND,
           {
             localization: {
-              i18nKey: 'httpErrors.field.fieldNotFound',
-              context: { fieldId },
+              i18nKey: 'httpErrors.field.notFound',
             },
           }
         );

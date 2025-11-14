@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "数据库字段名 {{dbFieldName}} 已存在",
       "fieldValidationError": "字段 {{name}}[{{fieldId}}] 字段验证错误",
       "fieldNameAlreadyExists": "字段名 {{name}} 已存在",
-      "fieldNotFound": "字段 {{fieldId}} 不存在",
+      "notFound": "字段不存在",
       "notFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
       "deleteFieldsNotFound": "删除字段 {{fieldIds}} 不在表 {{tableId}} 中",
       "lookupValuesShouldBeArray": "当链接字段为多选时，lookupValues 应为数组",
@@ -1090,7 +1090,15 @@
       "manyOneLinkCellValueCannotBeArray": "多对一关联字段的值不能是数组",
       "oneManyLinkCellValueShouldBeArray": "一对多关联字段的值应为数组",
       "manyManyLinkCellValueShouldBeArray": "多对多关联字段的值应为数组",
-      "foreignKeyDuplicate": "外键重复"
+      "foreignKeyDuplicate": "外键重复",
+      "onlyLinkFieldCanBeFiltered": "只能使用关联字段进行筛选",
+      "notLinkedToCurrentTable": "字段未关联到当前表",
+      "notAttachment": "字段不是附件字段",
+      "isComputed": "字段为计算字段，无法修改",
+      "button": {
+        "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
+        "notSupportReset": "按钮不支持重置"
+      }
     },
     "view": {
       "notFound": "视图不存在",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "视图分享已禁用"
     },
     "billing": {
-      "insufficientCredit": "算力不足"
+      "insufficientCredit": "算力不足",
+      "exceedMaxRowLimit": "已超过最大行数限制"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
       "indexNotFound": "索引未找到",
       "invalidStartDateFieldId": "开始日期字段 ID 无效",
-      "invalidEndDateFieldId": "结束日期字段 ID 无效"
+      "invalidEndDateFieldId": "结束日期字段 ID 无效",
+      "fieldMapRequired": "设置搜索时字段映射是必需的",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected 和 filterLinkCellCandidate 不能同时设置"
     },
     "ai": {
       "chatModelLgNotSet": "AI 高级对话模型未设置",
@@ -1150,7 +1161,8 @@
       "notInTrash": "表格不在回收站中",
       "notSupportTableIndex": "不支持的表格索引类型",
       "createTableIndexError": "创建表格索引失败",
-      "dropTableIndexError": "删除表格索引失败"
+      "dropTableIndexError": "删除表格索引失败",
+      "notFoundPrimaryField": "表格中未找到主字段"
     },
     "export": {
       "notSupportViewType": "{{viewType}} 视图类型不支持导出"
@@ -1186,6 +1198,20 @@
       "systemUser": "用户是系统用户",
       "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）",
       "notFound": "用户不存在"
+    },
+    "record": {
+      "notFound": "记录不存在",
+      "deletedIdsNotFound": "部分待删除的记录未找到",
+      "updateFailed": "更新记录失败",
+      "noFileOrUrlProvided": "未提供文件或URL",
+      "createRecordsEmpty": "创建记录不能为空",
+      "duplicateFailed": "复制记录失败"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "单元格值验证失败"
+    },
+    "workflow": {
+      "notActive": "自动化未开启"
     },
     "lastVisit": {
       "invalidResourceType": "无效的资源类型"

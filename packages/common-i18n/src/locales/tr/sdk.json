@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Veritabanı alan adı {{dbFieldName}} zaten mevcut",
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
       "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
-      "fieldNotFound": "Alan {{fieldId}} bulunamadı",
+      "notFound": "Alan bulunamadı",
       "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
       "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
       "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
       "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneManyLinkCellValueShouldBeArray": "Bire-çok bağlantı alanı değerleri dizi olmalıdır",
-      "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır"
+      "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır",
+      "onlyLinkFieldCanBeFiltered": "Yalnızca bağlantı alanları filtreleme için kullanılabilir",
+      "notLinkedToCurrentTable": "Alan mevcut tabloya bağlı değil",
+      "notAttachment": "Alan bir ek alanı değil",
+      "isComputed": "Alan hesaplanmış ve değiştirilemez",
+      "button": {
+        "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
+        "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
+      }
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
     },
     "billing": {
-      "insufficientCredit": "Yetersiz kredi"
+      "insufficientCredit": "Yetersiz kredi",
+      "exceedMaxRowLimit": "Maksimum satır sınırı aşıldı"
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
       "indexNotFound": "İndeks bulunamadı",
       "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
-      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği"
+      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği",
+      "fieldMapRequired": "Arama ayarlandığında alan haritası gereklidir",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected ve filterLinkCellCandidate aynı anda ayarlanamaz"
     },
     "ai": {
       "chatModelLgNotSet": "AI sohbet modeli lg ayarlanmamış",
@@ -1150,7 +1161,8 @@
       "notInTrash": "Tablo çöp kutusunda değil",
       "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
       "createTableIndexError": "Tablo dizini oluşturulamadı",
-      "dropTableIndexError": "Tablo dizini silinemedi"
+      "dropTableIndexError": "Tablo dizini silinemedi",
+      "notFoundPrimaryField": "Tabloda birincil alan bulunamadı"
     },
     "export": {
       "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
       "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
       "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
-      "notFound": "User not found"
+      "notFound": "Kullanıcı bulunamadı"
+    },
+    "record": {
+      "notFound": "Kayıt bulunamadı",
+      "deletedIdsNotFound": "Silinecek bazı kayıtlar bulunamadı",
+      "updateFailed": "Kayıt güncelleme başarısız",
+      "noFileOrUrlProvided": "Dosya veya URL sağlanmadı",
+      "createRecordsEmpty": "Kayıt oluşturma boş olamaz",
+      "duplicateFailed": "Kayıt çoğaltma başarısız"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Hücre değeri doğrulama başarısız"
+    },
+    "workflow": {
+      "notActive": "Otomasyon açık değil"
     },
     "lastVisit": {
       "invalidResourceType": "Geçersiz kaynak türü"

@@ -58,10 +58,7 @@ export class QueryFilter {
         if (!field) {
           throw new CustomHttpException(`Field ${item.column} not found`, HttpErrorCode.NOT_FOUND, {
             localization: {
-              i18nKey: 'httpErrors.field.fieldNotFound',
-              context: {
-                fieldName: item.column,
-              },
+              i18nKey: 'httpErrors.field.notFound',
             },
           });
         }

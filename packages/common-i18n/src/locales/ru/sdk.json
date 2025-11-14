@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Имя поля базы данных {{dbFieldName}} уже существует",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] ошибка проверки поля",
       "fieldNameAlreadyExists": "Имя поля {{name}} уже существует",
-      "fieldNotFound": "Поле {{fieldId}} не найдено",
+      "notFound": "Поле не найдено",
       "notFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
       "deleteFieldsNotFound": "Поля для удаления {{fieldIds}} не найдены в таблице {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
@@ -1090,7 +1090,15 @@
       "foreignKeyDuplicate": "Дубликат внешнего ключа",
       "linkConsistencyError": "Ошибка согласованности, recordId {{recordId}} не существует",
       "oneManyLinkCellValueShouldBeArray": "Значения поля связи один-ко-многим должны быть массивом",
-      "manyManyLinkCellValueShouldBeArray": "Значения поля связи многие-ко-многим должны быть массивом"
+      "manyManyLinkCellValueShouldBeArray": "Значения поля связи многие-ко-многим должны быть массивом",
+      "onlyLinkFieldCanBeFiltered": "Только поля связи могут использоваться для фильтрации",
+      "notLinkedToCurrentTable": "Поле не связано с текущей таблицей",
+      "notAttachment": "Поле не является полем вложения",
+      "isComputed": "Поле вычисляется и не может быть изменено",
+      "button": {
+        "clickCountReachedMaxCount": "Количество нажатий кнопки достигло максимального предела",
+        "notSupportReset": "Кнопка не поддерживает сброс"
+      }
     },
     "view": {
       "notFound": "Представление не найдено",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "Общий доступ к представлению уже отключен"
     },
     "billing": {
-      "insufficientCredit": "Недостаточно средств"
+      "insufficientCredit": "Недостаточно средств",
+      "exceedMaxRowLimit": "Превышен максимальный лимит строк"
     },
     "aggregation": {
       "searchQueryRequired": "Требуется поисковой запрос",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "Поиск завершился, уменьшите область поиска и повторите.",
       "indexNotFound": "Индекс не найден",
       "invalidStartDateFieldId": "Недействительный идентификатор поля даты начала",
-      "invalidEndDateFieldId": "Недействительный идентификатор поля даты окончания"
+      "invalidEndDateFieldId": "Недействительный идентификатор поля даты окончания",
+      "fieldMapRequired": "Карта полей требуется при установке поиска",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected и filterLinkCellCandidate нельзя установить одновременно"
     },
     "ai": {
       "chatModelLgNotSet": "Модель чата ИИ lg не установлена",
@@ -1150,7 +1161,8 @@
       "notInTrash": "Таблица не находится в корзине",
       "notSupportTableIndex": "Тип индекса таблицы не поддерживается",
       "createTableIndexError": "Не удалось создать индекс таблицы",
-      "dropTableIndexError": "Не удалось удалить индекс таблицы"
+      "dropTableIndexError": "Не удалось удалить индекс таблицы",
+      "notFoundPrimaryField": "Первичное поле не найдено в таблице"
     },
     "export": {
       "notSupportViewType": "Тип представления {{viewType}} не поддерживается для экспорта"
@@ -1185,7 +1197,21 @@
       "waitlistInviteCodeInvalid": "Список ожидания включен, код приглашения недействителен",
       "systemUser": "Пользователь является системным пользователем",
       "collaboratorsInSpaces": "У пользователя есть сотрудники в пространствах (или удаленные пространства в корзине)",
-      "notFound": "User not found"
+      "notFound": "Пользователь не найден"
+    },
+    "record": {
+      "notFound": "Запись не найдена",
+      "deletedIdsNotFound": "Некоторые записи для удаления не найдены",
+      "updateFailed": "Не удалось обновить запись",
+      "noFileOrUrlProvided": "Файл или URL не предоставлен",
+      "createRecordsEmpty": "Создание записей не может быть пустым",
+      "duplicateFailed": "Не удалось дублировать запись"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Ошибка проверки значения ячейки"
+    },
+    "workflow": {
+      "notActive": "Автоматизация не открыта"
     },
     "lastVisit": {
       "invalidResourceType": "Недопустимый тип ресурса"

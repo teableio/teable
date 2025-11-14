@@ -1073,7 +1073,7 @@
       "dbFieldNameAlreadyExists": "El nombre del campo de base de datos {{dbFieldName}} ya existe",
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] error de validación de campo",
       "fieldNameAlreadyExists": "El nombre del campo {{name}} ya existe",
-      "fieldNotFound": "Campo {{fieldId}} no encontrado",
+      "notFound": "Campo no encontrado",
       "notFoundInTable": "Campo {{fieldId}} no encontrado en la tabla {{tableId}}",
       "deleteFieldsNotFound": "Campos a eliminar {{fieldIds}} no encontrados en la tabla {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues debe ser un array cuando el campo de enlace tiene múltiples valores de celda",
@@ -1102,7 +1102,15 @@
       "foreignKeyDuplicate": "Clave externa duplicada",
       "linkConsistencyError": "Error de consistencia, recordId {{recordId}} no existe",
       "oneManyLinkCellValueShouldBeArray": "Los valores de campo de enlace uno a muchos deben ser un array",
-      "manyManyLinkCellValueShouldBeArray": "Los valores de campo de enlace muchos a muchos deben ser un array"
+      "manyManyLinkCellValueShouldBeArray": "Los valores de campo de enlace muchos a muchos deben ser un array",
+      "onlyLinkFieldCanBeFiltered": "Solo los campos de enlace se pueden usar para filtrar",
+      "notLinkedToCurrentTable": "El campo no está vinculado a la tabla actual",
+      "notAttachment": "El campo no es un campo de adjunto",
+      "isComputed": "El campo es calculado y no se puede modificar",
+      "button": {
+        "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
+        "notSupportReset": "El campo de botón no admite restablecimiento"
+      }
     },
     "view": {
       "notFound": "Vista no encontrada",
@@ -1119,7 +1127,8 @@
       "shareAlreadyDisabled": "El uso compartido de vistas ya está deshabilitado"
     },
     "billing": {
-      "insufficientCredit": "Crédito insuficiente"
+      "insufficientCredit": "Crédito insuficiente",
+      "exceedMaxRowLimit": "Se excedió el límite máximo de filas"
     },
     "aggregation": {
       "searchQueryRequired": "Se requiere consulta de búsqueda",
@@ -1128,7 +1137,9 @@
       "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo.",
       "indexNotFound": "Índice no encontrado",
       "invalidStartDateFieldId": "Identificador de campo de fecha de inicio inválido",
-      "invalidEndDateFieldId": "Identificador de campo de fecha de fin inválido"
+      "invalidEndDateFieldId": "Identificador de campo de fecha de fin inválido",
+      "fieldMapRequired": "Se requiere mapa de campos cuando se establece la búsqueda",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected y filterLinkCellCandidate no se pueden establecer al mismo tiempo"
     },
     "ai": {
       "chatModelLgNotSet": "El modelo de chat IA lg no está configurado",
@@ -1162,7 +1173,8 @@
       "notInTrash": "La tabla no está en la papelera",
       "notSupportTableIndex": "El tipo de índice de tabla no es compatible",
       "createTableIndexError": "Error al crear el índice de tabla",
-      "dropTableIndexError": "Error al eliminar el índice de tabla"
+      "dropTableIndexError": "Error al eliminar el índice de tabla",
+      "notFoundPrimaryField": "Campo primario no encontrado en la tabla"
     },
     "export": {
       "notSupportViewType": "El tipo de vista {{viewType}} no es compatible con la exportación"
@@ -1197,7 +1209,21 @@
       "waitlistInviteCodeInvalid": "La lista de espera está habilitada, el código de invitación no es válido",
       "systemUser": "El usuario es un usuario del sistema",
       "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)",
-      "notFound": "User not found"
+      "notFound": "Usuario no encontrado"
+    },
+    "record": {
+      "notFound": "Registro no encontrado",
+      "deletedIdsNotFound": "Algunos registros para eliminar no se encuentran",
+      "updateFailed": "Error al actualizar el registro",
+      "noFileOrUrlProvided": "No se proporcionó archivo o URL",
+      "createRecordsEmpty": "Crear registros no puede estar vacío",
+      "duplicateFailed": "Error al duplicar el registro"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Error en la validación del valor de celda"
+    },
+    "workflow": {
+      "notActive": "El flujo de trabajo no está activo"
     },
     "lastVisit": {
       "invalidResourceType": "Tipo de recurso no válido"

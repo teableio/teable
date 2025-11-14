@@ -6,7 +6,7 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
 import type {
@@ -20,6 +20,7 @@ import type {
 } from '@teable/openapi';
 import { keyBy, pick } from 'lodash';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
@@ -124,7 +125,11 @@ export class RecordOpenApiService {
     );
 
     if (snapshots.length !== 1) {
-      throw new Error('update record failed');
+      throw new CustomHttpException('update record failed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.updateFailed',
+        },
+      });
     }
 
     return snapshots[0].data;
@@ -267,21 +272,37 @@ export class RecordOpenApiService {
         },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     if (field.type !== FieldType.Attachment) {
-      throw new BadRequestException('Field is not an attachment');
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
+        },
+      });
     }
 
     if (field.isComputed) {
-      throw new BadRequestException('Field is computed');
+      throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
     }
 
     const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
     const record = recordData.records[0];
     if (!record) {
-      throw new NotFoundException(`Record ${recordId} not found`);
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
     return record;
   }
@@ -294,7 +315,11 @@ export class RecordOpenApiService {
     fileUrl?: string
   ) {
     if (!file && !fileUrl) {
-      throw new BadRequestException('No file or URL provided');
+      throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.noFileOrUrlProvided',
+        },
+      });
     }
 
     const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
@@ -350,8 +375,14 @@ export class RecordOpenApiService {
     const options = fieldInstance.options as IButtonFieldOptions;
     const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
     if (!isActive) {
-      throw new BadRequestException(
-        `Button field's workflow ${options.workflow?.id} is not active`
+      throw new CustomHttpException(
+        `Button field's workflow ${options.workflow?.id} is not active`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.workflow.notActive',
+          },
+        }
       );
     }
 
@@ -363,7 +394,15 @@ export class RecordOpenApiService {
     const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
     const count = fieldValue?.count || 0;
     if (maxCount > 0 && count >= maxCount) {
-      throw new BadRequestException(`Button click count ${count} reached max count ${maxCount}`);
+      throw new CustomHttpException(
+        `Button click count ${count} reached max count ${maxCount}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.button.clickCountReachedMaxCount',
+          },
+        }
+      );
     }
     const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
       record: {
@@ -392,7 +431,15 @@ export class RecordOpenApiService {
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
     const fieldOptions = fieldInstance.options as IButtonFieldOptions;
     if (!fieldOptions.resetCount) {
-      throw new BadRequestException('Button field does not support reset');
+      throw new CustomHttpException(
+        'Button field does not support reset',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.button.notSupportReset',
+          },
+        }
+      );
     }
 
     return await this.updateRecord(tableId, recordId, {

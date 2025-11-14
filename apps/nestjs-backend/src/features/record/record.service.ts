@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
   BadRequestException,
@@ -196,7 +197,11 @@ export class RecordService {
         select: { dbTableName: true },
       })
       .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
     return tableMeta.dbTableName;
   }
@@ -243,7 +248,11 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
     const field = createFieldInstanceByRaw(fieldRaw);
     if (!field.isMultipleCellValue) {
@@ -294,17 +303,37 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     const field = createFieldInstanceByRaw(fieldRaw);
 
     if (field.type !== FieldType.Link) {
-      throw new BadRequestException('You can only filter by link field');
+      throw new CustomHttpException(
+        'You can only filter by link field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.onlyLinkFieldCanBeFiltered',
+          },
+        }
+      );
     }
     const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName } = field.options;
     if (foreignTableId !== tableId) {
-      throw new BadRequestException('Field is not linked to current table');
+      throw new CustomHttpException(
+        'Field is not linked to current table',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notLinkedToCurrentTable',
+          },
+        }
+      );
     }
 
     if (fkHostTableName !== dbTableName) {
@@ -347,18 +376,38 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     const field = createFieldInstanceByRaw(fieldRaw);
 
     if (field.type !== FieldType.Link) {
-      throw new BadRequestException('You can only filter by link field');
+      throw new CustomHttpException(
+        'You can only filter by link field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.onlyLinkFieldCanBeFiltered',
+          },
+        }
+      );
     }
     const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName, relationship } =
       field.options;
     if (foreignTableId !== tableId) {
-      throw new BadRequestException('Field is not linked to current table');
+      throw new CustomHttpException(
+        'Field is not linked to current table',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notLinkedToCurrentTable',
+          },
+        }
+      );
     }
     if (relationship === Relationship.OneMany) {
       if (this.isJunctionTable(fkHostTableName)) {
@@ -491,7 +540,11 @@ export class RecordService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`View ${viewId} not found`);
+        throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        });
       });
   }
 
@@ -502,7 +555,15 @@ export class RecordService {
     const [searchValue, fieldId, hideNotMatchRow] = search;
 
     if (!fieldMap) {
-      throw new Error('fieldMap is required when search is set');
+      throw new CustomHttpException(
+        'fieldMap is required when search is set',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.fieldMapRequired',
+          },
+        }
+      );
     }
 
     if (!fieldId) {
@@ -514,7 +575,11 @@ export class RecordService {
     fieldIds.forEach((id) => {
       const field = fieldMap[id];
       if (!field) {
-        throw new NotFoundException(`Field ${id} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       }
     });
 
@@ -677,8 +742,14 @@ export class RecordService {
     );
 
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
-      throw new BadRequestException(
-        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
+      throw new CustomHttpException(
+        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.filterLinkCellQueryConflict',
+          },
+        }
       );
     }
 
@@ -772,7 +843,11 @@ export class RecordService {
     ](tableId, recordIds, undefined, FieldKeyType.Id, undefined, true);
 
     if (!recordSnapshot.length) {
-      throw new NotFoundException('Can not get records');
+      throw new CustomHttpException('Can not get record', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
 
     return {
@@ -897,7 +972,11 @@ export class RecordService {
     );
 
     if (!recordSnapshot.length) {
-      throw new NotFoundException('Can not get record');
+      throw new CustomHttpException('Can not get record', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
 
     return recordSnapshot[0].data;
@@ -933,7 +1012,18 @@ export class RecordService {
       .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
     if (recordIds.length !== recordRaw.length) {
-      throw new BadRequestException('delete record not found');
+      throw new CustomHttpException(
+        `Some records to be deleted cannot be found, ids: ${difference(
+          recordIds,
+          recordRaw.map((r) => r.id)
+        ).join(',')}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.record.deletedIdsNotFound',
+          },
+        }
+      );
     }
 
     const recordRawMap = keyBy(recordRaw, 'id');
@@ -1117,8 +1207,14 @@ export class RecordService {
 
     if (rowCount >= maxRowCount) {
       this.logger.log(`Exceed row count: ${maxRowCount}`, 'creditCheck');
-      throw new BadRequestException(
-        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`
+      throw new CustomHttpException(
+        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+          },
+        }
       );
     }
   }
@@ -1493,7 +1589,11 @@ export class RecordService {
 
     recordIds.forEach((recordId) => {
       if (!(recordId in recordIdsMap)) {
-        throw new NotFoundException(`Record ${recordId} not found`);
+        throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.record.notFound',
+          },
+        });
       }
     });
 
@@ -1588,11 +1688,27 @@ export class RecordService {
     const { skip, take = 100, ignoreViewQuery } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
-      throw new InternalServerErrorException('query collection must be table id');
+      throw new CustomHttpException(
+        'Query collection must be table ID',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.queryCollectionMustBeTableId',
+          },
+        }
+      );
     }
 
     if (take > 1000) {
-      throw new BadRequestException(`limit can't be greater than ${take}`);
+      throw new CustomHttpException(
+        `The maximum search index result is 1000`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.maxSearchIndexResult',
+          },
+        }
+      );
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;
@@ -1840,7 +1956,15 @@ export class RecordService {
     useQueryModel = true
   ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
     if (identify(tableId) !== IdPrefix.Table) {
-      throw new InternalServerErrorException('query collection must be table id');
+      throw new CustomHttpException(
+        'Query collection must be table ID',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.queryCollectionMustBeTableId',
+          },
+        }
+      );
     }
 
     const {
@@ -1907,7 +2031,15 @@ export class RecordService {
       isPrimary: [true],
     });
     if (!field.length) {
-      throw new BadRequestException(`Could not find primary index ${tableId}`);
+      throw new CustomHttpException(
+        `Could not find primary field in table ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFoundPrimaryField',
+          },
+        }
+      );
     }
     return createFieldInstanceByRaw(field[0]);
   }

@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IMakeOptional, TableDomain } from '@teable/core';
-import { FieldKeyType, generateRecordId, CellFormat } from '@teable/core';
+import { FieldKeyType, generateRecordId, CellFormat, HttpErrorCode } from '@teable/core';
 import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { TableDomainQueryService } from '../../table-domain';
@@ -57,7 +58,13 @@ export class RecordCreateService {
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     projection?: string[]
   ): Promise<ICreateRecordsVo> {
-    if (recordsRo.length === 0) throw new BadRequestException('Create records is empty');
+    if (recordsRo.length === 0) {
+      throw new CustomHttpException('Create records is empty', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.createRecordsEmpty',
+        },
+      });
+    }
     const records = recordsRo.map((r) => ({ ...r, id: r.id || generateRecordId() }));
     const fields = table.fieldList;
     await this.recordService.batchCreateRecords(table, records, fieldKeyType, fields);

@@ -1061,7 +1061,7 @@
       "dbFieldNameAlreadyExists": "Database field name {{dbFieldName}} already exists",
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
       "fieldNameAlreadyExists": "Field name {{name}} already exists",
-      "fieldNotFound": "field {{fieldId}} not found",
+      "notFound": "field not found",
       "notFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
       "deleteFieldsNotFound": "Delete fields {{fieldIds}} not found in table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues should be array when link field is multiple cell value",
@@ -1090,7 +1090,15 @@
       "manyOneLinkCellValueCannotBeArray": "Many-to-one link field values cannot be an array",
       "oneManyLinkCellValueShouldBeArray": "One-to-many link field values should be an array",
       "manyManyLinkCellValueShouldBeArray": "Many-to-many link field values should be an array",
-      "foreignKeyDuplicate": "Foreign key duplicate"
+      "foreignKeyDuplicate": "Foreign key duplicate",
+      "onlyLinkFieldCanBeFiltered": "Only link fields can be used for filtering",
+      "notLinkedToCurrentTable": "Field is not linked to current table",
+      "notAttachment": "Field is not an attachment field",
+      "isComputed": "Field is computed and cannot be modified",
+      "button": {
+        "clickCountReachedMaxCount": "Button click count has reached the maximum limit",
+        "notSupportReset": "Button field does not support reset"
+      }
     },
     "view": {
       "notFound": "View not found",
@@ -1107,7 +1115,8 @@
       "shareAlreadyDisabled": "View sharing is already disabled"
     },
     "billing": {
-      "insufficientCredit": "Insufficient credit"
+      "insufficientCredit": "Insufficient credit",
+      "exceedMaxRowLimit": "Maximum row limit exceeded"
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",
@@ -1116,7 +1125,9 @@
       "searchTimeOut": "Search timeout, please decrease the search scope and try again",
       "indexNotFound": "Index not found",
       "invalidStartDateFieldId": "Invalid start date field id",
-      "invalidEndDateFieldId": "Invalid end date field id"
+      "invalidEndDateFieldId": "Invalid end date field id",
+      "fieldMapRequired": "Field map is required when search is set",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected and filterLinkCellCandidate cannot be set at the same time"
     },
     "ai": {
       "chatModelLgNotSet": "AI chat model lg is not set",
@@ -1150,7 +1161,8 @@
       "notInTrash": "Table is not in trash",
       "notSupportTableIndex": "Table index type is not supported",
       "createTableIndexError": "Failed to create table index",
-      "dropTableIndexError": "Failed to drop table index"
+      "dropTableIndexError": "Failed to drop table index",
+      "notFoundPrimaryField": "Primary field not found in table"
     },
     "export": {
       "notSupportViewType": "{{viewType}} view type is not supported for export"
@@ -1186,6 +1198,20 @@
       "systemUser": "User is a system user",
       "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)",
       "notFound": "User not found"
+    },
+    "record": {
+      "notFound": "Record not found",
+      "deletedIdsNotFound": "Some records to be deleted cannot be found",
+      "updateFailed": "Failed to update record",
+      "noFileOrUrlProvided": "No file or URL provided",
+      "createRecordsEmpty": "Create records cannot be empty",
+      "duplicateFailed": "Failed to duplicate record"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Cell value validation failed"
+    },
+    "workflow": {
+      "notActive": "Workflow is not active"
     },
     "lastVisit": {
       "invalidResourceType": "Invalid resource type"

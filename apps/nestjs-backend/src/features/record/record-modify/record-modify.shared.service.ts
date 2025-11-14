@@ -1,5 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, FieldType, FormulaFieldCore, TableDomain } from '@teable/core';
+import { Injectable } from '@nestjs/common';
+import {
+  FieldKeyType,
+  FieldType,
+  FormulaFieldCore,
+  TableDomain,
+  HttpErrorCode,
+} from '@teable/core';
 import type {
   FieldCore,
   IMakeOptional,
@@ -10,6 +16,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
 import { isEqual, forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { Timing } from '../../../utils/timing';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
@@ -93,7 +100,15 @@ export class RecordModifySharedService {
       const missedFields = usedFieldIdsOrNames.filter(
         (fieldIdOrName) => !usedSet.has(fieldIdOrName)
       );
-      throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
+      throw new CustomHttpException(
+        `Field ${fieldKeyType}: ${missedFields.join(', ')} not found`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        }
+      );
     }
     return usedFields;
   }
@@ -203,7 +218,15 @@ export class RecordModifySharedService {
     for (const record of records) {
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
         if (!fieldsMap.has(fieldNameOrId)) {
-          throw new NotFoundException(`Field ${fieldNameOrId} not found`);
+          throw new CustomHttpException(
+            `Field ${fieldNameOrId} not found`,
+            HttpErrorCode.NOT_FOUND,
+            {
+              localization: {
+                i18nKey: 'httpErrors.field.notFound',
+              },
+            }
+          );
         }
         const fieldId = fieldsMap.get(fieldNameOrId)!.id;
         const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id]?.fields[fieldId] ?? null;
