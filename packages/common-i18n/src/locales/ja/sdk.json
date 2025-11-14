@@ -40,9 +40,23 @@
     "previewFileLimit": "プレビュー可能なファイルサイズの上限: {{size}}MB、ダウンロードしてご覧ください。",
     "loadFileError": "ファイルの読み込みに失敗しました"
   },
+  "undoRedo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoFailed": "Undo failed",
+    "redoFailed": "Redo failed",
+    "nothingToUndo": "Nothing to undo",
+    "nothingToRedo": "Nothing to redo",
+    "undoSucceed": "Undo succeed",
+    "redoSucceed": "Redo succeed",
+    "undoing": "undoing...",
+    "redoing": "redoing..."
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "ファイルをアップロードするにはリリースしてください",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "ここに貼り付けるかドラッグアンドドロップしてアップロードしてください",
       "upload": "アップロード"
     },
@@ -177,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "今日",
@@ -190,6 +208,15 @@
         "daysFromNow": "日後",
         "exactDate": "正確な日付",
         "exactFormatDate": "正確な日付（フォーマット）",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "先週",
         "pastMonth": "先月",
         "pastYear": "去年",
@@ -232,6 +259,7 @@
   },
   "expandRecord": {
     "copy": "クリップボードにコピー",
+    "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "レコードのURLをコピー",
     "deleteRecord": "レコードを削除",
     "addRecordComment": "コメントを追加",
@@ -351,6 +379,7 @@
       "viewDelete": "ビューを削除",
       "viewRead": "ビューを読み取り",
       "viewUpdate": "ビューを更新",
+      "viewShare": "Share view",
       "fieldCreate": "フィールドの作成",
       "fieldDelete": "フィールドの削除",
       "fieldRead": "フィールドの読み取り",
@@ -360,6 +389,7 @@
       "recordDelete": "レコードの削除",
       "recordRead": "レコードの読み取り",
       "recordUpdate": "レコードの更新",
+      "recordCopy": "Copy record",
       "automationCreate": "オートメーションの作成",
       "automationDelete": "オートメーションの削除",
       "automationRead": "オートメーションの読み取り",
@@ -369,7 +399,9 @@
       "recordHistoryRead": "レコード履歴の読み取り",
       "baseQuery": "クエリベース",
       "instanceRead": "インスタンスの読み取り",
-      "instanceUpdate": "インスタンスの更新"
+      "instanceUpdate": "インスタンスの更新",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -382,7 +414,9 @@
     "automation": "オートメーション",
     "user": "ユーザー",
     "recordHistory": "レコード履歴",
-    "instance": "インスタンス"
+    "you": "You",
+    "instance": "インスタンス",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -813,6 +847,15 @@
       "enterUrl": "URLを入力"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "バリデーションエラー",
     "invalidCaptcha": "キャプチャが無効です",
@@ -844,9 +887,6 @@
       "dependencyNodeRequire": "依存ノードがテストされていません。前のノードをテストしてください。",
       "invalidOperation": "無効な操作が検出されました。操作パラメータを確認してください"
     },
-    "email": {
-      "testEmailError": "メール設定エラー {{message}}"
-    },
     "comment": {
       "listCountExceeded": "リクエストされたコメント数が最大制限の 1000 を超えています",
       "invalidContentType": "無効なコメントコンテンツタイプ"
@@ -877,6 +917,26 @@
       "invalidUploadType": "無効なアップロードタイプ",
       "urlReject": "URLが拒否されたか、アクセスできません"
     },
+    "email": {
+      "testEmailError": "メール設定エラー {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "このボタンフィールドはすでに {{name}}[{{id}}] この自動化プロセスにバインドされています。別のボタンフィールドを選択してください",
       "triggerNotFound": "トリガーが見つかりません",
@@ -893,7 +953,8 @@
       "noPermission": "このスペースにアクセスする権限がありません",
       "disallowSpaceCreation": "管理者によってスペースの作成が無効化されています",
       "cannotChangeOnlyOwnerRole": "スペースの唯一の所有者のロールを変更できません",
-      "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません"
+      "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "ベース が見つかりません",
@@ -970,7 +1031,16 @@
       "createRecordWithDeniedFields": "フィールド({{fields}})を含むレコードを作成する権限がありません",
       "deleteRecords": "レコード({{recordIds}})を削除する権限がありません",
       "readRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を読み取る権限がありません",
-      "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません"
+      "updateRecordWithDeniedFields": "レコード({{recordId}})のフィールド({{fields}})を更新する権限がありません",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "無効な戻り値の型",
@@ -1015,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "現在のフィールドタイプ {{fieldType}} はルックアップフィールドタイプ {{lookupFieldType}} と等しくありません",
       "recordNotFound": "レコード {{recordId}} が {{tableId}} に見つかりません",
       "linkCellRecordIdAlreadyExists": "同じセルに重複した recordId を設定できません: {{recordId}}",
-      "linkConsistencyError": "整合性エラー、recordId {{recordId}} が存在しません",
       "oneOneLinkCellValueCannotBeArray": "1対1リンクフィールドの値は配列にできません",
       "manyOneLinkCellValueCannotBeArray": "多対1リンクフィールドの値は配列にできません",
+      "foreignKeyDuplicate": "外部キーが重複しています",
+      "linkConsistencyError": "整合性エラー、recordId {{recordId}} が存在しません",
       "oneManyLinkCellValueShouldBeArray": "1対多リンクフィールドの値は配列である必要があります",
-      "manyManyLinkCellValueShouldBeArray": "多対多リンクフィールドの値は配列である必要があります",
-      "foreignKeyDuplicate": "外部キーが重複しています"
+      "manyManyLinkCellValueShouldBeArray": "多対多リンクフィールドの値は配列である必要があります"
     },
     "view": {
       "notFound": "ビューが見つかりません",
@@ -1114,7 +1184,8 @@
       "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
       "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
       "systemUser": "ユーザーはシステムユーザーです",
-      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）"
+      "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "無効なリソースタイプ"

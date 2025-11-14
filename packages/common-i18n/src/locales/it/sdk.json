@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Rilascia per caricare il file",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Incolla o trascina e rilascia per caricare qui",
       "upload": "carica"
     },
@@ -188,6 +190,10 @@
         "isLess": "<",
         "isLessEqual": "≤"
       }
+    },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
     },
     "component": {
       "date": {
@@ -383,6 +389,7 @@
       "recordDelete": "Elimina record",
       "recordRead": "Leggi record",
       "recordUpdate": "Aggiorna record",
+      "recordCopy": "Copy record",
       "automationCreate": "Crea automazione",
       "automationDelete": "Elimina automazione",
       "automationRead": "Leggi automazione",
@@ -880,9 +887,6 @@
       "dependencyNodeRequire": "Il nodo dipendente non è stato testato, per favore controlla se tutti i nodi precedenti sono stati testati",
       "invalidOperation": "Operazione non valida rilevata, per favore controlla i parametri dell'operazione"
     },
-    "email": {
-      "testEmailError": "Errore di configurazione della posta {{message}}"
-    },
     "comment": {
       "listCountExceeded": "Il numero di commenti richiesti supera il limite massimo di 1000",
       "invalidContentType": "Tipo di contenuto del commento non valido"
@@ -913,6 +917,26 @@
       "invalidUploadType": "Tipo di caricamento non valido",
       "urlReject": "URL rifiutato o inaccessibile"
     },
+    "email": {
+      "testEmailError": "Errore di configurazione della posta {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Questo campo di pulsante è già collegato a {{name}}[{{id}}] questo processo di automazione, per favore seleziona un altro campo di pulsante",
       "triggerNotFound": "Trigger non trovato",
@@ -929,7 +953,8 @@
       "noPermission": "Non hai il permesso di accedere a questo spazio",
       "disallowSpaceCreation": "La creazione di spazi è stata disabilitata dall'amministratore",
       "cannotChangeOnlyOwnerRole": "Impossibile modificare il ruolo dell'unico proprietario dello spazio",
-      "cannotDeleteOnlyOwner": "Impossibile eliminare l'unico proprietario dello spazio"
+      "cannotDeleteOnlyOwner": "Impossibile eliminare l'unico proprietario dello spazio",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base non trovata",
@@ -1006,7 +1031,16 @@
       "createRecordWithDeniedFields": "Non hai il permesso di creare record con campi({{fields}})",
       "deleteRecords": "Non hai il permesso di eliminare i record({{recordIds}})",
       "readRecordWithDeniedFields": "Non hai il permesso di leggere i campi({{fields}}) nel record({{recordId}})",
-      "updateRecordWithDeniedFields": "Non hai il permesso di aggiornare i campi({{fields}}) nel record({{recordId}})"
+      "updateRecordWithDeniedFields": "Non hai il permesso di aggiornare i campi({{fields}}) nel record({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Tipo di ritorno non valido",
@@ -1051,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Il tipo di campo corrente {{fieldType}} non è uguale al tipo di campo di ricerca {{lookupFieldType}}",
       "recordNotFound": "Record {{recordId}} non trovato in {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Impossibile impostare recordId duplicato: {{recordId}} nella stessa cella",
-      "linkConsistencyError": "Errore di coerenza, recordId {{recordId}} non esiste",
       "oneOneLinkCellValueCannotBeArray": "I valori del campo di collegamento uno-a-uno non possono essere un array",
       "manyOneLinkCellValueCannotBeArray": "I valori del campo di collegamento molti-a-uno non possono essere un array",
+      "foreignKeyDuplicate": "Chiave esterna duplicata",
+      "linkConsistencyError": "Errore di coerenza, recordId {{recordId}} non esiste",
       "oneManyLinkCellValueShouldBeArray": "I valori del campo di collegamento uno-a-molti dovrebbero essere un array",
-      "manyManyLinkCellValueShouldBeArray": "I valori del campo di collegamento molti-a-molti dovrebbero essere un array",
-      "foreignKeyDuplicate": "Chiave esterna duplicata"
+      "manyManyLinkCellValueShouldBeArray": "I valori del campo di collegamento molti-a-molti dovrebbero essere un array"
     },
     "view": {
       "notFound": "Vista non trovata",
@@ -1150,7 +1184,8 @@
       "waitlistInviteCodeRequired": "La lista d'attesa è abilitata, è richiesto un codice di invito",
       "waitlistInviteCodeInvalid": "La lista d'attesa è abilitata, il codice di invito non è valido",
       "systemUser": "L'utente è un utente di sistema",
-      "collaboratorsInSpaces": "L'utente ha collaboratori negli spazi (o spazi eliminati nel cestino)"
+      "collaboratorsInSpaces": "L'utente ha collaboratori negli spazi (o spazi eliminati nel cestino)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Tipo di risorsa non valido"

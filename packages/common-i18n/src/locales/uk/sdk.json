@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Відпустіть, щоб завантажити файл",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Вставте або перетягніть, щоб завантажити сюди",
       "upload": "завантажити"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "сьогодні",
@@ -252,7 +258,7 @@
     "primaryKey": "Основне поле: Ідентифікує записи\nне можна приховати або видалити, видно у зв'язаних записах."
   },
   "expandRecord": {
-    "Копіювати": "Копіювати в буфер обміну",
+    "copy": "Копіювати в буфер обміну",
     "duplicateRecord": "Дублювати запис",
     "copyRecordUrl": "Копіювати URL записи",
     "deleteRecord": "Видалити запис",
@@ -383,6 +389,7 @@
       "recordDelete": "Видалити запис",
       "recordRead": "Прочитати запис",
       "recordUpdate": "Оновити запис",
+      "recordCopy": "Copy record",
       "automationCreate": "Створити автоматизацію",
       "automationDelete": "Видалити автоматизацію",
       "automationRead": "Автоматизація читання",
@@ -757,7 +764,7 @@
     "percentEmpty": "Відсоток порожніх",
     "percentFilled": "Відсоток заповнених",
     "percentUnique": "Відсоток унікальних",
-    "%percentChecked": "Відсоток зазначених",
+    "percentChecked": "Percent Checked",
     "percentUnChecked": "Відсоток невідзначених",
     "earliestDate": "Найраніша дата",
     "latestDate": "Найпізніша дата",
@@ -880,9 +887,6 @@
       "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані",
       "invalidOperation": "Виявлено недопустиму операцію, будь ласка, перевірте параметри операції"
     },
-    "email": {
-      "testEmailError": "Помилка конфігурації пошти {{message}}"
-    },
     "comment": {
       "listCountExceeded": "Кількість запитуваних коментарів перевищує максимальний ліміт 1000",
       "invalidContentType": "Неправильний тип вмісту коментаря"
@@ -913,6 +917,26 @@
       "invalidUploadType": "Недійсний тип завантаження",
       "urlReject": "URL відхилено або недоступний"
     },
+    "email": {
+      "testEmailError": "Помилка конфігурації пошти {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
       "triggerNotFound": "Тригер не знайдено",
@@ -929,7 +953,8 @@
       "noPermission": "У вас немає дозволу на доступ до цього простору",
       "disallowSpaceCreation": "Створення просторів вимкнено адміністратором",
       "cannotChangeOnlyOwnerRole": "Неможливо змінити роль єдиного власника простору",
-      "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору"
+      "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "База не знайдена",
@@ -1006,7 +1031,16 @@
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
       "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",
       "readRecordWithDeniedFields": "У вас немає дозволу на читання полів({{fields}}) у записі({{recordId}})",
-      "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})"
+      "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Недійсний тип повернення",
@@ -1051,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Поточний тип поля {{fieldType}} не дорівнює типу поля пошуку {{lookupFieldType}}",
       "recordNotFound": "Запис {{recordId}} не знайдено в {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Неможливо встановити дублюючий recordId: {{recordId}} в тій самій комірці",
-      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneOneLinkCellValueCannotBeArray": "Значення поля зв'язку один-до-одного не можуть бути масивом",
       "manyOneLinkCellValueCannotBeArray": "Значення поля зв'язку багато-до-одного не можуть бути масивом",
+      "foreignKeyDuplicate": "Дублікат зовнішнього ключа",
+      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneManyLinkCellValueShouldBeArray": "Значення поля зв'язку один-до-багатьох повинні бути масивом",
-      "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом",
-      "foreignKeyDuplicate": "Дублікат зовнішнього ключа"
+      "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом"
     },
     "view": {
       "notFound": "Представлення не знайдено",
@@ -1150,7 +1184,8 @@
       "waitlistInviteCodeRequired": "Список очікування увімкнено, потрібен код запрошення",
       "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
       "systemUser": "Користувач є системним користувачем",
-      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)"
+      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Недійсний тип ресурсу"

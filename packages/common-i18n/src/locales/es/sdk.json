@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Suelta para subir archivo",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Pega o arrastra y suelta para subir aquí",
       "upload": "subir"
     },
@@ -140,6 +142,7 @@
     "displayLabel_other": "Filtrar por {{fieldName}} y {{count}} otros campos",
     "addCondition": "Agregar condición",
     "addConditionGroup": "Agregar grupo de condición",
+    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Ingrese un valor",
     "groupDescription": "Cualquiera de los siguientes es cierto ...",
     "currentUser": "Yo (usuario actual)",
@@ -188,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "hoy",
@@ -220,6 +227,71 @@
         "nextNumberOfDays": "Siguiente número de días"
       }
     }
+  },
+  "color": {
+    "label": "color"
+  },
+  "rowHeight": {
+    "short": "corto",
+    "medium": "medio",
+    "tall": "alto",
+    "extraTall": "extratall",
+    "title": "Configuración de altura de fila"
+  },
+  "fieldNameConfig": {
+    "title": "Configuración de nombre de campo",
+    "displayLines": "{{count}} líneas"
+  },
+  "share": {
+    "title": "compartir"
+  },
+  "extensions": {
+    "title": "extensiones"
+  },
+  "hidden": {
+    "label": "Campos ocultos",
+    "configLabel_one": "{{count}} hidden field",
+    "configLabel_other": "{{count}} hidden fields",
+    "configLabel_other_visible": "{{count}} visible fields",
+    "showAll": "Mostrar todo",
+    "hideAll": "Esconderse",
+    "primaryKey": "Campo primario: identifica registros\n"
+  },
+  "expandRecord": {
+    "copy": "Copiar al portapapeles",
+    "duplicateRecord": "Récord duplicado",
+    "copyRecordUrl": "Copiar URL de registro",
+    "deleteRecord": "Eliminar registro",
+    "addRecordComment": "Agregar comentario",
+    "viewRecordHistory": "Ver historial del registro",
+    "recordHistory": {
+      "hiddenRecordHistory": "Ocultar historia de registro",
+      "showRecordHistory": "Mostrar historia discográfica",
+      "createdTime": "Tiempo creado",
+      "createdBy": "Creado por",
+      "before": "Antes",
+      "after": "Después",
+      "viewRecord": "Ver registro"
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
+  },
+  "sort": {
+    "label": "Clasificar",
+    "displayLabel_one": "Sort by {{count}} field",
+    "displayLabel_other": "Sort by {{count}} fields",
+    "setTips": "Ordenar por",
+    "addButton": "Agregar otro tipo",
+    "autoSort": "Ordenar los registros automáticamente",
+    "selectASCLabel": "Primero → último",
+    "selectDESCLabel": "Último → Primero"
+  },
+  "group": {
+    "label": "Grupo",
+    "displayLabel_one": "Group by {{count}} fields",
+    "displayLabel_other": "Group by {{count}} fields",
+    "setTips": "Agrupar",
+    "addButton": "Agregar subgrupo"
   },
   "field": {
     "title": {
@@ -274,6 +346,77 @@
       "oneWay": "Unidireccional",
       "twoWay": "Bidireccional"
     }
+  },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Crear espacio",
+      "spaceDelete": "Eliminar espacio",
+      "spaceRead": "Leer espacio",
+      "spaceUpdate": "Actualizar espacio",
+      "spaceInviteEmail": "Invitar por correo electrónico en el espacio",
+      "spaceInviteLink": "Invitar a través de un enlace en el espacio",
+      "spaceGrantRole": "Faid de papel en el espacio",
+      "baseCreate": "Crear base",
+      "baseDelete": "Eliminar la base",
+      "baseRead": "Base de lectura",
+      "baseReadAll": "Lea todas las bases",
+      "baseUpdate": "Base de actualización",
+      "baseInviteEmail": "Invitar por correo electrónico en la base",
+      "baseInviteLink": "Invitar a través de un enlace en la base",
+      "baseTableImport": "Importar datos a la base",
+      "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
+      "baseDbConnect": "Conectarse a la base de datos",
+      "tableCreate": "Crear mesa",
+      "tableRead": "Tabla de lectura",
+      "tableDelete": "Eliminar mesa",
+      "tableUpdate": "Tabla de actualización",
+      "tableImport": "Importar datos a la tabla",
+      "tableExport": "Datos de la tabla de exportación",
+      "tableTrashRead": "Lea la basura de la mesa",
+      "tableTrashUpdate": "Actualizar la basura de la tabla",
+      "tableTrashReset": "Restablecer la basura de la mesa",
+      "viewCreate": "Crear vista",
+      "viewDelete": "Eliminar vista",
+      "viewRead": "Leer vista",
+      "viewUpdate": "Vista de actualización",
+      "viewShare": "Vista de compartir",
+      "fieldCreate": "Crear campo",
+      "fieldDelete": "Eliminar campo",
+      "fieldRead": "Campo de lectura",
+      "fieldUpdate": "Campo de actualización",
+      "recordCreate": "Crear registro",
+      "recordComment": "Comentario sobre el registro",
+      "recordDelete": "Eliminar registro",
+      "recordRead": "Récord de lectura",
+      "recordUpdate": "Registro de actualización",
+      "recordCopy": "Copy record",
+      "automationCreate": "Crear automatización",
+      "automationDelete": "Eliminar la automatización",
+      "automationRead": "Leer automatización",
+      "automationUpdate": "Actualización de automatización",
+      "userProfileRead": "Lea el perfil de usuario actual",
+      "userEmailRead": "Lea el correo electrónico actual del usuario",
+      "recordHistoryRead": "Leer Historia de registro",
+      "baseQuery": "Base de consulta",
+      "instanceRead": "Instancia de lectura",
+      "instanceUpdate": "Instancia de actualización",
+      "enterpriseRead": "Leer la configuración empresarial",
+      "enterpriseUpdate": "Actualizar la configuración empresarial"
+    }
+  },
+  "noun": {
+    "table": "Mesa",
+    "view": "Vista",
+    "space": "Espacio",
+    "base": "Base",
+    "field": "Campo",
+    "record": "Registro",
+    "automation": "Automatización",
+    "user": "Usuario",
+    "recordHistory": "Historia récord",
+    "you": "Tú",
+    "instance": "Instancia",
+    "enterprise": "Empresa"
   },
   "formula": {
     "SUM": {
@@ -376,6 +519,10 @@
       "summary": "Búsqueda de una aparición de StringToFind en Wheretosearch String que comienza desde una Opcional StartFromposition. ",
       "example": "Buscar (\"table\", \"hello table\") => 7\n"
     },
+    "MID": {
+      "summary": "Extrae una subcadena de count caracteres comenzando en whereToStart.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
+    },
     "LEFT": {
       "summary": "Extraiga a Howmany personajes desde el comienzo de la cadena.",
       "example": "Izquierda (\"2023-09-06\", 4) => \"2023\""
@@ -472,6 +619,10 @@
       "summary": "Devuelve el año de cuatro dígitos de una hora de fecha.",
       "example": "Año (\"2023-09-08\") => 2023"
     },
+    "MONTH": {
+      "summary": "Devuelve el mes de una fecha como un número entre 1 (Enero) y 12 (Diciembre).",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
     "WEEKNUM": {
       "summary": "Devuelve el número de semana en un año.",
       "example": "Weeknum (\"2023-09-08\") => 36"
@@ -552,6 +703,10 @@
       "summary": "Devuelve el tiempo de creación del registro actual.",
       "example": "Creat_time () => \"2023-09-08 18:00:00\""
     },
+    "LAST_MODIFIED_TIME": {
+      "summary": "Devuelve la fecha y hora de la modificación más reciente realizada por un usuario en un campo no calculado en la tabla.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+    },
     "COUNTALL": {
       "summary": "Devuelve el número de todos los elementos, incluidos el texto y los espacios en blanco.",
       "example": "Countall (100, 200, \"\", \"Table\", True ()) => 5"
@@ -606,132 +761,6 @@
     "array": "Formación",
     "system": "Sistema"
   },
-  "color": {
-    "label": "color"
-  },
-  "rowHeight": {
-    "short": "corto",
-    "medium": "medio",
-    "tall": "alto",
-    "extraTall": "extratall",
-    "title": "Configuración de altura de fila"
-  },
-  "fieldNameConfig": {
-    "title": "Configuración de nombre de campo",
-    "displayLines": "{{count}} líneas"
-  },
-  "share": {
-    "title": "compartir"
-  },
-  "extensions": {
-    "title": "extensiones"
-  },
-  "hidden": {
-    "label": "Campos ocultos",
-    "showAll": "Mostrar todo",
-    "hideAll": "Esconderse",
-    "primaryKey": "Campo primario: identifica registros\n"
-  },
-  "expandRecord": {
-    "copy": "Copiar al portapapeles",
-    "duplicateRecord": "Récord duplicado",
-    "copyRecordUrl": "Copiar URL de registro",
-    "deleteRecord": "Eliminar registro",
-    "addRecordComment": "Agregar comentario",
-    "viewRecordHistory": "Ver historial del registro",
-    "recordHistory": {
-      "hiddenRecordHistory": "Ocultar historia de registro",
-      "showRecordHistory": "Mostrar historia discográfica",
-      "createdTime": "Tiempo creado",
-      "createdBy": "Creado por",
-      "before": "Antes",
-      "after": "Después",
-      "viewRecord": "Ver registro"
-    }
-  },
-  "sort": {
-    "label": "Clasificar",
-    "setTips": "Ordenar por",
-    "addButton": "Agregar otro tipo",
-    "autoSort": "Ordenar los registros automáticamente",
-    "selectASCLabel": "Primero → último",
-    "selectDESCLabel": "Último → Primero"
-  },
-  "group": {
-    "label": "Grupo",
-    "setTips": "Agrupar",
-    "addButton": "Agregar subgrupo"
-  },
-  "permission": {
-    "actionDescription": {
-      "spaceCreate": "Crear espacio",
-      "spaceDelete": "Eliminar espacio",
-      "spaceRead": "Leer espacio",
-      "spaceUpdate": "Actualizar espacio",
-      "spaceInviteEmail": "Invitar por correo electrónico en el espacio",
-      "spaceInviteLink": "Invitar a través de un enlace en el espacio",
-      "spaceGrantRole": "Faid de papel en el espacio",
-      "baseCreate": "Crear base",
-      "baseDelete": "Eliminar la base",
-      "baseRead": "Base de lectura",
-      "baseReadAll": "Lea todas las bases",
-      "baseUpdate": "Base de actualización",
-      "baseInviteEmail": "Invitar por correo electrónico en la base",
-      "baseInviteLink": "Invitar a través de un enlace en la base",
-      "baseTableImport": "Importar datos a la base",
-      "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
-      "baseDbConnect": "Conectarse a la base de datos",
-      "tableCreate": "Crear mesa",
-      "tableRead": "Tabla de lectura",
-      "tableDelete": "Eliminar mesa",
-      "tableUpdate": "Tabla de actualización",
-      "tableImport": "Importar datos a la tabla",
-      "tableExport": "Datos de la tabla de exportación",
-      "tableTrashRead": "Lea la basura de la mesa",
-      "tableTrashUpdate": "Actualizar la basura de la tabla",
-      "tableTrashReset": "Restablecer la basura de la mesa",
-      "viewCreate": "Crear vista",
-      "viewDelete": "Eliminar vista",
-      "viewRead": "Leer vista",
-      "viewUpdate": "Vista de actualización",
-      "viewShare": "Vista de compartir",
-      "fieldCreate": "Crear campo",
-      "fieldDelete": "Eliminar campo",
-      "fieldRead": "Campo de lectura",
-      "fieldUpdate": "Campo de actualización",
-      "recordCreate": "Crear registro",
-      "recordComment": "Comentario sobre el registro",
-      "recordDelete": "Eliminar registro",
-      "recordRead": "Récord de lectura",
-      "recordUpdate": "Registro de actualización",
-      "automationCreate": "Crear automatización",
-      "automationDelete": "Eliminar la automatización",
-      "automationRead": "Leer automatización",
-      "automationUpdate": "Actualización de automatización",
-      "userProfileRead": "Lea el perfil de usuario actual",
-      "userEmailRead": "Lea el correo electrónico actual del usuario",
-      "recordHistoryRead": "Leer Historia de registro",
-      "baseQuery": "Base de consulta",
-      "instanceRead": "Instancia de lectura",
-      "instanceUpdate": "Instancia de actualización",
-      "enterpriseRead": "Leer la configuración empresarial",
-      "enterpriseUpdate": "Actualizar la configuración empresarial"
-    }
-  },
-  "noun": {
-    "table": "Mesa",
-    "view": "Vista",
-    "space": "Espacio",
-    "base": "Base",
-    "field": "Campo",
-    "record": "Registro",
-    "automation": "Automatización",
-    "user": "Usuario",
-    "recordHistory": "Historia récord",
-    "you": "Tú",
-    "instance": "Instancia",
-    "enterprise": "Empresa"
-  },
   "statisticFunc": {
     "none": "Ninguno",
     "count": "Contar",
@@ -759,6 +788,7 @@
     "add": "Agregar",
     "error": {
       "invalidCol": "Columna no válida, vuelva a seleccionar",
+      "invalidCols": "Invalid columns: {{colNames}}",
       "invalidTable": "Mesa no válida, vuelva a seleccionar",
       "requiredSelect": "Debes seleccionar uno"
     },
@@ -805,6 +835,7 @@
     "placeholder": "Deja un comentario ...",
     "emptyComment": "Comience una conversación",
     "deletedComment": "Comentario eliminado",
+    "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Editando...",
       "edited": "(Editado)",
@@ -868,9 +899,6 @@
       "dependencyNodeRequire": "Nodo de dependencia no probado, por favor verifica si todos los nodos anteriores han sido probados",
       "invalidOperation": "Operación no válida detectada, por favor verifique los parámetros de la operación"
     },
-    "email": {
-      "testEmailError": "Error de configuración de correo {{message}}"
-    },
     "comment": {
       "listCountExceeded": "El número de comentarios solicitados excede el límite máximo de 1000",
       "invalidContentType": "Tipo de contenido de comentario no válido"
@@ -901,6 +929,26 @@
       "invalidUploadType": "Tipo de carga no válido",
       "urlReject": "URL rechazada o inaccesible"
     },
+    "email": {
+      "testEmailError": "Error de configuración de correo {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón",
       "triggerNotFound": "Trigger no encontrado",
@@ -917,7 +965,8 @@
       "noPermission": "No tienes permiso para acceder a este espacio",
       "disallowSpaceCreation": "La creación de espacios ha sido deshabilitada por el administrador",
       "cannotChangeOnlyOwnerRole": "No se puede cambiar el rol del único propietario del espacio",
-      "cannotDeleteOnlyOwner": "No se puede eliminar al único propietario del espacio"
+      "cannotDeleteOnlyOwner": "No se puede eliminar al único propietario del espacio",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base no encontrada",
@@ -994,7 +1043,16 @@
       "createRecordWithDeniedFields": "No tienes permiso para crear registros con campos({{fields}})",
       "deleteRecords": "No tienes permiso para eliminar registros({{recordIds}})",
       "readRecordWithDeniedFields": "No tienes permiso para leer campos({{fields}}) en el registro({{recordId}})",
-      "updateRecordWithDeniedFields": "No tienes permiso para actualizar campos({{fields}}) en el registro({{recordId}})"
+      "updateRecordWithDeniedFields": "No tienes permiso para actualizar campos({{fields}}) en el registro({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Tipo de retorno no válido",
@@ -1039,12 +1097,12 @@
       "lookupFieldTypeNotEqual": "El tipo de campo actual {{fieldType}} no es igual al tipo de campo de búsqueda {{lookupFieldType}}",
       "recordNotFound": "Registro {{recordId}} no encontrado en {{tableId}}",
       "linkCellRecordIdAlreadyExists": "No se puede establecer recordId duplicado: {{recordId}} en la misma celda",
-      "linkConsistencyError": "Error de consistencia, recordId {{recordId}} no existe",
       "oneOneLinkCellValueCannotBeArray": "Los valores de campo de enlace uno a uno no pueden ser un array",
       "manyOneLinkCellValueCannotBeArray": "Los valores de campo de enlace muchos a uno no pueden ser un array",
+      "foreignKeyDuplicate": "Clave externa duplicada",
+      "linkConsistencyError": "Error de consistencia, recordId {{recordId}} no existe",
       "oneManyLinkCellValueShouldBeArray": "Los valores de campo de enlace uno a muchos deben ser un array",
-      "manyManyLinkCellValueShouldBeArray": "Los valores de campo de enlace muchos a muchos deben ser un array",
-      "foreignKeyDuplicate": "Clave externa duplicada"
+      "manyManyLinkCellValueShouldBeArray": "Los valores de campo de enlace muchos a muchos deben ser un array"
     },
     "view": {
       "notFound": "Vista no encontrada",
@@ -1138,7 +1196,8 @@
       "waitlistInviteCodeRequired": "La lista de espera está habilitada, se requiere código de invitación",
       "waitlistInviteCodeInvalid": "La lista de espera está habilitada, el código de invitación no es válido",
       "systemUser": "El usuario es un usuario del sistema",
-      "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)"
+      "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Tipo de recurso no válido"

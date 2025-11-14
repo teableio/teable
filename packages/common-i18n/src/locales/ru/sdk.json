@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Отпустите, чтобы загрузить файл",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Вставьте или перетащите файл для загрузки сюда",
       "upload": "загрузить"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "сегодня",
@@ -202,6 +208,15 @@
         "daysFromNow": "дней вперед",
         "exactDate": "точная дата",
         "exactFormatDate": "точная дата (форматированная)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "прошлая неделя",
         "pastMonth": "прошлый месяц",
         "pastYear": "прошлый год",
@@ -244,6 +259,7 @@
   },
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
+    "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Копировать URL записи",
     "deleteRecord": "Удалить запись",
     "addRecordComment": "Добавить комментарий",
@@ -363,6 +379,7 @@
       "viewDelete": "Удалить вид",
       "viewRead": "Читать вид",
       "viewUpdate": "Обновить вид",
+      "viewShare": "Share view",
       "fieldCreate": "Создать поле",
       "fieldDelete": "Удалить поле",
       "fieldRead": "Читать поле",
@@ -372,6 +389,7 @@
       "recordDelete": "Удалить запись",
       "recordRead": "Читать запись",
       "recordUpdate": "Обновить запись",
+      "recordCopy": "Copy record",
       "automationCreate": "Создать автоматизацию",
       "automationDelete": "Удалить автоматизацию",
       "automationRead": "Читать автоматизацию",
@@ -381,7 +399,9 @@
       "recordHistoryRead": "Читать историю записей",
       "baseQuery": "Запрос базы",
       "instanceRead": "Читать экземпляр",
-      "instanceUpdate": "Обновить экземпляр"
+      "instanceUpdate": "Обновить экземпляр",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -395,7 +415,8 @@
     "user": "Пользователь",
     "recordHistory": "История записи",
     "you": "Вы",
-    "instance": "Экземпляр"
+    "instance": "Экземпляр",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -730,6 +751,7 @@
   },
   "statisticFunc": {
     "none": "Нет",
+    "count": "Count",
     "empty": "Пусто",
     "filled": "Заполнено",
     "unique": "Уникальные",
@@ -825,6 +847,15 @@
       "enterUrl": "Введите URL"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "Ошибка валидации",
     "invalidCaptcha": "Неверный Captcha",
@@ -856,9 +887,6 @@
       "dependencyNodeRequire": "Зависимый узел не протестирован, пожалуйста, проверьте, протестированы ли все предыдущие узлы",
       "invalidOperation": "Обнаружена недопустимая операция, пожалуйста, проверьте параметры операции"
     },
-    "email": {
-      "testEmailError": "Ошибка конфигурации почты {{message}}"
-    },
     "comment": {
       "listCountExceeded": "Количество запрошенных комментариев превышает максимальный лимит 1000",
       "invalidContentType": "Неверный тип содержимого комментария"
@@ -889,6 +917,26 @@
       "invalidUploadType": "Недопустимый тип загрузки",
       "urlReject": "URL отклонен или недоступен"
     },
+    "email": {
+      "testEmailError": "Ошибка конфигурации почты {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки",
       "triggerNotFound": "Триггер не найден",
@@ -905,7 +953,8 @@
       "noPermission": "У вас нет разрешения на доступ к этому пространству",
       "disallowSpaceCreation": "Создание пространств отключено администратором",
       "cannotChangeOnlyOwnerRole": "Невозможно изменить роль единственного владельца пространства",
-      "cannotDeleteOnlyOwner": "Невозможно удалить единственного владельца пространства"
+      "cannotDeleteOnlyOwner": "Невозможно удалить единственного владельца пространства",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "База не найдена",
@@ -982,7 +1031,16 @@
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
       "deleteRecords": "У вас нет разрешения на удаление записей({{recordIds}})",
       "readRecordWithDeniedFields": "У вас нет разрешения на чтение полей({{fields}}) в записи({{recordId}})",
-      "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})"
+      "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Неверный тип возврата",
@@ -1027,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Текущий тип поля {{fieldType}} не равен типу поля поиска {{lookupFieldType}}",
       "recordNotFound": "Запись {{recordId}} не найдена в {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Невозможно установить дублирующий recordId: {{recordId}} в той же ячейке",
-      "linkConsistencyError": "Ошибка согласованности, recordId {{recordId}} не существует",
       "oneOneLinkCellValueCannotBeArray": "Значения поля связи один-к-одному не могут быть массивом",
       "manyOneLinkCellValueCannotBeArray": "Значения поля связи многие-к-одному не могут быть массивом",
+      "foreignKeyDuplicate": "Дубликат внешнего ключа",
+      "linkConsistencyError": "Ошибка согласованности, recordId {{recordId}} не существует",
       "oneManyLinkCellValueShouldBeArray": "Значения поля связи один-ко-многим должны быть массивом",
-      "manyManyLinkCellValueShouldBeArray": "Значения поля связи многие-ко-многим должны быть массивом",
-      "foreignKeyDuplicate": "Дубликат внешнего ключа"
+      "manyManyLinkCellValueShouldBeArray": "Значения поля связи многие-ко-многим должны быть массивом"
     },
     "view": {
       "notFound": "Представление не найдено",
@@ -1126,7 +1184,8 @@
       "waitlistInviteCodeRequired": "Список ожидания включен, требуется код приглашения",
       "waitlistInviteCodeInvalid": "Список ожидания включен, код приглашения недействителен",
       "systemUser": "Пользователь является системным пользователем",
-      "collaboratorsInSpaces": "У пользователя есть сотрудники в пространствах (или удаленные пространства в корзине)"
+      "collaboratorsInSpaces": "У пользователя есть сотрудники в пространствах (или удаленные пространства в корзине)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Недопустимый тип ресурса"

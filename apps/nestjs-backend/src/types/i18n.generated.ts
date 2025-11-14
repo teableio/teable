@@ -1253,10 +1253,10 @@ export type I18nTranslations = {
         "editor": {
             "attachment": {
                 "uploadDragOver": string;
-                "uploadDragDefault": string;
-                "upload": string;
                 "uploadBaseTextPrefix": string;
                 "uploadBaseText": string;
+                "uploadDragDefault": string;
+                "upload": string;
             };
             "date": {
                 "placeholder": string;
@@ -1389,6 +1389,10 @@ export type I18nTranslations = {
                     "isLessEqual": string;
                 };
             };
+            "conditionalRollup": {
+                "switchToField": string;
+                "switchToValue": string;
+            };
             "component": {
                 "date": {
                     "today": string;
@@ -1420,10 +1424,6 @@ export type I18nTranslations = {
                     "pastNumberOfDays": string;
                     "nextNumberOfDays": string;
                 };
-            };
-            "conditionalRollup": {
-                "switchToField": string;
-                "switchToValue": string;
             };
         };
         "color": {
@@ -1473,7 +1473,6 @@ export type I18nTranslations = {
             };
             "showHiddenFields": string;
             "hideHiddenFields": string;
-            "\u041A\u043E\u043F\u0456\u044E\u0432\u0430\u0442\u0438": string;
         };
         "sort": {
             "label": string;
@@ -1588,6 +1587,7 @@ export type I18nTranslations = {
                 "recordDelete": string;
                 "recordRead": string;
                 "recordUpdate": string;
+                "recordCopy": string;
                 "automationCreate": string;
                 "automationDelete": string;
                 "automationRead": string;
@@ -1600,7 +1600,6 @@ export type I18nTranslations = {
                 "instanceUpdate": string;
                 "enterpriseRead": string;
                 "enterpriseUpdate": string;
-                "recordCopy": string;
             };
         };
         "noun": {
@@ -1970,7 +1969,6 @@ export type I18nTranslations = {
             "dateRangeOfDays": string;
             "dateRangeOfMonths": string;
             "totalAttachmentSize": string;
-            "%percentChecked": string;
         };
         "baseQuery": {
             "add": string;
@@ -2087,9 +2085,6 @@ export type I18nTranslations = {
                 "dependencyNodeRequire": string;
                 "invalidOperation": string;
             };
-            "email": {
-                "testEmailError": string;
-            };
             "comment": {
                 "listCountExceeded": string;
                 "invalidContentType": string;
@@ -2120,6 +2115,26 @@ export type I18nTranslations = {
                 "invalidUploadType": string;
                 "urlReject": string;
             };
+            "email": {
+                "testEmailError": string;
+            };
+            "auth": {
+                "invalidConfirm": string;
+                "emailNotRegistered": string;
+                "passwordNotSet": string;
+                "systemUser": string;
+                "alreadyRegistered": string;
+                "passwordIncorrect": string;
+                "tokenInvalid": string;
+                "passwordAlreadyExists": string;
+                "verificationCodeInvalid": string;
+                "newEmailSameAsCurrentEmail": string;
+                "emailAlreadyRegistered": string;
+                "waitlistNotEnabled": string;
+                "emailOrPasswordIncorrect": string;
+                "accountDeactivated": string;
+                "accountLockedOut": string;
+            };
             "automation": {
                 "buttonClickTriggerDuplicated": string;
                 "triggerNotFound": string;
@@ -2137,6 +2152,7 @@ export type I18nTranslations = {
                 "disallowSpaceCreation": string;
                 "cannotChangeOnlyOwnerRole": string;
                 "cannotDeleteOnlyOwner": string;
+                "deleted": string;
             };
             "base": {
                 "notFound": string;
@@ -2214,6 +2230,15 @@ export type I18nTranslations = {
                 "deleteRecords": string;
                 "readRecordWithDeniedFields": string;
                 "updateRecordWithDeniedFields": string;
+                "checkIdNotExist": string;
+                "userNotAdmin": string;
+                "accessTokenNoPermission": string;
+                "invalidResource": string;
+                "notAllowedSpace": string;
+                "notAllowedBase": string;
+                "notAllowedTable": string;
+                "invalidRequestPath": string;
+                "notAllowedOperation": string;
             };
             "selection": {
                 "invalidReturnType": string;
@@ -2258,12 +2283,12 @@ export type I18nTranslations = {
                 "lookupFieldTypeNotEqual": string;
                 "recordNotFound": string;
                 "linkCellRecordIdAlreadyExists": string;
-                "linkConsistencyError": string;
                 "oneOneLinkCellValueCannotBeArray": string;
                 "manyOneLinkCellValueCannotBeArray": string;
+                "foreignKeyDuplicate": string;
+                "linkConsistencyError": string;
                 "oneManyLinkCellValueShouldBeArray": string;
                 "manyManyLinkCellValueShouldBeArray": string;
-                "foreignKeyDuplicate": string;
             };
             "view": {
                 "notFound": string;
@@ -2358,6 +2383,7 @@ export type I18nTranslations = {
                 "waitlistInviteCodeInvalid": string;
                 "systemUser": string;
                 "collaboratorsInSpaces": string;
+                "notFound": string;
             };
             "lastVisit": {
                 "invalidResourceType": string;
@@ -2366,22 +2392,6 @@ export type I18nTranslations = {
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;
                 "noMinOrderFound": string;
-            };
-        };
-        "spaceRole": {
-            "role": {
-                "owner": string;
-                "creator": string;
-                "editor": string;
-                "commenter": string;
-                "viewer": string;
-            };
-            "description": {
-                "owner": string;
-                "creator": string;
-                "editor": string;
-                "commenter": string;
-                "viewer": string;
             };
         };
     };

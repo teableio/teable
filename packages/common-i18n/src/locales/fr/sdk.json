@@ -40,9 +40,23 @@
     "previewFileLimit": "Limite de taille du fichier en aperçu : {{size}} Mo, veuillez télécharger pour le visualiser.",
     "loadFileError": "Échec du chargement du fichier"
   },
+  "undoRedo": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "undoFailed": "Undo failed",
+    "redoFailed": "Redo failed",
+    "nothingToUndo": "Nothing to undo",
+    "nothingToRedo": "Nothing to redo",
+    "undoSucceed": "Undo succeed",
+    "redoSucceed": "Redo succeed",
+    "undoing": "undoing...",
+    "redoing": "redoing..."
+  },
   "editor": {
     "attachment": {
       "uploadDragOver": "Relâchez pour télécharger le fichier",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Collez ou faites glisser pour télécharger ici",
       "upload": "télécharger"
     },
@@ -135,6 +149,8 @@
     "tips": {
       "scope": "Dans cette vue, afficher les enregistrements"
     },
+    "invalidateSelected": "Invalid value",
+    "invalidateSelectedTips": "The selected value has been deleted, please select again",
     "default": {
       "empty": "Aucune condition de filtrage appliquée",
       "placeholder": "Entrez une valeur"
@@ -175,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "aujourd'hui",
@@ -188,6 +208,15 @@
         "daysFromNow": "jours restants",
         "exactDate": "date exacte",
         "exactFormatDate": "date exacte (formatée)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "semaine passée",
         "pastMonth": "mois passé",
         "pastYear": "année passée",
@@ -230,6 +259,7 @@
   },
   "expandRecord": {
     "copy": "Copier dans le presse-papiers",
+    "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Copier l'URL de l'enregistrement",
     "deleteRecord": "Supprimer l'enregistrement",
     "addRecordComment": "Ajouter un commentaire",
@@ -317,22 +347,6 @@
       "twoWay": "Bidirectionnel"
     }
   },
-  "spaceRole": {
-    "role": {
-      "owner": "Propriétaire",
-      "creator": "Créateur",
-      "editor": "Éditeur",
-      "commenter": "Commentateur",
-      "viewer": "Spectateur"
-    },
-    "description": {
-      "owner": "Peut configurer et modifier entièrement les bases, les automatisations, les matrices d'autorité et gérer les paramètres et la facturation de l'espace",
-      "creator": "Peut configurer et modifier entièrement les bases, les automatisations et activer la matrice d'autorité",
-      "editor": "Peut modifier les enregistrements et les vues, mais ne peut pas configurer les tables ou les champs",
-      "commenter": "Peut commenter les enregistrements",
-      "viewer": "Ne peut ni modifier ni commenter"
-    }
-  },
   "permission": {
     "actionDescription": {
       "spaceCreate": "Créer un espace",
@@ -345,8 +359,8 @@
       "baseCreate": "Créer une base",
       "baseDelete": "Supprimer une base",
       "baseRead": "Lire une base",
-      "baseUpdate": "Mettre à jour une base",
       "baseReadAll": "Lire toutes les bases",
+      "baseUpdate": "Mettre à jour une base",
       "baseInviteEmail": "Inviter par email dans la base",
       "baseInviteLink": "Inviter par lien dans la base",
       "baseTableImport": "Importer des données dans la base",
@@ -365,6 +379,7 @@
       "viewDelete": "Supprimer une vue",
       "viewRead": "Lire une vue",
       "viewUpdate": "Mettre à jour une vue",
+      "viewShare": "Share view",
       "fieldCreate": "Créer un champ",
       "fieldDelete": "Supprimer un champ",
       "fieldRead": "Lire un champ",
@@ -374,6 +389,7 @@
       "recordDelete": "Supprimer un enregistrement",
       "recordRead": "Lire un enregistrement",
       "recordUpdate": "Mettre à jour un enregistrement",
+      "recordCopy": "Copy record",
       "automationCreate": "Créer une automatisation",
       "automationDelete": "Supprimer une automatisation",
       "automationRead": "Lire une automatisation",
@@ -383,7 +399,9 @@
       "recordHistoryRead": "Lire l'historique des enregistrements",
       "baseQuery": "Interroger la base",
       "instanceRead": "Lire l'instance",
-      "instanceUpdate": "Mettre à jour l'instance"
+      "instanceUpdate": "Mettre à jour l'instance",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -396,7 +414,9 @@
     "automation": "Automatisation",
     "user": "Utilisateur",
     "recordHistory": "Historique des enregistrements",
-    "instance": "Instance"
+    "you": "You",
+    "instance": "Instance",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -827,6 +847,15 @@
       "enterUrl": "Entrez l'URL"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "Erreur de validation",
     "invalidCaptcha": "Captcha invalide",
@@ -858,9 +887,6 @@
       "dependencyNodeRequire": "Nœud de dépendance non testé, veuillez vérifier si tous les nœuds précédents ont été testés",
       "invalidOperation": "Opération non valide détectée, veuillez vérifier les paramètres de l'opération"
     },
-    "email": {
-      "testEmailError": "Erreur de configuration du courrier {{message}}"
-    },
     "comment": {
       "listCountExceeded": "Le nombre de commentaires demandés dépasse la limite maximale de 1000",
       "invalidContentType": "Type de contenu de commentaire non valide"
@@ -891,6 +917,26 @@
       "invalidUploadType": "Type de téléchargement non valide",
       "urlReject": "URL rejetée ou inaccessible"
     },
+    "email": {
+      "testEmailError": "Erreur de configuration du courrier {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Ce champ de bouton est déjà lié à {{name}}[{{id}}] ce processus d'automatisation, veuillez sélectionner un autre champ de bouton",
       "triggerNotFound": "Déclencheur non trouvé",
@@ -907,7 +953,8 @@
       "noPermission": "Vous n'avez pas la permission d'accéder à cet espace",
       "disallowSpaceCreation": "La création d'espaces a été désactivée par l'administrateur",
       "cannotChangeOnlyOwnerRole": "Impossible de modifier le rôle du seul propriétaire de l'espace",
-      "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace"
+      "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base non trouvée",
@@ -984,7 +1031,16 @@
       "createRecordWithDeniedFields": "Vous n'avez pas la permission de créer des enregistrements avec les champs({{fields}})",
       "deleteRecords": "Vous n'avez pas la permission de supprimer les enregistrements({{recordIds}})",
       "readRecordWithDeniedFields": "Vous n'avez pas la permission de lire les champs({{fields}}) dans l'enregistrement({{recordId}})",
-      "updateRecordWithDeniedFields": "Vous n'avez pas la permission de mettre à jour les champs({{fields}}) dans l'enregistrement({{recordId}})"
+      "updateRecordWithDeniedFields": "Vous n'avez pas la permission de mettre à jour les champs({{fields}}) dans l'enregistrement({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Type de retour invalide",
@@ -1029,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Le type de champ actuel {{fieldType}} n'est pas égal au type de champ de recherche {{lookupFieldType}}",
       "recordNotFound": "Enregistrement {{recordId}} introuvable dans {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Impossible de définir un recordId en double: {{recordId}} dans la même cellule",
-      "linkConsistencyError": "Erreur de cohérence, recordId {{recordId}} n'existe pas",
       "oneOneLinkCellValueCannotBeArray": "Les valeurs de champ de lien un-à-un ne peuvent pas être un tableau",
       "manyOneLinkCellValueCannotBeArray": "Les valeurs de champ de lien plusieurs-à-un ne peuvent pas être un tableau",
+      "foreignKeyDuplicate": "Clé étrangère en double",
+      "linkConsistencyError": "Erreur de cohérence, recordId {{recordId}} n'existe pas",
       "oneManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien un-à-plusieurs doivent être un tableau",
-      "manyManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien plusieurs-à-plusieurs doivent être un tableau",
-      "foreignKeyDuplicate": "Clé étrangère en double"
+      "manyManyLinkCellValueShouldBeArray": "Les valeurs de champ de lien plusieurs-à-plusieurs doivent être un tableau"
     },
     "view": {
       "notFound": "Vue introuvable",
@@ -1128,7 +1184,8 @@
       "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
       "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
       "systemUser": "L'utilisateur est un utilisateur système",
-      "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)"
+      "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Type de ressource non valide"

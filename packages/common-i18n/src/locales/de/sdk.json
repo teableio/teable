@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Freigabe zum Hochladen der Datei",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Einfügen oder Ziehen und Ablegen zum Hochladen",
       "upload": "Hochladen"
     },
@@ -188,6 +190,10 @@
         "isLess": "<",
         "isLessEqual": "≤"
       }
+    },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
     },
     "component": {
       "date": {
@@ -383,6 +389,7 @@
       "recordDelete": "Datensatz löschen",
       "recordRead": "Datensatz lesen",
       "recordUpdate": "Datensatz aktualisieren",
+      "recordCopy": "Copy record",
       "automationCreate": "Automatisierung erstellen",
       "automationDelete": "Automatisierung löschen",
       "automationRead": "Automatisierung lesen",
@@ -880,9 +887,6 @@
       "dependencyNodeRequire": "Abhängiger Knoten nicht getestet, bitte überprüfen Sie, ob alle vorherigen Knoten getestet wurden",
       "invalidOperation": "Ungültige Operation erkannt, bitte überprüfen Sie die Operationsparameter"
     },
-    "email": {
-      "testEmailError": "E-Mail-Konfigurationsfehler {{message}}"
-    },
     "comment": {
       "listCountExceeded": "Die Anzahl der angeforderten Kommentare übersteigt das maximale Limit von 1000",
       "invalidContentType": "Ungültiger Kommentarinhaltstyp"
@@ -913,6 +917,26 @@
       "invalidUploadType": "Ungültiger Upload-Typ",
       "urlReject": "URL abgelehnt oder nicht erreichbar"
     },
+    "email": {
+      "testEmailError": "E-Mail-Konfigurationsfehler {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Dieses Button-Feld ist bereits mit {{name}}[{{id}}] Automatisierungsprozess verbunden, bitte wählen Sie ein anderes Button-Feld",
       "triggerNotFound": "Trigger nicht gefunden",
@@ -929,7 +953,8 @@
       "noPermission": "Sie haben keine Berechtigung, auf diesen Space zuzugreifen",
       "disallowSpaceCreation": "Die Space-Erstellung wurde vom Administrator deaktiviert",
       "cannotChangeOnlyOwnerRole": "Die Rolle des einzigen Besitzers des Space kann nicht geändert werden",
-      "cannotDeleteOnlyOwner": "Der einzige Besitzer des Space kann nicht gelöscht werden"
+      "cannotDeleteOnlyOwner": "Der einzige Besitzer des Space kann nicht gelöscht werden",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base nicht gefunden",
@@ -1006,7 +1031,16 @@
       "createRecordWithDeniedFields": "Sie haben keine Berechtigung, Datensätze mit Feldern({{fields}}) zu erstellen",
       "deleteRecords": "Sie haben keine Berechtigung, Datensätze({{recordIds}}) zu löschen",
       "readRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu lesen",
-      "updateRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu aktualisieren"
+      "updateRecordWithDeniedFields": "Sie haben keine Berechtigung, Felder({{fields}}) im Datensatz({{recordId}}) zu aktualisieren",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Ungültiger Rückgabetyp",
@@ -1051,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Aktueller Feldtyp {{fieldType}} ist nicht gleich Nachschlagefeldtyp {{lookupFieldType}}",
       "recordNotFound": "Datensatz {{recordId}} nicht gefunden in {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Doppelte recordId kann nicht gesetzt werden: {{recordId}} in derselben Zelle",
-      "linkConsistencyError": "Konsistenzfehler, recordId {{recordId}} existiert nicht",
       "oneOneLinkCellValueCannotBeArray": "Eins-zu-Eins-Verknüpfungsfeldwerte können kein Array sein",
       "manyOneLinkCellValueCannotBeArray": "Viele-zu-Eins-Verknüpfungsfeldwerte können kein Array sein",
+      "foreignKeyDuplicate": "Fremdschlüssel dupliziert",
+      "linkConsistencyError": "Konsistenzfehler, recordId {{recordId}} existiert nicht",
       "oneManyLinkCellValueShouldBeArray": "Eins-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
-      "manyManyLinkCellValueShouldBeArray": "Viele-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein",
-      "foreignKeyDuplicate": "Fremdschlüssel dupliziert"
+      "manyManyLinkCellValueShouldBeArray": "Viele-zu-Viele-Verknüpfungsfeldwerte sollten ein Array sein"
     },
     "view": {
       "notFound": "Ansicht nicht gefunden",
@@ -1150,7 +1184,8 @@
       "waitlistInviteCodeRequired": "Warteliste ist aktiviert, Einladungscode ist erforderlich",
       "waitlistInviteCodeInvalid": "Warteliste ist aktiviert, Einladungscode ist ungültig",
       "systemUser": "Benutzer ist ein Systembenutzer",
-      "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)"
+      "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Ungültiger Ressourcentyp"

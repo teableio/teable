@@ -917,6 +917,26 @@
       "invalidUploadType": "无效的上传类型",
       "urlReject": "URL 被拒绝或无法访问"
     },
+    "email": {
+      "testEmailError": "Mail config error {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "确认输入无效",
+      "emailNotRegistered": "此邮箱尚未注册",
+      "passwordNotSet": "该账户尚未设置密码",
+      "systemUser": "这是系统用户账户",
+      "alreadyRegistered": "此邮箱已被注册",
+      "passwordIncorrect": "密码错误",
+      "tokenInvalid": "令牌无效或已过期",
+      "passwordAlreadyExists": "该账户已设置密码",
+      "verificationCodeInvalid": "验证码无效或已过期",
+      "newEmailSameAsCurrentEmail": "新邮箱地址与当前邮箱相同",
+      "emailAlreadyRegistered": "该邮箱地址已被注册",
+      "waitlistNotEnabled": "等待列表功能未启用",
+      "emailOrPasswordIncorrect": "邮箱或密码错误",
+      "accountDeactivated": "该账户已被管理员停用",
+      "accountLockedOut": "由于登录失败次数过多，您的账户已被锁定，请稍后再试"
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段",
       "triggerNotFound": "触发器未找到",
@@ -933,7 +953,8 @@
       "noPermission": "您没有权限访问此空间",
       "disallowSpaceCreation": "管理员已禁用空间创建功能",
       "cannotChangeOnlyOwnerRole": "无法更改空间唯一所有者的角色",
-      "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者"
+      "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者",
+      "deleted": "空间已被删除"
     },
     "base": {
       "notFound": "数据库不存在",
@@ -1010,7 +1031,16 @@
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
       "deleteRecords": "没有权限删除记录({{recordIds}})",
       "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
-      "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})"
+      "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})",
+      "checkIdNotExist": "权限检查ID不存在",
+      "userNotAdmin": "用户不是管理员",
+      "accessTokenNoPermission": "访问令牌没有所需的权限",
+      "invalidResource": "资源无效",
+      "notAllowedSpace": "您没有权限访问此空间",
+      "notAllowedBase": "您没有权限访问此数据库",
+      "notAllowedTable": "您没有权限访问此表格",
+      "invalidRequestPath": "请求路径无效",
+      "notAllowedOperation": "您没有权限执行此操作"
     },
     "selection": {
       "invalidReturnType": "无效的返回类型",
@@ -1154,7 +1184,8 @@
       "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
       "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
       "systemUser": "用户是系统用户",
-      "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）"
+      "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）",
+      "notFound": "用户不存在"
     },
     "lastVisit": {
       "invalidResourceType": "无效的资源类型"

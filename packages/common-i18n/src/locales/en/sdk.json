@@ -920,6 +920,23 @@
     "email": {
       "testEmailError": "Mail config error {{message}}"
     },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "This button field is already bound to {{name}}[{{id}}] this automation process, please select another button field",
       "triggerNotFound": "trigger not found",
@@ -936,7 +953,8 @@
       "noPermission": "You have no permission to access this space",
       "disallowSpaceCreation": "Space creation has been disabled by the administrator",
       "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
-      "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space"
+      "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base not found",
@@ -1013,7 +1031,16 @@
       "createRecordWithDeniedFields": "You don't have permission to create record with fields({{fields}})",
       "deleteRecords": "You don't have permission to delete records({{recordIds}})",
       "readRecordWithDeniedFields": "You don't have permission to read fields({{fields}}) in record({{recordId}})",
-      "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})"
+      "updateRecordWithDeniedFields": "You don't have permission to update fields({{fields}}) in record({{recordId}})",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Invalid return type",
@@ -1058,8 +1085,11 @@
       "lookupFieldTypeNotEqual": "Current field type {{fieldType}} is not equal to lookup field {{lookupFieldType}}",
       "recordNotFound": "Record {{recordId}} not found in {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Cannot set duplicate recordId: {{recordId}} in the same cell",
+      "linkConsistencyError": "Consistency error, record ID {{recordId}} does not exist",
       "oneOneLinkCellValueCannotBeArray": "One-to-one link field values cannot be an array",
       "manyOneLinkCellValueCannotBeArray": "Many-to-one link field values cannot be an array",
+      "oneManyLinkCellValueShouldBeArray": "One-to-many link field values should be an array",
+      "manyManyLinkCellValueShouldBeArray": "Many-to-many link field values should be an array",
       "foreignKeyDuplicate": "Foreign key duplicate"
     },
     "view": {
@@ -1154,7 +1184,8 @@
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
       "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
       "systemUser": "User is a system user",
-      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)"
+      "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Invalid resource type"

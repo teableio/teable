@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Yüklemek için bırakın",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Yapıştırın veya buraya sürükleyip bırakın",
       "upload": "yükle"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "bugün",
@@ -202,6 +208,15 @@
         "daysFromNow": "gün sonra",
         "exactDate": "tam tarih",
         "exactFormatDate": "tam tarih (biçimlendirildi)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "geçen hafta",
         "pastMonth": "geçen ay",
         "pastYear": "geçen yıl",
@@ -344,6 +359,7 @@
       "baseCreate": "Veritabanı oluştur",
       "baseDelete": "Veritabanı sil",
       "baseRead": "Veritabanı oku",
+      "baseReadAll": "Read all bases",
       "baseUpdate": "Veritabanı güncelle",
       "baseInviteEmail": "Veritabanında e-posta ile davet et",
       "baseInviteLink": "Veritabanında bağlantı ile davet et",
@@ -356,6 +372,9 @@
       "tableUpdate": "Tablo güncelle",
       "tableImport": "Tabloya veri aktar",
       "tableExport": "Tablodan veri dışa aktar",
+      "tableTrashRead": "Read table trash",
+      "tableTrashUpdate": "Update table trash",
+      "tableTrashReset": "Reset table trash",
       "viewCreate": "Görünüm oluştur",
       "viewDelete": "Görünüm sil",
       "viewRead": "Görünüm oku",
@@ -370,15 +389,19 @@
       "recordDelete": "Kayıt sil",
       "recordRead": "Kayıt oku",
       "recordUpdate": "Kayıt güncelle",
+      "recordCopy": "Copy record",
       "automationCreate": "Otomasyon oluştur",
       "automationDelete": "Otomasyon sil",
       "automationRead": "Otomasyon oku",
       "automationUpdate": "Otomasyon güncelle",
+      "userProfileRead": "Read current user profile",
       "userEmailRead": "Kullanıcı e-postası oku",
       "recordHistoryRead": "Kayıt geçmişi oku",
       "baseQuery": "Veritabanı sorgula",
       "instanceRead": "Örnek oku",
-      "instanceUpdate": "Örnek güncelle"
+      "instanceUpdate": "Örnek güncelle",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -392,7 +415,8 @@
     "user": "Kullanıcı",
     "recordHistory": "Kayıt Geçmişi",
     "you": "Sen",
-    "instance": "Örnek"
+    "instance": "Örnek",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -823,6 +847,15 @@
       "enterUrl": "URL Girin"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "Doğrulama Hatası",
     "invalidCaptcha": "Geçersiz Captcha",
@@ -854,9 +887,6 @@
       "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin",
       "invalidOperation": "Geçersiz işlem tespit edildi, lütfen işlem parametrelerini kontrol edin"
     },
-    "email": {
-      "testEmailError": "Posta yapılandırma hatası {{message}}"
-    },
     "comment": {
       "listCountExceeded": "İstenen yorum sayısı 1000 maksimum sınırını aşıyor",
       "invalidContentType": "Geçersiz yorum içerik türü"
@@ -887,6 +917,26 @@
       "invalidUploadType": "Geçersiz yükleme türü",
       "urlReject": "URL reddedildi veya erişilemiyor"
     },
+    "email": {
+      "testEmailError": "Posta yapılandırma hatası {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
       "triggerNotFound": "Tetikleyici bulunamadı",
@@ -903,7 +953,8 @@
       "noPermission": "Bu alana erişim izniniz yok",
       "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
       "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
-      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez"
+      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez",
+      "deleted": "Space has been deleted"
     },
     "base": {
       "notFound": "Base bulunamadı",
@@ -980,7 +1031,16 @@
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
       "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
-      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok"
+      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok",
+      "checkIdNotExist": "Permission check ID does not exist",
+      "userNotAdmin": "User is not an admin",
+      "accessTokenNoPermission": "Access token does not have the required permission",
+      "invalidResource": "Resource is not valid",
+      "notAllowedSpace": "You don't have permission to access this space",
+      "notAllowedBase": "You don't have permission to access this base",
+      "notAllowedTable": "You don't have permission to access this table",
+      "invalidRequestPath": "Request path is not valid",
+      "notAllowedOperation": "You don't have permission to perform this operation"
     },
     "selection": {
       "invalidReturnType": "Geçersiz dönüş türü",
@@ -1025,12 +1085,12 @@
       "lookupFieldTypeNotEqual": "Mevcut alan türü {{fieldType}} arama alanı türü {{lookupFieldType}} ile eşit değil",
       "recordNotFound": "Kayıt {{recordId}} {{tableId}} içinde bulunamadı",
       "linkCellRecordIdAlreadyExists": "Aynı hücrede yinelenen recordId ayarlanamaz: {{recordId}}",
-      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneOneLinkCellValueCannotBeArray": "Bire-bir bağlantı alanı değerleri dizi olamaz",
       "manyOneLinkCellValueCannotBeArray": "Çoka-bir bağlantı alanı değerleri dizi olamaz",
+      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
+      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneManyLinkCellValueShouldBeArray": "Bire-çok bağlantı alanı değerleri dizi olmalıdır",
-      "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır",
-      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor"
+      "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır"
     },
     "view": {
       "notFound": "Görünüm bulunamadı",
@@ -1124,7 +1184,8 @@
       "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
       "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
       "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
-      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)"
+      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
+      "notFound": "User not found"
     },
     "lastVisit": {
       "invalidResourceType": "Geçersiz kaynak türü"
