@@ -2,6 +2,7 @@ import { DbFieldType, FieldType } from '@teable/core';
 import type { ISelectFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import {
+  isBooleanLikeParam,
   isJsonLikeParam,
   isTextLikeParam,
   isTrustedNumeric,
@@ -779,8 +780,15 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   // Logical Functions
-  private truthinessScore(value: string): string {
-    const wrapped = `(${value})`;
+  private truthinessScore(value: string, metadataIndex?: number): string {
+    const normalizedValue = this.stripOuterParentheses(value);
+    const wrapped = `(${normalizedValue})`;
+    const paramInfo = this.getParamInfo(metadataIndex);
+
+    if (isBooleanLikeParam(paramInfo)) {
+      return `CASE WHEN COALESCE(${wrapped}, FALSE) THEN 1 ELSE 0 END`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const wrappedText = `(${wrapped})::text`;
@@ -800,7 +808,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    const truthinessScore = this.truthinessScore(condition);
+    const truthinessScore = this.truthinessScore(condition, 0);
     return `CASE WHEN (${truthinessScore}) = 1 THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
