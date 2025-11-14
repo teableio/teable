@@ -3,7 +3,7 @@
 
 import type { INestApplication } from '@nestjs/common';
 import type { LinkFieldCore } from '@teable/core';
-import { FieldType, Relationship } from '@teable/core';
+import { FieldType, NumberFormattingType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
   convertField,
@@ -62,12 +62,12 @@ describe('Personal income tax computed update (e2e)', () => {
           {
             name: 'AnnualTaxDue',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'BaseAmount',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
         ],
         records: [
@@ -89,32 +89,32 @@ describe('Personal income tax computed update (e2e)', () => {
           {
             name: 'PayrollBase',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'Allowance',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'SocialSecurityEmployee',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'HousingFundEmployee',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'SocialSecurityEmployer',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
           {
             name: 'PersonalIncomeTax',
             type: FieldType.Number,
-            options: { formatting: { type: 'decimal', precision: 2 } },
+            options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
           },
         ],
         records: [
@@ -177,7 +177,7 @@ describe('Personal income tax computed update (e2e)', () => {
         type: FieldType.Formula,
         options: {
           expression: `{${memberFields['AnnualTaxDue']}} - {${memberAnnualPaidField.id}}`,
-          formatting: { type: 'decimal', precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         },
       });
       memberFields[memberMonthlyDueField.name] = memberMonthlyDueField.id;
@@ -187,7 +187,7 @@ describe('Personal income tax computed update (e2e)', () => {
         type: FieldType.Formula,
         options: {
           expression: `{${payrollFields['PayrollBase']}} + {${payrollFields['Allowance']}}`,
-          formatting: { type: 'decimal', precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         },
       });
       payrollFields[payrollGrossField.name] = payrollGrossField.id;
@@ -197,7 +197,7 @@ describe('Personal income tax computed update (e2e)', () => {
         type: FieldType.Formula,
         options: {
           expression: `{${payrollGrossField.id}} - {${payrollFields['SocialSecurityEmployee']}} - {${payrollFields['HousingFundEmployee']}} - {${payrollFields['PersonalIncomeTax']}}`,
-          formatting: { type: 'decimal', precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         },
       });
       payrollFields[payrollNetField.name] = payrollNetField.id;
@@ -207,7 +207,7 @@ describe('Personal income tax computed update (e2e)', () => {
         type: FieldType.Formula,
         options: {
           expression: `{${payrollGrossField.id}} + {${payrollFields['SocialSecurityEmployer']}} + {${payrollFields['HousingFundEmployee']}}`,
-          formatting: { type: 'decimal', precision: 2 },
+          formatting: { type: NumberFormattingType.Decimal, precision: 2 },
         },
       });
       payrollFields[payrollCompanyCostField.name] = payrollCompanyCostField.id;

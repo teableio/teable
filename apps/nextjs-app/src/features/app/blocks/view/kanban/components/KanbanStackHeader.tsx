@@ -76,7 +76,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
     });
     stackField.convert({
       type,
-      options: { ...options, choices: newChoices },
+      options: { ...options, choices: newChoices } as ISelectFieldOptions,
     });
   };
 
@@ -92,7 +92,7 @@ export const KanbanStackHeader = (props: IKanbanStackHeaderProps) => {
     const newChoices = choices.filter((choice) => choice.name !== stackData);
     stackField.convert({
       type,
-      options: { ...options, choices: newChoices },
+      options: { ...options, choices: newChoices } as ISelectFieldOptions,
     });
   };
 

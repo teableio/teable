@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IFieldVo } from '@teable/core';
+import type { IFieldRo, IFieldVo, INumberFieldOptions } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -50,7 +50,7 @@ describe('Link/Formula circular dependency regression (e2e)', () => {
                 type: 'decimal',
                 precision: 0,
               },
-            },
+            } as INumberFieldOptions,
           },
           {
             name: 'Status',

@@ -4902,7 +4902,7 @@ describe('OpenAPI link (e2e)', () => {
         options: {
           ...symmetricLinkField.options,
           relationship: Relationship.ManyMany,
-        },
+        } as ILinkFieldOptions,
       });
 
       const table1Record1ResUpdated = await getRecord(table1.id, table1RecordId1);
