@@ -10,6 +10,7 @@ import { noop } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { DeepMockProxy } from 'vitest-mock-extended';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import { getError } from '../../../test/utils/get-error';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from './permission.service';
@@ -101,9 +102,12 @@ describe('PermissionService', () => {
 
     it('should throw an error if resource is not found', async () => {
       const resourceId = 'invalid-id';
-      await expect(service.getPermissionsByResourceId(resourceId)).rejects.toThrowError(
-        new ForbiddenException('request path is not valid')
+      const error = await getError(
+        async () => await service.getPermissionsByResourceId(resourceId)
       );
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(403);
+      expect(error?.message).toBe('Request path is not valid');
     });
   });
 
@@ -122,7 +126,10 @@ describe('PermissionService', () => {
 
       prismaServiceMock.base.findFirst.mockResolvedValueOnce(null);
 
-      await expect(service['getUpperIdByBaseId'](baseId)).rejects.toThrowError(NotFoundException);
+      const error = await getError(async () => await service['getUpperIdByBaseId'](baseId));
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(404);
+      expect(error?.message).toBe('Base not found');
     });
   });
 
@@ -248,9 +255,11 @@ describe('PermissionService', () => {
         hasFullAccess: undefined,
       });
 
-      await expect(
-        service.getPermissionsByAccessToken(resourceId, accessTokenId)
-      ).rejects.toThrowError(ForbiddenException);
+      const error = await getError(
+        async () => await service.getPermissionsByAccessToken(resourceId, accessTokenId)
+      );
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(403);
     });
 
     it('should throw ForbiddenException when resourceId is a valid baseId but not allowed', async () => {
@@ -267,9 +276,11 @@ describe('PermissionService', () => {
 
       vi.spyOn(service as any, 'isBaseIdAllowedForResource').mockResolvedValueOnce(false);
 
-      await expect(
-        service.getPermissionsByAccessToken(resourceId, accessTokenId)
-      ).rejects.toThrowError(ForbiddenException);
+      const error = await getError(
+        async () => await service.getPermissionsByAccessToken(resourceId, accessTokenId)
+      );
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(403);
     });
 
     it('should throw ForbiddenException when resourceId is a valid tableId but not allowed', async () => {
@@ -284,9 +295,11 @@ describe('PermissionService', () => {
         baseIds,
       });
 
-      await expect(
-        service.getPermissionsByAccessToken(resourceId, accessTokenId)
-      ).rejects.toThrowError(ForbiddenException);
+      const error = await getError(
+        async () => await service.getPermissionsByAccessToken(resourceId, accessTokenId)
+      );
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(403);
     });
   });
 

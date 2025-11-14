@@ -180,7 +180,7 @@ export class PermissionService {
     });
     const spaceId = base?.spaceId;
     if (!spaceId) {
-      throw new CustomHttpException(`Invalid baseId: ${baseId}`, HttpErrorCode.NOT_FOUND, {
+      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
         localization: {
           i18nKey: 'httpErrors.base.notFound',
         },
@@ -225,7 +225,7 @@ export class PermissionService {
       !resourceId.startsWith(IdPrefix.Table)
     ) {
       throw new CustomHttpException(
-        `${resourceId} is not valid`,
+        `Resource ${resourceId} is not valid`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -237,7 +237,7 @@ export class PermissionService {
 
     if (resourceId.startsWith(IdPrefix.Space) && !spaceIds?.includes(resourceId)) {
       throw new CustomHttpException(
-        `not allowed to space ${resourceId}`,
+        `You are not allowed to access space ${resourceId}`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -257,7 +257,7 @@ export class PermissionService {
       ))
     ) {
       throw new CustomHttpException(
-        `not allowed to base ${resourceId}`,
+        `You are not allowed to access base ${resourceId}`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
@@ -277,7 +277,7 @@ export class PermissionService {
       ))
     ) {
       throw new CustomHttpException(
-        `not allowed to table ${resourceId}`,
+        `You are not allowed to access table ${resourceId}`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
