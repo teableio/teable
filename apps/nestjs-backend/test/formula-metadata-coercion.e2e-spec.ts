@@ -1,3 +1,4 @@
+/* eslint-disable regexp/no-super-linear-backtracking */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, FieldKeyType, TableDomain } from '@teable/core';
@@ -35,6 +36,15 @@ describe('Formula metadata-aware coercion (e2e)', () => {
     await app.close();
   });
 
+  const parseSchemaAndTable = (dbTableName: string): [string, string] => {
+    const match = dbTableName.match(/^"?(.*?)"?\."?(.*?)"?$/);
+    if (match) {
+      return [match[1], match[2]];
+    }
+    const parts = dbTableName.split('.');
+    return [parts[0] ?? dbTableName, parts[1] ?? dbTableName];
+  };
+
   describe('generated columns', () => {
     it('avoids regex sanitizers for numeric operands', async () => {
       const table: ITableFullVo = await createTable(baseId, {
@@ -61,7 +71,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
           where: { id: table.id },
           select: { dbTableName: true },
         });
-        const [schema, rawTableName] = tableMeta.dbTableName.split('.');
+        const [schema, rawTableName] = parseSchemaAndTable(tableMeta.dbTableName);
         const rows = await prisma.$queryRaw<
           { generation_expression: string }[]
         >`SELECT generation_expression
@@ -108,7 +118,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
           where: { id: table.id },
           select: { dbTableName: true },
         });
-        const [schema, rawTableName] = tableMeta.dbTableName.split('.');
+        const [schema, rawTableName] = parseSchemaAndTable(tableMeta.dbTableName);
         const rows = await prisma.$queryRaw<
           { generation_expression: string }[]
         >`SELECT generation_expression
@@ -154,7 +164,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
           where: { id: table.id },
           select: { dbTableName: true },
         });
-        const [schema, rawTableName] = tableMeta.dbTableName.split('.');
+        const [schema, rawTableName] = parseSchemaAndTable(tableMeta.dbTableName);
         const rows = await prisma.$queryRaw<
           { generation_expression: string }[]
         >`SELECT generation_expression
