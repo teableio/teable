@@ -78,6 +78,90 @@ describe('Formula metadata-aware coercion (e2e)', () => {
         await permanentDeleteTable(baseId, table.id);
       }
     });
+
+    it('short-circuits boolean IF conditions for checkbox fields', async () => {
+      const table: ITableFullVo = await createTable(baseId, {
+        name: 'formula_metadata_boolean_generated',
+        fields: [
+          {
+            name: 'Flag',
+            type: FieldType.Checkbox,
+          },
+        ],
+      });
+
+      try {
+        const flagField = table.fields.find((field) => field.name === 'Flag') as IFieldVo;
+        const statusField = (await createField(table.id, {
+          name: 'Flag Status',
+          type: FieldType.Formula,
+          options: {
+            expression: `IF({${flagField.id}}, 'Y', 'N')`,
+          },
+        })) as IFieldVo;
+
+        const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { dbTableName: true },
+        });
+        const [schema, rawTableName] = tableMeta.dbTableName.split('.');
+        const rows = await prisma.$queryRaw<
+          { generation_expression: string }[]
+        >`SELECT generation_expression
+          FROM information_schema.columns
+          WHERE table_schema = ${schema}
+            AND table_name = ${rawTableName}
+            AND column_name = ${statusField.dbFieldName}`;
+
+        const expression = rows[0]!.generation_expression!;
+        expect(expression).toMatch(/COALESCE\([^)]*::boolean,\s*FALSE\)/);
+        expect(expression).not.toContain('pg_typeof');
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('uses numeric casts for IF conditions referencing number fields', async () => {
+      const table: ITableFullVo = await createTable(baseId, {
+        name: 'formula_metadata_numeric_if_generated',
+        fields: [
+          {
+            name: 'Amount',
+            type: FieldType.Number,
+          },
+        ],
+      });
+
+      try {
+        const amountField = table.fields.find((field) => field.name === 'Amount') as IFieldVo;
+        const statusField = (await createField(table.id, {
+          name: 'Amount Status',
+          type: FieldType.Formula,
+          options: {
+            expression: `IF({${amountField.id}}, 'positive', 'zero')`,
+          },
+        })) as IFieldVo;
+
+        const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { dbTableName: true },
+        });
+        const [schema, rawTableName] = tableMeta.dbTableName.split('.');
+        const rows = await prisma.$queryRaw<
+          { generation_expression: string }[]
+        >`SELECT generation_expression
+          FROM information_schema.columns
+          WHERE table_schema = ${schema}
+            AND table_name = ${rawTableName}
+            AND column_name = ${statusField.dbFieldName}`;
+
+        const expression = rows[0]!.generation_expression!;
+        expect(expression).toMatch(/COALESCE\([^)]*::double precision,\s*0\)/);
+        expect(expression).not.toContain('REGEXP_REPLACE');
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
   });
 
   describe('select query conversion', () => {
@@ -126,6 +210,98 @@ describe('Formula metadata-aware coercion (e2e)', () => {
         const sql = dbProvider.convertFormulaToSelectQuery(expression, context);
         expect(sql).not.toContain('REGEXP_REPLACE');
         expect(sql).toContain('::double precision');
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('emits boolean shortcuts for checkbox IF conditions', async () => {
+      const seedFields: IFieldRo[] = [{ name: 'Enabled', type: FieldType.Checkbox }];
+      const table: ITableFullVo = await createTable(baseId, {
+        name: 'formula_metadata_boolean_select',
+        fields: seedFields,
+      });
+
+      try {
+        const flagField = table.fields.find((field) => field.name === 'Enabled') as IFieldVo;
+        const expression = `IF({${flagField.id}}, 'on', 'off')`;
+
+        const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { dbTableName: true },
+        });
+
+        const tableDomain = new TableDomain({
+          id: table.id,
+          name: table.name,
+          dbTableName: tableMeta.dbTableName,
+          lastModifiedTime: table.lastModifiedTime ?? new Date().toISOString(),
+          fields: [flagField].map((field) => createFieldInstanceByVo(field)),
+        });
+
+        const tableAlias = 'main';
+        const selectionEntries = [[flagField.id, `"${tableAlias}"."${flagField.dbFieldName}"`]] as [
+          string,
+          string,
+        ][];
+        const context: ISelectFormulaConversionContext = {
+          table: tableDomain,
+          selectionMap: new Map(selectionEntries),
+          tableAlias,
+          timeZone: 'UTC',
+          preferRawFieldReferences: true,
+        };
+
+        const sql = dbProvider.convertFormulaToSelectQuery(expression, context);
+        expect(sql).toContain(`COALESCE(("${tableAlias}"."${flagField.dbFieldName}"), FALSE)`);
+        expect(sql).not.toContain('pg_typeof');
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('emits numeric shortcuts for IF conditions referencing number fields', async () => {
+      const seedFields: IFieldRo[] = [{ name: 'Quantity', type: FieldType.Number }];
+      const table: ITableFullVo = await createTable(baseId, {
+        name: 'formula_metadata_numeric_if_select',
+        fields: seedFields,
+      });
+
+      try {
+        const qtyField = table.fields.find((field) => field.name === 'Quantity') as IFieldVo;
+        const expression = `IF({${qtyField.id}}, 'in stock', 'out')`;
+
+        const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { dbTableName: true },
+        });
+
+        const tableDomain = new TableDomain({
+          id: table.id,
+          name: table.name,
+          dbTableName: tableMeta.dbTableName,
+          lastModifiedTime: table.lastModifiedTime ?? new Date().toISOString(),
+          fields: [qtyField].map((field) => createFieldInstanceByVo(field)),
+        });
+
+        const tableAlias = 'main';
+        const selectionEntries = [[qtyField.id, `"${tableAlias}"."${qtyField.dbFieldName}"`]] as [
+          string,
+          string,
+        ][];
+        const context: ISelectFormulaConversionContext = {
+          table: tableDomain,
+          selectionMap: new Map(selectionEntries),
+          tableAlias,
+          timeZone: 'UTC',
+          preferRawFieldReferences: true,
+        };
+
+        const sql = dbProvider.convertFormulaToSelectQuery(expression, context);
+        expect(sql).toContain(
+          `COALESCE(("${tableAlias}"."${qtyField.dbFieldName}")::double precision, 0)`
+        );
+        expect(sql).not.toContain('REGEXP_REPLACE');
       } finally {
         await permanentDeleteTable(baseId, table.id);
       }
