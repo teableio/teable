@@ -1,6 +1,5 @@
 import { ChevronsLeft } from '@teable/icons';
 import { useIsMobile } from '@teable/sdk';
-import { useBuildBaseAgentStore } from '@teable/sdk/components/grid-enhancements/store/useBuildBaseAgentStore';
 import { Button, cn } from '@teable/ui-lib';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -28,8 +27,6 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
 
   const isExpanded = status === 'expanded';
 
-  const { building } = useBuildBaseAgentStore();
-
   useHotkeys(`meta+b`, () => {
     setVisible(!leftVisible);
   });
@@ -42,14 +39,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     <>
       {isMobile ? (
         <SheetWrapper>
-          <div
-            className={cn(
-              'group/sidebar flex size-full flex-col overflow-hidden bg-background p-5',
-              {
-                'rounded-l': building,
-              }
-            )}
-          >
+          <div className="group/sidebar flex size-full flex-col overflow-hidden bg-background p-5">
             <SidebarHeader headerLeft={headerLeft} />
             {children}
           </div>
@@ -66,9 +56,6 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           <div
             className={cn(
               'group/sidebar flex size-full flex-col overflow-hidden bg-background',
-              {
-                'rounded-l': building,
-              },
               className
             )}
           >
@@ -82,9 +69,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         <HoverWrapper size={SIDE_BAR_WIDTH}>
           <HoverWrapper.Trigger>
             <Button
-              className={cn('fixed top-7 p-1 rounded-none -left-0 rounded-r-full z-40', {
-                '-left-1': building,
-              })}
+              className="fixed -left-0 top-7 z-40 rounded-none rounded-r-full p-1"
               variant={'outline'}
               size="xs"
               onClick={() => {
@@ -98,9 +83,6 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
             <div
               className={cn(
                 'group/sidebar flex size-full flex-col overflow-hidden bg-background',
-                {
-                  'rounded-l': building,
-                },
                 className
               )}
               onContextMenu={(e) => e.preventDefault()}

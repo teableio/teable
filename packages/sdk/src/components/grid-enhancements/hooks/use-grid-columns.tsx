@@ -558,7 +558,6 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
   const filter = view?.filter;
   const isAutoSort = sort && !sort?.manualSort;
   const permission = useTablePermission();
-  const { displayFieldIds, building } = useBuildBaseAgentStore();
 
   const fields = useMemo(() => {
     const hiddenSet = new Set(hiddenFieldIds ?? []);
@@ -603,11 +602,6 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
         sortFieldIds,
         groupFieldIds,
         filterFieldIds,
-      }).filter((column) => {
-        if (building) {
-          return displayFieldIds.includes(column.id);
-        }
-        return true;
       }),
       cellValue2GridDisplay: createCellValue2GridDisplay(fields),
     }),
@@ -621,8 +615,6 @@ export function useGridColumns(hasMenu?: boolean, hiddenFieldIds?: string[]) {
       groupFieldIds,
       filterFieldIds,
       createCellValue2GridDisplay,
-      building,
-      displayFieldIds,
     ]
   );
 }
