@@ -90,7 +90,7 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       : this.cacheMetricsService.recordMiss(cacheType);
     this.cacheMetricsService.recordHitRate(
       cacheType,
-      floor(stats.hits / (stats.hits + stats.misses), 4) * 100
+      floor(stats.hits / Math.max(stats.hits + stats.misses, 1), 4) * 100
     );
   }
 

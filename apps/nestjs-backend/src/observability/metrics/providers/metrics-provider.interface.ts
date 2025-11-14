@@ -7,12 +7,10 @@ export interface IMetricOptions {
   unit?: string;
 }
 
-export abstract class IMetricsProvider {
-  abstract name: string;
-  abstract options?: IMetricOptions;
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  constructor(_name: string, _options?: IMetricOptions) {}
-  abstract count(value: number, attributes?: IAttributes): void;
-  abstract gauge(value: number, attributes?: IAttributes): void;
-  abstract distribution(value: number, attributes?: IAttributes): void;
+export interface IMetricsProvider {
+  name: string;
+  options?: IMetricOptions;
+  count(value: number, attributes?: IAttributes): void;
+  gauge(value: number, attributes?: IAttributes): void;
+  distribution(value: number, attributes?: IAttributes): void;
 }

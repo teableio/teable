@@ -11,7 +11,7 @@ import { InjectStorageAdapter } from '../../features/attachments/plugins/storage
 
 /**
  * ProfilerService is used to profile the CPU usage of the application.
- * ENE:
+ * ENV:
  * // enable profiling, default false
  * - ENABLE_PROFILING=true
  * // save interval in milliseconds, default 1 hour (60 * 60 * 1000)
