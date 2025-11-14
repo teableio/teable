@@ -250,9 +250,31 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
     expect(sql).not.toContain('pg_typeof(("BoolField"))');
   });
 
+  it('recognizes boolean db columns even when param type is unknown', () => {
+    const booleanMetadata = [
+      {
+        type: 'unknown',
+        isFieldReference: true,
+        field: {
+          dbFieldName: 'BoolField',
+          dbFieldType: DbFieldType.Boolean,
+          cellValueType: undefined,
+          isMultiple: false,
+        },
+      } as unknown as IFormulaParamMetadata,
+    ];
+
+    query.setCallMetadata(booleanMetadata);
+
+    const sql = query.if('"BoolField"', "'yes'", "'no'");
+
+    expect(sql).toContain('COALESCE(("BoolField")::boolean, FALSE)');
+    expect(sql).not.toContain('pg_typeof(("BoolField"))');
+  });
+
   it('falls back to truthy normalization when metadata is unavailable', () => {
     query.setCallMetadata(undefined);
     const sql = query.if('"text_col"', "'yes'", "'no'");
-    expect(sql).toContain('pg_typeof(("text_col"))::text');
+    expect(sql).toContain('pg_typeof("text_col")::text');
   });
 });

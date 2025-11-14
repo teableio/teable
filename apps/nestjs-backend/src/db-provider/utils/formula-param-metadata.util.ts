@@ -9,6 +9,7 @@ export interface IResolvedFormulaParamInfo {
   isMultiValueField: boolean;
   isJsonField: boolean;
   fieldDbType?: DbFieldType;
+  fieldCellValueType?: string;
 }
 
 const EMPTY_INFO: IResolvedFormulaParamInfo = {
@@ -18,6 +19,7 @@ const EMPTY_INFO: IResolvedFormulaParamInfo = {
   isMultiValueField: false,
   isJsonField: false,
   fieldDbType: undefined,
+  fieldCellValueType: undefined,
 };
 
 export function resolveFormulaParamInfo(
@@ -41,6 +43,7 @@ export function resolveFormulaParamInfo(
     isMultiValueField: Boolean(field?.isMultiple),
     isJsonField: field?.dbFieldType === DbFieldType.Json,
     fieldDbType: field?.dbFieldType,
+    fieldCellValueType: field?.cellValueType,
   };
 
   if (field?.isLookup && field.dbFieldType === DbFieldType.Json) {
@@ -72,7 +75,15 @@ export function isDatetimeLikeParam(info: IResolvedFormulaParamInfo): boolean {
 }
 
 export function isBooleanLikeParam(info: IResolvedFormulaParamInfo): boolean {
-  return info.type === 'boolean';
+  if (info.isJsonField) {
+    return false;
+  }
+
+  return (
+    info.type === 'boolean' ||
+    info.fieldDbType === DbFieldType.Boolean ||
+    info.fieldCellValueType === 'boolean'
+  );
 }
 
 export function isJsonLikeParam(info: IResolvedFormulaParamInfo): boolean {
