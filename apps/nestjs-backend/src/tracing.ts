@@ -1,5 +1,7 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
@@ -71,10 +73,20 @@ const logExporterOptions = {
 
 const logExporter = logExporterOptions.url ? new OTLPLogExporter(logExporterOptions) : undefined;
 
+const metricsExporterOptions = {
+  url: process.env.OTEL_EXPORTER_OTLP_METRICS_ENDPOINT,
+  headers: {
+    'Content-Type': 'application/x-protobuf',
+    ...headers,
+  },
+};
+const metricsExporter = metricsExporterOptions.url
+  ? new OTLPMetricExporter(metricsExporterOptions)
+  : undefined;
+
 const { BatchLogRecordProcessor } = opentelemetry.logs;
-
+const { PeriodicExportingMetricReader } = opentelemetry.metrics;
 const { AlwaysOnSampler, ParentBasedSampler, TraceIdRatioBasedSampler } = opentelemetry.node;
-
 const parsedSamplerRatio = Number(samplerRatioEnv);
 const samplerRatio = Number.isFinite(parsedSamplerRatio) ? parsedSamplerRatio : 0.1;
 const resolvedTraceSampler = traceSamplerSetting?.toLowerCase();
@@ -84,11 +96,15 @@ const sampler =
     : new ParentBasedSampler({
         root: new TraceIdRatioBasedSampler(samplerRatio),
       });
-
 const otelSDK = new opentelemetry.NodeSDK({
   traceExporter,
   logRecordProcessors: logExporter ? [new BatchLogRecordProcessor(logExporter)] : [],
   sampler,
+  metricReader: metricsExporter
+    ? new PeriodicExportingMetricReader({
+        exporter: metricsExporter,
+      })
+    : undefined,
   instrumentations: [
     new HttpInstrumentation({
       ignoreIncomingRequestHook: (request) => {
