@@ -588,7 +588,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         const rowHeight = coordInstance.getRowHeight(rowIndex);
         const offsetY = coordInstance.getRowOffset(rowIndex);
         const deltaTop = Math.min(offsetY - scrollTop - rowInitSize, 0);
-        const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight, 0);
+        const deltaBottom = Math.max(offsetY + rowHeight - scrollTop - containerHeight + 1, 0);
         const st = scrollTop + deltaTop + deltaBottom;
         if (st !== scrollTop) {
           scrollTo(undefined, st);

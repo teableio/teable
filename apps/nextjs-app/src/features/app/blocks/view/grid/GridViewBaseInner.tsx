@@ -1365,7 +1365,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             scrollBufferX={
               permission['field|create'] ? scrollBuffer + columnAppendBtnWidth : scrollBuffer
             }
-            scrollBufferY={0}
+            scrollBufferY={1}
             scrollBarXVisible={false}
             rowCount={prefillingRows.length || 1}
             rowHeight={rowHeight}
