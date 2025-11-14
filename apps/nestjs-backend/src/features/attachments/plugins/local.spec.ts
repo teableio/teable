@@ -2,11 +2,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import * as fs from 'fs';
 import { join, resolve } from 'path';
-import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { TestingModule } from '@nestjs/testing';
 import * as fse from 'fs-extra';
 import { vi } from 'vitest';
+import { getError } from '../../../../test/utils/get-error';
 import { CacheService } from '../../../cache/cache.service';
 import type { IAttachmentLocalTokenCache } from '../../../cache/types';
 import { baseConfig } from '../../../configs/base.config';
@@ -112,9 +112,10 @@ describe('LocalStorage', () => {
     it('should throw BadRequestException for invalid token', async () => {
       mockCacheService.get.mockResolvedValue(null);
 
-      await expect(storage.validateToken('invalid-token', uploadMeta)).rejects.toThrow(
-        BadRequestException
-      );
+      const error = await getError(() => storage.validateToken('invalid-token', uploadMeta));
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
     });
 
     it('should throw BadRequestException for expired token', async () => {
@@ -125,31 +126,38 @@ describe('LocalStorage', () => {
 
       mockCacheService.get.mockResolvedValue(expiredTokenMeta);
 
-      await expect(storage.validateToken('expired-token', uploadMeta)).rejects.toThrow(
-        BadRequestException
-      );
+      const error = await getError(() => storage.validateToken('expired-token', uploadMeta));
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Token has expired');
+      expect(error?.status).toBe(400);
     });
 
     it('should throw BadRequestException for size mismatch', async () => {
       mockCacheService.get.mockResolvedValue(localSignatureCache);
 
-      await expect(
+      const error = await getError(() =>
         storage.validateToken('valid-token', {
           ...uploadMeta,
           size: 2048,
         })
-      ).rejects.toThrow(BadRequestException);
+      );
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Size mismatch');
+      expect(error?.status).toBe(400);
     });
 
     it('should throw BadRequestException for mimetype mismatch', async () => {
       mockCacheService.get.mockResolvedValue(localSignatureCache);
 
-      await expect(
+      const error = await getError(() =>
         storage.validateToken('valid-token', {
           ...uploadMeta,
           mimetype: 'image/jpeg',
         })
-      ).rejects.toThrow(BadRequestException);
+      );
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Not allow upload image/jpeg file');
+      expect(error?.status).toBe(400);
     });
 
     it('should not throw error for valid token', async () => {
@@ -316,9 +324,12 @@ describe('LocalStorage', () => {
     it('should throw BadRequestException for invalid token', async () => {
       vi.spyOn(mockCacheService, 'get').mockResolvedValueOnce(null);
 
-      await expect(
+      const error = await getError(() =>
         storage.getObjectMeta('mock-bucket', 'mock/file/path', 'invalid-token')
-      ).rejects.toThrow(BadRequestException);
+      );
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
     });
   });
 
@@ -362,20 +373,26 @@ describe('LocalStorage', () => {
       });
     });
 
-    it('should throw BadRequestException for expired token', () => {
+    it('should throw BadRequestException for expired token', async () => {
       vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockReturnValueOnce({
         expiresDate: 1,
       });
 
-      expect(() => storage.verifyReadToken('expired-token')).toThrow(BadRequestException);
+      const error = await getError(() => storage.verifyReadToken('expired-token'));
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Token has expired');
+      expect(error?.status).toBe(400);
     });
 
-    it('should throw BadRequestException for invalid token', () => {
+    it('should throw BadRequestException for invalid token', async () => {
       vi.spyOn(storage.expireTokenEncryptor, 'decrypt').mockImplementationOnce(() => {
         throw new Error();
       });
 
-      expect(() => storage.verifyReadToken('invalid-token')).toThrow(BadRequestException);
+      const error = await getError(() => storage.verifyReadToken('invalid-token'));
+      expect(error).toBeDefined();
+      expect(error?.message).toBe('Invalid token');
+      expect(error?.status).toBe(400);
     });
   });
 });

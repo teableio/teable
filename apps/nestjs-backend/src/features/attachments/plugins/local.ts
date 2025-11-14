@@ -271,17 +271,11 @@ export class LocalStorage implements StorageAdapter {
     const prefix = origin?.byApi ? this.baseConfig.storagePrefix : '';
     return prefix + join('/', url);
   }
+
   verifyReadToken(token: string) {
+    let payload: ITokenEncryptor;
     try {
-      const { expiresDate, respHeaders } = this.expireTokenEncryptor.decrypt(token);
-      if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
-        throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
-          localization: {
-            i18nKey: 'httpErrors.attachment.tokenExpired',
-          },
-        });
-      }
-      return { respHeaders };
+      payload = this.expireTokenEncryptor.decrypt(token);
     } catch (error) {
       throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
@@ -289,6 +283,15 @@ export class LocalStorage implements StorageAdapter {
         },
       });
     }
+    const { expiresDate, respHeaders } = payload;
+    if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
+      throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.tokenExpired',
+        },
+      });
+    }
+    return { respHeaders };
   }
 
   async uploadFileWidthPath(
