@@ -11,6 +11,9 @@ export type IFieldRaws = Pick<
   | 'notNull'
   | 'isComputed'
   | 'isLookup'
+  | 'isConditionalLookup'
+  | 'lookupOptions'
+  | 'lookupLinkedFieldId'
   | 'dbFieldName'
 >[];
 

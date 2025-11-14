@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType, FormulaFieldCore } from '@teable/core';
 import type { IMakeOptional, IUserFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
@@ -315,7 +315,7 @@ export class RecordModifySharedService {
     if (!records.length) return records;
 
     const baseFieldKeyById = fieldRaws.reduce<Map<string, string | undefined>>((acc, field) => {
-      if (field.isComputed) {
+      if (this.isDerivedField(field)) {
         return acc;
       }
       const key = field[fieldKeyType] as string | undefined;
@@ -326,17 +326,33 @@ export class RecordModifySharedService {
       return records;
     }
 
+    const baseFieldIds = Array.from(baseFieldKeyById.keys());
+    if (!baseFieldIds.length) return records;
+
     const referencedRows = await this.prismaService.txClient().reference.findMany({
       where: {
-        fromFieldId: { in: Array.from(baseFieldKeyById.keys()) },
+        fromFieldId: { in: baseFieldIds },
       },
       select: { fromFieldId: true },
     });
 
-    if (!referencedRows.length) return records;
+    const referencedFieldIds = referencedRows.reduce<Set<string>>((acc, row) => {
+      if (baseFieldKeyById.has(row.fromFieldId)) {
+        acc.add(row.fromFieldId);
+      }
+      return acc;
+    }, new Set<string>());
 
-    const referencedFieldKeys = referencedRows.reduce<Set<string>>((acc, row) => {
-      const key = baseFieldKeyById.get(row.fromFieldId);
+    if (referencedFieldIds.size < baseFieldIds.length) {
+      const fallbackReferenced = this.collectReferencedBaseFieldIdsFromFieldRaws(
+        fieldRaws,
+        baseFieldKeyById
+      );
+      fallbackReferenced.forEach((id) => referencedFieldIds.add(id));
+    }
+
+    const referencedFieldKeys = Array.from(referencedFieldIds).reduce<Set<string>>((acc, id) => {
+      const key = baseFieldKeyById.get(id);
       if (key) {
         acc.add(key);
       }
@@ -385,6 +401,106 @@ export class RecordModifySharedService {
     const userFields = fieldRaws.filter((f) => f.type === FieldType.User);
     if (userFields.length) return this.fillUserInfo(processed, userFields, fieldKeyType);
     return processed;
+  }
+
+  private collectReferencedBaseFieldIdsFromFieldRaws(
+    fieldRaws: IFieldRaws,
+    baseFieldKeyById: Map<string, string | undefined>
+  ): Set<string> {
+    const referenced = new Set<string>();
+    const fieldById = new Map(fieldRaws.map((field) => [field.id, field]));
+    const fieldByName = new Map(fieldRaws.map((field) => [field.name, field]));
+    const memo = new Map<string, Set<string>>();
+    const visiting = new Set<string>();
+
+    const resolveField = (identifier: string): IFieldRaws[number] | undefined => {
+      if (!identifier) return undefined;
+      return fieldById.get(identifier) ?? fieldByName.get(identifier);
+    };
+
+    const collectBaseDeps = (field: IFieldRaws[number] | undefined): Set<string> => {
+      if (!field) return new Set();
+      if (!this.isDerivedField(field)) {
+        return baseFieldKeyById.has(field.id) ? new Set([field.id]) : new Set();
+      }
+      const cached = memo.get(field.id);
+      if (cached) return cached;
+      if (visiting.has(field.id)) return new Set();
+      visiting.add(field.id);
+
+      const result = new Set<string>();
+      memo.set(field.id, result);
+
+      const appendBase = (identifier: string | undefined) => {
+        if (!identifier) return;
+        if (baseFieldKeyById.has(identifier)) {
+          result.add(identifier);
+          return;
+        }
+        const target = resolveField(identifier);
+        if (target) {
+          const nested = collectBaseDeps(target);
+          nested.forEach((id) => result.add(id));
+        }
+      };
+
+      if (field.type === FieldType.Formula) {
+        const options = this.parseJsonValue<{ expression?: string }>(field.options);
+        const expression = options?.expression;
+        if (expression) {
+          const deps = FormulaFieldCore.getReferenceFieldIds(expression);
+          deps.forEach((dep) => appendBase(dep));
+        }
+      }
+
+      if (field.isLookup || field.isConditionalLookup || this.isLookupLikeRollup(field)) {
+        appendBase(this.extractLookupLinkFieldId(field));
+      }
+
+      visiting.delete(field.id);
+      return result;
+    };
+
+    for (const field of fieldRaws) {
+      if (!this.isDerivedField(field)) continue;
+      const deps = collectBaseDeps(field);
+      deps.forEach((id) => referenced.add(id));
+    }
+    return referenced;
+  }
+
+  private extractLookupLinkFieldId(field: IFieldRaws[number]): string | undefined {
+    const options = this.parseJsonValue<{ linkFieldId?: string }>(field.lookupOptions);
+    return options?.linkFieldId ?? (field.lookupLinkedFieldId as string | undefined) ?? undefined;
+  }
+
+  private isDerivedField(field: IFieldRaws[number]): boolean {
+    if (field.isLookup || field.isConditionalLookup) {
+      return true;
+    }
+    if (this.isLookupLikeRollup(field)) {
+      return true;
+    }
+    if (field.type === FieldType.Formula) {
+      return true;
+    }
+    return !!field.isComputed;
+  }
+
+  private isLookupLikeRollup(field: IFieldRaws[number]): boolean {
+    return field.type === FieldType.Rollup || field.type === FieldType.ConditionalRollup;
+  }
+
+  private parseJsonValue<T>(value: unknown): T | undefined {
+    if (value == null) return undefined;
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value) as T;
+      } catch {
+        return undefined;
+      }
+    }
+    return value as T;
   }
 
   // Convenience re-export so callers don't need to import from utils
