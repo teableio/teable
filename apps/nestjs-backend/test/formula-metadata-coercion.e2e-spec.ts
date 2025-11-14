@@ -4,10 +4,10 @@ import { FieldType, FieldKeyType, TableDomain } from '@teable/core';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
-import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
-import type { ISelectFormulaConversionContext } from '../src/features/record/query-builder/sql-conversion.visitor';
+import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { createFieldInstanceByVo } from '../src/features/field/model/factory';
+import type { ISelectFormulaConversionContext } from '../src/features/record/query-builder/sql-conversion.visitor';
 import {
   createField,
   createRecords,
@@ -84,6 +84,10 @@ describe('Formula metadata-aware coercion (e2e)', () => {
         name: 'formula_metadata_boolean_generated',
         fields: [
           {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
+          {
             name: 'Flag',
             type: FieldType.Checkbox,
           },
@@ -113,7 +117,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
             AND table_name = ${rawTableName}
             AND column_name = ${statusField.dbFieldName}`;
 
-        const expression = rows[0]!.generation_expression!;
+        const expression = String(rows[0]!.generation_expression ?? '');
         expect(expression).toMatch(/COALESCE\([^)]*::boolean,\s*FALSE\)/);
         expect(expression).not.toContain('pg_typeof');
       } finally {
@@ -125,6 +129,10 @@ describe('Formula metadata-aware coercion (e2e)', () => {
       const table: ITableFullVo = await createTable(baseId, {
         name: 'formula_metadata_numeric_if_generated',
         fields: [
+          {
+            name: 'Name',
+            type: FieldType.SingleLineText,
+          },
           {
             name: 'Amount',
             type: FieldType.Number,
@@ -155,7 +163,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
             AND table_name = ${rawTableName}
             AND column_name = ${statusField.dbFieldName}`;
 
-        const expression = rows[0]!.generation_expression!;
+        const expression = String(rows[0]!.generation_expression ?? '');
         expect(expression).toMatch(/COALESCE\([^)]*::double precision,\s*0\)/);
         expect(expression).not.toContain('REGEXP_REPLACE');
       } finally {
@@ -216,7 +224,10 @@ describe('Formula metadata-aware coercion (e2e)', () => {
     });
 
     it('emits boolean shortcuts for checkbox IF conditions', async () => {
-      const seedFields: IFieldRo[] = [{ name: 'Enabled', type: FieldType.Checkbox }];
+      const seedFields: IFieldRo[] = [
+        { name: 'Name', type: FieldType.SingleLineText },
+        { name: 'Enabled', type: FieldType.Checkbox },
+      ];
       const table: ITableFullVo = await createTable(baseId, {
         name: 'formula_metadata_boolean_select',
         fields: seedFields,
@@ -261,7 +272,10 @@ describe('Formula metadata-aware coercion (e2e)', () => {
     });
 
     it('emits numeric shortcuts for IF conditions referencing number fields', async () => {
-      const seedFields: IFieldRo[] = [{ name: 'Quantity', type: FieldType.Number }];
+      const seedFields: IFieldRo[] = [
+        { name: 'Name', type: FieldType.SingleLineText },
+        { name: 'Quantity', type: FieldType.Number },
+      ];
       const table: ITableFullVo = await createTable(baseId, {
         name: 'formula_metadata_numeric_if_select',
         fields: seedFields,
@@ -344,7 +358,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
         const recordId = table.records[0].id;
         const readValue = async () => {
           const record = await getRecord(table.id, recordId);
-          return record.data.fields[concatField.name];
+          return record.fields?.[concatField.id];
         };
 
         expect(await readValue()).toBe('Widget x 3!');
@@ -361,6 +375,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
       const table = await createTable(baseId, {
         name: 'formula_metadata_logic',
         fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
           { name: 'Enabled', type: FieldType.Checkbox },
           { name: 'Attempts', type: FieldType.Number },
         ],
@@ -386,6 +401,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
           records: [
             {
               fields: {
+                Title: 'Row 1',
                 Enabled: true,
                 Attempts: 0,
               },
@@ -396,7 +412,7 @@ describe('Formula metadata-aware coercion (e2e)', () => {
         const recordId = records[0].id;
         const readValue = async () => {
           const record = await getRecord(table.id, recordId);
-          return record.data.fields[logicField.name];
+          return record.fields?.[logicField.id];
         };
 
         expect(await readValue()).toBe(0);
