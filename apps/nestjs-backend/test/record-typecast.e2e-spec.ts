@@ -112,7 +112,7 @@ describe('Record Typecast', () => {
         });
       });
       expect(error?.status).toBe(400);
-      expect(error?.message).toContain('User(not-in-table) not selected in table');
+      expect(error?.message).toContain('User(not-in-table) not found in table');
     });
 
     it('error name and email', async () => {
