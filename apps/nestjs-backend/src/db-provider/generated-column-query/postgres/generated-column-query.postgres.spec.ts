@@ -272,6 +272,28 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
     expect(sql).not.toContain('pg_typeof(("BoolField"))');
   });
 
+  it('avoids regex coercion for numeric columns when metadata is numeric', () => {
+    const numericMetadata = [
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          dbFieldName: 'Amount',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+          isMultiple: false,
+        },
+      } as unknown as IFormulaParamMetadata,
+    ];
+
+    query.setCallMetadata(numericMetadata);
+
+    const sql = query.if('"Amount"', "'yes'", "'no'");
+
+    expect(sql).toContain('COALESCE(("Amount")::double precision, 0) <> 0');
+    expect(sql).not.toContain('REGEXP_REPLACE');
+  });
+
   it('falls back to truthy normalization when metadata is unavailable', () => {
     query.setCallMetadata(undefined);
     const sql = query.if('"text_col"', "'yes'", "'no'");

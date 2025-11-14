@@ -536,6 +536,27 @@ describe('Select formula boolean truthiness heuristics', () => {
     );
     expect(sql).not.toContain('pg_typeof');
   });
+
+  it('avoids regex coercion for numeric field references in IF conditions', () => {
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldNum',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: CellValueType.Number,
+        },
+      },
+      stringParam,
+      stringParam,
+    ]);
+
+    const sql = query.if('"main"."num_col"', `'Y'`, `'N'`);
+
+    expect(sql).toContain('COALESCE(("main"."num_col")::double precision, 0) <> 0');
+    expect(sql).not.toContain('REGEXP_REPLACE');
+  });
 });
 
 describe('Select formula string branch normalization', () => {

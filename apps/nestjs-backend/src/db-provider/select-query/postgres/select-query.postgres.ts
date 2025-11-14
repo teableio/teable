@@ -789,6 +789,11 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       return `CASE WHEN COALESCE(${wrapped}, FALSE) THEN 1 ELSE 0 END`;
     }
 
+    if (isTrustedNumeric(paramInfo)) {
+      const numericExpr = this.toNumericSafe(normalizedValue, metadataIndex);
+      return `CASE WHEN COALESCE(${numericExpr}, 0) <> 0 THEN 1 ELSE 0 END`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const wrappedText = `(${wrapped})::text`;

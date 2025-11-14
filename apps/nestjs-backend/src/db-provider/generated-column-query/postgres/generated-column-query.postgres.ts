@@ -303,6 +303,12 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       return `COALESCE(${wrapped}::boolean, FALSE)`;
     }
 
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isTrustedNumeric(paramInfo)) {
+      const numericExpr = this.toNumericSafe(condition, metadataIndex);
+      return `(COALESCE(${numericExpr}, 0) <> 0)`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const stringTypes = "('text','character varying','character','varchar','unknown')";
