@@ -10,16 +10,21 @@ import {
   Relationship,
   TimeFormatting,
 } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
+import { RecordModifySharedService } from '../src/features/record/record-modify/record-modify.shared.service';
 import { getError } from './utils/get-error';
 import {
+  createBase,
   createField,
   createRecords,
   createTable,
+  deleteBase,
   deleteTable,
   getRecord,
   getRecords,
   initApp,
+  permanentDeleteTable,
   updateRecordByApi,
 } from './utils/init-app';
 
@@ -416,6 +421,354 @@ describe('OpenAPI Formula Field (e2e)', () => {
     });
   });
 
+  describe('lookup formula with blank single select lookup', () => {
+    let foreignBaseId: string;
+    let ordersTable: ITableFullVo;
+    let followupTable: ITableFullVo;
+    let linkFieldId: string;
+    let statusLookupFieldId: string;
+    let planLookupFieldId: string;
+    let formulaFieldId: string;
+    let titleFieldId: string;
+
+    beforeEach(async () => {
+      const spaceId = globalThis.testConfig.spaceId;
+      const createdBase = await createBase({ spaceId, name: 'Cross Base Orders' });
+      foreignBaseId = createdBase.id;
+
+      ordersTable = await createTable(foreignBaseId, {
+        name: 'Orders',
+        fields: [
+          {
+            name: 'Status',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Paid', color: Colors.Green },
+                { name: 'Deposit', color: Colors.Blue },
+              ],
+            },
+          },
+          {
+            name: 'Plan',
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { name: 'Plan2', color: Colors.Cyan },
+                { name: 'Plan3', color: Colors.Orange },
+                { name: 'Other', color: Colors.Gray },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { Status: 'Paid', Plan: 'Plan2' } },
+          { fields: { Status: 'Deposit', Plan: 'Plan3' } },
+        ],
+      });
+
+      followupTable = await createTable(baseId, {
+        name: 'Order Followups',
+        fields: [
+          {
+            name: 'Title',
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
+
+      titleFieldId = followupTable.fields.find((f) => f.name === 'Title')!.id;
+
+      const linkField = await createField(followupTable.id, {
+        name: 'Order',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyOne,
+          foreignTableId: ordersTable.id,
+          isOneWay: true,
+        },
+      });
+
+      linkFieldId = linkField.id;
+
+      const statusFieldId = ordersTable.fields.find((f) => f.name === 'Status')!.id;
+      const planFieldId = ordersTable.fields.find((f) => f.name === 'Plan')!.id;
+
+      const statusLookupField = await createField(followupTable.id, {
+        name: 'Lookup Status',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: ordersTable.id,
+          lookupFieldId: statusFieldId,
+          linkFieldId,
+        },
+      });
+
+      statusLookupFieldId = statusLookupField.id;
+
+      const planLookupField = await createField(followupTable.id, {
+        name: 'Lookup Plan',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: ordersTable.id,
+          lookupFieldId: planFieldId,
+          linkFieldId,
+        },
+      });
+
+      planLookupFieldId = planLookupField.id;
+
+      const formulaField = await createField(followupTable.id, {
+        name: 'Status Notice',
+        type: FieldType.Formula,
+        options: {
+          expression: `IF(
+            {${statusLookupFieldId}}="Paid",
+            "No reminder",
+            IF(
+              AND(
+                {${statusLookupFieldId}}="Deposit",
+                OR(
+                  {${planLookupFieldId}}="Plan2",
+                  {${planLookupFieldId}}="Plan3"
+                )
+              ),
+              "Installment follow-up",
+              IF(
+                AND(
+                  {${statusLookupFieldId}}="Deposit",
+                  NOT(
+                    OR(
+                      {${planLookupFieldId}}="Plan2",
+                      {${planLookupFieldId}}="Plan3"
+                    )
+                  )
+                ),
+                "Tail follow-up",
+                IF(
+                  {${statusLookupFieldId}}="",
+                  "Tail follow-up",
+                  "Tail follow-up"
+                )
+              )
+            )
+          )`,
+        },
+      });
+
+      formulaFieldId = formulaField.id;
+    });
+
+    afterEach(async () => {
+      if (followupTable?.id) {
+        await deleteTable(baseId, followupTable.id);
+      }
+      if (ordersTable?.id && foreignBaseId) {
+        await permanentDeleteTable(foreignBaseId, ordersTable.id);
+      }
+      if (foreignBaseId) {
+        await deleteBase(foreignBaseId);
+      }
+    });
+
+    it('should fallback when lookup is blank', async () => {
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'Unlinked order',
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[statusLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[planLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should use lookup value when record is linked', async () => {
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: 'Linked order',
+              [linkFieldId]: { id: ordersTable.records[0].id },
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[statusLookupFieldId]).toBe('Paid');
+      expect(record.fields[planLookupFieldId]).toBe('Plan2');
+      expect(record.fields[formulaFieldId]).toBe('No reminder');
+    });
+
+    it('should still fallback when record is created without other field values', async () => {
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[statusLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[planLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should fallback even if reference table is missing entries', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.reference.deleteMany({
+        where: { fromFieldId: linkFieldId },
+      });
+      await prisma.reference.deleteMany({
+        where: { toFieldId: { in: [statusLookupFieldId, planLookupFieldId] } },
+      });
+
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should fallback when the only field sent is explicitly null', async () => {
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [titleFieldId]: null,
+            },
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[statusLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[planLookupFieldId] ?? null).toBeNull();
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should fallback even if lookup-to-formula references are missing', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.reference.deleteMany({
+        where: {
+          OR: [
+            { fromFieldId: linkFieldId },
+            { toFieldId: linkFieldId },
+            { fromFieldId: { in: [statusLookupFieldId, planLookupFieldId] } },
+            { toFieldId: { in: [statusLookupFieldId, planLookupFieldId, formulaFieldId] } },
+          ],
+        },
+      });
+
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should fallback even if lookup fields are not marked computed', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.field.updateMany({
+        where: { id: { in: [statusLookupFieldId, planLookupFieldId] } },
+        data: { isComputed: false },
+      });
+      await prisma.reference.deleteMany({
+        where: { fromFieldId: { in: [linkFieldId, statusLookupFieldId, planLookupFieldId] } },
+      });
+
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+
+    it('should inject link placeholders even when lookup metadata lacks isComputed', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.field.updateMany({
+        where: { id: { in: [statusLookupFieldId, planLookupFieldId] } },
+        data: { isComputed: false },
+      });
+      await prisma.reference.deleteMany({ where: { fromFieldId: linkFieldId } });
+
+      const shared = app.get(RecordModifySharedService);
+      const fieldRaws = await prisma.field.findMany({
+        where: { tableId: followupTable.id, deletedTime: null },
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          options: true,
+          unique: true,
+          notNull: true,
+          isComputed: true,
+          isLookup: true,
+          isConditionalLookup: true,
+          lookupOptions: true,
+          lookupLinkedFieldId: true,
+          dbFieldName: true,
+        },
+      });
+
+      const records = await shared.ensureReferencedBaseFieldsForNewRecords(
+        [{ id: 'rec_test', fields: {} }],
+        FieldKeyType.Id,
+        fieldRaws
+      );
+
+      expect(records[0].fields[linkFieldId]).toBeNull();
+    });
+
+    it('should fallback even if reference graph is completely missing', async () => {
+      const prisma = app.get(PrismaService);
+      await prisma.reference.deleteMany({});
+
+      const created = await createRecords(followupTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(followupTable.id, created.records[0].id);
+      expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
+    });
+  });
+
   describe('create formula referencing formula', () => {
     let table: ITableFullVo;
     let baseFormulaField: IFieldVo;
@@ -621,6 +974,28 @@ describe('OpenAPI Formula Field (e2e)', () => {
 
       // Formula should return rollup value multiplied by 2
       expect(formulaValue1).toBe(rollupValue1 * 2);
+    });
+
+    it('should fallback when rollup-based formula has no linked data', async () => {
+      const formulaField = await createField(table1.id, {
+        type: FieldType.Formula,
+        name: 'Rollup Fallback',
+        options: {
+          expression: `IF({${rollupField.id}} > 0, "Has rollup", "No rollup")`,
+        },
+      });
+
+      const created = await createRecords(table1.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const record = await getRecord(table1.id, created.records[0].id);
+      expect(record.fields[formulaField.id]).toBe('No rollup');
     });
 
     it('should create formula referencing link field', async () => {

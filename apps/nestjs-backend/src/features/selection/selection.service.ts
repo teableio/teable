@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   IButtonFieldOptions,
   IDateFieldOptions,
@@ -55,6 +55,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
+import type { IUpdateRecordsInternalRo } from '../record/type';
 
 @Injectable()
 export class SelectionService {
@@ -860,9 +861,18 @@ export class SelectionService {
       const filteredUpdateRecordsRo = permissionFilter
         ? await permissionFilter('update', updateRecordsRo, newFields)
         : updateRecordsRo;
+      const updateFieldIds = updateFields.map((field) => field.id);
+      const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
+      const updateRecordsPayload: IUpdateRecordsInternalRo =
+        maybeInternal.fieldIds !== undefined
+          ? maybeInternal
+          : {
+              ...maybeInternal,
+              fieldIds: updateFieldIds,
+            };
       const { cellContexts } = await this.recordOpenApiService.updateRecords(
         tableId,
-        filteredUpdateRecordsRo as IUpdateRecordsRo
+        updateRecordsPayload
       );
       let newRecords: IRecord[] | undefined;
       // create record
@@ -922,15 +932,19 @@ export class SelectionService {
   ) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
+    const fieldIds = fields.map((field) => field.id);
     const updateRecords = this.tableDataToRecords({
       tableData: Array.from({ length: records.length }, () => []),
       fields: fieldInstances,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    const filteredUpdateRecordsRo = permissionFilter
+    const filteredUpdateRecordsRo: IUpdateRecordsRo = permissionFilter
       ? await permissionFilter(updateRecordsRo)
       : updateRecordsRo;
-    await this.recordOpenApiService.updateRecords(tableId, filteredUpdateRecordsRo, windowId);
+    const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
+    const payload: IUpdateRecordsInternalRo =
+      maybeInternal.fieldIds !== undefined ? maybeInternal : { ...maybeInternal, fieldIds };
+    await this.recordOpenApiService.updateRecords(tableId, payload, windowId);
   }
 
   async delete(

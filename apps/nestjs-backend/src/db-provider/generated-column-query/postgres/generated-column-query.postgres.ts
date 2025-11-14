@@ -1,6 +1,14 @@
+/* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable no-useless-escape */
 import { DbFieldType, FieldType } from '@teable/core';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
+import {
+  isBooleanLikeParam,
+  isJsonLikeParam,
+  isTextLikeParam,
+  isTrustedNumeric,
+  resolveFormulaParamInfo,
+} from '../../utils/formula-param-metadata.util';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -43,13 +51,26 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return trimmed;
   }
 
+  private getParamInfo(index?: number) {
+    return resolveFormulaParamInfo(this.currentCallMetadata, index);
+  }
+
   private isNumericLiteral(expr: string): boolean {
     const trimmed = this.stripOuterParentheses(expr);
     // eslint-disable-next-line regexp/no-unused-capturing-group
     return /^[-+]?\d+(\.\d+)?$/.test(trimmed);
   }
 
-  private toNumericSafe(expr: string): string {
+  private toNumericSafe(expr: string, metadataIndex?: number): string {
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isTrustedNumeric(paramInfo)) {
+      return `(${expr})::double precision`;
+    }
+
+    return this.looseNumericCoercion(expr);
+  }
+
+  private looseNumericCoercion(expr: string): string {
     if (this.isNumericLiteral(expr)) {
       return `(${expr})::double precision`;
     }
@@ -58,13 +79,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `NULLIF(${sanitized}, '')::double precision`;
   }
 
-  private collapseNumeric(expr: string): string {
-    const numericValue = this.toNumericSafe(expr);
+  private collapseNumeric(expr: string, metadataIndex?: number): string {
+    const numericValue = this.toNumericSafe(expr, metadataIndex);
     return `COALESCE(${numericValue}, 0)`;
   }
 
-  private normalizeBlankComparable(value: string): string {
-    const comparable = this.coerceToTextComparable(value);
+  private normalizeBlankComparable(value: string, metadataIndex?: number): string {
+    const comparable = this.coerceToTextComparable(value, metadataIndex);
     return `COALESCE(NULLIF(${comparable}, ''), '')`;
   }
 
@@ -72,11 +93,18 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `(${expr})::text`;
   }
 
-  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
+  private buildBlankAwareComparison(
+    operator: '=' | '<>',
+    left: string,
+    right: string,
+    metadataIndexes?: { left?: number; right?: number }
+  ): string {
     const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    const leftIndex = metadataIndexes?.left;
+    const rightIndex = metadataIndexes?.right;
     if (!shouldNormalize) {
-      const leftIsText = this.isTextLikeExpression(left);
-      const rightIsText = this.isTextLikeExpression(right);
+      const leftIsText = this.isTextLikeExpression(left, leftIndex);
+      const rightIsText = this.isTextLikeExpression(right, rightIndex);
 
       let normalizedLeft = left;
       let normalizedRight = right;
@@ -89,9 +117,9 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       }
 
       if (leftIsText && !rightIsText) {
-        normalizedRight = this.coerceToTextComparable(right);
+        normalizedRight = this.coerceToTextComparable(right, rightIndex);
       } else if (!leftIsText && rightIsText) {
-        normalizedLeft = this.coerceToTextComparable(left);
+        normalizedLeft = this.coerceToTextComparable(left, leftIndex);
       }
 
       return `(${normalizedLeft} ${operator} ${normalizedRight})`;
@@ -99,17 +127,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
     const normalizedLeft = this.isEmptyStringLiteral(left)
       ? "''"
-      : this.normalizeBlankComparable(left);
+      : this.normalizeBlankComparable(left, leftIndex);
     const normalizedRight = this.isEmptyStringLiteral(right)
       ? "''"
-      : this.normalizeBlankComparable(right);
+      : this.normalizeBlankComparable(right, rightIndex);
 
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
   }
 
-  private isTextLikeExpression(value: string): boolean {
+  private isTextLikeExpression(value: string, metadataIndex?: number): boolean {
     const trimmed = this.stripOuterParentheses(value);
     if (/^'.*'$/.test(trimmed)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && isTextLikeParam(paramInfo)) {
       return true;
     }
 
@@ -170,7 +203,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     END)`;
   }
 
-  private coerceToTextComparable(value: string): string {
+  private coerceToTextComparable(value: string, metadataIndex?: number): string {
     const trimmed = this.stripOuterParentheses(value);
     if (!trimmed) {
       return this.ensureTextCollation(value);
@@ -183,6 +216,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
 
     const wrapped = `(${value})`;
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata) {
+      if (isJsonLikeParam(paramInfo)) {
+        const coercedJson = this.coerceJsonExpressionToText(wrapped);
+        return this.ensureTextCollation(coercedJson);
+      }
+
+      if (isTextLikeParam(paramInfo)) {
+        return this.ensureTextCollation(value);
+      }
+
+      if (paramInfo.type && paramInfo.type !== 'unknown') {
+        return this.ensureTextCollation(`${wrapped}::text`);
+      }
+    }
+
     const coerced =
       this.getExpressionFieldType(value) === DbFieldType.Json
         ? this.coerceJsonExpressionToText(wrapped)
@@ -190,9 +239,9 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return this.ensureTextCollation(coerced);
   }
 
-  private countANonNullExpression(value: string): string {
-    if (this.isTextLikeExpression(value)) {
-      const normalizedComparable = this.normalizeBlankComparable(value);
+  private countANonNullExpression(value: string, metadataIndex?: number): string {
+    if (this.isTextLikeExpression(value, metadataIndex)) {
+      const normalizedComparable = this.normalizeBlankComparable(value, metadataIndex);
       return `CASE WHEN ${value} IS NULL OR ${normalizedComparable} = '' THEN 0 ELSE 1 END`;
     }
 
@@ -200,42 +249,66 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   override add(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) + (${r}))`;
   }
 
   override subtract(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) - (${r}))`;
   }
 
   override multiply(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) * (${r}))`;
   }
 
   override unaryMinus(value: string): string {
-    const numericValue = this.toNumericSafe(value);
+    const numericValue = this.toNumericSafe(value, 0);
     return `(-(${numericValue}))`;
   }
 
   override divide(left: string, right: string): string {
-    const numerator = this.collapseNumeric(left);
-    const denominator = this.toNumericSafe(right);
+    const numerator = this.collapseNumeric(left, 0);
+    const denominator = this.toNumericSafe(right, 1);
     return `(CASE WHEN (${denominator}) IS NULL OR (${denominator}) = 0 THEN NULL ELSE (${numerator} / ${denominator}) END)`;
   }
 
   override modulo(left: string, right: string): string {
-    const dividend = this.collapseNumeric(left);
-    const divisor = this.toNumericSafe(right);
+    const dividend = this.collapseNumeric(left, 0);
+    const divisor = this.toNumericSafe(right, 1);
     return `(CASE WHEN (${divisor}) IS NULL OR (${divisor}) = 0 THEN NULL ELSE MOD((${dividend})::numeric, (${divisor})::numeric)::double precision END)`;
   }
 
-  private normalizeBooleanCondition(condition: string): string {
+  private isBooleanLikeExpression(value: string, metadataIndex?: number): boolean {
+    const trimmed = this.stripOuterParentheses(value);
+    if (/^(true|false)$/i.test(trimmed)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && isBooleanLikeParam(paramInfo)) {
+      return true;
+    }
+
+    return this.getExpressionFieldType(value) === DbFieldType.Boolean;
+  }
+
+  private normalizeBooleanCondition(condition: string, metadataIndex = 0): string {
     const wrapped = `(${condition})`;
+    if (this.isBooleanLikeExpression(condition, metadataIndex)) {
+      return `COALESCE(${wrapped}::boolean, FALSE)`;
+    }
+
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isTrustedNumeric(paramInfo)) {
+      const numericExpr = this.toNumericSafe(condition, metadataIndex);
+      return `(COALESCE(${numericExpr}, 0) <> 0)`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const stringTypes = "('text','character varying','character','varchar','unknown')";
@@ -260,13 +333,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')})`;
   }
 
   average(params: string[]): string {
     // Use addition and division instead of AVG() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')}) / ${params.length}`;
   }
 
@@ -347,7 +420,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   value(text: string): string {
-    return this.toNumericSafe(text);
+    return this.toNumericSafe(text, 0);
   }
 
   // Text Functions
@@ -366,11 +439,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   equal(left: string, right: string): string {
-    return this.buildBlankAwareComparison('=', left, right);
+    return this.buildBlankAwareComparison('=', left, right, { left: 0, right: 1 });
   }
 
   notEqual(left: string, right: string): string {
-    return this.buildBlankAwareComparison('<>', left, right);
+    return this.buildBlankAwareComparison('<>', left, right, { left: 0, right: 1 });
   }
 
   // Override bitwiseAnd to handle PostgreSQL-specific type conversion
@@ -783,7 +856,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    const booleanCondition = this.normalizeBooleanCondition(condition);
+    const booleanCondition = this.normalizeBooleanCondition(condition, 0);
     return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
@@ -855,7 +928,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   countA(params: string[]): string {
     // Count non-empty values (including zeros)
-    const blankAwareChecks = params.map((p) => this.countANonNullExpression(p));
+    const blankAwareChecks = params.map((p, index) => this.countANonNullExpression(p, index));
     return `(${blankAwareChecks.join(' + ')})`;
   }
 

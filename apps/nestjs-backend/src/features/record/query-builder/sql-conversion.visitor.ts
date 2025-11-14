@@ -364,14 +364,20 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitUnaryOp(ctx: UnaryOpContext): string {
-    const operand = ctx.expr().accept(this);
+    const operandCtx = ctx.expr();
+    const operand = operandCtx.accept(this);
     const operator = ctx.MINUS();
+    const metadata = [this.buildParamMetadata(operandCtx)];
+    this.formulaQuery.setCallMetadata(metadata);
 
-    if (operator) {
-      return this.formulaQuery.unaryMinus(operand);
+    try {
+      if (operator) {
+        return this.formulaQuery.unaryMinus(operand);
+      }
+      return operand;
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
     }
-
-    return operand;
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
@@ -746,91 +752,103 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitBinaryOp(ctx: BinaryOpContext): string {
-    let left = ctx.expr(0).accept(this);
-    let right = ctx.expr(1).accept(this);
-    const operator = ctx._op;
+    const exprContexts = [ctx.expr(0), ctx.expr(1)];
+    const paramMetadata = exprContexts.map((exprCtx) => this.buildParamMetadata(exprCtx));
+    this.formulaQuery.setCallMetadata(paramMetadata);
 
-    // For comparison operators, ensure operands are comparable to avoid
-    // Postgres errors like "operator does not exist: text > integer".
-    // If one side is number and the other is string, safely cast the string
-    // side to numeric (driver-aware) before building the comparison.
-    const leftType = this.inferExpressionType(ctx.expr(0));
-    const rightType = this.inferExpressionType(ctx.expr(1));
-    const needsNumericCoercion = (op: string) =>
-      ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
-    if (operator.text && needsNumericCoercion(operator.text)) {
-      if (leftType === 'number' && rightType === 'string') {
-        right = this.safeCastToNumeric(right);
-      } else if (leftType === 'string' && rightType === 'number') {
-        left = this.safeCastToNumeric(left);
-      }
-    }
+    try {
+      let left = exprContexts[0].accept(this);
+      let right = exprContexts[1].accept(this);
+      const operator = ctx._op;
 
-    // For arithmetic operators (except '+'), coerce string operands to numeric
-    // so expressions like "text * 3" or "'10' / '2'" work without errors in generated columns.
-    const needsArithmeticNumericCoercion = (op: string) => ['*', '/', '-', '%'].includes(op);
-    if (operator.text && needsArithmeticNumericCoercion(operator.text)) {
-      if (leftType === 'string') {
-        left = this.safeCastToNumeric(left);
-      }
-      if (rightType === 'string') {
-        right = this.safeCastToNumeric(right);
-      }
-    }
-
-    return match(operator.text)
-      .with('+', () => {
-        // Check if either operand is a string type for concatenation
-        const _leftType = this.inferExpressionType(ctx.expr(0));
-        const _rightType = this.inferExpressionType(ctx.expr(1));
-
-        const forceNumericAddition = this.shouldForceNumericAddition();
-
-        if (
-          !forceNumericAddition &&
-          (_leftType === 'string' ||
-            _rightType === 'string' ||
-            _leftType === 'datetime' ||
-            _rightType === 'datetime')
-        ) {
-          const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), _leftType);
-          const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), _rightType);
-          return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+      // For comparison operators, ensure operands are comparable to avoid
+      // Postgres errors like "operator does not exist: text > integer".
+      // If one side is number and the other is string, safely cast the string
+      // side to numeric (driver-aware) before building the comparison.
+      const leftType = this.inferExpressionType(exprContexts[0]);
+      const rightType = this.inferExpressionType(exprContexts[1]);
+      const needsNumericCoercion = (op: string) =>
+        ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
+      if (operator.text && needsNumericCoercion(operator.text)) {
+        if (leftType === 'number' && rightType === 'string') {
+          right = this.safeCastToNumeric(right);
+        } else if (leftType === 'string' && rightType === 'number') {
+          left = this.safeCastToNumeric(left);
         }
+      }
 
-        return this.formulaQuery.add(left, right);
-      })
-      .with('-', () => this.formulaQuery.subtract(left, right))
-      .with('*', () => this.formulaQuery.multiply(left, right))
-      .with('/', () => this.formulaQuery.divide(left, right))
-      .with('%', () => this.formulaQuery.modulo(left, right))
-      .with('>', () => this.formulaQuery.greaterThan(left, right))
-      .with('<', () => this.formulaQuery.lessThan(left, right))
-      .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
-      .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
-      .with('=', () => this.formulaQuery.equal(left, right))
-      .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
-      .with('&&', () => {
-        const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
-        const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
-        return this.formulaQuery.logicalAnd(normalizedLeft, normalizedRight);
-      })
-      .with('||', () => {
-        const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
-        const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
-        return this.formulaQuery.logicalOr(normalizedLeft, normalizedRight);
-      })
-      .with('&', () => {
-        // Always treat & as string concatenation to avoid type issues
-        const leftType = this.inferExpressionType(ctx.expr(0));
-        const rightType = this.inferExpressionType(ctx.expr(1));
-        const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), leftType);
-        const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), rightType);
-        return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
-      })
-      .otherwise((op) => {
-        throw new Error(`Unsupported binary operator: ${op}`);
-      });
+      // For arithmetic operators (except '+'), coerce string operands to numeric
+      // so expressions like "text * 3" or "'10' / '2'" work without errors in generated columns.
+      const needsArithmeticNumericCoercion = (op: string) => ['*', '/', '-', '%'].includes(op);
+      if (operator.text && needsArithmeticNumericCoercion(operator.text)) {
+        if (leftType === 'string') {
+          left = this.safeCastToNumeric(left);
+        }
+        if (rightType === 'string') {
+          right = this.safeCastToNumeric(right);
+        }
+      }
+
+      return match(operator.text)
+        .with('+', () => {
+          // Check if either operand is a string type for concatenation
+          const _leftType = this.inferExpressionType(exprContexts[0]);
+          const _rightType = this.inferExpressionType(exprContexts[1]);
+
+          const forceNumericAddition = this.shouldForceNumericAddition();
+
+          if (
+            !forceNumericAddition &&
+            (_leftType === 'string' ||
+              _rightType === 'string' ||
+              _leftType === 'datetime' ||
+              _rightType === 'datetime')
+          ) {
+            const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), _leftType);
+            const coercedRight = this.coerceToStringForConcatenation(
+              right,
+              ctx.expr(1),
+              _rightType
+            );
+            return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+          }
+
+          return this.formulaQuery.add(left, right);
+        })
+        .with('-', () => this.formulaQuery.subtract(left, right))
+        .with('*', () => this.formulaQuery.multiply(left, right))
+        .with('/', () => this.formulaQuery.divide(left, right))
+        .with('%', () => this.formulaQuery.modulo(left, right))
+        .with('>', () => this.formulaQuery.greaterThan(left, right))
+        .with('<', () => this.formulaQuery.lessThan(left, right))
+        .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
+        .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
+        .with('=', () => this.formulaQuery.equal(left, right))
+        .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
+        .with('&&', () => {
+          const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
+          const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
+          return this.formulaQuery.logicalAnd(normalizedLeft, normalizedRight);
+        })
+        .with('||', () => {
+          const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
+          const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
+          return this.formulaQuery.logicalOr(normalizedLeft, normalizedRight);
+        })
+        .with('&', () => {
+          // Always treat & as string concatenation to avoid type issues
+          const leftType = this.inferExpressionType(ctx.expr(0));
+          const rightType = this.inferExpressionType(ctx.expr(1));
+          const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), leftType);
+          const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), rightType);
+          return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+        })
+        .otherwise((op) => {
+          throw new Error(`Unsupported binary operator: ${op}`);
+        });
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
+    }
   }
 
   private normalizeFunctionParamsForMultiplicity(
@@ -1514,8 +1532,9 @@ abstract class BaseSqlConversionVisitor<
 
   private buildParamMetadata(exprCtx: ExprContext): IFormulaParamMetadata {
     const type = this.inferExpressionType(exprCtx) as FormulaParamType;
-    if (exprCtx instanceof FieldReferenceCurlyContext) {
-      const { fieldId, fieldInfo } = this.resolveFieldReference(exprCtx);
+    const fieldRef = this.extractFieldReferenceMetadata(exprCtx);
+    if (fieldRef) {
+      const { fieldId, fieldInfo } = fieldRef;
       const fieldMetadata: IFormulaParamFieldMetadata = {
         id: fieldId,
         type: fieldInfo?.type as FieldType | undefined,
@@ -1534,6 +1553,24 @@ abstract class BaseSqlConversionVisitor<
       type,
       isFieldReference: false,
     };
+  }
+
+  private extractFieldReferenceMetadata(
+    exprCtx: ExprContext
+  ): { fieldId: string; fieldInfo?: FieldCore } | undefined {
+    if (exprCtx instanceof FieldReferenceCurlyContext) {
+      return this.resolveFieldReference(exprCtx);
+    }
+    if (exprCtx instanceof BracketsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    if (exprCtx instanceof LeftWhitespaceOrCommentsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    if (exprCtx instanceof RightWhitespaceOrCommentsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    return undefined;
   }
 
   /**

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUpdateRecordsRo, IRecordInsertOrderRo } from '@teable/openapi';
+import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
@@ -14,6 +14,7 @@ import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-map
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
+import { IUpdateRecordsInternalRo } from '../type';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
 @Injectable()
@@ -34,16 +35,18 @@ export class RecordUpdateService {
   @retryOnDeadlock()
   async updateRecords(
     tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    },
+    updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
-    const { records, order, fieldKeyType = FieldKeyType.Name, typecast } = updateRecordsRo;
+    const {
+      records,
+      order,
+      fieldKeyType = FieldKeyType.Name,
+      typecast,
+      fieldIds,
+    } = updateRecordsRo;
+
+    const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const orderIndexesBefore =
       order != null && windowId
         ? await this.recordService.getRecordIndexes(
@@ -65,7 +68,7 @@ export class RecordUpdateService {
 
       const typecastRecords = await this.shared.validateFieldsAndTypecast(
         tableId,
-        records,
+        scopedRecords,
         fieldKeyType,
         typecast
       );
@@ -103,7 +106,7 @@ export class RecordUpdateService {
         windowId,
         userId: this.cls.get('user.id'),
         recordIds,
-        fieldIds: Object.keys(records[0]?.fields || {}),
+        fieldIds: fieldIds?.length ? fieldIds : Object.keys(scopedRecords[0]?.fields || {}),
         cellContexts,
         orderIndexesBefore,
         orderIndexesAfter,
@@ -124,21 +127,13 @@ export class RecordUpdateService {
     };
   }
 
-  async simpleUpdateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    }
-  ) {
-    const { fieldKeyType = FieldKeyType.Name, records } = updateRecordsRo;
+  async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsInternalRo) {
+    const { fieldKeyType = FieldKeyType.Name, records, fieldIds } = updateRecordsRo;
+    const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
       tableId,
       fieldKeyType,
-      records
+      scopedRecords
     );
 
     const cellContexts = await this.shared.generateCellContexts(
@@ -162,5 +157,32 @@ export class RecordUpdateService {
       }
     );
     return cellContexts;
+  }
+
+  private filterRecordsByFieldKeys<
+    T extends { fields: Record<string, unknown> } & Record<string, unknown>,
+  >(records: T[], fieldKeys?: string[]): T[] {
+    if (!fieldKeys?.length) {
+      return records;
+    }
+    const keySet = new Set(fieldKeys);
+    return records.map((record) => {
+      const filteredFields: Record<string, unknown> = {};
+      let same = true;
+      for (const [key, value] of Object.entries(record.fields)) {
+        if (keySet.has(key)) {
+          filteredFields[key] = value;
+        } else {
+          same = false;
+        }
+      }
+      if (same) {
+        return record;
+      }
+      return {
+        ...record,
+        fields: filteredFields,
+      } as T;
+    });
   }
 }

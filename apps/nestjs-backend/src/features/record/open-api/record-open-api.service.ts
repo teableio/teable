@@ -8,7 +8,7 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ICreateRecordsRo } from '@teable/openapi';
+import { ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -17,7 +17,6 @@ import type {
   IRecordHistoryVo,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
-  IUpdateRecordsRo,
 } from '@teable/openapi';
 import { keyBy, pick } from 'lodash';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
@@ -29,6 +28,7 @@ import { RecordModifyService } from '../record-modify/record-modify.service';
 import { RecordModifySharedService } from '../record-modify/record-modify.shared.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
+import type { IUpdateRecordsInternalRo } from '../type';
 
 @Injectable()
 export class RecordOpenApiService {
@@ -82,31 +82,19 @@ export class RecordOpenApiService {
   }
 
   @retryOnDeadlock()
-  async updateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    },
-    windowId?: string
-  ) {
-    return await this.recordModifyService.updateRecords(tableId, updateRecordsRo, windowId);
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo, windowId?: string) {
+    return await this.recordModifyService.updateRecords(
+      tableId,
+      updateRecordsRo as IUpdateRecordsInternalRo,
+      windowId
+    );
   }
 
-  async simpleUpdateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    }
-  ) {
-    return await this.recordModifyService.simpleUpdateRecords(tableId, updateRecordsRo);
+  async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
+    return await this.recordModifyService.simpleUpdateRecords(
+      tableId,
+      updateRecordsRo as IUpdateRecordsInternalRo
+    );
   }
 
   async updateRecord(

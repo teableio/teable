@@ -543,6 +543,7 @@ describe('selectionService', () => {
         fieldKeyType: FieldKeyType.Id,
         records: [{ id: 'record1', fields: { field1: null } }],
       };
+      const expectedFieldIds = fields.map((field) => field.id);
 
       // Mock the required methods from the service
       selectionService['getSelectionCtxByRange'] = vi.fn().mockResolvedValue({ fields, records });
@@ -561,7 +562,7 @@ describe('selectionService', () => {
       expect(selectionService['fillCells']).toHaveBeenCalledWith(records, [{ fields: {} }]);
       expect(recordOpenApiService.updateRecords).toHaveBeenCalledWith(
         tableId,
-        updateRecordsRo,
+        { ...updateRecordsRo, fieldIds: expectedFieldIds },
         undefined
       );
     });

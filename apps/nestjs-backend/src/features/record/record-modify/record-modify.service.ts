@@ -2,13 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { FieldKeyType } from '@teable/core';
 import type { IMakeOptional } from '@teable/core';
 import type {
-  IUpdateRecordsRo,
   IRecord,
   ICreateRecordsRo,
   ICreateRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
 import type { IRecordInnerRo } from '../record.service';
+import type { IUpdateRecordsInternalRo } from '../type';
 import { RecordCreateService } from './record-create.service';
 import { RecordDeleteService } from './record-delete.service';
 import { RecordDuplicateService } from './record-duplicate.service';
@@ -25,20 +25,13 @@ export class RecordModifyService {
 
   async updateRecords(
     tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: { id: string; fields: Record<string, unknown>; order?: Record<string, number> }[];
-    },
+    updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
     return this.updateService.updateRecords(tableId, updateRecordsRo, windowId);
   }
 
-  async simpleUpdateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: { id: string; fields: Record<string, unknown>; order?: Record<string, number> }[];
-    }
-  ) {
+  async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsInternalRo) {
     return this.updateService.simpleUpdateRecords(tableId, updateRecordsRo);
   }
 

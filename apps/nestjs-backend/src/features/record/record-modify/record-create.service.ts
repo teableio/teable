@@ -70,6 +70,8 @@ export class RecordCreateService {
         isComputed: true,
         isLookup: true,
         isConditionalLookup: true,
+        lookupOptions: true,
+        lookupLinkedFieldId: true,
         dbFieldName: true,
       },
     });
