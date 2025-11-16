@@ -152,6 +152,34 @@ describe('ButtonOptions', () => {
     expect(screen.queryByText('table:field.default.button.openLink')).not.toBeInTheDocument();
   });
 
+  it('does not render click count limit for openLink action', () => {
+    const options = {
+      action: 'openLink' as const,
+      url: 'https://test.com',
+    };
+
+    render(<ButtonOptions options={options} onChange={mockOnChange} />);
+
+    expect(screen.queryByText('table:field.default.button.limitCount')).not.toBeInTheDocument();
+    expect(screen.queryByText('table:field.default.button.resetCount')).not.toBeInTheDocument();
+    expect(screen.queryByText('table:field.default.button.maxCount')).not.toBeInTheDocument();
+  });
+
+  it('renders click count limit for workflow action', () => {
+    const options = {
+      action: 'workflow' as const,
+      workflow: {
+        id: 'workflow_123',
+        name: 'Test Workflow',
+        isActive: true,
+      },
+    };
+
+    render(<ButtonOptions options={options} onChange={mockOnChange} />);
+
+    expect(screen.getByText('table:field.default.button.limitCount')).toBeInTheDocument();
+  });
+
   it('clears workflow when switching to openLink', () => {
     const options = {
       action: 'workflow' as const,
