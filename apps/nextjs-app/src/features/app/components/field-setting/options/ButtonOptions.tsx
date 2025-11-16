@@ -7,13 +7,18 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   Switch,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
-import { PencilIcon, PlusIcon } from 'lucide-react';
+import { ExternalLinkIcon, PencilIcon, PlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
@@ -75,6 +80,35 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
   );
 };
 
+const OpenLinkAction = (props: {
+  options?: Partial<IButtonFieldOptions>;
+  onChange?: (options: Partial<IButtonFieldOptions>) => void;
+}) => {
+  const { options, onChange } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label className="text-sm font-medium">{t('table:field.default.button.linkUrl')}</Label>
+      <Input
+        placeholder="https://example.com"
+        value={options?.url || ''}
+        onChange={(e) => onChange?.({ ...options, url: e.target.value })}
+      />
+
+      <div className="flex h-8 items-center gap-2">
+        <Switch
+          checked={options?.openInNewTab ?? true}
+          onCheckedChange={(checked) => onChange?.({ ...options, openInNewTab: checked })}
+        />
+        <Label className="text-sm font-normal">
+          {t('table:field.default.button.openInNewTab')}
+        </Label>
+      </div>
+    </div>
+  );
+};
+
 export const ButtonOptions = (props: {
   options: Partial<IButtonFieldOptions> | undefined;
   onChange?: (options: Partial<IButtonFieldOptions>) => void;
@@ -85,6 +119,7 @@ export const ButtonOptions = (props: {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
+  const [action, setAction] = useState<'workflow' | 'openLink'>(options?.action || 'workflow');
 
   return (
     <div className="form-control space-y-4 border-t pt-4">
@@ -114,13 +149,63 @@ export const ButtonOptions = (props: {
 
               <Input
                 className="h-9 flex-1"
-                value={options?.label ?? '123'}
+                value={options?.label ?? 'Button'}
                 onChange={(e) => onChange?.({ ...options, label: e.target.value })}
               />
             </div>
           </div>
 
-          <WorkflowAction options={options} onSave={onSave} />
+          <div className="flex flex-col gap-2">
+            <Label className="text-sm font-medium">{t('table:field.default.button.action')}</Label>
+            <Select
+              value={action}
+              onValueChange={(value: 'workflow' | 'openLink') => {
+                setAction(value);
+                onChange?.({
+                  ...options,
+                  action: value,
+                  // Clear workflow when switching to openLink
+                  ...(value === 'openLink' ? { workflow: undefined } : {}),
+                });
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue>
+                  {action === 'workflow' ? (
+                    <div className="flex items-center gap-2">
+                      <PencilIcon className="size-4" />
+                      {t('table:field.default.button.triggerWorkflow')}
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <ExternalLinkIcon className="size-4" />
+                      {t('table:field.default.button.openLink')}
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="workflow">
+                  <div className="flex items-center gap-2">
+                    <PencilIcon className="size-4" />
+                    {t('table:field.default.button.triggerWorkflow')}
+                  </div>
+                </SelectItem>
+                <SelectItem value="openLink">
+                  <div className="flex items-center gap-2">
+                    <ExternalLinkIcon className="size-4" />
+                    {t('table:field.default.button.openLink')}
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {action === 'workflow' ? (
+            <WorkflowAction options={options} onSave={onSave} />
+          ) : (
+            <OpenLinkAction options={options} onChange={onChange} />
+          )}
 
           <div className="flex flex-col gap-2">
             <div className="flex h-8 items-center gap-2">
