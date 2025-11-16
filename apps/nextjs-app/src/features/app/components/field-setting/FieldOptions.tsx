@@ -50,6 +50,7 @@ export interface IFieldOptionsProps {
 
 export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, onSave }) => {
   const { id, type, isLookup, cellValueType, isMultipleCellValue, options } = field;
+  const fields = useFields({ withHidden: true, withDenied: true });
   const lookupField = useRollupLookupField(field.lookupOptions);
   const lookupCellValueType = useMemo(
     () => normalizeCellValueType(lookupField?.cellValueType),
@@ -190,6 +191,11 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
           isLookup={isLookup}
           onChange={onChange}
           onSave={onSave}
+          fields={fields.map((field) => ({
+            id: field.id,
+            name: field.name,
+            type: field.type,
+          }))}
         />
       );
     default:

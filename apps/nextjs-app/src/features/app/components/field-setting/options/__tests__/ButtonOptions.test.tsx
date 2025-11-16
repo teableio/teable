@@ -165,6 +165,61 @@ describe('ButtonOptions', () => {
     expect(screen.queryByText('table:field.default.button.maxCount')).not.toBeInTheDocument();
   });
 
+  it('renders manual URL mode by default', () => {
+    const options = {
+      action: 'openLink' as const,
+      url: 'https://test.com',
+    };
+
+    render(<ButtonOptions options={options} onChange={mockOnChange} />);
+
+    expect(screen.getByText('table:field.default.button.manualUrl')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('https://test.com')).toBeInTheDocument();
+  });
+
+  it('renders field mode when URL is a field reference', () => {
+    const options = {
+      action: 'openLink' as const,
+      url: '{field123}',
+    };
+
+    const fields = [
+      { id: 'field123', name: 'Website URL', type: 'singleLineText' },
+      { id: 'field456', name: 'Formula', type: 'formula' },
+    ];
+
+    render(<ButtonOptions options={options} onChange={mockOnChange} fields={fields} />);
+
+    expect(screen.getByText('table:field.default.button.fieldUrl')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Website URL (SingleLineText)')).toBeInTheDocument();
+  });
+
+  it('switches between manual and field URL modes', () => {
+    const options = {
+      action: 'openLink' as const,
+      url: 'https://example.com',
+    };
+
+    const fields = [{ id: 'field123', name: 'Dynamic Link', type: 'singleLineText' }];
+
+    render(<ButtonOptions options={options} onChange={mockOnChange} fields={fields} />);
+
+    // Initially in manual mode
+    expect(screen.getByText('table:field.default.button.manualUrl')).toBeInTheDocument();
+
+    // Switch to field mode
+    const modeSelect = screen.getAllByRole('combobox')[0];
+    fireEvent.click(modeSelect);
+    fireEvent.click(screen.getByText('table:field.default.button.fieldUrl'));
+
+    expect(screen.getByText('table:field.default.button.fieldUrl')).toBeInTheDocument();
+    expect(mockOnChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        url: '{field123}',
+      })
+    );
+  });
+
   it('renders click count limit for workflow action', () => {
     const options = {
       action: 'workflow' as const,

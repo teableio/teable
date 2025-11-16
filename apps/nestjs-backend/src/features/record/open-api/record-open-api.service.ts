@@ -8,7 +8,7 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
+import { ICreateRecordsRo, IUpdateRecordsRo, IButtonClickVo } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -335,7 +335,7 @@ export class RecordOpenApiService {
       });
   }
 
-  async buttonClick(tableId: string, recordId: string, fieldId: string) {
+  async buttonClick(tableId: string, recordId: string, fieldId: string): Promise<IButtonClickVo> {
     const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: {
         id: fieldId,
@@ -346,6 +346,72 @@ export class RecordOpenApiService {
 
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
     const options = fieldInstance.options as IButtonFieldOptions;
+    const action = options.action || 'workflow';
+
+    // Handle openLink action
+    if (action === 'openLink') {
+      if (!options.url) {
+        throw new BadRequestException('URL is not configured for openLink action');
+      }
+
+      // Get the record for field value resolution
+      const record = await this.recordService.getRecord(tableId, recordId, {
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      let resolvedUrl = options.url;
+
+      // Check if URL is a field reference (format: {fieldId})
+      if (options.url.startsWith('{') && options.url.endsWith('}')) {
+        const referencedFieldId = options.url.slice(1, -1);
+        const referencedFieldValue = record.fields[referencedFieldId];
+
+        if (referencedFieldValue !== null && referencedFieldValue !== undefined) {
+          // Handle different field types
+          if (typeof referencedFieldValue === 'string') {
+            resolvedUrl = referencedFieldValue;
+          } else if (Array.isArray(referencedFieldValue) && referencedFieldValue.length > 0) {
+            // Handle multiple selection fields - take first value
+            resolvedUrl = String(referencedFieldValue[0]);
+          } else {
+            resolvedUrl = String(referencedFieldValue);
+          }
+        } else {
+          throw new BadRequestException(`Field ${referencedFieldId} has no value for URL`);
+        }
+      }
+
+      // Validate URL format (skip validation for resolved field values that might be dynamic)
+      if (!options.url.startsWith('{')) {
+        try {
+          new URL(resolvedUrl);
+        } catch {
+          throw new BadRequestException(`Invalid URL format: ${resolvedUrl}`);
+        }
+      }
+
+      const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
+      const count = fieldValue?.count || 0;
+
+      const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
+        record: {
+          fields: { [fieldId]: { count: count + 1 } },
+        },
+        fieldKeyType: FieldKeyType.Id,
+      });
+      updatedRecord.fields = pick(updatedRecord.fields, [fieldId]);
+
+      return {
+        tableId,
+        fieldId,
+        record: updatedRecord,
+        action: 'openLink',
+        url: resolvedUrl,
+        openInNewTab: options.openInNewTab ?? true,
+      };
+    }
+
+    // Handle workflow action (existing logic)
     const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
     if (!isActive) {
       throw new BadRequestException(
@@ -375,6 +441,7 @@ export class RecordOpenApiService {
       tableId,
       fieldId,
       record: updatedRecord,
+      action: 'workflow',
     };
   }
 

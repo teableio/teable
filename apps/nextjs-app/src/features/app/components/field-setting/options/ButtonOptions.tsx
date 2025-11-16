@@ -1,5 +1,6 @@
 import { Colors, ColorUtils } from '@teable/core';
-import type { IButtonFieldOptions } from '@teable/core';
+import type { IButtonFieldOptions, FieldType } from '@teable/core';
+import { useFieldStaticGetter } from '@teable/sdk';
 import {
   Button,
   Input,
@@ -83,18 +84,109 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
 const OpenLinkAction = (props: {
   options?: Partial<IButtonFieldOptions>;
   onChange?: (options: Partial<IButtonFieldOptions>) => void;
+  fields?: Array<{ id: string; name: string; type: string }>;
 }) => {
-  const { options, onChange } = props;
+  const { options, onChange, fields = [] } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const getFieldStatic = useFieldStaticGetter();
+  const [urlMode, setUrlMode] = useState<'manual' | 'field'>(
+    options?.url && options.url.startsWith('{') && options.url.endsWith('}') ? 'field' : 'manual'
+  );
+
+  // Filter for text and formula fields
+  const textFields = fields.filter(
+    (field) =>
+      field.type === 'singleLineText' || field.type === 'formula' || field.type === 'longText'
+  );
+
+  const handleUrlChange = (value: string) => {
+    onChange?.({ ...options, url: value });
+  };
+
+  const handleFieldSelect = (fieldId: string) => {
+    onChange?.({ ...options, url: `{${fieldId}}` });
+  };
+
+  const currentFieldValue = options?.url;
+  const selectedFieldId =
+    currentFieldValue?.startsWith('{') && currentFieldValue.endsWith('}')
+      ? currentFieldValue.slice(1, -1)
+      : '';
 
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-sm font-medium">{t('table:field.default.button.linkUrl')}</Label>
-      <Input
-        placeholder="https://example.com"
-        value={options?.url || ''}
-        onChange={(e) => onChange?.({ ...options, url: e.target.value })}
-      />
+
+      <div className="flex gap-2">
+        <Select value={urlMode} onValueChange={(value: 'manual' | 'field') => setUrlMode(value)}>
+          <SelectTrigger className="w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="manual">{t('table:field.default.button.manualUrl')}</SelectItem>
+            <SelectItem value="field">{t('table:field.default.button.fieldUrl')}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {urlMode === 'manual' ? (
+          <Input
+            placeholder="https://example.com"
+            value={currentFieldValue && !currentFieldValue.startsWith('{') ? currentFieldValue : ''}
+            onChange={(e) => handleUrlChange(e.target.value)}
+            className="flex-1"
+          />
+        ) : (
+          <Select
+            value={selectedFieldId}
+            onValueChange={handleFieldSelect}
+            disabled={textFields.length === 0}
+          >
+            <SelectTrigger className="flex-1">
+              <SelectValue
+                placeholder={
+                  textFields.length === 0
+                    ? t('table:field.default.button.noTextFields')
+                    : t('table:field.default.button.selectField')
+                }
+              >
+                {selectedFieldId &&
+                  (() => {
+                    const selectedField = textFields.find((f) => f.id === selectedFieldId);
+                    if (selectedField) {
+                      const { Icon } = getFieldStatic(selectedField.type as FieldType, {
+                        isLookup: false,
+                        hasAiConfig: false,
+                      });
+                      return (
+                        <div className="flex items-center gap-2">
+                          <Icon className="size-4" />
+                          <span>{selectedField.name}</span>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {textFields.map((field) => {
+                const { Icon } = getFieldStatic(field.type as FieldType, {
+                  isLookup: false,
+                  hasAiConfig: false,
+                });
+                return (
+                  <SelectItem key={field.id} value={field.id}>
+                    <div className="flex items-center gap-2">
+                      <Icon className="size-4" />
+                      <span>{field.name}</span>
+                    </div>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        )}
+      </div>
 
       <div className="flex h-8 items-center gap-2">
         <Switch
@@ -114,8 +206,9 @@ export const ButtonOptions = (props: {
   onChange?: (options: Partial<IButtonFieldOptions>) => void;
   isLookup?: boolean;
   onSave?: () => void;
+  fields?: Array<{ id: string; name: string; type: string }>;
 }) => {
-  const { isLookup, options, onChange, onSave } = props;
+  const { isLookup, options, onChange, onSave, fields } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const bgColor = ColorUtils.getHexForColor(options?.color ?? Colors.Teal);
   const [limitClickCount, setLimitClickCount] = useState<boolean>((options?.maxCount ?? 0) > 0);
@@ -204,7 +297,7 @@ export const ButtonOptions = (props: {
           {action === 'workflow' ? (
             <WorkflowAction options={options} onSave={onSave} />
           ) : (
-            <OpenLinkAction options={options} onChange={onChange} />
+            <OpenLinkAction options={options} onChange={onChange} fields={fields} />
           )}
 
           {/* Click count limit - only show for workflow action */}

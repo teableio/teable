@@ -25,6 +25,7 @@ export class ButtonFieldCore extends FieldCore {
     return {
       label: 'Button',
       color: Colors.Teal,
+      action: 'workflow',
     };
   }
 

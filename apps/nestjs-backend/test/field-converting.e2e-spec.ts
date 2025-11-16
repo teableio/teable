@@ -4500,6 +4500,113 @@ describe('OpenAPI Freely perform column transformations (e2e)', () => {
 
       expect(newRecords[0].fields[buttonField.id]).toBeUndefined();
     });
+
+    it('should handle button field with openLink action', async () => {
+      const buttonFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'Open Google',
+          color: Colors.Blue,
+          action: 'openLink',
+          url: 'https://www.google.com',
+          openInNewTab: true,
+        },
+      };
+
+      const buttonField = await createField(table1.id, buttonFieldRo);
+
+      // Test button click with openLink action
+      const clickRes = await buttonClick(table1.id, table1.records[0].id, buttonField.id);
+
+      expect(clickRes.status).toEqual(200);
+      expect(clickRes.data.action).toEqual('openLink');
+      expect(clickRes.data.url).toEqual('https://www.google.com');
+      expect(clickRes.data.openInNewTab).toEqual(true);
+
+      // Check that click count is incremented
+      const clickValue = clickRes.data.record.fields[buttonField.id] as IButtonFieldCellValue;
+      expect(clickValue.count).toEqual(1);
+
+      // Test second click
+      const clickRes2 = await buttonClick(table1.id, table1.records[0].id, buttonField.id);
+      const clickValue2 = clickRes2.data.record.fields[buttonField.id] as IButtonFieldCellValue;
+      expect(clickValue2.count).toEqual(2);
+    });
+
+    it('should handle button field with openLink action in current tab', async () => {
+      const buttonFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'Open Example',
+          color: Colors.Green,
+          action: 'openLink',
+          url: 'https://example.com',
+          openInNewTab: false,
+        },
+      };
+
+      const buttonField = await createField(table1.id, buttonFieldRo);
+
+      const clickRes = await buttonClick(table1.id, table1.records[0].id, buttonField.id);
+
+      expect(clickRes.status).toEqual(200);
+      expect(clickRes.data.action).toEqual('openLink');
+      expect(clickRes.data.url).toEqual('https://example.com');
+      expect(clickRes.data.openInNewTab).toEqual(false);
+    });
+
+    it('should fail when openLink action has no URL', async () => {
+      const buttonFieldRo: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'Broken Link',
+          color: Colors.Red,
+          action: 'openLink',
+          // Missing URL
+        },
+      };
+
+      const buttonField = await createField(table1.id, buttonFieldRo);
+
+      // Should fail when trying to click without URL
+      await expect(buttonClick(table1.id, table1.records[0].id, buttonField.id)).rejects.toThrow(
+        'URL is not configured for openLink action'
+      );
+    });
+
+    it('should convert button field from workflow to openLink action', async () => {
+      const buttonFieldRo1: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'Workflow Button',
+          color: Colors.Purple,
+          action: 'workflow',
+          workflow: {
+            id: generateWorkflowId(),
+            name: 'workflow1',
+            isActive: true,
+          },
+        },
+      };
+
+      const buttonFieldRo2: IFieldRo = {
+        type: FieldType.Button,
+        options: {
+          label: 'Link Button',
+          color: Colors.Blue,
+          action: 'openLink',
+          url: 'https://teable.io',
+          openInNewTab: true,
+        },
+      };
+
+      const { newField } = await expectUpdate(table1, buttonFieldRo1, buttonFieldRo2);
+      const options = newField.options as IButtonFieldOptions;
+      expect(options.action).toEqual('openLink');
+      expect(options.url).toEqual('https://teable.io');
+      expect(options.openInNewTab).toEqual(true);
+      expect(options.workflow).toBeUndefined();
+    });
   });
 
   describe('modify primary field', () => {

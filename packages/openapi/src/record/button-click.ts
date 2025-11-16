@@ -8,10 +8,13 @@ import { registerRoute, urlBuilder } from '../utils';
 export const BUTTON_CLICK = '/table/{tableId}/record/{recordId}/{fieldId}/button-click';
 
 export const buttonClickVoSchema = z.object({
-  runId: z.string(),
+  runId: z.string().optional(),
   tableId: z.string(),
   fieldId: z.string(),
   record: recordSchema,
+  action: z.enum(['workflow', 'openLink']).optional(),
+  url: z.string().optional(),
+  openInNewTab: z.boolean().optional(),
 });
 
 export type IButtonClickVo = z.infer<typeof buttonClickVoSchema>;

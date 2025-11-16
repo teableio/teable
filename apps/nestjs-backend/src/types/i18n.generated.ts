@@ -2619,6 +2619,16 @@ export type I18nTranslations = {
                     "maxCount": string;
                     "automation": string;
                     "customAutomation": string;
+                    "action": string;
+                    "triggerWorkflow": string;
+                    "openLink": string;
+                    "linkUrl": string;
+                    "manualUrl": string;
+                    "fieldUrl": string;
+                    "selectField": string;
+                    "noTextFields": string;
+                    "fieldUrlDescription": string;
+                    "openInNewTab": string;
                 };
                 "formula": {
                     "title": string;
