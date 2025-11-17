@@ -1,13 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
-import type { FieldKeyType } from '@teable/core';
-import { FieldType } from '@teable/core';
+import { FieldKeyType, TableDomain, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import { createFieldInstanceByRaw } from '../field/model/factory';
+import { Timing } from '../../utils/timing';
+import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
 
 @Injectable()
 export class SystemFieldService {
@@ -36,8 +36,9 @@ export class SystemFieldService {
     await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
   }
 
+  @Timing()
   async getModifiedSystemOpsMap(
-    tableId: string,
+    table: TableDomain,
     fieldKeyType: FieldKeyType,
     records: {
       fields: Record<string, unknown>;
@@ -52,10 +53,7 @@ export class SystemFieldService {
     const user = this.cls.get('user');
     const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
 
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
+    const dbTableName = table.dbTableName;
 
     await this.updateSystemField(
       dbTableName,
@@ -64,32 +62,28 @@ export class SystemFieldService {
       timeStr
     );
 
-    const fieldsRaw = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-        type: { in: [FieldType.LastModifiedTime, FieldType.LastModifiedBy] },
+    const lastModifiedFields = table.getLastModifiedFields();
+
+    if (!lastModifiedFields.length) return records;
+
+    const systemRecordFields = lastModifiedFields.reduce<{ [fieldId: string]: unknown }>(
+      (pre, field) => {
+        const type = field.type;
+        if (type === FieldType.LastModifiedTime) {
+          pre[field[fieldKeyType]] = timeStr;
+        }
+
+        if (type === FieldType.LastModifiedBy) {
+          pre[field[fieldKeyType]] = UserFieldDto.fullAvatarUrl({
+            id: user.id,
+            title: user.name,
+            email: user.email,
+          });
+        }
+        return pre;
       },
-    });
-
-    if (!fieldsRaw.length) return records;
-
-    const systemRecordFields = fieldsRaw.reduce<{ [fieldId: string]: unknown }>((pre, fieldRaw) => {
-      const field = createFieldInstanceByRaw(fieldRaw);
-      const { type } = field;
-      if (type === FieldType.LastModifiedTime) {
-        pre[field[fieldKeyType]] = timeStr;
-      }
-
-      if (type === FieldType.LastModifiedBy) {
-        pre[field[fieldKeyType]] = field.convertDBValue2CellValue({
-          id: user.id,
-          title: user.name,
-          email: user.email,
-        });
-      }
-      return pre;
-    }, {});
+      {}
+    );
 
     return records.map((record) => {
       return {

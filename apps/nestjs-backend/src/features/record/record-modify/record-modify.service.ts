@@ -7,6 +7,7 @@ import type {
   ICreateRecordsVo,
   IRecordInsertOrderRo,
 } from '@teable/openapi';
+import { TableDomainQueryService } from '../../table-domain';
 import type { IRecordInnerRo } from '../record.service';
 import type { IUpdateRecordsInternalRo } from '../type';
 import { RecordCreateService } from './record-create.service';
@@ -20,7 +21,8 @@ export class RecordModifyService {
     private readonly createService: RecordCreateService,
     private readonly updateService: RecordUpdateService,
     private readonly deleteService: RecordDeleteService,
-    private readonly duplicateService: RecordDuplicateService
+    private readonly duplicateService: RecordDuplicateService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   async updateRecords(
@@ -49,8 +51,9 @@ export class RecordModifyService {
     fieldKeyType?: FieldKeyType,
     projection?: string[]
   ): Promise<ICreateRecordsVo> {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     return this.createService.createRecords(
-      tableId,
+      table,
       recordsRo,
       fieldKeyType ?? FieldKeyType.Name,
       projection

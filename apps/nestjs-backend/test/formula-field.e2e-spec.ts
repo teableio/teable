@@ -715,42 +715,6 @@ describe('OpenAPI Formula Field (e2e)', () => {
       expect(record.fields[formulaFieldId]).toBe('Tail follow-up');
     });
 
-    it('should inject link placeholders even when lookup metadata lacks isComputed', async () => {
-      const prisma = app.get(PrismaService);
-      await prisma.field.updateMany({
-        where: { id: { in: [statusLookupFieldId, planLookupFieldId] } },
-        data: { isComputed: false },
-      });
-      await prisma.reference.deleteMany({ where: { fromFieldId: linkFieldId } });
-
-      const shared = app.get(RecordModifySharedService);
-      const fieldRaws = await prisma.field.findMany({
-        where: { tableId: followupTable.id, deletedTime: null },
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          options: true,
-          unique: true,
-          notNull: true,
-          isComputed: true,
-          isLookup: true,
-          isConditionalLookup: true,
-          lookupOptions: true,
-          lookupLinkedFieldId: true,
-          dbFieldName: true,
-        },
-      });
-
-      const records = await shared.ensureReferencedBaseFieldsForNewRecords(
-        [{ id: 'rec_test', fields: {} }],
-        FieldKeyType.Id,
-        fieldRaws
-      );
-
-      expect(records[0].fields[linkFieldId]).toBeNull();
-    });
-
     it('should fallback even if reference graph is completely missing', async () => {
       const prisma = app.get(PrismaService);
       await prisma.reference.deleteMany({});

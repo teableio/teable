@@ -7,6 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  FieldCore,
   IAttachmentCellValue,
   IColumnMeta,
   IExtraResult,
@@ -38,6 +39,7 @@ import {
   parseGroup,
   Relationship,
   StatisticsFunc,
+  TableDomain,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -82,7 +84,7 @@ import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
-import { IFieldRaws } from './type';
+import type { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -956,12 +958,13 @@ export class RecordService {
       .map((column) => column.name);
   }
 
+  @Timing()
   async getRecordIndexes(
-    tableId: string,
+    table: TableDomain,
     recordIds: string[],
     viewId?: string
   ): Promise<Record<string, number>[] | undefined> {
-    const dbTableName = await this.getDbTableName(tableId);
+    const dbTableName = table.dbTableName;
     const allViewIndexColumns = await this.getViewIndexColumns(dbTableName);
     const viewIndexColumns = viewId
       ? (() => {
@@ -1044,32 +1047,32 @@ export class RecordService {
 
   @Timing()
   async batchCreateRecords(
-    tableId: string,
+    table: TableDomain,
     records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fields: readonly FieldCore[]
   ) {
-    const snapshots = await this.createBatch(tableId, records, fieldKeyType, fieldRaws);
+    const snapshots = await this.createBatch(table, records, fieldKeyType, fields);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
       version: snapshot.__version == null ? 0 : snapshot.__version - 1,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
+    this.batchService.saveRawOps(table.id, RawOpType.Create, IdPrefix.Record, dataList);
   }
 
   @Timing()
   async createRecordsOnlySql(
-    tableId: string,
+    table: TableDomain,
     records: {
       fields: Record<string, unknown>;
     }[]
   ) {
     const userId = this.cls.get('user.id');
-    await this.creditCheck(tableId);
-    const dbTableName = await this.getDbTableName(tableId);
-    const fields = await this.getFieldsByProjection(tableId);
+    await this.creditCheck(table.id);
+    const dbTableName = table.dbTableName;
+    const fields = await this.getFieldsByProjection(table.id);
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
         map[curField.id] = curField;
@@ -1134,34 +1137,25 @@ export class RecordService {
   }
 
   private async createBatch(
-    tableId: string,
+    table: TableDomain,
     records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fields: readonly FieldCore[]
   ) {
     const userId = this.cls.get('user.id');
-    await this.creditCheck(tableId);
+    await this.creditCheck(table.id);
 
-    const { dbTableName, name: tableName } = await this.prismaService
-      .txClient()
-      .tableMeta.findUniqueOrThrow({
-        where: { id: tableId },
-        select: { dbTableName: true, name: true },
-      })
-      .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
-      });
-
+    const { dbTableName, name: tableName } = table;
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
 
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
+      where: { tableId: table.id, deletedTime: null },
       select: { id: true },
     });
 
     const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
 
-    const validationFields = fieldRaws
+    const validationFields = fields
       .filter((f) => !f.isComputed)
       .filter((f) => f.type !== FieldType.Link)
       .filter((field) => field.notNull || field.unique);

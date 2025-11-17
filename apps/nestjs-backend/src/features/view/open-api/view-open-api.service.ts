@@ -14,6 +14,7 @@ import type {
   IViewPropertyKeys,
   ISort,
   IGroup,
+  TableDomain,
 } from '@teable/core';
 import {
   ViewType,
@@ -613,6 +614,7 @@ export class ViewOpenApiService {
     await this.prismaService.$executeRawUnsafe(sql);
   }
 
+  @Timing()
   async updateRecordOrdersInner(props: {
     tableId: string;
     dbTableName: string;
@@ -707,21 +709,21 @@ export class ViewOpenApiService {
   }
 
   async updateRecordOrders(
-    tableId: string,
+    table: TableDomain,
     viewId: string,
     orderRo: IUpdateRecordOrdersRo,
     windowId?: string
   ) {
     const recordIds = orderRo.recordIds;
-    const dbTableName = await this.recordService.getDbTableName(tableId);
+    const dbTableName = table.dbTableName;
     const orderIndexesBefore = windowId
-      ? await this.recordService.getRecordIndexes(tableId, recordIds, viewId)
+      ? await this.recordService.getRecordIndexes(table, recordIds, viewId)
       : undefined;
 
     const indexField = await this.viewService.getOrCreateViewIndexField(dbTableName, viewId);
 
     await this.updateRecordOrdersInner({
-      tableId,
+      tableId: table.id,
       dbTableName,
       itemLength: recordIds.length,
       indexField,
@@ -734,7 +736,7 @@ export class ViewOpenApiService {
         });
 
         await this.prismaService.$tx(async (prisma) => {
-          await this.viewService.updateViewByOps(tableId, viewId, [ops]);
+          await this.viewService.updateViewByOps(table.id, viewId, [ops]);
           for (let i = 0; i < recordIds.length; i++) {
             const recordId = recordIds[i];
             const updateRecordSql = this.knex(dbTableName)
@@ -750,13 +752,9 @@ export class ViewOpenApiService {
     });
 
     if (windowId) {
-      const orderIndexesAfter = await this.recordService.getRecordIndexes(
-        tableId,
-        recordIds,
-        viewId
-      );
+      const orderIndexesAfter = await this.recordService.getRecordIndexes(table, recordIds, viewId);
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_ORDER_UPDATE, {
-        tableId,
+        tableId: table.id,
         windowId,
         recordIds,
         viewId,

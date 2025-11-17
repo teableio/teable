@@ -9,6 +9,7 @@ import type {
   ILinkFieldOptions,
   IConditionalRollupFieldOptions,
   IConditionalLookupOptions,
+  ILookupLinkOptionsVo,
   FieldCore,
   TableDomain,
 } from '@teable/core';
@@ -18,6 +19,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
 import {
@@ -115,6 +117,13 @@ export class ComputedDependencyCollectorService {
       return this.knex.raw(`??::json->'sort'->>'fieldId'`, [column]);
     }
     return this.knex.raw(`json_extract(??, '$.sort.fieldId')`, [column]);
+  }
+
+  private buildLookupOptionsAccessor(key: keyof ILookupLinkOptionsVo): Knex.Raw {
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      return this.knex.raw(`lookup_options::json->>?`, [key]);
+    }
+    return this.knex.raw(`json_extract(lookup_options, '$."${key}"')`);
   }
 
   private applySortFieldFilter(
@@ -221,6 +230,7 @@ export class ComputedDependencyCollectorService {
     return ids;
   }
 
+  @Timing()
   private async buildLinkEdgesForTables(
     tables: Iterable<string>,
     tableDomains?: ReadonlyMap<string, TableDomain>,
@@ -328,6 +338,7 @@ export class ComputedDependencyCollectorService {
     return changed;
   }
 
+  @Timing()
   private async computeLinkClosure(params: {
     impactedTables: ReadonlySet<string>;
     explicitSeeds: ReadonlyMap<string, Set<string>>;
@@ -531,6 +542,7 @@ export class ComputedDependencyCollectorService {
   /**
    * Resolve link field IDs among the provided field IDs and include their symmetric counterparts.
    */
+  @Timing()
   private async resolveRelatedLinkFieldIds(
     fieldIds: string[],
     fieldToTableMap?: Map<string, string>,
@@ -567,18 +579,26 @@ export class ComputedDependencyCollectorService {
    * Find lookup/rollup fields whose lookupOptions.linkFieldId equals any of the provided link IDs.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async findLookupsByLinkIds(linkFieldIds: string[]): Promise<Record<string, Set<string>>> {
     const acc: Record<string, Set<string>> = {};
-    if (!linkFieldIds.length) return acc;
-    for (const linkId of linkFieldIds) {
-      const sql = this.dbProvider.lookupOptionsQuery('linkFieldId', linkId);
-      const rows = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(sql);
-      for (const r of rows) {
-        if (!r.tableId || !r.id) continue;
-        (acc[r.tableId] ||= new Set<string>()).add(r.id);
-      }
+    const ids = Array.from(new Set(linkFieldIds.filter(Boolean)));
+    if (!ids.length) return acc;
+
+    const accessor = this.buildLookupOptionsAccessor('linkFieldId');
+    const { sql, bindings } = accessor.toSQL();
+    const placeholders = ids.map(() => '?').join(', ');
+    const query = this.knex('field')
+      .select({ tableId: 'table_id', id: 'id' })
+      .whereNull('deleted_time')
+      .whereRaw(`${sql} in (${placeholders})`, [...bindings, ...ids]);
+
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(query.toQuery());
+    for (const r of rows) {
+      if (!r.tableId || !r.id) continue;
+      (acc[r.tableId] ||= new Set<string>()).add(r.id);
     }
     return acc;
   }
@@ -587,6 +607,7 @@ export class ComputedDependencyCollectorService {
    * Same as collectDependentFieldIds but groups by table id directly in SQL.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async collectDependentFieldsByTable(
     startFieldIds: string[],
     excludeFieldIds?: string[]
@@ -971,6 +992,7 @@ export class ComputedDependencyCollectorService {
   /**
    * Build adjacency maps for link and conditional rollup relationships among the supplied tables.
    */
+  @Timing()
   private async getAdjacencyMaps(
     tables: string[],
     ctx?: ICollectorExecutionContext
@@ -1314,6 +1336,7 @@ export class ComputedDependencyCollectorService {
     return impact;
   }
 
+  @Timing()
   private async getFormulaFieldsWithoutDependencies(
     tableId: string,
     excludeFieldIds?: string[]
@@ -1363,6 +1386,7 @@ export class ComputedDependencyCollectorService {
    *   the changed records through any link field on the target table that points to the changed table.
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
+  @Timing()
   async collect(
     tableId: string,
     ctxs: ICellContext[],

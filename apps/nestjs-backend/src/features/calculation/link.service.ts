@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldOptions, IRecord, TableDomain } from '@teable/core';
 import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -9,6 +9,7 @@ import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
+import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -96,6 +97,48 @@ export class LinkService {
         this.validateLinkCell(ctx);
         return { ...ctx, oldValue: isLinkCellValue(ctx.oldValue) ? ctx.oldValue : undefined };
       });
+  }
+
+  private buildFieldMapFromTables(
+    fieldIds: string[],
+    tables?: Map<string, TableDomain>
+  ): IFieldMapByTableId | undefined {
+    if (!tables?.size) {
+      return undefined;
+    }
+
+    const fieldMapByTableId: IFieldMapByTableId = {};
+
+    for (const [tableId, domain] of tables) {
+      for (const field of domain.fieldList) {
+        (fieldMapByTableId[tableId] ||= {})[field.id] = field as unknown as IFieldInstance;
+      }
+    }
+
+    const hasAllRequestedFields = fieldIds.every((fieldId) =>
+      Object.values(fieldMapByTableId).some((fields) => Boolean(fields?.[fieldId]))
+    );
+
+    return hasAllRequestedFields ? fieldMapByTableId : undefined;
+  }
+
+  private buildTableId2DbTableNameFromTables(
+    tableIds: string[],
+    tables?: Map<string, TableDomain>
+  ) {
+    if (!tables?.size) {
+      return undefined;
+    }
+
+    const result: { [tableId: string]: string } = {};
+    for (const tableId of tableIds) {
+      const domain = tables.get(tableId);
+      if (domain) {
+        result[tableId] = domain.dbTableName;
+      }
+    }
+
+    return Object.keys(result).length === tableIds.length ? result : undefined;
   }
 
   private async getRelatedFieldMap(fieldIds: string[]): Promise<IFieldMapByTableId> {
@@ -878,12 +921,46 @@ export class LinkService {
     return recordMapByTableId;
   }
 
+  private mergeProjectionByTable(
+    recordMapByTableId: IRecordMapByTableId,
+    fieldMapByTableId: { [tableId: string]: IFieldMap },
+    projectionByTable?: Record<string, string[]>
+  ): Record<string, string[]> | undefined {
+    const result: Record<string, Set<string>> = {};
+
+    for (const tableId in recordMapByTableId) {
+      const recordLookupFieldsMap = recordMapByTableId[tableId];
+      const fromCaller = projectionByTable?.[tableId] ?? [];
+      result[tableId] = new Set(fromCaller);
+
+      Object.values(recordLookupFieldsMap).forEach((lookupFieldMap) => {
+        if (!lookupFieldMap) return;
+        Object.keys(lookupFieldMap).forEach((fieldId) => {
+          if (fieldMapByTableId[tableId]?.[fieldId]) {
+            result[tableId]!.add(fieldId);
+          }
+        });
+      });
+    }
+
+    const finalized = Object.entries(result).reduce<Record<string, string[]>>((acc, [id, set]) => {
+      if (set.size) {
+        acc[id] = Array.from(set);
+      }
+      return acc;
+    }, {});
+
+    return Object.keys(finalized).length ? finalized : undefined;
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
+  @Timing()
   private async fetchRecordMap(
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     recordMapByTableId: IRecordMapByTableId,
     cellContexts: ICellContext[],
+    projectionByTable: Record<string, string[]> | undefined,
     fromReset?: boolean,
     useQueryModel = false
   ): Promise<IRecordMapByTableId> {
@@ -892,6 +969,7 @@ export class LinkService {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
+      const tableProjection = projectionByTable?.[tableId];
 
       for (const recordId of recordIds) {
         const lookupFieldMap = recordLookupFieldsMap[recordId];
@@ -910,6 +988,7 @@ export class LinkService {
         {
           tableId,
           viewId: undefined,
+          projection: tableProjection,
           rawProjection: true,
           preferRawFieldReferences: true,
           useQueryModel,
@@ -1018,6 +1097,7 @@ export class LinkService {
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     linkContexts: ILinkCellContext[],
     cellContexts: ICellContext[],
+    projectionByTable?: Record<string, string[]>,
     fromReset?: boolean,
     persistFk: boolean = true
   ): Promise<{
@@ -1026,6 +1106,11 @@ export class LinkService {
   }> {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
+    const mergedProjectionByTable = this.mergeProjectionByTable(
+      recordMapStruct,
+      fieldMapByTableId,
+      projectionByTable
+    );
 
     const fkRecordMap = await this.getFkRecordMap(fieldMap, linkContexts);
 
@@ -1034,6 +1119,7 @@ export class LinkService {
       fieldMapByTableId,
       recordMapStruct,
       cellContexts,
+      mergedProjectionByTable,
       fromReset,
       true
     );
@@ -1052,6 +1138,7 @@ export class LinkService {
         fieldMapByTableId,
         refreshedRecordMapStruct,
         cellContexts,
+        mergedProjectionByTable,
         fromReset,
         true
       );
@@ -1570,7 +1657,12 @@ export class LinkService {
    * 3. check and generate op to update main table by cached recordIds
    * 4. check and generate op to update foreign table by cached recordIds
    */
-  async getDerivateByLink(tableId: string, cellContexts: ICellContext[], fromReset?: boolean) {
+  async getDerivateByLink(
+    tableId: string,
+    cellContexts: ICellContext[],
+    fromReset?: boolean,
+    projectionByTable?: Record<string, string[]>
+  ) {
     const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkLikeContexts.length) {
       return;
@@ -1596,6 +1688,7 @@ export class LinkService {
       fieldMapByTableId,
       linkContexts,
       cellContexts,
+      projectionByTable,
       fromReset,
       true
     );
@@ -1607,17 +1700,21 @@ export class LinkService {
    * call saveForeignKeyToDb. Useful when consumers need to capture old values
    * for computed events before the FK writes are visible in the same tx.
    */
+  @Timing()
   async planDerivateByLink(
     tableId: string,
     cellContexts: ICellContext[],
-    fromReset?: boolean
+    fromReset?: boolean,
+    tables?: Map<string, TableDomain>,
+    projectionByTable?: Record<string, string[]>
   ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkRecordMap } | undefined> {
     const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkLikeContexts.length) {
       return undefined;
     }
     const fieldIds = linkLikeContexts.map((ctx) => ctx.fieldId);
-    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMapByTableId =
+      this.buildFieldMapFromTables(fieldIds, tables) ?? (await this.getRelatedFieldMap(fieldIds));
     const fieldMap = fieldMapByTableId[tableId];
     const linkContexts = linkLikeContexts.filter((ctx) => {
       if (!fieldMap[ctx.fieldId]) {
@@ -1629,7 +1726,9 @@ export class LinkService {
       return true;
     });
 
-    const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
+    const tableId2DbTableName =
+      this.buildTableId2DbTableNameFromTables(Object.keys(fieldMapByTableId), tables) ??
+      (await this.getTableId2DbTableName(Object.keys(fieldMapByTableId)));
 
     const derivate = await this.getDerivateByCellContexts(
       tableId,
@@ -1637,6 +1736,7 @@ export class LinkService {
       fieldMapByTableId,
       linkContexts,
       cellContexts,
+      projectionByTable,
       fromReset,
       false
     );
@@ -1648,10 +1748,15 @@ export class LinkService {
    * Persist foreign key changes previously planned via planDerivateByLink.
    * Rebuilds the necessary field map and writes junction table updates.
    */
-  async commitForeignKeyChanges(tableId: string, fkRecordMap?: IFkRecordMap): Promise<void> {
+  async commitForeignKeyChanges(
+    tableId: string,
+    fkRecordMap?: IFkRecordMap,
+    tables?: Map<string, TableDomain>
+  ): Promise<void> {
     if (!fkRecordMap || !Object.keys(fkRecordMap).length) return;
     const fieldIds = Object.keys(fkRecordMap);
-    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMapByTableId =
+      this.buildFieldMapFromTables(fieldIds, tables) ?? (await this.getRelatedFieldMap(fieldIds));
     const fieldMap = fieldMapByTableId[tableId];
     await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
   }

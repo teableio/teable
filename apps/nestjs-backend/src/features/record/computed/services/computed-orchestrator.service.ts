@@ -4,13 +4,14 @@ import type { TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
-import { ComputedDependencyCollectorService } from './computed-dependency-collector.service';
-import type {
+import {
+  ComputedDependencyCollectorService,
   IComputedImpactByTable,
-  IFieldChangeSource,
 } from './computed-dependency-collector.service';
+import type { IFieldChangeSource } from './computed-dependency-collector.service';
 import { ComputedEvaluatorService } from './computed-evaluator.service';
 import { buildResultImpact } from './computed-utils';
 
@@ -34,10 +35,11 @@ export class ComputedOrchestratorService {
    *
    * Returns: { publishedOps } — total number of field set ops enqueued.
    */
+  @Timing()
   async computeCellChangesForRecords(
     tableId: string,
     cellContexts: ICellContext[],
-    update: () => Promise<void>
+    update: (tableDomains?: Map<string, TableDomain>) => Promise<void>
   ): Promise<{
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
@@ -53,7 +55,7 @@ export class ComputedOrchestratorService {
    */
   async computeCellChangesForRecordsMulti(
     sources: Array<{ tableId: string; cellContexts: ICellContext[] }>,
-    update: () => Promise<void>
+    update: (tableDomains?: Map<string, TableDomain>) => Promise<void>
   ): Promise<{
     publishedOps: number;
     impact: Record<string, { fieldIds: string[]; recordIds: string[] }>;
@@ -122,7 +124,7 @@ export class ComputedOrchestratorService {
     await this.lockImpactedRecords(filtered, impactMerged, tableDomains);
 
     // 2) Perform the actual base update(s) if provided
-    await update();
+    await update(tableDomains);
 
     // 3) Evaluate and publish computed values
     const total = await this.evaluator.evaluate(impactMerged, {
@@ -311,6 +313,7 @@ export class ComputedOrchestratorService {
     return { publishedOps: total, impact: buildResultImpact(impact) };
   }
 
+  @Timing()
   private async lockImpactedRecords(
     sources: Array<{ tableId: string; cellContexts: ICellContext[] }>,
     impact: IComputedImpactByTable,

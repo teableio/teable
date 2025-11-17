@@ -1,11 +1,11 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { IMakeOptional } from '@teable/core';
+import type { IMakeOptional, TableDomain } from '@teable/core';
 import { FieldKeyType, generateRecordId, CellFormat } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
+import { TableDomainQueryService } from '../../table-domain';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
@@ -14,13 +14,13 @@ import { RecordModifySharedService } from './record-modify.shared.service';
 @Injectable()
 export class RecordCreateService {
   constructor(
-    private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
     private readonly shared: RecordModifySharedService,
     private readonly batchService: BatchService,
     private readonly linkService: LinkService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   async multipleCreateRecords(
@@ -29,11 +29,12 @@ export class RecordCreateService {
     ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast, order } = createRecordsRo;
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(tableId, records, fieldKeyType, typecast, ignoreMissingFields);
+    >(table, records, fieldKeyType, typecast, ignoreMissingFields);
     const preparedRecords = await this.shared.appendRecordOrderIndexes(
-      tableId,
+      table,
       typecastRecords,
       order
     );
@@ -44,64 +45,45 @@ export class RecordCreateService {
     }
     const acc: ICreateRecordsVo = { records: [] };
     for (const chunk of chunks) {
-      const res = await this.createRecords(tableId, chunk, fieldKeyType);
+      const res = await this.createRecords(table, chunk, fieldKeyType);
       acc.records.push(...res.records);
     }
     return acc;
   }
 
   async createRecords(
-    tableId: string,
+    table: TableDomain,
     recordsRo: IMakeOptional<IRecordInnerRo, 'id'>[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     projection?: string[]
   ): Promise<ICreateRecordsVo> {
     if (recordsRo.length === 0) throw new BadRequestException('Create records is empty');
     const records = recordsRo.map((r) => ({ ...r, id: r.id || generateRecordId() }));
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      select: {
-        id: true,
-        name: true,
-        type: true,
-        options: true,
-        unique: true,
-        notNull: true,
-        isComputed: true,
-        isLookup: true,
-        isConditionalLookup: true,
-        lookupOptions: true,
-        lookupLinkedFieldId: true,
-        dbFieldName: true,
-      },
-    });
-    await this.recordService.batchCreateRecords(tableId, records, fieldKeyType, fieldRaws);
-    const recordsWithDefaults = await this.shared.appendDefaultValue(
-      records,
-      fieldKeyType,
-      fieldRaws
-    );
+    const fields = table.fieldList;
+    await this.recordService.batchCreateRecords(table, records, fieldKeyType, fields);
+    const recordsWithDefaults = await this.shared.appendDefaultValue(records, fieldKeyType, fields);
     const contextReadyRecords = await this.shared.ensureReferencedBaseFieldsForNewRecords(
       recordsWithDefaults,
       fieldKeyType,
-      fieldRaws
+      fields
     );
     const recordIds = contextReadyRecords.map((r) => r.id);
+    const projectionByTable = this.buildProjectionByTable(table, fieldKeyType, contextReadyRecords);
     const createCtxs = await this.shared.generateCellContexts(
-      tableId,
+      table,
       fieldKeyType,
       contextReadyRecords,
       true
     );
-    await this.linkService.getDerivateByLink(tableId, createCtxs);
-    const changes = await this.shared.compressAndFilterChanges(tableId, createCtxs);
+    await this.linkService.getDerivateByLink(table.id, createCtxs, undefined, projectionByTable);
+    const changes = this.shared.compressAndFilterChanges(table, createCtxs);
     const opsMap = this.shared.formatChangesToOps(changes);
     // Publish computed values (with old/new) around base updates
-    await this.computedOrchestrator.computeCellChangesForRecords(tableId, createCtxs, async () => {
+    await this.computedOrchestrator.computeCellChangesForRecords(table.id, createCtxs, async () => {
       await this.batchService.updateRecords(opsMap);
     });
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
-      tableId,
+      table.id,
       recordIds,
       this.recordService.convertProjection(projection),
       fieldKeyType,
@@ -113,9 +95,29 @@ export class RecordCreateService {
 
   async createRecordsOnlySql(tableId: string, createRecordsRo: ICreateRecordsRo): Promise<void> {
     const { fieldKeyType = FieldKeyType.Name, records, typecast } = createRecordsRo;
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(tableId, records, fieldKeyType, typecast);
-    await this.recordService.createRecordsOnlySql(tableId, typecastRecords);
+    >(table, records, fieldKeyType, typecast);
+    await this.recordService.createRecordsOnlySql(table, typecastRecords);
+  }
+
+  private buildProjectionByTable(
+    table: TableDomain,
+    fieldKeyType: FieldKeyType,
+    records: { fields: Record<string, unknown> }[]
+  ): Record<string, string[]> | undefined {
+    const fieldsMap = table.getFieldsMap(fieldKeyType);
+    const projectionIds = records.reduce<Set<string>>((acc, record) => {
+      Object.keys(record.fields).forEach((key) => {
+        const field = fieldsMap.get(key);
+        if (field) {
+          acc.add(field.id);
+        }
+      });
+      return acc;
+    }, new Set<string>());
+
+    return projectionIds.size ? { [table.id]: Array.from(projectionIds) } : undefined;
   }
 }

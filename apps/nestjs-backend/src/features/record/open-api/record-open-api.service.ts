@@ -24,6 +24,7 @@ import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { TableDomainQueryService } from '../../table-domain';
 import { RecordModifyService } from '../record-modify/record-modify.service';
 import { RecordModifySharedService } from '../record-modify/record-modify.shared.service';
 import type { IRecordInnerRo } from '../record.service';
@@ -38,7 +39,8 @@ export class RecordOpenApiService {
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly recordModifySharedService: RecordModifySharedService
+    private readonly recordModifySharedService: RecordModifySharedService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   @retryOnDeadlock()
@@ -403,7 +405,7 @@ export class RecordOpenApiService {
     });
   }
 
-  public validateFieldsAndTypecast<
+  public async validateFieldsAndTypecast<
     T extends {
       fields: Record<string, unknown>;
     },
@@ -414,8 +416,9 @@ export class RecordOpenApiService {
     typecast: boolean = false,
     ignoreMissingFields: boolean = false
   ) {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     return this.recordModifySharedService.validateFieldsAndTypecast(
-      tableId,
+      table,
       records,
       fieldKeyType,
       typecast,

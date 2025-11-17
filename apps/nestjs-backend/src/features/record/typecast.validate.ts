@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type {
+  FieldCore,
   IAttachmentCellValue,
   IAttachmentItem,
   ILinkCellValue,
@@ -78,7 +79,7 @@ const convertUser = (input: unknown): string | undefined => {
  */
 export class TypeCastAndValidate {
   private readonly services: IServices;
-  private readonly field: IFieldInstance;
+  private readonly field: FieldCore;
   private readonly tableId: string;
   private readonly typecast?: boolean;
   private cache: Record<string, unknown> = {};
@@ -90,7 +91,7 @@ export class TypeCastAndValidate {
     tableId,
   }: {
     services: IServices;
-    field: IFieldInstance;
+    field: FieldCore;
     typecast?: boolean;
     tableId: string;
   }) {
@@ -128,7 +129,7 @@ export class TypeCastAndValidate {
       case FieldType.Attachment:
         return await this.castToAttachment(cellValues);
       case FieldType.Date:
-        return await this.castToDate(cellValues);
+        return this.castToDate(cellValues);
       default:
         return this.defaultCastTo(cellValues);
     }
@@ -153,10 +154,11 @@ export class TypeCastAndValidate {
         return;
       }
       const validate = this.field.validateCellValue(cellValue);
+      if (!validate) return;
       if (!validate.success) {
         if (this.typecast) {
           return callBack(cellValue);
-        } else {
+        } else if (validate?.error) {
           throw new BadRequestException(fromZodError(validate.error).message);
         }
       }
@@ -254,12 +256,13 @@ export class TypeCastAndValidate {
     return newCellValues;
   }
 
-  private async castToDate(cellValues: unknown[]): Promise<unknown[]> {
+  private castToDate(cellValues: unknown[]): unknown[] {
     return cellValues.map((cellValue) => {
       if (cellValue === undefined) {
         return;
       }
       const validate = this.field.validateCellValue(cellValue);
+      if (!validate) return;
       if (!validate.success) {
         return this.field.repair(cellValue);
       }

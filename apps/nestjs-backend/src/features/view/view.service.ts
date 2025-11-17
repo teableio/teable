@@ -505,7 +505,7 @@ export class ViewService implements IReadonlyAdapterService {
       };
     });
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
   }
 
   async create(tableId: string, view: IViewVo) {

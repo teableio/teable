@@ -1,11 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { FieldKeyType, FieldType, FormulaFieldCore } from '@teable/core';
-import type { IMakeOptional, IUserFieldOptions } from '@teable/core';
+import { FieldKeyType, FieldType, FormulaFieldCore, TableDomain } from '@teable/core';
+import type { FieldCore, IMakeOptional, IUserFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
 import { isEqual, forEach, keyBy, map } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
+import { Timing } from '../../../utils/timing';
 import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import type { ICellContext, ICellChange } from '../../calculation/utils/changes';
 import { formatChangesToOps, mergeDuplicateChange } from '../../calculation/utils/changes';
@@ -35,14 +36,11 @@ export class RecordModifySharedService {
   ) {}
 
   // Shared change compression and filtering utilities
-  async compressAndFilterChanges(
-    tableId: string,
-    cellContexts: ICellContext[]
-  ): Promise<ICellChange[]> {
+  compressAndFilterChanges(table: TableDomain, cellContexts: ICellContext[]): ICellChange[] {
     if (!cellContexts.length) return [];
 
     const rawChanges: ICellChange[] = cellContexts.map((ctx) => ({
-      tableId,
+      tableId: table.id,
       recordId: ctx.recordId,
       fieldId: ctx.fieldId,
       newValue: ctx.newValue,
@@ -54,61 +52,53 @@ export class RecordModifySharedService {
     if (!nonNoop.length) return [];
 
     const fieldIds = Array.from(new Set(nonNoop.map((c) => c.fieldId)));
-    const sysTypes = [FieldType.LastModifiedTime, FieldType.LastModifiedBy];
-    const sysFields = await this.prismaService.txClient().field.findMany({
-      where: { tableId, id: { in: fieldIds }, deletedTime: null, type: { in: sysTypes } },
-      select: { id: true },
-    });
+    const sysFields = table.getLastModifiedFields().filter((f) => fieldIds.includes(f.id));
     const sysSet = new Set(sysFields.map((f) => f.id));
     return nonNoop.filter((c) => !sysSet.has(c.fieldId));
   }
 
-  private async getEffectFieldInstances(
-    tableId: string,
-    recordsFields: Record<string, unknown>[],
-    fieldKeyType: FieldKeyType = FieldKeyType.Name,
-    ignoreMissingFields: boolean = false
-  ) {
-    const fieldIdsOrNamesSet = recordsFields.reduce<Set<string>>((acc, recordFields) => {
-      const fieldIds = Object.keys(recordFields);
-      forEach(fieldIds, (fieldId) => acc.add(fieldId));
-      return acc;
-    }, new Set());
+  // private async getEffectFieldInstances(
+  //   tableId: string,
+  //   recordsFields: Record<string, unknown>[],
+  //   fieldKeyType: FieldKeyType = FieldKeyType.Name,
+  //   ignoreMissingFields: boolean = false
+  // ) {
+  //   const fieldIdsOrNamesSet = recordsFields.reduce<Set<string>>((acc, recordFields) => {
+  //     const fieldIds = Object.keys(recordFields);
+  //     forEach(fieldIds, (fieldId) => acc.add(fieldId));
+  //     return acc;
+  //   }, new Set());
 
-    const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
+  //   const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
 
-    const usedFields = await this.dataLoaderService.field.load(tableId, {
-      [fieldKeyType]: usedFieldIdsOrNames,
-    });
+  //   const usedFields = await this.dataLoaderService.field.load(tableId, {
+  //     [fieldKeyType]: usedFieldIdsOrNames,
+  //   });
 
-    if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
-      const usedSet = new Set(map(usedFields, fieldKeyType));
-      const missedFields = usedFieldIdsOrNames.filter(
-        (fieldIdOrName) => !usedSet.has(fieldIdOrName)
-      );
-      throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
-    }
-    return map(usedFields, createFieldInstanceByRaw);
-  }
+  //   if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
+  //     const usedSet = new Set(map(usedFields, fieldKeyType));
+  //     const missedFields = usedFieldIdsOrNames.filter(
+  //       (fieldIdOrName) => !usedSet.has(fieldIdOrName)
+  //     );
+  //     throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
+  //   }
+  //   return map(usedFields, createFieldInstanceByRaw);
+  // }
 
+  @Timing()
   async validateFieldsAndTypecast<
     T extends {
       fields: Record<string, unknown>;
     },
   >(
-    tableId: string,
+    table: TableDomain,
     records: T[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     typecast: boolean = false,
     ignoreMissingFields: boolean = false
   ): Promise<T[]> {
     const recordsFields = map(records, 'fields');
-    const effectFieldInstance = await this.getEffectFieldInstances(
-      tableId,
-      recordsFields,
-      fieldKeyType,
-      ignoreMissingFields
-    );
+    const effectFieldInstance = table.fieldList;
 
     const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
     for (const field of effectFieldInstance) {
@@ -126,7 +116,7 @@ export class RecordModifySharedService {
           dataLoaderService: this.dataLoaderService,
         },
         field,
-        tableId,
+        tableId: table.id,
         typecast,
       });
       const fieldIdOrName = field[fieldKeyType];
@@ -146,28 +136,34 @@ export class RecordModifySharedService {
       fields: newRecordsFields[i],
     }));
   }
+
+  @Timing()
   async generateCellContexts(
-    tableId: string,
+    table: TableDomain,
     fieldKeyType: FieldKeyType,
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
-    isNewRecord?: boolean
+    isNewRecord?: boolean,
+    projectionFields?: string[]
   ) {
-    const fieldKeys = Array.from(
-      records.reduce<Set<string>>((acc, record) => {
-        Object.keys(record.fields).forEach((fieldNameOrId) => acc.add(fieldNameOrId));
-        return acc;
-      }, new Set())
-    );
-
-    const fieldRaws = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        [fieldKeyType]: { in: fieldKeys },
-        deletedTime: null,
-      },
-      select: { id: true, name: true, dbFieldName: true },
-    });
-    const fieldIdMap = keyBy(fieldRaws, fieldKeyType);
+    const fieldsMap = table.getFieldsMap(fieldKeyType);
+    const projectionByFieldId =
+      projectionFields && projectionFields.length > 0
+        ? projectionFields.reduce<Record<string, boolean>>((acc, key) => {
+            const field = fieldsMap.get(key);
+            if (field) {
+              acc[field.id] = true;
+            }
+            return acc;
+          }, {})
+        : records.reduce<Record<string, boolean>>((acc, record) => {
+            Object.keys(record.fields).forEach((key) => {
+              const field = fieldsMap.get(key);
+              if (field) {
+                acc[field.id] = true;
+              }
+            });
+            return acc;
+          }, {});
 
     const cellContexts: ICellContext[] = [];
 
@@ -175,10 +171,10 @@ export class RecordModifySharedService {
     if (!isNewRecord) {
       const oldRecords = (
         await this.recordService.getSnapshotBulk(
-          tableId,
+          table.id,
           records.map((r) => r.id),
-          undefined,
-          undefined,
+          Object.keys(projectionByFieldId).length ? projectionByFieldId : undefined,
+          FieldKeyType.Id,
           undefined,
           true
         )
@@ -188,10 +184,10 @@ export class RecordModifySharedService {
 
     for (const record of records) {
       Object.entries(record.fields).forEach(([fieldNameOrId, value]) => {
-        if (!fieldIdMap[fieldNameOrId]) {
+        if (!fieldsMap.has(fieldNameOrId)) {
           throw new NotFoundException(`Field ${fieldNameOrId} not found`);
         }
-        const fieldId = fieldIdMap[fieldNameOrId].id;
+        const fieldId = fieldsMap.get(fieldNameOrId)!.id;
         const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id]?.fields[fieldId];
         cellContexts.push({
           recordId: record.id,
@@ -204,11 +200,15 @@ export class RecordModifySharedService {
     return cellContexts;
   }
 
-  async getRecordOrderIndexes(tableId: string, orderRo: IRecordInsertOrderRo, recordCount: number) {
-    const dbTableName = await this.recordService.getDbTableName(tableId);
+  async getRecordOrderIndexes(
+    table: TableDomain,
+    orderRo: IRecordInsertOrderRo,
+    recordCount: number
+  ) {
+    const dbTableName = table.dbTableName;
     let indexes: number[] = [];
     await this.viewOpenApiService.updateRecordOrdersInner({
-      tableId,
+      tableId: table.id,
       dbTableName,
       itemLength: recordCount,
       indexField: await this.viewService.getOrCreateViewIndexField(dbTableName, orderRo.viewId),
@@ -221,12 +221,12 @@ export class RecordModifySharedService {
   }
 
   async appendRecordOrderIndexes(
-    tableId: string,
+    table: TableDomain,
     records: IMakeOptional<IRecordInnerRo, 'id'>[],
     order: IRecordInsertOrderRo | undefined
   ) {
     if (!order) return records;
-    const indexes = await this.getRecordOrderIndexes(tableId, order, records.length);
+    const indexes = await this.getRecordOrderIndexes(table, order, records.length);
     return records.map((record, i) => ({
       ...record,
       order: indexes ? { [order.viewId]: indexes[i] } : undefined,
@@ -277,7 +277,7 @@ export class RecordModifySharedService {
 
   async fillUserInfo(
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
-    userFields: IFieldRaws,
+    userFields: readonly FieldCore[],
     fieldKeyType: FieldKeyType
   ) {
     const userIds = new Set<string>();
@@ -307,14 +307,15 @@ export class RecordModifySharedService {
     });
   }
 
+  @Timing()
   async ensureReferencedBaseFieldsForNewRecords(
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fields: readonly FieldCore[]
   ) {
     if (!records.length) return records;
 
-    const baseFieldKeyById = fieldRaws.reduce<Map<string, string | undefined>>((acc, field) => {
+    const baseFieldKeyById = fields.reduce<Map<string, string | undefined>>((acc, field) => {
       if (this.isDerivedField(field)) {
         return acc;
       }
@@ -345,7 +346,7 @@ export class RecordModifySharedService {
 
     if (referencedFieldIds.size < baseFieldIds.length) {
       const fallbackReferenced = this.collectReferencedBaseFieldIdsFromFieldRaws(
-        fieldRaws,
+        fields,
         baseFieldKeyById
       );
       fallbackReferenced.forEach((id) => referencedFieldIds.add(id));
@@ -379,46 +380,47 @@ export class RecordModifySharedService {
     });
   }
 
+  @Timing()
   async appendDefaultValue(
     records: { id: string; fields: { [fieldNameOrId: string]: unknown } }[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fieldList: readonly FieldCore[]
   ) {
     const processed = records.map((record) => {
       const fields: Record<string, unknown> = { ...record.fields };
-      for (const f of fieldRaws) {
+      for (const f of fieldList) {
         const { type, options, isComputed } = f;
         if (options == null || isComputed) continue;
-        const opts = JSON.parse(options) || {};
-        const dv = opts.defaultValue;
+        if (!('defaultValue' in options)) continue;
+        const dv = options.defaultValue;
         if (dv == null) continue;
         const key = f[fieldKeyType];
         if (fields[key] != null) continue;
-        fields[key] = this.getDefaultValue(type as FieldType, opts, dv);
+        fields[key] = this.getDefaultValue(type as FieldType, options, dv);
       }
       return { ...record, fields };
     });
-    const userFields = fieldRaws.filter((f) => f.type === FieldType.User);
+    const userFields = fieldList.filter((f) => f.type === FieldType.User);
     if (userFields.length) return this.fillUserInfo(processed, userFields, fieldKeyType);
     return processed;
   }
 
   private collectReferencedBaseFieldIdsFromFieldRaws(
-    fieldRaws: IFieldRaws,
+    fields: readonly FieldCore[],
     baseFieldKeyById: Map<string, string | undefined>
   ): Set<string> {
     const referenced = new Set<string>();
-    const fieldById = new Map(fieldRaws.map((field) => [field.id, field]));
-    const fieldByName = new Map(fieldRaws.map((field) => [field.name, field]));
+    const fieldById = new Map(fields.map((field) => [field.id, field]));
+    const fieldByName = new Map(fields.map((field) => [field.name, field]));
     const memo = new Map<string, Set<string>>();
     const visiting = new Set<string>();
 
-    const resolveField = (identifier: string): IFieldRaws[number] | undefined => {
+    const resolveField = (identifier: string): FieldCore | undefined => {
       if (!identifier) return undefined;
       return fieldById.get(identifier) ?? fieldByName.get(identifier);
     };
 
-    const collectBaseDeps = (field: IFieldRaws[number] | undefined): Set<string> => {
+    const collectBaseDeps = (field: FieldCore | undefined): Set<string> => {
       if (!field) return new Set();
       if (!this.isDerivedField(field)) {
         return baseFieldKeyById.has(field.id) ? new Set([field.id]) : new Set();
@@ -461,7 +463,7 @@ export class RecordModifySharedService {
       return result;
     };
 
-    for (const field of fieldRaws) {
+    for (const field of fields) {
       if (!this.isDerivedField(field)) continue;
       const deps = collectBaseDeps(field);
       deps.forEach((id) => referenced.add(id));
@@ -469,12 +471,12 @@ export class RecordModifySharedService {
     return referenced;
   }
 
-  private extractLookupLinkFieldId(field: IFieldRaws[number]): string | undefined {
+  private extractLookupLinkFieldId(field: FieldCore): string | undefined {
     const options = this.parseJsonValue<{ linkFieldId?: string }>(field.lookupOptions);
-    return options?.linkFieldId ?? (field.lookupLinkedFieldId as string | undefined) ?? undefined;
+    return options?.linkFieldId;
   }
 
-  private isDerivedField(field: IFieldRaws[number]): boolean {
+  private isDerivedField(field: FieldCore): boolean {
     if (field.isLookup || field.isConditionalLookup) {
       return true;
     }
@@ -487,7 +489,7 @@ export class RecordModifySharedService {
     return !!field.isComputed;
   }
 
-  private isLookupLikeRollup(field: IFieldRaws[number]): boolean {
+  private isLookupLikeRollup(field: FieldCore): boolean {
     return field.type === FieldType.Rollup || field.type === FieldType.ConditionalRollup;
   }
 

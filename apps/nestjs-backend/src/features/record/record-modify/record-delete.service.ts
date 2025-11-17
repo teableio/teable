@@ -6,6 +6,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
+import { TableDomainQueryService } from '../../table-domain';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
 
@@ -17,6 +18,7 @@ export class RecordDeleteService {
     private readonly linkService: LinkService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly computedOrchestrator: ComputedOrchestratorService,
+    private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -26,6 +28,7 @@ export class RecordDeleteService {
   }
 
   async deleteRecords(tableId: string, recordIds: string[], windowId?: string) {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const { records, orders } = await this.prismaService.$tx(async () => {
       const records = await this.recordService.getRecordsById(tableId, recordIds, false);
       const cellContextsByTableId = await this.linkService.getDeleteRecordUpdateContext(
@@ -53,7 +56,7 @@ export class RecordDeleteService {
       }
 
       const orders = windowId
-        ? await this.recordService.getRecordIndexes(tableId, recordIds)
+        ? await this.recordService.getRecordIndexes(table, recordIds)
         : undefined;
 
       // Publish computed/link changes with old/new around the actual delete

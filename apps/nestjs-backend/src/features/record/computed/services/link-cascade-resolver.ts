@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { PrismaService } from '@teable/db-main-prisma';
+import { Timing } from '../../../../utils/timing';
 
 export interface ILinkEdge {
   foreignTableId: string;
@@ -28,6 +29,7 @@ interface IResolveLinkCascadeParams {
 export class LinkCascadeResolver {
   constructor(private readonly prismaService: PrismaService) {}
 
+  @Timing()
   async resolve(
     params: IResolveLinkCascadeParams
   ): Promise<Array<{ tableId: string; recordId: string }>> {
