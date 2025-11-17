@@ -1,5 +1,8 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
-import type { PrismaService } from '@teable/db-main-prisma';
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@teable/db-main-prisma';
+import { chunk } from 'lodash';
 import { Timing } from '../../../../utils/timing';
 
 export interface ILinkEdge {
@@ -26,145 +29,170 @@ interface IResolveLinkCascadeParams {
   edges: ILinkEdge[];
 }
 
+const IN_CHUNK = 500;
+
+@Injectable()
 export class LinkCascadeResolver {
   constructor(private readonly prismaService: PrismaService) {}
 
+  /**
+   * Iterative BFS over link edges using only frontier ids; avoids full edge table scans and keeps
+   * SQL simple. Seeds can be explicit recordIds per table or "all records" for tables that must be
+   * fully included.
+   */
   @Timing()
   async resolve(
     params: IResolveLinkCascadeParams
   ): Promise<Array<{ tableId: string; recordId: string }>> {
     const { explicitSeeds, allTableSeeds, edges } = params;
-    if (!edges.length) {
-      return [];
-    }
-    const anchorClauses = this.buildAnchorClauses(explicitSeeds, allTableSeeds);
-    if (!anchorClauses.length) {
-      return [];
-    }
-    const graphEdgeClauses = this.buildGraphEdgeClauses(edges);
-    if (!graphEdgeClauses.length) {
-      return [];
+    const edgeBySrc = this.groupEdgesBySource(edges);
+    if (!edgeBySrc.size) {
+      return this.flattenSeeds(explicitSeeds, allTableSeeds);
     }
 
-    // Use a single shared state so placeholder numbering stays monotonic across CTE parts
-    const bindingState = { index: 0, bindings: [] as unknown[] };
-    const anchorSelects = anchorClauses
-      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, bindingState))
-      .join('\nunion all\n');
+    const visited = new Map<string, Set<string>>();
+    const queue: Array<{ tableId: string; ids: Set<string> }> = [];
 
-    const edgeUnionSelects = graphEdgeClauses
-      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, bindingState))
-      .join('\nunion all\n');
+    // seed explicit ids
+    for (const seed of explicitSeeds) {
+      if (!seed.recordIds?.length) continue;
+      const set = this.getOrInitSet(visited, seed.tableId);
+      seed.recordIds.forEach((id) => {
+        if (id) set.add(id);
+      });
+      queue.push({ tableId: seed.tableId, ids: new Set(seed.recordIds) });
+    }
 
-    const sql = `with recursive
-seed(table_id, record_id) as (
-${anchorSelects
-  .split('\n')
-  .map((line) => `  ${line}`)
-  .join('\n')}
-),
-edges(src_table_id, src_record_id, dst_table_id, dst_record_id) as (
-${edgeUnionSelects
-  .split('\n')
-  .map((line) => `  ${line}`)
-  .join('\n')}
-),
-link_reach(table_id, record_id) as (
-  select table_id::text, record_id::text
-  from seed
+    // seed all-table entries by materializing ids once
+    if (allTableSeeds.length) {
+      const rows = await this.materializeAllTableSeeds(allTableSeeds);
+      for (const { tableId, recordId } of rows) {
+        const set = this.getOrInitSet(visited, tableId);
+        if (!set.has(recordId)) {
+          set.add(recordId);
+        }
+      }
+      // push as frontier grouped by table
+      const grouped = rows.reduce((map, row) => {
+        let s = map.get(row.tableId);
+        if (!s) {
+          s = new Set<string>();
+          map.set(row.tableId, s);
+        }
+        s.add(row.recordId);
+        return map;
+      }, new Map<string, Set<string>>());
+      for (const [tableId, ids] of grouped) {
+        queue.push({ tableId, ids });
+      }
+    }
 
-  union all
+    while (queue.length) {
+      const { tableId, ids } = queue.shift()!;
+      const edgesFromTable = edgeBySrc.get(tableId);
+      if (!edgesFromTable?.length) continue;
+      const frontierIds = Array.from(ids).filter(Boolean);
+      if (!frontierIds.length) continue;
 
-  select e.dst_table_id::text, e.dst_record_id::text
-  from link_reach lr
-  join edges e
-    on e.src_table_id = lr.table_id
-   and e.src_record_id = lr.record_id
-)
-select distinct table_id, record_id
-from link_reach`;
-
-    const rows = await this.prismaService.$queryRawUnsafe<
-      Array<{ table_id?: string; record_id?: string }>
-    >(sql, ...bindingState.bindings);
+      for (const edge of edgesFromTable) {
+        for (const batch of chunk(frontierIds, IN_CHUNK)) {
+          const rows = await this.fetchEdgeTargets(edge, batch);
+          if (!rows.length) continue;
+          const dstSet = this.getOrInitSet(visited, edge.hostTableId);
+          const newlyAdded = new Set<string>();
+          for (const row of rows) {
+            const rid = row.record_id;
+            if (!rid || dstSet.has(rid)) continue;
+            dstSet.add(rid);
+            newlyAdded.add(rid);
+          }
+          if (newlyAdded.size) {
+            queue.push({ tableId: edge.hostTableId, ids: newlyAdded });
+          }
+        }
+      }
+    }
 
     const result: Array<{ tableId: string; recordId: string }> = [];
-    for (const row of rows) {
-      const tableId = row.table_id;
-      const recordId = row.record_id;
-      if (!tableId || !recordId) {
-        continue;
+    for (const [tableId, set] of visited) {
+      for (const id of set) {
+        result.push({ tableId, recordId: id });
       }
-      result.push({ tableId, recordId });
     }
     return result;
   }
 
-  private buildAnchorClauses(
+  private groupEdgesBySource(edges: ILinkEdge[]): Map<string, ILinkEdge[]> {
+    const map = new Map<string, ILinkEdge[]>();
+    edges.forEach((edge) => {
+      const key = edge.foreignTableId;
+      if (!key) return;
+      let list = map.get(key);
+      if (!list) {
+        list = [];
+        map.set(key, list);
+      }
+      list.push(edge);
+    });
+    return map;
+  }
+
+  private getOrInitSet(map: Map<string, Set<string>>, key: string): Set<string> {
+    let set = map.get(key);
+    if (!set) {
+      set = new Set<string>();
+      map.set(key, set);
+    }
+    return set;
+  }
+
+  private flattenSeeds(
     explicitSeeds: IExplicitLinkSeed[],
     allTableSeeds: IAllTableLinkSeed[]
-  ): Array<{ sql: string; bindings: unknown[] }> {
-    const clauses: Array<{ sql: string; bindings: unknown[] }> = [];
+  ): Array<{ tableId: string; recordId: string }> {
+    const rows: Array<{ tableId: string; recordId: string }> = [];
+    explicitSeeds.forEach((s) =>
+      s.recordIds?.forEach((id) => {
+        if (id) rows.push({ tableId: s.tableId, recordId: id });
+      })
+    );
+    // allTableSeeds skipped here; caller typically handles ALL separately if no edges
+    return rows;
+  }
 
-    if (explicitSeeds.length) {
-      const explicitRows = explicitSeeds.flatMap((seed) =>
-        seed.recordIds.map((id) => ({ table_id: seed.tableId, record_id: id }))
-      );
-      if (explicitRows.length) {
-        clauses.push({
-          sql: `select seed.table_id::text, seed.record_id::text
-from jsonb_to_recordset(?::jsonb) as seed(table_id text, record_id text)`,
-          bindings: [JSON.stringify(explicitRows)],
-        });
+  private async materializeAllTableSeeds(
+    seeds: IAllTableLinkSeed[]
+  ): Promise<Array<{ tableId: string; recordId: string }>> {
+    const rows: Array<{ tableId: string; recordId: string }> = [];
+    for (const seed of seeds) {
+      const sql = `select "__id"::text as record_id from ${this.formatQualifiedName(
+        seed.dbTableName
+      )} where "__id" is not null`;
+      const res = await this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
+      for (const row of res) {
+        if (row.record_id) {
+          rows.push({ tableId: seed.tableId, recordId: row.record_id });
+        }
       }
     }
-
-    allTableSeeds.forEach((seed, index) => {
-      const alias = `all_seed_${index}`;
-      clauses.push({
-        sql: `select ?::text as table_id, ${alias}."__id"::text as record_id from ${this.formatQualifiedName(
-          seed.dbTableName
-        )} as ${alias}`,
-        bindings: [seed.tableId],
-      });
-    });
-
-    return clauses;
+    return rows;
   }
 
-  private buildGraphEdgeClauses(edges: ILinkEdge[]): Array<{ sql: string; bindings: unknown[] }> {
-    return edges.map((edge, index) => {
-      const alias = `fk_${index}`;
-      const fkTableRef = `${this.formatQualifiedName(edge.fkTableName)} as ${alias}`;
-      const dstCol = `${alias}.${this.quoteIdentifier(edge.selfKeyName)}`;
-      const srcCol = `${alias}.${this.quoteIdentifier(edge.foreignKeyName)}`;
-      const sql = `select
-  ?::text as src_table_id,
-  ${srcCol}::text as src_record_id,
-  ?::text as dst_table_id,
-  ${dstCol}::text as dst_record_id
+  private async fetchEdgeTargets(
+    edge: ILinkEdge,
+    srcIds: string[]
+  ): Promise<Array<{ record_id?: string }>> {
+    if (!srcIds.length) return [];
+    const placeholders = srcIds.map((_, i) => `$${i + 1}`).join(', ');
+    const fkTableRef = this.formatQualifiedName(edge.fkTableName);
+    const srcCol = this.quoteIdentifier(edge.foreignKeyName);
+    const dstCol = this.quoteIdentifier(edge.selfKeyName);
+    const sql = `select ${dstCol}::text as record_id
 from ${fkTableRef}
-where ${srcCol} is not null
+where ${srcCol} in (${placeholders})
+  and ${srcCol} is not null
   and ${dstCol} is not null`;
-
-      return {
-        sql,
-        bindings: [edge.foreignTableId, edge.hostTableId],
-      };
-    });
-  }
-
-  private replacePlaceholders(
-    sql: string,
-    clauseBindings: unknown[],
-    state: { index: number; bindings: unknown[] }
-  ): string {
-    const replaced = sql.replace(/\?/g, () => {
-      state.index += 1;
-      return `$${state.index}`;
-    });
-    state.bindings.push(...clauseBindings);
-    return replaced;
+    return this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
   }
 
   private quoteIdentifier(identifier: string): string {

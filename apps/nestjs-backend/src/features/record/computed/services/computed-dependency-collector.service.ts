@@ -71,15 +71,13 @@ const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 @Injectable()
 export class ComputedDependencyCollectorService {
   private logger = new Logger(ComputedDependencyCollectorService.name);
-  private readonly linkCascadeResolver: LinkCascadeResolver;
   constructor(
     private readonly prismaService: PrismaService,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
-  ) {
-    this.linkCascadeResolver = new LinkCascadeResolver(this.prismaService);
-  }
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly linkCascadeResolver: LinkCascadeResolver
+  ) {}
 
   private createExecutionContext(
     seed?: ReadonlyMap<string, TableDomain>
