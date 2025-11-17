@@ -2849,6 +2849,12 @@ export type I18nTranslations = {
                     "title": string;
                     "description": string;
                 };
+                "autoFillConfirm": {
+                    "title": string;
+                    "description": string;
+                    "saveConfigOnly": string;
+                    "generate": string;
+                };
                 "action": {
                     "addAttachment": string;
                 };

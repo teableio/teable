@@ -363,6 +363,12 @@
         "title": "Alle Datensätze aktualisieren",
         "description": "Alle Datensätze in der aktuellen Ansicht werden aktualisiert, einschließlich aller mit dem Feld generierten verknüpften Datensätze"
       },
+      "autoFillConfirm": {
+        "title": "Gesamte Spalte generieren?",
+        "description": "Dabei werden {{rowCount}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
+        "saveConfigOnly": "Nur Konfiguration speichern",
+        "generate": "Generieren"
+      },
       "action": {
         "addAttachment": "Anhang hinzufügen"
       }

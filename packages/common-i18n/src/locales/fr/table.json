@@ -354,6 +354,12 @@
         "title": "Mettre à jour tous les enregistrements",
         "description": "Tous les enregistrements dans la vue actuelle seront mis à jour, y compris tous les données générées par le champ"
       },
+      "autoFillConfirm": {
+        "title": "Générer toute la colonne ?",
+        "description": "La génération de la colonne mettra à jour {{rowCount}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
+        "saveConfigOnly": "Enregistrer la configuration uniquement",
+        "generate": "Générer"
+      },
       "action": {
         "addAttachment": "Ajouter un fichier"
       }

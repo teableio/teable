@@ -374,6 +374,12 @@
         "title": "更新整列记录",
         "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
       },
+      "autoFillConfirm": {
+        "title": "是否生成整列？",
+        "description": "生成整列将更新 {{rowCount}} 行内容。本次操作可能消耗大量 AI 资源",
+        "saveConfigOnly": "仅保存配置",
+        "generate": "生成"
+      },
       "action": {
         "addAttachment": "添加附件"
       }

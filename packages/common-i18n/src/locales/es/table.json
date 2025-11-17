@@ -360,6 +360,12 @@
         "title": "Actualizar todos los registros",
         "description": "Todos los registros en la vista actual se actualizarán, incluidos todos los datos relacionados generados por el campo"
       },
+      "autoFillConfirm": {
+        "title": "¿Generar toda la columna?",
+        "description": "Generar toda la columna actualizará {{rowCount}} filas. Esta operación puede consumir muchos recursos de IA.",
+        "saveConfigOnly": "Solo guardar configuración",
+        "generate": "Generar"
+      },
       "action": {
         "addAttachment": "Agregar adjunto"
       }

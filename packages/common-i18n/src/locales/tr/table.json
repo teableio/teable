@@ -361,6 +361,12 @@
         "title": "Tüm kayıtları güncelle",
         "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
       },
+      "autoFillConfirm": {
+        "title": "Tüm sütunu oluşturulsun mu?",
+        "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
+        "generate": "Oluştur"
+      },
       "action": {
         "addAttachment": "Ek alan ekle"
       }
