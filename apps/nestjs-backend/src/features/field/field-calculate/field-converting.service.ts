@@ -846,8 +846,8 @@ export class FieldConvertingService {
   ) {
     const oldWorkflow = oldField.options.workflow;
     const newWorkflow = newField.options.workflow;
-    const oldAction = oldField.options.action || 'workflow';
-    const newAction = newField.options.action || 'workflow';
+    const { action: oldAction = 'workflow' } = oldField.options;
+    const { action: newAction = 'workflow' } = newField.options;
     const oldUrl = oldField.options.url;
     const newUrl = newField.options.url;
 
