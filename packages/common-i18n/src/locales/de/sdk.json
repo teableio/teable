@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "Diese Tabelle kann nicht wiederhergestellt werden, da die übergeordnete Basis oder der Bereich ebenfalls im Papierkorb ist",
       "tableNotFound": "Tabellen-Papierkorb-Element nicht gefunden"
     },
+    "license": {
+      "invalid": "Die Lizenz ist ungültig",
+      "instanceIdMismatch": "Die eingehende Instanz-ID stimmt nicht mit der Instanz-ID der aktuellen Instanz überein",
+      "expired": "Die Lizenz ist abgelaufen",
+      "userLimitExceeded": "Die Anzahl der Benutzer in der aktuellen Instanz überschreitet das Platzlimit der Lizenz. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz"
+    },
+    "organization": {
+      "notFound": "Organisation nicht gefunden"
+    },
     "user": {
       "disallowSignUp": "Die aktuelle Instanz erlaubt keine Anmeldungen durch den Administrator",
       "waitlistInviteCodeRequired": "Warteliste ist aktiviert, Einladungscode ist erforderlich",
       "waitlistInviteCodeInvalid": "Warteliste ist aktiviert, Einladungscode ist ungültig",
       "systemUser": "Benutzer ist ein Systembenutzer",
       "collaboratorsInSpaces": "Benutzer hat Mitarbeiter in Bereichen (oder gelöschte Bereiche im Papierkorb)",
-      "notFound": "Benutzer nicht gefunden"
+      "notFound": "Benutzer nicht gefunden",
+      "cannotDeleteAdmin": "Administrator-Benutzer kann nicht gelöscht werden",
+      "cannotDeactivateAdmin": "Administrator-Benutzer kann nicht deaktiviert werden",
+      "cannotRemoveLastAdmin": "Administratorberechtigung kann nicht vom letzten aktiven Administrator-Benutzer entfernt werden"
     },
     "record": {
       "notFound": "Datensatz nicht gefunden",

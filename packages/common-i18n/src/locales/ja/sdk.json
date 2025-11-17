@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "親ベースまたはスペースもゴミ箱にあるため、このテーブルを復元できません",
       "tableNotFound": "テーブルのゴミ箱アイテムが見つかりません"
     },
+    "license": {
+      "invalid": "ライセンスが無効です",
+      "instanceIdMismatch": "入力されたインスタンスIDが現在のインスタンスIDと一致しません",
+      "expired": "ライセンスの有効期限が切れています",
+      "userLimitExceeded": "現在のインスタンスのユーザー数がライセンスのシート制限を超えています。一部のユーザーを無効化するか、ライセンスをアップグレードしてください"
+    },
+    "organization": {
+      "notFound": "組織が見つかりません"
+    },
     "user": {
       "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
       "waitlistInviteCodeRequired": "待機リストが有効になっています、招待コードが必要です",
       "waitlistInviteCodeInvalid": "待機リストが有効になっています、招待コードが無効です",
       "systemUser": "ユーザーはシステムユーザーです",
       "collaboratorsInSpaces": "ユーザーはスペース内に協力者がいます（またはゴミ箱内に削除されたスペース）",
-      "notFound": "ユーザーが見つかりません"
+      "notFound": "ユーザーが見つかりません",
+      "cannotDeleteAdmin": "管理者ユーザーを削除できません",
+      "cannotDeactivateAdmin": "管理者ユーザーを無効化できません",
+      "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません"
     },
     "record": {
       "notFound": "レコードが見つかりません",

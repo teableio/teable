@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "Impossible de restaurer cette table car sa base ou son espace parent est également dans la corbeille",
       "tableNotFound": "Élément de corbeille de table introuvable"
     },
+    "license": {
+      "invalid": "La licence n'est pas valide",
+      "instanceIdMismatch": "L'ID d'instance entrant ne correspond pas à l'ID d'instance de l'instance actuelle",
+      "expired": "La licence a expiré",
+      "userLimitExceeded": "Le nombre d'utilisateurs dans l'instance actuelle dépasse la limite de sièges de la licence. Veuillez désactiver certains utilisateurs ou mettre à niveau la licence"
+    },
+    "organization": {
+      "notFound": "Organisation non trouvée"
+    },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
       "waitlistInviteCodeRequired": "La liste d'attente est activée, un code d'invitation est requis",
       "waitlistInviteCodeInvalid": "La liste d'attente est activée, le code d'invitation n'est pas valide",
       "systemUser": "L'utilisateur est un utilisateur système",
       "collaboratorsInSpaces": "L'utilisateur a des collaborateurs dans les espaces (ou des espaces supprimés dans la corbeille)",
-      "notFound": "Utilisateur non trouvé"
+      "notFound": "Utilisateur non trouvé",
+      "cannotDeleteAdmin": "Impossible de supprimer l'utilisateur administrateur",
+      "cannotDeactivateAdmin": "Impossible de désactiver l'utilisateur administrateur",
+      "cannotRemoveLastAdmin": "Impossible de retirer les privilèges d'administrateur du dernier utilisateur administrateur actif"
     },
     "record": {
       "notFound": "Enregistrement non trouvé",

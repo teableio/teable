@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
       "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
     },
+    "license": {
+      "invalid": "Lisans geçersiz",
+      "instanceIdMismatch": "Gelen örnek ID'si mevcut örneğin örnek ID'si ile eşleşmiyor",
+      "expired": "Lisansın süresi doldu",
+      "userLimitExceeded": "Mevcut örnekteki kullanıcı sayısı lisansın koltuk sınırını aşıyor. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin"
+    },
+    "organization": {
+      "notFound": "Organizasyon bulunamadı"
+    },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
       "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
       "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
       "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
       "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
-      "notFound": "Kullanıcı bulunamadı"
+      "notFound": "Kullanıcı bulunamadı",
+      "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
+      "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
+      "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz"
     },
     "record": {
       "notFound": "Kayıt bulunamadı",

@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "Unable to restore this table because its parent base or space is also in trash",
       "tableNotFound": "Table trash item not found"
     },
+    "license": {
+      "invalid": "The license is invalid",
+      "instanceIdMismatch": "The incoming instanceId does not match the current instance's instanceId",
+      "expired": "The license is expired",
+      "userLimitExceeded": "The number of users in the current instance exceeds the seat limit of the license. Please deactivate some users or upgrade the license"
+    },
+    "organization": {
+      "notFound": "Organization not found"
+    },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",
       "waitlistInviteCodeRequired": "Waitlist is enabled, invite code is required",
       "waitlistInviteCodeInvalid": "Waitlist is enabled, invite code is invalid",
       "systemUser": "User is a system user",
       "collaboratorsInSpaces": "User has collaborators in spaces (or deleted spaces in trash)",
-      "notFound": "User not found"
+      "notFound": "User not found",
+      "cannotDeleteAdmin": "Cannot delete admin user",
+      "cannotDeactivateAdmin": "Cannot deactivate admin user",
+      "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user"
     },
     "record": {
       "notFound": "Record not found",

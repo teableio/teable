@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "Impossibile ripristinare questa tabella perché la sua base o spazio padre è anche nel cestino",
       "tableNotFound": "Elemento del cestino della tabella non trovato"
     },
+    "license": {
+      "invalid": "La licenza non è valida",
+      "instanceIdMismatch": "L'ID istanza in entrata non corrisponde all'ID istanza dell'istanza attuale",
+      "expired": "La licenza è scaduta",
+      "userLimitExceeded": "Il numero di utenti nell'istanza attuale supera il limite di posti della licenza. Si prega di disattivare alcuni utenti o aggiornare la licenza"
+    },
+    "organization": {
+      "notFound": "Organizzazione non trovata"
+    },
     "user": {
       "disallowSignUp": "L'istanza attuale non consente la registrazione da parte dell'amministratore",
       "waitlistInviteCodeRequired": "La lista d'attesa è abilitata, è richiesto un codice di invito",
       "waitlistInviteCodeInvalid": "La lista d'attesa è abilitata, il codice di invito non è valido",
       "systemUser": "L'utente è un utente di sistema",
       "collaboratorsInSpaces": "L'utente ha collaboratori negli spazi (o spazi eliminati nel cestino)",
-      "notFound": "Utente non trovato"
+      "notFound": "Utente non trovato",
+      "cannotDeleteAdmin": "Impossibile eliminare l'utente amministratore",
+      "cannotDeactivateAdmin": "Impossibile disattivare l'utente amministratore",
+      "cannotRemoveLastAdmin": "Impossibile rimuovere i privilegi di amministratore dall'ultimo utente amministratore attivo"
     },
     "record": {
       "notFound": "Record non trovato",

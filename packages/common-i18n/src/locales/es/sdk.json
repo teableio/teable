@@ -1219,13 +1219,25 @@
       "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
       "tableNotFound": "Elemento de papelera de tabla no encontrado"
     },
+    "license": {
+      "invalid": "La licencia no es válida",
+      "instanceIdMismatch": "El ID de instancia entrante no coincide con el ID de instancia de la instancia actual",
+      "expired": "La licencia ha expirado",
+      "userLimitExceeded": "El número de usuarios en la instancia actual excede el límite de asientos de la licencia. Por favor desactive algunos usuarios o actualice la licencia"
+    },
+    "organization": {
+      "notFound": "Organización no encontrada"
+    },
     "user": {
       "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",
       "waitlistInviteCodeRequired": "La lista de espera está habilitada, se requiere código de invitación",
       "waitlistInviteCodeInvalid": "La lista de espera está habilitada, el código de invitación no es válido",
       "systemUser": "El usuario es un usuario del sistema",
       "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)",
-      "notFound": "Usuario no encontrado"
+      "notFound": "Usuario no encontrado",
+      "cannotDeleteAdmin": "No se puede eliminar el usuario administrador",
+      "cannotDeactivateAdmin": "No se puede desactivar el usuario administrador",
+      "cannotRemoveLastAdmin": "No se pueden quitar los privilegios de administrador del último usuario administrador activo"
     },
     "record": {
       "notFound": "Registro no encontrado",

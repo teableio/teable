@@ -1207,13 +1207,25 @@
       "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
       "tableNotFound": "表格回收站项目未找到"
     },
+    "license": {
+      "invalid": "许可证无效",
+      "instanceIdMismatch": "传入的实例ID与当前实例ID不匹配",
+      "expired": "许可证已过期",
+      "userLimitExceeded": "当前实例的用户数量已超过许可证的席位限制。请停用一些用户或升级许可证"
+    },
+    "organization": {
+      "notFound": "组织未找到"
+    },
     "user": {
       "disallowSignUp": "管理员已禁止当前实例的用户注册",
       "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
       "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
       "systemUser": "用户是系统用户",
       "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）",
-      "notFound": "用户不存在"
+      "notFound": "用户不存在",
+      "cannotDeleteAdmin": "无法删除管理员用户",
+      "cannotDeactivateAdmin": "无法停用管理员用户",
+      "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限"
     },
     "record": {
       "notFound": "记录不存在",

@@ -2405,6 +2405,15 @@ export type I18nTranslations = {
                 "parentBaseOrSpaceTrashed": string;
                 "tableNotFound": string;
             };
+            "license": {
+                "invalid": string;
+                "instanceIdMismatch": string;
+                "expired": string;
+                "userLimitExceeded": string;
+            };
+            "organization": {
+                "notFound": string;
+            };
             "user": {
                 "disallowSignUp": string;
                 "waitlistInviteCodeRequired": string;
@@ -2412,6 +2421,9 @@ export type I18nTranslations = {
                 "systemUser": string;
                 "collaboratorsInSpaces": string;
                 "notFound": string;
+                "cannotDeleteAdmin": string;
+                "cannotDeactivateAdmin": string;
+                "cannotRemoveLastAdmin": string;
             };
             "record": {
                 "notFound": string;
