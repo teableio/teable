@@ -46,38 +46,25 @@ export class LinkCascadeResolver {
       return [];
     }
 
-    const anchorState = { index: 0, bindings: [] as unknown[] };
+    // Use a single shared state so placeholder numbering stays monotonic across CTE parts
+    const bindingState = { index: 0, bindings: [] as unknown[] };
     const anchorSelects = anchorClauses
-      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, anchorState))
+      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, bindingState))
       .join('\nunion all\n');
 
-    const graphEdgeState = { index: 0, bindings: [] as unknown[] };
-    const graphEdgeSelects = graphEdgeClauses
-      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, graphEdgeState))
+    const edgeUnionSelects = graphEdgeClauses
+      .map((clause) => this.replacePlaceholders(clause.sql, clause.bindings, bindingState))
       .join('\nunion all\n');
 
-    const rows = await this.prismaService.$tx(async (tx) => {
-      const tempTableName = this.buildTempTableName();
-      await tx.$executeRawUnsafe(
-        `create temporary table ${tempTableName} (
-  src_table_id text not null,
-  src_record_id text not null,
-  dst_table_id text not null,
-  dst_record_id text not null
-) on commit drop`
-      );
-
-      await tx.$executeRawUnsafe(
-        `insert into ${tempTableName} (src_table_id, src_record_id, dst_table_id, dst_record_id)
-${graphEdgeSelects}`,
-        ...graphEdgeState.bindings
-      );
-
-      await tx.$executeRawUnsafe(`create index on ${tempTableName} (src_table_id, src_record_id)`);
-
-      const sql = `with recursive
+    const sql = `with recursive
 seed(table_id, record_id) as (
 ${anchorSelects
+  .split('\n')
+  .map((line) => `  ${line}`)
+  .join('\n')}
+),
+edges(src_table_id, src_record_id, dst_table_id, dst_record_id) as (
+${edgeUnionSelects
   .split('\n')
   .map((line) => `  ${line}`)
   .join('\n')}
@@ -86,22 +73,20 @@ link_reach(table_id, record_id) as (
   select table_id::text, record_id::text
   from seed
 
-  union
+  union all
 
   select e.dst_table_id::text, e.dst_record_id::text
   from link_reach lr
-  join ${tempTableName} e
+  join edges e
     on e.src_table_id = lr.table_id
    and e.src_record_id = lr.record_id
 )
 select distinct table_id, record_id
 from link_reach`;
 
-      return await tx.$queryRawUnsafe<Array<{ table_id?: string; record_id?: string }>>(
-        sql,
-        ...anchorState.bindings
-      );
-    });
+    const rows = await this.prismaService.$queryRawUnsafe<
+      Array<{ table_id?: string; record_id?: string }>
+    >(sql, ...bindingState.bindings);
 
     const result: Array<{ tableId: string; recordId: string }> = [];
     for (const row of rows) {
@@ -191,10 +176,5 @@ where ${srcCol} is not null
       .split('.')
       .map((part) => this.quoteIdentifier(part))
       .join('.');
-  }
-
-  private buildTempTableName(): string {
-    const uniqueSuffix = Math.random().toString(36).slice(2, 8);
-    return `pg_temp.${this.quoteIdentifier(`link_edges_${uniqueSuffix}`)}`;
   }
 }

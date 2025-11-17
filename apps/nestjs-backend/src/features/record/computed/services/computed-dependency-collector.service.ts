@@ -231,11 +231,11 @@ export class ComputedDependencyCollectorService {
   }
 
   @Timing()
-  private async buildLinkEdgesForTables(
+  private buildLinkEdgesForTables(
     tables: Iterable<string>,
-    tableDomains?: ReadonlyMap<string, TableDomain>,
-    ctx?: ICollectorExecutionContext
-  ): Promise<ILinkEdge[]> {
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    impact?: IComputedImpactByTable
+  ): ILinkEdge[] {
     const edges: ILinkEdge[] = [];
     const visited = new Set<string>();
     for (const tableId of tables) {
@@ -243,9 +243,11 @@ export class ComputedDependencyCollectorService {
         continue;
       }
       visited.add(tableId);
-      const tableDomain = tableDomains?.get(tableId) ?? (await this.getTableDomain(tableId, ctx));
-      if (!tableDomain) continue;
-      for (const field of tableDomain.fieldList) {
+      const tableDomain = this.getRequiredTableDomain(tableId, tableDomains);
+      const projection = impact?.[tableId]?.fieldIds;
+      if (!projection) continue;
+      const linkFields = tableDomain.getLinkFieldsByProjection(projection);
+      for (const field of linkFields) {
         if (field.type !== FieldType.Link || field.isLookup) continue;
         const opts = this.parseLinkOptions(field.options);
         if (!opts) continue;
@@ -259,6 +261,35 @@ export class ComputedDependencyCollectorService {
       }
     }
     return edges;
+  }
+
+  private async loadTableDomains(
+    tableIds: Iterable<string>,
+    ctx: ICollectorExecutionContext
+  ): Promise<Map<string, TableDomain>> {
+    const ids = Array.from(new Set(Array.from(tableIds).filter(Boolean)));
+    if (!ids.length) return new Map();
+
+    const domains = await this.tableDomainQueryService.getTableDomainsByIds(ids);
+    if (domains.size !== ids.length) {
+      const missing = ids.filter((id) => !domains.has(id));
+      if (missing.length) {
+        throw new Error(`TableDomain not found for tableIds: ${missing.join(',')}`);
+      }
+    }
+
+    return new Map(domains);
+  }
+
+  private getRequiredTableDomain(
+    tableId: string,
+    tableDomains: ReadonlyMap<string, TableDomain>
+  ): TableDomain {
+    const domain = tableDomains.get(tableId);
+    if (!domain) {
+      throw new Error(`TableDomain not found for tableId: ${tableId}`);
+    }
+    return domain;
   }
 
   private addExplicitSeed(
@@ -1166,7 +1197,8 @@ export class ComputedDependencyCollectorService {
       if (group) group.preferAutoNumberPaging = true;
     }
 
-    const linkEdges = await this.buildLinkEdgesForTables(impactedTables, undefined, execCtx);
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
     const explicitSeeds = new Map<string, Set<string>>();
     const tablesWithAllRecords = new Set<string>(originTableIds);
 
@@ -1529,11 +1561,8 @@ export class ComputedDependencyCollectorService {
       }
     }
 
-    const linkEdges = await this.buildLinkEdgesForTables(
-      impactedTables,
-      relatedTables.tableDomains,
-      execCtx
-    );
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
     const explicitSeeds = new Map<string, Set<string>>();
     explicitSeeds.set(tableId, new Set(changedRecordIds));
     for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
@@ -1552,7 +1581,7 @@ export class ComputedDependencyCollectorService {
       explicitSeeds,
       tablesWithAllRecords,
       linkEdges,
-      tableDomains: relatedTables.tableDomains,
+      tableDomains,
       ctx: execCtx,
     });
 

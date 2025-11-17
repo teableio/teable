@@ -1,4 +1,5 @@
 import type { IFieldMap } from '../../formula';
+import { FieldType } from '../field/constant';
 import type { FieldCore } from '../field/field';
 import type { ILookupLinkOptions } from '../field/lookup-options-base.schema';
 import { isLinkLookupOptions } from '../field/lookup-options-base.schema';
@@ -249,6 +250,25 @@ export class TableDomain {
    */
   mapFields<T>(mapper: (field: FieldCore) => T): T[] {
     return this._fields.map(mapper);
+  }
+
+  getLinkFieldsByProjection(projection?: Iterable<string>): FieldCore[] {
+    if (!projection) {
+      return this._fields.filter(
+        (field) => field.type === FieldType.Link && !field.isLookup
+      ) as FieldCore[];
+    }
+
+    const expanded = this.expandFieldIdsWithLinkDependencies(projection);
+    if (!expanded.size) {
+      return [];
+    }
+
+    return Array.from(expanded)
+      .map((fieldId) => this.getField(fieldId))
+      .filter(
+        (field): field is FieldCore => !!field && field.type === FieldType.Link && !field.isLookup
+      );
   }
 
   /**

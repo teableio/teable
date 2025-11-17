@@ -57,33 +57,34 @@ export class RecordModifySharedService {
     return nonNoop.filter((c) => !sysSet.has(c.fieldId));
   }
 
-  // private async getEffectFieldInstances(
-  //   tableId: string,
-  //   recordsFields: Record<string, unknown>[],
-  //   fieldKeyType: FieldKeyType = FieldKeyType.Name,
-  //   ignoreMissingFields: boolean = false
-  // ) {
-  //   const fieldIdsOrNamesSet = recordsFields.reduce<Set<string>>((acc, recordFields) => {
-  //     const fieldIds = Object.keys(recordFields);
-  //     forEach(fieldIds, (fieldId) => acc.add(fieldId));
-  //     return acc;
-  //   }, new Set());
+  private getEffectFieldInstances(
+    table: TableDomain,
+    recordsFields: Record<string, unknown>[],
+    fieldKeyType: FieldKeyType = FieldKeyType.Name,
+    ignoreMissingFields: boolean = false
+  ) {
+    const fieldIdsOrNamesSet = recordsFields.reduce<Set<string>>((acc, recordFields) => {
+      const fieldIds = Object.keys(recordFields);
+      forEach(fieldIds, (fieldId) => acc.add(fieldId));
+      return acc;
+    }, new Set());
 
-  //   const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
+    const usedFieldIdsOrNames = Array.from(fieldIdsOrNamesSet);
+    const fieldsMap = table.getFieldsMap(fieldKeyType);
 
-  //   const usedFields = await this.dataLoaderService.field.load(tableId, {
-  //     [fieldKeyType]: usedFieldIdsOrNames,
-  //   });
+    const usedFields = usedFieldIdsOrNames
+      .map((fieldIdOrName) => fieldsMap.get(fieldIdOrName))
+      .filter((f): f is FieldCore => !!f);
 
-  //   if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
-  //     const usedSet = new Set(map(usedFields, fieldKeyType));
-  //     const missedFields = usedFieldIdsOrNames.filter(
-  //       (fieldIdOrName) => !usedSet.has(fieldIdOrName)
-  //     );
-  //     throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
-  //   }
-  //   return map(usedFields, createFieldInstanceByRaw);
-  // }
+    if (!ignoreMissingFields && usedFields.length !== usedFieldIdsOrNames.length) {
+      const usedSet = new Set(map(usedFields, fieldKeyType));
+      const missedFields = usedFieldIdsOrNames.filter(
+        (fieldIdOrName) => !usedSet.has(fieldIdOrName)
+      );
+      throw new NotFoundException(`Field ${fieldKeyType}: ${missedFields.join()} not found`);
+    }
+    return usedFields;
+  }
 
   @Timing()
   async validateFieldsAndTypecast<
@@ -98,7 +99,12 @@ export class RecordModifySharedService {
     ignoreMissingFields: boolean = false
   ): Promise<T[]> {
     const recordsFields = map(records, 'fields');
-    const effectFieldInstance = table.fieldList;
+    const effectFieldInstance = this.getEffectFieldInstances(
+      table,
+      recordsFields,
+      fieldKeyType,
+      ignoreMissingFields
+    );
 
     const newRecordsFields: Record<string, unknown>[] = recordsFields.map(() => ({}));
     for (const field of effectFieldInstance) {
@@ -188,7 +194,7 @@ export class RecordModifySharedService {
           throw new NotFoundException(`Field ${fieldNameOrId} not found`);
         }
         const fieldId = fieldsMap.get(fieldNameOrId)!.id;
-        const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id]?.fields[fieldId];
+        const oldCellValue = isNewRecord ? null : oldRecordsMap[record.id]?.fields[fieldId] ?? null;
         cellContexts.push({
           recordId: record.id,
           fieldId,
