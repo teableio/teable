@@ -367,7 +367,8 @@
         "title": "Gesamte Spalte generieren?",
         "description": "Dabei werden {{rowCount}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
         "saveConfigOnly": "Nur Konfiguration speichern",
-        "generate": "Generieren"
+        "generate": "Generieren",
+        "generateFailed": "Generierung fehlgeschlagen"
       },
       "action": {
         "addAttachment": "Anhang hinzufügen"

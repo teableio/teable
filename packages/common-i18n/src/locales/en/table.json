@@ -377,7 +377,8 @@
         "title": "Generate the entire column?",
         "description": "This will update {{rowCount}} rows. This operation may consume a large amount of AI credits.",
         "saveConfigOnly": "Save configuration only",
-        "generate": "Generate"
+        "generate": "Generate",
+        "generateFailed": "Generate failed"
       },
       "action": {
         "addAttachment": "Add attachment"

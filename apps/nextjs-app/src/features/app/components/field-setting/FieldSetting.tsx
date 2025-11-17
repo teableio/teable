@@ -141,6 +141,7 @@ export const FieldSetting = (props: IFieldSetting) => {
         await autoFillField({ tableId, fieldId: result.id, query });
       }
     } catch (e) {
+      toast.error(t('table:field.aiConfig.autoFillConfirm.generateFailed'));
       console.error('autoFillField error', e);
     } finally {
       autoFillAfterSaveRef.current = false;
@@ -280,7 +281,9 @@ export const FieldSetting = (props: IFieldSetting) => {
       <AiAutoFillDialog
         open={aiConfirmVisible}
         title={t('table:field.aiConfig.autoFillConfirm.title')}
-        description={t('table:field.aiConfig.autoFillConfirm.description', { rowCount })}
+        description={t('table:field.aiConfig.autoFillConfirm.description', {
+          rowCount: rowCount ?? 0,
+        })}
         cancelText={t('common:actions.cancel')}
         saveText={t('table:field.aiConfig.autoFillConfirm.saveConfigOnly')}
         updateText={t('table:field.aiConfig.autoFillConfirm.generate')}

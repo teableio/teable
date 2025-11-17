@@ -364,7 +364,8 @@
         "title": "¿Generar toda la columna?",
         "description": "Generar toda la columna actualizará {{rowCount}} filas. Esta operación puede consumir muchos recursos de IA.",
         "saveConfigOnly": "Solo guardar configuración",
-        "generate": "Generar"
+        "generate": "Generar",
+        "generateFailed": "La generación ha fallado"
       },
       "action": {
         "addAttachment": "Agregar adjunto"

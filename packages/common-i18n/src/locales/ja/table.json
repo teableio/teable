@@ -358,7 +358,8 @@
         "title": "列全体を生成しますか？",
         "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
         "saveConfigOnly": "設定のみ保存",
-        "generate": "生成する"
+        "generate": "生成する",
+        "generateFailed": "生成に失敗しました"
       },
       "action": {
         "addAttachment": "添付ファイルを追加"

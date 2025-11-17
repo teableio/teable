@@ -365,7 +365,8 @@
         "title": "Tüm sütunu oluşturulsun mu?",
         "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
         "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
-        "generate": "Oluştur"
+        "generate": "Oluştur",
+        "generateFailed": "Oluşturma başarısız oldu"
       },
       "action": {
         "addAttachment": "Ek alan ekle"

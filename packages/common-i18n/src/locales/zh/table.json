@@ -378,7 +378,8 @@
         "title": "是否生成整列？",
         "description": "生成整列将更新 {{rowCount}} 行内容。本次操作可能消耗大量 AI 资源",
         "saveConfigOnly": "仅保存配置",
-        "generate": "生成"
+        "generate": "生成",
+        "generateFailed": "生成失败"
       },
       "action": {
         "addAttachment": "添加附件"

@@ -358,7 +358,8 @@
         "title": "Générer toute la colonne ?",
         "description": "La génération de la colonne mettra à jour {{rowCount}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
         "saveConfigOnly": "Enregistrer la configuration uniquement",
-        "generate": "Générer"
+        "generate": "Générer",
+        "generateFailed": "Échec de la génération"
       },
       "action": {
         "addAttachment": "Ajouter un fichier"

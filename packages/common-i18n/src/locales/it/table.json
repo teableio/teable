@@ -367,7 +367,8 @@
         "title": "Generare l'intera colonna?",
         "description": "La generazione dell'intera colonna aggiornerà {{rowCount}} righe. Questa operazione può consumare molte risorse di IA.",
         "saveConfigOnly": "Salva solo la configurazione",
-        "generate": "Genera"
+        "generate": "Genera",
+        "generateFailed": "Generazione non riuscita"
       },
       "action": {
         "addAttachment": "Aggiungi allegato"
