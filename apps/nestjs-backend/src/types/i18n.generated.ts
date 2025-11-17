@@ -2237,8 +2237,24 @@ export type I18nTranslations = {
                 "notAllowedSpace": string;
                 "notAllowedBase": string;
                 "notAllowedTable": string;
+                "notAllowedOperationTable": string;
+                "notAllowedOperationRecord": string;
+                "notAllowedRecordUpdate": string;
+                "notAllowedOperationView": string;
+                "deniedByEnabledAuthorityMatrix": string;
                 "invalidRequestPath": string;
                 "notAllowedOperation": string;
+            };
+            "authorityMatrix": {
+                "defaultRoleNotFound": string;
+                "alreadyDisabled": string;
+                "alreadyEnabled": string;
+                "notFound": string;
+                "primaryFieldCannotBeDisabledForRead": string;
+                "fieldDuplicated": string;
+                "cannotSetRecordPermissionGroup": string;
+                "notFoundBaseAndTable": string;
+                "roleTablesShouldNotBeEmpty": string;
             };
             "selection": {
                 "invalidReturnType": string;

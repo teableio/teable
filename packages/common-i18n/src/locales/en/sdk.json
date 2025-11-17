@@ -1039,8 +1039,24 @@
       "notAllowedSpace": "You don't have permission to access this space",
       "notAllowedBase": "You don't have permission to access this base",
       "notAllowedTable": "You don't have permission to access this table",
+      "notAllowedOperationTable": "You don't have permission to operate on this table",
+      "notAllowedOperationRecord": "You don't have permission to operate on this record",
+      "notAllowedRecordUpdate": "You don't have permission to update this record",
+      "notAllowedOperationView": "You don't have permission to operate on this view",
+      "deniedByEnabledAuthorityMatrix": "Permission denied by enabled authority matrix",
       "invalidRequestPath": "Request path is not valid",
       "notAllowedOperation": "You don't have permission to perform this operation"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Default role not found",
+      "alreadyDisabled": "Authority matrix is already disabled",
+      "alreadyEnabled": "Authority matrix is already enabled",
+      "notFound": "Authority matrix not found",
+      "primaryFieldCannotBeDisabledForRead": "Primary field cannot be disabled for read access",
+      "fieldDuplicated": "Field is duplicated in permission configuration",
+      "cannotSetRecordPermissionGroup": "Cannot set this combination of record permissions",
+      "notFoundBaseAndTable": "Base ID and Table ID not found",
+      "roleTablesShouldNotBeEmpty": "Authority matrix role tables should not be empty"
     },
     "selection": {
       "invalidReturnType": "Invalid return type",

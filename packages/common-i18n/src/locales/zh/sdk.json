@@ -1039,8 +1039,24 @@
       "notAllowedSpace": "您没有权限访问此空间",
       "notAllowedBase": "您没有权限访问此数据库",
       "notAllowedTable": "您没有权限访问此表格",
+      "notAllowedOperationTable": "您没有权限操作此表格",
+      "notAllowedOperationRecord": "您没有权限操作此记录",
+      "notAllowedRecordUpdate": "您没有权限更新此记录",
+      "notAllowedOperationView": "您没有权限操作此视图",
+      "deniedByEnabledAuthorityMatrix": "权限矩阵已启用，操作被拒绝",
       "invalidRequestPath": "请求路径无效",
       "notAllowedOperation": "您没有权限执行此操作"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "默认角色未找到",
+      "alreadyDisabled": "权限矩阵已被禁用",
+      "alreadyEnabled": "权限矩阵已被启用",
+      "notFound": "权限矩阵未找到",
+      "primaryFieldCannotBeDisabledForRead": "主字段不能禁用读取权限",
+      "fieldDuplicated": "权限配置中存在重复字段",
+      "cannotSetRecordPermissionGroup": "不能设置此记录权限组合",
+      "notFoundBaseAndTable": "未找到数据库ID和表格ID",
+      "roleTablesShouldNotBeEmpty": "权限矩阵角色表不能为空"
     },
     "selection": {
       "invalidReturnType": "无效的返回类型",
