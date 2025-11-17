@@ -1214,7 +1214,8 @@
       "userLimitExceeded": "The number of users in the current instance exceeds the seat limit of the license. Please deactivate some users or upgrade the license"
     },
     "organization": {
-      "notFound": "Organization not found"
+      "notFound": "Organization not found",
+      "emailNotSpaceUser": "Email is not a space user"
     },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",

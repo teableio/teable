@@ -1226,7 +1226,8 @@
       "userLimitExceeded": "El número de usuarios en la instancia actual excede el límite de asientos de la licencia. Por favor desactive algunos usuarios o actualice la licencia"
     },
     "organization": {
-      "notFound": "Organización no encontrada"
+      "notFound": "Organización no encontrada",
+      "emailNotSpaceUser": "El correo electrónico no es usuario del espacio"
     },
     "user": {
       "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",

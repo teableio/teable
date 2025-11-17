@@ -1214,7 +1214,8 @@
       "userLimitExceeded": "Mevcut örnekteki kullanıcı sayısı lisansın koltuk sınırını aşıyor. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin"
     },
     "organization": {
-      "notFound": "Organizasyon bulunamadı"
+      "notFound": "Organizasyon bulunamadı",
+      "emailNotSpaceUser": "E-posta alan kullanıcısı değil"
     },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",

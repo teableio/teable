@@ -2413,6 +2413,7 @@ export type I18nTranslations = {
             };
             "organization": {
                 "notFound": string;
+                "emailNotSpaceUser": string;
             };
             "user": {
                 "disallowSignUp": string;

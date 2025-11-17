@@ -1214,7 +1214,8 @@
       "userLimitExceeded": "Il numero di utenti nell'istanza attuale supera il limite di posti della licenza. Si prega di disattivare alcuni utenti o aggiornare la licenza"
     },
     "organization": {
-      "notFound": "Organizzazione non trovata"
+      "notFound": "Organizzazione non trovata",
+      "emailNotSpaceUser": "L'email non è un utente dello spazio"
     },
     "user": {
       "disallowSignUp": "L'istanza attuale non consente la registrazione da parte dell'amministratore",

@@ -1214,7 +1214,8 @@
       "userLimitExceeded": "当前实例的用户数量已超过许可证的席位限制。请停用一些用户或升级许可证"
     },
     "organization": {
-      "notFound": "组织未找到"
+      "notFound": "组织未找到",
+      "emailNotSpaceUser": "邮箱不是空间用户"
     },
     "user": {
       "disallowSignUp": "管理员已禁止当前实例的用户注册",

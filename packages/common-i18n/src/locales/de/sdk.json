@@ -1214,7 +1214,8 @@
       "userLimitExceeded": "Die Anzahl der Benutzer in der aktuellen Instanz überschreitet das Platzlimit der Lizenz. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz"
     },
     "organization": {
-      "notFound": "Organisation nicht gefunden"
+      "notFound": "Organisation nicht gefunden",
+      "emailNotSpaceUser": "E-Mail ist kein Space-Benutzer"
     },
     "user": {
       "disallowSignUp": "Die aktuelle Instanz erlaubt keine Anmeldungen durch den Administrator",
