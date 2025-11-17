@@ -48,7 +48,7 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
         <Tooltip>
           <TooltipTrigger asChild>
             <div
-              className={`${buttonClassName ?? ''} flex h-7 pl-1 gap-2 text-xs items-center whitespace-nowrap cursor-pointer`}
+              className={`${buttonClassName ?? ''} flex h-7 cursor-pointer items-center gap-2 whitespace-nowrap pl-1 text-xs`}
             >
               <span>{t('table:toolbar.others.personalView.personal')}</span>
               <Switch
@@ -77,11 +77,11 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
         description={t('table:toolbar.others.personalView.dialog.description')}
         cancelText={t('table:toolbar.others.personalView.dialog.cancelText')}
         confirmText={t('table:toolbar.others.personalView.dialog.confirmText')}
-        onCancel={() => {
+        onConfirm={() => {
           closePersonalView?.();
           setIsConfirmOpen(false);
         }}
-        onConfirm={async () => {
+        onCancel={async () => {
           await syncViewProperties?.();
           closePersonalView?.();
           setIsConfirmOpen(false);
