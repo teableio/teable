@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
       "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
       "baseNotFound": "Veritabanı bulunamadı",
-      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok"
+      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok",
+      "departmentNotFound": "Departman bulunamadı"
     },
     "table": {
       "notFound": "Tablo bulunamadı",
@@ -1244,7 +1245,8 @@
       "notFound": "Kullanıcı bulunamadı",
       "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
       "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
-      "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz"
+      "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz",
+      "permanentDeleted": "Kullanıcı kalıcı olarak silindi"
     },
     "record": {
       "notFound": "Kayıt bulunamadı",

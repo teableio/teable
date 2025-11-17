@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "Collaborator has already existed in base",
       "userNotFound": "User not found: {{userIds}}",
       "baseNotFound": "Base not found",
-      "noPermissionToAddRole": "You do not have permission to add this role collaborator"
+      "noPermissionToAddRole": "You do not have permission to add this role collaborator",
+      "departmentNotFound": "Department not found"
     },
     "table": {
       "notFound": "Table not found",
@@ -1244,7 +1245,8 @@
       "notFound": "User not found",
       "cannotDeleteAdmin": "Cannot delete admin user",
       "cannotDeactivateAdmin": "Cannot deactivate admin user",
-      "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user"
+      "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user",
+      "permanentDeleted": "User is permanently deleted"
     },
     "record": {
       "notFound": "Record not found",

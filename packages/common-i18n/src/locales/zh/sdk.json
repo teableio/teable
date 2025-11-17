@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "协作者已在数据库中存在",
       "userNotFound": "未找到用户：{{userIds}}",
       "baseNotFound": "未找到数据库",
-      "noPermissionToAddRole": "您没有权限添加此角色的协作者"
+      "noPermissionToAddRole": "您没有权限添加此角色的协作者",
+      "departmentNotFound": "部门未找到"
     },
     "table": {
       "notFound": "表格不存在",
@@ -1244,7 +1245,8 @@
       "notFound": "用户不存在",
       "cannotDeleteAdmin": "无法删除管理员用户",
       "cannotDeactivateAdmin": "无法停用管理员用户",
-      "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限"
+      "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限",
+      "permanentDeleted": "用户已被永久删除"
     },
     "record": {
       "notFound": "记录不存在",

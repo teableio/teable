@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "Mitarbeiter existiert bereits in der Datenbank",
       "userNotFound": "Benutzer nicht gefunden: {{userIds}}",
       "baseNotFound": "Datenbank nicht gefunden",
-      "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen"
+      "noPermissionToAddRole": "Sie haben keine Berechtigung, einen Mitarbeiter mit dieser Rolle hinzuzufügen",
+      "departmentNotFound": "Abteilung nicht gefunden"
     },
     "table": {
       "notFound": "Tabelle nicht gefunden",
@@ -1244,7 +1245,8 @@
       "notFound": "Benutzer nicht gefunden",
       "cannotDeleteAdmin": "Administrator-Benutzer kann nicht gelöscht werden",
       "cannotDeactivateAdmin": "Administrator-Benutzer kann nicht deaktiviert werden",
-      "cannotRemoveLastAdmin": "Administratorberechtigung kann nicht vom letzten aktiven Administrator-Benutzer entfernt werden"
+      "cannotRemoveLastAdmin": "Administratorberechtigung kann nicht vom letzten aktiven Administrator-Benutzer entfernt werden",
+      "permanentDeleted": "Benutzer ist dauerhaft gelöscht"
     },
     "record": {
       "notFound": "Datensatz nicht gefunden",

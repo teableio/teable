@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "コラボレーターは既にデータベースに存在しています",
       "userNotFound": "ユーザーが見つかりません：{{userIds}}",
       "baseNotFound": "データベースが見つかりません",
-      "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません"
+      "noPermissionToAddRole": "この役割のコラボレーターを追加する権限がありません",
+      "departmentNotFound": "部署が見つかりません"
     },
     "table": {
       "notFound": "テーブルが見つかりません",
@@ -1244,7 +1245,8 @@
       "notFound": "ユーザーが見つかりません",
       "cannotDeleteAdmin": "管理者ユーザーを削除できません",
       "cannotDeactivateAdmin": "管理者ユーザーを無効化できません",
-      "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません"
+      "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません",
+      "permanentDeleted": "ユーザーは完全に削除されています"
     },
     "record": {
       "notFound": "レコードが見つかりません",

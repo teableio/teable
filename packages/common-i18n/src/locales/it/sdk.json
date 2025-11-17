@@ -1186,7 +1186,8 @@
       "alreadyExistedInBase": "Il collaboratore esiste già nella base",
       "userNotFound": "Utente non trovato: {{userIds}}",
       "baseNotFound": "Base non trovata",
-      "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo"
+      "noPermissionToAddRole": "Non hai il permesso di aggiungere un collaboratore con questo ruolo",
+      "departmentNotFound": "Dipartimento non trovato"
     },
     "table": {
       "notFound": "Tabella non trovata",
@@ -1244,7 +1245,8 @@
       "notFound": "Utente non trovato",
       "cannotDeleteAdmin": "Impossibile eliminare l'utente amministratore",
       "cannotDeactivateAdmin": "Impossibile disattivare l'utente amministratore",
-      "cannotRemoveLastAdmin": "Impossibile rimuovere i privilegi di amministratore dall'ultimo utente amministratore attivo"
+      "cannotRemoveLastAdmin": "Impossibile rimuovere i privilegi di amministratore dall'ultimo utente amministratore attivo",
+      "permanentDeleted": "L'utente è stato eliminato permanentemente"
     },
     "record": {
       "notFound": "Record non trovato",

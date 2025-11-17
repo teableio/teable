@@ -2385,6 +2385,7 @@ export type I18nTranslations = {
                 "userNotFound": string;
                 "baseNotFound": string;
                 "noPermissionToAddRole": string;
+                "departmentNotFound": string;
             };
             "table": {
                 "notFound": string;
@@ -2443,6 +2444,7 @@ export type I18nTranslations = {
                 "cannotDeleteAdmin": string;
                 "cannotDeactivateAdmin": string;
                 "cannotRemoveLastAdmin": string;
+                "permanentDeleted": string;
             };
             "record": {
                 "notFound": string;
