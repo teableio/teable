@@ -39,7 +39,7 @@ const OthersList = ({
             isActive={isActive}
             text={text}
             textClassName={textClassName}
-            className={foldButton ? 'w-full justify-start' : buttonClassName}
+            className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
             disabled={!permission['view|update']}
           >
             <ArrowUpRight className="size-4" />
@@ -48,7 +48,7 @@ const OthersList = ({
       </SharePopover>
       <ToolBarButton
         text="API"
-        className={foldButton ? 'w-full justify-start' : buttonClassName}
+        className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
         textClassName={textClassName}
         onClick={onAPIClick}
       >
@@ -57,7 +57,7 @@ const OthersList = ({
       {!foldButton && <div className="mx-1 h-4 w-px shrink-0 bg-border" />}
       <PersonalViewSwitch
         textClassName={textClassName}
-        buttonClassName={foldButton ? 'w-full justify-start pl-2' : buttonClassName}
+        buttonClassName={cn(buttonClassName, { 'w-full justify-start pl-2': foldButton })}
       />
     </div>
   );
@@ -77,7 +77,7 @@ const OthersMenu = ({ className }: { className?: string }) => {
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-40 p-1">
         <OthersList
-          className="flex flex-col items-start w-full"
+          className="flex w-full flex-col items-start"
           classNames={{ textClassName: 'inline', buttonClassName: 'justify-start rounded-none' }}
           foldButton={true}
         />
@@ -88,7 +88,7 @@ const OthersMenu = ({ className }: { className?: string }) => {
 
 export const Others: React.FC = () => {
   return (
-    <div className="flex flex-1 justify-end @container/toolbar-others items-center md:gap-0">
+    <div className="flex flex-1 items-center justify-end @container/toolbar-others md:gap-0">
       <SearchButton />
       <UndoRedoButtons />
       <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
