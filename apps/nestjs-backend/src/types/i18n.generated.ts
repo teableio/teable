@@ -2512,6 +2512,7 @@ export type I18nTranslations = {
                 };
                 "personalView": {
                     "personal": string;
+                    "tip": string;
                     "collaborative": string;
                     "dialog": {
                         "title": string;
@@ -2854,6 +2855,7 @@ export type I18nTranslations = {
                     "description": string;
                     "saveConfigOnly": string;
                     "generate": string;
+                    "generateFailed": string;
                 };
                 "action": {
                     "addAttachment": string;
