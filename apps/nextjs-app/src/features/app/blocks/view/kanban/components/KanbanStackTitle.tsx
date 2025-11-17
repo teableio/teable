@@ -31,13 +31,16 @@ export const KanbanStackTitle = (props: IKanbanStackTitle) => {
           className="flex items-center space-x-2 overflow-hidden text-slate-500 dark:text-slate-400"
           onClick={onClick}
         >
-          <CellValue
-            field={stackField}
-            value={stackData}
-            className="flex-nowrap overflow-hidden"
-            itemClassName="overflow-hidden shrink-0"
-          />
-          <span className="rounded-xl border px-2 text-xs">{stackCount}</span>
+          <div className="min-w-0 flex-1 overflow-hidden">
+            <CellValue
+              field={stackField}
+              value={stackData}
+              ellipsis
+              className="flex-nowrap overflow-hidden"
+              itemClassName="overflow-hidden shrink-0"
+            />
+          </div>
+          <span className="shrink-0 rounded-xl border px-2 text-xs">{stackCount}</span>
         </div>
       )}
     </>
