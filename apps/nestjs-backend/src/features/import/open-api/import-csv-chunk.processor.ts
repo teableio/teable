@@ -34,6 +34,12 @@ interface ITableImportChunkJob {
     name: string;
   };
   userId: string;
+  origin?: {
+    ip: string;
+    byApi: boolean;
+    userAgent: string;
+    referer: string;
+  };
   importerParams: Pick<IImportOptionRo, 'attachmentUrl' | 'fileType'> & {
     maxRowCount?: number;
   };
@@ -47,6 +53,7 @@ interface ITableImportChunkJob {
     fields: { id: string; type: FieldType }[];
     sourceColumnMap?: Record<string, number | null>;
   };
+  importRo: IImportOptionRo;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -213,9 +220,11 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     const {
       baseId,
       userId,
+      origin,
       table,
       recordsCal,
       options: { notification },
+      importRo,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -248,6 +257,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       {
         baseId,
         userId,
+        origin,
         path,
         columnInfo,
         fields,
@@ -257,6 +267,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         notification,
         lastChunk,
         parentJobId: jobId,
+        importRo,
       },
       {
         jobId: chunkJobId,

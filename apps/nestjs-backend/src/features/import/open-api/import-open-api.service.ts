@@ -54,6 +54,7 @@ export class ImportOpenApiService {
 
   async createTableFromImport(baseId: string, importRo: IImportOptionRo, maxRowCount?: number) {
     const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
     const { worksheets, notification = false, tz, fileType, attachmentUrl } = importRo;
 
     // only record base table info, not include records
@@ -112,6 +113,7 @@ export class ImportOpenApiService {
               name: table.name,
             },
             userId,
+            origin,
             importerParams: {
               attachmentUrl,
               fileType,
@@ -126,6 +128,7 @@ export class ImportOpenApiService {
               fields: fields.map((f) => ({ id: f.id, type: f.type })),
               columnInfo: columns,
             },
+            importRo,
           },
           {
             jobId,
@@ -194,6 +197,7 @@ export class ImportOpenApiService {
     projection?: string[]
   ) {
     const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
     const { attachmentUrl, fileType, insertConfig, notification = false } = inplaceImportRo;
 
     const { sourceColumnMap, sourceWorkSheetKey, excludeFirstRow } = insertConfig;
@@ -254,6 +258,7 @@ export class ImportOpenApiService {
           name: tableRaw.name,
         },
         userId,
+        origin,
         importerParams: {
           attachmentUrl,
           fileType,
@@ -280,184 +285,4 @@ export class ImportOpenApiService {
   async generateChunkJobId(tableId: string) {
     return `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${tableId}:${getRandomString(6)}`;
   }
-
-  // private importRecords(
-  //   baseId: string,
-  //   table: { id: string; name: string },
-  //   userId: string,
-  //   importer: CsvImporter | ExcelImporter,
-  //   options: { skipFirstNLines: number; sheetKey: string; notification: boolean },
-  //   recordsCal: {
-  //     columnInfo?: IImportColumn[];
-  //     fields: { id: string; type: FieldType }[];
-  //     sourceColumnMap?: Record<string, number | null>;
-  //   }
-  // ) {
-  //   const { sheetKey, notification } = options;
-  //   const { columnInfo, fields, sourceColumnMap } = recordsCal;
-
-  //   const workerId = `worker_${getRandomString(8)}`;
-  //   const path = getWorkerPath('parse');
-
-  //   const worker = new Worker(path, {
-  //     workerData: {
-  //       config: importer.getConfig(),
-  //       options: {
-  //         key: options.sheetKey,
-  //         notification: options.notification,
-  //         skipFirstNLines: options.skipFirstNLines,
-  //       },
-  //       id: workerId,
-  //     },
-  //   });
-  //   // record count for error notification
-  //   let recordCount = 1;
-  //   worker.on('message', async (result) => {
-  //     const { type, data, chunkId, id } = result;
-  //     switch (type) {
-  //       case 'chunk': {
-  //         // this.setImportStatus(localPresence, true);
-  //         const currentResult = (data as Record<string, unknown[][]>)[sheetKey];
-  //         // fill data
-  //         const records = currentResult.map((row) => {
-  //           const res: { fields: Record<string, unknown> } = {
-  //             fields: {},
-  //           };
-  //           // import new table
-  //           if (columnInfo) {
-  //             columnInfo.forEach((col, index) => {
-  //               const { sourceColumnIndex, type } = col;
-  //               // empty row will be return void row value
-  //               const value = Array.isArray(row) ? row[sourceColumnIndex] : null;
-  //               res.fields[fields[index].id] =
-  //                 type === FieldType.Checkbox ? parseBoolean(value) : value?.toString();
-  //             });
-  //           }
-  //           // inplace records
-  //           if (sourceColumnMap) {
-  //             for (const [key, value] of Object.entries(sourceColumnMap)) {
-  //               if (value !== null) {
-  //                 const { type } = fields.find((f) => f.id === key) || {};
-  //                 // link value should be string
-  //                 res.fields[key] = type === FieldType.Link ? toString(row[value]) : row[value];
-  //               }
-  //             }
-  //           }
-  //           return res;
-  //         });
-  //         recordCount += records.length;
-  //         if (records.length === 0) {
-  //           return;
-  //         }
-  //         try {
-  //           const createFn = columnInfo
-  //             ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
-  //             : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
-  //           workerId === id &&
-  //             (await createFn(table.id, {
-  //               fieldKeyType: FieldKeyType.Id,
-  //               typecast: true,
-  //               records,
-  //             }));
-  //           worker.postMessage({ type: 'done', chunkId });
-  //           this.updateRowCount(table.id);
-  //         } catch (e: unknown) {
-  //           const error = e as Error;
-  //           this.logger.error(error?.message, error?.stack);
-  //           notification &&
-  //             this.notificationService.sendImportResultNotify({
-  //               baseId,
-  //               tableId: table.id,
-  //               toUserId: userId,
-  //               message: `❌ ${table.name} import aborted: ${error.message} fail row range: [${recordCount - records.length}, ${recordCount - 1}]. Please check the data for this range and retry.
-  //               `,
-  //             });
-  //           worker.terminate();
-  //           throw e;
-  //         }
-  //         break;
-  //       }
-  //       case 'finished':
-  //         workerId === id &&
-  //           notification &&
-  //           this.notificationService.sendImportResultNotify({
-  //             baseId,
-  //             tableId: table.id,
-  //             toUserId: userId,
-  //             message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
-  //           });
-  //         worker.terminate();
-  //         break;
-  //       case 'error':
-  //         workerId === id &&
-  //           notification &&
-  //           this.notificationService.sendImportResultNotify({
-  //             baseId,
-  //             tableId: table.id,
-  //             toUserId: userId,
-  //             message: `❌ ${table.name} import failed: ${data}`,
-  //           });
-  //         worker.terminate();
-  //         break;
-  //     }
-  //   });
-  //   worker.on('error', (e) => {
-  //     notification &&
-  //       this.notificationService.sendImportResultNotify({
-  //         baseId,
-  //         tableId: table.id,
-  //         toUserId: userId,
-  //         message: `❌ ${table.name} import failed: ${e.message}`,
-  //       });
-  //     worker.terminate();
-  //   });
-  //   worker.on('exit', (code) => {
-  //     this.logger.log(`Worker stopped with exit code ${code}`);
-  //     // this.setImportStatus(localPresence, false);
-  //   });
-  // }
-
-  // private updateRowCount(tableId: string) {
-  //   const channel = getActionTriggerChannel(tableId);
-  //   const presence = this.shareDbService.connect().getPresence(channel);
-  //   const localPresence = presence.create(tableId);
-  //   localPresence.submit([{ actionKey: 'addRecord' }], (error) => {
-  //     error && this.logger.error(error);
-  //   });
-
-  //   const updateEmptyOps = {
-  //     src: 'unknown',
-  //     seq: 1,
-  //     m: {
-  //       ts: Date.now(),
-  //     },
-  //     create: {
-  //       type: 'json0',
-  //       data: undefined,
-  //     },
-  //     v: 0,
-  //   } as CreateOp;
-  //   this.shareDbService.publishRecordChannel(tableId, updateEmptyOps);
-  // }
-
-  // private setImportStatus(
-  //   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  //   presence: LocalPresence<any>,
-  //   loading: boolean
-  // ) {
-  //   presence.submit(
-  //     {
-  //       loading,
-  //     },
-  //     (error) => {
-  //       error && this.logger.error(error);
-  //     }
-  //   );
-  // }
-
-  // private createImportPresence(tableId: string) {
-  //   const channel = getTableImportChannel(tableId);
-  //   const presence = this.shareDbService.connect().getPresence(channel);
-  //   return presence.create(channel);
-  // }
 }

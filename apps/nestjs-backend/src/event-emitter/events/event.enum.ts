@@ -80,5 +80,7 @@ export enum Events {
 
   IMPORT_TABLE_COMPLETE = 'import.table.complete',
 
+  BASE_IMPORT_COMPLETE = 'base.import.complete',
+
   NOTIFY_MAIL_MERGE = 'notify.mail.merge',
 }
