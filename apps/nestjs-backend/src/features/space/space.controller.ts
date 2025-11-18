@@ -242,8 +242,10 @@ export class SpaceController {
   }
 
   @Delete(':spaceId/permanent')
+  @EmitControllerEvent(Events.SPACE_DELETE)
   async permanentDeleteSpace(@Param('spaceId') spaceId: string) {
-    return await this.spaceService.permanentDeleteSpace(spaceId);
+    await this.spaceService.permanentDeleteSpace(spaceId);
+    return { spaceId, permanent: true };
   }
 
   @Post(':spaceId/collaborator')
