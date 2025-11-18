@@ -1175,7 +1175,13 @@
       "configurationNotSet": "AI 設定が設定されていません",
       "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
       "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません",
-      "testLLMFailed": "LLM 接続テストに失敗しました"
+      "testLLMFailed": "LLM 接続テストに失敗しました",
+      "audioNotSupported": "このモデルはオーディオ入力をサポートしていません",
+      "imageNotSupported": "このモデルは画像入力をサポートしていません",
+      "modelNotSet": "AIモデルが設定されていません",
+      "unsupportedFileType": "サポートされていないファイルタイプ",
+      "unsupportedModelType": "サポートされていないモデルタイプ",
+      "embeddingModelNotSet": "埋め込みモデルが設定されていません"
     },
     "role": {
       "notFound": "ロールが見つかりません"

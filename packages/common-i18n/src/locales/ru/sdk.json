@@ -1175,7 +1175,13 @@
       "configurationNotSet": "Конфигурация ИИ не установлена",
       "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
       "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена",
-      "testLLMFailed": "Тест подключения LLM не прошел"
+      "testLLMFailed": "Тест подключения LLM не прошел",
+      "audioNotSupported": "Аудио ввод не поддерживается этой моделью",
+      "imageNotSupported": "Ввод изображения не поддерживается этой моделью",
+      "modelNotSet": "Модель ИИ не установлена",
+      "unsupportedFileType": "Неподдерживаемый тип файла",
+      "unsupportedModelType": "Неподдерживаемый тип модели",
+      "embeddingModelNotSet": "Модель встраивания не установлена"
     },
     "role": {
       "notFound": "Роль не найдена"

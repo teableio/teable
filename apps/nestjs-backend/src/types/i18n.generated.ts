@@ -2374,6 +2374,12 @@ export type I18nTranslations = {
                 "unsupportedProvider": string;
                 "providerConfigurationNotSet": string;
                 "testLLMFailed": string;
+                "audioNotSupported": string;
+                "imageNotSupported": string;
+                "modelNotSet": string;
+                "unsupportedFileType": string;
+                "unsupportedModelType": string;
+                "embeddingModelNotSet": string;
             };
             "role": {
                 "notFound": string;

@@ -1175,7 +1175,13 @@
       "configurationNotSet": "AI configuration is not set",
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
-      "testLLMFailed": "LLM connection test failed"
+      "testLLMFailed": "LLM connection test failed",
+      "audioNotSupported": "Audio input not supported by this model",
+      "imageNotSupported": "Image input not supported by this model",
+      "modelNotSet": "AI Model is not set",
+      "unsupportedFileType": "Unsupported file type",
+      "unsupportedModelType": "Unsupported model type",
+      "embeddingModelNotSet": "Embedding Model is not set"
     },
     "role": {
       "notFound": "Role not found"

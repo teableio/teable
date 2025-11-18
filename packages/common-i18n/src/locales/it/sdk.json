@@ -1175,7 +1175,13 @@
       "configurationNotSet": "La configurazione IA non è impostata",
       "unsupportedProvider": "Fornitore IA non supportato {{type}}",
       "providerConfigurationNotSet": "La configurazione del fornitore IA non è impostata",
-      "testLLMFailed": "Test di connessione LLM fallito"
+      "testLLMFailed": "Test di connessione LLM fallito",
+      "audioNotSupported": "L'input audio non è supportato da questo modello",
+      "imageNotSupported": "L'input immagine non è supportato da questo modello",
+      "modelNotSet": "Il modello IA non è impostato",
+      "unsupportedFileType": "Tipo di file non supportato",
+      "unsupportedModelType": "Tipo di modello non supportato",
+      "embeddingModelNotSet": "Il modello di embedding non è impostato"
     },
     "role": {
       "notFound": "Ruolo non trovato"

@@ -1175,7 +1175,13 @@
       "configurationNotSet": "AI yapılandırması ayarlanmamış",
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
-      "testLLMFailed": "LLM bağlantı testi başarısız oldu"
+      "testLLMFailed": "LLM bağlantı testi başarısız oldu",
+      "audioNotSupported": "Bu model ses girişini desteklemiyor",
+      "imageNotSupported": "Bu model görüntü girişini desteklemiyor",
+      "modelNotSet": "AI modeli ayarlanmamış",
+      "unsupportedFileType": "Desteklenmeyen dosya türü",
+      "unsupportedModelType": "Desteklenmeyen model türü",
+      "embeddingModelNotSet": "Gömme modeli ayarlanmamış"
     },
     "role": {
       "notFound": "Rol bulunamadı"

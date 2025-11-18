@@ -1187,7 +1187,13 @@
       "configurationNotSet": "La configuración de IA no está configurada",
       "unsupportedProvider": "Proveedor de IA no compatible {{type}}",
       "providerConfigurationNotSet": "La configuración del proveedor de IA no está configurada",
-      "testLLMFailed": "La prueba de conexión de LLM falló"
+      "testLLMFailed": "La prueba de conexión de LLM falló",
+      "audioNotSupported": "La entrada de audio no es compatible con este modelo",
+      "imageNotSupported": "La entrada de imagen no es compatible con este modelo",
+      "modelNotSet": "El modelo de IA no está configurado",
+      "unsupportedFileType": "Tipo de archivo no compatible",
+      "unsupportedModelType": "Tipo de modelo no compatible",
+      "embeddingModelNotSet": "El modelo de incrustación no está configurado"
     },
     "role": {
       "notFound": "Rol no encontrado"

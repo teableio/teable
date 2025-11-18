@@ -1175,7 +1175,13 @@
       "configurationNotSet": "AI 配置未设置",
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置",
-      "testLLMFailed": "LLM 连接测试失败"
+      "testLLMFailed": "LLM 连接测试失败",
+      "audioNotSupported": "此模型不支持音频输入",
+      "imageNotSupported": "此模型不支持图像输入",
+      "modelNotSet": "AI 模型未设置",
+      "unsupportedFileType": "不支持的文件类型",
+      "unsupportedModelType": "不支持的模型类型",
+      "embeddingModelNotSet": "嵌入模型未设置"
     },
     "role": {
       "notFound": "角色不存在"

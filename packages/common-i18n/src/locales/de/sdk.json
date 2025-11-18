@@ -1175,7 +1175,13 @@
       "configurationNotSet": "KI-Konfiguration ist nicht festgelegt",
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
       "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt",
-      "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen"
+      "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen",
+      "audioNotSupported": "Audio-Eingabe wird von diesem Modell nicht unterstützt",
+      "imageNotSupported": "Bild-Eingabe wird von diesem Modell nicht unterstützt",
+      "modelNotSet": "KI-Modell ist nicht festgelegt",
+      "unsupportedFileType": "Nicht unterstützter Dateityp",
+      "unsupportedModelType": "Nicht unterstützter Modelltyp",
+      "embeddingModelNotSet": "Einbettungsmodell ist nicht festgelegt"
     },
     "role": {
       "notFound": "Rolle nicht gefunden"

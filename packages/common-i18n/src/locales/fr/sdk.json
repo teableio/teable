@@ -1175,7 +1175,13 @@
       "configurationNotSet": "La configuration IA n'est pas définie",
       "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
       "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie",
-      "testLLMFailed": "Le test de connexion LLM a échoué"
+      "testLLMFailed": "Le test de connexion LLM a échoué",
+      "audioNotSupported": "L'entrée audio n'est pas prise en charge par ce modèle",
+      "imageNotSupported": "L'entrée d'image n'est pas prise en charge par ce modèle",
+      "modelNotSet": "Le modèle IA n'est pas défini",
+      "unsupportedFileType": "Type de fichier non pris en charge",
+      "unsupportedModelType": "Type de modèle non pris en charge",
+      "embeddingModelNotSet": "Le modèle d'incorporation n'est pas défini"
     },
     "role": {
       "notFound": "Rôle introuvable"

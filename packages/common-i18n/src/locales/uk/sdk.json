@@ -1175,7 +1175,13 @@
       "configurationNotSet": "Конфігурацію ШІ не встановлено",
       "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
       "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено",
-      "testLLMFailed": "Тест підключення LLM не пройшов"
+      "testLLMFailed": "Тест підключення LLM не пройшов",
+      "audioNotSupported": "Ця модель не підтримує введення аудіо",
+      "imageNotSupported": "Ця модель не підтримує введення зображень",
+      "modelNotSet": "Модель ШІ не встановлено",
+      "unsupportedFileType": "Непідтримуваний тип файлу",
+      "unsupportedModelType": "Непідтримуваний тип моделі",
+      "embeddingModelNotSet": "Модель вбудовування не встановлено"
     },
     "role": {
       "notFound": "Роль не знайдено"
