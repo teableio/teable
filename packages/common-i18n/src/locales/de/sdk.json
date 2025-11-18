@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "Die Space-Erstellung wurde vom Administrator deaktiviert",
       "cannotChangeOnlyOwnerRole": "Die Rolle des einzigen Besitzers des Space kann nicht geändert werden",
       "cannotDeleteOnlyOwner": "Der einzige Besitzer des Space kann nicht gelöscht werden",
-      "deleted": "Space has been deleted"
+      "deleted": "Space wurde gelöscht",
+      "cannotOperate": "Kann nicht auf einem Space operieren, bitte überprüfen Sie, dass es Organisationsmitglieder im Space gibt und sie Eigentümer sind",
+      "notBelongToOrg": "Dieser Space gehört nicht zur Organisation",
+      "invalidSpaceIds": "Space-IDs sind ungültig"
     },
     "base": {
       "notFound": "Base nicht gefunden",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "Sie haben keine Berechtigung, diese Ansicht zu bearbeiten",
       "deniedByEnabledAuthorityMatrix": "Berechtigung durch aktivierte Berechtigungsmatrix verweigert",
       "invalidRequestPath": "Anfragepfad ist nicht gültig",
-      "notAllowedOperation": "Sie haben keine Berechtigung, diese Operation auszuführen"
+      "notAllowedOperation": "Sie haben keine Berechtigung, diese Operation auszuführen",
+      "notAllowedDepartment": "Sie haben keine Berechtigung, auf diese Abteilung zuzugreifen"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Standardrolle nicht gefunden",
@@ -1232,9 +1236,20 @@
       "expired": "Die Lizenz ist abgelaufen",
       "userLimitExceeded": "Die Anzahl der Benutzer in der aktuellen Instanz überschreitet das Platzlimit der Lizenz. Bitte deaktivieren Sie einige Benutzer oder aktualisieren Sie die Lizenz"
     },
+    "domainVerification": {
+      "notFound": "Kein Domain-Verifizierungscode gefunden",
+      "invalidCode": "Ungültiger Verifizierungscode",
+      "resendCooldown": "Bitte warten Sie 1 Minute bevor Sie einen neuen Code anfordern"
+    },
     "organization": {
       "notFound": "Organisation nicht gefunden",
+      "authenticationNotFound": "Authentifizierung nicht gefunden",
+      "spaceShouldExist": "Organisations-Space sollte existieren",
+      "emailsNotInOrgDomain": "Diese E-Mails sind nicht in der Organisations-Domain",
       "emailNotSpaceUser": "E-Mail ist kein Space-Benutzer"
+    },
+    "mail": {
+      "failedToSendEmail": "E-Mail senden fehlgeschlagen"
     },
     "user": {
       "disallowSignUp": "Die aktuelle Instanz erlaubt keine Anmeldungen durch den Administrator",
@@ -1246,7 +1261,13 @@
       "cannotDeleteAdmin": "Administrator-Benutzer kann nicht gelöscht werden",
       "cannotDeactivateAdmin": "Administrator-Benutzer kann nicht deaktiviert werden",
       "cannotRemoveLastAdmin": "Administratorberechtigung kann nicht vom letzten aktiven Administrator-Benutzer entfernt werden",
-      "permanentDeleted": "Benutzer ist dauerhaft gelöscht"
+      "permanentDeleted": "Benutzer ist dauerhaft gelöscht",
+      "cannotDeleteSelf": "Sie können sich nicht selbst löschen",
+      "alreadyInDepartment": "Benutzer ist bereits in der Zielabteilung",
+      "emailsNotFound": "E-Mails wurden nicht gefunden",
+      "deleted": "Benutzer wurden gelöscht",
+      "alreadyInOrg": "Benutzer sind bereits in der Organisation",
+      "notInOrg": "Benutzer ist nicht in der Organisation"
     },
     "record": {
       "notFound": "Datensatz nicht gefunden",
@@ -1269,6 +1290,12 @@
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
       "noMinOrderFound": "Keine Minimalreihenfolge gefunden"
+    },
+    "department": {
+      "parentNotFound": "Übergeordnete Abteilung nicht gefunden",
+      "notFound": "Abteilung nicht gefunden",
+      "cannotMoveToItself": "Abteilung kann nicht zu sich selbst verschoben werden",
+      "cannotMoveToSub": "Abteilung kann nicht zu ihrer Unterabteilung verschoben werden"
     }
   }
 }

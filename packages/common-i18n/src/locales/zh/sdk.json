@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "管理员已禁用空间创建功能",
       "cannotChangeOnlyOwnerRole": "无法更改空间唯一所有者的角色",
       "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者",
-      "deleted": "空间已被删除"
+      "deleted": "空间已被删除",
+      "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
+      "notBelongToOrg": "此空间不属于该组织",
+      "invalidSpaceIds": "空间ID无效"
     },
     "base": {
       "notFound": "数据库不存在",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "您没有权限操作此视图",
       "deniedByEnabledAuthorityMatrix": "权限矩阵已启用，操作被拒绝",
       "invalidRequestPath": "请求路径无效",
-      "notAllowedOperation": "您没有权限执行此操作"
+      "notAllowedOperation": "您没有权限执行此操作",
+      "notAllowedDepartment": "您没有权限访问此部门"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "默认角色未找到",
@@ -1232,9 +1236,20 @@
       "expired": "许可证已过期",
       "userLimitExceeded": "当前实例的用户数量已超过许可证的席位限制。请停用一些用户或升级许可证"
     },
+    "domainVerification": {
+      "notFound": "未找到域名验证码",
+      "invalidCode": "验证码无效",
+      "resendCooldown": "请等待1分钟后再请求新的验证码"
+    },
     "organization": {
       "notFound": "组织未找到",
+      "authenticationNotFound": "身份验证未找到",
+      "spaceShouldExist": "组织空间应该存在",
+      "emailsNotInOrgDomain": "这些邮箱不在组织域名内",
       "emailNotSpaceUser": "邮箱不是空间用户"
+    },
+    "mail": {
+      "failedToSendEmail": "发送邮件失败"
     },
     "user": {
       "disallowSignUp": "管理员已禁止当前实例的用户注册",
@@ -1246,7 +1261,13 @@
       "cannotDeleteAdmin": "无法删除管理员用户",
       "cannotDeactivateAdmin": "无法停用管理员用户",
       "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限",
-      "permanentDeleted": "用户已被永久删除"
+      "permanentDeleted": "用户已被永久删除",
+      "cannotDeleteSelf": "无法删除自己",
+      "alreadyInDepartment": "用户已在目标部门中",
+      "emailsNotFound": "邮箱未找到",
+      "deleted": "用户已被删除",
+      "alreadyInOrg": "用户已在组织中",
+      "notInOrg": "用户不在组织中"
     },
     "record": {
       "notFound": "记录不存在",
@@ -1269,6 +1290,12 @@
       "snapshotRequired": "此模板无法发布，因为缺少快照",
       "sourceTemplateNotFound": "源模板不存在",
       "noMinOrderFound": "未找到最小排序值"
+    },
+    "department": {
+      "parentNotFound": "父部门未找到",
+      "notFound": "部门未找到",
+      "cannotMoveToItself": "无法将部门移动到自身",
+      "cannotMoveToSub": "无法将部门移动到其子部门"
     }
   }
 }

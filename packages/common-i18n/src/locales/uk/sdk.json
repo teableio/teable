@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "Створення просторів вимкнено адміністратором",
       "cannotChangeOnlyOwnerRole": "Неможливо змінити роль єдиного власника простору",
       "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору",
-      "deleted": "Space has been deleted"
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
+      "notBelongToOrg": "Цей простір не належить організації",
+      "invalidSpaceIds": "Недійсні ідентифікатори простору"
     },
     "base": {
       "notFound": "База не знайдена",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "У вас немає дозволу на операції з цим поданням",
       "deniedByEnabledAuthorityMatrix": "Дозвіл відхилено активованою матрицею повноважень",
       "invalidRequestPath": "Шлях запиту недійсний",
-      "notAllowedOperation": "У вас немає дозволу на виконання цієї операції"
+      "notAllowedOperation": "У вас немає дозволу на виконання цієї операції",
+      "notAllowedDepartment": "Вам не дозволено доступ до цього відділу"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Роль за замовчуванням не знайдено",
@@ -1234,7 +1238,10 @@
     },
     "organization": {
       "notFound": "Організацію не знайдено",
-      "emailNotSpaceUser": "Email не є користувачем простору"
+      "emailNotSpaceUser": "Email не є користувачем простору",
+      "authenticationNotFound": "Автентифікація не знайдена",
+      "spaceShouldExist": "Простір організації повинен існувати",
+      "emailsNotInOrgDomain": "Ці електронні адреси не знаходяться в домені організації"
     },
     "user": {
       "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
@@ -1246,7 +1253,13 @@
       "cannotDeleteAdmin": "Неможливо видалити користувача-адміністратора",
       "cannotDeactivateAdmin": "Неможливо вимкнути користувача-адміністратора",
       "cannotRemoveLastAdmin": "Неможливо забрати права адміністратора в останнього активного користувача-адміністратора",
-      "permanentDeleted": "Користувач назавжди видалений"
+      "permanentDeleted": "Користувач назавжди видалений",
+      "cannotDeleteSelf": "Ви не можете видалити себе",
+      "alreadyInDepartment": "Користувач вже знаходиться в цільовому відділі",
+      "emailsNotFound": "Електронні адреси не знайдені",
+      "deleted": "Користувачі видалені",
+      "alreadyInOrg": "Користувачі вже знаходяться в організації",
+      "notInOrg": "Користувач не знаходиться в організації"
     },
     "record": {
       "notFound": "Запис не знайдено",
@@ -1269,6 +1282,20 @@
       "snapshotRequired": "Цей шаблон не можна опублікувати через відсутність знімка",
       "sourceTemplateNotFound": "Вихідний шаблон не знайдено",
       "noMinOrderFound": "Мінімальний порядок не знайдено"
+    },
+    "domainVerification": {
+      "notFound": "Код підтвердження домену не знайдено",
+      "invalidCode": "Невірний код підтвердження",
+      "resendCooldown": "Будь ласка, зачекайте 1 хвилину перед запитом нового коду"
+    },
+    "mail": {
+      "failedToSendEmail": "Не вдалось надіслати електронний лист"
+    },
+    "department": {
+      "parentNotFound": "Батьківський відділ не знайдено",
+      "notFound": "Відділ не знайдено",
+      "cannotMoveToItself": "Неможливо перемістити відділ в самого себе",
+      "cannotMoveToSub": "Неможливо перемістити відділ в його підвідділ"
     }
   }
 }

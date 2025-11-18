@@ -984,7 +984,10 @@
       "disallowSpaceCreation": "La creación de espacios ha sido deshabilitada por el administrador",
       "cannotChangeOnlyOwnerRole": "No se puede cambiar el rol del único propietario del espacio",
       "cannotDeleteOnlyOwner": "No se puede eliminar al único propietario del espacio",
-      "deleted": "Space has been deleted"
+      "deleted": "Space has been deleted",
+      "cannotOperate": "No se puede operar en un espacio, verifique que hay miembros de la organización en el espacio y que son propietarios",
+      "notBelongToOrg": "Este espacio no pertenece a la organización",
+      "invalidSpaceIds": "Los IDs de espacio son inválidos"
     },
     "base": {
       "notFound": "Base no encontrada",
@@ -1075,7 +1078,8 @@
       "notAllowedOperationView": "No tienes permiso para operar en esta vista",
       "deniedByEnabledAuthorityMatrix": "Permiso denegado por matriz de autoridad habilitada",
       "invalidRequestPath": "La ruta de la solicitud no es válida",
-      "notAllowedOperation": "No tienes permiso para realizar esta operación"
+      "notAllowedOperation": "No tienes permiso para realizar esta operación",
+      "notAllowedDepartment": "No tienes permitido acceder a este departamento"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Rol predeterminado no encontrado",
@@ -1246,7 +1250,10 @@
     },
     "organization": {
       "notFound": "Organización no encontrada",
-      "emailNotSpaceUser": "El correo electrónico no es usuario del espacio"
+      "emailNotSpaceUser": "El correo electrónico no es usuario del espacio",
+      "authenticationNotFound": "Autenticación no encontrada",
+      "spaceShouldExist": "El espacio de la organización debería existir",
+      "emailsNotInOrgDomain": "Estos correos electrónicos no están en el dominio de la organización"
     },
     "user": {
       "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",
@@ -1258,7 +1265,13 @@
       "cannotDeleteAdmin": "No se puede eliminar el usuario administrador",
       "cannotDeactivateAdmin": "No se puede desactivar el usuario administrador",
       "cannotRemoveLastAdmin": "No se pueden quitar los privilegios de administrador del último usuario administrador activo",
-      "permanentDeleted": "El usuario ha sido eliminado permanentemente"
+      "permanentDeleted": "El usuario ha sido eliminado permanentemente",
+      "cannotDeleteSelf": "No puedes eliminarte a ti mismo",
+      "alreadyInDepartment": "El usuario ya está en el departamento objetivo",
+      "emailsNotFound": "Correos electrónicos no encontrados",
+      "deleted": "Los usuarios han sido eliminados",
+      "alreadyInOrg": "Los usuarios ya están en la organización",
+      "notInOrg": "El usuario no está en la organización"
     },
     "record": {
       "notFound": "Registro no encontrado",
@@ -1281,6 +1294,20 @@
       "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",
       "noMinOrderFound": "No se encontró el orden mínimo"
+    },
+    "domainVerification": {
+      "notFound": "No se encontró código de verificación de dominio",
+      "invalidCode": "Código de verificación inválido",
+      "resendCooldown": "Por favor espera 1 minuto antes de solicitar un nuevo código"
+    },
+    "mail": {
+      "failedToSendEmail": "Error al enviar el correo electrónico"
+    },
+    "department": {
+      "parentNotFound": "Departamento padre no encontrado",
+      "notFound": "Departamento no encontrado",
+      "cannotMoveToItself": "No se puede mover el departamento a sí mismo",
+      "cannotMoveToSub": "No se puede mover el departamento a su sub-departamento"
     }
   }
 }

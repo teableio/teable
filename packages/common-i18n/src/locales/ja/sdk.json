@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "管理者によってスペースの作成が無効化されています",
       "cannotChangeOnlyOwnerRole": "スペースの唯一の所有者のロールを変更できません",
       "cannotDeleteOnlyOwner": "スペースの唯一の所有者を削除できません",
-      "deleted": "Space has been deleted"
+      "deleted": "スペースが削除されました",
+      "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
+      "notBelongToOrg": "このスペースは組織に属していません",
+      "invalidSpaceIds": "スペースIDが無効です"
     },
     "base": {
       "notFound": "ベース が見つかりません",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "このビューを操作する権限がありません",
       "deniedByEnabledAuthorityMatrix": "有効な権限マトリックスにより拒否されました",
       "invalidRequestPath": "リクエストパスが無効です",
-      "notAllowedOperation": "この操作を実行する権限がありません"
+      "notAllowedOperation": "この操作を実行する権限がありません",
+      "notAllowedDepartment": "この部門にアクセスする権限がありません"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "デフォルトのロールが見つかりません",
@@ -1232,9 +1236,20 @@
       "expired": "ライセンスの有効期限が切れています",
       "userLimitExceeded": "現在のインスタンスのユーザー数がライセンスのシート制限を超えています。一部のユーザーを無効化するか、ライセンスをアップグレードしてください"
     },
+    "domainVerification": {
+      "notFound": "ドメイン認証コードが見つかりません",
+      "invalidCode": "認証コードが無効です",
+      "resendCooldown": "新しいコードをリクエストする前に1分間お待ちください"
+    },
     "organization": {
       "notFound": "組織が見つかりません",
+      "authenticationNotFound": "認証が見つかりません",
+      "spaceShouldExist": "組織スペースが存在する必要があります",
+      "emailsNotInOrgDomain": "これらのメールアドレスは組織のドメインにありません",
       "emailNotSpaceUser": "メールアドレスはスペースユーザーではありません"
+    },
+    "mail": {
+      "failedToSendEmail": "メール送信に失敗しました"
     },
     "user": {
       "disallowSignUp": "現在のインスタンスでは、管理者によるサインアップが許可されていません",
@@ -1246,7 +1261,13 @@
       "cannotDeleteAdmin": "管理者ユーザーを削除できません",
       "cannotDeactivateAdmin": "管理者ユーザーを無効化できません",
       "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません",
-      "permanentDeleted": "ユーザーは完全に削除されています"
+      "permanentDeleted": "ユーザーは完全に削除されています",
+      "cannotDeleteSelf": "自分自身を削除することはできません",
+      "alreadyInDepartment": "ユーザーは既に対象部門にいます",
+      "emailsNotFound": "メールアドレスが見つかりません",
+      "deleted": "ユーザーが削除されています",
+      "alreadyInOrg": "ユーザーは既に組織にいます",
+      "notInOrg": "ユーザーは組織にいません"
     },
     "record": {
       "notFound": "レコードが見つかりません",
@@ -1269,6 +1290,12 @@
       "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
       "noMinOrderFound": "最小順序が見つかりません"
+    },
+    "department": {
+      "parentNotFound": "親部門が見つかりません",
+      "notFound": "部門が見つかりません",
+      "cannotMoveToItself": "部門を自分自身に移動することはできません",
+      "cannotMoveToSub": "部門をその子部門に移動することはできません"
     }
   }
 }

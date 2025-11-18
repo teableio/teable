@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "Space creation has been disabled by the administrator",
       "cannotChangeOnlyOwnerRole": "Cannot change the role of the only owner of the space",
       "cannotDeleteOnlyOwner": "Cannot delete the only owner of the space",
-      "deleted": "Space has been deleted"
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
+      "notBelongToOrg": "This space not belong to the organization",
+      "invalidSpaceIds": "Space ids is invalid"
     },
     "base": {
       "notFound": "Base not found",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "You don't have permission to operate on this view",
       "deniedByEnabledAuthorityMatrix": "Permission denied by enabled authority matrix",
       "invalidRequestPath": "Request path is not valid",
-      "notAllowedOperation": "You don't have permission to perform this operation"
+      "notAllowedOperation": "You don't have permission to perform this operation",
+      "notAllowedDepartment": "You are not allowed to access this department"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Default role not found",
@@ -1232,9 +1236,20 @@
       "expired": "The license is expired",
       "userLimitExceeded": "The number of users in the current instance exceeds the seat limit of the license. Please deactivate some users or upgrade the license"
     },
+    "domainVerification": {
+      "notFound": "No domain verification code found",
+      "invalidCode": "Invalid verification code",
+      "resendCooldown": "Please wait for 1 minute before requesting a new code"
+    },
     "organization": {
       "notFound": "Organization not found",
+      "authenticationNotFound": "Authentication not found",
+      "spaceShouldExist": "Organization space should exist",
+      "emailsNotInOrgDomain": "These emails are not in the organization domain",
       "emailNotSpaceUser": "Email is not a space user"
+    },
+    "mail": {
+      "failedToSendEmail": "Failed to send email"
     },
     "user": {
       "disallowSignUp": "The current instance disallows sign up by the administrator",
@@ -1246,7 +1261,13 @@
       "cannotDeleteAdmin": "Cannot delete admin user",
       "cannotDeactivateAdmin": "Cannot deactivate admin user",
       "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user",
-      "permanentDeleted": "User is permanently deleted"
+      "permanentDeleted": "User is permanently deleted",
+      "cannotDeleteSelf": "Cannot delete yourself",
+      "alreadyInDepartment": "User already in target department",
+      "emailsNotFound": "Emails are not found",
+      "deleted": "Users are deleted",
+      "alreadyInOrg": "Users are already in the organization",
+      "notInOrg": "User is not in the organization"
     },
     "record": {
       "notFound": "Record not found",
@@ -1269,6 +1290,12 @@
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",
       "noMinOrderFound": "No minimum order found"
+    },
+    "department": {
+      "parentNotFound": "Parent department not found",
+      "notFound": "Department not found",
+      "cannotMoveToItself": "Cannot move department to itself",
+      "cannotMoveToSub": "Cannot move department to its sub-department"
     }
   }
 }

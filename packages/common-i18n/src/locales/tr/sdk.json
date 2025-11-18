@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
       "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
       "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez",
-      "deleted": "Space has been deleted"
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
+      "notBelongToOrg": "Bu alan organizasyona ait değil",
+      "invalidSpaceIds": "Alan kimlikleri geçersiz"
     },
     "base": {
       "notFound": "Base bulunamadı",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "Bu görünüm üzerinde işlem yapma izniniz yok",
       "deniedByEnabledAuthorityMatrix": "Etkin yetki matrisi tarafından reddedildi",
       "invalidRequestPath": "İstek yolu geçerli değil",
-      "notAllowedOperation": "Bu işlemi gerçekleştirme izniniz yok"
+      "notAllowedOperation": "Bu işlemi gerçekleştirme izniniz yok",
+      "notAllowedDepartment": "Bu departmana erişiminiz yok"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Varsayılan rol bulunamadı",
@@ -1234,7 +1238,10 @@
     },
     "organization": {
       "notFound": "Organizasyon bulunamadı",
-      "emailNotSpaceUser": "E-posta alan kullanıcısı değil"
+      "emailNotSpaceUser": "E-posta alan kullanıcısı değil",
+      "authenticationNotFound": "Kimlik doğrulama bulunamadı",
+      "spaceShouldExist": "Organizasyon alanı mevcut olmalı",
+      "emailsNotInOrgDomain": "Bu e-postalar organizasyon etki alanında değil"
     },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
@@ -1246,7 +1253,13 @@
       "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
       "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
       "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz",
-      "permanentDeleted": "Kullanıcı kalıcı olarak silindi"
+      "permanentDeleted": "Kullanıcı kalıcı olarak silindi",
+      "cannotDeleteSelf": "Kendinizi silemezsiniz",
+      "alreadyInDepartment": "Kullanıcı zaten hedef departmanda",
+      "emailsNotFound": "E-postalar bulunamadı",
+      "deleted": "Kullanıcılar silindi",
+      "alreadyInOrg": "Kullanıcılar zaten organizasyonda",
+      "notInOrg": "Kullanıcı organizasyonda değil"
     },
     "record": {
       "notFound": "Kayıt bulunamadı",
@@ -1269,6 +1282,20 @@
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
       "noMinOrderFound": "Minimum sıra bulunamadı"
+    },
+    "domainVerification": {
+      "notFound": "Domain doğrulama kodu bulunamadı",
+      "invalidCode": "Geçersiz doğrulama kodu",
+      "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin"
+    },
+    "mail": {
+      "failedToSendEmail": "E-posta gönderimi başarısız"
+    },
+    "department": {
+      "parentNotFound": "Üst departman bulunamadı",
+      "notFound": "Departman bulunamadı",
+      "cannotMoveToItself": "Departman kendisine taşınamaz",
+      "cannotMoveToSub": "Departman alt departmanına taşınamaz"
     }
   }
 }

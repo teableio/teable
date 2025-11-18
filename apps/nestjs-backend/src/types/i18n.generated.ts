@@ -2171,6 +2171,9 @@ export type I18nTranslations = {
                 "cannotChangeOnlyOwnerRole": string;
                 "cannotDeleteOnlyOwner": string;
                 "deleted": string;
+                "cannotOperate": string;
+                "notBelongToOrg": string;
+                "invalidSpaceIds": string;
             };
             "base": {
                 "notFound": string;
@@ -2262,6 +2265,7 @@ export type I18nTranslations = {
                 "deniedByEnabledAuthorityMatrix": string;
                 "invalidRequestPath": string;
                 "notAllowedOperation": string;
+                "notAllowedDepartment": string;
             };
             "authorityMatrix": {
                 "defaultRoleNotFound": string;
@@ -2430,9 +2434,20 @@ export type I18nTranslations = {
                 "expired": string;
                 "userLimitExceeded": string;
             };
+            "domainVerification": {
+                "notFound": string;
+                "invalidCode": string;
+                "resendCooldown": string;
+            };
             "organization": {
                 "notFound": string;
+                "authenticationNotFound": string;
+                "spaceShouldExist": string;
+                "emailsNotInOrgDomain": string;
                 "emailNotSpaceUser": string;
+            };
+            "mail": {
+                "failedToSendEmail": string;
             };
             "user": {
                 "disallowSignUp": string;
@@ -2445,6 +2460,12 @@ export type I18nTranslations = {
                 "cannotDeactivateAdmin": string;
                 "cannotRemoveLastAdmin": string;
                 "permanentDeleted": string;
+                "cannotDeleteSelf": string;
+                "alreadyInDepartment": string;
+                "emailsNotFound": string;
+                "deleted": string;
+                "alreadyInOrg": string;
+                "notInOrg": string;
             };
             "record": {
                 "notFound": string;
@@ -2467,6 +2488,12 @@ export type I18nTranslations = {
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;
                 "noMinOrderFound": string;
+            };
+            "department": {
+                "parentNotFound": string;
+                "notFound": string;
+                "cannotMoveToItself": string;
+                "cannotMoveToSub": string;
             };
         };
     };

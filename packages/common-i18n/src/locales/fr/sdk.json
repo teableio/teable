@@ -972,7 +972,10 @@
       "disallowSpaceCreation": "La création d'espaces a été désactivée par l'administrateur",
       "cannotChangeOnlyOwnerRole": "Impossible de modifier le rôle du seul propriétaire de l'espace",
       "cannotDeleteOnlyOwner": "Impossible de supprimer le seul propriétaire de l'espace",
-      "deleted": "Space has been deleted"
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
+      "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
+      "invalidSpaceIds": "Les IDs d'espace sont invalides"
     },
     "base": {
       "notFound": "Base non trouvée",
@@ -1063,7 +1066,8 @@
       "notAllowedOperationView": "Vous n'avez pas la permission d'opérer sur cette vue",
       "deniedByEnabledAuthorityMatrix": "Permission refusée par la matrice d'autorité activée",
       "invalidRequestPath": "Le chemin de la requête n'est pas valide",
-      "notAllowedOperation": "Vous n'avez pas la permission d'effectuer cette opération"
+      "notAllowedOperation": "Vous n'avez pas la permission d'effectuer cette opération",
+      "notAllowedDepartment": "Vous n'êtes pas autorisé à accéder à ce département"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Rôle par défaut introuvable",
@@ -1234,7 +1238,10 @@
     },
     "organization": {
       "notFound": "Organisation non trouvée",
-      "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace"
+      "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace",
+      "authenticationNotFound": "Authentification non trouvée",
+      "spaceShouldExist": "L'espace de l'organisation devrait exister",
+      "emailsNotInOrgDomain": "Ces e-mails ne sont pas dans le domaine de l'organisation"
     },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
@@ -1246,7 +1253,13 @@
       "cannotDeleteAdmin": "Impossible de supprimer l'utilisateur administrateur",
       "cannotDeactivateAdmin": "Impossible de désactiver l'utilisateur administrateur",
       "cannotRemoveLastAdmin": "Impossible de retirer les privilèges d'administrateur du dernier utilisateur administrateur actif",
-      "permanentDeleted": "L'utilisateur a été définitivement supprimé"
+      "permanentDeleted": "L'utilisateur a été définitivement supprimé",
+      "cannotDeleteSelf": "Vous ne pouvez pas vous supprimer",
+      "alreadyInDepartment": "L'utilisateur est déjà dans le département cible",
+      "emailsNotFound": "E-mails non trouvés",
+      "deleted": "Les utilisateurs ont été supprimés",
+      "alreadyInOrg": "Les utilisateurs sont déjà dans l'organisation",
+      "notInOrg": "L'utilisateur n'est pas dans l'organisation"
     },
     "record": {
       "notFound": "Enregistrement non trouvé",
@@ -1269,6 +1282,20 @@
       "snapshotRequired": "Ce modèle n'a pas pu être publié en raison d'un instantané manquant",
       "sourceTemplateNotFound": "Modèle source introuvable",
       "noMinOrderFound": "Aucun ordre minimum trouvé"
+    },
+    "domainVerification": {
+      "notFound": "Aucun code de vérification de domaine trouvé",
+      "invalidCode": "Code de vérification invalide",
+      "resendCooldown": "Veuillez attendre 1 minute avant de demander un nouveau code"
+    },
+    "mail": {
+      "failedToSendEmail": "Échec de l'envoi de l'e-mail"
+    },
+    "department": {
+      "parentNotFound": "Département parent non trouvé",
+      "notFound": "Département non trouvé",
+      "cannotMoveToItself": "Impossible de déplacer le département vers lui-même",
+      "cannotMoveToSub": "Impossible de déplacer le département vers son sous-département"
     }
   }
 }
