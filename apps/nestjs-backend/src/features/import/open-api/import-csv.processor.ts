@@ -45,7 +45,9 @@ interface ITableImportCsvJob {
 export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
 
 @Injectable()
-@Processor(TABLE_IMPORT_CSV_QUEUE)
+@Processor(TABLE_IMPORT_CSV_QUEUE, {
+  concurrency: 1,
+})
 export class ImportTableCsvQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv';
 
