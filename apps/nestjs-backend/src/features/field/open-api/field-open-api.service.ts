@@ -1120,6 +1120,9 @@ export class FieldOpenApiService {
     // stage analysis and collect field changes
     const { newField, oldField, modifiedOps, supplementChange, references } =
       await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
+    this.logger.debug(
+      `convertField stageAnalysis done table=${tableId} field=${fieldId} newType=${newField.type} oldType=${oldField.type}`
+    );
 
     const dependentRefs = await this.prismaService.reference.findMany({
       where: { fromFieldId: fieldId },

@@ -186,7 +186,9 @@ from ${fkTableRef}
 where ${srcCol} in (${placeholders})
   and ${srcCol} is not null
   and ${dstCol} is not null`;
-    return this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
+    return await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
   }
 
   private async fetchEdgeTargetsBatched(
@@ -209,7 +211,7 @@ where ${srcCol} in (${placeholders})
 from ${fkTableRef}
 where ${srcCol} is not null
   and ${dstCol} is not null`;
-    return this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
+    return this.prismaService.txClient().$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
   }
 
   private quoteIdentifier(identifier: string): string {
