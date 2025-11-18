@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Field is not linked to current table",
       "notAttachment": "Field is not an attachment field",
       "isComputed": "Field is computed and cannot be modified",
+      "notFoundAICofig": "Field does not have AI configuration",
       "button": {
         "clickCountReachedMaxCount": "Button click count has reached the maximum limit",
         "notSupportReset": "Button field does not support reset"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "AI Model is not set",
       "unsupportedFileType": "Unsupported file type",
       "unsupportedModelType": "Unsupported model type",
-      "embeddingModelNotSet": "Embedding Model is not set"
+      "embeddingModelNotSet": "Embedding Model is not set",
+      "validateActionFailed": "Validate field AI action failed",
+      "generateFailed": "AI generation failed",
+      "unsupportedActionType": "Unsupported AI action type"
     },
     "role": {
       "notFound": "Role not found"

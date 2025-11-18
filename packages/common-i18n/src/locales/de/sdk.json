@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Feld ist nicht mit der aktuellen Tabelle verknüpft",
       "notAttachment": "Feld ist kein Anhangfeld",
       "isComputed": "Feld ist berechnet und kann nicht geändert werden",
+      "notFoundAICofig": "Feld hat keine AI-Konfiguration",
       "button": {
         "clickCountReachedMaxCount": "Anzahl der Schaltflächenklicks hat das Maximum erreicht",
         "notSupportReset": "Schaltflächenfeld unterstützt kein Zurücksetzen"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "KI-Modell ist nicht festgelegt",
       "unsupportedFileType": "Nicht unterstützter Dateityp",
       "unsupportedModelType": "Nicht unterstützter Modelltyp",
-      "embeddingModelNotSet": "Einbettungsmodell ist nicht festgelegt"
+      "embeddingModelNotSet": "Einbettungsmodell ist nicht festgelegt",
+      "validateActionFailed": "Validierung der Feld-AI-Aktion fehlgeschlagen",
+      "generateFailed": "AI-Generierung fehlgeschlagen",
+      "unsupportedActionType": "Nicht unterstützter AI-Aktionstyp"
     },
     "role": {
       "notFound": "Rolle nicht gefunden"

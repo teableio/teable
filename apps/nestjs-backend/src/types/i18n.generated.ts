@@ -2331,6 +2331,7 @@ export type I18nTranslations = {
                 "notLinkedToCurrentTable": string;
                 "notAttachment": string;
                 "isComputed": string;
+                "notFoundAICofig": string;
                 "button": {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
@@ -2380,6 +2381,9 @@ export type I18nTranslations = {
                 "unsupportedFileType": string;
                 "unsupportedModelType": string;
                 "embeddingModelNotSet": string;
+                "validateActionFailed": string;
+                "generateFailed": string;
+                "unsupportedActionType": string;
             };
             "role": {
                 "notFound": string;

@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Поле не связано с текущей таблицей",
       "notAttachment": "Поле не является полем вложения",
       "isComputed": "Поле вычисляется и не может быть изменено",
+      "notFoundAICofig": "Поле не имеет конфигурации AI",
       "button": {
         "clickCountReachedMaxCount": "Количество нажатий кнопки достигло максимального предела",
         "notSupportReset": "Кнопка не поддерживает сброс"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "Модель ИИ не установлена",
       "unsupportedFileType": "Неподдерживаемый тип файла",
       "unsupportedModelType": "Неподдерживаемый тип модели",
-      "embeddingModelNotSet": "Модель встраивания не установлена"
+      "embeddingModelNotSet": "Модель встраивания не установлена",
+      "validateActionFailed": "Не удалось проверить действие AI поля",
+      "generateFailed": "Не удалось сгенерировать AI",
+      "unsupportedActionType": "Неподдерживаемый тип действия AI"
     },
     "role": {
       "notFound": "Роль не найдена"

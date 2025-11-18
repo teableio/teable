@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "フィールドは現在のテーブルにリンクされていません",
       "notAttachment": "フィールドは添付ファイルフィールドではありません",
       "isComputed": "フィールドは計算されており、変更できません",
+      "notFoundAICofig": "フィールドにAI設定がありません",
       "button": {
         "clickCountReachedMaxCount": "ボタンのクリック数が最大制限に達しました",
         "notSupportReset": "ボタンはリセットをサポートしていません"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "AIモデルが設定されていません",
       "unsupportedFileType": "サポートされていないファイルタイプ",
       "unsupportedModelType": "サポートされていないモデルタイプ",
-      "embeddingModelNotSet": "埋め込みモデルが設定されていません"
+      "embeddingModelNotSet": "埋め込みモデルが設定されていません",
+      "validateActionFailed": "フィールドAIアクションの検証に失敗しました",
+      "generateFailed": "AI生成に失敗しました",
+      "unsupportedActionType": "サポートされていないAIアクションタイプです"
     },
     "role": {
       "notFound": "ロールが見つかりません"

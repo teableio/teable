@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Alan mevcut tabloya bağlı değil",
       "notAttachment": "Alan bir ek alanı değil",
       "isComputed": "Alan hesaplanmış ve değiştirilemez",
+      "notFoundAICofig": "Alan AI yapılandırmasına sahip değil",
       "button": {
         "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
         "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "AI modeli ayarlanmamış",
       "unsupportedFileType": "Desteklenmeyen dosya türü",
       "unsupportedModelType": "Desteklenmeyen model türü",
-      "embeddingModelNotSet": "Gömme modeli ayarlanmamış"
+      "embeddingModelNotSet": "Gömme modeli ayarlanmamış",
+      "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
+      "generateFailed": "AI üretimi başarısız oldu",
+      "unsupportedActionType": "Desteklenmeyen AI eylem türü"
     },
     "role": {
       "notFound": "Rol bulunamadı"

@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "字段未关联到当前表",
       "notAttachment": "字段不是附件字段",
       "isComputed": "字段为计算字段，无法修改",
+      "notFoundAICofig": "字段没有AI配置",
       "button": {
         "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
         "notSupportReset": "按钮不支持重置"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "AI 模型未设置",
       "unsupportedFileType": "不支持的文件类型",
       "unsupportedModelType": "不支持的模型类型",
-      "embeddingModelNotSet": "嵌入模型未设置"
+      "embeddingModelNotSet": "嵌入模型未设置",
+      "validateActionFailed": "验证字段AI操作失败",
+      "generateFailed": "AI生成失败",
+      "unsupportedActionType": "不支持的AI操作类型"
     },
     "role": {
       "notFound": "角色不存在"

@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Il campo non è collegato alla tabella corrente",
       "notAttachment": "Il campo non è un campo allegato",
       "isComputed": "Il campo è calcolato e non può essere modificato",
+      "notFoundAICofig": "Il campo non ha configurazione AI",
       "button": {
         "clickCountReachedMaxCount": "Il conteggio dei clic sul pulsante ha raggiunto il limite massimo",
         "notSupportReset": "Il campo pulsante non supporta il ripristino"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "Il modello IA non è impostato",
       "unsupportedFileType": "Tipo di file non supportato",
       "unsupportedModelType": "Tipo di modello non supportato",
-      "embeddingModelNotSet": "Il modello di embedding non è impostato"
+      "embeddingModelNotSet": "Il modello di embedding non è impostato",
+      "validateActionFailed": "Validazione dell'azione AI del campo fallita",
+      "generateFailed": "Generazione AI fallita",
+      "unsupportedActionType": "Tipo di azione AI non supportato"
     },
     "role": {
       "notFound": "Ruolo non trovato"

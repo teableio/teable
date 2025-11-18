@@ -1145,6 +1145,7 @@
       "notLinkedToCurrentTable": "El campo no está vinculado a la tabla actual",
       "notAttachment": "El campo no es un campo de adjunto",
       "isComputed": "El campo es calculado y no se puede modificar",
+      "notFoundAICofig": "El campo no tiene configuración de AI",
       "button": {
         "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
         "notSupportReset": "El campo de botón no admite restablecimiento"
@@ -1193,7 +1194,10 @@
       "modelNotSet": "El modelo de IA no está configurado",
       "unsupportedFileType": "Tipo de archivo no compatible",
       "unsupportedModelType": "Tipo de modelo no compatible",
-      "embeddingModelNotSet": "El modelo de incrustación no está configurado"
+      "embeddingModelNotSet": "El modelo de incrustación no está configurado",
+      "validateActionFailed": "Falló la validación de la acción AI del campo",
+      "generateFailed": "Falló la generación de AI",
+      "unsupportedActionType": "Tipo de acción AI no soportado"
     },
     "role": {
       "notFound": "Rol no encontrado"

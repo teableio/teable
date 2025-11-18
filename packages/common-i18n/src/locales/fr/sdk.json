@@ -1133,6 +1133,7 @@
       "notLinkedToCurrentTable": "Le champ n'est pas lié à la table actuelle",
       "notAttachment": "Le champ n'est pas un champ de pièce jointe",
       "isComputed": "Le champ est calculé et ne peut pas être modifié",
+      "notFoundAICofig": "Le champ n'a pas de configuration IA",
       "button": {
         "clickCountReachedMaxCount": "Le nombre de clics sur le bouton a atteint la limite maximale",
         "notSupportReset": "Le champ de bouton ne prend pas en charge la réinitialisation"
@@ -1181,7 +1182,10 @@
       "modelNotSet": "Le modèle IA n'est pas défini",
       "unsupportedFileType": "Type de fichier non pris en charge",
       "unsupportedModelType": "Type de modèle non pris en charge",
-      "embeddingModelNotSet": "Le modèle d'incorporation n'est pas défini"
+      "embeddingModelNotSet": "Le modèle d'incorporation n'est pas défini",
+      "validateActionFailed": "Échec de la validation de l'action IA du champ",
+      "generateFailed": "Échec de la génération IA",
+      "unsupportedActionType": "Type d'action IA non pris en charge"
     },
     "role": {
       "notFound": "Rôle introuvable"
