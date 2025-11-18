@@ -136,12 +136,16 @@ export class AttachmentsService {
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
     if (contentLength > MAX_FILE_SIZE) {
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
       throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`,
+        `File size exceeds the maximum limit of ${maxSize} MB`,
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
             i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
           },
         }
       );
@@ -238,12 +242,16 @@ export class AttachmentsService {
   async uploadFile(file: Express.Multer.File): Promise<IAttachmentItem> {
     const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
     if (file.size > MAX_FILE_SIZE) {
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
       throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`,
+        `File size exceeds the maximum limit of ${maxSize} MB`,
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
             i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
           },
         }
       );
@@ -284,12 +292,16 @@ export class AttachmentsService {
     );
 
     if (contentLength > MAX_FILE_SIZE) {
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
       throw new CustomHttpException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`,
+        `File size exceeds the maximum limit of ${maxSize} MB`,
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
             i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
           },
         }
       );
@@ -444,11 +456,14 @@ export class AttachmentsService {
           if (downloadedBytes > maxSize) {
             cleanup();
             throw new CustomHttpException(
-              `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`,
+              `File size exceeds the maximum limit of ${(maxSize / (1024 * 1024)).toFixed(2)} MB`,
               HttpErrorCode.VALIDATION_ERROR,
               {
                 localization: {
                   i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+                  context: {
+                    maxSize: `${(maxSize / (1024 * 1024)).toFixed(2)}MB`,
+                  },
                 },
               }
             );

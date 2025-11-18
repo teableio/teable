@@ -910,10 +910,10 @@
       "invalidToken": "无效的令牌",
       "tokenExpired": "令牌已过期",
       "sizeMismatch": "文件大小不匹配",
-      "notAllowUploadFileType": "不允许上传该文件类型",
+      "notAllowUploadFileType": "不允许上传 {{mimetype}} 文件类型",
       "notFound": "附件不存在",
       "invalidPath": "无效的附件路径",
-      "fileSizeExceedsMaximumLimit": "文件大小超过最大限制",
+      "fileSizeExceedsMaximumLimit": "文件大小超过最大限制 {{maxSize}}",
       "invalidUploadType": "无效的上传类型",
       "urlReject": "URL 被拒绝或无法访问"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "字段 {{name}}[{{fieldId}}] 字段验证错误",
       "fieldNameAlreadyExists": "字段名 {{name}} 已存在",
       "notFound": "字段不存在",
+      "fieldKeyTypeNotFound": "字段 \"{{fieldKeyType}}: {{missedFields}}\" 不存在",
       "notFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
       "deleteFieldsNotFound": "删除字段 {{fieldIds}} 不在表 {{tableId}} 中",
       "lookupValuesShouldBeArray": "当链接字段为多选时，lookupValues 应为数组",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "算力不足",
-      "exceedMaxRowLimit": "已超过最大行数限制"
+      "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}"
     },
     "aggregation": {
       "searchQueryRequired": "搜索查询是必需的",

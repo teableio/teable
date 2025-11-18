@@ -1213,6 +1213,9 @@ export class RecordService {
         {
           localization: {
             i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+            context: {
+              maxRowCount,
+            },
           },
         }
       );

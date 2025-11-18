@@ -139,6 +139,9 @@ export class LocalStorage implements StorageAdapter {
         {
           localization: {
             i18nKey: 'httpErrors.attachment.notAllowUploadFileType',
+            context: {
+              mimetype,
+            },
           },
         }
       );

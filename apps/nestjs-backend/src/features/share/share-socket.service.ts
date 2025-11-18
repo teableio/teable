@@ -92,7 +92,7 @@ export class ShareSocketService {
     const unPermissionIds = difference(ids, fieldIds);
     if (unPermissionIds.length) {
       throw new CustomHttpException(
-        'Field permission not allowed: read',
+        `Field(${unPermissionIds.join(',')}) permission not allowed: read`,
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {

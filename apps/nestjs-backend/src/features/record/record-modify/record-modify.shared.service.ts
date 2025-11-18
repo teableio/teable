@@ -105,7 +105,11 @@ export class RecordModifySharedService {
         HttpErrorCode.NOT_FOUND,
         {
           localization: {
-            i18nKey: 'httpErrors.field.notFound',
+            i18nKey: 'httpErrors.field.fieldKeyTypeNotFound',
+            context: {
+              fieldKeyType,
+              missedFields: missedFields.join(', '),
+            },
           },
         }
       );

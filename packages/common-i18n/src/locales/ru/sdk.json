@@ -910,10 +910,10 @@
       "invalidToken": "Недействительный токен",
       "tokenExpired": "Срок действия токена истек",
       "sizeMismatch": "Размер файла не совпадает",
-      "notAllowUploadFileType": "Тип файла не разрешен для загрузки",
+      "notAllowUploadFileType": "Тип файла {{mimetype}} не разрешен для загрузки",
       "notFound": "Вложение не найдено",
       "invalidPath": "Недопустимый путь к вложению",
-      "fileSizeExceedsMaximumLimit": "Размер файла превышает максимальный лимит",
+      "fileSizeExceedsMaximumLimit": "Размер файла превышает максимальный лимит {{maxSize}}",
       "invalidUploadType": "Недопустимый тип загрузки",
       "urlReject": "URL отклонен или недоступен"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] ошибка проверки поля",
       "fieldNameAlreadyExists": "Имя поля {{name}} уже существует",
       "notFound": "Поле не найдено",
+      "fieldKeyTypeNotFound": "Поле \"{{fieldKeyType}}: {{missedFields}}\" не найдено",
       "notFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
       "deleteFieldsNotFound": "Поля для удаления {{fieldIds}} не найдены в таблице {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Недостаточно средств",
-      "exceedMaxRowLimit": "Превышен максимальный лимит строк"
+      "exceedMaxRowLimit": "Превышен максимальный лимит строк {{maxRowCount}}"
     },
     "aggregation": {
       "searchQueryRequired": "Требуется поисковой запрос",

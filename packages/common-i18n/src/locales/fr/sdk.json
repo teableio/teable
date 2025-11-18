@@ -910,10 +910,10 @@
       "invalidToken": "Jeton non valide",
       "tokenExpired": "Le jeton a expiré",
       "sizeMismatch": "La taille du fichier ne correspond pas",
-      "notAllowUploadFileType": "Type de fichier non autorisé pour le téléchargement",
+      "notAllowUploadFileType": "Type de fichier {{mimetype}} non autorisé pour le téléchargement",
       "notFound": "Pièce jointe introuvable",
       "invalidPath": "Chemin de pièce jointe non valide",
-      "fileSizeExceedsMaximumLimit": "La taille du fichier dépasse la limite maximale",
+      "fileSizeExceedsMaximumLimit": "La taille du fichier dépasse la limite maximale de {{maxSize}}",
       "invalidUploadType": "Type de téléchargement non valide",
       "urlReject": "URL rejetée ou inaccessible"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Champ {{name}}[{{fieldId}}] erreur de validation de champ",
       "fieldNameAlreadyExists": "Le nom du champ {{name}} existe déjà",
       "notFound": "Champ introuvable",
+      "fieldKeyTypeNotFound": "Champ \"{{fieldKeyType}}: {{missedFields}}\" introuvable",
       "notFoundInTable": "Champ {{fieldId}} introuvable dans la table {{tableId}}",
       "deleteFieldsNotFound": "Champs à supprimer {{fieldIds}} introuvables dans la table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues doit être un tableau lorsque le champ de lien a plusieurs valeurs de cellule",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Crédit insuffisant",
-      "exceedMaxRowLimit": "Limite maximale de lignes dépassée"
+      "exceedMaxRowLimit": "Limite maximale de lignes {{maxRowCount}} dépassée"
     },
     "aggregation": {
       "searchQueryRequired": "La requête de recherche est requise",

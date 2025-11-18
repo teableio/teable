@@ -910,10 +910,10 @@
       "invalidToken": "無効なトークン",
       "tokenExpired": "トークンの有効期限が切れています",
       "sizeMismatch": "ファイルサイズが一致しません",
-      "notAllowUploadFileType": "このファイルタイプのアップロードは許可されていません",
+      "notAllowUploadFileType": "{{mimetype}} ファイルタイプのアップロードは許可されていません",
       "notFound": "添付ファイルが見つかりません",
       "invalidPath": "無効な添付ファイルパス",
-      "fileSizeExceedsMaximumLimit": "ファイルサイズが最大制限を超えています",
+      "fileSizeExceedsMaximumLimit": "ファイルサイズが最大制限 {{maxSize}} を超えています",
       "invalidUploadType": "無効なアップロードタイプ",
       "urlReject": "URLが拒否されたか、アクセスできません"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "フィールド {{name}}[{{fieldId}}] フィールド検証エラー",
       "fieldNameAlreadyExists": "フィールド名 {{name}} は既に存在します",
       "notFound": "フィールド が見つかりません",
+      "fieldKeyTypeNotFound": "フィールド \"{{fieldKeyType}}: {{missedFields}}\" が見つかりません",
       "notFoundInTable": "フィールド {{fieldId}} がテーブル {{tableId}} に見つかりません",
       "deleteFieldsNotFound": "削除するフィールド {{fieldIds}} がテーブル {{tableId}} に見つかりません",
       "lookupValuesShouldBeArray": "リンクフィールドが複数のセル値を持つ場合、lookupValues は配列である必要があります",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "クレジット不足",
-      "exceedMaxRowLimit": "最大行数制限を超えました"
+      "exceedMaxRowLimit": "最大行数制限 {{maxRowCount}} を超えました"
     },
     "aggregation": {
       "searchQueryRequired": "検索クエリが必要です",

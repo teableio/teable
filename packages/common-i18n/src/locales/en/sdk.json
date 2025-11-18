@@ -910,10 +910,10 @@
       "invalidToken": "Invalid token",
       "tokenExpired": "Token has expired",
       "sizeMismatch": "File size mismatch",
-      "notAllowUploadFileType": "File type not allowed for upload",
+      "notAllowUploadFileType": "File type {{mimetype}} not allowed for upload",
       "notFound": "Attachment not found",
       "invalidPath": "Invalid attachment path",
-      "fileSizeExceedsMaximumLimit": "File size exceeds the maximum limit",
+      "fileSizeExceedsMaximumLimit": "File size exceeds the maximum limit of {{maxSize}}",
       "invalidUploadType": "Invalid upload type",
       "urlReject": "URL rejected or inaccessible"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Field {{name}}[{{fieldId}}] field validation error",
       "fieldNameAlreadyExists": "Field name {{name}} already exists",
       "notFound": "field not found",
+      "fieldKeyTypeNotFound": "Field \"{{fieldKeyType}}: {{missedFields}}\" not found",
       "notFoundInTable": "field {{fieldId}} not found in table {{tableId}}",
       "deleteFieldsNotFound": "Delete fields {{fieldIds}} not found in table {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues should be array when link field is multiple cell value",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Insufficient credit",
-      "exceedMaxRowLimit": "Maximum row limit exceeded"
+      "exceedMaxRowLimit": "Maximum row limit {{maxRowCount}} exceeded"
     },
     "aggregation": {
       "searchQueryRequired": "Search query is required",

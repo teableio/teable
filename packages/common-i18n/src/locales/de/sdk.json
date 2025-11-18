@@ -910,10 +910,10 @@
       "invalidToken": "Ungültiges Token",
       "tokenExpired": "Token ist abgelaufen",
       "sizeMismatch": "Dateigröße stimmt nicht überein",
-      "notAllowUploadFileType": "Dateityp für Upload nicht erlaubt",
+      "notAllowUploadFileType": "Dateityp {{mimetype}} für Upload nicht erlaubt",
       "notFound": "Anhang nicht gefunden",
       "invalidPath": "Ungültiger Anhangpfad",
-      "fileSizeExceedsMaximumLimit": "Dateigröße überschreitet das maximale Limit",
+      "fileSizeExceedsMaximumLimit": "Dateigröße überschreitet das maximale Limit von {{maxSize}}",
       "invalidUploadType": "Ungültiger Upload-Typ",
       "urlReject": "URL abgelehnt oder nicht erreichbar"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Feld {{name}}[{{fieldId}}] Feldvalidierungsfehler",
       "fieldNameAlreadyExists": "Feldname {{name}} existiert bereits",
       "notFound": "Feld nicht gefunden",
+      "fieldKeyTypeNotFound": "Feld \"{{fieldKeyType}}: {{missedFields}}\" nicht gefunden",
       "notFoundInTable": "Feld {{fieldId}} nicht in Tabelle {{tableId}} gefunden",
       "deleteFieldsNotFound": "Zu löschende Felder {{fieldIds}} nicht in Tabelle {{tableId}} gefunden",
       "lookupValuesShouldBeArray": "lookupValues sollte ein Array sein, wenn das Verknüpfungsfeld mehrere Zellenwerte hat",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Unzureichendes Guthaben",
-      "exceedMaxRowLimit": "Maximale Zeilenanzahl überschritten"
+      "exceedMaxRowLimit": "Maximale Zeilenanzahl {{maxRowCount}} überschritten"
     },
     "aggregation": {
       "searchQueryRequired": "Suchanfrage ist erforderlich",

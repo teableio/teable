@@ -910,10 +910,10 @@
       "invalidToken": "Недійсний токен",
       "tokenExpired": "Термін дії токена закінчився",
       "sizeMismatch": "Розмір файлу не збігається",
-      "notAllowUploadFileType": "Тип файлу не дозволений для завантаження",
+      "notAllowUploadFileType": "Тип файлу {{mimetype}} не дозволений для завантаження",
       "notFound": "Вкладення не знайдено",
       "invalidPath": "Недійсний шлях до вкладення",
-      "fileSizeExceedsMaximumLimit": "Розмір файлу перевищує максимальний ліміт",
+      "fileSizeExceedsMaximumLimit": "Розмір файлу перевищує максимальний ліміт {{maxSize}}",
       "invalidUploadType": "Недійсний тип завантаження",
       "urlReject": "URL відхилено або недоступний"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
       "fieldNameAlreadyExists": "Ім'я поля {{name}} вже існує",
       "notFound": "Поле не знайдено",
+      "fieldKeyTypeNotFound": "Поле \"{{fieldKeyType}}: {{missedFields}}\" не знайдено",
       "notFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
       "deleteFieldsNotFound": "Поля для видалення {{fieldIds}} не знайдені в таблиці {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Недостатньо коштів",
-      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків"
+      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}"
     },
     "aggregation": {
       "searchQueryRequired": "Пошуковий запит є обов'язковим",

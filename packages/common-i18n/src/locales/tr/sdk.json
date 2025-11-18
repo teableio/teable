@@ -910,10 +910,10 @@
       "invalidToken": "Geçersiz token",
       "tokenExpired": "Token süresi doldu",
       "sizeMismatch": "Dosya boyutu uyuşmuyor",
-      "notAllowUploadFileType": "Dosya türü yüklemeye izin verilmiyor",
+      "notAllowUploadFileType": "{{mimetype}} dosya türü yüklemeye izin verilmiyor",
       "notFound": "Ek bulunamadı",
       "invalidPath": "Geçersiz ek yolu",
-      "fileSizeExceedsMaximumLimit": "Dosya boyutu maksimum sınırı aşıyor",
+      "fileSizeExceedsMaximumLimit": "Dosya boyutu maksimum sınır {{maxSize}} aşıyor",
       "invalidUploadType": "Geçersiz yükleme türü",
       "urlReject": "URL reddedildi veya erişilemiyor"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
       "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
       "notFound": "Alan bulunamadı",
+      "fieldKeyTypeNotFound": "Alan \"{{fieldKeyType}}: {{missedFields}}\" bulunamadı",
       "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
       "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
       "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Yetersiz kredi",
-      "exceedMaxRowLimit": "Maksimum satır sınırı aşıldı"
+      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı"
     },
     "aggregation": {
       "searchQueryRequired": "Arama sorgusu gereklidir",

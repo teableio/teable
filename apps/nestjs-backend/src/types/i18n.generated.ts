@@ -2298,6 +2298,7 @@ export type I18nTranslations = {
                 "fieldValidationError": string;
                 "fieldNameAlreadyExists": string;
                 "notFound": string;
+                "fieldKeyTypeNotFound": string;
                 "notFoundInTable": string;
                 "deleteFieldsNotFound": string;
                 "lookupValuesShouldBeArray": string;

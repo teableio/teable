@@ -910,10 +910,10 @@
       "invalidToken": "Token non valido",
       "tokenExpired": "Il token è scaduto",
       "sizeMismatch": "La dimensione del file non corrisponde",
-      "notAllowUploadFileType": "Tipo di file non consentito per il caricamento",
+      "notAllowUploadFileType": "Tipo di file {{mimetype}} non consentito per il caricamento",
       "notFound": "Allegato non trovato",
       "invalidPath": "Percorso allegato non valido",
-      "fileSizeExceedsMaximumLimit": "La dimensione del file supera il limite massimo",
+      "fileSizeExceedsMaximumLimit": "La dimensione del file supera il limite massimo di {{maxSize}}",
       "invalidUploadType": "Tipo di caricamento non valido",
       "urlReject": "URL rifiutato o inaccessibile"
     },
@@ -1100,6 +1100,7 @@
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] errore di validazione del campo",
       "fieldNameAlreadyExists": "Il nome del campo {{name}} esiste già",
       "notFound": "Campo non trovato",
+      "fieldKeyTypeNotFound": "Campo \"{{fieldKeyType}}: {{missedFields}}\" non trovato",
       "notFoundInTable": "Campo {{fieldId}} non trovato nella tabella {{tableId}}",
       "deleteFieldsNotFound": "Campi da eliminare {{fieldIds}} non trovati nella tabella {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues dovrebbe essere un array quando il campo di collegamento ha più valori di cella",
@@ -1155,7 +1156,7 @@
     },
     "billing": {
       "insufficientCredit": "Credito insufficiente",
-      "exceedMaxRowLimit": "Limite massimo di righe superato"
+      "exceedMaxRowLimit": "Limite massimo di righe {{maxRowCount}} superato"
     },
     "aggregation": {
       "searchQueryRequired": "È richiesta una query di ricerca",
