@@ -128,7 +128,7 @@ export class ImportOpenApiService {
               fields: fields.map((f) => ({ id: f.id, type: f.type })),
               columnInfo: columns,
             },
-            importRo,
+            ro: importRo,
           },
           {
             jobId,
@@ -273,6 +273,7 @@ export class ImportOpenApiService {
           sourceColumnMap,
           fields: fieldRaws as { id: string; type: FieldType }[],
         },
+        ro: inplaceImportRo,
       },
       {
         jobId,

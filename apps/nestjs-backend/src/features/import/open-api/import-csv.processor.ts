@@ -11,7 +11,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { UploadType } from '@teable/openapi';
-import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
+import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -47,7 +47,7 @@ interface ITableImportCsvJob {
   notification?: boolean;
   lastChunk?: boolean;
   parentJobId: string;
-  importRo: IImportOptionRo;
+  ro: IImportOptionRo | IInplaceImportOptionRo;
 }
 
 export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
@@ -77,17 +77,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
-    const {
-      table,
-      notification,
-      baseId,
-      userId,
-      lastChunk,
-      sourceColumnMap,
-      range,
-      origin,
-      importRo,
-    } = job.data;
+    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range, origin, ro } =
+      job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
@@ -114,7 +105,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           this.cls.set('origin', origin!);
           this.cls.set('user.id', userId);
           await this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
-            importRo,
+            ro,
             recordsLength: range?.at(-1),
             baseId,
             tableId: table.id,

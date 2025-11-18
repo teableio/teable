@@ -6,10 +6,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { FieldType, ILocalization } from '@teable/core';
 import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
-import type { IImportOptionRo, IImportColumn } from '@teable/openapi';
+import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import Papa from 'papaparse';
-import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
@@ -53,7 +52,7 @@ interface ITableImportChunkJob {
     fields: { id: string; type: FieldType }[];
     sourceColumnMap?: Record<string, number | null>;
   };
-  importRo: IImportOptionRo;
+  ro: IImportOptionRo | IInplaceImportOptionRo;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -70,7 +69,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
   constructor(
     private readonly notificationService: NotificationService,
-    private readonly eventEmitterService: EventEmitterService,
     private readonly importTableCsvQueueProcessor: ImportTableCsvQueueProcessor,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>
@@ -224,7 +222,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       table,
       recordsCal,
       options: { notification },
-      importRo,
+      ro,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -267,7 +265,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         notification,
         lastChunk,
         parentJobId: jobId,
-        importRo,
+        ro,
       },
       {
         jobId: chunkJobId,
