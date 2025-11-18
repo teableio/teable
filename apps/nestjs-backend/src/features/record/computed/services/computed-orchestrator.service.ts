@@ -119,7 +119,11 @@ export class ComputedOrchestratorService {
       return { publishedOps: 0, impact: {} };
     }
 
-    const tableDomains = await this.resolveTableDomains(impactMerged, tableDomainSeeds);
+    const tableDomains = await this.resolveTableDomains(
+      impactMerged,
+      tableDomainSeeds,
+      filtered.map((s) => s.tableId)
+    );
 
     await this.lockImpactedRecords(filtered, impactMerged, tableDomains);
 
@@ -403,7 +407,8 @@ export class ComputedOrchestratorService {
 
   private async resolveTableDomains(
     impact: IComputedImpactByTable,
-    seed?: ReadonlyMap<string, TableDomain>
+    seed?: ReadonlyMap<string, TableDomain>,
+    extraTableIds?: Iterable<string>
   ): Promise<Map<string, TableDomain>> {
     const cache = new Map<string, TableDomain>();
     if (seed?.size) {
@@ -412,42 +417,38 @@ export class ComputedOrchestratorService {
       }
     }
 
-    const impactTableIds = Object.keys(impact);
-    if (!impactTableIds.length) {
-      return cache;
-    }
-
     const projectionByTable = new Map<string, Set<string> | undefined>();
     for (const [tableId, group] of Object.entries(impact)) {
       projectionByTable.set(tableId, new Set(group.fieldIds));
     }
-
-    const missingImpactIds = impactTableIds.filter((tableId) => !cache.has(tableId));
-    if (missingImpactIds.length) {
-      const fetched = await this.tableDomainQueryService.getTableDomainsByIds(missingImpactIds);
-      for (const [tableId, domain] of fetched) {
-        cache.set(tableId, domain);
-      }
-      const stillMissing = missingImpactIds.filter((tableId) => !cache.has(tableId));
-      if (stillMissing.length) {
-        throw new NotFoundException(`Table(s) not found: ${stillMissing.join(', ')}`);
+    if (extraTableIds) {
+      for (const id of extraTableIds) {
+        if (!id) continue;
+        if (!projectionByTable.has(id)) {
+          projectionByTable.set(id, undefined);
+        }
       }
     }
 
+    const targetIds = new Set<string>(projectionByTable.keys());
+    if (!targetIds.size) {
+      return cache;
+    }
+
     const processed = new Set<string>();
-    const queue = new Set<string>(impactTableIds);
+    const queue = new Set<string>(targetIds);
 
     while (queue.size) {
       const batch = Array.from(queue);
       queue.clear();
 
-      const needFetch = batch.filter((tableId) => !cache.has(tableId));
-      if (needFetch.length) {
-        const fetched = await this.tableDomainQueryService.getTableDomainsByIds(needFetch);
+      const missing = batch.filter((tableId) => !cache.has(tableId));
+      if (missing.length) {
+        const fetched = await this.tableDomainQueryService.getTableDomainsByIds(missing);
         for (const [tableId, domain] of fetched) {
           cache.set(tableId, domain);
         }
-        const unresolved = needFetch.filter((tableId) => !cache.has(tableId));
+        const unresolved = missing.filter((tableId) => !cache.has(tableId));
         unresolved.forEach((tableId) => processed.add(tableId));
       }
 
@@ -473,6 +474,20 @@ export class ComputedOrchestratorService {
             queue.add(relatedTableId);
           }
         }
+      }
+    }
+
+    const unresolved = Array.from(projectionByTable.keys()).filter(
+      (tableId) => !cache.has(tableId)
+    );
+    if (unresolved.length) {
+      const fetched = await this.tableDomainQueryService.getTableDomainsByIds(unresolved);
+      for (const [tableId, domain] of fetched) {
+        cache.set(tableId, domain);
+      }
+      const stillMissing = unresolved.filter((tableId) => !cache.has(tableId));
+      if (stillMissing.length) {
+        throw new NotFoundException(`Table(s) not found: ${stillMissing.join(', ')}`);
       }
     }
 

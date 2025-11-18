@@ -79,9 +79,13 @@ export class RecordCreateService {
     const changes = this.shared.compressAndFilterChanges(table, createCtxs);
     const opsMap = this.shared.formatChangesToOps(changes);
     // Publish computed values (with old/new) around base updates
-    await this.computedOrchestrator.computeCellChangesForRecords(table.id, createCtxs, async () => {
-      await this.batchService.updateRecords(opsMap);
-    });
+    await this.computedOrchestrator.computeCellChangesForRecords(
+      table.id,
+      createCtxs,
+      async (tables) => {
+        await this.batchService.updateRecords(opsMap, undefined, undefined, tables);
+      }
+    );
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(
       table.id,
       recordIds,

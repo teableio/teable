@@ -1025,8 +1025,8 @@ export class FieldConvertingService {
     if (computedSources.length) {
       await this.computedOrchestrator.computeCellChangesForRecordsMulti(
         computedSources,
-        async () => {
-          await this.batchService.updateRecords(recordOpsMap!);
+        async (tables) => {
+          await this.batchService.updateRecords(recordOpsMap!, undefined, undefined, tables);
         }
       );
     } else {

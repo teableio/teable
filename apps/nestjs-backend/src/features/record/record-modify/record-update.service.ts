@@ -117,7 +117,7 @@ export class RecordUpdateService {
             linkDerivate?.fkRecordMap,
             tables
           );
-          await this.batchService.updateRecords(composedOpsMap);
+          await this.batchService.updateRecords(composedOpsMap, undefined, undefined, tables);
         }
       );
       return ctxs;
@@ -193,7 +193,7 @@ export class RecordUpdateService {
         const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
 
         await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap, tables);
-        await this.batchService.updateRecords(composedOpsMap);
+        await this.batchService.updateRecords(composedOpsMap, undefined, undefined, tables);
       }
     );
     return cellContexts;

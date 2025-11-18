@@ -1022,23 +1022,24 @@ export class ComputedDependencyCollectorService {
    * Build adjacency maps for link and conditional rollup relationships among the supplied tables.
    */
   @Timing()
-  private async getAdjacencyMaps(
-    tables: string[],
-    ctx?: ICollectorExecutionContext
-  ): Promise<{
+  private getAdjacencyMaps(
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    projection?: IComputedImpactByTable
+  ): {
     link: Record<string, Set<string>>;
     conditionalRollup: Record<string, IConditionalRollupAdjacencyEdge[]>;
-  }> {
+  } {
     const linkAdj: Record<string, Set<string>> = {};
     const conditionalRollupAdj: Record<string, IConditionalRollupAdjacencyEdge[]> = {};
 
-    if (!tables.length) {
+    if (!tableDomains.size) {
       return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
     }
 
-    for (const tableId of tables) {
-      const tableDomain = await this.getTableDomain(tableId, ctx);
+    for (const [tableId, tableDomain] of tableDomains) {
+      const projected = projection?.[tableId]?.fieldIds;
       for (const field of tableDomain.fieldList) {
+        if (projected && !projected.has(field.id)) continue;
         if (field.type === FieldType.Link && !field.isLookup) {
           const opts = this.parseLinkOptions(field.options);
           const from = opts?.foreignTableId;
@@ -1200,9 +1201,9 @@ export class ComputedDependencyCollectorService {
     const explicitSeeds = new Map<string, Set<string>>();
     const tablesWithAllRecords = new Set<string>(originTableIds);
 
-    const { link: linkAdj, conditionalRollup: referenceAdj } = await this.getAdjacencyMaps(
-      Array.from(impactedTables),
-      execCtx
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
     );
 
     let recordSets = await this.computeLinkClosure({
@@ -1569,9 +1570,9 @@ export class ComputedDependencyCollectorService {
     }
     const tablesWithAllRecords = new Set<string>();
 
-    const { link: linkAdj, conditionalRollup: referenceAdj } = await this.getAdjacencyMaps(
-      Array.from(impactedTables),
-      execCtx
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
     );
 
     let recordSets = await this.computeLinkClosure({

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import type { IOtOperation, IRecord } from '@teable/core';
 import { HttpErrorCode, IdPrefix, RecordOpBuilder, FieldType } from '@teable/core';
+import type { IOtOperation, IRecord, TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { groupBy, isEmpty, keyBy } from 'lodash';
@@ -19,9 +19,10 @@ import type { IClsStore } from '../../types/cls';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRaw } from '../field/model/factory';
+import { createFieldInstanceByRaw, fieldCore2FieldInstance } from '../field/model/factory';
 import { dbType2knexFormat, SchemaType } from '../field/util';
 import { RecordQueryService } from '../record/record-query.service';
+import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
 import { IOpsMap } from './utils/compose-maps';
 
 export interface IOpsData {
@@ -41,7 +42,8 @@ export class BatchService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly recordQueryService: RecordQueryService
+    private readonly recordQueryService: RecordQueryService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   private async completeMissingCtx(
@@ -139,11 +141,34 @@ export class BatchService {
   }
 
   @Timing()
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   async updateRecords(
     opsMap: IOpsMap,
     fieldMap: { [fieldId: string]: IFieldInstance } = {},
-    tableId2DbTableName: { [tableId: string]: string } = {}
+    tableId2DbTableName: { [tableId: string]: string } = {},
+    tableDomains?: Map<string, TableDomain>
   ): Promise<{ [tableId: string]: { [recordId: string]: IRecord } }> {
+    const tableIds = Object.keys(opsMap);
+
+    const domainCache = new Map<string, TableDomain>(tableDomains || []);
+    const missingDomainIds = tableIds.filter((id) => !domainCache.has(id));
+    if (missingDomainIds.length) {
+      const fetched = await this.tableDomainQueryService.getTableDomainsByIds(missingDomainIds);
+      for (const [tid, domain] of fetched) {
+        domainCache.set(tid, domain);
+      }
+    }
+
+    // Prefill table/db mapping and field instances from domains to reduce follow-up lookups
+    for (const [tid, domain] of domainCache) {
+      tableId2DbTableName[tid] ||= domain.dbTableName;
+      for (const field of domain.fieldList) {
+        if (!fieldMap[field.id]) {
+          fieldMap[field.id] = fieldCore2FieldInstance(field);
+        }
+      }
+    }
+
     const result = await this.completeMissingCtx(opsMap, fieldMap, tableId2DbTableName);
     fieldMap = result.fieldMap;
     tableId2DbTableName = result.tableId2DbTableName;
@@ -156,8 +181,13 @@ export class BatchService {
       if (recordIds.length === 0) continue;
 
       try {
-        // Use RecordQueryService to get old records
-        const snapshots = await this.recordQueryService.getSnapshotBulk(tableId, recordIds);
+        const domain = domainCache.get(tableId);
+        if (!domain) {
+          this.logger.warn(`TableDomain not found for table ${tableId}, skip snapshot read`);
+          oldRecords[tableId] = {};
+          continue;
+        }
+        const snapshots = await this.recordQueryService.getSnapshotBulk(domain, recordIds);
         oldRecords[tableId] = {};
         for (const snapshot of snapshots) {
           oldRecords[tableId][snapshot.id] = snapshot.data;

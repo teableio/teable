@@ -29,6 +29,9 @@ interface IResolveLinkCascadeParams {
   edges: ILinkEdge[];
 }
 
+const ALL_RECORDS = Symbol('ALL_RECORDS');
+type VisitedSet = Set<string> | typeof ALL_RECORDS;
+
 const IN_CHUNK = 500;
 
 @Injectable()
@@ -50,71 +53,79 @@ export class LinkCascadeResolver {
       return this.flattenSeeds(explicitSeeds, allTableSeeds);
     }
 
-    const visited = new Map<string, Set<string>>();
-    const queue: Array<{ tableId: string; ids: Set<string> }> = [];
+    const visited = new Map<string, VisitedSet>();
+    const queue: Array<{ tableId: string; ids?: Set<string>; all: boolean }> = [];
 
     // seed explicit ids
     for (const seed of explicitSeeds) {
       if (!seed.recordIds?.length) continue;
+      const existing = visited.get(seed.tableId);
+      if (existing === ALL_RECORDS) {
+        continue;
+      }
       const set = this.getOrInitSet(visited, seed.tableId);
       seed.recordIds.forEach((id) => {
         if (id) set.add(id);
       });
-      queue.push({ tableId: seed.tableId, ids: new Set(seed.recordIds) });
+      queue.push({ tableId: seed.tableId, ids: new Set(seed.recordIds), all: false });
     }
 
-    // seed all-table entries by materializing ids once
+    // seed all-table entries without materializing ids up front; use ALL sentinel and push work to DB
     if (allTableSeeds.length) {
-      const rows = await this.materializeAllTableSeeds(allTableSeeds);
-      for (const { tableId, recordId } of rows) {
-        const set = this.getOrInitSet(visited, tableId);
-        if (!set.has(recordId)) {
-          set.add(recordId);
-        }
-      }
-      // push as frontier grouped by table
-      const grouped = rows.reduce((map, row) => {
-        let s = map.get(row.tableId);
-        if (!s) {
-          s = new Set<string>();
-          map.set(row.tableId, s);
-        }
-        s.add(row.recordId);
-        return map;
-      }, new Map<string, Set<string>>());
-      for (const [tableId, ids] of grouped) {
-        queue.push({ tableId, ids });
+      for (const seed of allTableSeeds) {
+        if (!seed.tableId) continue;
+        visited.set(seed.tableId, ALL_RECORDS);
+        queue.push({ tableId: seed.tableId, all: true });
       }
     }
 
     while (queue.length) {
-      const { tableId, ids } = queue.shift()!;
+      const { tableId, ids, all } = queue.shift()!;
       const edgesFromTable = edgeBySrc.get(tableId);
       if (!edgesFromTable?.length) continue;
-      const frontierIds = Array.from(ids).filter(Boolean);
-      if (!frontierIds.length) continue;
+      const frontierIds = all ? [] : Array.from(ids ?? []).filter(Boolean);
+      if (!all && !frontierIds.length) continue;
+
+      const additionsByTable = new Map<string, Set<string>>();
 
       for (const edge of edgesFromTable) {
-        for (const batch of chunk(frontierIds, IN_CHUNK)) {
-          const rows = await this.fetchEdgeTargets(edge, batch);
-          if (!rows.length) continue;
-          const dstSet = this.getOrInitSet(visited, edge.hostTableId);
-          const newlyAdded = new Set<string>();
-          for (const row of rows) {
-            const rid = row.record_id;
-            if (!rid || dstSet.has(rid)) continue;
-            dstSet.add(rid);
-            newlyAdded.add(rid);
-          }
-          if (newlyAdded.size) {
-            queue.push({ tableId: edge.hostTableId, ids: newlyAdded });
-          }
+        const dstVisited = visited.get(edge.hostTableId);
+        if (dstVisited === ALL_RECORDS) {
+          continue; // already fully included
+        }
+
+        const rows = all
+          ? await this.fetchEdgeTargetsFromAll(edge)
+          : await this.fetchEdgeTargetsBatched(edge, frontierIds);
+
+        if (!rows.length) continue;
+
+        const dstSet = this.getOrInitSet(visited, edge.hostTableId);
+        let added = additionsByTable.get(edge.hostTableId);
+        if (!added) {
+          added = new Set<string>();
+          additionsByTable.set(edge.hostTableId, added);
+        }
+        for (const row of rows) {
+          const rid = row.record_id;
+          if (!rid || dstSet.has(rid)) continue;
+          dstSet.add(rid);
+          added.add(rid);
+        }
+      }
+
+      for (const [dstTable, newIds] of additionsByTable) {
+        if (newIds.size) {
+          queue.push({ tableId: dstTable, ids: newIds, all: false });
         }
       }
     }
 
     const result: Array<{ tableId: string; recordId: string }> = [];
     for (const [tableId, set] of visited) {
+      if (set === ALL_RECORDS) {
+        continue;
+      }
       for (const id of set) {
         result.push({ tableId, recordId: id });
       }
@@ -137,12 +148,13 @@ export class LinkCascadeResolver {
     return map;
   }
 
-  private getOrInitSet(map: Map<string, Set<string>>, key: string): Set<string> {
-    let set = map.get(key);
-    if (!set) {
-      set = new Set<string>();
-      map.set(key, set);
+  private getOrInitSet(map: Map<string, VisitedSet>, key: string): Set<string> {
+    const existing = map.get(key);
+    if (existing && existing !== ALL_RECORDS) {
+      return existing;
     }
+    const set = new Set<string>();
+    map.set(key, set);
     return set;
   }
 
@@ -157,24 +169,6 @@ export class LinkCascadeResolver {
       })
     );
     // allTableSeeds skipped here; caller typically handles ALL separately if no edges
-    return rows;
-  }
-
-  private async materializeAllTableSeeds(
-    seeds: IAllTableLinkSeed[]
-  ): Promise<Array<{ tableId: string; recordId: string }>> {
-    const rows: Array<{ tableId: string; recordId: string }> = [];
-    for (const seed of seeds) {
-      const sql = `select "__id"::text as record_id from ${this.formatQualifiedName(
-        seed.dbTableName
-      )} where "__id" is not null`;
-      const res = await this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
-      for (const row of res) {
-        if (row.record_id) {
-          rows.push({ tableId: seed.tableId, recordId: row.record_id });
-        }
-      }
-    }
     return rows;
   }
 
@@ -193,6 +187,29 @@ where ${srcCol} in (${placeholders})
   and ${srcCol} is not null
   and ${dstCol} is not null`;
     return this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql, ...srcIds);
+  }
+
+  private async fetchEdgeTargetsBatched(
+    edge: ILinkEdge,
+    srcIds: string[]
+  ): Promise<Array<{ record_id?: string }>> {
+    if (!srcIds.length) return [];
+    const batches = chunk(srcIds, IN_CHUNK);
+    const batchResults = await Promise.all(
+      batches.map((batch) => this.fetchEdgeTargets(edge, batch))
+    );
+    return batchResults.flat();
+  }
+
+  private async fetchEdgeTargetsFromAll(edge: ILinkEdge): Promise<Array<{ record_id?: string }>> {
+    const fkTableRef = this.formatQualifiedName(edge.fkTableName);
+    const srcCol = this.quoteIdentifier(edge.foreignKeyName);
+    const dstCol = this.quoteIdentifier(edge.selfKeyName);
+    const sql = `select distinct ${dstCol}::text as record_id
+from ${fkTableRef}
+where ${srcCol} is not null
+  and ${dstCol} is not null`;
+    return this.prismaService.$queryRawUnsafe<Array<{ record_id?: string }>>(sql);
   }
 
   private quoteIdentifier(identifier: string): string {
