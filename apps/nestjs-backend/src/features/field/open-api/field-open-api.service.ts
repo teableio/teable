@@ -777,15 +777,15 @@ export class FieldOpenApiService {
     const fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, id: { in: fieldIds }, deletedTime: null },
     });
-    const fieldVos = fieldIds
-      .map((id) => rawField2FieldObj(fieldRaws.find((raw) => raw.id === id)!))
-      .filter(Boolean);
-    const fields = fieldVos.map(createFieldInstanceByVo);
+    const fieldRawMap = new Map(fieldRaws.map((raw) => [raw.id, raw]));
 
-    if (fields.length !== fieldIds.length) {
-      const notExistField = fieldIds.find((id) => !fields.find((field) => field.id === id));
-      throw new NotFoundException(`Field ${notExistField} not found`);
+    if (fieldRawMap.size !== fieldIds.length) {
+      const notExistFieldId = fieldIds.find((id) => !fieldRawMap.has(id));
+      throw new NotFoundException(`Field ${notExistFieldId} not found`);
     }
+
+    const fieldVos = fieldIds.map((id) => rawField2FieldObj(fieldRawMap.get(id)!));
+    const fields = fieldVos.map(createFieldInstanceByVo);
 
     const nonComputedFields = fields.filter((field) => !field.isComputed);
     const projection = nonComputedFields.map((field) => field.id);
