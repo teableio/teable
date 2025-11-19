@@ -16,7 +16,7 @@ export const usePluginInstall = () => {
   const { baseId, positionId, positionType, tableId, pluginInstallId } = useEnv();
 
   const { data: dashboardPluginInstall, isLoading: isDashboardPluginInstallLoading } = useQuery({
-    queryKey: ['plugin-install', baseId, positionId, pluginInstallId],
+    queryKey: ReactQueryKeys.dashboardPluginInstall(baseId, positionId, pluginInstallId),
     queryFn: () =>
       getDashboardInstallPlugin(baseId, positionId, pluginInstallId).then((res) => res.data),
     enabled: Boolean(
@@ -25,7 +25,7 @@ export const usePluginInstall = () => {
   });
 
   const { data: pluginPanelPluginInstall, isLoading: isPluginPanelPluginLoading } = useQuery({
-    queryKey: ['plugin-panel-plugin', tableId, positionId, pluginInstallId],
+    queryKey: ReactQueryKeys.pluginPanelPluginInstall(tableId!, positionId, pluginInstallId),
     queryFn: () =>
       getPluginPanelPlugin(tableId!, positionId, pluginInstallId).then((res) => res.data),
     enabled: Boolean(
@@ -49,14 +49,12 @@ export const usePluginInstall = () => {
         storage as unknown as IPluginInstallStorage
       ),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(positionId));
-      queryClient.invalidateQueries(['plugin-install', baseId, positionId, pluginInstallId]);
-      queryClient.invalidateQueries([
-        'dashboard-plugin-query-v2',
-        baseId,
-        positionId,
-        pluginInstallId,
-      ]);
+      queryClient.invalidateQueries(
+        ReactQueryKeys.dashboardPluginInstall(baseId, positionId, pluginInstallId)
+      );
+      queryClient.invalidateQueries(
+        ReactQueryKeys.dashboardPluginQueryV2(baseId, positionId, pluginInstallId)
+      );
     },
   });
 
@@ -66,14 +64,12 @@ export const usePluginInstall = () => {
         storage,
       } as unknown as IPluginInstallStorage),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getPluginPanel(tableId!, positionId));
-      queryClient.invalidateQueries(['plugin-panel-plugin', tableId, positionId, pluginInstallId]);
-      queryClient.invalidateQueries([
-        'plugin-panel-plugin-query-v2',
-        tableId,
-        positionId,
-        pluginInstallId,
-      ]);
+      queryClient.invalidateQueries(
+        ReactQueryKeys.pluginPanelPluginInstall(tableId!, positionId, pluginInstallId)
+      );
+      queryClient.invalidateQueries(
+        ReactQueryKeys.pluginPanelPluginQueryV2(tableId!, positionId, pluginInstallId)
+      );
     },
   });
 

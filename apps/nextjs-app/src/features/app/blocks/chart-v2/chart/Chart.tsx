@@ -58,7 +58,7 @@ export const Chart: React.FC<BestPracticeChartProps> = (props) => {
   ) : (
     <div className="flex size-full flex-col items-center justify-center gap-2">
       <div className="flex items-center gap-2">
-        <AlertTriangle className="size-4" />
+        <AlertTriangle className="size-4 text-red-500" />
         <span className="text-sm">{t('chartV2.noData')}</span>
       </div>
       {!isShowingSettings && (

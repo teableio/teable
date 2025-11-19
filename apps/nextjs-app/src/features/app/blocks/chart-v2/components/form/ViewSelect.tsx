@@ -23,12 +23,16 @@ export const ViewSelect = (props: ViewSelectProps) => {
     queryKey: ReactQueryKeys.viewList(tableId),
     queryFn: () => getViewList(tableId).then((res) => res.data),
     enabled: !!tableId,
+    meta: { preventGlobalError: true },
   });
 
   const { t } = useTranslation(['chart', 'common']);
 
-  const viewList =
-    (typeFilter ? viewRawData?.filter((view) => view.type === typeFilter) : viewRawData) || [];
+  const viewList = useMemo(() => {
+    return (
+      (typeFilter ? viewRawData?.filter((view) => view.type === typeFilter) : viewRawData) || []
+    );
+  }, [viewRawData, typeFilter]);
 
   const options = useMemo(() => {
     const views = viewList.map(({ id, type, name }) => ({

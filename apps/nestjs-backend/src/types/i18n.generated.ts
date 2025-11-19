@@ -104,6 +104,99 @@ export type I18nTranslations = {
             "area": string;
             "table": string;
         };
+        "chartV2": {
+            "dataConfig": string;
+            "chartAppearance": string;
+            "goConfig": string;
+            "appearance": {
+                "title": string;
+                "display": string;
+                "theme": string;
+                "legend": string;
+                "coordinateAxis": string;
+                "label": string;
+                "showAxisLine": string;
+                "showAxisTick": string;
+                "showSplitLine": string;
+                "backgroundColor": string;
+                "reset": string;
+                "style": string;
+                "padding": string;
+                "left": string;
+                "right": string;
+                "bottom": string;
+                "top": string;
+            };
+            "noData": string;
+            "form": {
+                "name": string;
+                "chartType": {
+                    "title": string;
+                    "bar": string;
+                    "line": string;
+                    "pie": string;
+                    "donutChart": string;
+                    "area": string;
+                    "table": string;
+                };
+                "dataSource": {
+                    "title": string;
+                    "fromTable": string;
+                    "fromQuery": string;
+                };
+                "label": {
+                    "table": string;
+                    "dataRange": string;
+                    "view": string;
+                    "filter": string;
+                };
+                "axisConfig": {
+                    "noCountFields": string;
+                    "defaultSeriesName": string;
+                    "title": string;
+                    "xAxis": string;
+                    "yAxis": string;
+                    "field": string;
+                    "Statistic": string;
+                    "totalRecords": string;
+                    "fieldValue": string;
+                    "groupBy": string;
+                    "none": string;
+                    "groupAggregation": string;
+                };
+                "view": {
+                    "allData": string;
+                };
+                "dataSourceTitle": string;
+                "order": {
+                    "orderBy": {
+                        "title": string;
+                        "byXAxis": string;
+                        "byYAxis": string;
+                    };
+                    "orderType": {
+                        "title": string;
+                        "asc": string;
+                        "desc": string;
+                    };
+                };
+                "filter": {
+                    "title": string;
+                    "addFilter": string;
+                    "cancel": string;
+                    "confirm": string;
+                };
+                "sql": {
+                    "title": string;
+                    "sqlEditor": string;
+                    "runTest": string;
+                    "saveSql": string;
+                    "aiGenerate": string;
+                    "resultPreview": string;
+                    "addSeries": string;
+                };
+            };
+        };
         "form": {
             "chartType": {
                 "placeholder": string;
@@ -820,6 +913,7 @@ export type I18nTranslations = {
             "pluginEmpty": {
                 "title": string;
             };
+            "addPluginTitle": string;
         };
         "automation": {
             "turnOnTip": string;

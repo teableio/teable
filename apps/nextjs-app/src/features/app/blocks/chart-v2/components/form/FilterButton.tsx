@@ -52,6 +52,7 @@ export const FilterButton = () => {
 
   const viewFilterLinkContext = useViewFilterLinkContext(tableId, viewId, {
     disabled: false,
+    preventGlobalError: true,
   });
 
   return (

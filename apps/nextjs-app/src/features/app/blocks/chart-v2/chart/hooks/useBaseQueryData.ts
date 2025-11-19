@@ -4,6 +4,7 @@ import {
   getPluginPanelInstallPluginQueryV2,
   PluginPosition,
 } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useMemo } from 'react';
 import { useEnv } from '../../../chart/hooks/useEnv';
 
@@ -15,7 +16,7 @@ export const useBaseQueryData = () => {
       columns: [],
     },
   } = useQuery({
-    queryKey: ['dashboard-plugin-query-v2', baseId, positionId, pluginInstallId],
+    queryKey: ReactQueryKeys.dashboardPluginQueryV2(baseId, positionId, pluginInstallId),
     queryFn: () =>
       getDashboardInstallPluginQueryV2(pluginInstallId, positionId, baseId).then((res) => res.data),
     enabled: Boolean(
@@ -29,7 +30,7 @@ export const useBaseQueryData = () => {
       columns: [],
     },
   } = useQuery({
-    queryKey: ['plugin-panel-plugin-query-v2', tableId, positionId, pluginInstallId],
+    queryKey: ReactQueryKeys.pluginPanelPluginQueryV2(tableId!, positionId, pluginInstallId),
     queryFn: () =>
       getPluginPanelInstallPluginQueryV2(pluginInstallId, positionId, tableId!).then(
         (res) => res.data

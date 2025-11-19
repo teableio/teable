@@ -39,7 +39,7 @@
       "bottom": "下",
       "top": "上"
     },
-    "noData": "无数据",
+    "noData": "无数据或配置参数错误",
     "form": {
       "name": "名称",
       "chartType": {

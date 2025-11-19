@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ChartType, DataSource } from '@teable/openapi';
+import { ChartType, DataSource, THEMES_KEYS } from '@teable/openapi';
 
 @Injectable()
 export class ChartService {
   constructor(private readonly prismaService: PrismaService) {}
 
-  async getDefaultPluginOptions(baseId: string, pluginId: string) {
+  async getDefaultPluginOptions(baseId: string, pluginId: string, tableId?: string) {
     if (pluginId !== 'plgchartV2') {
       return;
     }
@@ -28,7 +28,7 @@ export class ChartService {
       return;
     }
 
-    const defaultTableId = tables[0].id;
+    const defaultTableId = tableId || tables[0].id;
 
     const fields = await this.prismaService.txClient().field.findMany({
       where: {
@@ -67,8 +67,9 @@ export class ChartService {
         seriesArray: 'COUNTA',
       },
       appearance: {
-        theme: 'blue',
-        legend: true,
+        theme: THEMES_KEYS.BLUE,
+        legendVisible: true,
+        labelVisible: true,
       },
     };
   }

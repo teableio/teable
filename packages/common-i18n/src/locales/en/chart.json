@@ -39,7 +39,7 @@
       "bottom": "Bottom",
       "top": "Top"
     },
-    "noData": "No data",
+    "noData": "No data or configuration error",
     "form": {
       "name": "Name",
       "chartType": {

@@ -195,7 +195,11 @@ export class PluginPanelService {
     const { pluginId, name } = installPluginPanelRo;
     const currentUser = this.cls.get('user.id');
     const baseId = await this.getBaseId(tableId);
-    const defaultOptions = await this.chartService.getDefaultPluginOptions(baseId, pluginId);
+    const defaultOptions = await this.chartService.getDefaultPluginOptions(
+      baseId,
+      pluginId,
+      tableId
+    );
     return this.prismaService.$tx(async (prisma) => {
       const plugin = await prisma.plugin.findUnique({
         where: {
