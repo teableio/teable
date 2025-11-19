@@ -1,12 +1,13 @@
 import { Module } from '@nestjs/common';
 import { BaseModule } from '../base/base.module';
 import { CollaboratorModule } from '../collaborator/collaborator.module';
+import { ChartService } from './chart.service';
 import { DashboardController } from './dashboard.controller';
 import { DashboardService } from './dashboard.service';
 
 @Module({
   imports: [CollaboratorModule, BaseModule],
-  providers: [DashboardService],
+  providers: [DashboardService, ChartService],
   controllers: [DashboardController],
   exports: [DashboardService],
 })

@@ -620,6 +620,7 @@
     "description": "回收站中的数据依然会占用记录用量和附件用量。"
   },
   "pluginCenter": {
+    "addPluginTitle": "添加插件",
     "pluginUrlEmpty": "插件未设置 URL",
     "install": "安装",
     "publisher": "发布者",

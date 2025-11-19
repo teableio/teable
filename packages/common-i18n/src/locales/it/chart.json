@@ -16,6 +16,99 @@
     "area": "Area",
     "table": "Tabella"
   },
+  "chartV2": {
+    "dataConfig": "Configurazione dati",
+    "chartAppearance": "Aspetto grafico",
+    "goConfig": "Vai alla configurazione",
+    "appearance": {
+      "title": "Aspetto grafico",
+      "display": "Visualizzazione",
+      "theme": "Tema",
+      "legend": "Leggenda",
+      "coordinateAxis": "Asse delle coordinate",
+      "label": "Etichetta",
+      "showAxisLine": "Mostra linea asse",
+      "showAxisTick": "Mostra tacche asse",
+      "showSplitLine": "Mostra linea di divisione",
+      "backgroundColor": "Colore di sfondo",
+      "reset": "Ripristina",
+      "style": "Stile",
+      "padding": "Spaziatura",
+      "left": "Sinistra",
+      "right": "Destra",
+      "bottom": "Basso",
+      "top": "Alto"
+    },
+    "noData": "Nessun dato",
+    "form": {
+      "name": "Nome",
+      "chartType": {
+        "title": "Tipo di grafico",
+        "bar": "Barre",
+        "line": "Linee",
+        "pie": "Torta",
+        "donutChart": "Grafico ad anello",
+        "area": "Area",
+        "table": "Tabella"
+      },
+      "dataSource": {
+        "title": "Origine dati",
+        "fromTable": "Da tabella",
+        "fromQuery": "Da SQL"
+      },
+      "label": {
+        "table": "Tabella",
+        "dataRange": "Intervallo dati",
+        "view": "vista",
+        "filter": "filtro"
+      },
+      "axisConfig": {
+        "noCountFields": "Nessun campo di conteggio",
+        "defaultSeriesName": "Conteggio",
+        "title": "Configurazione assi",
+        "xAxis": "Asse X",
+        "yAxis": "Asse Y",
+        "field": "Campo",
+        "Statistic": "Statistica per",
+        "totalRecords": "Record totali",
+        "fieldValue": "Valore del campo",
+        "groupBy": "Raggruppa per",
+        "none": "Nessuno",
+        "groupAggregation": "Aggregazione di gruppo"
+      },
+      "view": {
+        "allData": "Tutti i dati"
+      },
+      "dataSourceTitle": "Origine dati",
+      "order": {
+        "orderBy": {
+          "title": "Ordina per",
+          "byXAxis": "Per asse x",
+          "byYAxis": "Per asse y"
+        },
+        "orderType": {
+          "title": "Tipo di ordinamento",
+          "asc": "Crescente",
+          "desc": "Decrescente"
+        }
+      },
+      "filter": {
+        "title": "Filtra dati",
+        "addFilter": "Aggiungi filtro",
+        "cancel": "Annulla",
+        "confirm": "Conferma"
+      },
+      "sql": {
+        "title": "Configura query dati",
+        "sqlEditor": "Editor SQL",
+        "runTest": "Esegui test",
+        "saveSql": "Salva",
+        "aiGenerate": "Genera con IA",
+        "resultPreview": "Anteprima risultati",
+        "addSeries": "Aggiungi una serie"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Seleziona tipo di grafico",

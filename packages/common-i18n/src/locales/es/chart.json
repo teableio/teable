@@ -16,6 +16,99 @@
     "area": "Área",
     "table": "Tabla"
   },
+  "chartV2": {
+    "dataConfig": "Configuración de datos",
+    "chartAppearance": "Apariencia del gráfico",
+    "goConfig": "Ir a configuración",
+    "appearance": {
+      "title": "Apariencia del gráfico",
+      "display": "Mostrar",
+      "theme": "Tema",
+      "legend": "Leyenda",
+      "coordinateAxis": "Eje de coordenadas",
+      "label": "Etiqueta",
+      "showAxisLine": "Mostrar línea de eje",
+      "showAxisTick": "Mostrar marca de eje",
+      "showSplitLine": "Mostrar línea de división",
+      "backgroundColor": "Color de fondo",
+      "reset": "Restablecer",
+      "style": "Estilo",
+      "padding": "Relleno",
+      "left": "Izquierda",
+      "right": "Derecha",
+      "bottom": "Inferior",
+      "top": "Superior"
+    },
+    "noData": "Sin datos",
+    "form": {
+      "name": "Nombre",
+      "chartType": {
+        "title": "Tipo de gráfico",
+        "bar": "Barras",
+        "line": "Líneas",
+        "pie": "Circular",
+        "donutChart": "Gráfico de anillo",
+        "area": "Área",
+        "table": "Tabla"
+      },
+      "dataSource": {
+        "title": "Fuente de datos",
+        "fromTable": "Desde tabla",
+        "fromQuery": "Desde SQL"
+      },
+      "label": {
+        "table": "Tabla",
+        "dataRange": "Rango de datos",
+        "view": "vista",
+        "filter": "filtro"
+      },
+      "axisConfig": {
+        "noCountFields": "Sin campos de conteo",
+        "defaultSeriesName": "Conteo",
+        "title": "Configuración de ejes",
+        "xAxis": "Eje X",
+        "yAxis": "Eje Y",
+        "field": "Campo",
+        "Statistic": "Estadística por",
+        "totalRecords": "Total de registros",
+        "fieldValue": "Valor del campo",
+        "groupBy": "Agrupar por",
+        "none": "Ninguno",
+        "groupAggregation": "Agregación de grupo"
+      },
+      "view": {
+        "allData": "Todos los datos"
+      },
+      "dataSourceTitle": "Fuente de datos",
+      "order": {
+        "orderBy": {
+          "title": "Ordenar por",
+          "byXAxis": "Por eje x",
+          "byYAxis": "Por eje y"
+        },
+        "orderType": {
+          "title": "Tipo de orden",
+          "asc": "Ascendente",
+          "desc": "Descendente"
+        }
+      },
+      "filter": {
+        "title": "Filtrar datos",
+        "addFilter": "Añadir filtro",
+        "cancel": "Cancelar",
+        "confirm": "Confirmar"
+      },
+      "sql": {
+        "title": "Configurar consulta de datos",
+        "sqlEditor": "Editor SQL",
+        "runTest": "Ejecutar prueba",
+        "saveSql": "Guardar",
+        "aiGenerate": "Generar con IA",
+        "resultPreview": "Vista previa de resultados",
+        "addSeries": "Añadir una serie"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Seleccionar tipo de gráfico",

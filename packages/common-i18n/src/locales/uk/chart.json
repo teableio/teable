@@ -16,6 +16,99 @@
     "area": "Область",
     "table": "Таблиця"
   },
+  "chartV2": {
+    "dataConfig": "Конфігурація даних",
+    "chartAppearance": "Зовнішній вигляд діаграми",
+    "goConfig": "Перейти до конфігурації",
+    "appearance": {
+      "title": "Зовнішній вигляд діаграми",
+      "display": "Відображення",
+      "theme": "Тема",
+      "legend": "Легенда",
+      "coordinateAxis": "Координатна вісь",
+      "label": "Мітка",
+      "showAxisLine": "Показати лінію осі",
+      "showAxisTick": "Показати поділку осі",
+      "showSplitLine": "Показати роздільну лінію",
+      "backgroundColor": "Колір фону",
+      "reset": "Скинути",
+      "style": "Стиль",
+      "padding": "Відступ",
+      "left": "Ліворуч",
+      "right": "Праворуч",
+      "bottom": "Знизу",
+      "top": "Зверху"
+    },
+    "noData": "Немає даних",
+    "form": {
+      "name": "Назва",
+      "chartType": {
+        "title": "Тип діаграми",
+        "bar": "Стовпчикова",
+        "line": "Лінійна",
+        "pie": "Кругова",
+        "donutChart": "Кільцева діаграма",
+        "area": "Область",
+        "table": "Таблиця"
+      },
+      "dataSource": {
+        "title": "Джерело даних",
+        "fromTable": "З таблиці",
+        "fromQuery": "З SQL"
+      },
+      "label": {
+        "table": "Таблиця",
+        "dataRange": "Діапазон даних",
+        "view": "вигляд",
+        "filter": "фільтр"
+      },
+      "axisConfig": {
+        "noCountFields": "Немає полів підрахунку",
+        "defaultSeriesName": "Кількість",
+        "title": "Налаштування осей",
+        "xAxis": "Вісь X",
+        "yAxis": "Вісь Y",
+        "field": "Поле",
+        "Statistic": "Статистика за",
+        "totalRecords": "Всього записів",
+        "fieldValue": "Значення поля",
+        "groupBy": "Групувати за",
+        "none": "Немає",
+        "groupAggregation": "Групова агрегація"
+      },
+      "view": {
+        "allData": "Всі дані"
+      },
+      "dataSourceTitle": "Джерело даних",
+      "order": {
+        "orderBy": {
+          "title": "Сортувати за",
+          "byXAxis": "За віссю x",
+          "byYAxis": "За віссю y"
+        },
+        "orderType": {
+          "title": "Тип сортування",
+          "asc": "За зростанням",
+          "desc": "За спаданням"
+        }
+      },
+      "filter": {
+        "title": "Фільтр даних",
+        "addFilter": "Додати фільтр",
+        "cancel": "Скасувати",
+        "confirm": "Підтвердити"
+      },
+      "sql": {
+        "title": "Налаштувати запит даних",
+        "sqlEditor": "SQL-редактор",
+        "runTest": "Запустити тест",
+        "saveSql": "Зберегти",
+        "aiGenerate": "Генерація ШІ",
+        "resultPreview": "Попередній перегляд результату",
+        "addSeries": "Додати серію"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Оберіть тип діаграми",

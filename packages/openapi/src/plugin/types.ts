@@ -81,3 +81,14 @@ export const pluginConfigSchema = z
     }
   });
 export type IPluginConfig = z.infer<typeof pluginConfigSchema>;
+
+export enum THEMES_KEYS {
+  BLUE = 'blue',
+  GREEN = 'green',
+  NEUTRAL = 'neutral',
+  ORANGE = 'orange',
+  RED = 'red',
+  ROSE = 'rose',
+  VIOLET = 'violet',
+  YELLOW = 'yellow',
+}

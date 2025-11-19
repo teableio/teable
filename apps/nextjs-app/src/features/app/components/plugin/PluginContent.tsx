@@ -43,6 +43,7 @@ export const PluginContent = (props: IPluginContentProps) => {
   useSyncBasePermissions(bridge);
   useSyncSelection(bridge);
   useSyncUrlParams(bridge);
+
   if (!iframeUrl) {
     return (
       <div

@@ -16,6 +16,99 @@
     "area": "Область",
     "table": "Таблица"
   },
+  "chartV2": {
+    "dataConfig": "Конфигурация данных",
+    "chartAppearance": "Внешний вид диаграммы",
+    "goConfig": "Перейти к конфигурации",
+    "appearance": {
+      "title": "Внешний вид диаграммы",
+      "display": "Отображение",
+      "theme": "Тема",
+      "legend": "Легенда",
+      "coordinateAxis": "Координатная ось",
+      "label": "Метка",
+      "showAxisLine": "Показать линию оси",
+      "showAxisTick": "Показать деление оси",
+      "showSplitLine": "Показать разделительную линию",
+      "backgroundColor": "Цвет фона",
+      "reset": "Сбросить",
+      "style": "Стиль",
+      "padding": "Отступ",
+      "left": "Слева",
+      "right": "Справа",
+      "bottom": "Снизу",
+      "top": "Сверху"
+    },
+    "noData": "Нет данных",
+    "form": {
+      "name": "Название",
+      "chartType": {
+        "title": "Тип диаграммы",
+        "bar": "Столбчатая",
+        "line": "Линейная",
+        "pie": "Круговая",
+        "donutChart": "Кольцевая диаграмма",
+        "area": "Область",
+        "table": "Таблица"
+      },
+      "dataSource": {
+        "title": "Источник данных",
+        "fromTable": "Из таблицы",
+        "fromQuery": "Из SQL"
+      },
+      "label": {
+        "table": "Таблица",
+        "dataRange": "Диапазон данных",
+        "view": "представление",
+        "filter": "фильтр"
+      },
+      "axisConfig": {
+        "noCountFields": "Нет полей подсчета",
+        "defaultSeriesName": "Количество",
+        "title": "Настройка осей",
+        "xAxis": "Ось X",
+        "yAxis": "Ось Y",
+        "field": "Поле",
+        "Statistic": "Статистика по",
+        "totalRecords": "Всего записей",
+        "fieldValue": "Значение поля",
+        "groupBy": "Группировать по",
+        "none": "Нет",
+        "groupAggregation": "Групповая агрегация"
+      },
+      "view": {
+        "allData": "Все данные"
+      },
+      "dataSourceTitle": "Источник данных",
+      "order": {
+        "orderBy": {
+          "title": "Сортировать по",
+          "byXAxis": "По оси x",
+          "byYAxis": "По оси y"
+        },
+        "orderType": {
+          "title": "Тип сортировки",
+          "asc": "По возрастанию",
+          "desc": "По убыванию"
+        }
+      },
+      "filter": {
+        "title": "Фильтр данных",
+        "addFilter": "Добавить фильтр",
+        "cancel": "Отмена",
+        "confirm": "Подтвердить"
+      },
+      "sql": {
+        "title": "Настроить запрос данных",
+        "sqlEditor": "SQL-редактор",
+        "runTest": "Запустить тест",
+        "saveSql": "Сохранить",
+        "aiGenerate": "Генерация ИИ",
+        "resultPreview": "Предпросмотр результата",
+        "addSeries": "Добавить серию"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Выберите тип диаграммы",

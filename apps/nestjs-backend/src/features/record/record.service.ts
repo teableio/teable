@@ -1586,7 +1586,6 @@ export class RecordService {
     useQueryModel = false
   ): Promise<{ ids: string[]; extra?: IExtraResult }> {
     const { skip, take = 100, ignoreViewQuery } = query;
-
     if (identify(tableId) !== IdPrefix.Table) {
       throw new InternalServerErrorException('query collection must be table id');
     }

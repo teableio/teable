@@ -16,6 +16,99 @@
     "area": "区域图",
     "table": "表格"
   },
+  "chartV2": {
+    "dataConfig": "数据配置",
+    "chartAppearance": "图表外观",
+    "goConfig": "前往配置",
+    "appearance": {
+      "title": "图表外观",
+      "display": "显示",
+      "theme": "主题",
+      "legend": "图例",
+      "coordinateAxis": "坐标轴",
+      "label": "标签",
+      "showAxisLine": "显示轴线",
+      "showAxisTick": "显示刻度",
+      "showSplitLine": "显示分割线",
+      "backgroundColor": "背景颜色",
+      "reset": "重置",
+      "style": "样式",
+      "padding": "内边距",
+      "left": "左",
+      "right": "右",
+      "bottom": "下",
+      "top": "上"
+    },
+    "noData": "无数据",
+    "form": {
+      "name": "名称",
+      "chartType": {
+        "title": "图表类型",
+        "bar": "柱状图",
+        "line": "折线图",
+        "pie": "饼图",
+        "donutChart": "环形图",
+        "area": "区域图",
+        "table": "表格"
+      },
+      "dataSource": {
+        "title": "数据源",
+        "fromTable": "从表格",
+        "fromQuery": "从SQL"
+      },
+      "label": {
+        "table": "表格",
+        "dataRange": "数据范围",
+        "view": "视图",
+        "filter": "筛选器"
+      },
+      "axisConfig": {
+        "noCountFields": "无计数字段",
+        "defaultSeriesName": "计数",
+        "title": "坐标轴配置",
+        "xAxis": "X轴",
+        "yAxis": "Y轴",
+        "field": "字段",
+        "Statistic": "统计方式",
+        "totalRecords": "总记录数",
+        "fieldValue": "字段值",
+        "groupBy": "分组依据",
+        "none": "无",
+        "groupAggregation": "分组聚合"
+      },
+      "view": {
+        "allData": "全部数据"
+      },
+      "dataSourceTitle": "数据源",
+      "order": {
+        "orderBy": {
+          "title": "排序依据",
+          "byXAxis": "按X轴",
+          "byYAxis": "按Y轴"
+        },
+        "orderType": {
+          "title": "排序类型",
+          "asc": "升序",
+          "desc": "降序"
+        }
+      },
+      "filter": {
+        "title": "筛选数据",
+        "addFilter": "添加筛选器",
+        "cancel": "取消",
+        "confirm": "确认"
+      },
+      "sql": {
+        "title": "配置数据查询",
+        "sqlEditor": "SQL编辑器",
+        "runTest": "运行测试",
+        "saveSql": "保存",
+        "aiGenerate": "AI生成",
+        "resultPreview": "结果预览",
+        "addSeries": "添加系列"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "选择图表类型",

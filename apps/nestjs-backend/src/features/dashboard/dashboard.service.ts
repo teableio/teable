@@ -27,6 +27,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { ChartService } from './chart.service';
 
 @Injectable()
 export class DashboardService {
@@ -34,7 +35,8 @@ export class DashboardService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly chartService: ChartService
   ) {}
 
   async getDashboard(baseId: string): Promise<IGetDashboardListVo> {
@@ -223,6 +225,9 @@ export class DashboardService {
     const userId = this.cls.get('user.id');
     await this.validatePluginPublished(baseId, ro.pluginId);
 
+    // chartV2 need default options
+    const defaultOptions = await this.chartService.getDefaultPluginOptions(baseId, ro.pluginId);
+
     return this.prismaService.$tx(async () => {
       const newInstallPlugin = await this.prismaService.txClient().pluginInstall.create({
         data: {
@@ -233,6 +238,7 @@ export class DashboardService {
           name: ro.name,
           pluginId: ro.pluginId,
           createdBy: userId,
+          storage: defaultOptions ? JSON.stringify(defaultOptions) : null,
         },
         select: {
           id: true,

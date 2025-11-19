@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronsUpDown, PlusCircle } from '@teable/icons';
+import { Check, ChevronDown, PlusCircle } from '@teable/icons';
 import { getDashboardList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
@@ -48,13 +48,13 @@ export const DashboardSwitcher = (props: {
         <Button
           variant="outline"
           role="combobox"
-          size={'sm'}
+          size={'lg'}
           aria-expanded={open}
           aria-label="Select a team"
-          className={cn('w-[200px] justify-between', className)}
+          className={cn('w-[200px] justify-between px-3 py-[10px]', className)}
         >
           <span className="truncate">{selectedDashboard?.name}</span>
-          <ChevronsUpDown className="ml-auto size-4 shrink-0 opacity-50" />
+          <ChevronDown className="ml-auto size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[200px] p-0">

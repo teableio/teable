@@ -238,6 +238,8 @@ export const useSelectionOperation = (props?: {
 
       const { cellValues } = getCellPasteInfo(e);
 
+      console.log('cellValuescellValues', cellValues);
+
       const pasteRecordLength = cellValues?.length ?? 0;
 
       if (pasteRecordLength >= 10) {

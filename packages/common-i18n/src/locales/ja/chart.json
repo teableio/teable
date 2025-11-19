@@ -16,6 +16,99 @@
     "area": "エリアグラフ",
     "table": "テーブル"
   },
+  "chartV2": {
+    "dataConfig": "データ設定",
+    "chartAppearance": "チャート外観",
+    "goConfig": "設定に移動",
+    "appearance": {
+      "title": "チャート外観",
+      "display": "表示",
+      "theme": "テーマ",
+      "legend": "凡例",
+      "coordinateAxis": "座標軸",
+      "label": "ラベル",
+      "showAxisLine": "軸線を表示",
+      "showAxisTick": "軸目盛を表示",
+      "showSplitLine": "分割線を表示",
+      "backgroundColor": "背景色",
+      "reset": "リセット",
+      "style": "スタイル",
+      "padding": "パディング",
+      "left": "左",
+      "right": "右",
+      "bottom": "下",
+      "top": "上"
+    },
+    "noData": "データがありません",
+    "form": {
+      "name": "名前",
+      "chartType": {
+        "title": "チャートタイプ",
+        "bar": "棒グラフ",
+        "line": "折れ線グラフ",
+        "pie": "円グラフ",
+        "donutChart": "ドーナツグラフ",
+        "area": "エリアグラフ",
+        "table": "テーブル"
+      },
+      "dataSource": {
+        "title": "データソース",
+        "fromTable": "テーブルから",
+        "fromQuery": "SQLから"
+      },
+      "label": {
+        "table": "テーブル",
+        "dataRange": "データ範囲",
+        "view": "ビュー",
+        "filter": "フィルター"
+      },
+      "axisConfig": {
+        "noCountFields": "カウントフィールドなし",
+        "defaultSeriesName": "カウント",
+        "title": "軸設定",
+        "xAxis": "X軸",
+        "yAxis": "Y軸",
+        "field": "フィールド",
+        "Statistic": "統計",
+        "totalRecords": "総レコード数",
+        "fieldValue": "フィールド値",
+        "groupBy": "グループ化",
+        "none": "なし",
+        "groupAggregation": "グループ集計"
+      },
+      "view": {
+        "allData": "すべてのデータ"
+      },
+      "dataSourceTitle": "データソース",
+      "order": {
+        "orderBy": {
+          "title": "並べ替え",
+          "byXAxis": "X軸で",
+          "byYAxis": "Y軸で"
+        },
+        "orderType": {
+          "title": "並べ替えタイプ",
+          "asc": "昇順",
+          "desc": "降順"
+        }
+      },
+      "filter": {
+        "title": "データフィルター",
+        "addFilter": "フィルターを追加",
+        "cancel": "キャンセル",
+        "confirm": "確認"
+      },
+      "sql": {
+        "title": "データクエリ設定",
+        "sqlEditor": "SQLエディター",
+        "runTest": "テスト実行",
+        "saveSql": "保存",
+        "aiGenerate": "AI生成",
+        "resultPreview": "結果プレビュー",
+        "addSeries": "系列を追加"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "チャートタイプを選択",

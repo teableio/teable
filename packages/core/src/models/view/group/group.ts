@@ -36,7 +36,7 @@ export const groupStringSchema = z.string().transform((val, ctx) => {
 
 export function parseGroup(queryGroup?: IGroup): IGroup | undefined {
   if (queryGroup == null) return;
-
   const parsedGroup = groupSchema.safeParse(queryGroup);
+
   return parsedGroup.success ? parsedGroup.data?.slice(0, 3) : undefined;
 }

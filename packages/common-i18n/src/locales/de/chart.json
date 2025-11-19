@@ -16,6 +16,99 @@
     "area": "Flächendiagramm",
     "table": "Tabelle"
   },
+  "chartV2": {
+    "dataConfig": "Datenkonfiguration",
+    "chartAppearance": "Diagramm-Erscheinungsbild",
+    "goConfig": "Zur Konfiguration gehen",
+    "appearance": {
+      "title": "Diagramm-Erscheinungsbild",
+      "display": "Anzeige",
+      "theme": "Thema",
+      "legend": "Legende",
+      "coordinateAxis": "Koordinatenachse",
+      "label": "Beschriftung",
+      "showAxisLine": "Achsenlinie anzeigen",
+      "showAxisTick": "Achsenmarkierung anzeigen",
+      "showSplitLine": "Geteilte Linie anzeigen",
+      "backgroundColor": "Hintergrundfarbe",
+      "reset": "Zurücksetzen",
+      "style": "Stil",
+      "padding": "Abstand",
+      "left": "Links",
+      "right": "Rechts",
+      "bottom": "Unten",
+      "top": "Oben"
+    },
+    "noData": "Keine Daten",
+    "form": {
+      "name": "Name",
+      "chartType": {
+        "title": "Diagrammtyp",
+        "bar": "Balkendiagramm",
+        "line": "Liniendiagramm",
+        "pie": "Kreisdiagramm",
+        "donutChart": "Kreisdiagramm",
+        "area": "Flächendiagramm",
+        "table": "Tabelle"
+      },
+      "dataSource": {
+        "title": "Datenquelle",
+        "fromTable": "Von Tabelle",
+        "fromQuery": "Von SQL"
+      },
+      "label": {
+        "table": "Tabelle",
+        "dataRange": "Datenbereich",
+        "view": "Ansicht",
+        "filter": "Filter"
+      },
+      "axisConfig": {
+        "noCountFields": "Keine Count-Felder",
+        "defaultSeriesName": "Anzahl",
+        "title": "Achsenkonfiguration",
+        "xAxis": "X-Achse",
+        "yAxis": "Y-Achse",
+        "field": "Feld",
+        "Statistic": "Statistik nach",
+        "totalRecords": "Total Records",
+        "fieldValue": "Feldwert",
+        "groupBy": "Gruppieren nach",
+        "none": "Keine",
+        "groupAggregation": "Gruppenaggregation"
+      },
+      "view": {
+        "allData": "Alle Daten"
+      },
+      "dataSourceTitle": "Datenquelle",
+      "order": {
+        "orderBy": {
+          "title": "Sortieren nach",
+          "byXAxis": "Nach x-Achse",
+          "byYAxis": "Nach y-Achse"
+        },
+        "orderType": {
+          "title": "Sortierungstyp",
+          "asc": "Aufsteigend",
+          "desc": "Absteigend"
+        }
+      },
+      "filter": {
+        "title": "Filter Daten",
+        "addFilter": "Filter hinzufügen",
+        "cancel": "Abbrechen",
+        "confirm": "Bestätigen"
+      },
+      "sql": {
+        "title": "Datenabfragekonfiguration",
+        "sqlEditor": "SQL-Editor",
+        "runTest": "Test ausführen",
+        "saveSql": "Speichern",
+        "aiGenerate": "AI generieren",
+        "resultPreview": "Ergebnisvorschau",
+        "addSeries": "Serie hinzufügen"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Diagrammtyp auswählen",

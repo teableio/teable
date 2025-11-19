@@ -28,6 +28,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { BaseImportService } from '../base/base-import.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
+import { ChartService } from '../dashboard/chart.service';
 
 @Injectable()
 export class PluginPanelService {
@@ -35,7 +36,8 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService
+    private readonly baseImportService: BaseImportService,
+    private readonly chartService: ChartService
   ) {}
 
   createPluginPanel(tableId: string, createPluginPanelRo: IPluginPanelCreateRo) {
@@ -166,7 +168,7 @@ export class PluginPanelService {
     };
   }
 
-  private async getBaseId(tableId: string) {
+  async getBaseId(tableId: string) {
     const base = await this.prismaService.tableMeta.findUnique({
       where: {
         id: tableId,
@@ -193,6 +195,7 @@ export class PluginPanelService {
     const { pluginId, name } = installPluginPanelRo;
     const currentUser = this.cls.get('user.id');
     const baseId = await this.getBaseId(tableId);
+    const defaultOptions = await this.chartService.getDefaultPluginOptions(baseId, pluginId);
     return this.prismaService.$tx(async (prisma) => {
       const plugin = await prisma.plugin.findUnique({
         where: {
@@ -215,6 +218,7 @@ export class PluginPanelService {
           position: PluginPosition.Panel,
           positionId: pluginPanelId,
           createdBy: currentUser,
+          storage: defaultOptions ? JSON.stringify(defaultOptions) : null,
         },
         select: {
           id: true,

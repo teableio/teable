@@ -6,6 +6,7 @@ import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { isEmpty } from 'lodash';
+import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { AddPluginDialog } from './components/AddPluginDialog';
@@ -31,6 +32,12 @@ export const DashboardMain = (props: { dashboardId: string }) => {
   if (isEmpty(dashboardData?.pluginMap) && !isLoading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <Image
+          src="/images/layout/empty-dashboard-light.png"
+          alt="Empty dashboard"
+          width={240}
+          height={240}
+        />
         <p>{t('common:pluginCenter.pluginEmpty.title')}</p>
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
