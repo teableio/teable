@@ -81,6 +81,25 @@ describe('Number precision (e2e)', () => {
     expect(textRecord.fields[grossField.id]).toBe('30.30');
   });
 
+  it('rounds stored numeric value to field precision for json output', async () => {
+    table = await createTable(baseId, {
+      name: 'precision-store',
+      fields: [
+        {
+          name: 'Amount',
+          type: FieldType.Number,
+          options: { formatting: { type: NumberFormattingType.Decimal, precision: 2 } },
+        },
+      ],
+      records: [{ fields: { Amount: 0 } }],
+    });
+
+    await updateRecordByApi(table.id, table.records[0].id, table.fields[0].id, 38.6999999999);
+
+    const record = await getRecord(table.id, table.records[0].id);
+    expect(record.fields[table.fields[0].id]).toBe(38.7);
+  });
+
   it('keeps rollup sums stable with decimal inputs', async () => {
     table = await createTable(baseId, {
       name: 'precision-invoice',
