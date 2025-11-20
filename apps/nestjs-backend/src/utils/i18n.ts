@@ -9,12 +9,12 @@ const localPaths = [
 ];
 
 export const getI18nPath = () => {
-  console.log('backend I18n path checking', __dirname, 'localPaths', localPaths);
+  console.debug('backend I18n path checking', __dirname, 'localPaths', localPaths);
   return localPaths.filter(Boolean).find((str) => {
     const exists = fs.existsSync(str);
-    console.log(`backend I18n path checking exists ${exists} ${str} `);
+    console.debug(`backend I18n path checking exists ${exists} ${str} `);
     if (exists) {
-      console.log('backend I18n path found', str);
+      console.debug('backend I18n path found', str);
     }
     return exists;
   });
@@ -22,7 +22,7 @@ export const getI18nPath = () => {
 
 export const getI18nTypesOutputPath = () => {
   const path = process.env.I18N_TYPES_OUTPUT_PATH;
-  console.log('backend I18n types output path:', path);
+  console.debug('backend I18n types output path:', path);
   if (!path) {
     return undefined;
   }

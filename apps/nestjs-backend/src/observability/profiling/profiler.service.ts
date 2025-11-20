@@ -15,7 +15,7 @@ import { InjectStorageAdapter } from '../../features/attachments/plugins/storage
  * // enable profiling, default false
  * - ENABLE_PROFILING=true
  * // save interval in milliseconds, default 1 hour (60 * 60 * 1000)
- * - PROFILE_SAVE_INTERVAL=60000
+ * - PROFILE_SAVE_INTERVAL=60_000
  * // profile directory, default profiles
  * - PROFILE_DIRECTORY=profiles
  */
@@ -72,6 +72,10 @@ export class ProfilerService implements OnModuleInit, OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    if (!this.enabled) {
+      return;
+    }
+
     this.logger.log('🛑 Shutting down profiler...');
     await this.cleanup();
   }
