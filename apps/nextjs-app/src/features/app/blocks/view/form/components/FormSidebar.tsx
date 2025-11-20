@@ -50,7 +50,7 @@ export const DragItem: FC<IDragItemProps> = (props) => {
   const content = (
     <div
       className={cn(
-        'mb-[6px] flex items-center justify-between rounded-md bg-slate-100 p-2 dark:bg-slate-800',
+        'mb-[6px] flex items-center justify-between rounded-md bg-secondary border p-2 ',
         disabled && 'cursor-not-allowed text-gray-400'
       )}
       onClick={() => !disabled && onClick?.()}
@@ -204,7 +204,7 @@ export const FormSidebar: FC<IFormSidebarProps> = (props) => {
                 />
               );
             })}
-            <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-slate-400 dark:text-slate-600">
+            <div className="flex h-16 w-full items-center justify-center rounded border-2 border-dashed text-[13px] text-muted-foreground">
               {t('table:form.hideFieldTip')}
             </div>
           </div>

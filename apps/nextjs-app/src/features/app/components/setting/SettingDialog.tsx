@@ -50,13 +50,13 @@ export const SettingDialog = () => {
 
   const content = (
     <Tabs defaultValue="profile" className="flex h-full gap-4 overflow-hidden">
-      <TabsList className="grid gap-2 bg-inherit text-left">
+      <TabsList className="grid gap-2 bg-inherit border-none text-left">
         {tabList.map(({ key, name, Icon }) => {
           return (
             <TabsTrigger
               key={key}
               value={key}
-              className="justify-start gap-2 font-normal data-[state=active]:bg-muted data-[state=active]:font-medium"
+              className="justify-start gap-2 font-normal hover:bg-accent cursor-pointer data-[state=active]:bg-accent data-[state=active]:font-medium"
             >
               <Icon className="size-5 shrink-0 sm:size-4" />
               <span className="hidden sm:inline">{name}</span>

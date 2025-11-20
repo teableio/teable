@@ -19,7 +19,7 @@ export const ItemButton = React.forwardRef<HTMLButtonElement, IItemButtonProps>(
       className={cn(
         'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2',
         {
-          'bg-secondary': isActive,
+          'bg-accent': isActive,
         },
         className
       )}

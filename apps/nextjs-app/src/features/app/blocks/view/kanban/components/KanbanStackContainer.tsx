@@ -85,7 +85,7 @@ export const KanbanStackContainer = (props: IKanbanStackContainerProps) => {
             ) : (
               <div
                 className={cn(
-                  'w-[264px] h-full border bg-muted rounded-md shrink-0 flex flex-col',
+                  'w-[264px] h-full border bg-muted rounded-md shrink-0 flex flex-col overflow-hidden',
                   isDragging && 'shadow-md'
                 )}
               >

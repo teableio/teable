@@ -49,7 +49,7 @@ export const NotificationList: React.FC<NotificationListProps> = (props) => {
           <div className="flex items-center justify-center text-5xl font-normal">
             <Inbox />
           </div>
-          <p className="text-center">
+          <p className="text-center text-sm mt-4 text-muted-foreground">
             {t('notification.noUnread', {
               status:
                 notifyStatus === NotificationStatesEnum.Read

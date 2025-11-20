@@ -117,7 +117,7 @@ export const BaseCard: FC<IBaseCard> = (props) => {
       <CardContent className="relative flex size-full items-center gap-3 px-4 py-0">
         <div onClick={(e) => hasUpdatePermission && clickStopPropagation(e)}>
           <EmojiPicker disabled={!hasUpdatePermission || renaming} onChange={iconChange}>
-            <div className="size-12 rounded-lg bg-white bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-card-foreground/10 transition-all group-hover:outline-card-foreground/15 hover:shadow-lg">
+            <div className="size-12 rounded-lg bg-background bg-gradient-to-br from-background to-muted p-3 outline outline-1 outline-border transition-all group-hover:outline-border hover:shadow-lg">
               {base.icon ? <Emoji emoji={base.icon} size={24} /> : <Database className="size-6" />}
             </div>
           </EmojiPicker>

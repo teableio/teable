@@ -57,7 +57,7 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
       <PopoverContent side="bottom" align="start" className="relative w-fit max-w-screen-md p-0">
         <ReadOnlyTip />
         <header className="mx-3">
-          <div className="border-b py-3 text-[13px]">{t('sort.setTips')}</div>
+          <div className="border-b border-border-high py-3 text-[13px]">{t('sort.setTips')}</div>
         </header>
         <SortContent sortValues={sortObjs} onChange={onSortObjsChange} />
         {Boolean(sortObjs?.length) && !hiddenManual && (

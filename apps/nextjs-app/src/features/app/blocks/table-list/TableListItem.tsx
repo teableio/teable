@@ -55,10 +55,10 @@ export const TableListItem: React.FC<IProps> = ({
         size={'xs'}
         asChild
         className={cn(
-          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group bg-popover',
+          'my-[2px] w-full px-2 justify-start text-sm font-normal gap-2 group bg-transparent hover:bg-accent',
           className,
           {
-            'bg-secondary/90': isActive,
+            'bg-accent': isActive,
           }
         )}
         onClick={navigateHandler}

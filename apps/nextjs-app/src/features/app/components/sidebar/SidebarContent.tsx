@@ -25,7 +25,7 @@ export const SidebarContent = (props: ISidebarContentProps) => {
 
   return (
     <div className={cn('flex flex-col gap-2 border-t px-4 py-2', className)}>
-      {title && <span className="text-sm text-slate-500">{title}</span>}
+      {title && <span className="text-sm text-muted-foreground">{title}</span>}
       <ul>
         {routes.map(({ Icon, label, route, pathTo, billingLevel }) => {
           return (
@@ -42,7 +42,7 @@ export const SidebarContent = (props: ISidebarContentProps) => {
                     asChild
                     className={cn(
                       'w-full justify-start text-sm my-[2px]',
-                      route === router.pathname && 'bg-secondary'
+                      route === router.pathname && 'bg-accent'
                     )}
                   >
                     <Link href={pathTo} className="font-normal">

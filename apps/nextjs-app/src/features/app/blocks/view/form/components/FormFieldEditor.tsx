@@ -109,7 +109,7 @@ export const FormFieldEditor: FC<IFormFieldEditorProps> = (props) => {
                 <TooltipTrigger asChild>
                   <span>
                     <EyeOff
-                      className="size-6 cursor-pointer rounded p-1 hover:bg-slate-300 dark:hover:bg-slate-600"
+                      className="size-6 cursor-pointer rounded p-1 hover:bg-accent"
                       onClick={onHidden}
                     />
                   </span>

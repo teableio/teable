@@ -23,7 +23,7 @@ export const CopyInstance = (props: ICopyInstanceProps) => {
       <CopyButton
         size="xs"
         text={instanceId}
-        className="bg-card hover:bg-card hover:opacity-80"
+        className="bg-surface hover:bg-surface hover:opacity-80"
         iconClassName="text-foreground"
         label={t('admin.configuration.copyInstance')}
       />

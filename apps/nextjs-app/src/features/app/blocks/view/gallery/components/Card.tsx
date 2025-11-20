@@ -116,7 +116,7 @@ export const Card = (props: IKanbanCardProps) => {
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="size-full overflow-hidden rounded-md border border-input bg-background"
+          className="size-full overflow-hidden rounded-md border border-input bg-card hover:border-primary/15 cursor-pointer"
           onClick={onExpand}
         >
           {coverFieldId && (
@@ -133,7 +133,7 @@ export const Card = (props: IKanbanCardProps) => {
               )}
             </Fragment>
           )}
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 gap-1 flex flex-col">
             <div
               className="flex pb-2 text-base font-semibold"
               style={{ height: CARD_STYLE.titleHeight }}
@@ -163,7 +163,7 @@ export const Card = (props: IKanbanCardProps) => {
               return (
                 <div key={fieldId} className="mb-2">
                   {!isFieldNameHidden && (
-                    <div className="mb-1 flex items-center space-x-1 text-slate-500 dark:text-slate-400">
+                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground">
                       <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>

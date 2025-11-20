@@ -298,8 +298,8 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
                             name={file.name}
                           />
                         </div>
-                        <div className="absolute inset-0 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-border bg-foreground/50 px-4 text-background">
-                          <Progress indicatorClassName="bg-background" value={progress} />
+                        <div className="absolute inset-0 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-border bg-black/60 px-4 text-white/85">
+                          <Progress indicatorClassName="bg-white" value={progress} />
                           {progress}%
                         </div>
                       </div>

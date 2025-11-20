@@ -17,10 +17,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       toastOptions={{
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg items-start',
+            'group toast group-[.toaster]:bg-popover group-[.toaster]:text-foreground group-[.toaster]:border-border-high group-[.toaster]:shadow-lg items-start',
           description: 'group-[.toast]:text-muted-foreground',
           actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          cancelButton: 'group-[.toast]:bg-transparent group-[.toast]:text-muted-foreground',
           icon: 'items-start',
           closeButton:
             'top-[12px] right-0 left-[unset] border-none !text-foreground !bg-transparent',
@@ -28,8 +28,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
             'max-h-[120px] overflow-y-auto scrollbar scrollbar-thumb-foreground/40 scrollbar-thumb-rounded-md scrollbar-w-[4px] will-change-transform',
         },
         style: {
-          background: 'hsl(var(--background))',
-          borderColor: 'hsl(var(--border))',
+          background: 'hsl(var(--popover))',
+          borderColor: 'hsl(var(--border-high))',
         },
       }}
       position={props.position ?? 'top-center'}
