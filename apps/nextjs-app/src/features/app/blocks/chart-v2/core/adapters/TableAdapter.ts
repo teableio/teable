@@ -1,9 +1,9 @@
 import type { IFieldVo } from '@teable/core';
-import type { IChartStorage, ITableQuery } from '@teable/openapi';
+import type { FieldRollup, IChartStorage, ITableQuery } from '@teable/openapi';
 import { AGGREGATE_COUNT_KEY, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
-import { groupBy } from 'lodash';
+import { get, groupBy } from 'lodash';
 import type { ISeriesConfig } from '../types';
-import { getGroupUniqueKey, getGroupKeyName } from '../utils';
+import { getGroupUniqueKey, getGroupKeyName, getFieldRollupKeyByFieldName } from '../utils';
 import { BaseAdapter, type IChartData } from './BaseAdapter';
 
 export const MAX_X_DATA_LENGTH = 50;
@@ -22,8 +22,7 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
   private getFieldMap(): Record<string, string> {
     return this.fields.reduce(
       (acc, field) => {
-        acc[field.id] = field.dbFieldName;
-        acc[field.dbFieldName] = field.id;
+        acc[field.id] = field.name;
         return acc;
       },
       {} as Record<string, string>
@@ -148,11 +147,11 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
       if (!groupByFiledId) {
         const name = legendData[0];
         const rollup = seriesArray[0]?.rollup;
-        const key = `${name}_${rollup}`;
+        const key = getFieldRollupKeyByFieldName(this.fields, name, rollup as FieldRollup);
         return [
           {
             name: legendData[0],
-            data: this.result.map((item) => item?.[key] as number),
+            data: this.result.map((item) => get(item, key || '', 0) as number),
           },
         ] as ISeriesConfig[];
       }
@@ -161,15 +160,19 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
       const groupByData = groupBy(this.result, (item) => getGroupUniqueKey(item[xAxis]));
 
       return legendData.map((name) => {
-        const keyName = fieldMap?.[seriesArray[0]?.fieldId];
-        const key = `${keyName}_${seriesArray[0]?.rollup}`;
+        const fieldName = fieldMap?.[seriesArray[0]?.fieldId];
+        const key = getFieldRollupKeyByFieldName(
+          this.fields,
+          fieldName,
+          seriesArray[0]?.rollup as FieldRollup
+        );
         return {
           name,
           data: xData.map((xName) => {
             const item = groupByData?.[xName]?.find(
               (item) => getGroupUniqueKey(item[groupByFiledId]) === name
             );
-            return item?.[key] || 0;
+            return get(item, key || '', 0);
           }),
         };
       }) as ISeriesConfig[];
@@ -177,13 +180,13 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
 
     return legendData.map((name, index) => {
       const rollup = Array.isArray(seriesArray) ? seriesArray[index]?.rollup : undefined;
-      const key = `${name}_${rollup}`;
+      const key = getFieldRollupKeyByFieldName(this.fields, name, rollup as FieldRollup);
 
       return {
         name,
         data: xData.map((xName) => {
           const item = this.result?.find((item) => getGroupUniqueKey(item[xAxis]) === xName);
-          return item?.[key] || 0;
+          return get(item, key || '', 0);
         }),
       };
     }) as ISeriesConfig[];

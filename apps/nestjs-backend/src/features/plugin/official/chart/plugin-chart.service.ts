@@ -1,11 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { IFilter, ISortItem } from '@teable/core';
-import {
-  HttpErrorCode,
-  CellFormat,
-  mergeWithDefaultFilter,
-  mergeWithDefaultSort,
-} from '@teable/core';
+import { HttpErrorCode, CellFormat, mergeWithDefaultFilter, getFieldRollupKey } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ISqlQuery,
@@ -14,12 +9,11 @@ import type {
   IChartStorage,
   IBaseQueryVoV2,
   ITestSqlRo,
-  FieldRollup,
   IStatisticFieldItem,
 } from '@teable/openapi';
-import { DataSource, AGGREGATE_COUNT_KEY } from '@teable/openapi';
+import { DataSource, AGGREGATE_COUNT_KEY, FieldRollup } from '@teable/openapi';
 import { Knex } from 'knex';
-import { keyBy } from 'lodash';
+import { isNumber, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../../../custom.exception';
 import { BaseQueryService } from '../../../base/base-query/base-query.service';
@@ -200,7 +194,7 @@ export class PluginChartService {
     const columns = columnKeys.map((key) => {
       return {
         name: key,
-        isNumber: typeof convertedResult[0][key] === 'number',
+        isNumber: convertedResult?.some((item) => isNumber(item[key])),
       };
     });
 
@@ -293,7 +287,7 @@ export class PluginChartService {
     const columns = columnKeys.map((key) => {
       return {
         name: key,
-        isNumber: typeof convertedResult[0][key] === 'number',
+        isNumber: convertedResult?.some((item) => isNumber(item[key])),
       };
     });
 
@@ -402,7 +396,7 @@ export class PluginChartService {
     const columns = columnKeys.map((key) => {
       return {
         name: key,
-        isNumber: typeof convertedResult[0]?.[key] === 'number',
+        isNumber: convertedResult?.some((item) => isNumber(item[key])),
       };
     });
 
@@ -416,13 +410,16 @@ export class PluginChartService {
     viewId: string | undefined,
     filter: IFilter | undefined
   ): Promise<{ filter?: IFilter | null; sort?: ISortItem[] | null }> {
-    const viewQuery = {} as { filter?: IFilter | null; sort?: ISortItem[] | null };
+    const viewQuery = {
+      filter: filter,
+    } as { filter?: IFilter | null };
 
     if (viewId) {
-      const { filter: viewFilter, sort: viewSort } =
+      const { filter: viewFilter } =
         (await this.prismaService.txClient().view.findFirst({
           where: {
             id: viewId,
+            deletedTime: null,
           },
           select: {
             filter: true,
@@ -430,7 +427,6 @@ export class PluginChartService {
           },
         })) || {};
       viewQuery.filter = mergeWithDefaultFilter(viewFilter, filter);
-      viewQuery.sort = mergeWithDefaultSort(viewSort, []);
     }
 
     return viewQuery;
@@ -457,23 +453,24 @@ export class PluginChartService {
       seriesArray.forEach((item) => {
         const field = fields.find((field) => field.id === item.fieldId);
         const dbFieldName = field?.dbFieldName;
-        if (dbFieldName && item?.rollup) {
-          const rollupMethod = item.rollup as 'sum' | 'avg' | 'min' | 'max' | 'count';
+        if (dbFieldName && item?.rollup && field?.id) {
+          const rollupMethod = item.rollup as FieldRollup;
+          const rollupKey = getFieldRollupKey(field.id, rollupMethod);
           switch (rollupMethod) {
-            case 'sum':
-              queryBuilder.sum({ [`${dbFieldName}_sum`]: dbFieldName });
+            case FieldRollup.Sum:
+              queryBuilder.sum({ [rollupKey]: dbFieldName });
               break;
-            case 'avg':
-              queryBuilder.avg({ [`${dbFieldName}_avg`]: dbFieldName });
+            case FieldRollup.Avg:
+              queryBuilder.avg({ [rollupKey]: dbFieldName });
               break;
-            case 'min':
-              queryBuilder.min({ [`${dbFieldName}_min`]: dbFieldName });
+            case FieldRollup.Min:
+              queryBuilder.min({ [rollupKey]: dbFieldName });
               break;
-            case 'max':
-              queryBuilder.max({ [`${dbFieldName}_max`]: dbFieldName });
+            case FieldRollup.Max:
+              queryBuilder.max({ [rollupKey]: dbFieldName });
               break;
-            case 'count':
-              queryBuilder.count({ [`${dbFieldName}_count`]: dbFieldName });
+            case FieldRollup.Count:
+              queryBuilder.count({ [rollupKey]: dbFieldName });
               break;
             default:
               throw new NotFoundException('Unsupported rollup method');
@@ -481,7 +478,7 @@ export class PluginChartService {
         }
       });
     } else {
-      queryBuilder.select(this.knex.raw(`COUNT(*) as ${AGGREGATE_COUNT_KEY}`));
+      queryBuilder.count({ [AGGREGATE_COUNT_KEY]: '*' });
     }
   }
 
@@ -490,27 +487,28 @@ export class PluginChartService {
     seriesArray: string | Array<IStatisticFieldItem>,
     fields: Array<{ id: string; dbFieldName: string }>,
     fieldsMap: Record<string, { id: string; dbFieldName: string; name: string }>
-  ): string {
+  ): string[] {
     if (groupBy) {
       const groupByField = fields.find((field) => field.id === groupBy);
       if (!groupByField?.dbFieldName) {
         throw new NotFoundException('Group by field not found');
       }
-      return groupByField.dbFieldName;
+      return [groupByField.dbFieldName];
     }
     if (Array.isArray(seriesArray)) {
       const seriesNames = seriesArray
         .map((item) => {
           const field = fieldsMap[item.fieldId];
-          return field ? `${field.name}_${item.rollup}` : null;
+          const rollupKey = getFieldRollupKey(field.id, item.rollup);
+          return field ? rollupKey : null;
         })
         .filter((name): name is string => name !== null);
       if (seriesNames.length === 0) {
         throw new NotFoundException('Series fields not found');
       }
-      return seriesNames[0];
+      return seriesNames;
     }
-    return AGGREGATE_COUNT_KEY;
+    return [AGGREGATE_COUNT_KEY];
   }
 
   private applyOrderBy(
@@ -536,6 +534,12 @@ export class PluginChartService {
     }
 
     const yColumn = this.getYColumnForOrderBy(groupBy, seriesArray, fields, fieldsMap);
-    queryBuilder.orderBy(on === 'xAxis' ? dbFieldName : yColumn, order);
+    if (on === 'xAxis') {
+      queryBuilder.orderBy(dbFieldName, order);
+    } else {
+      yColumn.forEach((column) => {
+        queryBuilder.orderBy(column, order);
+      });
+    }
   }
 }

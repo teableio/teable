@@ -1,4 +1,5 @@
-import type { IFieldVo } from '@teable/core';
+import { getFieldRollupKey, type IFieldVo } from '@teable/core';
+import { DEFAULT_SERIES_ARRAY, type IStatisticFieldItem } from '@teable/openapi';
 import { createFieldInstance } from '@teable/sdk/model';
 import { get } from 'lodash';
 
@@ -33,4 +34,25 @@ const getObjectCellValueUniqueKey = (value: Record<string, unknown>) => {
 export const getGroupKeyName = (field: IFieldVo, value: unknown) => {
   const fieldInstance = createFieldInstance(field);
   return fieldInstance.cellValue2String(value);
+};
+
+export const getFieldRollupKeyByFieldName = (fields: IFieldVo[], name: string, rollup: string) => {
+  const field = fields.find((field) => field.name === name);
+
+  if (!field) {
+    console.log('tttttttttttt 2333333');
+    return null;
+  }
+
+  console.log('tttttttttttt', getFieldRollupKey(field.id, rollup));
+  return getFieldRollupKey(field.id, rollup);
+};
+
+export const isCountAllSeries = (
+  seriesArray: IStatisticFieldItem[] | string
+): seriesArray is string => {
+  if (typeof seriesArray === 'string') {
+    return seriesArray === DEFAULT_SERIES_ARRAY;
+  }
+  return false;
 };

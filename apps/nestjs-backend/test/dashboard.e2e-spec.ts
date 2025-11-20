@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import { FieldKeyType, isGreater, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -15,6 +16,7 @@ import {
   duplicateDashboardInstalledPlugin,
   getDashboard,
   getDashboardInstallPlugin,
+  getTableList,
   getDashboardVoSchema,
   installPlugin,
   PluginPosition,
@@ -27,11 +29,19 @@ import {
   updateDashboardPluginStorage,
   updateLayoutDashboard,
   getDashboardInstallPluginQueryV2,
-  getDashboardTestSqlResult,
   ChartType,
   DataSource,
   FieldRollup,
-  baseQuerySchemaVoV2,
+  AGGREGATE_COUNT_KEY,
+  DEFAULT_SERIES_ARRAY,
+  THEMES_KEYS,
+  getViewList,
+  getFields,
+  getRecords,
+  updateRecords,
+  createRecords,
+  createView,
+  getDashboardTestSqlResult,
 } from '@teable/openapi';
 import { getError } from './utils/get-error';
 import { initApp } from './utils/init-app';
@@ -343,397 +353,128 @@ describe('DashboardController', () => {
       pluginInstallId = installRes.data.pluginInstallId;
     });
 
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with Bar chart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - create a chart v2 with default configuration', async () => {
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+      const tableList = (await getTableList(baseId)).data;
+      const dashboardConfig = (
+        await getDashboardInstallPlugin(baseId, dashboardId, pluginInstallId)
+      ).data;
 
-      // Update storage configuration
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+      const defaultTableId = tableList.at(0)?.id;
+
+      const views = await getViewList(defaultTableId!);
+      const defaultViewId = views.data.at(0)?.id;
+
+      const fields = await getFields(defaultTableId!);
+      const defaultFieldId = fields.data.at(0)?.id;
+
+      expect(dashboardConfig.storage).toEqual({
         chartType: ChartType.Bar,
         dataSource: DataSource.Table,
         query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Sum,
-            },
-          ],
+          tableId: defaultTableId,
+          viewId: defaultViewId,
+          filter: null,
           groupBy: null,
+          orderBy: { on: 'xAxis', order: 'asc' },
+          xAxis: defaultFieldId,
+          seriesArray: DEFAULT_SERIES_ARRAY,
         },
-        config: {},
         appearance: {
-          theme: 'light',
+          theme: THEMES_KEYS.BLUE,
           legendVisible: true,
           labelVisible: false,
         },
       });
-
-      // Query data
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-      expect(queryRes.data).toHaveProperty('result');
-      expect(queryRes.data).toHaveProperty('columns');
-      expect(Array.isArray(queryRes.data.result)).toBe(true);
-      expect(Array.isArray(queryRes.data.columns)).toBe(true);
-
-      // Verify columns structure - should contain xAxis field ID and aggregation field
-      expect(queryRes.data.columns.length).toBe(2);
-      expect(queryRes.data.columns[0]).toEqual({
-        name: textField.id,
-        isNumber: false,
-      });
-      expect(queryRes.data.columns[1]).toEqual({
-        name: `${numberField.name}_${FieldRollup.Sum}`,
-        isNumber: false, // SUM(null) = null, typeof null === 'object', so isNumber is false
-      });
-
-      // Verify result data structure
-      // Default table has 3 empty records, GROUP BY textField.id aggregates null values into 1 row
-      expect(queryRes.data.result.length).toBe(1);
-      const firstRow = queryRes.data.result[0];
-
-      // Verify exact data of the first row
-      // All 3 empty records have null Count field, SUM(null) = null
-      expect(firstRow).toEqual({
-        [textField.id]: null, // xAxis field value is null
-        [`${numberField.name}_${FieldRollup.Sum}`]: null, // SUM(null) = null
+      expect(queryRes).toEqual({
+        result: [{ [`${defaultFieldId}`]: null, [`${AGGREGATE_COUNT_KEY}`]: 3 }],
+        columns: [
+          { name: defaultFieldId, isNumber: false },
+          { name: `${AGGREGATE_COUNT_KEY}`, isNumber: true },
+        ],
       });
     });
 
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with Pie chart', async () => {
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - query data with a common configuration', async () => {
+      const records = (await getRecords(table.id!, {})).data?.records;
+
       const textField = table.fields.find((field) => field.name === 'Name')!;
       const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
 
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Pie,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Sum,
-            },
-          ],
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: true,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-      expect(Array.isArray(queryRes.data.result)).toBe(true);
-      expect(Array.isArray(queryRes.data.columns)).toBe(true);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with Line chart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Line,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Avg,
-            },
-          ],
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: false,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-      expect(queryRes.data.result).toBeDefined();
-      expect(queryRes.data.columns).toBeDefined();
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with Area chart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Area,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Max,
-            },
-          ],
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'light',
-          legendVisible: false,
-          labelVisible: false,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with DonutChart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.DonutChart,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Count,
-            },
-          ],
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'dark',
-          legendVisible: true,
-          labelVisible: true,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - Table dataSource with multiple series', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Bar,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Sum,
-            },
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Avg,
-            },
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Max,
-            },
-          ],
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: false,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-      expect(queryRes.data.columns.length).toBeGreaterThan(1);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - SQL dataSource with Bar chart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      // Use SQL data source - dbTableName format is "schema"."table"
-      const [schema, tableName] = table.dbTableName.split('.');
-      const sql = `SELECT "${textField.name}" as category, SUM("${numberField.name}") as total FROM "${schema}"."${tableName}" GROUP BY "${textField.name}"`;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Bar,
-        dataSource: DataSource.Sql,
-        query: {
-          sql,
-        },
-        config: {
-          xAxis: 'category',
-          yAxis: ['total'],
-        },
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: false,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-      expect(Array.isArray(queryRes.data.result)).toBe(true);
-      expect(Array.isArray(queryRes.data.columns)).toBe(true);
-      expect(queryRes.data.columns.length).toBeGreaterThan(0);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - SQL dataSource with Line chart', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      // Use SQL data source - dbTableName format is "schema"."table"
-      const [schema, tableName] = table.dbTableName.split('.');
-      const sql = `SELECT "${textField.name}" as x_data, AVG("${numberField.name}") as avg_value FROM "${schema}"."${tableName}" GROUP BY "${textField.name}"`;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Line,
-        dataSource: DataSource.Sql,
-        query: {
-          sql,
-        },
-        config: {
-          xAxis: 'x_data',
-          yAxis: ['avg_value'],
-        },
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: false,
-        },
-      });
-
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
-
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-    });
-
-    it('/api/plugin/chart/test-sql (POST) - test SQL query', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-
-      // Use SQL data source - dbTableName format is "schema"."table"
-      const [schema, tableName] = table.dbTableName.split('.');
-      const sql = `SELECT "${textField.name}" as category, COUNT(*) as count FROM "${schema}"."${tableName}" GROUP BY "${textField.name}"`;
-
-      const testRes = await getDashboardTestSqlResult(baseId, sql);
-
-      expect(testRes.status).toBe(201);
-      expect(baseQuerySchemaVoV2.safeParse(testRes.data).success).toBe(true);
-      expect(Array.isArray(testRes.data.result)).toBe(true);
-      expect(Array.isArray(testRes.data.columns)).toBe(true);
-      expect(testRes.data.columns.length).toBeGreaterThan(0);
-      testRes.data.columns.forEach((col) => {
-        expect(col).toHaveProperty('name');
-        expect(col).toHaveProperty('isNumber');
-      });
-    });
-
-    it('/api/plugin/chart/test-sql (POST) - test invalid SQL', async () => {
-      const invalidSql = 'SELECT * FROM invalid_table_name_that_does_not_exist';
-
-      const error = await getError(() => getDashboardTestSqlResult(baseId, invalidSql));
-
-      expect(error?.status).toBeGreaterThanOrEqual(400);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - invalid pluginInstallId', async () => {
-      const error = await getError(() =>
-        getDashboardInstallPluginQueryV2('invalid-plugin-id', dashboardId, baseId)
-      );
-
-      expect(error?.status).toBe(404);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - invalid positionId (dashboardId)', async () => {
-      const error = await getError(() =>
-        getDashboardInstallPluginQueryV2(pluginInstallId, 'invalid-dashboard-id', baseId)
-      );
-
-      expect(error?.status).toBe(404);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - with orderBy', async () => {
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
-      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
-        chartType: ChartType.Bar,
-        dataSource: DataSource.Table,
-        query: {
-          tableId: table.id,
-          viewId: table.views[0].id,
-          xAxis: textField.id,
-          seriesArray: [
-            {
-              fieldId: numberField.id,
-              rollup: FieldRollup.Sum,
-            },
-          ],
-          orderBy: {
-            on: numberField.id,
-            order: 'desc',
+      // create example records
+      await updateRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record, index) => ({
+          id: record.id,
+          fields: {
+            [textField.id]: `task${index + 1}`,
+            [numberField.id]: index,
+            [statusField.id]: 'To Do',
           },
-          groupBy: null,
-        },
-        config: {},
-        appearance: {
-          theme: 'light',
-          legendVisible: true,
-          labelVisible: false,
-        },
+        })),
       });
 
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textField.id]: `task4`,
+              [numberField.id]: 4,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task5`,
+              [numberField.id]: 5,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task6`,
+              [numberField.id]: 6,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task7`,
+              [numberField.id]: 7,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task8`,
+              [numberField.id]: 8,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task9`,
+              [numberField.id]: 9,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task10`,
+              [numberField.id]: 10,
+              [statusField.id]: 'Done',
+            },
+          },
+        ],
+      });
 
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
-    });
-
-    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - with groupBy', async () => {
-      // Assume table has a single select field for grouping
-      const textField = table.fields.find((field) => field.name === 'Name')!;
-      const numberField = table.fields.find((field) => field.name === 'Count')!;
-
+      // update the storage configuration
       await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
         chartType: ChartType.Bar,
         dataSource: DataSource.Table,
@@ -741,26 +482,699 @@ describe('DashboardController', () => {
           tableId: table.id,
           viewId: table.views[0].id,
           xAxis: textField.id,
+          seriesArray: DEFAULT_SERIES_ARRAY,
+          groupBy: null,
+          orderBy: { on: 'xAxis', order: 'asc' },
+        },
+        appearance: {
+          theme: THEMES_KEYS.BLUE,
+          legendVisible: true,
+          labelVisible: false,
+        },
+      });
+
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+
+      expect(queryRes.result).toEqual(
+        expect.arrayContaining(
+          Array.from({ length: 10 }, (_, index) => ({
+            [`${textField.id}`]: `task${index + 1}`,
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          }))
+        )
+      );
+      expect(queryRes.columns).toEqual(
+        expect.arrayContaining([
+          { name: textField.id, isNumber: false },
+          { name: `${AGGREGATE_COUNT_KEY}`, isNumber: true },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - query data with a filter configuration', async () => {
+      const records = (await getRecords(table.id!, {})).data?.records;
+
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+
+      // create example records
+      await updateRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record, index) => ({
+          id: record.id,
+          fields: {
+            [textField.id]: `task${index + 1}`,
+            [numberField.id]: index,
+            [statusField.id]: 'To Do',
+          },
+        })),
+      });
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textField.id]: `task4`,
+              [numberField.id]: 4,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task5`,
+              [numberField.id]: 5,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task6`,
+              [numberField.id]: 6,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task7`,
+              [numberField.id]: 7,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task8`,
+              [numberField.id]: 8,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task9`,
+              [numberField.id]: 9,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task10`,
+              [numberField.id]: 10,
+              [statusField.id]: 'Done',
+            },
+          },
+        ],
+      });
+
+      // update the storage configuration
+      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+        chartType: ChartType.Bar,
+        dataSource: DataSource.Table,
+        query: {
+          tableId: table.id,
+          viewId: null,
+          xAxis: statusField.id,
+          seriesArray: DEFAULT_SERIES_ARRAY,
+          groupBy: null,
+          orderBy: { on: 'xAxis', order: 'asc' },
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: numberField.id,
+                operator: isGreater.value,
+                value: 5,
+              },
+            ],
+          },
+        },
+        appearance: {
+          theme: THEMES_KEYS.BLUE,
+          legendVisible: true,
+          labelVisible: false,
+        },
+      });
+
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+
+      expect(queryRes.result).toEqual(
+        expect.arrayContaining([
+          {
+            [statusField.id]: 'Done',
+            [`${AGGREGATE_COUNT_KEY}`]: 4,
+          },
+          {
+            [statusField.id]: 'In Progress',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+        ])
+      );
+      expect(queryRes.columns).toEqual(
+        expect.arrayContaining([
+          { name: statusField.id, isNumber: false },
+          { name: `${AGGREGATE_COUNT_KEY}`, isNumber: true },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - query data with a filter configuration base on filter view', async () => {
+      const records = (await getRecords(table.id!, {})).data?.records;
+
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+
+      const view = (
+        await createView(table.id!, {
+          name: 'Filter View',
+          type: ViewType.Grid,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: numberField.id, operator: isGreater.value, value: 7 }],
+          },
+        })
+      ).data;
+
+      // create example records
+      await updateRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record, index) => ({
+          id: record.id,
+          fields: {
+            [textField.id]: `task${index + 1}`,
+            [numberField.id]: index,
+            [statusField.id]: 'To Do',
+          },
+        })),
+      });
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textField.id]: `task4`,
+              [numberField.id]: 4,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task5`,
+              [numberField.id]: 5,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task6`,
+              [numberField.id]: 6,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task7`,
+              [numberField.id]: 7,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task8`,
+              [numberField.id]: 8,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task9`,
+              [numberField.id]: 9,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task10`,
+              [numberField.id]: 10,
+              [statusField.id]: 'Done',
+            },
+          },
+        ],
+      });
+
+      // update the storage configuration
+      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+        chartType: ChartType.Bar,
+        dataSource: DataSource.Table,
+        query: {
+          tableId: table.id,
+          viewId: view.id,
+          xAxis: statusField.id,
+          seriesArray: DEFAULT_SERIES_ARRAY,
+          groupBy: null,
+          orderBy: { on: 'xAxis', order: 'asc' },
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: numberField.id,
+                operator: isGreater.value,
+                value: 5,
+              },
+            ],
+          },
+        },
+        appearance: {
+          theme: THEMES_KEYS.BLUE,
+          legendVisible: true,
+          labelVisible: false,
+        },
+      });
+
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+
+      expect(queryRes.result).toEqual(
+        expect.arrayContaining([
+          {
+            [statusField.id]: 'Done',
+            [`${AGGREGATE_COUNT_KEY}`]: 3,
+          },
+        ])
+      );
+      expect(queryRes.columns).toEqual(
+        expect.arrayContaining([
+          { name: statusField.id, isNumber: false },
+          { name: `${AGGREGATE_COUNT_KEY}`, isNumber: true },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - query data with group configuration', async () => {
+      const records = (await getRecords(table.id!, {})).data?.records;
+
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+
+      // create example records
+      await updateRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record, index) => ({
+          id: record.id,
+          fields: {
+            [textField.id]: `task${index + 1}`,
+            [numberField.id]: index,
+            [statusField.id]: 'To Do',
+          },
+        })),
+      });
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textField.id]: `task4`,
+              [numberField.id]: 4,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task5`,
+              [numberField.id]: 5,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task6`,
+              [numberField.id]: 6,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task7`,
+              [numberField.id]: 7,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task8`,
+              [numberField.id]: 8,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task9`,
+              [numberField.id]: 9,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task1`,
+              [numberField.id]: 10,
+              [statusField.id]: 'To Do',
+            },
+          },
+        ],
+      });
+
+      // update the storage configuration
+      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+        chartType: ChartType.Bar,
+        dataSource: DataSource.Table,
+        query: {
+          tableId: table.id,
+          viewId: null,
+          xAxis: textField.id,
+          seriesArray: DEFAULT_SERIES_ARRAY,
+          groupBy: statusField.id,
+          orderBy: { on: 'xAxis', order: 'asc' },
+        },
+        appearance: {
+          theme: THEMES_KEYS.BLUE,
+          legendVisible: true,
+          labelVisible: false,
+        },
+      });
+
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+
+      expect(queryRes.result).toEqual(
+        expect.arrayContaining([
+          {
+            [textField.id]: 'task1',
+            [statusField.id]: 'To Do',
+            [`${AGGREGATE_COUNT_KEY}`]: 2,
+          },
+          {
+            [textField.id]: 'task2',
+            [statusField.id]: 'To Do',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task3',
+            [statusField.id]: 'To Do',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task4',
+            [statusField.id]: 'In Progress',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task5',
+            [statusField.id]: 'In Progress',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task6',
+            [statusField.id]: 'In Progress',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task7',
+            [statusField.id]: 'Done',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task8',
+            [statusField.id]: 'Done',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+          {
+            [textField.id]: 'task9',
+            [statusField.id]: 'Done',
+            [`${AGGREGATE_COUNT_KEY}`]: 1,
+          },
+        ])
+      );
+      expect(queryRes.columns).toEqual(
+        expect.arrayContaining([
+          { name: textField.id, isNumber: false },
+          { name: statusField.id, isNumber: false },
+          { name: `${AGGREGATE_COUNT_KEY}`, isNumber: true },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - query data with a value series type configuration', async () => {
+      const records = (await getRecords(table.id!, {})).data?.records;
+
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+
+      // create example records
+      await updateRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: records.map((record, index) => ({
+          id: record.id,
+          fields: {
+            [textField.id]: `task${index + 1}`,
+            [numberField.id]: index + 1,
+            [statusField.id]: 'To Do',
+          },
+        })),
+      });
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          {
+            fields: {
+              [textField.id]: `task4`,
+              [numberField.id]: 4,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task5`,
+              [numberField.id]: 5,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task6`,
+              [numberField.id]: 6,
+              [statusField.id]: 'In Progress',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task7`,
+              [numberField.id]: 7,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task8`,
+              [numberField.id]: 8,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task9`,
+              [numberField.id]: 9,
+              [statusField.id]: 'Done',
+            },
+          },
+          {
+            fields: {
+              [textField.id]: `task10`,
+              [numberField.id]: 10,
+              [statusField.id]: 'Done',
+            },
+          },
+        ],
+      });
+
+      // update the storage configuration
+      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+        chartType: ChartType.Bar,
+        dataSource: DataSource.Table,
+        query: {
+          tableId: table.id,
+          viewId: null,
+          xAxis: textField.id,
           seriesArray: [
             {
               fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
           ],
-          groupBy: textField.id,
+          groupBy: null,
+          orderBy: { on: 'xAxis', order: 'asc' },
         },
-        config: {},
         appearance: {
-          theme: 'light',
+          theme: THEMES_KEYS.BLUE,
           legendVisible: true,
           labelVisible: false,
         },
       });
 
-      const queryRes = await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId);
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
 
-      expect(queryRes.status).toBe(200);
-      expect(baseQuerySchemaVoV2.safeParse(queryRes.data).success).toBe(true);
+      expect(queryRes.result).toEqual(
+        expect.arrayContaining(
+          Array.from({ length: 10 }, (_, index) => ({
+            [`${textField.id}`]: `task${index + 1}`,
+            [`${numberField.id}_${FieldRollup.Sum}`]: index + 1,
+          }))
+        )
+      );
+      expect(queryRes.columns).toEqual(
+        expect.arrayContaining([
+          { name: textField.id, isNumber: false },
+          { name: `${numberField.id}_${FieldRollup.Sum}`, isNumber: true },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - sql data source', async () => {
+      const dbTableName = table.dbTableName;
+      const [schema, tableName] = dbTableName.split('.');
+      const sql = `SELECT * FROM "${schema}"."${tableName}"`;
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+      await updateDashboardPluginStorage(baseId, dashboardId, pluginInstallId, {
+        chartType: ChartType.Bar,
+        dataSource: DataSource.Sql,
+        query: {
+          sql,
+        },
+        appearance: {
+          theme: THEMES_KEYS.BLUE,
+          legendVisible: true,
+          labelVisible: false,
+        },
+      });
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [textField.id]: 'task1', [numberField.id]: 1, [statusField.id]: 'To Do' } },
+        ],
+      });
+
+      const queryRes = (
+        await getDashboardInstallPluginQueryV2(pluginInstallId, dashboardId, baseId)
+      ).data;
+
+      const filterRes = queryRes.result.map((item) => {
+        return {
+          [textField.dbFieldName]: item[textField.dbFieldName],
+          [numberField.dbFieldName]: item[numberField.dbFieldName],
+          [statusField.dbFieldName]: item[statusField.dbFieldName],
+        };
+      });
+
+      expect(filterRes).toEqual(
+        expect.arrayContaining([
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: 'task1',
+            [numberField.dbFieldName]: 1,
+            [statusField.dbFieldName]: 'To Do',
+          },
+        ])
+      );
+    });
+
+    it('/api/plugin/chart/:pluginInstallId/dashboard/:positionId/query/v2 (GET) - test sql', async () => {
+      const dbTableName = table.dbTableName;
+      const [schema, tableName] = dbTableName.split('.');
+      const sql = `SELECT * FROM "${schema}"."${tableName}"`;
+      const textField = table.fields.find((field) => field.name === 'Name')!;
+      const numberField = table.fields.find((field) => field.name === 'Count')!;
+      const statusField = table.fields.find((field) => field.name === 'Status')!;
+
+      await createRecords(table.id!, {
+        typecast: true,
+        fieldKeyType: FieldKeyType.Id,
+        records: [
+          { fields: { [textField.id]: 'task1', [numberField.id]: 1, [statusField.id]: 'To Do' } },
+        ],
+      });
+
+      const testSqlRes = (await getDashboardTestSqlResult(baseId, sql)).data;
+
+      const filterRes = testSqlRes.result.map((item) => {
+        return {
+          [textField.dbFieldName]: item[textField.dbFieldName],
+          [numberField.dbFieldName]: item[numberField.dbFieldName],
+          [statusField.dbFieldName]: item[statusField.dbFieldName],
+        };
+      });
+
+      expect(filterRes).toEqual(
+        expect.arrayContaining([
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: null,
+            [numberField.dbFieldName]: null,
+            [statusField.dbFieldName]: null,
+          },
+          {
+            [textField.dbFieldName]: 'task1',
+            [numberField.dbFieldName]: 1,
+            [statusField.dbFieldName]: 'To Do',
+          },
+        ])
+      );
     });
   });
 });

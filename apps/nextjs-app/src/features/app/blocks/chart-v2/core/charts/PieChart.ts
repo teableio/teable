@@ -1,7 +1,8 @@
-import type { ITableQuery } from '@teable/openapi';
-import { AGGREGATE_COUNT_KEY, DataSource, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
+import type { FieldRollup, ITableQuery } from '@teable/openapi';
+import { AGGREGATE_COUNT_KEY, DataSource } from '@teable/openapi';
+import { get } from 'lodash';
 import type { ISeriesConfig } from '../types';
-import { getGroupKeyName } from '../utils';
+import { getFieldRollupKeyByFieldName, getGroupKeyName, isCountAllSeries } from '../utils';
 import { BaseChart, type IChartOptions } from './BaseChart';
 
 export class PieChart extends BaseChart {
@@ -90,9 +91,20 @@ export class PieChart extends BaseChart {
     if (dataSource === DataSource.Table) {
       const { seriesArray } = this.storage.query as ITableQuery;
       const fieldMap = this.getFieldMap();
-      return seriesArray === DEFAULT_SERIES_ARRAY
-        ? AGGREGATE_COUNT_KEY
-        : `${fieldMap?.[(seriesArray as { fieldId: string }[])?.at(0)?.fieldId ?? '']}_${(seriesArray as { rollup: string }[])?.at(0)?.rollup ?? ''}`;
+
+      if (isCountAllSeries(seriesArray)) {
+        return AGGREGATE_COUNT_KEY;
+      } else {
+        const fieldId = seriesArray.at(0)?.fieldId || '';
+        const name = get(fieldMap, fieldId);
+        return (
+          getFieldRollupKeyByFieldName(
+            this.fields,
+            name,
+            seriesArray.at(0)?.rollup as FieldRollup
+          ) || ''
+        );
+      }
     }
 
     const { yAxis } = this.storage.config;
@@ -102,8 +114,7 @@ export class PieChart extends BaseChart {
   private getFieldMap(): Record<string, string> {
     return this.fields.reduce(
       (acc, field) => {
-        acc[field.id] = field.dbFieldName;
-        acc[field.dbFieldName] = field.id;
+        acc[field.id] = field.name;
         return acc;
       },
       {} as Record<string, string>

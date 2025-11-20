@@ -2,7 +2,7 @@ import type { IBaseQueryVoV2 } from '@teable/openapi';
 import { TableBody, TableCell, TableHead, TableHeader, TableRow, Table } from '@teable/ui-lib';
 
 interface ISqlResultProps {
-  data: IBaseQueryVoV2;
+  data: IBaseQueryVoV2 | null;
 }
 export const SqlResult = (props: ISqlResultProps) => {
   const { data: queryData } = props;
