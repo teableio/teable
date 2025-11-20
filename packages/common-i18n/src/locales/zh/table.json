@@ -255,6 +255,12 @@
       "lookupToTable": "从<bold>{{tableName}}</bold>表中选择要进行查找的字段",
       "rollupToTable": "从<bold>{{tableName}}</bold>表中选择要进行汇总的字段",
       "selectField": "选择一个字段...",
+      "lastModifiedScope": "追踪范围",
+      "lastModifiedAll": "所有可编辑字段",
+      "lastModifiedSpecific": "指定字段",
+      "lastModifiedSelect": "选择追踪字段",
+      "lastModifiedSelectAll": "追踪全部字段",
+      "noEditableFields": "暂无可编辑字段",
       "conditionalRollup": {
         "fieldMapping": "字段映射",
         "selectBaseField": "选择当前表字段",

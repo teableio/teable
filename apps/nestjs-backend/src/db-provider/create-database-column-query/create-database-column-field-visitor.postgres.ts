@@ -405,12 +405,22 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       this.createStandardColumn(field);
       return;
     }
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      'TIMESTAMP GENERATED ALWAYS AS (__last_modified_time) STORED'
-    );
+    const trackAll = field.isTrackAll();
+
+    if (trackAll) {
+      this.context.table.specificType(
+        this.context.dbFieldName,
+        'TIMESTAMP GENERATED ALWAYS AS (__last_modified_time) STORED'
+      );
+      (this.context.field as LastModifiedTimeFieldDto).setMetadata({
+        persistedAsGeneratedColumn: true,
+      });
+      return;
+    }
+
+    this.context.table.timestamp(this.context.dbFieldName, { useTz: true });
     (this.context.field as LastModifiedTimeFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 

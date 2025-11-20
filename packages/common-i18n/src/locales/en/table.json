@@ -254,6 +254,12 @@
       "lookupToTable": "Field from <bold>{{tableName}}</bold> you want to look up",
       "rollupToTable": "Field from <bold>{{tableName}}</bold> you want to roll up",
       "selectField": "Select a field...",
+      "lastModifiedScope": "Fields",
+      "lastModifiedAll": "All editable fields",
+      "lastModifiedSpecific": "Specific fields",
+      "lastModifiedSelect": "Tracked fields",
+      "lastModifiedSelectAll": "Track all fields",
+      "noEditableFields": "No editable fields available",
       "conditionalRollup": {
         "fieldMapping": "Add field mapping",
         "selectBaseField": "Select base field",

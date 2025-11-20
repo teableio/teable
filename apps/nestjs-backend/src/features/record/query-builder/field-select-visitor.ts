@@ -572,7 +572,18 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
 
-    return this.selectSystemColumn(field, '__last_modified_time');
+    const trackAll = field.isTrackAll();
+
+    // For track-all (generated column) fields, selecting the system column yields the same value
+    if (trackAll) {
+      return this.selectSystemColumn(field, '__last_modified_time');
+    }
+
+    const selector = this.getColumnSelector(field);
+    if (typeof selector === 'string') {
+      this.state.setSelection(field.id, selector);
+    }
+    return selector;
   }
 
   visitCreatedByField(field: CreatedByFieldCore): IFieldSelectName {

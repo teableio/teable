@@ -403,13 +403,22 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       this.createStandardColumn(field);
       return;
     }
-    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      `TEXT GENERATED ALWAYS AS (__last_modified_time) ${storageType}`
-    );
+    const trackAll = field.isTrackAll();
+    if (trackAll) {
+      const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
+      this.context.table.specificType(
+        this.context.dbFieldName,
+        `TEXT GENERATED ALWAYS AS (__last_modified_time) ${storageType}`
+      );
+      (this.context.field as LastModifiedTimeFieldDto).setMetadata({
+        persistedAsGeneratedColumn: true,
+      });
+      return;
+    }
+
+    this.createStandardColumn(field);
     (this.context.field as LastModifiedTimeFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 

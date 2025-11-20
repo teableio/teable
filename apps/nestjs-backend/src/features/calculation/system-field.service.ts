@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable } from '@nestjs/common';
+import type { LastModifiedTimeFieldCore } from '@teable/core';
 import { FieldKeyType, TableDomain, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
@@ -54,6 +55,7 @@ export class SystemFieldService {
     const timeStr = this.cls.get('tx.timeStr') ?? new Date().toISOString();
 
     const dbTableName = table.dbTableName;
+    const trackedLastModifiedColumnUpdates: Record<string, string[]> = {};
 
     await this.updateSystemField(
       dbTableName,
@@ -66,26 +68,44 @@ export class SystemFieldService {
 
     if (!lastModifiedFields.length) return records;
 
-    const systemRecordFields = lastModifiedFields.reduce<{ [fieldId: string]: unknown }>(
-      (pre, field) => {
-        const type = field.type;
-        if (type === FieldType.LastModifiedTime) {
-          pre[field[fieldKeyType]] = timeStr;
-        }
+    const fieldsMap = table.getFieldsMap(fieldKeyType);
 
-        if (type === FieldType.LastModifiedBy) {
-          pre[field[fieldKeyType]] = UserFieldDto.fullAvatarUrl({
-            id: user.id,
-            title: user.name,
-            email: user.email,
-          });
-        }
-        return pre;
-      },
-      {}
-    );
+    const updatedRecords = records.map((record) => {
+      const changedFieldIds = new Set<string>();
+      for (const key of Object.keys(record.fields ?? {})) {
+        const changedField = fieldsMap.get(key);
+        if (changedField) changedFieldIds.add(changedField.id);
+      }
 
-    return records.map((record) => {
+      const systemRecordFields = lastModifiedFields.reduce<{ [fieldId: string]: unknown }>(
+        (pre, field) => {
+          const type = field.type;
+          if (type === FieldType.LastModifiedTime) {
+            const lmtField = field as LastModifiedTimeFieldCore;
+            const trackAll = lmtField.isTrackAll();
+            const shouldUpdate = lmtField.shouldUpdate(changedFieldIds);
+            if (shouldUpdate) {
+              pre[field[fieldKeyType]] = timeStr;
+              if (!trackAll) {
+                const ids = trackedLastModifiedColumnUpdates[field.dbFieldName] || [];
+                ids.push(record.id);
+                trackedLastModifiedColumnUpdates[field.dbFieldName] = ids;
+              }
+            }
+          }
+
+          if (type === FieldType.LastModifiedBy) {
+            pre[field[fieldKeyType]] = UserFieldDto.fullAvatarUrl({
+              id: user.id,
+              title: user.name,
+              email: user.email,
+            });
+          }
+          return pre;
+        },
+        {}
+      );
+
       return {
         ...record,
         fields: {
@@ -94,5 +114,18 @@ export class SystemFieldService {
         },
       };
     });
+
+    // Persist tracked Last Modified Time columns that are not generated
+    for (const [columnName, recordIds] of Object.entries(trackedLastModifiedColumnUpdates)) {
+      const nativeQuery = this.knex(dbTableName)
+        .update({
+          [columnName]: timeStr,
+        })
+        .whereIn('__id', recordIds)
+        .toQuery();
+      await this.prismaService.txClient().$executeRawUnsafe(nativeQuery);
+    }
+
+    return updatedRecords;
   }
 }

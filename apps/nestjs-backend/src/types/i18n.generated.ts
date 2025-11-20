@@ -2758,6 +2758,12 @@ export type I18nTranslations = {
                     "sortMissingWarningTitle": string;
                     "sortMissingWarningDescription": string;
                 };
+                "lastModifiedScope": string;
+                "lastModifiedAll": string;
+                "lastModifiedSpecific": string;
+                "lastModifiedSelect": string;
+                "lastModifiedSelectAll": string;
+                "noEditableFields": string;
                 "conditionalRollup": {
                     "fieldMapping": string;
                     "selectBaseField": string;

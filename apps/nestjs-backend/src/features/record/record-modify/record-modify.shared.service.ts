@@ -1,6 +1,11 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { FieldKeyType, FieldType, FormulaFieldCore, TableDomain } from '@teable/core';
-import type { FieldCore, IMakeOptional, IUserFieldOptions } from '@teable/core';
+import type {
+  FieldCore,
+  IMakeOptional,
+  IUserFieldOptions,
+  LastModifiedTimeFieldCore,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IRecord, IRecordInsertOrderRo } from '@teable/openapi';
 import { isEqual, forEach, keyBy, map } from 'lodash';
@@ -52,7 +57,14 @@ export class RecordModifySharedService {
     if (!nonNoop.length) return [];
 
     const fieldIds = Array.from(new Set(nonNoop.map((c) => c.fieldId)));
-    const sysFields = table.getLastModifiedFields().filter((f) => fieldIds.includes(f.id));
+    const sysFields = table.getLastModifiedFields().filter((f) => {
+      if (!fieldIds.includes(f.id)) return false;
+      if (f.type !== FieldType.LastModifiedTime) return true;
+
+      const lmt = f as LastModifiedTimeFieldCore;
+      // Only treat as a system field when it tracks all fields (generated column)
+      return lmt.isTrackAll();
+    });
     const sysSet = new Set(sysFields.map((f) => f.id));
     return nonNoop.filter((c) => !sysSet.has(c.fieldId));
   }

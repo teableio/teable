@@ -25,6 +25,8 @@ export class LastModifiedTimeFieldCore extends FormulaAbstractCore {
   static defaultOptions(): ILastModifiedTimeFieldOptionsRo {
     return {
       formatting: defaultDatetimeFormatting,
+      expression: 'LAST_MODIFIED_TIME()',
+      trackedFieldIds: [],
     };
   }
 
@@ -34,6 +36,24 @@ export class LastModifiedTimeFieldCore extends FormulaAbstractCore {
 
   getExpression() {
     return this.options.expression;
+  }
+
+  getDatetimeFormatting() {
+    return this.options?.formatting ?? defaultDatetimeFormatting;
+  }
+
+  getTrackedFieldIds(): string[] {
+    return this.options?.trackedFieldIds ?? [];
+  }
+
+  isTrackAll(): boolean {
+    const persistedAsGeneratedColumn = this.meta?.persistedAsGeneratedColumn;
+    return persistedAsGeneratedColumn !== false && this.getTrackedFieldIds().length === 0;
+  }
+
+  shouldUpdate(changedFieldIds: Set<string>): boolean {
+    const trackedFieldIds = this.getTrackedFieldIds();
+    return this.isTrackAll() || trackedFieldIds.some((id) => changedFieldIds.has(id));
   }
 
   accept<T>(visitor: IFieldVisitor<T>): T {

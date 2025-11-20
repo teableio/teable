@@ -1273,6 +1273,65 @@ describe('OpenAPI formula (e2e)', () => {
       );
     });
 
+    it('should allow configuring Last Modified Time field to track specific fields only', async () => {
+      const specificLmt = await createField(table1Id, {
+        name: 'specific-lmt',
+        type: FieldType.LastModifiedTime,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'UTC',
+          },
+          trackedFieldIds: [textFieldRo.id],
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'initial text',
+              [numberFieldRo.name]: 1,
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const initialRecord = await getRecord(table1Id, recordId);
+      const initialLmt = initialRecord.data.fields[specificLmt.name];
+      expect(initialLmt).toEqual(initialRecord.data.lastModifiedTime);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 2,
+          },
+        },
+      });
+
+      const afterUntrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterUntrackedUpdate.data.fields[specificLmt.name]).toEqual(initialLmt);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [textFieldRo.name]: 'updated text',
+          },
+        },
+      });
+
+      const afterTrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterTrackedUpdate.data.fields[specificLmt.name]).not.toEqual(initialLmt);
+      expect(afterTrackedUpdate.data.fields[specificLmt.name]).toEqual(
+        afterTrackedUpdate.data.lastModifiedTime
+      );
+    });
+
     it('should reject non-field parameters', async () => {
       await createField(
         table1Id,
