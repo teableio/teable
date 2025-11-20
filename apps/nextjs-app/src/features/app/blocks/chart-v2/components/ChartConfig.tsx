@@ -7,9 +7,9 @@ export const ChartConfig = () => {
   const { t } = useTranslation('chart');
 
   return (
-    <div className="w-[360px] shrink-0 px-6 pb-4 pt-2">
+    <div className="w-[360px] shrink-0 pb-4 pt-2">
       <Tabs defaultValue="dataConfig" className="flex size-full flex-col overflow-hidden">
-        <TabsList className="w-full">
+        <TabsList className="mx-6">
           <TabsTrigger value="dataConfig" className="w-full">
             {t('chartV2.dataConfig')}
           </TabsTrigger>
@@ -18,10 +18,10 @@ export const ChartConfig = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dataConfig" className="flex-1 overflow-auto">
+        <TabsContent value="dataConfig" className="flex-1 overflow-auto px-6">
           <DataConfig />
         </TabsContent>
-        <TabsContent value="appearance" className="flex-1 overflow-auto">
+        <TabsContent value="appearance" className="flex-1 overflow-auto px-6">
           <ChatAppearance />
         </TabsContent>
       </Tabs>
