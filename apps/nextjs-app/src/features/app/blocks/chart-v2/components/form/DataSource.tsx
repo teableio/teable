@@ -78,7 +78,7 @@ export const DataSourceSelect = () => {
           >
             {t('chartV2.form.dataSource.fromTable')}
           </TabsTrigger>
-          <TabsTrigger
+          {/* <TabsTrigger
             value={DataSource.Sql}
             className="w-full"
             onClick={() => {
@@ -102,7 +102,7 @@ export const DataSourceSelect = () => {
             }}
           >
             {t('chartV2.form.dataSource.fromQuery')}
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         <TabsContent value={DataSource.Table} className="flex flex-col gap-2">

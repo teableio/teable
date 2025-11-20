@@ -1,9 +1,9 @@
 import { CellValueType } from '@teable/core';
 import { Trash2 } from '@teable/icons';
+import type { FieldRollup, IStatisticFieldItem } from '@teable/openapi';
 import { Button } from '@teable/ui-lib/shadcn';
 import { FieldSelect } from '../FieldSelect';
 import { StatisticFunSelect } from './StatisticFunSelect';
-import type { IStatisticFieldItem, RollupFunc } from './types';
 
 interface IStaticFieldItemProps {
   allStaticFields: IStatisticFieldItem[];
@@ -17,12 +17,12 @@ export const StatisticFieldItem = (props: IStaticFieldItemProps) => {
   return (
     <div className="flex w-full gap-2">
       <FieldSelect
-        selectedFields={allStaticFields.map((field) => field.column)}
-        value={value?.column}
+        selectedFields={allStaticFields.map((field) => field.fieldId)}
+        value={value?.fieldId}
         onChange={(property: string) => {
           onChange({
             ...value,
-            column: property,
+            fieldId: property,
           } as IStatisticFieldItem);
         }}
         className="w-full"
@@ -30,11 +30,11 @@ export const StatisticFieldItem = (props: IStaticFieldItemProps) => {
       />
 
       <StatisticFunSelect
-        value={value.rollup as RollupFunc}
-        onChange={(property: RollupFunc) => {
+        value={value.rollup as FieldRollup}
+        onChange={(property: FieldRollup) => {
           onChange({
             ...value,
-            rollup: property as RollupFunc,
+            rollup: property as FieldRollup,
           } as IStatisticFieldItem);
         }}
         className="w-full"

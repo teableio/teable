@@ -100,7 +100,7 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
       return Object.keys(groupBy(this.result, (item) => getGroupUniqueKey(item[groupByFiledId])));
     }
 
-    return Array.isArray(seriesArray) ? seriesArray.map(({ column }) => fieldMap?.[column]) : [];
+    return Array.isArray(seriesArray) ? seriesArray.map(({ fieldId }) => fieldMap?.[fieldId]) : [];
   }
 
   getSeries(xData: string[], legendData: string[]): ISeriesConfig[] {
@@ -161,7 +161,7 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
       const groupByData = groupBy(this.result, (item) => getGroupUniqueKey(item[xAxis]));
 
       return legendData.map((name) => {
-        const keyName = fieldMap?.[seriesArray[0]?.column];
+        const keyName = fieldMap?.[seriesArray[0]?.fieldId];
         const key = `${keyName}_${seriesArray[0]?.rollup}`;
         return {
           name,

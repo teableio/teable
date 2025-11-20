@@ -1,5 +1,6 @@
 import { CellValueType } from '@teable/core';
 import { Plus } from '@teable/icons';
+import { FieldRollup } from '@teable/openapi';
 import type { ITableQuery } from '@teable/openapi';
 import {
   Button,
@@ -9,7 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@teable/ui-lib/shadcn';
 import { useFields, useStorage } from '../../../../hooks';
-import { RollupFunc } from './types';
 
 export const AddFieldButton = () => {
   const { fields } = useFields();
@@ -20,7 +20,7 @@ export const AddFieldButton = () => {
     .filter(({ cellValueType }) => cellValueType === CellValueType.Number)
     ?.filter(
       (field) =>
-        Array.isArray(seriesArray) && !seriesArray?.some((item) => item.column === field.id)
+        Array.isArray(seriesArray) && !seriesArray?.some((item) => item.fieldId === field.id)
     );
   return (
     fieldOptions.length > 0 && (
@@ -41,8 +41,8 @@ export const AddFieldButton = () => {
                     value: [
                       ...seriesArray,
                       {
-                        column: field.id,
-                        rollup: RollupFunc.Sum,
+                        fieldId: field.id,
+                        rollup: FieldRollup.Sum,
                       },
                     ],
                   },
@@ -50,8 +50,8 @@ export const AddFieldButton = () => {
                 const newSeriesArray = [
                   ...seriesArray,
                   {
-                    column: field.id,
-                    rollup: RollupFunc.Sum,
+                    fieldId: field.id,
+                    rollup: FieldRollup.Sum,
                   },
                 ];
 

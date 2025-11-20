@@ -40,6 +40,11 @@ export enum FieldRollup {
   Count = 'count',
 }
 
+export interface IStatisticFieldItem {
+  fieldId: string;
+  rollup: FieldRollup;
+}
+
 export interface ITableQuery {
   tableId: string;
   viewId: string;
@@ -50,7 +55,7 @@ export interface ITableQuery {
   filter: IFilter;
   groupBy: string | null;
   xAxis: string;
-  seriesArray: string | { column: string; rollup: FieldRollup }[];
+  seriesArray: string | IStatisticFieldItem[];
 }
 
 interface IBaseAppearance {

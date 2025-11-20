@@ -15,12 +15,12 @@ import type {
   IBaseQueryVoV2,
   ITestSqlRo,
   FieldRollup,
+  IStatisticFieldItem,
 } from '@teable/openapi';
 import { DataSource, AGGREGATE_COUNT_KEY } from '@teable/openapi';
 import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
-import { AnyMatcher } from 'ts-pattern/dist/types/Pattern';
 import { CustomHttpException } from '../../../../custom.exception';
 import { BaseQueryService } from '../../../base/base-query/base-query.service';
 import { BaseSqlExecutorService } from '../../../base-sql-executor/base-sql-executor.service';
@@ -441,7 +441,7 @@ export class PluginChartService {
     fields: Array<{ id: string; dbFieldName: string }>,
     xAxis: string | string[] | undefined,
     groupBy: string | undefined,
-    seriesArray: string | Array<{ column: string; rollup: FieldRollup }> | undefined
+    seriesArray: string | Array<IStatisticFieldItem>
   ): void {
     if (xAxis && typeof xAxis === 'string') {
       const dbFieldName = fields.find((field) => field.id === xAxis)?.dbFieldName;
@@ -455,7 +455,7 @@ export class PluginChartService {
     }
     if (Array.isArray(seriesArray) && seriesArray.length) {
       seriesArray.forEach((item) => {
-        const field = fields.find((field) => field.id === item.column);
+        const field = fields.find((field) => field.id === item.fieldId);
         const dbFieldName = field?.dbFieldName;
         if (dbFieldName && item?.rollup) {
           const rollupMethod = item.rollup as 'sum' | 'avg' | 'min' | 'max' | 'count';
@@ -487,7 +487,7 @@ export class PluginChartService {
 
   private getYColumnForOrderBy(
     groupBy: string | undefined,
-    seriesArray: string | Array<{ column: string; rollup: FieldRollup }> | undefined,
+    seriesArray: string | Array<IStatisticFieldItem>,
     fields: Array<{ id: string; dbFieldName: string }>,
     fieldsMap: Record<string, { id: string; dbFieldName: string; name: string }>
   ): string {
@@ -501,7 +501,7 @@ export class PluginChartService {
     if (Array.isArray(seriesArray)) {
       const seriesNames = seriesArray
         .map((item) => {
-          const field = fieldsMap[item.column];
+          const field = fieldsMap[item.fieldId];
           return field ? `${field.name}_${item.rollup}` : null;
         })
         .filter((name): name is string => name !== null);
@@ -518,7 +518,7 @@ export class PluginChartService {
     orderBy: { on: string; order: string } | undefined,
     xAxis: string | string[] | undefined,
     groupBy: string | undefined,
-    seriesArray: string | Array<{ column: string; rollup: FieldRollup }> | undefined,
+    seriesArray: string | Array<IStatisticFieldItem>,
     fields: Array<{ id: string; dbFieldName: string }>,
     fieldsMap: Record<string, { id: string; dbFieldName: string; name: string }>
   ): void {

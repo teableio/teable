@@ -77,6 +77,8 @@ export const SqlButton = () => {
                   <Button
                     size="xs"
                     className="gap-1"
+                    disabled={!editingSql}
+                    variant={'outline'}
                     onClick={() => {
                       if (!baseId) return;
                       updateStorageByPath('query.sql', editingSql);

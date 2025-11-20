@@ -1,9 +1,9 @@
+import type { IStatisticFieldItem } from '@teable/openapi';
 import { ChartType } from '@teable/openapi';
 import { useMemo } from 'react';
 import { useStorage } from '../../../../hooks';
 import { AddFieldButton } from './AddFieldButton';
 import { StatisticFieldItem } from './StatisticFieldItem';
-import type { IStatisticFieldItem } from './types';
 
 interface IStatisticFieldSelectProps {
   value: IStatisticFieldItem[];
@@ -37,7 +37,7 @@ export const StatisticFieldSelect = (props: IStatisticFieldSelectProps) => {
     <div className="flex flex-col gap-2">
       {value.map((item, index) => (
         <StatisticFieldItem
-          key={item.column}
+          key={item.fieldId}
           allStaticFields={value}
           value={item}
           onChange={(value) => handleChange(index, value)}

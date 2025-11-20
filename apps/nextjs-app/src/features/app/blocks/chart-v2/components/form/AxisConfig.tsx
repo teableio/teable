@@ -1,5 +1,5 @@
 import { CellValueType, FieldType } from '@teable/core';
-import type { ITableQuery } from '@teable/openapi';
+import type { ITableQuery, IStatisticFieldItem } from '@teable/openapi';
 import {
   Label,
   Separator,
@@ -15,7 +15,6 @@ import { ChartType } from '../../chart';
 import { useFields, useStorage } from '../../hooks';
 import { ColumnSelect } from './ColumnSelect';
 import { StatisticFieldSelect } from './field-select';
-import type { IStatisticFieldItem } from './field-select/statistic-field/types';
 import { FormLabel } from './FormLabel';
 import { TabSelect } from './TabSelect';
 
@@ -141,7 +140,7 @@ export const AxisConfig = () => {
                   if (countFields.length > 0) {
                     updateStorageByPath(`query.seriesArray`, [
                       {
-                        column: countFields[0].id,
+                        fieldId: countFields[0].id,
                         rollup: 'sum',
                       },
                     ]);

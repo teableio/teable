@@ -92,7 +92,7 @@ export class PieChart extends BaseChart {
       const fieldMap = this.getFieldMap();
       return seriesArray === 'COUNTA'
         ? AGGREGATE_COUNT_KEY
-        : `${fieldMap?.[(seriesArray as { column: string }[])?.at(0)?.column ?? '']}_${(seriesArray as { rollup: string }[])?.at(0)?.rollup ?? ''}`;
+        : `${fieldMap?.[(seriesArray as { fieldId: string }[])?.at(0)?.fieldId ?? '']}_${(seriesArray as { rollup: string }[])?.at(0)?.rollup ?? ''}`;
     }
 
     const { yAxis } = this.storage.config;

@@ -3,7 +3,13 @@ import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirro
 import { sql, PostgreSQL } from '@codemirror/lang-sql';
 import { indentOnInput } from '@codemirror/language';
 import { EditorState } from '@codemirror/state';
-import { EditorView, keymap, lineNumbers, highlightActiveLine } from '@codemirror/view';
+import {
+  EditorView,
+  keymap,
+  lineNumbers,
+  highlightActiveLine,
+  type ViewUpdate,
+} from '@codemirror/view';
 import { useQuery } from '@tanstack/react-query';
 import { useTheme } from '@teable/next-themes';
 import { getBaseTableSchema } from '@teable/openapi';
@@ -57,14 +63,11 @@ export const SqlBuilder: React.FC<ISqlBuilderProps> = ({
       keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap, ...completionKeymap]),
       ...(theme === 'dark' ? [vscodeDark] : [vscodeLight]),
       EditorState.readOnly.of(readOnly),
-      EditorView.domEventHandlers({
-        blur: (_event, view) => {
-          if (onChangeRef.current) {
-            const doc = view.state.doc;
-            const currentCode = doc.toString();
-            onChangeRef.current(currentCode);
-          }
-        },
+      EditorView.updateListener.of((update: ViewUpdate) => {
+        if (update.docChanged && onChangeRef.current) {
+          const currentCode = update.state.doc.toString();
+          onChangeRef.current(currentCode);
+        }
       }),
       EditorView.theme({
         '&': {

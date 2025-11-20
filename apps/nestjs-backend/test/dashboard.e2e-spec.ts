@@ -357,7 +357,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
           ],
@@ -418,7 +418,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
           ],
@@ -453,7 +453,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Avg,
             },
           ],
@@ -488,7 +488,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Max,
             },
           ],
@@ -521,7 +521,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Count,
             },
           ],
@@ -554,15 +554,15 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Avg,
             },
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Max,
             },
           ],
@@ -705,7 +705,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
           ],
@@ -743,7 +743,7 @@ describe('DashboardController', () => {
           xAxis: textField.id,
           seriesArray: [
             {
-              column: numberField.id,
+              fieldId: numberField.id,
               rollup: FieldRollup.Sum,
             },
           ],
