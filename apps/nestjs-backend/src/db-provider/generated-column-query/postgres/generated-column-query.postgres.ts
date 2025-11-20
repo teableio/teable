@@ -84,6 +84,21 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `NULLIF(${sanitized}, '')::double precision`;
   }
 
+  private sanitizeTimestampInput(date: string): string {
+    const trimmed = `NULLIF(BTRIM((${date})::text), '')`;
+    return `CASE WHEN ${trimmed} IS NULL THEN NULL WHEN LOWER(${trimmed}) IN ('null', 'undefined') THEN NULL ELSE ${trimmed} END`;
+  }
+
+  private tzWrap(date: string): string {
+    const tz = this.context?.timeZone as string | undefined;
+    const sanitized = this.sanitizeTimestampInput(date);
+    if (!tz) {
+      return `(${sanitized})::timestamp`;
+    }
+    const safeTz = tz.replace(/'/g, "''");
+    return `(${sanitized})::timestamptz AT TIME ZONE '${safeTz}'`;
+  }
+
   private collapseNumeric(expr: string, metadataIndex?: number): string {
     const numericValue = this.toNumericSafe(expr, metadataIndex);
     return `COALESCE(${numericValue}, 0)`;
@@ -1107,7 +1122,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return pattern;
   }
   private castToTimestamp(date: string): string {
-    return `(${date})::timestamp`;
+    return this.tzWrap(date);
   }
 
   private hasTrustedDatetimeInput(index: number): boolean {

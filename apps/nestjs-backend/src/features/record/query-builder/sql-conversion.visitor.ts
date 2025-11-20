@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable regexp/no-dupe-characters-character-class */
 /* eslint-disable sonarjs/no-duplicated-branches */
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -501,14 +502,34 @@ abstract class BaseSqlConversionVisitor<
           .with(FunctionName.Search, () =>
             this.formulaQuery.search(params[0], params[1], params[2])
           )
-          .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
+          .with(FunctionName.Mid, () => {
+            const textOperand = this.coerceToStringForConcatenation(
+              params[0],
+              exprContexts[0],
+              undefined,
+              {
+                datetimeFormat: '\'YYYY-MM-DD"T"HH24:MI:SS.MS\'',
+              }
+            );
+            return this.formulaQuery.mid(textOperand, params[1], params[2]);
+          })
           .with(FunctionName.Left, () => {
-            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const textOperand = this.coerceToStringForConcatenation(
+              params[0],
+              exprContexts[0],
+              undefined,
+              { datetimeFormat: '\'YYYY-MM-DD"T"HH24:MI:SS.MS\'' }
+            );
             const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
             return this.formulaQuery.left(textOperand, sliceLength);
           })
           .with(FunctionName.Right, () => {
-            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const textOperand = this.coerceToStringForConcatenation(
+              params[0],
+              exprContexts[0],
+              undefined,
+              { datetimeFormat: '\'YYYY-MM-DD"T"HH24:MI:SS.MS\'' }
+            );
             const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
             return this.formulaQuery.right(textOperand, sliceLength);
           })
@@ -1262,7 +1283,8 @@ abstract class BaseSqlConversionVisitor<
   private coerceToStringForConcatenation(
     value: string,
     exprCtx: ExprContext,
-    inferredType?: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown'
+    inferredType?: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown',
+    options?: { datetimeFormat?: string }
   ): string {
     let normalizedValue = value;
     if (exprCtx instanceof FieldReferenceCurlyContext) {
@@ -1278,7 +1300,8 @@ abstract class BaseSqlConversionVisitor<
     }
     const type = inferredType ?? this.inferExpressionType(exprCtx);
     if (type === 'datetime') {
-      return this.formulaQuery.datetimeFormat(normalizedValue, "'YYYY-MM-DD'");
+      const format = options?.datetimeFormat ?? "'YYYY-MM-DD'";
+      return this.formulaQuery.datetimeFormat(normalizedValue, format);
     }
     return normalizedValue;
   }

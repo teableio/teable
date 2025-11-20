@@ -214,6 +214,23 @@ describe('EvalVisitor', () => {
     expect(evalFormula('sum({fldNumber}, 1, 2, 3)', fieldContext, record)).toBe(14);
   });
 
+  it('text slicing should format datetime with timezone', () => {
+    const tzRecord: IRecord = {
+      id: 'recTz',
+      fields: {
+        ...record.fields,
+        fldDate: '2023-02-25T16:00:00.000Z',
+      },
+      createdTime: record.createdTime,
+    };
+
+    const day = evaluate('MID({fldDate}, 8, 2)', fieldContext, tzRecord, 'Asia/Shanghai').value;
+    const hour = evaluate('MID({fldDate}, 11, 2)', fieldContext, tzRecord, 'Asia/Shanghai').value;
+
+    expect(day).toBe('26');
+    expect(hour).toBe('00');
+  });
+
   it('rollup call', () => {
     const virtualField = {
       id: 'values',

@@ -1,6 +1,12 @@
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import { CellValueType } from '../models/field/constant';
 import type { FormulaFunc } from './functions/common';
 import { TypedValue } from './typed-value';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 export class TypedValueConverter {
   // auto transform an array value to non-array value if only have 1 item
@@ -19,7 +25,7 @@ export class TypedValueConverter {
   }
 
   // convert typed value to function first accept value type
-  convertTypedValue(typedValue: TypedValue, func: FormulaFunc): TypedValue {
+  convertTypedValue(typedValue: TypedValue, func: FormulaFunc, timeZone?: string): TypedValue {
     typedValue = this.transformMultipleValue(typedValue, func);
 
     if (func.acceptValueType.has(typedValue.type)) {
@@ -30,9 +36,14 @@ export class TypedValueConverter {
 
     const converted = typedValue.isMultiple
       ? (typedValue.value as unknown[])?.map((v) =>
-          this.convertUnsupportedValue(v, typedValue.type, firstAcceptValueType)
+          this.convertUnsupportedValue(v, typedValue.type, firstAcceptValueType, timeZone)
         )
-      : this.convertUnsupportedValue(typedValue.value, typedValue.type, firstAcceptValueType);
+      : this.convertUnsupportedValue(
+          typedValue.value,
+          typedValue.type,
+          firstAcceptValueType,
+          timeZone
+        );
 
     return new TypedValue(
       converted == null ? null : converted,
@@ -44,7 +55,8 @@ export class TypedValueConverter {
   private convertUnsupportedValue(
     value: unknown,
     inputValueType: CellValueType,
-    acceptValueType: CellValueType
+    acceptValueType: CellValueType,
+    timeZone?: string
   ) {
     if (inputValueType === acceptValueType) {
       throw new Error('Should not convert an accept value type');
@@ -62,7 +74,7 @@ export class TypedValueConverter {
       case CellValueType.Boolean:
         return this.convertBooleanValue(value, inputValueType);
       case CellValueType.String:
-        return this.convertStringValue(value, inputValueType);
+        return this.convertStringValue(value, inputValueType, timeZone);
     }
   }
 
@@ -112,11 +124,17 @@ export class TypedValueConverter {
     }
   }
 
-  private convertStringValue(value: unknown, inputValueType: CellValueType) {
+  private convertStringValue(value: unknown, inputValueType: CellValueType, timeZone?: string) {
     switch (inputValueType) {
       case CellValueType.String:
-      case CellValueType.DateTime:
         return value;
+      case CellValueType.DateTime: {
+        if (value == null) return null;
+        if (!timeZone || timeZone.toUpperCase() === 'UTC') return value;
+        const date = dayjs(value as string).tz(timeZone);
+        if (!date.isValid()) return String(value);
+        return date.format('YYYY-MM-DDTHH:mm:ss.SSSZ');
+      }
       case CellValueType.Boolean:
       case CellValueType.Number:
         return String(value);

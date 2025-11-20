@@ -66,6 +66,17 @@ describe('TypedValueConverter', () => {
     expect(converted.value).toBe('42');
   });
 
+  it('should convert datetime values to timezone formatted strings when timezone provided', () => {
+    const dateValue = new TypedValue('2023-02-25T16:00:00.000Z', CellValueType.DateTime);
+    const converted = typedValueConverter.convertTypedValue(
+      dateValue,
+      funcAcceptString,
+      'Asia/Shanghai'
+    );
+    expect(converted.type).toBe(CellValueType.String);
+    expect(converted.value).toBe('2023-02-26T00:00:00.000+08:00');
+  });
+
   it('should convert boolean arrays to string arrays', () => {
     const boolValues = new TypedValue([true, false], CellValueType.Boolean, true);
     const converted = typedValueConverter.convertTypedValue(boolValues, {

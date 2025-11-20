@@ -421,7 +421,7 @@ export class EvalVisitor
    * transform typed value into function accept value type as possible as it can
    */
   private transformTypedValue(typedValue: TypedValue, func: FormulaFunc): TypedValue {
-    return this.converter.convertTypedValue(typedValue, func);
+    return this.converter.convertTypedValue(typedValue, func, this.timeZone);
   }
 
   visitFunctionCall(ctx: FunctionCallContext) {

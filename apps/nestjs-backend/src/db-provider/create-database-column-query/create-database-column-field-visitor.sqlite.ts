@@ -116,6 +116,7 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
         const conversionContext: IFormulaConversionContext = {
           table: this.context.tableDomain,
           isGeneratedColumn: true, // Mark this as a generated column context
+          timeZone: (field as FormulaFieldDto)?.options?.timeZone,
         };
 
         const conversionResult = this.context.dbProvider.convertFormulaToGeneratedColumn(
