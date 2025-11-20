@@ -20,6 +20,9 @@ import {
   TimeFormatting,
 } from '@teable/core';
 import { getRecord, updateRecords, type ITableFullVo } from '@teable/openapi';
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone';
+import utc from 'dayjs/plugin/utc';
 import {
   createField,
   createRecords,
@@ -32,6 +35,9 @@ import {
   updateRecordByApi,
   convertField,
 } from './utils/init-app';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 describe('OpenAPI formula (e2e)', () => {
   let app: INestApplication;
@@ -1910,6 +1916,92 @@ describe('OpenAPI formula (e2e)', () => {
         expect(updatedRecord.data.fields[hourField.name]).toEqual('0, 0');
         expect(updatedRecord.data.fields[minuteField.name]).toEqual('0, 0');
         expect(updatedRecord.data.fields[secondField.name]).toEqual('0, 0');
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    it('should keep lookup dates stable across formula timezones', async () => {
+      const sampleIsos = ['2024-01-16T00:00:00.000Z', '2024-01-16T23:30:00.000Z'];
+
+      const foreign = await createTable(baseId, {
+        name: 'formula-lookup-timezone-foreign',
+        fields: [{ name: 'Start Date', type: FieldType.Date } as IFieldRo],
+        records: sampleIsos.map((iso) => ({ fields: { 'Start Date': iso } })),
+      });
+
+      let host: ITableFullVo | undefined;
+      try {
+        host = await createTable(baseId, {
+          name: 'formula-lookup-timezone-host',
+          fields: [{ name: 'Row', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Row: 'A' } }, { fields: { Row: 'B' } }],
+        });
+
+        const linkField = await createField(host.id, {
+          name: 'Source',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: foreign.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const startFieldId = foreign.fields.find((field) => field.name === 'Start Date')!.id;
+
+        const lookupField = await createField(host.id, {
+          name: 'Start Lookup',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: startFieldId,
+          } as ILookupOptionsRo,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.None,
+              timeZone: 'Asia/Shanghai',
+            },
+          },
+        } as IFieldRo);
+
+        const tzCases = ['Asia/Shanghai', 'UTC', 'America/Los_Angeles'];
+        const formulaFields = await Promise.all(
+          tzCases.map((tz) =>
+            createField(host!.id, {
+              name: `Start ${tz}`,
+              type: FieldType.Formula,
+              options: {
+                expression: `DATETIME_FORMAT({${lookupField.id}}, 'YYYY-MM-DD')`,
+                timeZone: tz,
+              },
+            } as IFieldRo)
+          )
+        );
+
+        await updateRecordByApi(host.id, host.records[0].id, linkField.id, [
+          { id: foreign.records[0].id },
+        ]);
+        await updateRecordByApi(host.id, host.records[1].id, linkField.id, [
+          { id: foreign.records[1].id },
+        ]);
+
+        const firstRow = await getRecord(host.id, host.records[0].id);
+        const secondRow = await getRecord(host.id, host.records[1].id);
+        const rows = [firstRow, secondRow];
+
+        rows.forEach((row, idx) => {
+          const fields = row.data.fields as Record<string, unknown>;
+          tzCases.forEach((tz, tzIdx) => {
+            const expected = dayjs(sampleIsos[idx]).tz(tz).format('YYYY-MM-DD');
+            expect(fields[formulaFields[tzIdx].name]).toBe(expected);
+          });
+        });
       } finally {
         if (host) {
           await permanentDeleteTable(baseId, host.id);
