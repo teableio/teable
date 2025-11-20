@@ -303,10 +303,7 @@ export class FormulaSupportGeneratedColumnValidator {
           paramCount > 2 ? dummyParam : undefined
         )
       )
-      .with(
-        'LAST_MODIFIED_TIME',
-        () => paramCount === 0 && this.supportValidator.lastModifiedTime()
-      )
+      .with('LAST_MODIFIED_TIME', () => this.supportValidator.lastModifiedTime())
       .with('MINUTE', () => this.supportValidator.minute(dummyParam))
       .with('MONTH', () => this.supportValidator.month(dummyParam))
       .with('SECOND', () => this.supportValidator.second(dummyParam))

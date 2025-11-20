@@ -762,15 +762,8 @@ export class LastModifiedTime extends DateTimeFunc {
   acceptMultipleValue = false;
 
   validateParams(params: TypedValue[]): void {
-    if (!params.length) {
-      return;
-    }
-
-    if (params.length > 1) {
-      throw new Error(`${FunctionName.LastModifiedTime} accepts at most 1 parameter`);
-    }
-
-    if (!params[0]?.field) {
+    if (!params.length) return;
+    if (params.some((param) => !param?.field)) {
       throw new Error(`${FunctionName.LastModifiedTime} parameter must be a field reference`);
     }
   }
