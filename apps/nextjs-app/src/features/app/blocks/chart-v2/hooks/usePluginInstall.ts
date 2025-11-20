@@ -9,6 +9,7 @@ import {
   updatePluginPanelStorage,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
+import { useCallback } from 'react';
 import { useEnv } from './useEnv';
 
 export const usePluginInstall = () => {
@@ -73,12 +74,26 @@ export const usePluginInstall = () => {
     },
   });
 
+  const updateDashboardPluginStorageFn = useCallback(
+    (storage: IChartStorage) => {
+      updateDashboardPluginStorageMutate(storage);
+    },
+    [updateDashboardPluginStorageMutate]
+  );
+
+  const updatePluginPanelPluginStorageFn = useCallback(
+    (storage: IChartStorage) => {
+      updatePluginPanelPluginStorageMutate(storage);
+    },
+    [updatePluginPanelPluginStorageMutate]
+  );
+
   if (positionType === PluginPosition.Dashboard) {
     return {
       pluginInstall: dashboardPluginInstall,
       isLoading: isDashboardPluginInstallLoading,
       renamePlugin: renamePluginMutate,
-      updatePluginStorage: updateDashboardPluginStorageMutate,
+      updatePluginStorage: updateDashboardPluginStorageFn,
     };
   }
 
@@ -86,6 +101,6 @@ export const usePluginInstall = () => {
     pluginInstall: pluginPanelPluginInstall,
     isLoading: isPluginPanelPluginLoading,
     renamePlugin: renamePluginMutate,
-    updatePluginStorage: updatePluginPanelPluginStorageMutate,
+    updatePluginStorage: updatePluginPanelPluginStorageFn,
   };
 };

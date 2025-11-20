@@ -20,7 +20,7 @@ export const DataConfig = () => {
         <span>{t('chartV2.form.name')}</span>
         <Input
           className="h-9"
-          defaultValue={pluginName}
+          defaultValue={pluginName as string}
           onBlur={(e) => renamePlugin(e.target.value)}
         />
       </div>
