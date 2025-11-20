@@ -1,6 +1,6 @@
 import type { IFieldVo } from '@teable/core';
 import type { IChartStorage, ITableQuery } from '@teable/openapi';
-import { AGGREGATE_COUNT_KEY } from '@teable/openapi';
+import { AGGREGATE_COUNT_KEY, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
 import { groupBy } from 'lodash';
 import type { ISeriesConfig } from '../types';
 import { getGroupUniqueKey, getGroupKeyName } from '../utils';
@@ -72,7 +72,7 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
   private buildLegendData(): string[] {
     const { query } = this.storage;
     const { seriesArray } = query;
-    const countAll = seriesArray === 'COUNTA';
+    const countAll = seriesArray === DEFAULT_SERIES_ARRAY;
 
     // no need legend data
     if (countAll) {
@@ -106,7 +106,7 @@ export class TableAdapter extends BaseAdapter<ITableQuery> {
   getSeries(xData: string[], legendData: string[]): ISeriesConfig[] {
     const { query } = this.storage;
     const { seriesArray } = query;
-    const countAll = seriesArray === 'COUNTA';
+    const countAll = seriesArray === DEFAULT_SERIES_ARRAY;
 
     if (countAll) {
       return this.getSeriesByCountAll(xData, legendData);

@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ITableQuery } from '@teable/openapi';
-import { DataSource, getFields } from '@teable/openapi';
+import { DataSource, getFields, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
 import { useTables } from '@teable/sdk/hooks';
 import { Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -62,7 +62,7 @@ export const DataSourceSelect = () => {
                 },
                 {
                   path: 'query.seriesArray',
-                  value: 'COUNTA',
+                  value: DEFAULT_SERIES_ARRAY,
                 },
                 {
                   path: 'query.filter',
@@ -130,7 +130,7 @@ export const DataSourceSelect = () => {
                   },
                   {
                     path: 'query.seriesArray',
-                    value: 'COUNTA',
+                    value: DEFAULT_SERIES_ARRAY,
                   },
                   {
                     path: 'query.xAxis',

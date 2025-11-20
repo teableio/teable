@@ -17,7 +17,20 @@ export const baseQuerySchemaVoV2 = z.object({
   ),
 });
 
+export const DEFAULT_SERIES_ARRAY = 'COUNTA';
+
 export type IBaseQueryVoV2 = z.infer<typeof baseQuerySchemaVoV2>;
+
+export enum THEMES_KEYS {
+  BLUE = 'blue',
+  GREEN = 'green',
+  NEUTRAL = 'neutral',
+  ORANGE = 'orange',
+  RED = 'red',
+  ROSE = 'rose',
+  VIOLET = 'violet',
+  YELLOW = 'yellow',
+}
 
 export enum ChartType {
   Bar = 'bar',

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ChartType, DataSource, THEMES_KEYS } from '@teable/openapi';
+import { ChartType, DataSource, THEMES_KEYS, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
 
 @Injectable()
 export class ChartService {
@@ -64,12 +64,12 @@ export class ChartService {
         xAxis: defaultFieldId,
         filter: null,
         groupBy: null,
-        seriesArray: 'COUNTA',
+        seriesArray: DEFAULT_SERIES_ARRAY,
       },
       appearance: {
         theme: THEMES_KEYS.BLUE,
         legendVisible: true,
-        labelVisible: true,
+        labelVisible: false,
       },
     };
   }

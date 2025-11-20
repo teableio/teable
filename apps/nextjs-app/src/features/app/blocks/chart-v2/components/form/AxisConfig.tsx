@@ -1,4 +1,5 @@
 import { CellValueType, FieldType } from '@teable/core';
+import { DEFAULT_SERIES_ARRAY } from '@teable/openapi';
 import type { ITableQuery, IStatisticFieldItem } from '@teable/openapi';
 import {
   Label,
@@ -26,7 +27,7 @@ export const AxisConfig = () => {
   const { xAxis, seriesArray, orderBy, groupBy } = (query || {}) as ITableQuery;
 
   const pieChartType = [ChartType.Pie, ChartType.DonutChart].includes(chartType);
-  const countAll = seriesArray === 'COUNTA';
+  const countAll = seriesArray === DEFAULT_SERIES_ARRAY;
 
   const displayGroupBy = useMemo(() => {
     if (pieChartType) {
@@ -128,7 +129,7 @@ export const AxisConfig = () => {
                 value="totalRecords"
                 className="w-full"
                 onClick={() => {
-                  updateStorageByPath(`query.seriesArray`, 'COUNTA');
+                  updateStorageByPath(`query.seriesArray`, DEFAULT_SERIES_ARRAY);
                 }}
               >
                 {t('chartV2.form.axisConfig.totalRecords')}

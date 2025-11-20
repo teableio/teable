@@ -1,5 +1,5 @@
 import type { ITableQuery } from '@teable/openapi';
-import { AGGREGATE_COUNT_KEY, DataSource } from '@teable/openapi';
+import { AGGREGATE_COUNT_KEY, DataSource, DEFAULT_SERIES_ARRAY } from '@teable/openapi';
 import type { ISeriesConfig } from '../types';
 import { getGroupKeyName } from '../utils';
 import { BaseChart, type IChartOptions } from './BaseChart';
@@ -90,7 +90,7 @@ export class PieChart extends BaseChart {
     if (dataSource === DataSource.Table) {
       const { seriesArray } = this.storage.query as ITableQuery;
       const fieldMap = this.getFieldMap();
-      return seriesArray === 'COUNTA'
+      return seriesArray === DEFAULT_SERIES_ARRAY
         ? AGGREGATE_COUNT_KEY
         : `${fieldMap?.[(seriesArray as { fieldId: string }[])?.at(0)?.fieldId ?? '']}_${(seriesArray as { rollup: string }[])?.at(0)?.rollup ?? ''}`;
     }
