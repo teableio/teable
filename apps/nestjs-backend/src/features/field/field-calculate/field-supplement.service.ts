@@ -737,10 +737,28 @@ export class FieldSupplementService {
       );
     }
 
-    const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
-      (fieldRo.options as IFormulaFieldOptions).expression,
-      fieldMap
-    );
+    let cellValueType: CellValueType;
+    let isMultipleCellValue: boolean | undefined;
+
+    try {
+      ({ cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
+        (fieldRo.options as IFormulaFieldOptions).expression,
+        fieldMap
+      ));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new CustomHttpException(
+        `Parse formula expression ${(fieldRo.options as IFormulaFieldOptions).expression} error: ${
+          e.message
+        }`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.formulaExpressionParseError',
+          },
+        }
+      );
+    }
 
     const formatting =
       (fieldRo.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);

@@ -1190,6 +1190,20 @@ describe('OpenAPI formula (e2e)', () => {
         afterDefaultUpdate.data.lastModifiedTime
       );
     });
+
+    it('should reject non-field parameters', async () => {
+      await createField(
+        table1Id,
+        {
+          name: 'invalid-last-modified',
+          type: FieldType.Formula,
+          options: {
+            expression: 'LAST_MODIFIED_TIME("literal param")',
+          },
+        },
+        400
+      );
+    });
   });
 
   describe('numeric formula functions', () => {

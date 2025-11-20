@@ -84,8 +84,8 @@ export class Today extends DateTimeFunc {
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+  validateParams(_params: TypedValue[]) {}
 
   getReturnType() {
     return { type: CellValueType.DateTime };
@@ -103,10 +103,11 @@ export class Now extends DateTimeFunc {
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+  validateParams(_params: TypedValue[]) {}
 
-  getReturnType() {
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
     return { type: CellValueType.DateTime };
   }
 
@@ -774,7 +775,8 @@ export class LastModifiedTime extends DateTimeFunc {
     }
   }
 
-  getReturnType() {
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
     return { type: CellValueType.DateTime };
   }
 
