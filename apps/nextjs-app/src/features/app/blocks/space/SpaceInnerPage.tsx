@@ -154,7 +154,7 @@ export const SpaceInnerPage: React.FC = () => {
               <DraggableBaseGrid bases={basesInSpace} className="pb-8 sm:pr-8" />
             </ScrollArea>
           ) : (
-            <div className="flex h-full flex-col gap-2 items-center justify-center">
+            <div className="flex h-full flex-col items-center justify-center gap-2">
               <Image
                 src={
                   isDark
@@ -165,7 +165,7 @@ export const SpaceInnerPage: React.FC = () => {
                 width={240}
                 height={240}
               />
-              <div className="flex flex-col gap-2 items-center justify-center">
+              <div className="flex flex-col items-center justify-center gap-2">
                 <p className="text-base font-semibold text-foreground">
                   {t('space:emptySpaceTitle')}
                 </p>
