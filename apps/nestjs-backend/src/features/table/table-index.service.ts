@@ -192,7 +192,6 @@ export class TableIndexService {
     const index = await this.getActivatedTableIndexes(tableId);
     const sql = this.dbProvider.searchIndex().createSingleIndexSql(dbTableName, fieldInstance);
     if (index.includes(TableIndex.search) && sql) {
-      console.log('createSearchFieldSingleIndex:sql', sql);
       await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
   }

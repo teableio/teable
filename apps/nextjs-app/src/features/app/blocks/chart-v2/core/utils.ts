@@ -40,11 +40,9 @@ export const getFieldRollupKeyByFieldName = (fields: IFieldVo[], name: string, r
   const field = fields.find((field) => field.name === name);
 
   if (!field) {
-    console.log('tttttttttttt 2333333');
     return null;
   }
 
-  console.log('tttttttttttt', getFieldRollupKey(field.id, rollup));
   return getFieldRollupKey(field.id, rollup);
 };
 
