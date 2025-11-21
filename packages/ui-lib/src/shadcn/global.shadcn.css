@@ -45,22 +45,22 @@
 
   .dark {
     --background: 220 5% 8%;
-    --foreground: 210 100% 98% / 0.85;
+    --foreground: 213 13% 86%;
 
     --card: 210 4% 10%;
-    --card-foreground: 210 100% 98% / 0.85;
+    --card-foreground: 213 13% 86%;
 
     --popover: 210 3% 14%;
-    --popover-foreground: 210 100% 98% / 0.85;
+    --popover-foreground: 213 13% 86%;
 
     --primary: 210 12% 89%;
     --primary-foreground: 240 6% 10%;
 
     --secondary: 210 5% 12%;
-    --secondary-foreground: 210 100% 98% / 0.85;
+    --secondary-foreground: 213 13% 86%;
 
     --muted: 220 22% 3%;
-    --muted-foreground: 210 100% 98% / 0.5;
+    --muted-foreground: 210 3% 55%;
 
     --accent: 210 100% 98% / 0.08;
     --accent-foreground: 0 0 92%;

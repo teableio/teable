@@ -131,8 +131,8 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   };
 
   return (
-    <div className="w-full overflow-y-auto sm:py-8 bg-muted">
-      <div className="relative mx-auto bg-background flex w-full max-w-screen-sm flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
+    <div className="w-full overflow-y-auto bg-muted sm:py-8">
+      <div className="relative mx-auto flex w-full max-w-screen-sm flex-col items-center overflow-hidden border bg-background pb-12 shadow-md sm:rounded-lg">
         <div
           className={cn(
             'relative h-36 w-full',
@@ -154,7 +154,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           <Button
             variant={'ghost'}
             size={'icon'}
-            className="absolute left-2 top-2 m-1 bg-accent/40 font-normal"
+            className="absolute left-2 top-2 m-1 bg-accent font-normal"
             onClick={() => coverInput.current?.click()}
           >
             <input
@@ -168,7 +168,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           </Button>
         </div>
 
-        <div className="group absolute bg-muted rounded-lg left-1/2 top-[104px] ml-[-40px] size-20">
+        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20 rounded-lg bg-muted">
           {logoUrl ? (
             <>
               <Image
