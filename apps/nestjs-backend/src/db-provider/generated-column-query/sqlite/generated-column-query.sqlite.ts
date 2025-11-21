@@ -359,7 +359,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   private normalizeDiffUnit(
     unitLiteral: string
-  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
     const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
     switch (normalized) {
       case 'millisecond':
@@ -384,6 +384,15 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
       case 'week':
       case 'weeks':
         return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
       default:
         return 'day';
     }
@@ -436,6 +445,23 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `DATE(${date})`;
   }
 
+  private buildMonthDiff(startDate: string, endDate: string): string {
+    const startYear = `CAST(STRFTIME('%Y', ${startDate}) AS INTEGER)`;
+    const endYear = `CAST(STRFTIME('%Y', ${endDate}) AS INTEGER)`;
+    const startMonth = `CAST(STRFTIME('%m', ${startDate}) AS INTEGER)`;
+    const endMonth = `CAST(STRFTIME('%m', ${endDate}) AS INTEGER)`;
+    const startDay = `CAST(STRFTIME('%d', ${startDate}) AS INTEGER)`;
+    const endDay = `CAST(STRFTIME('%d', ${endDate}) AS INTEGER)`;
+    const startLastDay = `CAST(STRFTIME('%d', DATE(${startDate}, 'start of month', '+1 month', '-1 day')) AS INTEGER)`;
+    const endLastDay = `CAST(STRFTIME('%d', DATE(${endDate}, 'start of month', '+1 month', '-1 day')) AS INTEGER)`;
+
+    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+
+    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
+  }
+
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
     const baseDiffDays = `(JULIANDAY(${startDate}) - JULIANDAY(${endDate}))`;
     switch (this.normalizeDiffUnit(unit)) {
@@ -449,6 +475,14 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return `(${baseDiffDays}) * 24.0`;
       case 'week':
         return `(${baseDiffDays}) / 7.0`;
+      case 'month':
+        return this.buildMonthDiff(startDate, endDate);
+      case 'quarter':
+        return `${this.buildMonthDiff(startDate, endDate)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(startDate, endDate);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
       case 'day':
       default:
         return `${baseDiffDays}`;

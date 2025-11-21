@@ -63,7 +63,10 @@ export class EventMiddleware implements NestInterceptor {
       .with(P.union(Events.BASE_CREATE, Events.BASE_UPDATE, Events.BASE_PERMISSION_UPDATE), () =>
         BaseEventFactory.create(eventName, { base: resolveData, ...reqParams }, eventContext)
       )
-      .with(P.union(Events.SPACE_CREATE, Events.SPACE_DELETE, Events.SPACE_UPDATE), () =>
+      .with(Events.SPACE_DELETE, () =>
+        SpaceEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+      )
+      .with(P.union(Events.SPACE_CREATE, Events.SPACE_UPDATE), () =>
         SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
       )
       .otherwise(() => null);

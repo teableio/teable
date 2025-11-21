@@ -13,7 +13,7 @@ export const SortConfig = (props: ISortConfigProps) => {
   const { t } = useTranslation();
 
   return (
-    <footer className="flex h-11 items-center justify-between bg-muted/20 px-3">
+    <footer className="flex h-11 items-center justify-between border-t border-border-high px-3">
       <div className="flex items-center space-x-2">
         <Switch
           id="airplane-mode"

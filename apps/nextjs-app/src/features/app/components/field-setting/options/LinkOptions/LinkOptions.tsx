@@ -189,7 +189,7 @@ export const LinkOptions = (props: {
                 : t('table:field.editor.allowSymmetricFieldLinkMultipleRecords')}
             </Label>
           </div>
-          <div className="border-1 flex flex-col items-end gap-2 rounded-md border bg-muted p-3 text-sm">
+          <div className="border-1 flex flex-col items-end gap-2 rounded-md border bg-secondary p-3 text-sm">
             <div className="flex w-full items-center justify-between">
               <p className="text-sm font-semibold">{t('table:field.editor.tips')}</p>
               <Link

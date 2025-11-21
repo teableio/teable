@@ -131,7 +131,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
           <div
             {...provided.dragHandleProps}
             className={cn(
-              'relative flex w-full grow flex-col space-y-2 overflow-hidden rounded-md border border-input bg-background p-3',
+              'relative flex w-full grow flex-col space-y-2  gap-1 overflow-hidden rounded-md border border-border bg-card hover:border-primary/15 p-3 cursor-pointer',
               isDragging && 'shadow-md'
             )}
             onClick={onExpand}
@@ -163,7 +163,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
               return (
                 <div key={fieldId}>
                   {!isFieldNameHidden && (
-                    <div className="mb-1 flex items-center space-x-1 text-slate-500 dark:text-slate-400">
+                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground">
                       <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>

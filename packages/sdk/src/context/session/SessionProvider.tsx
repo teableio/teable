@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { userMe } from '@teable/openapi';
+import { updateUserLang, userMe } from '@teable/openapi';
 import { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from '../app/i18n';
 import type { IUser } from './SessionContext';
 import { SessionContext } from './SessionContext';
 
@@ -14,6 +15,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
   props
 ) => {
   const { user, fallback, children, disabledApi = false } = props;
+  const { lang } = useTranslation();
   const queryClient = useQueryClient();
   const [currentUser, setCurrentUser] = useState<IUser | undefined>(() => {
     if (user) {
@@ -22,10 +24,19 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     return undefined;
   });
 
+  const { mutateAsync: updateLang } = useMutation({
+    mutationFn: (ro: { lang: string }) => updateUserLang(ro),
+  });
+
   const { data: userQuery } = useQuery({
     queryKey: ['user-me'],
     queryFn: () => userMe().then((res) => res.data),
     enabled: !disabledApi,
+    onSuccess: (data) => {
+      if (!data.lang && lang) {
+        updateLang({ lang });
+      }
+    },
   });
   const { mutateAsync: getUser } = useMutation({ mutationFn: userMe });
 

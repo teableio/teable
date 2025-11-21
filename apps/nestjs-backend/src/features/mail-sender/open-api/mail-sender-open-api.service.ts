@@ -16,13 +16,7 @@ export class MailSenderOpenApiService {
     const transport = createTransport(transportConfig);
     await transport.verify();
 
-    const option = await this.mailSenderService.htmlEmailOptions({
-      to,
-      title: 'Test',
-      message: message || 'This is a test email from Teable',
-      buttonUrl: this.mailConfig.origin,
-      buttonText: 'Teable',
-    });
+    const option = await this.mailSenderService.sendTestEmailOptions({ message });
     await this.mailSenderService.sendMailByConfig({ to, ...option }, transportConfig);
   }
 }

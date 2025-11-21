@@ -7,6 +7,7 @@ import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import { retryOnDeadlock } from '../../../../utils/retry-decorator';
+import { Timing } from '../../../../utils/timing';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
@@ -94,6 +95,25 @@ export class RecordComputedUpdateService {
     return Array.from(new Set(cols));
   }
 
+  @Timing()
+  private async lockRestrictRecords(dbTableName: string, recordIds?: string[]) {
+    if (!recordIds?.length) {
+      return;
+    }
+    if (typeof this.dbProvider.lockRecordsSql !== 'function') {
+      return;
+    }
+    const sql = this.dbProvider.lockRecordsSql({
+      dbTableName,
+      idFieldName: '__id',
+      recordIds,
+    });
+    if (!sql) {
+      return;
+    }
+    await this.prismaService.txClient().$queryRawUnsafe(sql);
+  }
+
   @retryOnDeadlock()
   async updateFromSelect(
     tableId: string,
@@ -130,6 +150,10 @@ export class RecordComputedUpdateService {
       restrictRecordIdsRaw && restrictRecordIdsRaw.length
         ? Array.from(new Set(restrictRecordIdsRaw))
         : undefined;
+
+    // Acquire row-level locks in a deterministic order to avoid deadlocks when multiple
+    // computed updates touch the same set of records concurrently.
+    await this.lockRestrictRecords(dbTableName, restrictRecordIds);
 
     const sql = this.dbProvider.updateFromSelectSql({
       dbTableName,

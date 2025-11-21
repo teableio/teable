@@ -127,7 +127,7 @@ export const KanbanStack = forwardRef<VirtuosoHandle, IKanbanStackProps>((props,
             components={{
               Item: HeightPreservingItem as never,
               EmptyPlaceholder: () => (
-                <div className="flex size-full items-center justify-center text-muted-foreground">
+                <div className="flex size-full text-sm items-center justify-center text-muted-foreground">
                   {t('table:kanban.stack.noCards')}
                 </div>
               ),

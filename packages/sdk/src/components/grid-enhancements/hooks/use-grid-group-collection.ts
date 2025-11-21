@@ -106,7 +106,7 @@ const useGenerateGroupCellFn = () => {
           case FieldType.CreatedTime:
           case FieldType.LastModifiedTime: {
             let displayData = '';
-            const { date, time, timeZone } = field.options.formatting;
+            const { date, time, timeZone } = field.getDatetimeFormatting();
             const cacheKey = `${fieldId}-${cellValue}-${date}-${time}-${timeZone}`;
 
             if (cellValueStringCache.has(cacheKey)) {
@@ -114,7 +114,7 @@ const useGenerateGroupCellFn = () => {
             } else {
               displayData = cellDate2String(
                 cellValue,
-                field.options.formatting,
+                field.getDatetimeFormatting(),
                 field.isMultipleCellValue
               );
               cellValueStringCache.set(cacheKey, displayData);

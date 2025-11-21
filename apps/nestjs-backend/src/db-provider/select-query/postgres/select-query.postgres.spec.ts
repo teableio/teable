@@ -7,7 +7,7 @@ import {
   TableDomain,
   TimeFormatting,
 } from '@teable/core';
-import type { IFieldVo } from '@teable/core';
+import type { IFieldVo, IFormulaParamMetadata } from '@teable/core';
 import knex from 'knex';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -484,6 +484,78 @@ describe('Select formula string comparisons', () => {
     expect(sql).toContain('ELSE to_jsonb("main"."json_col")::text');
     expect(sql).toContain('("main"."text_col")::text');
     expect(sql).not.toContain('= "main"."json_col"');
+  });
+});
+
+describe('Select formula boolean truthiness heuristics', () => {
+  let query: SelectQueryPostgres;
+
+  const stringParam: IFormulaParamMetadata = { type: 'string', isFieldReference: false };
+
+  beforeEach(() => {
+    query = new SelectQueryPostgres();
+  });
+
+  it('avoids pg_typeof guards for boolean field references', () => {
+    query.setCallMetadata([
+      {
+        type: 'boolean',
+        isFieldReference: true,
+        field: {
+          id: 'fldBool',
+          dbFieldType: DbFieldType.Boolean,
+          cellValueType: CellValueType.Boolean,
+        },
+      },
+      stringParam,
+      stringParam,
+    ]);
+
+    const sql = query.if('"main"."bool_col"', `'Y'`, `'N'`);
+
+    expect(sql).toBe(
+      `CASE WHEN (CASE WHEN COALESCE(("main"."bool_col"), FALSE) THEN 1 ELSE 0 END) = 1 THEN 'Y' ELSE 'N' END`
+    );
+    expect(sql).not.toContain('pg_typeof');
+  });
+
+  it('simplifies inferred boolean expressions based on metadata', () => {
+    query.setCallMetadata([
+      {
+        type: 'boolean',
+        isFieldReference: false,
+      },
+      stringParam,
+      stringParam,
+    ]);
+
+    const sql = query.if('("main"."num_col" > 0)', `'positive'`, `'non-positive'`);
+
+    expect(sql).toBe(
+      `CASE WHEN (CASE WHEN COALESCE(("main"."num_col" > 0), FALSE) THEN 1 ELSE 0 END) = 1 THEN 'positive' ELSE 'non-positive' END`
+    );
+    expect(sql).not.toContain('pg_typeof');
+  });
+
+  it('avoids regex coercion for numeric field references in IF conditions', () => {
+    query.setCallMetadata([
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          id: 'fldNum',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: CellValueType.Number,
+        },
+      },
+      stringParam,
+      stringParam,
+    ]);
+
+    const sql = query.if('"main"."num_col"', `'Y'`, `'N'`);
+
+    expect(sql).toContain('COALESCE(("main"."num_col")::double precision, 0) <> 0');
+    expect(sql).not.toContain('REGEXP_REPLACE');
   });
 });
 

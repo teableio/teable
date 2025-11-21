@@ -35,12 +35,13 @@
       },
       "personalView": {
         "personal": "Personnel",
+        "tip": "Une fois activée, la configuration de la vue ne s’appliquera qu’à vous-même",
         "collaborative": "Collaboratif",
         "dialog": {
-          "title": "Passer en mode collaboratif",
-          "description": "Passer en mode collaboratif, la configuration personnelle de la vue sera synchronisée avec tous, veuillez confirmer si vous souhaitez synchroniser",
-          "cancelText": "Ne synchroniser pas",
-          "confirmText": "Synchroniser"
+          "title": "Quitter le mode personnel",
+          "description": "La configuration de la vue personnelle sera restaurée à l'état de collaboration en temps réel. Vous pouvez également enregistrer les paramètres de la vue personnelle et les synchroniser pour tout le monde.",
+          "cancelText": "Quitter et synchroniser",
+          "confirmText": "Confirmer la sortie"
         }
       }
     }
@@ -353,6 +354,13 @@
       "autoFillFieldDialog": {
         "title": "Mettre à jour tous les enregistrements",
         "description": "Tous les enregistrements dans la vue actuelle seront mis à jour, y compris tous les données générées par le champ"
+      },
+      "autoFillConfirm": {
+        "title": "Générer toute la colonne ?",
+        "description": "La génération de la colonne mettra à jour {{rowCount}} lignes. Cette opération peut consommer beaucoup de ressources d'IA.",
+        "saveConfigOnly": "Enregistrer la configuration uniquement",
+        "generate": "Générer",
+        "generateFailed": "Échec de la génération"
       },
       "action": {
         "addAttachment": "Ajouter un fichier"

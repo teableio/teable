@@ -1,7 +1,8 @@
 import type { ArgumentMetadata, PipeTransform } from '@nestjs/common';
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { PRIMARY_SUPPORTED_TYPES, type IFieldVo } from '@teable/core';
+import { Injectable } from '@nestjs/common';
+import { HttpErrorCode, PRIMARY_SUPPORTED_TYPES, type IFieldVo } from '@teable/core';
 import type { ICreateTableRo } from '@teable/openapi';
+import { CustomHttpException } from '../../../custom.exception';
 import { DEFAULT_FIELDS, DEFAULT_RECORD_DATA, DEFAULT_VIEWS } from '../constant';
 
 @Injectable()
@@ -15,8 +16,14 @@ export class TablePipe implements PipeTransform {
     // make sure first field to be the primary field;
     (fieldRos[0] as IFieldVo).isPrimary = true;
     if (!PRIMARY_SUPPORTED_TYPES.has(fieldRos[0].type)) {
-      throw new BadRequestException(
-        `Field type ${fieldRos[0].type} is not supported as primary field`
+      throw new CustomHttpException(
+        `Field type ${fieldRos[0].type} is not supported as primary field`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.primaryFieldNotSupported',
+          },
+        }
       );
     }
 

@@ -9,6 +9,7 @@ import type {
   ILinkFieldOptions,
   IConditionalRollupFieldOptions,
   IConditionalLookupOptions,
+  ILookupLinkOptionsVo,
   FieldCore,
   TableDomain,
 } from '@teable/core';
@@ -18,6 +19,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
 import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
 import {
@@ -69,15 +71,13 @@ const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 @Injectable()
 export class ComputedDependencyCollectorService {
   private logger = new Logger(ComputedDependencyCollectorService.name);
-  private readonly linkCascadeResolver: LinkCascadeResolver;
   constructor(
     private readonly prismaService: PrismaService,
     private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
-  ) {
-    this.linkCascadeResolver = new LinkCascadeResolver(this.prismaService);
-  }
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly linkCascadeResolver: LinkCascadeResolver
+  ) {}
 
   private createExecutionContext(
     seed?: ReadonlyMap<string, TableDomain>
@@ -115,6 +115,13 @@ export class ComputedDependencyCollectorService {
       return this.knex.raw(`??::json->'sort'->>'fieldId'`, [column]);
     }
     return this.knex.raw(`json_extract(??, '$.sort.fieldId')`, [column]);
+  }
+
+  private buildLookupOptionsAccessor(key: keyof ILookupLinkOptionsVo): Knex.Raw {
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      return this.knex.raw(`lookup_options::json->>?`, [key]);
+    }
+    return this.knex.raw(`json_extract(lookup_options, '$."${key}"')`);
   }
 
   private applySortFieldFilter(
@@ -221,11 +228,12 @@ export class ComputedDependencyCollectorService {
     return ids;
   }
 
-  private async buildLinkEdgesForTables(
+  @Timing()
+  private buildLinkEdgesForTables(
     tables: Iterable<string>,
-    tableDomains?: ReadonlyMap<string, TableDomain>,
-    ctx?: ICollectorExecutionContext
-  ): Promise<ILinkEdge[]> {
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    impact?: IComputedImpactByTable
+  ): ILinkEdge[] {
     const edges: ILinkEdge[] = [];
     const visited = new Set<string>();
     for (const tableId of tables) {
@@ -233,9 +241,11 @@ export class ComputedDependencyCollectorService {
         continue;
       }
       visited.add(tableId);
-      const tableDomain = tableDomains?.get(tableId) ?? (await this.getTableDomain(tableId, ctx));
-      if (!tableDomain) continue;
-      for (const field of tableDomain.fieldList) {
+      const tableDomain = this.getRequiredTableDomain(tableId, tableDomains);
+      const projection = impact?.[tableId]?.fieldIds;
+      if (!projection) continue;
+      const linkFields = tableDomain.getLinkFieldsByProjection(projection);
+      for (const field of linkFields) {
         if (field.type !== FieldType.Link || field.isLookup) continue;
         const opts = this.parseLinkOptions(field.options);
         if (!opts) continue;
@@ -249,6 +259,35 @@ export class ComputedDependencyCollectorService {
       }
     }
     return edges;
+  }
+
+  private async loadTableDomains(
+    tableIds: Iterable<string>,
+    ctx: ICollectorExecutionContext
+  ): Promise<Map<string, TableDomain>> {
+    const ids = Array.from(new Set(Array.from(tableIds).filter(Boolean)));
+    if (!ids.length) return new Map();
+
+    const domains = await this.tableDomainQueryService.getTableDomainsByIds(ids);
+    if (domains.size !== ids.length) {
+      const missing = ids.filter((id) => !domains.has(id));
+      if (missing.length) {
+        throw new Error(`TableDomain not found for tableIds: ${missing.join(',')}`);
+      }
+    }
+
+    return new Map(domains);
+  }
+
+  private getRequiredTableDomain(
+    tableId: string,
+    tableDomains: ReadonlyMap<string, TableDomain>
+  ): TableDomain {
+    const domain = tableDomains.get(tableId);
+    if (!domain) {
+      throw new Error(`TableDomain not found for tableId: ${tableId}`);
+    }
+    return domain;
   }
 
   private addExplicitSeed(
@@ -328,6 +367,7 @@ export class ComputedDependencyCollectorService {
     return changed;
   }
 
+  @Timing()
   private async computeLinkClosure(params: {
     impactedTables: ReadonlySet<string>;
     explicitSeeds: ReadonlyMap<string, Set<string>>;
@@ -531,6 +571,7 @@ export class ComputedDependencyCollectorService {
   /**
    * Resolve link field IDs among the provided field IDs and include their symmetric counterparts.
    */
+  @Timing()
   private async resolveRelatedLinkFieldIds(
     fieldIds: string[],
     fieldToTableMap?: Map<string, string>,
@@ -567,18 +608,26 @@ export class ComputedDependencyCollectorService {
    * Find lookup/rollup fields whose lookupOptions.linkFieldId equals any of the provided link IDs.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async findLookupsByLinkIds(linkFieldIds: string[]): Promise<Record<string, Set<string>>> {
     const acc: Record<string, Set<string>> = {};
-    if (!linkFieldIds.length) return acc;
-    for (const linkId of linkFieldIds) {
-      const sql = this.dbProvider.lookupOptionsQuery('linkFieldId', linkId);
-      const rows = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(sql);
-      for (const r of rows) {
-        if (!r.tableId || !r.id) continue;
-        (acc[r.tableId] ||= new Set<string>()).add(r.id);
-      }
+    const ids = Array.from(new Set(linkFieldIds.filter(Boolean)));
+    if (!ids.length) return acc;
+
+    const accessor = this.buildLookupOptionsAccessor('linkFieldId');
+    const { sql, bindings } = accessor.toSQL();
+    const placeholders = ids.map(() => '?').join(', ');
+    const query = this.knex('field')
+      .select({ tableId: 'table_id', id: 'id' })
+      .whereNull('deleted_time')
+      .whereRaw(`${sql} in (${placeholders})`, [...bindings, ...ids]);
+
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(query.toQuery());
+    for (const r of rows) {
+      if (!r.tableId || !r.id) continue;
+      (acc[r.tableId] ||= new Set<string>()).add(r.id);
     }
     return acc;
   }
@@ -587,6 +636,7 @@ export class ComputedDependencyCollectorService {
    * Same as collectDependentFieldIds but groups by table id directly in SQL.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async collectDependentFieldsByTable(
     startFieldIds: string[],
     excludeFieldIds?: string[]
@@ -971,23 +1021,25 @@ export class ComputedDependencyCollectorService {
   /**
    * Build adjacency maps for link and conditional rollup relationships among the supplied tables.
    */
-  private async getAdjacencyMaps(
-    tables: string[],
-    ctx?: ICollectorExecutionContext
-  ): Promise<{
+  @Timing()
+  private getAdjacencyMaps(
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    projection?: IComputedImpactByTable
+  ): {
     link: Record<string, Set<string>>;
     conditionalRollup: Record<string, IConditionalRollupAdjacencyEdge[]>;
-  }> {
+  } {
     const linkAdj: Record<string, Set<string>> = {};
     const conditionalRollupAdj: Record<string, IConditionalRollupAdjacencyEdge[]> = {};
 
-    if (!tables.length) {
+    if (!tableDomains.size) {
       return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
     }
 
-    for (const tableId of tables) {
-      const tableDomain = await this.getTableDomain(tableId, ctx);
+    for (const [tableId, tableDomain] of tableDomains) {
+      const projected = projection?.[tableId]?.fieldIds;
       for (const field of tableDomain.fieldList) {
+        if (projected && !projected.has(field.id)) continue;
         if (field.type === FieldType.Link && !field.isLookup) {
           const opts = this.parseLinkOptions(field.options);
           const from = opts?.foreignTableId;
@@ -1144,13 +1196,14 @@ export class ComputedDependencyCollectorService {
       if (group) group.preferAutoNumberPaging = true;
     }
 
-    const linkEdges = await this.buildLinkEdgesForTables(impactedTables, undefined, execCtx);
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
     const explicitSeeds = new Map<string, Set<string>>();
     const tablesWithAllRecords = new Set<string>(originTableIds);
 
-    const { link: linkAdj, conditionalRollup: referenceAdj } = await this.getAdjacencyMaps(
-      Array.from(impactedTables),
-      execCtx
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
     );
 
     let recordSets = await this.computeLinkClosure({
@@ -1314,6 +1367,7 @@ export class ComputedDependencyCollectorService {
     return impact;
   }
 
+  @Timing()
   private async getFormulaFieldsWithoutDependencies(
     tableId: string,
     excludeFieldIds?: string[]
@@ -1363,6 +1417,7 @@ export class ComputedDependencyCollectorService {
    *   the changed records through any link field on the target table that points to the changed table.
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
+  @Timing()
   async collect(
     tableId: string,
     ctxs: ICellContext[],
@@ -1505,11 +1560,8 @@ export class ComputedDependencyCollectorService {
       }
     }
 
-    const linkEdges = await this.buildLinkEdgesForTables(
-      impactedTables,
-      relatedTables.tableDomains,
-      execCtx
-    );
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
     const explicitSeeds = new Map<string, Set<string>>();
     explicitSeeds.set(tableId, new Set(changedRecordIds));
     for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
@@ -1518,9 +1570,9 @@ export class ComputedDependencyCollectorService {
     }
     const tablesWithAllRecords = new Set<string>();
 
-    const { link: linkAdj, conditionalRollup: referenceAdj } = await this.getAdjacencyMaps(
-      Array.from(impactedTables),
-      execCtx
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
     );
 
     let recordSets = await this.computeLinkClosure({
@@ -1528,7 +1580,7 @@ export class ComputedDependencyCollectorService {
       explicitSeeds,
       tablesWithAllRecords,
       linkEdges,
-      tableDomains: relatedTables.tableDomains,
+      tableDomains,
       ctx: execCtx,
     });
 

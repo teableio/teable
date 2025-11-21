@@ -15,6 +15,10 @@ module.exports = {
         colors: {
           warning: 'hsl(var(--warning))',
           'warning-foreground': 'hsl(var(--warning-foreground))',
+          'border-high': 'hsl(var(--border-high))',
+          success: 'hsl(var(--success))',
+          'success-foreground': 'hsl(var(--success-foreground))',
+          surface: 'hsl(var(--surface))',
         },
       },
     },

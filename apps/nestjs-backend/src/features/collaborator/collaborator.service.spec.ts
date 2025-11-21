@@ -99,7 +99,7 @@ describe('CollaboratorService', () => {
           role: Role.Owner,
           spaceId: mockSpace.id,
         })
-      ).rejects.toThrow('has already existed in space');
+      ).rejects.toThrow('Collaborator has already existed in space');
     });
   });
 });

@@ -260,6 +260,12 @@ describe('FormulaFieldCore', () => {
       });
     });
 
+    it('should reject LAST_MODIFIED_TIME with non-field parameters during parsing', () => {
+      expect(() => FormulaFieldCore.getParsedValueType('LAST_MODIFIED_TIME("oops")', {})).toThrow(
+        'LAST_MODIFIED_TIME parameter must be a field reference'
+      );
+    });
+
     it('should return current fieldIds by getReferenceFieldIds', () => {
       expect(numberFormulaField.getReferenceFieldIds()).toEqual(['fld123']);
     });

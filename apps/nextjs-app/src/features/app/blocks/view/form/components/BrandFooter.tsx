@@ -8,7 +8,7 @@ export const BrandFooter = () => {
 
   return (
     <div className="flex w-full items-center justify-center">
-      <span className="h-px w-16 bg-slate-200 dark:bg-slate-600" />
+      <span className="h-px w-16 bg-border" />
       <div className="mx-4 flex items-center gap-2 text-xs text-muted-foreground">
         {brandName.toLowerCase() === 'teable' ? (
           <Trans
@@ -33,7 +33,7 @@ export const BrandFooter = () => {
           </Link>
         )}
       </div>
-      <span className="h-px w-16 bg-slate-200 dark:bg-slate-600" />
+      <span className="h-px w-16 bg-border" />
     </div>
   );
 };

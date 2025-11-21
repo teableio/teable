@@ -37,12 +37,13 @@
       },
       "personalView": {
         "personal": "Personal",
+        "tip": "Una vez habilitado, la configuración de la vista solo se aplicará a ti",
         "collaborative": "Colaborativo",
         "dialog": {
-          "title": "Cambiar a modo colaborativo",
-          "description": "Al cambiar al modo colaborativo, la configuración personal de la vista se sincronizará con todos, por favor confirma si deseas sincronizar",
-          "cancelText": "No sincronizar",
-          "confirmText": "Sincronizar"
+          "title": "Salir del modo personal",
+          "description": "La configuración de la vista personal se restaurará al estado de colaboración en tiempo real. También puedes guardar los ajustes de la vista personal y sincronizarlos con todos.",
+          "cancelText": "Salir y sincronizar",
+          "confirmText": "Confirmar salida"
         }
       }
     }
@@ -359,6 +360,13 @@
       "autoFillFieldDialog": {
         "title": "Actualizar todos los registros",
         "description": "Todos los registros en la vista actual se actualizarán, incluidos todos los datos relacionados generados por el campo"
+      },
+      "autoFillConfirm": {
+        "title": "¿Generar toda la columna?",
+        "description": "Generar toda la columna actualizará {{rowCount}} filas. Esta operación puede consumir muchos recursos de IA.",
+        "saveConfigOnly": "Solo guardar configuración",
+        "generate": "Generar",
+        "generateFailed": "La generación ha fallado"
       },
       "action": {
         "addAttachment": "Agregar adjunto"

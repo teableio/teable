@@ -1,6 +1,7 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { CellFormat } from '@teable/core';
+import { Injectable } from '@nestjs/common';
+import { CellFormat, HttpErrorCode } from '@teable/core';
 import type { IBaseQuery } from '@teable/openapi';
+import { CustomHttpException } from '../../../../custom.exception';
 import { BaseQueryService } from '../../../base/base-query/base-query.service';
 import { DashboardService } from '../../../dashboard/dashboard.service';
 import { PluginPanelService } from '../../../plugin-panel/plugin-panel.service';
@@ -26,7 +27,15 @@ export class PluginChartService {
     );
     const query = storage?.query as IBaseQuery;
     if (!query) {
-      throw new NotFoundException('Dashboard Plugin Storage Query not found');
+      throw new CustomHttpException(
+        'Dashboard Plugin Storage Query not found',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.pluginChart.queryNotFound',
+          },
+        }
+      );
     }
     return this.baseQueryService.baseQuery(baseId, query, cellFormat);
   }
@@ -44,7 +53,15 @@ export class PluginChartService {
     );
     const query = storage?.query as IBaseQuery;
     if (!query) {
-      throw new NotFoundException('Plugin Panel Plugin Storage Query not found');
+      throw new CustomHttpException(
+        'Plugin Panel Plugin Storage Query not found',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.pluginChart.queryNotFound',
+          },
+        }
+      );
     }
     return this.baseQueryService.baseQuery(baseId, query, cellFormat);
   }

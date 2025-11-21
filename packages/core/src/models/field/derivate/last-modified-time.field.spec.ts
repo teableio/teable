@@ -54,6 +54,18 @@ describe('LastModifiedTimeFieldCore', () => {
       expect(lastModifiedTimeField.validateOptions().success).toBeTruthy();
     });
 
+    it('should return success if specific fields are provided', () => {
+      const field = plainToInstance(LastModifiedTimeFieldCore, {
+        ...lastModifiedTimeJson,
+        options: {
+          ...lastModifiedTimeJson.options,
+          trackedFieldIds: ['fldA', 'fldB'],
+        },
+      });
+
+      expect(field.validateOptions().success).toBeTruthy();
+    });
+
     it('should return failure if options are invalid', () => {
       expect(
         plainToInstance(LastModifiedTimeFieldCore, {
@@ -73,6 +85,8 @@ describe('LastModifiedTimeFieldCore', () => {
     it('should get default options', () => {
       expect(LastModifiedTimeFieldCore.defaultOptions()).toEqual({
         formatting: defaultDatetimeFormatting,
+        expression: 'LAST_MODIFIED_TIME()',
+        trackedFieldIds: [],
       });
     });
   });

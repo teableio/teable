@@ -8,6 +8,7 @@ import { RecordModule } from '../record.module';
 import { ComputedDependencyCollectorService } from './services/computed-dependency-collector.service';
 import { ComputedEvaluatorService } from './services/computed-evaluator.service';
 import { ComputedOrchestratorService } from './services/computed-orchestrator.service';
+import { LinkCascadeResolver } from './services/link-cascade-resolver';
 import { RecordComputedUpdateService } from './services/record-computed-update.service';
 
 @Module({
@@ -25,6 +26,7 @@ import { RecordComputedUpdateService } from './services/record-computed-update.s
     ComputedEvaluatorService,
     ComputedOrchestratorService,
     RecordComputedUpdateService,
+    LinkCascadeResolver,
   ],
   exports: [ComputedOrchestratorService],
 })

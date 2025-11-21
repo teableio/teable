@@ -139,7 +139,7 @@ describe('OpenAPI AggregationController (e2e)', () => {
           search: ['Text Field', '', false],
         })
       );
-      expect(error?.status).toBe(500);
+      expect(error?.status).toBe(400);
       expect(error?.message).toBe('The maximum search index result is 1000');
     });
 

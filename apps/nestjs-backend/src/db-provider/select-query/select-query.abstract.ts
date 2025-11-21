@@ -1,3 +1,4 @@
+import type { IFormulaParamMetadata } from '@teable/core';
 import type {
   ISelectQueryInterface,
   IFormulaConversionContext,
@@ -17,10 +18,15 @@ import type {
 export abstract class SelectQueryAbstract implements ISelectQueryInterface {
   /** Current conversion context */
   protected context?: IFormulaConversionContext;
+  protected currentCallMetadata?: IFormulaParamMetadata[];
 
   /** Set the conversion context */
   setContext(context: IFormulaConversionContext): void {
     this.context = context;
+  }
+
+  setCallMetadata(metadata?: IFormulaParamMetadata[]): void {
+    this.currentCallMetadata = metadata;
   }
 
   /** Check if we're in a SELECT query context (always true for this class) */

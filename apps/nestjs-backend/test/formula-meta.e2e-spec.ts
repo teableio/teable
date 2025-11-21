@@ -4,6 +4,7 @@ import type { INestApplication } from '@nestjs/common';
 import { FieldKeyType, FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
+import { duplicateField } from '@teable/openapi';
 import {
   createField,
   createTable,
@@ -32,6 +33,19 @@ async function waitForFormulaValue(
   }
   throw new Error(`Timed out waiting for formula value ${expectedValue}`);
 }
+
+const parsePersistedMeta = (raw: unknown): { persistedAsGeneratedColumn?: boolean } | undefined => {
+  if (!raw) {
+    return undefined;
+  }
+  if (typeof raw === 'string') {
+    return JSON.parse(raw) as { persistedAsGeneratedColumn?: boolean };
+  }
+  if (typeof raw === 'object') {
+    return raw as { persistedAsGeneratedColumn?: boolean };
+  }
+  return undefined;
+};
 
 describe('Formula meta persistedAsGeneratedColumn (e2e)', () => {
   let app: INestApplication;
@@ -191,6 +205,88 @@ describe('Formula meta persistedAsGeneratedColumn (e2e)', () => {
           })
         : undefined;
       expect(updatedMeta?.persistedAsGeneratedColumn).toBe(true);
+    });
+  });
+
+  describe('formula metadata resets when expressions become unsupported', () => {
+    let table: ITableFullVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, {
+        name: 'formula-meta-reset',
+        fields: [
+          { name: 'Number Field', type: FieldType.Number },
+          { name: 'Text Field', type: FieldType.SingleLineText },
+        ],
+        records: [{ fields: { 'Number Field': 5, 'Text Field': 'text' } }],
+      });
+    });
+
+    afterEach(async () => {
+      if (table?.id) {
+        await deleteTable(baseId, table.id);
+      }
+    });
+
+    it('clears persisted meta when converting generated formula to unsupported expression', async () => {
+      const numberFieldId = table.fields.find((f) => f.name === 'Number Field')!.id;
+      const textFieldId = table.fields.find((f) => f.name === 'Text Field')!.id;
+
+      const created = await createField(table.id, {
+        name: 'Generated Numeric',
+        type: FieldType.Formula,
+        options: { expression: `{${numberFieldId}} * 2` },
+      });
+
+      const createdRaw = await prisma.field.findUniqueOrThrow({
+        where: { id: created.id },
+        select: { meta: true },
+      });
+      expect(parsePersistedMeta(createdRaw.meta)?.persistedAsGeneratedColumn).toBe(true);
+
+      await convertField(table.id, created.id, {
+        type: FieldType.Formula,
+        options: { expression: `AND({${numberFieldId}}, {${textFieldId}})` },
+      });
+
+      const updatedRaw = await prisma.field.findUniqueOrThrow({
+        where: { id: created.id },
+        select: { meta: true },
+      });
+      expect(parsePersistedMeta(updatedRaw.meta)?.persistedAsGeneratedColumn).not.toBe(true);
+      expect(updatedRaw.meta).toBeNull();
+    });
+
+    it('removes copied persisted meta for duplicated formulas after unsupported update', async () => {
+      const numberFieldId = table.fields.find((f) => f.name === 'Number Field')!.id;
+      const textFieldId = table.fields.find((f) => f.name === 'Text Field')!.id;
+
+      const created = await createField(table.id, {
+        name: 'Generated Base Formula',
+        type: FieldType.Formula,
+        options: { expression: `{${numberFieldId}} + 1` },
+      });
+
+      const duplicateRes = await duplicateField(table.id, created.id, { name: 'Generated Copy' });
+      const duplicatedField = duplicateRes.data;
+
+      const duplicateRaw = await prisma.field.findUniqueOrThrow({
+        where: { id: duplicatedField.id },
+        select: { meta: true },
+      });
+      expect(parsePersistedMeta(duplicateRaw.meta)?.persistedAsGeneratedColumn).toBe(true);
+
+      await convertField(table.id, duplicatedField.id, {
+        type: FieldType.Formula,
+        options: { expression: `AND({${numberFieldId}}, {${textFieldId}})` },
+      });
+
+      const postUpdateRaw = await prisma.field.findUniqueOrThrow({
+        where: { id: duplicatedField.id },
+        select: { meta: true },
+      });
+      expect(parsePersistedMeta(postUpdateRaw.meta)?.persistedAsGeneratedColumn).not.toBe(true);
+      expect(postUpdateRaw.meta).toBeNull();
     });
   });
 });

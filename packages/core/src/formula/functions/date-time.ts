@@ -84,8 +84,8 @@ export class Today extends DateTimeFunc {
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+  validateParams(_params: TypedValue[]) {}
 
   getReturnType() {
     return { type: CellValueType.DateTime };
@@ -103,10 +103,11 @@ export class Now extends DateTimeFunc {
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/no-empty-function
+  validateParams(_params: TypedValue[]) {}
 
-  getReturnType() {
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
     return { type: CellValueType.DateTime };
   }
 
@@ -751,18 +752,29 @@ export class CreatedTime extends DateTimeFunc {
 export class LastModifiedTime extends DateTimeFunc {
   name = FunctionName.LastModifiedTime;
 
-  acceptValueType = new Set([CellValueType.DateTime]);
+  acceptValueType = new Set([
+    CellValueType.String,
+    CellValueType.Number,
+    CellValueType.Boolean,
+    CellValueType.DateTime,
+  ]);
 
   acceptMultipleValue = false;
 
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
-  validateParams() {}
+  validateParams(params: TypedValue[]): void {
+    if (!params.length) return;
+    if (params.some((param) => !param?.field)) {
+      throw new Error(`${FunctionName.LastModifiedTime} parameter must be a field reference`);
+    }
+  }
 
-  getReturnType() {
+  getReturnType(params?: TypedValue[]) {
+    params && this.validateParams(params);
     return { type: CellValueType.DateTime };
   }
 
   eval(params: TypedValue<string | null>[], context: IFormulaContext): string | null {
+    this.validateParams(params);
     return context.record.lastModifiedTime ?? null;
   }
 }

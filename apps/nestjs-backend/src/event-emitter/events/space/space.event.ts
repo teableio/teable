@@ -5,7 +5,7 @@ import { CoreEvent } from '../core-event';
 import { Events } from '../event.enum';
 
 type ISpaceCreatePayload = { space: ICreateSpaceVo };
-type ISpaceDeletePayload = { spaceId: string };
+type ISpaceDeletePayload = { spaceId: string; permanent?: boolean };
 type ISpaceUpdatePayload = ISpaceCreatePayload;
 
 export class SpaceCreateEvent extends CoreEvent<ISpaceCreatePayload> {
@@ -19,8 +19,8 @@ export class SpaceCreateEvent extends CoreEvent<ISpaceCreatePayload> {
 export class SpaceDeleteEvent extends CoreEvent<ISpaceDeletePayload> {
   public readonly name = Events.SPACE_DELETE;
 
-  constructor(spaceId: string, context: IEventContext) {
-    super({ spaceId }, context);
+  constructor(payload: ISpaceDeletePayload, context: IEventContext) {
+    super(payload, context);
   }
 }
 
@@ -44,8 +44,8 @@ export class SpaceEventFactory {
         return new SpaceCreateEvent(space, context);
       })
       .with(Events.SPACE_DELETE, () => {
-        const { spaceId } = payload as ISpaceDeletePayload;
-        return new SpaceDeleteEvent(spaceId, context);
+        const { spaceId, permanent } = payload as ISpaceDeletePayload;
+        return new SpaceDeleteEvent({ spaceId, permanent }, context);
       })
       .with(Events.SPACE_UPDATE, () => {
         const { space } = payload as ISpaceUpdatePayload;

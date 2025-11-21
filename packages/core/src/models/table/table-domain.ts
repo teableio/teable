@@ -1,7 +1,9 @@
 import type { IFieldMap } from '../../formula';
+import { FieldType } from '../field/constant';
 import type { FieldCore } from '../field/field';
 import type { ILookupLinkOptions } from '../field/lookup-options-base.schema';
 import { isLinkLookupOptions } from '../field/lookup-options-base.schema';
+import { FieldKeyType } from '../record';
 import { TableFields } from './table-fields';
 
 /**
@@ -79,6 +81,33 @@ export class TableDomain {
     return !this._fields.isEmpty;
   }
 
+  getFieldsByProjection(projection?: string[]): FieldCore[] {
+    if (!projection || projection.length === 0) {
+      return this.fieldList as FieldCore[];
+    }
+    const fieldSet = new Set(projection);
+    return this.fieldList.filter(
+      (field) =>
+        fieldSet.has(field.id) || fieldSet.has(field.name) || fieldSet.has(field.dbFieldName)
+    );
+  }
+
+  /**
+   * Get fields map by specified key type
+   */
+  getFieldsMap(fieldKeyType: FieldKeyType): Map<string, FieldCore> {
+    switch (fieldKeyType) {
+      case FieldKeyType.Id:
+        return this._fields.toFieldMap();
+      case FieldKeyType.Name:
+        return this._fields.toFieldNameMap();
+      case FieldKeyType.DbFieldName:
+        return this._fields.toFieldDbNameMap();
+      default:
+        throw new Error(`Unsupported field key type: ${fieldKeyType}`);
+    }
+  }
+
   /**
    * Add a field to the table
    */
@@ -154,6 +183,13 @@ export class TableDomain {
   }
 
   /**
+   * Get the last modified fields
+   */
+  getLastModifiedFields(): FieldCore[] {
+    return this._fields.getLastModifiedFields();
+  }
+
+  /**
    * Get all computed fields
    */
   getComputedFields(): FieldCore[] {
@@ -214,6 +250,25 @@ export class TableDomain {
    */
   mapFields<T>(mapper: (field: FieldCore) => T): T[] {
     return this._fields.map(mapper);
+  }
+
+  getLinkFieldsByProjection(projection?: Iterable<string>): FieldCore[] {
+    if (!projection) {
+      return this._fields.filter(
+        (field) => field.type === FieldType.Link && !field.isLookup
+      ) as FieldCore[];
+    }
+
+    const expanded = this.expandFieldIdsWithLinkDependencies(projection);
+    if (!expanded.size) {
+      return [];
+    }
+
+    return Array.from(expanded)
+      .map((fieldId) => this.getField(fieldId))
+      .filter(
+        (field): field is FieldCore => !!field && field.type === FieldType.Link && !field.isLookup
+      );
   }
 
   /**

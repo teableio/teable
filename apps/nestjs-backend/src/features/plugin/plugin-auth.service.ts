@@ -1,11 +1,7 @@
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { getRandomString } from '@teable/core';
+import { getRandomString, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   PluginStatus,
@@ -16,6 +12,7 @@ import {
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { second } from '../../utils/second';
 import { AccessTokenService } from '../access-token/access-token.service';
@@ -92,14 +89,26 @@ export class PluginAuthService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Plugin not found');
+        throw new CustomHttpException('Plugin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.plugin.notFound',
+          },
+        });
       });
     if (!plugin.pluginUser) {
-      throw new BadRequestException('Plugin user not found');
+      throw new CustomHttpException('Plugin user not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.userNotFound',
+        },
+      });
     }
     const checkSecret = await validateSecret(secret, plugin.secret);
     if (!checkSecret) {
-      throw new BadRequestException('Invalid secret');
+      throw new CustomHttpException('Invalid secret', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.invalidSecret',
+        },
+      });
     }
     return {
       ...plugin,
@@ -138,8 +147,11 @@ export class PluginAuthService {
     const { secret, refreshToken } = ro;
     const plugin = await this.validateSecret(secret, pluginId);
     const payload = await this.jwtService.verifyAsync<IRefreshPayload>(refreshToken).catch(() => {
-      // eslint-disable-next-line sonarjs/no-duplicate-string
-      throw new BadRequestException('Invalid refresh token');
+      throw new CustomHttpException('Invalid refresh token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.invalidRefreshToken',
+        },
+      });
     });
 
     if (
@@ -147,7 +159,11 @@ export class PluginAuthService {
       payload.secret !== secret ||
       payload.accessTokenId === undefined
     ) {
-      throw new BadRequestException('Invalid refresh token');
+      throw new CustomHttpException('Invalid refresh token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.plugin.invalidRefreshToken',
+        },
+      });
     }
     return this.prismaService.$tx(async (prisma) => {
       const oldAccessToken = await prisma.accessToken
@@ -155,7 +171,11 @@ export class PluginAuthService {
           where: { id: payload.accessTokenId },
         })
         .catch(() => {
-          throw new BadRequestException('Invalid refresh token');
+          throw new CustomHttpException('Invalid refresh token', HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.plugin.invalidRefreshToken',
+            },
+          });
         });
 
       await prisma.accessToken.delete({
@@ -165,7 +185,15 @@ export class PluginAuthService {
       const baseId = oldAccessToken.baseIds ? JSON.parse(oldAccessToken.baseIds)[0] : '';
       const scopes = oldAccessToken.scopes ? JSON.parse(oldAccessToken.scopes) : [];
       if (!baseId) {
-        throw new InternalServerErrorException('Anomalous token with no baseId');
+        throw new CustomHttpException(
+          'Anomalous token with no baseId',
+          HttpErrorCode.INTERNAL_SERVER_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.plugin.anomalousToken',
+            },
+          }
+        );
       }
 
       const accessToken = await this.generateAccessToken({
@@ -196,7 +224,11 @@ export class PluginAuthService {
       where: { pluginId, baseId },
     });
     if (count === 0) {
-      throw new NotFoundException('Plugin not installed');
+      throw new CustomHttpException('Plugin not installed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.pluginInstall.notFound',
+        },
+      });
     }
     const authCode = getRandomString(16);
     await this.cacheService.set(`plugin:auth-code:${authCode}`, { baseId, pluginId }, second('5m'));

@@ -40,7 +40,7 @@ export const Group = (props: IGroupProps) => {
       <PopoverContent side="bottom" align="start" className="relative w-fit max-w-screen-md p-0">
         <ReadOnlyTip />
         <header className="mx-3">
-          <div className="border-b py-3 text-[13px]">{t('group.setTips')}</div>
+          <div className="border-b border-border-high py-3 text-[13px]">{t('group.setTips')}</div>
         </header>
         <SortContent
           limit={3}

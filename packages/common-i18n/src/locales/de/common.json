@@ -538,7 +538,111 @@
     "unsubscribeH2": "Sie sind dabei, sich von zukünftigen Teable-Werbeaktionen und Produktaktualisierungen abzumelden. Möchten Sie sich wirklich abmelden?",
     "subscribeH1": "Abonnement bestätigen?",
     "subscribeH2": "Sie sind dabei, zukünftige Teable-Werbeaktionen und Produktaktualisierungen zu abonnieren. Möchten Sie wirklich abonnieren?",
-    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Basis haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\"."
+    "unsubscribeListTip": "Die folgenden Benutzer in der aktuellen Basis haben sich abgemeldet, Sie können ihnen keine E-Mails mehr senden. Beim Importieren von E-Mails platzieren Sie bitte die E-Mail-Adressen in der ersten Spalte und benennen Sie die Kopfzeile \"email\".",
+    "templates": {
+      "resetPassword": {
+        "subject": "Passwort zurücksetzen - {{brandName}}",
+        "title": "Setzen Sie Ihr Passwort zurück",
+        "message": "Wenn Sie diese Änderung nicht angefordert haben, ignorieren Sie diese E-Mail bitte. Klicken Sie andernfalls auf die Schaltfläche unten, um Ihr Passwort zurückzusetzen.",
+        "buttonText": "Passwort zurücksetzen"
+      },
+      "emailVerifyCode": {
+        "signupVerification": {
+          "subject": "Registrierungsbestätigung - {{brandName}}",
+          "title": "Registrierungsbestätigung",
+          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
+        },
+        "domainVerification": {
+          "subject": "Domain-Verifizierung - {{brandName}}",
+          "title": "Domain-Verifizierung",
+          "message": "Ihr Einmalcode lautet: {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
+        },
+        "changeEmailVerification": {
+          "subject": "E-Mail-Änderungsbestätigung - {{brandName}}",
+          "title": "E-Mail-Änderungsbestätigung",
+          "message": "Ihr Bestätigungscode lautet {{code}}. Bitte verwenden Sie ihn innerhalb von {{expiresIn}} Minuten."
+        }
+      },
+      "collaboratorCellTag": {
+        "subject": "{{fromUserName}} hat Sie zum Feld {{fieldName}} eines Datensatzes in {{tableName}} hinzugefügt",
+        "title": "<strong>{{fromUserName}}</strong> hat Sie zum Feld <strong>{{fieldName}}</strong> eines Datensatzes in <strong>{{tableName}}</strong> hinzugefügt",
+        "buttonText": "Datensatz anzeigen"
+      },
+      "collaboratorMultiRowTag": {
+        "subject": "{{fromUserName}} hat Sie zu {{refLength}} Datensätzen in {{tableName}} hinzugefügt",
+        "title": "<strong>{{fromUserName}}</strong> hat Sie zu <strong>{{refLength}}</strong> Datensätzen in <strong>{{tableName}}</strong> hinzugefügt",
+        "buttonText": "Datensätze anzeigen"
+      },
+      "invite": {
+        "subject": "{{name}} ({{email}}) hat Sie zu {{resourceAlias}} {{resourceName}} eingeladen - {{brandName}}",
+        "title": "Einladung zur Zusammenarbeit",
+        "message": "<strong>{{name}}</strong> ({{email}}) hat Sie zu {{resourceAlias}} <strong>{{resourceName}}</strong> eingeladen.",
+        "buttonText": "Einladung annehmen"
+      },
+      "waitlistInvite": {
+        "subject": "Willkommen - {{brandName}}",
+        "title": "Willkommen",
+        "message": "Sie haben sich erfolgreich auf der Warteliste von {{brandName}} eingetragen. Bitte verwenden Sie den folgenden Einladungscode zur Registrierung: {{code}}. Er kann {{times}} Mal verwendet werden.",
+        "buttonText": "Registrieren"
+      },
+      "test": {
+        "subject": "Test-E-Mail - {{brandName}}",
+        "title": "Test-E-Mail",
+        "message": "Dies ist eine Test-E-Mail, bitte ignorieren."
+      },
+      "notify": {
+        "subject": "Benachrichtigung - {{brandName}}",
+        "title": "Benachrichtigung",
+        "buttonText": "Anzeigen",
+        "import": {
+          "title": "Importergebnis-Benachrichtigung",
+          "table": {
+            "aborted": {
+              "message": "❌ {{tableName}} Import abgebrochen: {{errorMessage}} fehlgeschlagener Zeilenbereich: [{{range}}]. Bitte überprüfen Sie die Daten für diesen Bereich und versuchen Sie es erneut."
+            },
+            "failed": {
+              "message": "❌ {{tableName}} Import fehlgeschlagen: {{errorMessage}}"
+            },
+            "success": {
+              "message": "🎉 {{tableName}} erfolgreich importiert.",
+              "inplace": "🎉 {{tableName}} erfolgreich inkrementell importiert."
+            }
+          }
+        },
+        "recordComment": {
+          "title": "Datensatzkommentar-Benachrichtigung",
+          "message": "{{fromUserName}} hat einen Kommentar zu {{recordName}} in {{tableName}} in {{baseName}} abgegeben"
+        },
+        "automation": {
+          "title": "Automatisierungs-Benachrichtigung",
+          "failed": {
+            "title": "Automatisierung {{name}} fehlgeschlagen",
+            "message": "Ihre Automatisierung {{name}} konnte nicht ausgeführt werden. Klicken Sie auf die Schaltfläche unten, um spezifische Fehler aus der Ausführungshistorie anzuzeigen."
+          },
+          "insufficientCredit": {
+            "title": "Automatisierung {{name}} aufgrund unzureichenden Guthabens fehlgeschlagen",
+            "message": "Ihre Automatisierung {{name}} konnte aufgrund unzureichenden Guthabens nicht ausgeführt werden. Bitte aktualisieren Sie Ihr Abonnement oder kontaktieren Sie den Support."
+          }
+        },
+        "exportBase": {
+          "title": "Export-Base-Ergebnis-Benachrichtigung",
+          "success": {
+            "message": "{{baseName}} erfolgreich exportiert: <a href=\"{{previewUrl}}\" name=\"{{name}}\" class=\"hover:text-blue-500 underline\">🗂️ {{name}}</a>"
+          },
+          "failed": {
+            "message": "❌ {{baseName}} Export fehlgeschlagen: {{errorMessage}}"
+          }
+        },
+        "task": {
+          "ai": {
+            "failed": {
+              "title": "KI-Aufgabe in Tabelle {{tableName}} fehlgeschlagen",
+              "message": "Die KI-Aufgabe für Feld {{fieldName}} in Tabelle {{tableName}} (Datensatz-ID: {{recordId}}) ist fehlgeschlagen.\n\n{{errorMsg}}\n\nKlicken Sie auf die Schaltfläche unten, um Details anzuzeigen."
+            }
+          }
+        }
+      }
+    }
   },
   "waitlist": {
     "title": "Warteliste",

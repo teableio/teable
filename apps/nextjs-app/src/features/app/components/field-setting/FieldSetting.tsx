@@ -17,7 +17,7 @@ import {
 } from '@teable/core';
 import { Share2 } from '@teable/icons';
 import { type IPlanFieldConvertVo } from '@teable/openapi';
-import { useTable, useTableId, useView, useFieldOperations } from '@teable/sdk/hooks';
+import { useTable, useTableId, useView, useFieldOperations, useRowCount } from '@teable/sdk/hooks';
 import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
 import {
   Dialog,
@@ -30,11 +30,12 @@ import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { Sheet, SheetContent } from '@teable/ui-lib/shadcn/ui/sheet';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { fromZodError } from 'zod-validation-error';
 import { tableConfig } from '@/features/i18n/table.config';
 import { DynamicFieldGraph } from '../../blocks/graph/DynamicFieldGraph';
 import { ProgressBar } from '../../blocks/graph/ProgressBar';
+import { AiAutoFillDialog } from './dialog/AiAutoFillDialog';
 import { DynamicFieldEditor } from './DynamicFieldEditor';
 import { useDefaultFieldName } from './hooks/useDefaultFieldName';
 import type { IFieldEditorRo, IFieldSetting, IFieldSettingBase } from './type';
@@ -115,14 +116,37 @@ export const FieldSetting = (props: IFieldSetting) => {
 
   const view = useView();
   const tableId = useTableId() as string;
+  const rowCount = useRowCount();
   const getDefaultFieldName = useDefaultFieldName();
-  const { createField, convertField, planFieldCreate, planFieldConvert } = useFieldOperations();
+  const { createField, convertField, planFieldCreate, planFieldConvert, autoFillField } =
+    useFieldOperations();
 
   const [graphVisible, setGraphVisible] = useState<boolean>(false);
   const [processVisible, setProcessVisible] = useState<boolean>(false);
   const [plan, setPlan] = useState<IPlanFieldConvertVo>();
   const [fieldRo, setFieldRo] = useState<IFieldRo>();
+  const [aiConfirmVisible, setAiConfirmVisible] = useState(false);
+  const autoFillAfterSaveRef = useRef<boolean>(false);
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+
+  const runAutoFillIfNeeded = async (result?: IFieldVo) => {
+    if (!result || !autoFillAfterSaveRef.current) {
+      autoFillAfterSaveRef.current = false;
+      return;
+    }
+
+    try {
+      if (tableId && result.id) {
+        const query = view?.id ? { viewId: view.id } : {};
+        await autoFillField({ tableId, fieldId: result.id, query });
+      }
+    } catch (e) {
+      toast.error(t('table:field.aiConfig.autoFillConfirm.generateFailed'));
+      console.error('autoFillField error', e);
+    } finally {
+      autoFillAfterSaveRef.current = false;
+    }
+  };
 
   const onCancel = () => {
     props.onCancel?.();
@@ -173,6 +197,8 @@ export const FieldSetting = (props: IFieldSetting) => {
       setProcessVisible(false);
     }
 
+    await runAutoFillIfNeeded(result);
+
     props.onConfirm?.(result);
   };
 
@@ -188,8 +214,40 @@ export const FieldSetting = (props: IFieldSetting) => {
       return onCancel();
     }
 
+    const hasAiConfig = Boolean(fieldRo.aiConfig?.isAutoFill);
+    const originAiConfig = props.field?.aiConfig;
+    const aiConfigChanged =
+      JSON.stringify(originAiConfig ?? null) !== JSON.stringify(fieldRo.aiConfig ?? null);
+
+    if (
+      hasAiConfig &&
+      (operator === FieldOperator.Add ||
+        operator === FieldOperator.Insert ||
+        (operator === FieldOperator.Edit && aiConfigChanged))
+    ) {
+      setFieldRo(fieldRo);
+      setAiConfirmVisible(true);
+      return;
+    }
+
     const plan = await getPlan(fieldRo);
     setFieldRo(fieldRo);
+    setPlan(plan);
+    const estimateTime = plan?.estimateTime || 0;
+    const linkFieldCount = plan?.linkFieldCount || 0;
+    if (estimateTime > 1000 || linkFieldCount > 0) {
+      setGraphVisible(true);
+      return;
+    }
+
+    await performAction(fieldRo);
+  };
+
+  const handleConfirmWithAutoFill = async (autoFill: boolean) => {
+    if (!fieldRo) return;
+    autoFillAfterSaveRef.current = autoFill;
+
+    const plan = await getPlan(fieldRo);
     setPlan(plan);
     const estimateTime = plan?.estimateTime || 0;
     const linkFieldCount = plan?.linkFieldCount || 0;
@@ -219,6 +277,25 @@ export const FieldSetting = (props: IFieldSetting) => {
         confirmText={t('common:actions.confirm')}
         onCancel={() => setGraphVisible(false)}
         onConfirm={() => performAction(fieldRo as IFieldRo)}
+      />
+      <AiAutoFillDialog
+        open={aiConfirmVisible}
+        title={t('table:field.aiConfig.autoFillConfirm.title')}
+        description={t('table:field.aiConfig.autoFillConfirm.description', {
+          rowCount: rowCount ?? 0,
+        })}
+        cancelText={t('common:actions.cancel')}
+        saveText={t('table:field.aiConfig.autoFillConfirm.saveConfigOnly')}
+        updateText={t('table:field.aiConfig.autoFillConfirm.generate')}
+        onClose={() => setAiConfirmVisible(false)}
+        onSave={async () => {
+          setAiConfirmVisible(false);
+          await handleConfirmWithAutoFill(false);
+        }}
+        onUpdate={async () => {
+          setAiConfirmVisible(false);
+          await handleConfirmWithAutoFill(true);
+        }}
       />
       <ConfirmDialog
         open={processVisible}

@@ -5,4 +5,7 @@ export const localizationSchema = z.object({
   context: z.record(z.unknown()).optional(),
 });
 
-export type ILocalization = z.infer<typeof localizationSchema>;
+export type ILocalization<T extends string = string> = {
+  i18nKey: T;
+  context?: Record<string, unknown>;
+};

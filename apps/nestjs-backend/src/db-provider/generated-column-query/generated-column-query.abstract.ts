@@ -1,3 +1,4 @@
+import type { IFormulaParamMetadata } from '@teable/core';
 import type {
   IFormulaConversionContext,
   IGeneratedColumnQueryInterface,
@@ -11,10 +12,15 @@ import type {
 export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQueryInterface {
   /** Current conversion context */
   protected context?: IFormulaConversionContext;
+  protected currentCallMetadata?: IFormulaParamMetadata[];
 
   /** Set the conversion context */
   setContext(context: IFormulaConversionContext): void {
     this.context = context;
+  }
+
+  setCallMetadata(metadata?: IFormulaParamMetadata[]): void {
+    this.currentCallMetadata = metadata;
   }
 
   /** Check if we're in a generated column context */

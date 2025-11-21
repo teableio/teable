@@ -737,10 +737,28 @@ export class FieldSupplementService {
       );
     }
 
-    const { cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
-      (fieldRo.options as IFormulaFieldOptions).expression,
-      fieldMap
-    );
+    let cellValueType: CellValueType;
+    let isMultipleCellValue: boolean | undefined;
+
+    try {
+      ({ cellValueType, isMultipleCellValue } = FormulaFieldDto.getParsedValueType(
+        (fieldRo.options as IFormulaFieldOptions).expression,
+        fieldMap
+      ));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (e: any) {
+      throw new CustomHttpException(
+        `Parse formula expression ${(fieldRo.options as IFormulaFieldOptions).expression} error: ${
+          e.message
+        }`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.formulaExpressionParseError',
+          },
+        }
+      );
+    }
 
     const formatting =
       (fieldRo.options as IFormulaFieldOptions)?.formatting ?? getDefaultFormatting(cellValueType);
@@ -804,7 +822,7 @@ export class FieldSupplementService {
         HttpErrorCode.VALIDATION_ERROR,
         {
           localization: {
-            i18nKey: 'editor.error.rollupExpressionParseError',
+            i18nKey: 'httpErrors.field.rollupExpressionParseError',
           },
         }
       );
@@ -1265,7 +1283,10 @@ export class FieldSupplementService {
 
   private prepareLastModifiedTimeField(field: IFieldRo) {
     const { name } = field;
-    const options = field.options ?? LastModifiedTimeFieldCore.defaultOptions();
+    const options = {
+      ...LastModifiedTimeFieldCore.defaultOptions(),
+      ...(field.options ?? {}),
+    };
 
     return {
       ...field,
@@ -1794,6 +1815,7 @@ export class FieldSupplementService {
 
     switch (field.type) {
       case FieldType.Formula:
+      case FieldType.LastModifiedTime:
       case FieldType.Rollup:
       case FieldType.ConditionalRollup:
       case FieldType.Link:
@@ -1901,6 +1923,11 @@ export class FieldSupplementService {
 
     if (field.type === FieldType.Formula) {
       return (field as FormulaFieldDto).getReferenceFieldIds();
+    }
+
+    if (field.type === FieldType.LastModifiedTime) {
+      const lmtField = field as LastModifiedTimeFieldCore;
+      return lmtField.getTrackedFieldIds();
     }
 
     return [];

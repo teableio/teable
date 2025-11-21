@@ -1110,13 +1110,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
   }, [inPrefilling, inPresorting]);
 
-  useClickAway(
-    containerRef,
-    () => {
-      gridRef.current?.resetState();
-    },
-    ['pointerdown', 'mousedown', 'touchstart']
-  );
+  useClickAway(containerRef, () => {
+    gridRef.current?.resetState();
+  });
 
   useScrollFrameRate(gridRef.current?.scrollBy);
 

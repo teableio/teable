@@ -35,12 +35,13 @@
       },
       "personalView": {
         "personal": "個人",
+        "tip": "有効化すると、表示設定は自分にのみ適用されます",
         "collaborative": "協同",
         "dialog": {
-          "title": "ビュー協同モードに切り替える",
-          "description": "ビュー協同モードに切り替えると、ビューの個人設定がすべての人と同期されます。同期するかどうかを確認してください。",
-          "cancelText": "同期しない",
-          "confirmText": "同期"
+          "title": "パーソナルモードを終了",
+          "description": "パーソナルビューの構成はリアルタイム共同作業の状態に復元されます。パーソナルビューの設定を保存し、全員に同期することもできます。",
+          "cancelText": "終了して同期",
+          "confirmText": "終了を確認"
         }
       }
     }
@@ -353,6 +354,13 @@
       "autoFillFieldDialog": {
         "title": "すべてのレコードを更新",
         "description": "現在のビューのすべてのレコードが更新され、フィールドによって生成されたすべての関連データが含まれます"
+      },
+      "autoFillConfirm": {
+        "title": "列全体を生成しますか？",
+        "description": "列全体を生成すると {{rowCount}} 行が更新されます。この操作は大量の AI リソースを消費する可能性があります。",
+        "saveConfigOnly": "設定のみ保存",
+        "generate": "生成する",
+        "generateFailed": "生成に失敗しました"
       },
       "action": {
         "addAttachment": "添付ファイルを追加"

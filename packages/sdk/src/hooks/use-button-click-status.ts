@@ -1,7 +1,9 @@
 import { useMutation } from '@tanstack/react-query';
 import { getTableButtonClickChannel } from '@teable/core';
-import { buttonClick as buttonClickApi } from '@teable/openapi/src/record/button-click';
-import { shareViewButtonClick as shareViewButtonClickApi } from '@teable/openapi/src/share/view-button-click';
+import {
+  buttonClick as buttonClickApi,
+  shareViewButtonClick as shareViewButtonClickApi,
+} from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

@@ -32,6 +32,7 @@ import { ConditionalRollupOptions } from './options/ConditionalRollupOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
+import { LastModifiedTimeOptions } from './options/LastModifiedTimeOptions';
 import { LinkOptions } from './options/LinkOptions';
 import { LongTextOptions } from './options/LongTextOptions';
 import { NumberOptions } from './options/NumberOptions';
@@ -143,7 +144,7 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
       );
     case FieldType.LastModifiedTime:
       return (
-        <CreatedTimeOptions
+        <LastModifiedTimeOptions
           options={options as ILastModifiedTimeFieldOptions}
           onChange={onChange}
         />

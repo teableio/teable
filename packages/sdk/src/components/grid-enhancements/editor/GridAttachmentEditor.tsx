@@ -65,7 +65,7 @@ export const GridAttachmentEditor = forwardRef<
           maxHeight: '320px',
         }}
         className={cn(
-          'click-outside-ignore cursor-default flex flex-col absolute w-full overflow-hidden rounded-md border border-input bg-background shadow-md',
+          'click-outside-ignore cursor-default flex flex-col absolute w-full overflow-hidden rounded-md border border-border-high bg-popover shadow-md dark:shadow-lg',
           {
             'h-[320px]': attachments?.length > 4,
           }

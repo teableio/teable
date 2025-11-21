@@ -46,7 +46,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
       ) : (
         <Spin />
       )}
-      <div className="relative flex h-7 shrink-0 grow-0 flex-col items-start justify-center">
+      <div className="relative flex h-7 shrink-0 grow-0 flex-col items-start gap-1 justify-center">
         <div
           className="text-sm leading-none"
           onDoubleClick={() => {
@@ -84,7 +84,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             }}
           />
         )}
-        <div className="hidden text-xs leading-none text-muted-foreground @xl/view-header:block">
+        <div className="hidden text-[11px] leading-3 text-muted-foreground @xl/view-header:block">
           {t('table:lastModify')} {isHydrated ? dayjs(table?.lastModifiedTime).fromNow() : ''}
         </div>
       </div>

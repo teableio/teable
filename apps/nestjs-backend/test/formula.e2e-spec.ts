@@ -1086,6 +1086,267 @@ describe('OpenAPI formula (e2e)', () => {
     });
   });
 
+  describe('LAST_MODIFIED_TIME field parameter', () => {
+    it('should update when any referenced field changes', async () => {
+      const multiTrackedFormulaField = await createField(table1Id, {
+        name: 'multi-tracked-last-modified',
+        type: FieldType.Formula,
+        options: {
+          expression: `LAST_MODIFIED_TIME({${textFieldRo.id}}, {${numberFieldRo.id}})`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'initial text',
+              [numberFieldRo.name]: 1,
+              [multiSelectFieldRo.name]: ['Alpha'],
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const initialRecord = await getRecord(table1Id, recordId);
+      const initialFormulaValue = initialRecord.data.fields[multiTrackedFormulaField.name];
+      expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
+
+      // Untracked field change should NOT update the formula
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [multiSelectFieldRo.name]: ['Beta'],
+          },
+        },
+      });
+
+      const afterUntrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterUntrackedUpdate.data.lastModifiedTime).not.toEqual(
+        initialRecord.data.lastModifiedTime
+      );
+      expect(afterUntrackedUpdate.data.fields[multiTrackedFormulaField.name]).toEqual(
+        initialFormulaValue
+      );
+
+      // Any tracked field change should update the formula
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 2,
+          },
+        },
+      });
+
+      const afterTrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterTrackedUpdate.data.fields[multiTrackedFormulaField.name]).not.toEqual(
+        initialFormulaValue
+      );
+      expect(afterTrackedUpdate.data.fields[multiTrackedFormulaField.name]).toEqual(
+        afterTrackedUpdate.data.lastModifiedTime
+      );
+    });
+
+    it('should update only when the referenced field changes', async () => {
+      const lastModifiedFormulaField = await createField(table1Id, {
+        name: 'tracked-last-modified',
+        type: FieldType.Formula,
+        options: {
+          expression: `LAST_MODIFIED_TIME({${textFieldRo.id}})`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'initial text',
+              [numberFieldRo.name]: 1,
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const initialRecord = await getRecord(table1Id, recordId);
+      const initialFormulaValue = initialRecord.data.fields[lastModifiedFormulaField.name];
+      expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 99,
+          },
+        },
+      });
+
+      const afterUnrelatedUpdate = await getRecord(table1Id, recordId);
+      expect(afterUnrelatedUpdate.data.lastModifiedTime).not.toEqual(
+        initialRecord.data.lastModifiedTime
+      );
+      expect(afterUnrelatedUpdate.data.fields[lastModifiedFormulaField.name]).toEqual(
+        initialFormulaValue
+      );
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [textFieldRo.name]: 'updated text',
+          },
+        },
+      });
+
+      const afterTrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterTrackedUpdate.data.fields[lastModifiedFormulaField.name]).not.toEqual(
+        initialFormulaValue
+      );
+      expect(afterTrackedUpdate.data.fields[lastModifiedFormulaField.name]).toEqual(
+        afterTrackedUpdate.data.lastModifiedTime
+      );
+    });
+
+    it('should continue to work without passing the optional parameter', async () => {
+      const defaultLastModifiedField = await createField(table1Id, {
+        name: 'default-last-modified',
+        type: FieldType.Formula,
+        options: {
+          expression: 'LAST_MODIFIED_TIME()',
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'plain text',
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const initialRecord = await getRecord(table1Id, recordId);
+      const initialFormulaValue = initialRecord.data.fields[defaultLastModifiedField.name];
+      expect(initialFormulaValue).toEqual(initialRecord.data.lastModifiedTime);
+
+      // Any field change should update the default tracking formula
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 123,
+          },
+        },
+      });
+
+      const afterAnyUpdate = await getRecord(table1Id, recordId);
+      expect(afterAnyUpdate.data.fields[defaultLastModifiedField.name]).not.toEqual(
+        initialFormulaValue
+      );
+      expect(afterAnyUpdate.data.fields[defaultLastModifiedField.name]).toEqual(
+        afterAnyUpdate.data.lastModifiedTime
+      );
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [textFieldRo.name]: 'changed text',
+          },
+        },
+      });
+
+      const afterDefaultUpdate = await getRecord(table1Id, recordId);
+      expect(afterDefaultUpdate.data.fields[defaultLastModifiedField.name]).not.toEqual(
+        afterAnyUpdate.data.fields[defaultLastModifiedField.name]
+      );
+      expect(afterDefaultUpdate.data.fields[defaultLastModifiedField.name]).toEqual(
+        afterDefaultUpdate.data.lastModifiedTime
+      );
+    });
+
+    it('should allow configuring Last Modified Time field to track specific fields only', async () => {
+      const specificLmt = await createField(table1Id, {
+        name: 'specific-lmt',
+        type: FieldType.LastModifiedTime,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'UTC',
+          },
+          trackedFieldIds: [textFieldRo.id],
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [textFieldRo.name]: 'initial text',
+              [numberFieldRo.name]: 1,
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const initialRecord = await getRecord(table1Id, recordId);
+      const initialLmt = initialRecord.data.fields[specificLmt.name];
+      expect(initialLmt).toEqual(initialRecord.data.lastModifiedTime);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [numberFieldRo.name]: 2,
+          },
+        },
+      });
+
+      const afterUntrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterUntrackedUpdate.data.fields[specificLmt.name]).toEqual(initialLmt);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [textFieldRo.name]: 'updated text',
+          },
+        },
+      });
+
+      const afterTrackedUpdate = await getRecord(table1Id, recordId);
+      expect(afterTrackedUpdate.data.fields[specificLmt.name]).not.toEqual(initialLmt);
+      expect(afterTrackedUpdate.data.fields[specificLmt.name]).toEqual(
+        afterTrackedUpdate.data.lastModifiedTime
+      );
+    });
+
+    it('should reject non-field parameters', async () => {
+      await createField(
+        table1Id,
+        {
+          name: 'invalid-last-modified',
+          type: FieldType.Formula,
+          options: {
+            expression: 'LAST_MODIFIED_TIME("literal param")',
+          },
+        },
+        400
+      );
+    });
+  });
+
   describe('numeric formula functions', () => {
     const numericInput = 12.345;
     const oddExpected = (() => {
@@ -2197,6 +2458,90 @@ describe('OpenAPI formula (e2e)', () => {
           await permanentDeleteTable(baseId, host.id);
         }
         await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
+    it('should format lookup-to-link titles with DATETIME_FORMAT results', async () => {
+      const detailTitle = 'Example Asset';
+      const dateValue = '2025-03-14T00:00:00.000Z';
+      const detailTable = await createTable(baseId, {
+        name: 'Lookup Details',
+        fields: [{ name: 'Detail Title', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { 'Detail Title': detailTitle } }],
+      });
+      let platformTable: ITableFullVo | undefined;
+      let summaryTable: ITableFullVo | undefined;
+      try {
+        platformTable = await createTable(baseId, {
+          name: 'Link Layer',
+          fields: [{ name: 'Link Name', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { 'Link Name': 'Platform Alpha' } }],
+        });
+        summaryTable = await createTable(baseId, {
+          name: 'Aggregated Reports',
+          fields: [{ name: 'Report Date', type: FieldType.Date } as IFieldRo],
+          records: [{ fields: { 'Report Date': dateValue } }],
+        });
+
+        const platformToDetail = await createField(platformTable.id, {
+          name: 'Linked Detail',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.OneMany,
+            foreignTableId: detailTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+        const reportToPlatform = await createField(summaryTable.id, {
+          name: 'Linked Platform',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: platformTable.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const lookupField = await createField(summaryTable.id, {
+          name: 'Platform Detail Lookup',
+          type: FieldType.Link,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: platformTable.id,
+            linkFieldId: reportToPlatform.id,
+            lookupFieldId: platformToDetail.id,
+          } as ILookupOptionsRo,
+        } as IFieldRo);
+        const dateFieldId = summaryTable.fields.find((f) => f.name === 'Report Date')!.id;
+        const labelField = await createField(summaryTable.id, {
+          name: 'Label',
+          type: FieldType.Formula,
+          options: {
+            expression: `{${lookupField.id}} & '-' & DATETIME_FORMAT({${dateFieldId}}, "YY-MM-DD")`,
+          },
+        } as IFieldRo);
+
+        await updateRecordByApi(
+          platformTable.id,
+          platformTable.records[0].id,
+          platformToDetail.id,
+          [{ id: detailTable.records[0].id }]
+        );
+        await updateRecordByApi(summaryTable.id, summaryTable.records[0].id, reportToPlatform.id, {
+          id: platformTable.records[0].id,
+        });
+
+        const { data: record } = await getRecord(summaryTable.id, summaryTable.records[0].id);
+        const lookupValue = record.fields[lookupField.name] as Array<{ title: string }>;
+        expect(lookupValue).toHaveLength(1);
+        expect(lookupValue?.[0]?.title).toBe(detailTitle);
+        expect(record.fields[labelField.name]).toBe('Example Asset-25-03-14');
+      } finally {
+        if (summaryTable) {
+          await permanentDeleteTable(baseId, summaryTable.id);
+        }
+        if (platformTable) {
+          await permanentDeleteTable(baseId, platformTable.id);
+        }
+        await permanentDeleteTable(baseId, detailTable.id);
       }
     });
 
@@ -3665,6 +4010,87 @@ describe('OpenAPI formula (e2e)', () => {
       }
     );
 
+    it('should apply DATE_ADD to the first value when lookup returns multiple dates', async () => {
+      const foreign = await createTable(baseId, {
+        name: 'formula-date-add-lookup-foreign',
+        fields: [
+          { name: 'Order', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Signup Date', type: FieldType.Date } as IFieldRo,
+        ],
+        records: [
+          { fields: { Order: 'A', 'Signup Date': '2024-05-01T00:00:00.000Z' } },
+          { fields: { Order: 'B', 'Signup Date': '2024-05-03T12:00:00.000Z' } },
+        ],
+      });
+      let host: ITableFullVo | undefined;
+      try {
+        host = await createTable(baseId, {
+          name: 'formula-date-add-lookup-host',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+          records: [{ fields: { Name: 'Host row' } }],
+        });
+
+        const linkField = await createField(host.id, {
+          name: 'Related Orders',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: foreign.id,
+          } as ILinkFieldOptionsRo,
+        } as IFieldRo);
+
+        const signupDateFieldId = foreign.fields.find((field) => field.name === 'Signup Date')!.id;
+        const lookupField = await createField(host.id, {
+          name: 'Signup Dates',
+          type: FieldType.Date,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: foreign.id,
+            lookupFieldId: signupDateFieldId,
+            linkFieldId: linkField.id,
+          } as ILookupOptionsRo,
+          options: {
+            formatting: {
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.None,
+              timeZone: 'UTC',
+            },
+          },
+        } as IFieldRo);
+
+        const dateAddField = await createField(host.id, {
+          name: 'Signup Date +14d',
+          type: FieldType.Formula,
+          options: {
+            expression: `DATE_ADD({${lookupField.id}}, 14, 'day')`,
+          },
+        } as IFieldRo);
+
+        const hostRecordId = host.records[0].id;
+        await updateRecordByApi(
+          host.id,
+          hostRecordId,
+          linkField.id,
+          foreign.records.map((record) => ({ id: record.id }))
+        );
+
+        const recordAfter = await getRecord(host.id, hostRecordId);
+        expect(recordAfter.data.fields[lookupField.name]).toEqual([
+          '2024-05-01T00:00:00.000Z',
+          '2024-05-03T12:00:00.000Z',
+        ]);
+
+        expect(recordAfter.data.fields[dateAddField.name]).toBe(
+          addToDate(new Date('2024-05-01T00:00:00.000Z'), 14, 'day').toISOString()
+        );
+      } finally {
+        if (host) {
+          await permanentDeleteTable(baseId, host.id);
+        }
+        await permanentDeleteTable(baseId, foreign.id);
+      }
+    });
+
     it.each(datetimeDiffCases)(
       'should evaluate DATETIME_DIFF for unit "%s"',
       async ({ literal, expected }) => {
@@ -3731,6 +4157,78 @@ describe('OpenAPI formula (e2e)', () => {
         expect(numericValue).toBeCloseTo(diffDays, 6);
       }
     });
+
+    it.each([
+      {
+        unit: 'month',
+        start: '2024-01-31T00:00:00.000Z',
+        end: '2024-02-29T00:00:00.000Z',
+        expected: 1,
+      },
+      {
+        unit: 'months',
+        start: '2024-01-31T00:00:00.000Z',
+        end: '2024-02-29T00:00:00.000Z',
+        expected: 1,
+      },
+      {
+        unit: 'quarter',
+        start: '2025-01-01T00:00:00.000Z',
+        end: '2025-04-01T00:00:00.000Z',
+        expected: 1,
+      },
+      {
+        unit: 'quarters',
+        start: '2025-01-01T00:00:00.000Z',
+        end: '2025-04-01T00:00:00.000Z',
+        expected: 1,
+      },
+      {
+        unit: 'year',
+        start: '2024-01-01T00:00:00.000Z',
+        end: '2025-01-01T00:00:00.000Z',
+        expected: 1,
+      },
+      {
+        unit: 'years',
+        start: '2024-01-01T00:00:00.000Z',
+        end: '2025-01-01T00:00:00.000Z',
+        expected: 1,
+      },
+    ])(
+      'should evaluate DATETIME_DIFF for month/quarter/year spans using unit "%s"',
+      async ({ unit, start, end, expected }) => {
+        const { records } = await createRecords(table1Id, {
+          fieldKeyType: FieldKeyType.Name,
+          records: [
+            {
+              fields: {
+                [numberFieldRo.name]: 1,
+              },
+            },
+          ],
+        });
+        const recordId = records[0].id;
+
+        const diffField = await createField(table1Id, {
+          name: `datetime-diff-${unit}-span`,
+          type: FieldType.Formula,
+          options: {
+            expression: `DATETIME_DIFF(DATETIME_PARSE("${end}"), DATETIME_PARSE("${start}"), '${unit}')`,
+          },
+        });
+
+        const recordAfterFormula = await getRecord(table1Id, recordId);
+        const rawValue = recordAfterFormula.data.fields[diffField.name];
+        if (typeof rawValue === 'number') {
+          expect(rawValue).toBeCloseTo(expected, 6);
+        } else {
+          const numericValue = Number(rawValue);
+          expect(Number.isFinite(numericValue)).toBe(true);
+          expect(numericValue).toBeCloseTo(expected, 6);
+        }
+      }
+    );
 
     it('should not persist chained DATETIME_DIFF formula as generated column', async () => {
       const startDateField = await createField(table1Id, {
@@ -4063,6 +4561,84 @@ describe('OpenAPI formula (e2e)', () => {
       }
     );
 
+    it('should treat boolean comparisons on single select fields as numeric inside SUM', async () => {
+      const selectFields = await Promise.all(
+        Array.from({ length: 3 }, (_, index) =>
+          createField(table1Id, {
+            name: `sum-select-${index + 1}`,
+            type: FieldType.SingleSelect,
+            options: {
+              choices: [
+                { id: `select-${index + 1}-nb`, name: 'NB' },
+                { id: `select-${index + 1}-other`, name: 'WB' },
+              ],
+            } as ISelectFieldOptionsRo,
+          })
+        )
+      );
+
+      const equalityExpressions = selectFields.map((field) => `{${field.id}} = "NB"`);
+
+      const formulaField = await createField(table1Id, {
+        name: 'sum-select-boolean-coercion',
+        type: FieldType.Formula,
+        options: {
+          expression: `SUM(${equalityExpressions.join(', ')})`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [selectFields[0].name]: 'NB',
+              [selectFields[1].name]: 'NB',
+              [selectFields[2].name]: 'WB',
+            },
+          },
+        ],
+      });
+      const recordId = records[0].id;
+
+      const readSumValue = async () => {
+        const record = await getRecord(table1Id, recordId);
+        return record.data.fields[formulaField.name] as number;
+      };
+
+      let sumValue = await readSumValue();
+      expect(typeof sumValue).toBe('number');
+      expect(sumValue).toBe(2);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [selectFields[0].name]: 'NB',
+            [selectFields[1].name]: 'NB',
+            [selectFields[2].name]: 'NB',
+          },
+        },
+      });
+
+      sumValue = await readSumValue();
+      expect(sumValue).toBe(3);
+
+      await updateRecord(table1Id, recordId, {
+        fieldKeyType: FieldKeyType.Name,
+        record: {
+          fields: {
+            [selectFields[0].name]: 'WB',
+            [selectFields[1].name]: 'WB',
+            [selectFields[2].name]: 'WB',
+          },
+        },
+      });
+
+      sumValue = await readSumValue();
+      expect(sumValue).toBe(0);
+    });
+
     const mixedFunctionCases: Array<{
       label: FunctionName;
       expressionFactory: (ids: {
@@ -4159,6 +4735,118 @@ describe('OpenAPI formula (e2e)', () => {
         });
       }
     );
+
+    it('should treat DATETIME_PARSE without format as null when generated string is invalid', async () => {
+      const dateField = await createField(table1Id, {
+        name: 'source-birthday',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'Asia/Shanghai',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'birthday-anniversary',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_PARSE(YEAR(TODAY()) & '-' & MONTH({${dateField.id}}) & '-' & DAY({${dateField.id}}))`,
+        },
+      });
+
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, records[0].id);
+      const value = recordAfterFormula.data.fields[formulaField.name] ?? null;
+      expect(value).toBeNull();
+    });
+
+    it('should bypass DATETIME_PARSE guard for direct date field references', async () => {
+      const dateField = await createField(table1Id, {
+        name: 'source-date-field',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.None,
+            timeZone: 'UTC',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'date-passthrough',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_PARSE({${dateField.id}})`,
+        },
+      });
+
+      const sourceIso = '2024-05-20T09:30:00.000Z';
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [dateField.name]: sourceIso,
+            },
+          },
+        ],
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, records[0].id);
+      const value = recordAfterFormula.data.fields[formulaField.name];
+      expect(value).toBe(sourceIso);
+    });
+
+    it('should allow DATETIME_PARSE to consume DATE_ADD output with literal time fragments', async () => {
+      const dateField = await createField(table1Id, {
+        name: 'month-end',
+        type: FieldType.Date,
+        options: {
+          formatting: {
+            date: DateFormattingPreset.ISO,
+            time: TimeFormatting.Hour24,
+            timeZone: 'UTC',
+          },
+        },
+      });
+
+      const formulaField = await createField(table1Id, {
+        name: 'month-start',
+        type: FieldType.Formula,
+        options: {
+          expression: `DATETIME_PARSE(DATE_ADD({${dateField.id}}, 1 - DAY({${dateField.id}}), 'day'), 'YYYY-MM-DD 00:00')`,
+        },
+      });
+
+      const sourceIso = '2025-11-19T00:00:00.000Z';
+      const expectedIso = '2025-11-01T00:00:00.000Z';
+      const { records } = await createRecords(table1Id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {
+              [dateField.name]: sourceIso,
+            },
+          },
+        ],
+      });
+
+      const recordAfterFormula = await getRecord(table1Id, records[0].id);
+      const value = recordAfterFormula.data.fields?.[formulaField.name] ?? null;
+      expect(value).toBe(expectedIso);
+    });
 
     it('should coerce blank IF branch to null for datetime results', async () => {
       const dateField = await createField(table1Id, {

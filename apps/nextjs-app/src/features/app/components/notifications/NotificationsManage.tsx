@@ -168,7 +168,7 @@ export const NotificationsManage: React.FC = () => {
           ) : (
             ''
           )}
-          <div className="flex items-center justify-between border-t border-solid p-4">
+          <div className="flex items-center justify-between border-t border-border-high p-4">
             <div className="text-sm font-normal">{t('notification.title')}</div>
             {renderNewButton()}
             <div>
@@ -176,7 +176,7 @@ export const NotificationsManage: React.FC = () => {
                 variant="ghost"
                 size="xs"
                 className={cn('ml-2', {
-                  'bg-secondary': notifyStatus === NotificationStatesEnum.Unread,
+                  'bg-surface border': notifyStatus === NotificationStatesEnum.Unread,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
               >
@@ -186,7 +186,7 @@ export const NotificationsManage: React.FC = () => {
                 variant="ghost"
                 size="xs"
                 className={cn('ml-2', {
-                  'bg-secondary': notifyStatus === NotificationStatesEnum.Read,
+                  'bg-surface border': notifyStatus === NotificationStatesEnum.Read,
                 })}
                 onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
               >

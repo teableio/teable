@@ -90,7 +90,7 @@ function DraggableSortList(props: IDraggableSortProps) {
                   ref={setNodeRef}
                   style={style}
                   className={cn(
-                    'flex items-center bg-card my-2 flex-nowrap',
+                    'flex items-center my-2 flex-nowrap',
                     isDragging ? 'opacity-50' : null
                   )}
                 >

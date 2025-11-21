@@ -311,21 +311,34 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       typeof selection === 'string' ? selection : selection ? selection.toQuery() : undefined;
 
     const orderableSelection = selectionExpression ?? quotedAlias;
-    if (field.type === FieldType.SingleSelect) {
+    // Respect choice order for select fields (single & multiple)
+    if (field.type === FieldType.SingleSelect || field.type === FieldType.MultipleSelect) {
       const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
       const choices = Array.isArray(rawChoices) ? rawChoices : [];
       if (choices.length) {
-        const placeholders = choices.map(() => '?').join(', ');
-        const normalizedExpr = this.normalizeOrderableTextExpression(
-          orderableSelection,
-          field.dbFieldType
-        );
-        const arrayPositionExpr = `ARRAY_POSITION(ARRAY[${placeholders}], ${normalizedExpr})`;
-        qb.orderByRaw(
-          `${arrayPositionExpr} ${direction} ${nullOrdering}`,
-          choices.map(({ name }) => name)
-        );
-        return;
+        const arrayLiteral = `ARRAY[${choices
+          .map(({ name }) => this.knex.raw('?', [name]).toQuery())
+          .join(', ')}]`;
+
+        if (field.type === FieldType.MultipleSelect) {
+          const firstIndexExpr = `CASE
+            WHEN ${orderableSelection} IS NULL THEN NULL
+            WHEN jsonb_typeof(${orderableSelection}::jsonb) = 'array'
+              THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${orderableSelection}::jsonb, '$[0]') #>> '{}')
+            ELSE ARRAY_POSITION(${arrayLiteral}, ${orderableSelection}::text)
+          END`;
+          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`);
+          qb.orderByRaw(`${orderableSelection}::jsonb::text ${direction} ${nullOrdering}`);
+          return;
+        } else {
+          const normalizedExpr = this.normalizeOrderableTextExpression(
+            orderableSelection,
+            field.dbFieldType
+          );
+          const arrayPositionExpr = `ARRAY_POSITION(${arrayLiteral}, ${normalizedExpr})`;
+          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`);
+          return;
+        }
       }
     }
 

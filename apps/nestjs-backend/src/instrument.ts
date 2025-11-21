@@ -8,6 +8,9 @@ if (process.env.BACKEND_SENTRY_DSN) {
     dsn: process.env.BACKEND_SENTRY_DSN,
     tracesSampleRate: traceRate,
     enableLogs: true,
+    _experiments: {
+      enableMetrics: true,
+    },
     release: process.env.NEXT_PUBLIC_BUILD_VERSION || 'development',
     environment: process.env.NODE_ENV || 'development',
     defaultIntegrations: false,

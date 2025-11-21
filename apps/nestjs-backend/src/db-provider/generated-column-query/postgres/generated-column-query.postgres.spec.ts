@@ -1,10 +1,12 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { DbFieldType } from '@teable/core';
-import type { TableDomain } from '@teable/core';
-import { beforeEach, describe, expect, it } from 'vitest';
+import type { IFormulaParamMetadata, TableDomain } from '@teable/core';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { IFormulaConversionContext } from '../../../features/record/query-builder/sql-conversion.visitor';
 import { GeneratedColumnQueryPostgres } from './generated-column-query.postgres';
+
+const castTs = (expr: string) => `(${expr})::timestamp`;
 
 describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
   const query = new GeneratedColumnQueryPostgres();
@@ -15,6 +17,10 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
 
   beforeEach(() => {
     query.setContext(stubContext);
+  });
+
+  afterEach(() => {
+    query.setCallMetadata(undefined);
   });
 
   it('left casts expressions to text for generated columns', () => {
@@ -80,86 +86,87 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
     ({ literal, unit, factor }) => {
       const sql = query.dateAdd('date_col', 'count_expr', `'${literal}'`);
       const scaled = factor === 1 ? '(count_expr)' : `(count_expr) * ${factor}`;
-      expect(sql).toBe(`date_col::timestamp + (${scaled}) * INTERVAL '1 ${unit}'`);
+      expect(sql).toBe(`${castTs('date_col')} + (${scaled}) * INTERVAL '1 ${unit}'`);
     }
   );
 
+  const diffSeconds = `(EXTRACT(EPOCH FROM ${castTs('date_start')} - ${castTs('date_end')}))`;
   const datetimeDiffCases: Array<{ literal: string; expected: string }> = [
     {
       literal: 'millisecond',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) * 1000',
+      expected: `${diffSeconds} * 1000`,
     },
     {
       literal: 'milliseconds',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) * 1000',
+      expected: `${diffSeconds} * 1000`,
     },
     {
       literal: 'ms',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) * 1000',
+      expected: `${diffSeconds} * 1000`,
     },
     {
       literal: 'second',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp))',
+      expected: `${diffSeconds}`,
     },
     {
       literal: 'seconds',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp))',
+      expected: `${diffSeconds}`,
     },
     {
       literal: 'sec',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp))',
+      expected: `${diffSeconds}`,
     },
     {
       literal: 'secs',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp))',
+      expected: `${diffSeconds}`,
     },
     {
       literal: 'minute',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 60',
+      expected: `${diffSeconds} / 60`,
     },
     {
       literal: 'minutes',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 60',
+      expected: `${diffSeconds} / 60`,
     },
     {
       literal: 'min',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 60',
+      expected: `${diffSeconds} / 60`,
     },
     {
       literal: 'mins',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 60',
+      expected: `${diffSeconds} / 60`,
     },
     {
       literal: 'hour',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 3600',
+      expected: `${diffSeconds} / 3600`,
     },
     {
       literal: 'hours',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 3600',
+      expected: `${diffSeconds} / 3600`,
     },
     {
       literal: 'hr',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 3600',
+      expected: `${diffSeconds} / 3600`,
     },
     {
       literal: 'hrs',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 3600',
+      expected: `${diffSeconds} / 3600`,
     },
     {
       literal: 'week',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / (86400 * 7)',
+      expected: `${diffSeconds} / (86400 * 7)`,
     },
     {
       literal: 'weeks',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / (86400 * 7)',
+      expected: `${diffSeconds} / (86400 * 7)`,
     },
     {
       literal: 'day',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 86400',
+      expected: `${diffSeconds} / 86400`,
     },
     {
       literal: 'days',
-      expected: '(EXTRACT(EPOCH FROM date_start::timestamp - date_end::timestamp)) / 86400',
+      expected: `${diffSeconds} / 86400`,
     },
   ];
 
@@ -199,7 +206,7 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
   it.each(isSameCases)('isSame normalizes unit "%s"', ({ literal, expectedUnit }) => {
     const sql = query.isSame('date_a', 'date_b', `'${literal}'`);
     expect(sql).toBe(
-      `DATE_TRUNC('${expectedUnit}', date_a::timestamp) = DATE_TRUNC('${expectedUnit}', date_b::timestamp)`
+      `DATE_TRUNC('${expectedUnit}', ${castTs('date_a')}) = DATE_TRUNC('${expectedUnit}', ${castTs('date_b')})`
     );
   });
 
@@ -221,5 +228,75 @@ describe('GeneratedColumnQueryPostgres unit-aware helpers', () => {
     expect(sql).toContain('pg_typeof(("json_col")) = ANY');
     expect(sql).toContain('jsonb_typeof((("json_col"))::jsonb)');
     expect(sql).toContain('("text_col")::text');
+  });
+
+  it('short-circuits boolean normalization when metadata guarantees a boolean param', () => {
+    const booleanMetadata = [
+      {
+        type: 'boolean',
+        field: {
+          dbFieldName: 'BoolField',
+          dbFieldType: DbFieldType.Boolean,
+          isMultiple: false,
+        },
+      } as unknown as IFormulaParamMetadata,
+    ];
+
+    query.setCallMetadata(booleanMetadata);
+
+    const sql = query.if('"BoolField"', "'yes'", "'no'");
+
+    expect(sql).toContain('COALESCE(("BoolField")::boolean, FALSE)');
+    expect(sql).not.toContain('pg_typeof(("BoolField"))');
+  });
+
+  it('recognizes boolean db columns even when param type is unknown', () => {
+    const booleanMetadata = [
+      {
+        type: 'unknown',
+        isFieldReference: true,
+        field: {
+          dbFieldName: 'BoolField',
+          dbFieldType: DbFieldType.Boolean,
+          cellValueType: undefined,
+          isMultiple: false,
+        },
+      } as unknown as IFormulaParamMetadata,
+    ];
+
+    query.setCallMetadata(booleanMetadata);
+
+    const sql = query.if('"BoolField"', "'yes'", "'no'");
+
+    expect(sql).toContain('COALESCE(("BoolField")::boolean, FALSE)');
+    expect(sql).not.toContain('pg_typeof(("BoolField"))');
+  });
+
+  it('avoids regex coercion for numeric columns when metadata is numeric', () => {
+    const numericMetadata = [
+      {
+        type: 'number',
+        isFieldReference: true,
+        field: {
+          dbFieldName: 'Amount',
+          dbFieldType: DbFieldType.Real,
+          cellValueType: 'number',
+          isMultiple: false,
+        },
+      } as unknown as IFormulaParamMetadata,
+    ];
+
+    query.setCallMetadata(numericMetadata);
+
+    const sql = query.if('"Amount"', "'yes'", "'no'");
+
+    expect(sql).toContain('COALESCE(("Amount")::double precision, 0) <> 0');
+    expect(sql).not.toContain('REGEXP_REPLACE');
+  });
+
+  it('falls back to truthy normalization when metadata is unavailable', () => {
+    query.setCallMetadata(undefined);
+    const sql = query.if('"text_col"', "'yes'", "'no'");
+    expect(sql).toContain('pg_typeof("text_col")::text');
   });
 });

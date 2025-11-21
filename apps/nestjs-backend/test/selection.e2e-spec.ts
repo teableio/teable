@@ -3,6 +3,7 @@
 import type { INestApplication } from '@nestjs/common';
 import {
   Colors,
+  FieldKeyType,
   FieldType,
   MultiNumberDisplayType,
   Relationship,
@@ -20,6 +21,7 @@ import {
   paste as apiPaste,
   getFields,
   deleteSelection,
+  clear,
   updateViewFilter,
   USER_ME,
   UPDATE_USER_NAME,
@@ -405,6 +407,158 @@ describe('OpenAPI SelectionController (e2e)', () => {
           title: 'table2_1',
         },
       ]);
+    });
+  });
+
+  describe('api/table/:tableId/selection/clear (PATCH)', () => {
+    it('should clear a standalone column without touching other fields', async () => {
+      const clearTable = await createTable(baseId, {
+        name: 'clear-basic',
+        fields: [
+          {
+            name: 'Status',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'Notes',
+            type: FieldType.SingleLineText,
+          },
+        ],
+        records: [
+          { fields: { Status: 'todo', Notes: 'keep-1' } },
+          { fields: { Status: 'doing', Notes: 'keep-2' } },
+        ],
+      });
+
+      try {
+        const viewId = clearTable.views[0].id;
+        const statusFieldId = clearTable.fields.find((f) => f.name === 'Status')!.id;
+        const notesFieldId = clearTable.fields.find((f) => f.name === 'Notes')!.id;
+
+        await clear(clearTable.id, {
+          viewId,
+          type: RangeType.Columns,
+          ranges: [[0, 0]],
+        });
+
+        const { data } = await getRecords(clearTable.id, {
+          viewId,
+          fieldKeyType: FieldKeyType.Id,
+        });
+
+        expect(data.records.map((record) => record.fields[statusFieldId] ?? null)).toEqual([
+          null,
+          null,
+        ]);
+        expect(data.records.map((record) => record.fields[notesFieldId])).toEqual([
+          'keep-1',
+          'keep-2',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, clearTable.id);
+      }
+    });
+
+    it('should refresh formula and lookup dependents after clearing a column', async () => {
+      const companyTable = await createTable(baseId, {
+        name: 'companies-clear',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'City', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { Name: 'Alpha', City: 'Paris' } },
+          { fields: { Name: 'Beta', City: 'Berlin' } },
+        ],
+      });
+      const nameFieldId = companyTable.fields.find((f) => f.name === 'Name')!.id;
+      const cityFieldId = companyTable.fields.find((f) => f.name === 'City')!.id;
+
+      const nameFormulaField = await createField(companyTable.id, {
+        name: 'Name Tag',
+        type: FieldType.Formula,
+        options: {
+          expression: `IF({${nameFieldId}}, {${nameFieldId}}, "empty")`,
+        },
+      });
+      companyTable.fields.push(nameFormulaField);
+
+      const contactTable = await createTable(baseId, {
+        name: 'contacts-clear',
+        fields: [{ name: 'Person', type: FieldType.SingleLineText }],
+        records: [{ fields: { Person: 'Alice' } }, { fields: { Person: 'Bob' } }],
+      });
+      const personFieldId = contactTable.fields.find((f) => f.name === 'Person')!.id;
+
+      try {
+        const linkField = await createField(contactTable.id, {
+          name: 'Company',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: companyTable.id,
+          },
+        });
+        contactTable.fields.push(linkField);
+
+        const companyLookupField = await createField(contactTable.id, {
+          name: 'Company Name',
+          type: FieldType.SingleLineText,
+          isLookup: true,
+          lookupOptions: {
+            foreignTableId: companyTable.id,
+            linkFieldId: linkField.id,
+            lookupFieldId: nameFieldId,
+          },
+        });
+        contactTable.fields.push(companyLookupField);
+
+        await updateRecordByApi(contactTable.id, contactTable.records[0].id, linkField.id, {
+          id: companyTable.records[0].id,
+        });
+        await updateRecordByApi(contactTable.id, contactTable.records[1].id, linkField.id, {
+          id: companyTable.records[1].id,
+        });
+
+        const companyViewId = companyTable.views[0].id;
+        await clear(companyTable.id, {
+          viewId: companyViewId,
+          type: RangeType.Columns,
+          ranges: [[0, 0]],
+        });
+
+        const companyRecords = await getRecords(companyTable.id, {
+          viewId: companyViewId,
+          fieldKeyType: FieldKeyType.Id,
+        });
+        expect(
+          companyRecords.data.records.map((record) => record.fields[nameFieldId] ?? null)
+        ).toEqual([null, null]);
+        expect(
+          companyRecords.data.records.map((record) => record.fields[nameFormulaField.id])
+        ).toEqual(['empty', 'empty']);
+        expect(companyRecords.data.records.map((record) => record.fields[cityFieldId])).toEqual([
+          'Paris',
+          'Berlin',
+        ]);
+
+        const contactViewId = contactTable.views[0].id;
+        const contactRecords = await getRecords(contactTable.id, {
+          viewId: contactViewId,
+          fieldKeyType: FieldKeyType.Id,
+        });
+        const lookupValues = contactRecords.data.records.map(
+          (record) => record.fields[companyLookupField.id] ?? null
+        );
+        expect(lookupValues).toEqual([null, null]);
+        expect(contactRecords.data.records.map((record) => record.fields[personFieldId])).toEqual([
+          'Alice',
+          'Bob',
+        ]);
+      } finally {
+        await permanentDeleteTable(baseId, contactTable.id);
+        await permanentDeleteTable(baseId, companyTable.id);
+      }
     });
   });
 

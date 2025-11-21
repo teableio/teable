@@ -67,7 +67,7 @@ export const FileZone = (props: {
           tabIndex={0}
           role="button"
           className={cn(
-            'w-full bg-muted text-sm text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed hover:border-foreground focus:border-foreground focus:outline-none',
+            'w-full bg-secondary text-sm text-foreground/60 rounded-md flex items-center justify-center text-center border border-dashed border-border-high hover:border-primary/15 focus:border-primary/50 focus:outline-none',
             zoneClassName
           )}
           onClick={() => fileInput.current?.click()}

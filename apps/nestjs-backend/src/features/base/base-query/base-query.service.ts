@@ -1,12 +1,13 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
-import { CellFormat, FieldType } from '@teable/core';
+import { CellFormat, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { BaseQueryColumnType, BaseQueryJoinType } from '@teable/openapi';
 import type { IBaseQueryJoin, IBaseQuery, IBaseQueryVo, IBaseQueryColumn } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../../types/cls';
@@ -16,7 +17,6 @@ import {
   createFieldInstanceByVo,
   type IFieldInstance,
 } from '../../field/model/factory';
-import type { FormulaFieldDto } from '../../field/model/field-dto/formula-field.dto';
 import { RecordService } from '../../record/record.service';
 import { QueryAggregation } from './parse/aggregation';
 import { QueryFilter } from './parse/filter';
@@ -138,7 +138,15 @@ export class BaseQueryService {
       .$queryRawUnsafe<{ [key in string]: unknown }[]>(query)
       .catch((e) => {
         this.logger.error(e);
-        throw new BadRequestException(`Query failed: ${query}, ${e.message}`);
+        throw new CustomHttpException('Query failed', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.baseQuery.queryFailed',
+            context: {
+              query,
+              message: e.message,
+            },
+          },
+        });
       });
     const columns = this.convertFieldMapToColumn(fieldMap);
     return {
@@ -334,7 +342,14 @@ export class BaseQueryService {
           );
           break;
         default:
-          throw new BadRequestException(`Invalid join type: ${join.type}`);
+          throw new CustomHttpException('Invalid join type', HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.baseQuery.invalidJoinType',
+              context: {
+                joinType: join.type,
+              },
+            },
+          });
       }
     }
     return { queryBuilder, fieldMap: resFieldMap };
@@ -370,7 +385,15 @@ export class BaseQueryService {
         select: { dbTableName: true },
       })
       .catch(() => {
-        throw new NotFoundException('Table not found');
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseQuery.tableNotFound',
+            context: {
+              tableId,
+              baseId,
+            },
+          },
+        });
       });
     return tableMeta.dbTableName;
   }

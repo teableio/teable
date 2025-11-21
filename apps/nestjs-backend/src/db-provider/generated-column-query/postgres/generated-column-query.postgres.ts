@@ -1,5 +1,15 @@
+/* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable no-useless-escape */
 import { DbFieldType } from '@teable/core';
+import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
+import {
+  isBooleanLikeParam,
+  isDatetimeLikeParam,
+  isJsonLikeParam,
+  isTextLikeParam,
+  isTrustedNumeric,
+  resolveFormulaParamInfo,
+} from '../../utils/formula-param-metadata.util';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -42,13 +52,30 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return trimmed;
   }
 
+  private getParamInfo(index?: number) {
+    return resolveFormulaParamInfo(this.currentCallMetadata, index);
+  }
+
   private isNumericLiteral(expr: string): boolean {
     const trimmed = this.stripOuterParentheses(expr);
     // eslint-disable-next-line regexp/no-unused-capturing-group
     return /^[-+]?\d+(\.\d+)?$/.test(trimmed);
   }
 
-  private toNumericSafe(expr: string): string {
+  private toNumericSafe(expr: string, metadataIndex?: number): string {
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isBooleanLikeParam(paramInfo)) {
+      const normalizedBoolean = this.normalizeBooleanCondition(expr, metadataIndex ?? 0);
+      return `(CASE WHEN ${normalizedBoolean} THEN 1 ELSE 0 END)::double precision`;
+    }
+    if (isTrustedNumeric(paramInfo)) {
+      return `(${expr})::double precision`;
+    }
+
+    return this.looseNumericCoercion(expr);
+  }
+
+  private looseNumericCoercion(expr: string): string {
     if (this.isNumericLiteral(expr)) {
       return `(${expr})::double precision`;
     }
@@ -57,13 +84,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `NULLIF(${sanitized}, '')::double precision`;
   }
 
-  private collapseNumeric(expr: string): string {
-    const numericValue = this.toNumericSafe(expr);
+  private collapseNumeric(expr: string, metadataIndex?: number): string {
+    const numericValue = this.toNumericSafe(expr, metadataIndex);
     return `COALESCE(${numericValue}, 0)`;
   }
 
-  private normalizeBlankComparable(value: string): string {
-    const comparable = this.coerceToTextComparable(value);
+  private normalizeBlankComparable(value: string, metadataIndex?: number): string {
+    const comparable = this.coerceToTextComparable(value, metadataIndex);
     return `COALESCE(NULLIF(${comparable}, ''), '')`;
   }
 
@@ -71,11 +98,18 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `(${expr})::text`;
   }
 
-  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
+  private buildBlankAwareComparison(
+    operator: '=' | '<>',
+    left: string,
+    right: string,
+    metadataIndexes?: { left?: number; right?: number }
+  ): string {
     const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    const leftIndex = metadataIndexes?.left;
+    const rightIndex = metadataIndexes?.right;
     if (!shouldNormalize) {
-      const leftIsText = this.isTextLikeExpression(left);
-      const rightIsText = this.isTextLikeExpression(right);
+      const leftIsText = this.isTextLikeExpression(left, leftIndex);
+      const rightIsText = this.isTextLikeExpression(right, rightIndex);
 
       let normalizedLeft = left;
       let normalizedRight = right;
@@ -88,9 +122,9 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       }
 
       if (leftIsText && !rightIsText) {
-        normalizedRight = this.coerceToTextComparable(right);
+        normalizedRight = this.coerceToTextComparable(right, rightIndex);
       } else if (!leftIsText && rightIsText) {
-        normalizedLeft = this.coerceToTextComparable(left);
+        normalizedLeft = this.coerceToTextComparable(left, leftIndex);
       }
 
       return `(${normalizedLeft} ${operator} ${normalizedRight})`;
@@ -98,17 +132,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
     const normalizedLeft = this.isEmptyStringLiteral(left)
       ? "''"
-      : this.normalizeBlankComparable(left);
+      : this.normalizeBlankComparable(left, leftIndex);
     const normalizedRight = this.isEmptyStringLiteral(right)
       ? "''"
-      : this.normalizeBlankComparable(right);
+      : this.normalizeBlankComparable(right, rightIndex);
 
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
   }
 
-  private isTextLikeExpression(value: string): boolean {
+  private isTextLikeExpression(value: string, metadataIndex?: number): boolean {
     const trimmed = this.stripOuterParentheses(value);
     if (/^'.*'$/.test(trimmed)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && isTextLikeParam(paramInfo)) {
       return true;
     }
 
@@ -169,7 +208,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     END)`;
   }
 
-  private coerceToTextComparable(value: string): string {
+  private coerceToTextComparable(value: string, metadataIndex?: number): string {
     const trimmed = this.stripOuterParentheses(value);
     if (!trimmed) {
       return this.ensureTextCollation(value);
@@ -182,6 +221,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
 
     const wrapped = `(${value})`;
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata) {
+      if (isJsonLikeParam(paramInfo)) {
+        const coercedJson = this.coerceJsonExpressionToText(wrapped);
+        return this.ensureTextCollation(coercedJson);
+      }
+
+      if (isTextLikeParam(paramInfo)) {
+        return this.ensureTextCollation(value);
+      }
+
+      if (paramInfo.type && paramInfo.type !== 'unknown') {
+        return this.ensureTextCollation(`${wrapped}::text`);
+      }
+    }
+
     const coerced =
       this.getExpressionFieldType(value) === DbFieldType.Json
         ? this.coerceJsonExpressionToText(wrapped)
@@ -189,9 +244,9 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return this.ensureTextCollation(coerced);
   }
 
-  private countANonNullExpression(value: string): string {
-    if (this.isTextLikeExpression(value)) {
-      const normalizedComparable = this.normalizeBlankComparable(value);
+  private countANonNullExpression(value: string, metadataIndex?: number): string {
+    if (this.isTextLikeExpression(value, metadataIndex)) {
+      const normalizedComparable = this.normalizeBlankComparable(value, metadataIndex);
       return `CASE WHEN ${value} IS NULL OR ${normalizedComparable} = '' THEN 0 ELSE 1 END`;
     }
 
@@ -199,42 +254,66 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   override add(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) + (${r}))`;
   }
 
   override subtract(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) - (${r}))`;
   }
 
   override multiply(left: string, right: string): string {
-    const l = this.collapseNumeric(left);
-    const r = this.collapseNumeric(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) * (${r}))`;
   }
 
   override unaryMinus(value: string): string {
-    const numericValue = this.toNumericSafe(value);
+    const numericValue = this.toNumericSafe(value, 0);
     return `(-(${numericValue}))`;
   }
 
   override divide(left: string, right: string): string {
-    const numerator = this.collapseNumeric(left);
-    const denominator = this.toNumericSafe(right);
+    const numerator = this.collapseNumeric(left, 0);
+    const denominator = this.toNumericSafe(right, 1);
     return `(CASE WHEN (${denominator}) IS NULL OR (${denominator}) = 0 THEN NULL ELSE (${numerator} / ${denominator}) END)`;
   }
 
   override modulo(left: string, right: string): string {
-    const dividend = this.collapseNumeric(left);
-    const divisor = this.toNumericSafe(right);
+    const dividend = this.collapseNumeric(left, 0);
+    const divisor = this.toNumericSafe(right, 1);
     return `(CASE WHEN (${divisor}) IS NULL OR (${divisor}) = 0 THEN NULL ELSE MOD((${dividend})::numeric, (${divisor})::numeric)::double precision END)`;
   }
 
-  private normalizeBooleanCondition(condition: string): string {
+  private isBooleanLikeExpression(value: string, metadataIndex?: number): boolean {
+    const trimmed = this.stripOuterParentheses(value);
+    if (/^(true|false)$/i.test(trimmed)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && isBooleanLikeParam(paramInfo)) {
+      return true;
+    }
+
+    return this.getExpressionFieldType(value) === DbFieldType.Boolean;
+  }
+
+  private normalizeBooleanCondition(condition: string, metadataIndex = 0): string {
     const wrapped = `(${condition})`;
+    if (this.isBooleanLikeExpression(condition, metadataIndex)) {
+      return `COALESCE(${wrapped}::boolean, FALSE)`;
+    }
+
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isTrustedNumeric(paramInfo)) {
+      const numericExpr = this.toNumericSafe(condition, metadataIndex);
+      return `(COALESCE(${numericExpr}, 0) <> 0)`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const stringTypes = "('text','character varying','character','varchar','unknown')";
@@ -259,13 +338,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')})`;
   }
 
   average(params: string[]): string {
     // Use addition and division instead of AVG() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.collapseNumeric(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')}) / ${params.length}`;
   }
 
@@ -346,7 +425,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   value(text: string): string {
-    return this.toNumericSafe(text);
+    return this.toNumericSafe(text, 0);
   }
 
   // Text Functions
@@ -365,11 +444,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   equal(left: string, right: string): string {
-    return this.buildBlankAwareComparison('=', left, right);
+    return this.buildBlankAwareComparison('=', left, right, { left: 0, right: 1 });
   }
 
   notEqual(left: string, right: string): string {
-    return this.buildBlankAwareComparison('<>', left, right);
+    return this.buildBlankAwareComparison('<>', left, right, { left: 0, right: 1 });
   }
 
   // Override bitwiseAnd to handle PostgreSQL-specific type conversion
@@ -550,7 +629,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private normalizeDiffUnit(
     unitLiteral: string
-  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
     const normalized = unitLiteral.trim().toLowerCase();
     switch (normalized) {
       case 'millisecond':
@@ -575,6 +654,15 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       case 'week':
       case 'weeks':
         return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
       default:
         return 'day';
     }
@@ -626,19 +714,41 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   dateAdd(date: string, count: string, unit: string): string {
     const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
     const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    const timestampExpr = this.castToTimestamp(date);
     if (cleanUnit === 'quarter') {
-      return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 month'`;
+      return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 month'`;
     }
-    return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
+    return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
   datestr(date: string): string {
-    return `${date}::date::text`;
+    return `${this.castToTimestamp(date)}::date::text`;
+  }
+
+  private buildMonthDiff(startDate: string, endDate: string): string {
+    const startExpr = this.castToTimestamp(startDate);
+    const endExpr = this.castToTimestamp(endDate);
+    const startYear = `EXTRACT(YEAR FROM ${startExpr})`;
+    const endYear = `EXTRACT(YEAR FROM ${endExpr})`;
+    const startMonth = `EXTRACT(MONTH FROM ${startExpr})`;
+    const endMonth = `EXTRACT(MONTH FROM ${endExpr})`;
+    const startDay = `EXTRACT(DAY FROM ${startExpr})`;
+    const endDay = `EXTRACT(DAY FROM ${endExpr})`;
+    const startLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${startExpr}) + INTERVAL '1 month - 1 day'))`;
+    const endLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${endExpr}) + INTERVAL '1 month - 1 day'))`;
+
+    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+
+    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
     const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
-    const diffSeconds = `EXTRACT(EPOCH FROM ${startDate}::timestamp - ${endDate}::timestamp)`;
+    const startExpr = this.castToTimestamp(startDate);
+    const endExpr = this.castToTimestamp(endDate);
+    const diffSeconds = `EXTRACT(EPOCH FROM ${startExpr} - ${endExpr})`;
     switch (diffUnit) {
       case 'millisecond':
         return `(${diffSeconds}) * 1000`;
@@ -650,6 +760,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return `(${diffSeconds}) / 3600`;
       case 'week':
         return `(${diffSeconds}) / (86400 * 7)`;
+      case 'month':
+        return this.buildMonthDiff(startDate, endDate);
+      case 'quarter':
+        return `${this.buildMonthDiff(startDate, endDate)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(startDate, endDate);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
       case 'day':
       default:
         return `(${diffSeconds}) / 86400`;
@@ -657,18 +775,23 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    return `TO_CHAR(${date}::timestamp, ${format})`;
+    return `TO_CHAR(${this.castToTimestamp(date)}, ${format})`;
   }
 
   datetimeParse(dateString: string, format?: string): string {
+    const valueExpr = `(${dateString})`;
+    const trustedDatetimeInput = this.hasTrustedDatetimeInput(0);
+
     if (format == null) {
-      return dateString;
+      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
     }
     const normalized = format.trim();
     if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
-      return dateString;
+      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
     }
-    const valueExpr = `(${dateString})`;
+    if (trustedDatetimeInput) {
+      return valueExpr;
+    }
     const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${format})`;
     const guardPattern = this.buildDatetimeParseGuardRegex(normalized);
     if (!guardPattern) {
@@ -680,28 +803,28 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   day(date: string): string {
-    return `EXTRACT(DAY FROM ${date}::timestamp)`;
+    return `EXTRACT(DAY FROM ${this.castToTimestamp(date)})`;
   }
 
   fromNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${date}::timestamp)`;
+      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${this.castToTimestamp(date)})`;
     }
-    return `EXTRACT(EPOCH FROM NOW() - ${date}::timestamp)`;
+    return `EXTRACT(EPOCH FROM NOW() - ${this.castToTimestamp(date)})`;
   }
 
   hour(date: string): string {
-    return `EXTRACT(HOUR FROM ${date}::timestamp)`;
+    return `EXTRACT(HOUR FROM ${this.castToTimestamp(date)})`;
   }
 
   isAfter(date1: string, date2: string): string {
-    return `${date1}::timestamp > ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} > ${this.castToTimestamp(date2)}`;
   }
 
   isBefore(date1: string, date2: string): string {
-    return `${date1}::timestamp < ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} < ${this.castToTimestamp(date2)}`;
   }
 
   isSame(date1: string, date2: string, unit?: string): string {
@@ -711,11 +834,11 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         const literal = trimmed.slice(1, -1);
         const normalized = this.normalizeTruncateUnit(literal);
         const safeUnit = normalized.replace(/'/g, "''");
-        return `DATE_TRUNC('${safeUnit}', ${date1}::timestamp) = DATE_TRUNC('${safeUnit}', ${date2}::timestamp)`;
+        return `DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(date1)}) = DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(date2)})`;
       }
-      return `DATE_TRUNC(${unit}, ${date1}::timestamp) = DATE_TRUNC(${unit}, ${date2}::timestamp)`;
+      return `DATE_TRUNC(${unit}, ${this.castToTimestamp(date1)}) = DATE_TRUNC(${unit}, ${this.castToTimestamp(date2)})`;
     }
-    return `${date1}::timestamp = ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1)} = ${this.castToTimestamp(date2)}`;
   }
 
   lastModifiedTime(): string {
@@ -724,50 +847,50 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   minute(date: string): string {
-    return `EXTRACT(MINUTE FROM ${date}::timestamp)`;
+    return `EXTRACT(MINUTE FROM ${this.castToTimestamp(date)})`;
   }
 
   month(date: string): string {
-    return `EXTRACT(MONTH FROM ${date}::timestamp)`;
+    return `EXTRACT(MONTH FROM ${this.castToTimestamp(date)})`;
   }
 
   second(date: string): string {
-    return `EXTRACT(SECOND FROM ${date}::timestamp)`;
+    return `EXTRACT(SECOND FROM ${this.castToTimestamp(date)})`;
   }
 
   timestr(date: string): string {
-    return `${date}::time::text`;
+    return `(${this.castToTimestamp(date)})::time::text`;
   }
 
   toNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM ${date}::timestamp - '${currentTimestamp}'::timestamp)`;
+      return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date)} - '${currentTimestamp}'::timestamp)`;
     }
-    return `EXTRACT(EPOCH FROM ${date}::timestamp - NOW())`;
+    return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date)} - NOW())`;
   }
 
   weekNum(date: string): string {
-    return `EXTRACT(WEEK FROM ${date}::timestamp)`;
+    return `EXTRACT(WEEK FROM ${this.castToTimestamp(date)})`;
   }
 
   weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${date}::timestamp)`;
+    return `EXTRACT(DOW FROM ${this.castToTimestamp(date)})`;
   }
 
   workday(startDate: string, days: string): string {
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${startDate}::date + INTERVAL '1 day' * ${days}::integer`;
+    return `${this.castToTimestamp(startDate)}::date + INTERVAL '1 day' * ${days}::integer`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${endDate}::date - ${startDate}::date`;
+    return `${this.castToTimestamp(endDate)}::date - ${this.castToTimestamp(startDate)}::date`;
   }
 
   year(date: string): string {
-    return `EXTRACT(YEAR FROM ${date}::timestamp)`;
+    return `EXTRACT(YEAR FROM ${this.castToTimestamp(date)})`;
   }
 
   createdTime(): string {
@@ -777,7 +900,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    const booleanCondition = this.normalizeBooleanCondition(condition);
+    const booleanCondition = this.normalizeBooleanCondition(condition, 0);
     return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
   }
 
@@ -849,7 +972,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   countA(params: string[]): string {
     // Count non-empty values (including zeros)
-    const blankAwareChecks = params.map((p) => this.countANonNullExpression(p));
+    const blankAwareChecks = params.map((p, index) => this.countANonNullExpression(p, index));
     return `(${blankAwareChecks.join(' + ')})`;
   }
 
@@ -923,6 +1046,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `"${identifier.replace(/"/g, '""')}"`;
   }
 
+  private guardDefaultDatetimeParse(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
     if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
       return null;
@@ -974,5 +1105,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
     pattern += '$';
     return pattern;
+  }
+  private castToTimestamp(date: string): string {
+    return `(${date})::timestamp`;
+  }
+
+  private hasTrustedDatetimeInput(index: number): boolean {
+    const paramInfo = this.getParamInfo(index);
+    if (!paramInfo.hasMetadata) {
+      return false;
+    }
+    if (!isDatetimeLikeParam(paramInfo)) {
+      return false;
+    }
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      return false;
+    }
+    return true;
   }
 }

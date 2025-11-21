@@ -17,6 +17,10 @@ export class GeneratedColumnQuerySupportValidatorPostgres
     this.context = context;
   }
 
+  setCallMetadata(): void {
+    // No-op for validator
+  }
+
   // Numeric Functions - PostgreSQL supports all basic numeric functions
   sum(_params: string[]): boolean {
     // Use addition instead of SUM() aggregation function

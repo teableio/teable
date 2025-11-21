@@ -196,6 +196,9 @@ export class DeleteUserService {
             name: space.name,
             deletedTime: space.deletedTime ? new Date(space.deletedTime).toISOString() : null,
           })),
+          localization: {
+            i18nKey: 'httpErrors.user.collaboratorsInSpaces',
+          },
         }
       );
     }

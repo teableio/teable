@@ -707,8 +707,8 @@ export const funcDefine: [
     {
       name: FunctionName.LastModifiedTime,
       func: FUNCTIONS[FunctionName.LastModifiedTime],
-      params: [],
-      definition: 'LAST_MODIFIED_TIME()',
+      params: ['[field]'],
+      definition: 'LAST_MODIFIED_TIME([field])',
       returnType: CellValueType.DateTime,
     },
   ],

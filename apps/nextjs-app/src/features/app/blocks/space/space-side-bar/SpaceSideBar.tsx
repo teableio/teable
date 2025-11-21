@@ -64,7 +64,7 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
                   asChild
                   className={cn(
                     'w-full justify-start text-sm px-2 my-[2px]',
-                    href === router.pathname && 'bg-secondary'
+                    href === router.pathname && 'bg-accent'
                   )}
                 >
                   <Link href={href} className="font-normal">

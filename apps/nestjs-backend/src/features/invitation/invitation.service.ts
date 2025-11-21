@@ -1,13 +1,8 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IBaseRole, IRole } from '@teable/core';
-import { generateInvitationId } from '@teable/core';
+import { generateInvitationId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   CollaboratorType,
@@ -23,6 +18,7 @@ import dayjs from 'dayjs';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { IMailConfig } from '../../configs/mail.config';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { generateInvitationCode } from '../../utils/code-generate';
 import { CollaboratorService } from '../collaborator/collaborator.service';
@@ -63,8 +59,14 @@ export class InvitationService {
       const setting = await this.settingOpenApiService.getSetting();
 
       if (setting?.disallowSpaceInvitation) {
-        throw new ForbiddenException(
-          'The current instance disallow space invitation by the administrator'
+        throw new CustomHttpException(
+          'The current instance disallow space invitation by the administrator',
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.invitation.disallowSpaceInvitation',
+            },
+          }
         );
       }
     }
@@ -190,7 +192,11 @@ export class InvitationService {
       where: { id: spaceId, deletedTime: null },
     });
     if (!space) {
-      throw new BadRequestException('Space not found');
+      throw new CustomHttpException('Space not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.space.notFound',
+        },
+      });
     }
 
     return this.emailInvitation({
@@ -210,7 +216,11 @@ export class InvitationService {
       where: { id: baseId, deletedTime: null },
     });
     if (!base) {
-      throw new BadRequestException('Base not found');
+      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.base.notFound',
+        },
+      });
     }
 
     return this.emailInvitation({
@@ -360,7 +370,11 @@ export class InvitationService {
     const currentUserId = this.cls.get('user.id');
     const { invitationCode, invitationId } = acceptInvitationLinkRo;
     if (generateInvitationCode(invitationId) !== invitationCode) {
-      throw new BadRequestException('invalid code');
+      throw new CustomHttpException('Invalid invitation code', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.invitation.invalidCode',
+        },
+      });
     }
     const linkInvitation = await this.prismaService.invitation.findFirst({
       where: {
@@ -369,13 +383,21 @@ export class InvitationService {
       },
     });
     if (!linkInvitation) {
-      throw new NotFoundException(`link ${invitationId} not found`);
+      throw new CustomHttpException('Invitation link not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.invitation.linkNotFound',
+        },
+      });
     }
 
     const { expiredTime, baseId, spaceId, role, createdBy, type } = linkInvitation;
 
     if (expiredTime && expiredTime < new Date()) {
-      throw new ForbiddenException('link has expired');
+      throw new CustomHttpException('Invitation link has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.invitation.linkExpired',
+        },
+      });
     }
 
     if (type === 'email') {
@@ -384,7 +406,15 @@ export class InvitationService {
 
     const resourceId = spaceId || baseId;
     if (!resourceId) {
-      throw new BadRequestException('Invalid link: resourceId not found');
+      throw new CustomHttpException(
+        'Invalid invitation link: resourceId not found',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: !spaceId ? 'httpErrors.space.notFound' : 'httpErrors.base.notFound',
+          },
+        }
+      );
     }
 
     const resourceType = spaceId ? CollaboratorType.Space : CollaboratorType.Base;
@@ -396,7 +426,11 @@ export class InvitationService {
           where: { id: baseId, deletedTime: null },
         })
         .catch(() => {
-          throw new NotFoundException(`base ${baseId} not found`);
+          throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.base.notFound',
+            },
+          });
         });
       baseSpaceId = base.spaceId;
     }
@@ -470,7 +504,15 @@ export class InvitationService {
           deactivatedTime: new Date().toISOString(),
         },
       });
-      throw new ForbiddenException('You have reached the maximum number of invitations per hour');
+      throw new CustomHttpException(
+        'You have reached the maximum number of invitations per hour',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.invitation.limitExceeded',
+          },
+        }
+      );
     }
   }
 }

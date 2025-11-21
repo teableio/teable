@@ -1,12 +1,13 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { nullsToUndefined, type ViewType } from '@teable/core';
+import { HttpErrorCode, nullsToUndefined, type ViewType } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type {
   BaseDeleteEvent,
   SpaceDeleteEvent,
@@ -48,7 +49,11 @@ export class PinService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('Pin already exists');
+        throw new CustomHttpException('Pin already exists', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.pin.alreadyExists',
+          },
+        });
       });
   }
 
@@ -66,7 +71,11 @@ export class PinService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Pin not found');
+        throw new CustomHttpException('Pin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.pin.notFound',
+          },
+        });
       });
   }
 
@@ -228,7 +237,11 @@ export class PinService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Pin not found');
+        throw new CustomHttpException('Pin not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.pin.notFound',
+          },
+        });
       });
 
     const anchorItem = await this.prismaService.pinResource
@@ -241,7 +254,11 @@ export class PinService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Pin Anchor not found');
+        throw new CustomHttpException('Pin Anchor not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.pin.anchorNotFound',
+          },
+        });
       });
 
     await updateOrder({

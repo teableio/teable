@@ -14,7 +14,6 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
-import { UndoRedoButtons } from './UndoRedoButtons';
 
 export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -40,20 +39,14 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   if (!view) return null;
 
   return (
-    <div className="flex items-center gap-2">
-      <UndoRedoButtons />
-      <div className="mx-2 h-4 w-px shrink-0 bg-border" />
+    <div className="flex items-center gap-1">
       <CreateRecordModal>
-        <Button
-          className="size-6 shrink-0 rounded-full p-0"
-          size={'xs'}
-          variant={'outline'}
-          disabled={!permission['record|create']}
-        >
+        <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
           <Plus className="size-4" />
+          {t('table:view.addRecord')}
         </Button>
       </CreateRecordModal>
-      <div className="mx-2 h-4 w-px shrink-0 bg-border" />
+      <div className="mx-1 h-4 w-px shrink-0 bg-border" />
       <VisibleFields
         footer={
           <>

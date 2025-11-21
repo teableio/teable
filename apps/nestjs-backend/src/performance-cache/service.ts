@@ -3,7 +3,9 @@ import KeyvRedis from '@keyv/redis';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Keyv from 'keyv';
+import { floor } from 'lodash';
 import Redlock, { ExecutionError, ResourceLockedError } from 'redlock';
+import { CacheMetricsService } from './cache-metrics/metrics.service';
 import type { ICacheOptions, ICacheStats, IPerformanceCacheStore } from './types';
 
 @Injectable()
@@ -24,7 +26,10 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   private readonly lockPrefix = 'perf:lock';
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly cacheMetricsService: CacheMetricsService
+  ) {
     try {
       const redisUri = this.configService.get<string>('BACKEND_PERFORMANCE_CACHE');
 
@@ -80,6 +85,13 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     if (type === 'hits') stats.hits++;
     else stats.misses++;
     this.typeStats[cacheType] = stats;
+    type === 'hits'
+      ? this.cacheMetricsService.recordHit(cacheType)
+      : this.cacheMetricsService.recordMiss(cacheType);
+    this.cacheMetricsService.recordHitRate(
+      cacheType,
+      floor(stats.hits / Math.max(stats.hits + stats.misses, 1), 4) * 100
+    );
   }
 
   /**
@@ -108,7 +120,11 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       return null;
     }
     try {
+      const startTime = Date.now();
       const value = await this.keyv.get(key as string);
+      const endTime = Date.now();
+      const durationMs = endTime - startTime;
+      options.statsType && this.cacheMetricsService.recordGetTime(options.statsType, durationMs);
       if (value == undefined) {
         this.stats.misses++;
         this.recordTypeStats('misses', options.statsType);

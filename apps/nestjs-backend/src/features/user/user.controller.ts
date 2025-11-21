@@ -8,8 +8,10 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  IUpdateUserLangRo,
   IUpdateUserNameRo,
   IUserNotifyMeta,
+  updateUserLangRoSchema,
   updateUserNameRoSchema,
   userNotifyMetaSchema,
 } from '@teable/openapi';
@@ -60,5 +62,13 @@ export class UserController {
   ): Promise<void> {
     const userId = this.cls.get('user.id');
     return this.userService.updateNotifyMeta(userId, updateUserNotifyMetaRo);
+  }
+
+  @Patch('lang')
+  async updateLang(
+    @Body(new ZodValidationPipe(updateUserLangRoSchema)) updateUserLangRo: IUpdateUserLangRo
+  ): Promise<void> {
+    const userId = this.cls.get('user.id');
+    return this.userService.updateLang(userId, updateUserLangRo.lang);
   }
 }

@@ -160,7 +160,7 @@ export const ExpandRecordHeader = (props: IExpandRecordHeader) => {
           )}
 
           {canDelete ? (
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger className="px-2">
                 <MoreHorizontal />
               </DropdownMenuTrigger>

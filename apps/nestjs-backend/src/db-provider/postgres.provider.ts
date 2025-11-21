@@ -3,7 +3,6 @@ import { Logger } from '@nestjs/common';
 import type {
   IFilter,
   ILookupLinkOptionsVo,
-  ILookupOptionsVo,
   ISortItem,
   TableDomain,
   FieldCore,
@@ -499,6 +498,27 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
       .toQuery();
     this.logger.debug('updateFromSelectSql: ' + query);
     return query;
+  }
+
+  lockRecordsSql(params: {
+    dbTableName: string;
+    idFieldName: string;
+    recordIds: string[];
+  }): string | undefined {
+    const { dbTableName, idFieldName, recordIds } = params;
+    const normalized = Array.from(
+      new Set(recordIds.filter((id) => typeof id === 'string' && id.length > 0))
+    );
+    if (!normalized.length) {
+      return undefined;
+    }
+    const ordered = normalized.sort();
+    return this.knex(dbTableName)
+      .select(idFieldName)
+      .whereIn(idFieldName, ordered)
+      .orderBy(idFieldName, 'asc')
+      .forUpdate()
+      .toQuery();
   }
 
   aggregationQuery(

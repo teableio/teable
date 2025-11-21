@@ -74,7 +74,7 @@ export const unionFieldOptionsVoSchema = z.union([
   numberFieldOptionsSchema.strict(),
   autoNumberFieldOptionsSchema.strict(),
   createdTimeFieldOptionsSchema.strict(),
-  lastModifiedTimeFieldOptionsSchema.strict(),
+  lastModifiedTimeFieldOptionsSchema,
 ]);
 
 // Union of all field options for RO (request object) - includes read-only variants
@@ -86,7 +86,7 @@ export const unionFieldOptionsRoSchema = z.union([
   numberFieldOptionsRoSchema.strict(),
   autoNumberFieldOptionsRoSchema.strict(),
   createdTimeFieldOptionsRoSchema.strict(),
-  lastModifiedTimeFieldOptionsRoSchema.strict(),
+  lastModifiedTimeFieldOptionsRoSchema,
   commonOptionsSchema.strict(),
 ]);
 

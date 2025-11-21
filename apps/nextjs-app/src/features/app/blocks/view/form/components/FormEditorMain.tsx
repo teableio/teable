@@ -131,8 +131,8 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
   };
 
   return (
-    <div className="w-full overflow-y-auto sm:py-8">
-      <div className="relative mx-auto flex w-full max-w-screen-sm flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
+    <div className="w-full overflow-y-auto sm:py-8 bg-muted">
+      <div className="relative mx-auto bg-background flex w-full max-w-screen-sm flex-col items-center overflow-hidden border pb-12 shadow-md sm:rounded-lg">
         <div
           className={cn(
             'relative h-36 w-full',
@@ -168,11 +168,11 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
           </Button>
         </div>
 
-        <div className="group absolute left-1/2 top-[104px] ml-[-40px] size-20">
+        <div className="group absolute bg-muted rounded-lg left-1/2 top-[104px] ml-[-40px] size-20">
           {logoUrl ? (
             <>
               <Image
-                className="rounded-lg object-cover shadow-sm"
+                className="rounded-lg  object-cover shadow-sm"
                 src={previewUrl(logoUrl)}
                 alt="card cover"
                 fill
@@ -181,7 +181,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
               <Button
                 variant={'ghost'}
                 size={'icon'}
-                className="absolute left-0 top-0 size-full font-normal opacity-0 group-hover:opacity-30"
+                className="absolute left-0 top-0 size-full font-normal opacity-0 group-hover:opacity-100 hover:bg-black/50"
                 onClick={() => logoInput.current?.click()}
               >
                 <Pencil className="size-6" />
@@ -260,7 +260,7 @@ export const FormEditorMain = (props: { fields: IFieldInstance[] }) => {
                         id={id}
                         index={index}
                         field={field}
-                        className="w-full overflow-hidden rounded-md hover:bg-slate-100/80 dark:hover:bg-slate-800/80"
+                        className="w-full overflow-hidden rounded-md hover:bg-accent"
                         draggingClassName="bg-slate-100 dark:bg-slate-800 border border-black border-dashed opacity-50"
                         onClick={() => openSetting({ operator: FieldOperator.Edit, fieldId: id })}
                       >

@@ -672,7 +672,7 @@ export class FieldService implements IReadonlyAdapterService {
         HttpErrorCode.NOT_FOUND,
         {
           localization: {
-            i18nKey: 'httpErrors.field.fieldNotFoundInTable',
+            i18nKey: 'httpErrors.field.notFoundInTable',
             context: { tableId, fieldId },
           },
         }
@@ -724,8 +724,7 @@ export class FieldService implements IReadonlyAdapterService {
       if (!curView) {
         throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
-            i18nKey: 'httpErrors.view.viewNotFound',
-            context: { viewId },
+            i18nKey: 'httpErrors.view.notFound',
           },
         });
       }
@@ -1188,6 +1187,9 @@ export class FieldService implements IReadonlyAdapterService {
     // Persist meta after potential schema modifications that may set it (e.g., formula generated columns)
     if (newField.meta !== undefined) {
       result.meta = JSON.stringify(newField.meta);
+    } else if (oldField.meta !== undefined) {
+      // Explicitly clear meta when schema updates drop generated columns
+      result.meta = null;
     }
 
     await this.prismaService.txClient().field.update({

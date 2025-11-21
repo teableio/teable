@@ -37,12 +37,13 @@
       },
       "personalView": {
         "personal": "Persönlich",
+        "tip": "Nach der Aktivierung gilt die Ansichtseinstellung nur für dich persönlich",
         "collaborative": "Kollaboration",
         "dialog": {
-          "title": "In den Kollaborationsmodus wechseln",
-          "description": "Klicken Sie auf die \"+\"-Schaltfläche in der Seitenleiste, um Ressourcen hinzuzufügen, und beginnen Sie, Ihre Daten effizient zu verwalten",
-          "cancelText": "Nicht synchronisieren",
-          "confirmText": "Synchronisieren"
+          "title": "Persönlichen Modus beenden",
+          "description": "Die persönliche Ansichtskonfiguration wird auf den Echtzeit-Kollaborationsstatus zurückgesetzt. Sie können die persönlichen Ansichtseinstellungen auch speichern und für alle synchronisieren.",
+          "cancelText": "Beenden und synchronisieren",
+          "confirmText": "Beenden bestätigen"
         }
       }
     }
@@ -362,6 +363,13 @@
       "autoFillFieldDialog": {
         "title": "Alle Datensätze aktualisieren",
         "description": "Alle Datensätze in der aktuellen Ansicht werden aktualisiert, einschließlich aller mit dem Feld generierten verknüpften Datensätze"
+      },
+      "autoFillConfirm": {
+        "title": "Gesamte Spalte generieren?",
+        "description": "Dabei werden {{rowCount}} Zeilen aktualisiert. Dieser Vorgang kann viele KI-Ressourcen verbrauchen.",
+        "saveConfigOnly": "Nur Konfiguration speichern",
+        "generate": "Generieren",
+        "generateFailed": "Generierung fehlgeschlagen"
       },
       "action": {
         "addAttachment": "Anhang hinzufügen"

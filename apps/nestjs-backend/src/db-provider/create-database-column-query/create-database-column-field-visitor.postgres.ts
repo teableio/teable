@@ -86,9 +86,14 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createFormulaColumns(field: FormulaFieldCore): void {
+    const formulaFieldDto = this.context.field as FormulaFieldDto;
+    const clearPersistedGeneratedMeta = () => {
+      formulaFieldDto.meta = undefined;
+    };
     // Never persist lookup formulas as generated columns; they may be multi-valued (JSON)
     // and/or depend on link/lookup resolution logic not suitable for generated columns.
     if (field.isLookup || field.isMultipleCellValue) {
+      clearPersistedGeneratedMeta();
       this.createStandardColumn(field);
       return;
     }
@@ -101,6 +106,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       // Skip if no expression
       if (!expression) {
         // Fallback to a standard column if no expression
+        clearPersistedGeneratedMeta();
         this.createStandardColumn(field);
         return;
       }
@@ -134,6 +140,7 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       }
     }
     // Fallback: create a standard column when not supported as generated
+    clearPersistedGeneratedMeta();
     this.createStandardColumn(field);
   }
 
@@ -398,12 +405,22 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       this.createStandardColumn(field);
       return;
     }
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      'TIMESTAMP GENERATED ALWAYS AS (__last_modified_time) STORED'
-    );
+    const trackAll = field.isTrackAll();
+
+    if (trackAll) {
+      this.context.table.specificType(
+        this.context.dbFieldName,
+        'TIMESTAMP GENERATED ALWAYS AS (__last_modified_time) STORED'
+      );
+      (this.context.field as LastModifiedTimeFieldDto).setMetadata({
+        persistedAsGeneratedColumn: true,
+      });
+      return;
+    }
+
+    this.context.table.timestamp(this.context.dbFieldName, { useTz: true });
     (this.context.field as LastModifiedTimeFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 

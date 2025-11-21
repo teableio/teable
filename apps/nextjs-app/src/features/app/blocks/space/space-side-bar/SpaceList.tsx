@@ -127,7 +127,11 @@ export const SpaceList: FC = () => {
                 disabled={isLoading || isLoadingBase}
                 className={cn('w-full')}
               >
-                {isLoading || isLoadingBase ? <Spin className="size-3" /> : <Plus />}
+                {isLoading || isLoadingBase ? (
+                  <Spin className="size-4" />
+                ) : (
+                  <Plus className="size-4" />
+                )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">

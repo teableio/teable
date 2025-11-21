@@ -1,7 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
-import type { IFilter, IFilterSet } from '@teable/core';
+import { HttpErrorCode, type IFilter, type IFilterSet } from '@teable/core';
 import { type IBaseQueryFilter } from '@teable/openapi';
 import type { Knex } from 'knex';
+import { CustomHttpException } from '../../../../custom.exception';
 import type { IDbProvider } from '../../../../db-provider/db.provider.interface';
 import type { IFieldInstance } from '../../../field/model/factory';
 
@@ -55,7 +56,14 @@ export class QueryFilter {
       } else {
         const field = fieldMap[item.column];
         if (!field) {
-          throw new BadRequestException(`Field ${item.column} not found`);
+          throw new CustomHttpException(`Field ${item.column} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.field.fieldNotFound',
+              context: {
+                fieldName: item.column,
+              },
+            },
+          });
         }
         filterSets.push({
           isSymbol: false,
