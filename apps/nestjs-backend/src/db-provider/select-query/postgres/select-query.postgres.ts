@@ -1059,7 +1059,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
   }
 
   blank(): string {
-    return `''`;
+    return 'NULL';
   }
 
   error(_message: string): string {

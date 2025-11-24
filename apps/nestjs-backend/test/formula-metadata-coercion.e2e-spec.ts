@@ -1,7 +1,7 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, FieldKeyType, TableDomain } from '@teable/core';
+import { FieldType, FieldKeyType, TableDomain, TimeFormatting } from '@teable/core';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
@@ -234,6 +234,94 @@ describe('Formula metadata-aware coercion (e2e)', () => {
           `COALESCE(("${tableAlias}"."${qtyField.dbFieldName}")::double precision, 0)`
         );
         expect(sql).not.toContain('REGEXP_REPLACE');
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('treats BLANK() as NULL for select queries with mixed branch types', async () => {
+      const seedFields: IFieldRo[] = [
+        { name: 'Title', type: FieldType.SingleLineText },
+        { name: 'Amount', type: FieldType.Number },
+        {
+          name: 'Due Date',
+          type: FieldType.Date,
+          options: {
+            formatting: {
+              date: 'YYYY-MM-DD',
+              time: TimeFormatting.Hour24,
+              timeZone: 'UTC',
+            },
+          },
+        },
+      ];
+
+      const table: ITableFullVo = await createTable(baseId, {
+        name: 'formula_metadata_blank_select',
+        fields: seedFields,
+      });
+
+      try {
+        const fieldMap = new Map<string, IFieldVo>(
+          table.fields.map((field) => [field.name, field as IFieldVo])
+        );
+        const titleField = fieldMap.get('Title')!;
+        const amountField = fieldMap.get('Amount')!;
+        const dueField = fieldMap.get('Due Date')!;
+
+        const tableMeta = await prisma.tableMeta.findUniqueOrThrow({
+          where: { id: table.id },
+          select: { dbTableName: true },
+        });
+
+        const tableDomain = new TableDomain({
+          id: table.id,
+          name: table.name,
+          dbTableName: tableMeta.dbTableName,
+          lastModifiedTime: table.lastModifiedTime ?? new Date().toISOString(),
+          fields: [titleField, amountField, dueField].map((field) =>
+            createFieldInstanceByVo(field)
+          ),
+        });
+
+        const tableAlias = 'main';
+        const selectionEntries = [titleField, amountField, dueField].map((field) => [
+          field.id,
+          `"${tableAlias}"."${field.dbFieldName}"`,
+        ]) as [string, string][];
+
+        const context: ISelectFormulaConversionContext = {
+          table: tableDomain,
+          selectionMap: new Map(selectionEntries),
+          tableAlias,
+          timeZone: 'UTC',
+          preferRawFieldReferences: true,
+        };
+
+        const blankSql = dbProvider.convertFormulaToSelectQuery('BLANK()', context) as string;
+        expect(blankSql.trim()).toBe('NULL');
+
+        const branchAssertions: Array<{ expression: string; expectedBranch: string }> = [
+          {
+            expression: `IF(TRUE, BLANK(), {${titleField.id}})`,
+            expectedBranch: `"${tableAlias}"."${titleField.dbFieldName}"`,
+          },
+          {
+            expression: `IF(TRUE, BLANK(), {${amountField.id}})`,
+            expectedBranch: `"${tableAlias}"."${amountField.dbFieldName}"`,
+          },
+          {
+            expression: `IF(TRUE, BLANK(), {${dueField.id}})`,
+            expectedBranch: `"${tableAlias}"."${dueField.dbFieldName}"`,
+          },
+        ];
+
+        for (const { expression, expectedBranch } of branchAssertions) {
+          const sql = dbProvider.convertFormulaToSelectQuery(expression, context);
+          expect(sql).toMatch(/THEN\s+NULL/i);
+          expect(sql).not.toMatch(/THEN\s+''/i);
+          expect(sql).toContain(expectedBranch);
+        }
       } finally {
         await permanentDeleteTable(baseId, table.id);
       }
