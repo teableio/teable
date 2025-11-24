@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type {
   ISnapshotBase,
   IViewRo,
@@ -332,27 +332,47 @@ export class ViewService implements IReadonlyAdapterService {
   }
 
   async deleteView(tableId: string, viewId: string) {
-    const { version } = await this.prismaService
-      .txClient()
-      .view.findFirstOrThrow({
-        where: { id: viewId, tableId, deletedTime: null },
-      })
-      .catch(() => {
-        throw new CustomHttpException(
-          `View not found with id: ${viewId} and tableId: ${tableId}`,
-          HttpErrorCode.NOT_FOUND,
-          {
-            localization: {
-              i18nKey: 'httpErrors.view.notFound',
-            },
-          }
-        );
-      });
+    // Use SELECT FOR UPDATE to lock all views in the table to prevent concurrent deletion
+    // This ensures that when checking if this is the last view, no other transaction
+    // can delete views simultaneously
+    const views = await this.prismaService.txClient().$queryRaw<
+      Array<{ id: string; version: number }>
+    >`
+      SELECT id, version FROM "view" 
+      WHERE "table_id" = ${tableId} 
+        AND "deleted_time" IS NULL 
+      FOR UPDATE
+    `;
 
-    await this.del(version + 1, tableId, viewId);
+    if (views.length <= 1) {
+      throw new CustomHttpException(
+        'Cannot delete the last view in a table. A table must have at least one view.',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.cannotDeleteLastView',
+          },
+        }
+      );
+    }
+
+    const viewToDelete = views.find((v) => v.id === viewId);
+    if (!viewToDelete) {
+      throw new CustomHttpException(
+        `View not found with id: ${viewId} and tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
+    }
+
+    await this.del(viewToDelete.version + 1, tableId, viewId);
 
     await this.batchService.saveRawOps(tableId, RawOpType.Del, IdPrefix.View, [
-      { docId: viewId, version },
+      { docId: viewId, version: viewToDelete.version },
     ]);
   }
 

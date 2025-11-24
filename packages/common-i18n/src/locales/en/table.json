@@ -806,9 +806,11 @@
     },
     "action": {
       "createTable": "Create table",
+      "updateTable": "Update table",
       "updateTableName": "Update table name",
       "deleteTable": "Delete table",
       "createView": "Create view",
+      "updateView": "Update view",
       "updateViewName": "Update view name",
       "deleteView": "Delete view",
       "createField": "Create field",
@@ -854,7 +856,37 @@
       "generateScriptAndDependencies": "Generate script and dependencies",
 
       "analyzingAttachment": "Analyzing attachment...",
-      "locateResource": "Locate"
+      "locateResource": "Locate",
+
+      "operationSuccess": "Operation completed successfully",
+      "operationFailed": "Operation failed"
+    },
+    "queryTool": {
+      "getRecords": "Query records",
+      "getRecordsWithTable": "Query records · {{tableName}}",
+      "getFields": "Query fields",
+      "getFieldsWithTable": "Query fields · {{tableName}}",
+      "getTables": "Query tables",
+      "getViews": "Query views",
+      "getViewsWithTable": "Query views · {{tableName}}",
+      "sqlQuery": "SQL query",
+      "querying": "Querying...",
+      "queryFailed": "Query failed",
+      "noData": "No data returned",
+      "dataFormatError": "Data format error",
+      "unsupportedQueryType": "Unsupported query type: {{toolName}}",
+      "returnedRecords": "Returned {{count}} record(s)",
+      "record": "Record {{index}}",
+      "moreRecords": "... +{{count}} more record(s)",
+      "foundFields": "Found {{count}} field(s)",
+      "moreFields": "... +{{count}} more field(s)",
+      "foundTables": "Found {{count}} table(s)",
+      "moreTables": "... +{{count}} more table(s)",
+      "foundViews": "Found {{count}} view(s)",
+      "moreViews": "... +{{count}} more view(s)",
+      "queryReturned": "Query returned {{rowCount}} row(s) × {{columnCount}} column(s)",
+      "row": "Row {{index}}",
+      "moreRows": "... +{{count}} more row(s)"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",

@@ -808,9 +808,11 @@
     },
     "action": {
       "createTable": "创建表格",
+      "updateTable": "更新表格",
       "updateTableName": "更新表格名称",
       "deleteTable": "删除表格",
       "createView": "创建视图",
+      "updateView": "更新视图",
       "updateViewName": "更新视图名称",
       "deleteView": "删除视图",
       "createField": "创建字段",
@@ -857,7 +859,37 @@
       "previewEnvironment": "准备预览环境",
 
       "analyzingAttachment": "分析附件中...",
-      "locateResource": "定位"
+      "locateResource": "定位",
+
+      "operationSuccess": "操作成功完成",
+      "operationFailed": "操作失败"
+    },
+    "queryTool": {
+      "getRecords": "查询记录",
+      "getRecordsWithTable": "查询记录 · {{tableName}}",
+      "getFields": "查询字段",
+      "getFieldsWithTable": "查询字段 · {{tableName}}",
+      "getTables": "查询表",
+      "getViews": "查询视图",
+      "getViewsWithTable": "查询视图 · {{tableName}}",
+      "sqlQuery": "SQL 查询",
+      "querying": "查询中...",
+      "queryFailed": "查询失败",
+      "noData": "无返回数据",
+      "dataFormatError": "数据格式错误",
+      "unsupportedQueryType": "不支持的查询类型: {{toolName}}",
+      "returnedRecords": "返回 {{count}} 条记录",
+      "record": "记录 {{index}}",
+      "moreRecords": "... +{{count}} 条记录",
+      "foundFields": "找到 {{count}} 个字段",
+      "moreFields": "... +{{count}} 个字段",
+      "foundTables": "找到 {{count}} 张表",
+      "moreTables": "... +{{count}} 张表",
+      "foundViews": "找到 {{count}} 个视图",
+      "moreViews": "... +{{count}} 个视图",
+      "queryReturned": "查询返回 {{rowCount}} 行 × {{columnCount}} 列",
+      "row": "行 {{index}}",
+      "moreRows": "... +{{count}} 行"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",

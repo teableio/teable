@@ -1142,6 +1142,7 @@
     },
     "view": {
       "notFound": "View not found",
+      "cannotDeleteLastView": "Cannot delete the last view in a table. A table must have at least one view.",
       "defaultViewNotFound": "Default view not found",
       "propertyParseError": "Failed to parse view property",
       "primaryFieldCannotBeHidden": "Primary field cannot be hidden",

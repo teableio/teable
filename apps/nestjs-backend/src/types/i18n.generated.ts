@@ -2380,6 +2380,7 @@ export type I18nTranslations = {
                 "shareNotEnabled": string;
                 "shareAlreadyEnabled": string;
                 "shareAlreadyDisabled": string;
+                "cannotDeleteLastView": string;
             };
             "billing": {
                 "insufficientCredit": string;
@@ -3511,9 +3512,11 @@ export type I18nTranslations = {
             };
             "action": {
                 "createTable": string;
+                "updateTable": string;
                 "updateTableName": string;
                 "deleteTable": string;
                 "createView": string;
+                "updateView": string;
                 "updateViewName": string;
                 "deleteView": string;
                 "createField": string;
@@ -3556,6 +3559,35 @@ export type I18nTranslations = {
                 "generateScriptAndDependencies": string;
                 "analyzingAttachment": string;
                 "locateResource": string;
+                "operationSuccess": string;
+                "operationFailed": string;
+            };
+            "queryTool": {
+                "getRecords": string;
+                "getRecordsWithTable": string;
+                "getFields": string;
+                "getFieldsWithTable": string;
+                "getTables": string;
+                "getViews": string;
+                "getViewsWithTable": string;
+                "sqlQuery": string;
+                "querying": string;
+                "queryFailed": string;
+                "noData": string;
+                "dataFormatError": string;
+                "unsupportedQueryType": string;
+                "returnedRecords": string;
+                "record": string;
+                "moreRecords": string;
+                "foundFields": string;
+                "moreFields": string;
+                "foundTables": string;
+                "moreTables": string;
+                "foundViews": string;
+                "moreViews": string;
+                "queryReturned": string;
+                "row": string;
+                "moreRows": string;
             };
             "buildFlow": {
                 "progress": string;

@@ -1142,6 +1142,7 @@
     },
     "view": {
       "notFound": "视图不存在",
+      "cannotDeleteLastView": "无法删除表格中的最后一个视图。表格必须至少保留一个视图。",
       "defaultViewNotFound": "默认视图不存在",
       "propertyParseError": "视图属性解析失败",
       "primaryFieldCannotBeHidden": "主字段不能被隐藏",

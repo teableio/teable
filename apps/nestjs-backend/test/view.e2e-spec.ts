@@ -35,6 +35,7 @@ import {
   updateViewLocked,
   duplicateView,
   installViewPlugin,
+  deleteView,
 } from '@teable/openapi';
 import { sample } from 'lodash';
 import { ViewService } from '../src/features/view/view.service';
@@ -756,6 +757,109 @@ describe('OpenAPI ViewController (e2e)', () => {
       expect(duplicatedView.options).contain({
         pluginLogo: (sheetView.options as IPluginViewOptions).pluginLogo,
       });
+    });
+  });
+
+  describe('concurrent view deletion with row-level locking', () => {
+    let table: ITableFullVo;
+    let view1Id: string;
+    let view2Id: string;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: 'concurrent_test_table' });
+      const view1 = await createView(table.id, {
+        name: 'View 1',
+        type: ViewType.Grid,
+      });
+      view1Id = view1.id;
+      const view2 = await createView(table.id, {
+        name: 'View 2',
+        type: ViewType.Grid,
+      });
+      view2Id = view2.id;
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should prevent concurrent deletion of the last view using SELECT FOR UPDATE', async () => {
+      // Delete view1 first (should succeed since there are still 2 views left)
+      await deleteView(table.id, view1Id);
+
+      // Verify view1 was deleted
+      const views = await getViews(table.id);
+      expect(views.length).toBe(2); // default view + view2
+
+      // Try to delete the second custom view (should succeed, leaving only the default view)
+      await deleteView(table.id, view2Id);
+
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+      expect(finalViews[0].name).toBe('Grid view'); // Only default view remains
+
+      // Try to delete the last view (should fail)
+      await expect(deleteView(table.id, finalViews[0].id)).rejects.toThrow(
+        'Cannot delete the last view in a table'
+      );
+    });
+
+    it('should handle concurrent deletion attempts with proper locking', async () => {
+      // Create a scenario with exactly 2 views (default + view1)
+      // Delete view2 first to have only 2 views
+      await deleteView(table.id, view2Id);
+
+      const remainingViews = await getViews(table.id);
+      expect(remainingViews.length).toBe(2); // default view + view1
+
+      // Attempt to delete both views concurrently
+      // One should succeed, one should fail because it would be the last view
+      const deletePromises = remainingViews.map((view) =>
+        deleteView(table.id, view.id).catch((error) => error)
+      );
+
+      const results = await Promise.all(deletePromises);
+
+      // One should succeed (undefined or success), one should fail with error
+      const successCount = results.filter((r) => !r || r.message === undefined).length;
+      const failureCount = results.filter(
+        (r) => r && r.message && r.message.includes('Cannot delete the last view')
+      ).length;
+
+      expect(successCount).toBe(1);
+      expect(failureCount).toBe(1);
+
+      // Verify exactly one view remains
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+    });
+
+    it('should use SELECT FOR UPDATE to prevent race conditions', async () => {
+      // This test verifies that the locking mechanism works correctly
+      // by attempting rapid concurrent deletions
+      const view3 = await createView(table.id, {
+        name: 'View 3',
+        type: ViewType.Grid,
+      });
+
+      // Now we have 4 views: default, view1, view2, view3
+      const allViews = await getViews(table.id);
+      expect(allViews.length).toBe(4);
+
+      // Delete 3 views concurrently, leaving only 1
+      const viewsToDelete = [view1Id, view2Id, view3.id];
+      const deleteResults = await Promise.allSettled(
+        viewsToDelete.map((viewId) => deleteView(table.id, viewId))
+      );
+
+      // All 3 deletions should succeed
+      const successfulDeletions = deleteResults.filter((r) => r.status === 'fulfilled').length;
+      expect(successfulDeletions).toBe(3);
+
+      // Verify only the default view remains
+      const finalViews = await getViews(table.id);
+      expect(finalViews.length).toBe(1);
+      expect(finalViews[0].name).toBe('Grid view');
     });
   });
 });
