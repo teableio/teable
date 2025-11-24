@@ -10,9 +10,19 @@ export class Base implements IGetBaseVo {
   role: IRole;
   collaboratorType?: CollaboratorType;
   restrictedAuthority?: boolean;
+  enabledAuthority?: boolean;
 
   constructor(base: IGetBaseVo) {
-    const { id, name, spaceId, icon, role, collaboratorType, restrictedAuthority } = base;
+    const {
+      id,
+      name,
+      spaceId,
+      icon,
+      role,
+      collaboratorType,
+      restrictedAuthority,
+      enabledAuthority,
+    } = base;
     this.id = id;
     this.name = name;
     this.spaceId = spaceId;
@@ -20,6 +30,7 @@ export class Base implements IGetBaseVo {
     this.role = role;
     this.collaboratorType = collaboratorType;
     this.restrictedAuthority = restrictedAuthority;
+    this.enabledAuthority = enabledAuthority;
   }
 
   async createTable(tableRo?: ICreateTableRo) {

@@ -44,10 +44,10 @@ export const Collaborator = (props: ICollaboratorProps) => {
         </div>
       )}
       <div className="ml-2 flex flex-1 flex-col space-y-1">
-        <p className="text-sm font-medium leading-none">
+        <div className="text-sm font-medium leading-none">
           {item.name}
           {tips}
-        </p>
+        </div>
         {item.type === PrincipalType.User && (
           <p className="text-xs leading-none text-muted-foreground">{item.email}</p>
         )}

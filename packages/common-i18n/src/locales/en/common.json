@@ -344,18 +344,32 @@
       "linkTitle": "Invite links",
       "linkCreatedTime": "created {{createdTime}}",
       "linkCopySuccess": "Link copied",
-      "linkRemove": "Remove link"
+      "linkRemove": "Remove link",
+      "noInviteLinks": "No invite links",
+      "linkDescription": "Create an invitation link and assign permissions"
     },
     "base": {
       "title": "Share {{baseName}}",
       "desc_one": "This base is shared with {{count}} collaborator.",
       "desc_other": "This base is shared with {{count}} collaborators.",
       "baseTitle": "Base collaborators",
-      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email"
+      "collaboratorSearchPlaceholder": "Find a base collaborator by name or email",
+      "baseTitleWithCount": "Base collaborators ({{count}})"
     },
     "addOrgCollaborator": {
       "title": "Add organization collaborator",
       "placeholder": "Select organization member or department"
+    },
+    "sendInvitationSuccess": "Invitation has been sent",
+    "table": {
+      "collaborator": "Collaborator",
+      "accessPermission": "Access permission",
+      "joinAt": "Joined at"
+    },
+    "authority": {
+      "title": "Authority Matrix is enabled",
+      "description": "Collaborators’ s effective access permission is affected by the roles assigned to them, Unassigned user using the default role",
+      "viewDetail": "View detail"
     }
   },
   "help": {

@@ -34,7 +34,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
-import { BaseCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/base/BaseCollaboratorModal';
+import { ShareBasePopover } from '@/features/app/components/collaborator/share/ShareBasePopover';
 import { tableConfig } from '@/features/i18n/table.config';
 import { usePluginPanelStorage } from '../../../components/plugin-panel/hooks/usePluginPanelStorage';
 import { TableTrash } from '../../trash/components/TableTrash';
@@ -134,18 +134,19 @@ const RightList = ({
           </a>
         </Button>
       </div>
-      <BaseCollaboratorModalTrigger
+      <ShareBasePopover
         base={{
           name: base.name,
           role: base.role,
           id: base.id,
+          enabledAuthority: base.enabledAuthority,
         }}
       >
         <Button variant="default" size="xs" className="flex">
           <UserPlus className="size-4" />{' '}
           <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
         </Button>
-      </BaseCollaboratorModalTrigger>
+      </ShareBasePopover>
 
       {hasTableHistoryPermission && (
         <Dialog open={isHistoryDialogOpen} onOpenChange={setHistoryDialogOpen}>
@@ -204,7 +205,7 @@ const RightMenu = ({ className }: { className?: string }) => {
       <PopoverContent side="bottom" align="start" className="w-32 p-0">
         <div className="flex flex-col">
           <Collaborators className="flex p-2" />
-          <BaseCollaboratorModalTrigger
+          <ShareBasePopover
             base={{
               name: base.name,
               role: base.role,
@@ -214,7 +215,7 @@ const RightMenu = ({ className }: { className?: string }) => {
             <Button variant="ghost" size="xs" className="flex justify-start">
               <UserPlus className="size-4" /> {t('space:action.invite')}
             </Button>
-          </BaseCollaboratorModalTrigger>
+          </ShareBasePopover>
           {hasTableHistoryPermission && (
             <Sheet modal={true}>
               <SheetTrigger asChild>

@@ -341,18 +341,32 @@
       "linkTitle": "邀请链接",
       "linkCreatedTime": "创建于 {{createdTime}}",
       "linkCopySuccess": "链接已复制",
-      "linkRemove": "移除链接"
+      "linkRemove": "移除链接",
+      "noInviteLinks": "没有邀请链接",
+      "linkDescription": "创建一个邀请链接并分配权限"
     },
     "base": {
       "title": "分享{{baseName}}",
       "desc_one": "此数据库与 {{count}} 位协作者共享。",
       "desc_other": "此数据库与 {{count}} 位协作者共享。",
       "baseTitle": "此数据库协作者",
-      "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者"
+      "collaboratorSearchPlaceholder": "通过姓名或电子邮件查找数据库协作者",
+      "baseTitleWithCount": "此数据库协作者（{{count}}）"
     },
     "addOrgCollaborator": {
       "title": "添加组织协作者",
       "placeholder": "选择组织成员或部门"
+    },
+    "sendInvitationSuccess": "邀请已发送",
+    "table": {
+      "collaborator": "协作者",
+      "accessPermission": "访问权限",
+      "joinAt": "加入于"
+    },
+    "authority": {
+      "title": "权限矩阵已启用",
+      "description": "协作者的有效访问权限受分配给他们的角色的影响，未分配用户使用默认角色",
+      "viewDetail": "查看详情"
     }
   },
   "help": {
