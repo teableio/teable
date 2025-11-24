@@ -106,6 +106,10 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return value.trim() === "''";
   }
 
+  private isNullLiteral(value: string): boolean {
+    return this.stripOuterParentheses(value).toUpperCase() === 'NULL';
+  }
+
   private normalizeBlankComparable(value: string, metadataIndex?: number): string {
     const comparable = this.coerceToTextComparable(value, metadataIndex);
     return `COALESCE(NULLIF(${comparable}, ''), '')`;
@@ -420,7 +424,11 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     right: string,
     metadataIndexes?: { left?: number; right?: number }
   ): string {
-    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
+    const shouldNormalize =
+      this.isEmptyStringLiteral(left) ||
+      this.isEmptyStringLiteral(right) ||
+      this.isNullLiteral(left) ||
+      this.isNullLiteral(right);
     const leftIndex = metadataIndexes?.left;
     const rightIndex = metadataIndexes?.right;
     if (!shouldNormalize) {
