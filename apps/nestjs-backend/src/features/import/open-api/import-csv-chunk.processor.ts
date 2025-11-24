@@ -271,7 +271,6 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         jobId: chunkJobId,
         removeOnComplete: true,
         removeOnFail: true,
-        delay: 1000,
       }
     );
   }
