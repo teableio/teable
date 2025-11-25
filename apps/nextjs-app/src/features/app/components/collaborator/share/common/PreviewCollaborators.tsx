@@ -28,7 +28,7 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
             return (
               <div
                 key={collaborator.departmentId}
-                className="relative flex size-7 items-center justify-center rounded-full border-2 bg-background"
+                className="relative flex size-8 items-center justify-center rounded-full border-2 border-background bg-secondary"
               >
                 <Building2 className="size-5" />
               </div>

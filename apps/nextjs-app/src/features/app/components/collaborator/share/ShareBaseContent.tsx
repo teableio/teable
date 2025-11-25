@@ -264,9 +264,13 @@ export const ShareBaseContent = ({
             <InviteOrgButton onClick={() => setTabType('organization')} />
           </div>
         )}
-        <div className="space-y-2">
+        <div className="relative space-y-2">
           <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
-          <InviteLinkButton linkListCount={linkListCount} onClick={() => setTabType('link')} />
+          <InviteLinkButton
+            className="box-content -translate-x-2 px-2 py-0"
+            linkListCount={linkListCount}
+            onClick={() => setTabType('link')}
+          />
         </div>
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t('invite.dialog.baseTitle')}</p>
@@ -340,6 +344,7 @@ export const ShareBaseContent = ({
               collaborators={collaborators?.slice(0, 4) || []}
               total={total}
               onClick={() => setTabType('collaborators')}
+              className="box-content -translate-x-2 px-2 py-0"
             />
           </CollaboratorsDialog>
         </div>

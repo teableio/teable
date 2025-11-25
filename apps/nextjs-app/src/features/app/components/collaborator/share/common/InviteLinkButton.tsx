@@ -1,11 +1,13 @@
 import { ChevronRight } from '@teable/icons';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 
 export const InviteLinkButton = ({
+  className,
   linkListCount,
   onClick,
 }: {
+  className?: string;
   linkListCount: number;
   onClick: () => void;
 }) => {
@@ -14,7 +16,7 @@ export const InviteLinkButton = ({
   return (
     <Button
       variant="outline"
-      className="flex w-full justify-between border-none font-normal shadow-none"
+      className={cn('flex w-full justify-between border-none font-normal shadow-none', className)}
       onClick={onClick}
     >
       {linkListCount > 0

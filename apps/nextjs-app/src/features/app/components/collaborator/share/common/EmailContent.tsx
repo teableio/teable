@@ -65,7 +65,7 @@ export const EmailContent = ({
           {inviteEmails.map((email) => (
             <div
               key={email}
-              className="flex h-6 items-center rounded-full bg-muted px-2 text-[13px]"
+              className="flex h-6 items-center rounded-full border bg-secondary px-2 text-[13px]"
             >
               {email}
               <X

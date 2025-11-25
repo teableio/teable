@@ -533,6 +533,7 @@ export type I18nTranslations = {
                 "baseOnly": string;
                 "noInviteLinks": string;
                 "linkDescription": string;
+                "haveAccess": string;
                 "desc": string;
             };
             "base": {

@@ -55,16 +55,18 @@ export const OrgContent = ({
                 {selectedMembers.map((member) => (
                   <div
                     key={member.id}
-                    className="flex h-6 items-center gap-1 rounded-full bg-muted pr-2 text-[13px]"
+                    className="flex h-6 items-center gap-1 rounded-full border bg-secondary pr-2 text-[13px]"
                   >
                     {member.data.type === TreeNodeType.USER ? (
                       <UserAvatar
                         avatar={member.data.avatar}
                         name={member.data.name}
-                        className="size-6"
+                        className="size-[22px] bg-transparent"
                       />
                     ) : (
-                      <Building2 className="size-[22px] rounded-full border" />
+                      <div className="flex size-[22px] items-center justify-center rounded-full border">
+                        <Building2 className="size-[16px]" />
+                      </div>
                     )}
                     {member.data.name}
                     <X
