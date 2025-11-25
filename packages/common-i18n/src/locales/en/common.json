@@ -347,7 +347,8 @@
       "linkCopySuccess": "Link copied",
       "linkRemove": "Remove link",
       "noInviteLinks": "No invite links",
-      "linkDescription": "Create an invitation link and assign permissions"
+      "linkDescription": "Create an invitation link and assign permissions",
+      "haveAccess": "Have access"
     },
     "base": {
       "title": "Share {{baseName}}",

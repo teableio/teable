@@ -344,7 +344,8 @@
       "linkCopySuccess": "链接已复制",
       "linkRemove": "移除链接",
       "noInviteLinks": "没有邀请链接",
-      "linkDescription": "创建一个邀请链接并分配权限"
+      "linkDescription": "创建一个邀请链接并分配权限",
+      "haveAccess": "有权访问"
     },
     "base": {
       "title": "分享{{baseName}}",

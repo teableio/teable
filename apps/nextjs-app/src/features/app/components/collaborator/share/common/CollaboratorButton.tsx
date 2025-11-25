@@ -1,5 +1,6 @@
 import { ChevronRight } from '@teable/icons';
 import type { CollaboratorItem } from '@teable/openapi';
+import { useTranslation } from 'next-i18next';
 import { forwardRef } from 'react';
 import { PreviewCollaborators } from './PreviewCollaborators';
 
@@ -11,6 +12,7 @@ export const CollaboratorButton = forwardRef<
     total: number;
   }
 >(({ collaborators, total, onClick }, ref) => {
+  const { t } = useTranslation('common');
   return (
     // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
     <div
@@ -20,7 +22,7 @@ export const CollaboratorButton = forwardRef<
     >
       <div className="flex items-center gap-2">
         <PreviewCollaborators collaborators={collaborators || []} total={total} />
-        <p>have access</p>
+        <p>{t('invite.dialog.haveAccess')}</p>
       </div>
       <ChevronRight className="size-4" />
     </div>

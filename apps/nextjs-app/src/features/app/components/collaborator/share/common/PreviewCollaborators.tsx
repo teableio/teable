@@ -26,7 +26,10 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
             );
           case PrincipalType.Department:
             return (
-              <div className="relative flex size-7 items-center justify-center rounded-full border-2 bg-background">
+              <div
+                key={collaborator.departmentId}
+                className="relative flex size-7 items-center justify-center rounded-full border-2 bg-background"
+              >
                 <Building2 className="size-5" />
               </div>
             );
