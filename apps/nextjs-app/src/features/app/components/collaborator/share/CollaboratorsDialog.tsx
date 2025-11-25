@@ -10,7 +10,7 @@ interface ICollaboratorsDialogProps {
   fetchNextPage: () => void;
   isLoading: boolean;
   title: string;
-  alert: React.ReactNode;
+  alert?: React.ReactNode;
   content: React.ReactNode;
 }
 

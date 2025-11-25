@@ -1,6 +1,6 @@
 import type { IBaseRole, IRole } from '@teable/core';
 import { ChevronLeft, Trash, UserPlus } from '@teable/icons';
-import { type ListBaseInvitationLinkVo } from '@teable/openapi';
+import type { ListSpaceInvitationLinkVo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
 import { Button, Separator } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -10,7 +10,7 @@ import type { IRoleStatic } from '../../../collaborator-manage/types';
 import { CopyButton } from '../../../CopyButton';
 
 interface ILinkContentProps {
-  list?: ListBaseInvitationLinkVo;
+  list?: ListSpaceInvitationLinkVo;
   defaultRole: IRole;
   filteredRoleStatic: IRoleStatic[];
   isCreateLoading?: boolean;

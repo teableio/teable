@@ -26,16 +26,15 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
             );
           case PrincipalType.Department:
             return (
-              <Building2
-                key={collaborator.departmentId}
-                className="size-8 border-2 border-background"
-              />
+              <div className="relative flex size-7 items-center justify-center rounded-full border-2 bg-background">
+                <Building2 className="size-5" />
+              </div>
             );
         }
       })}
       {moreCount > 0 && (
         <div className="relative flex size-8 items-center justify-center rounded-full border-2 border-background bg-blue-500 font-medium text-white">
-          +{moreCount}
+          {moreCount > 99 ? '99+' : `+${moreCount}`}
         </div>
       )}
     </div>

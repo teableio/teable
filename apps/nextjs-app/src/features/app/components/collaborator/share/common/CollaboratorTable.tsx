@@ -21,6 +21,7 @@ import { useTranslation } from 'next-i18next';
 import { Collaborator } from '../../../collaborator-manage/components/Collaborator';
 import { RoleSelect } from '../../../collaborator-manage/components/RoleSelect';
 import type { IRoleStatic } from '../../../collaborator-manage/types';
+import { useRoleStatic } from '../../../collaborator-manage/useRoleStatic';
 
 interface ICollaboratorTableProps {
   className?: string;
@@ -31,7 +32,7 @@ interface ICollaboratorTableProps {
   isLoading: boolean;
   updateRoleLoading: boolean;
   deleteLoading: boolean;
-  filteredRoleStatic: IRoleStatic[];
+  filteredRoleStatic?: IRoleStatic[];
   onUpdateRole?: (role: IRole, item: CollaboratorItem) => void;
   onDelete: (item: CollaboratorItem) => void;
   getPermissions: (item: CollaboratorItem) => {
@@ -39,6 +40,7 @@ interface ICollaboratorTableProps {
     canDelete: boolean;
     showDelete: boolean;
   };
+  getFilteredRoleStatic?: (item: CollaboratorItem) => IRoleStatic[];
   renderTips?: (item: CollaboratorItem) => React.ReactNode;
 }
 
@@ -57,8 +59,10 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
     onUpdateRole,
     onDelete,
     renderTips,
+    getFilteredRoleStatic,
   } = props;
   const { t } = useTranslation('common');
+  const roleStatic = useRoleStatic();
 
   return (
     <div className={cn('flex flex-col gap-4', className)}>
@@ -79,6 +83,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
               <TableRow key={isUser ? item.userId : item.departmentId}>
                 <TableCell>
                   <Collaborator
+                    className="items-center"
                     item={
                       isUser
                         ? {
@@ -99,7 +104,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
                   <RoleSelect
                     className="text-[13px]"
                     value={item.role}
-                    options={filteredRoleStatic as IRoleStatic[]}
+                    options={getFilteredRoleStatic?.(item) || filteredRoleStatic || roleStatic}
                     disabled={updateRoleLoading || !onUpdateRole || !canUpdateRole}
                     onChange={(role) => onUpdateRole?.(role, item)}
                   />

@@ -332,6 +332,7 @@
       "emailSend": "发送邀请",
       "linkSend": "创建链接",
       "spaceTitle": "空间协作者",
+      "spaceTitleWithCount": "空间协作者（{{count}}）",
       "baseTitle": "数据库协作者",
       "allCollaboratorsTitle": "所有协作者（空间和数据库）",
       "baseOnly": "仅数据库",

@@ -527,6 +527,7 @@ export type I18nTranslations = {
                 "linkRemove": string;
                 "desc_billable_one": string;
                 "desc_billable_other": string;
+                "spaceTitleWithCount": string;
                 "baseTitle": string;
                 "allCollaboratorsTitle": string;
                 "baseOnly": string;

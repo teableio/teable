@@ -1,63 +1,62 @@
-/* eslint-disable jsx-a11y/no-static-element-interactions */
-/* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
-import type { CollaboratorItem, IAddCollaborator } from '@teable/openapi';
+import type {
+  CollaboratorItem,
+  IAddCollaborator,
+  UpdateBaseCollaborateRo,
+  UpdateSpaceCollaborateRo,
+} from '@teable/openapi';
 import {
-  addBaseCollaborator,
+  addSpaceCollaborator,
   CollaboratorType,
-  createBaseInvitationLink,
+  createSpaceInvitationLink,
   deleteBaseCollaborator,
-  deleteBaseInvitationLink,
-  emailBaseInvitation,
-  getBaseCollaboratorList,
-  listBaseInvitationLink,
+  deleteSpaceCollaborator,
+  deleteSpaceInvitationLink,
+  emailSpaceInvitation,
+  getSpaceCollaboratorList,
+  listSpaceInvitationLink,
   PrincipalType,
   updateBaseCollaborator,
-  updateBaseInvitationLink,
+  updateSpaceCollaborator,
+  updateSpaceInvitationLink,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
 import { Badge } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
-import { useFilteredRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
-import { CollaboratorsDialog } from './CollaboratorsDialog';
-import { AuthorityTips } from './common/AuthorityTips';
-import { CollaboratorButton } from './common/CollaboratorButton';
-import { CollaboratorTable } from './common/CollaboratorTable';
-import { DebounceInput } from './common/DebounceInput';
-import { EmailContent } from './common/EmailContent';
-import { ShareHeader } from './common/Header';
-import { InviteEmailButton } from './common/InviteEmailButton';
-import { InviteLinkButton } from './common/InviteLinkButton';
-import { InviteOrgButton } from './common/InviteOrgButton';
-import { LinkContent } from './common/LinkContent';
-import { OrgContent } from './common/OrgContent';
+import { useFilteredRoleStatic as useFilteredBaseRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
+import { useFilteredRoleStatic } from '../../collaborator-manage/space/useFilteredRoleStatic';
+import { CollaboratorsDialog } from '../share/CollaboratorsDialog';
+import { CollaboratorButton } from '../share/common/CollaboratorButton';
+import { CollaboratorTable } from '../share/common/CollaboratorTable';
+import { DebounceInput } from '../share/common/DebounceInput';
+import { EmailContent } from '../share/common/EmailContent';
+import { ShareHeader } from '../share/common/Header';
+import { InviteEmailButton } from '../share/common/InviteEmailButton';
+import { InviteLinkButton } from '../share/common/InviteLinkButton';
+import { InviteOrgButton } from '../share/common/InviteOrgButton';
+import { LinkContent } from '../share/common/LinkContent';
+import { OrgContent } from '../share/common/OrgContent';
+
+interface IInviteSpaceContentProps {
+  spaceId: string;
+  spaceName: string;
+  role: IRole;
+  onClose: () => void;
+}
 
 const MEMBERS_PER_PAGE = 50;
-export const ShareBaseContent = ({
-  baseId,
-  baseName,
-  role: userRole,
-  enabledAuthority,
-  onClose,
-}: {
-  baseId: string;
-  baseName: string;
-  role: IRole;
-  enabledAuthority?: boolean;
-  onClose: () => void;
-}) => {
-  const router = useRouter();
-  const { user } = useSession();
-  const { t } = useTranslation('common');
 
-  const [tabType, setTabType] = useState<
-    'email' | 'link' | 'collaborators' | 'organization' | undefined
-  >();
+const inviteLinkQueryKey = (spaceId: string) => ['space-invite-link-list', spaceId] as const;
+
+export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
+  const { spaceId, spaceName, role: userRole, onClose } = props;
+  const { t } = useTranslation('common');
+  const { user } = useSession();
+  const [tabType, setTabType] = useState<'email' | 'organization' | 'link' | 'collaborators'>();
 
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -67,11 +66,15 @@ export const ShareBaseContent = ({
     fetchNextPage,
     isLoading: isListLoading,
   } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.baseCollaboratorList(baseId, { includeSystem: true, search }),
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, {
+      includeSystem: true,
+      search,
+      includeBase: true,
+    }),
     staleTime: 1000,
     refetchOnWindowFocus: false,
     queryFn: ({ queryKey, pageParam = 0 }) =>
-      getBaseCollaboratorList(queryKey[1], {
+      getSpaceCollaboratorList(queryKey[1], {
         ...queryKey[2],
         skip: pageParam * MEMBERS_PER_PAGE,
         take: MEMBERS_PER_PAGE,
@@ -88,15 +91,15 @@ export const ShareBaseContent = ({
   }, [data]);
 
   const { data: linkList } = useQuery({
-    queryKey: ['invite-link-list', baseId],
-    queryFn: ({ queryKey }) => listBaseInvitationLink(queryKey[1]).then((res) => res.data),
+    queryKey: inviteLinkQueryKey(spaceId),
+    queryFn: ({ queryKey }) => listSpaceInvitationLink(queryKey[1]).then((res) => res.data),
   });
 
   const { mutate: emailInvitation, isLoading: emailInvitationLoading } = useMutation({
-    mutationFn: emailBaseInvitation,
+    mutationFn: emailSpaceInvitation,
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ReactQueryKeys.baseCollaboratorList(baseId),
+        queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
       });
       onClose();
       toast.success(t('invite.sendInvitationSuccess'));
@@ -104,37 +107,73 @@ export const ShareBaseContent = ({
   });
 
   const { mutate: createInviteLinkRequest, isLoading: createInviteLinkLoading } = useMutation({
-    mutationFn: createBaseInvitationLink,
+    mutationFn: createSpaceInvitationLink,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
+      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
   const { mutate: updateInviteLink, isLoading: updateInviteLinkLoading } = useMutation({
-    mutationFn: updateBaseInvitationLink,
+    mutationFn: updateSpaceInvitationLink,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
+      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
   const { mutate: deleteInviteLink, isLoading: deleteInviteLinkLoading } = useMutation({
-    mutationFn: deleteBaseInvitationLink,
+    mutationFn: deleteSpaceInvitationLink,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['invite-link-list'] });
+      queryClient.invalidateQueries({ queryKey: inviteLinkQueryKey(spaceId) });
     },
   });
 
   const { mutate: deleteCollaborator, isLoading: deleteCollaboratorLoading } = useMutation({
-    mutationFn: deleteBaseCollaborator,
+    mutationFn: ({
+      resourceId,
+      principalId,
+      principalType,
+      isBase,
+    }: {
+      resourceId: string;
+      principalId: string;
+      principalType: PrincipalType;
+      isBase: boolean;
+    }) =>
+      isBase
+        ? deleteBaseCollaborator({
+            baseId: resourceId,
+            deleteBaseCollaboratorRo: { principalId, principalType },
+          })
+        : deleteSpaceCollaborator({
+            spaceId: resourceId,
+            deleteSpaceCollaboratorRo: { principalId, principalType },
+          }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseCollaboratorList(baseId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
     },
   });
 
   const { mutate: updateCollaborator, isLoading: updateCollaboratorLoading } = useMutation({
-    mutationFn: updateBaseCollaborator,
+    mutationFn: ({
+      resourceId,
+      isBase,
+      updateCollaborateRo,
+    }: {
+      resourceId: string;
+      isBase: boolean;
+      updateCollaborateRo: UpdateSpaceCollaborateRo;
+    }) =>
+      isBase
+        ? updateBaseCollaborator({
+            baseId: resourceId,
+            updateBaseCollaborateRo: updateCollaborateRo as UpdateBaseCollaborateRo,
+          })
+        : updateSpaceCollaborator({
+            spaceId: resourceId,
+            updateSpaceCollaborateRo: updateCollaborateRo,
+          }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseCollaboratorList(baseId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
     },
   });
 
@@ -151,36 +190,30 @@ export const ShareBaseContent = ({
         (c) => c.principalType === PrincipalType.Department
       );
       if (userCollaborators.length > 0) {
-        await addBaseCollaborator(baseId, {
+        await addSpaceCollaborator(spaceId, {
           collaborators: userCollaborators,
           role: role as IBaseRole,
         });
       }
       if (departmentCollaborators.length > 0) {
-        await addBaseCollaborator(baseId, {
+        await addSpaceCollaborator(spaceId, {
           collaborators: departmentCollaborators,
           role: role as IBaseRole,
         });
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseCollaboratorList(baseId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId) });
       onClose();
       toast.success(t('invite.sendInvitationSuccess'));
     },
   });
 
-  const toAuthorityManage = () => {
-    router.push({
-      pathname: '/base/[baseId]/authority-matrix',
-      query: { baseId },
-    });
-  };
-
+  const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
   const linkListCount = linkList?.length || 0;
   const onBack = () => setTabType(undefined);
-  const defaultRole = userRole === Role.Owner ? Role.Creator : userRole;
-  const filteredRoleStatic = useFilteredRoleStatic(defaultRole);
+  const filteredRoleStatic = useFilteredRoleStatic(userRole);
+  const baseFilteredRoleStatic = useFilteredBaseRoleStatic(defaultRole);
 
   if (tabType === 'link') {
     return (
@@ -192,18 +225,18 @@ export const ShareBaseContent = ({
         isDeleteLoading={deleteInviteLinkLoading}
         onCreate={(role) =>
           createInviteLinkRequest({
-            baseId,
-            createBaseInvitationLinkRo: { role: role as IBaseRole },
+            spaceId,
+            createSpaceInvitationLinkRo: { role: role as IBaseRole },
           })
         }
         onUpdate={(invitationId, role) =>
           updateInviteLink({
             invitationId,
-            updateBaseInvitationLinkRo: { role: role as IBaseRole },
-            baseId,
+            updateSpaceInvitationLinkRo: { role: role as IBaseRole },
+            spaceId,
           })
         }
-        onDelete={(invitationId) => deleteInviteLink({ invitationId, baseId })}
+        onDelete={(invitationId) => deleteInviteLink({ invitationId, spaceId })}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
       />
@@ -215,7 +248,7 @@ export const ShareBaseContent = ({
       <EmailContent
         defaultRole={defaultRole}
         isCreateLoading={emailInvitationLoading}
-        onCreate={(ro) => emailInvitation({ baseId, emailBaseInvitationRo: ro })}
+        onCreate={(ro) => emailInvitation({ spaceId, emailSpaceInvitationRo: ro })}
         onBack={onBack}
         filteredRoleStatic={filteredRoleStatic}
       />
@@ -235,27 +268,38 @@ export const ShareBaseContent = ({
       />
     );
   }
+
   const getPermissions = (item: CollaboratorItem) => {
     const canManage = canManageRole(userRole, item.role);
     const isMe = item.type === PrincipalType.User && item.userId === user.id;
     const isOwner = userRole === Role.Owner;
     const canOperator = canManage || isMe || isOwner;
     return {
-      canUpdateRole: item.resourceType !== CollaboratorType.Space && canOperator,
+      canUpdateRole: canOperator,
       canDelete: canOperator,
-      showDelete: item.resourceType === CollaboratorType.Base && canOperator,
+      showDelete: canOperator,
     };
+  };
+
+  const getFilteredRoleStatic = (item: CollaboratorItem) => {
+    return item.resourceType === CollaboratorType.Base
+      ? baseFilteredRoleStatic
+      : filteredRoleStatic;
   };
 
   return (
     <div className="flex flex-col gap-4">
       <ShareHeader
-        title={t('invite.base.title', { baseName })}
+        title={t('invite.dialog.title', { spaceName })}
         description={
-          <Trans ns="common" i18nKey={'invite.base.desc'} count={total} components={{ b: <b /> }} />
+          <Trans
+            ns="common"
+            i18nKey={'invite.dialog.desc'}
+            count={total}
+            components={{ b: <b /> }}
+          />
         }
       />
-      {enabledAuthority && <AuthorityTips onViewDetail={toAuthorityManage} />}
       <div className="flex flex-col gap-6">
         <InviteEmailButton onClick={() => setTabType('email')} />
         {user?.organization && (
@@ -269,12 +313,9 @@ export const ShareBaseContent = ({
           <InviteLinkButton linkListCount={linkListCount} onClick={() => setTabType('link')} />
         </div>
         <div className="space-y-2">
-          <p className="text-sm font-semibold">{t('invite.dialog.baseTitle')}</p>
+          <p className="text-sm font-semibold">{t('invite.dialog.spaceTitle')}</p>
           <CollaboratorsDialog
-            title={t('invite.base.baseTitleWithCount', { count: total })}
-            alert={
-              enabledAuthority ? <AuthorityTips onViewDetail={toAuthorityManage} /> : undefined
-            }
+            title={t('invite.dialog.spaceTitleWithCount', { count: total })}
             list={collaborators || []}
             total={total}
             hasNextPage={hasNextPage}
@@ -296,38 +337,35 @@ export const ShareBaseContent = ({
                   isLoading={isListLoading}
                   updateRoleLoading={updateCollaboratorLoading}
                   deleteLoading={deleteCollaboratorLoading}
-                  filteredRoleStatic={filteredRoleStatic}
-                  onUpdateRole={
-                    enabledAuthority
-                      ? undefined
-                      : (role, item) => {
-                          updateCollaborator({
-                            baseId,
-                            updateBaseCollaborateRo: {
-                              principalId:
-                                item.type === PrincipalType.User ? item.userId : item.departmentId,
-                              principalType: item.type,
-                              role: role as IBaseRole,
-                            },
-                          });
-                        }
-                  }
-                  onDelete={(item) => {
-                    deleteCollaborator({
-                      baseId,
-                      deleteBaseCollaboratorRo: {
+                  getFilteredRoleStatic={getFilteredRoleStatic}
+                  onUpdateRole={(role, item) => {
+                    updateCollaborator({
+                      resourceId: item.base?.id || spaceId,
+                      isBase: item.resourceType === CollaboratorType.Base,
+                      updateCollaborateRo: {
                         principalId:
                           item.type === PrincipalType.User ? item.userId : item.departmentId,
                         principalType: item.type,
+                        role,
                       },
+                    });
+                  }}
+                  onDelete={(item) => {
+                    deleteCollaborator({
+                      resourceId: item.base?.id || spaceId,
+                      isBase: item.resourceType === CollaboratorType.Base,
+                      principalId:
+                        item.type === PrincipalType.User ? item.userId : item.departmentId,
+                      principalType: item.type,
                     });
                   }}
                   getPermissions={getPermissions}
                   renderTips={(item) => {
                     return (
-                      item.resourceType === CollaboratorType.Space && (
+                      item.resourceType === CollaboratorType.Base &&
+                      item.base?.name && (
                         <Badge className="ml-2 text-xs font-normal" variant={'outline'}>
-                          {t('noun.space')}
+                          {item.base.name}
                         </Badge>
                       )
                     );

@@ -335,6 +335,7 @@
       "emailSend": "Send invite",
       "linkSend": "Create link",
       "spaceTitle": "Space collaborators",
+      "spaceTitleWithCount": "Space collaborators ({{count}})",
       "baseTitle": "Base collaborators",
       "allCollaboratorsTitle": "All collaborators (Space & Base)",
       "baseOnly": "Base only",

@@ -9,7 +9,7 @@ import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { UploadPanelDialog } from '../../blocks/space/component/upload-panel';
-import { SpaceCollaboratorModalTrigger } from '../collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { InviteSpacePopover } from '../collaborator/space/InviteSpacePopover';
 import { CreateBaseModalTrigger } from './CreateBaseModal';
 
 interface ActionBarProps {
@@ -61,11 +61,11 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         </CreateBaseModalTrigger>
       )}
       {!disallowSpaceInvitation && (
-        <SpaceCollaboratorModalTrigger space={space}>
+        <InviteSpacePopover space={space}>
           <Button variant={'outline'} size={buttonSize}>
             <UserPlus className="size-4" /> {t('space:action.invite')}
           </Button>
-        </SpaceCollaboratorModalTrigger>
+        </InviteSpacePopover>
       )}
 
       <SpaceActionTrigger
