@@ -691,3 +691,40 @@ model Waitlist {
 
   @@map("waitlist")
 }
+
+
+model BaseNode {
+  id                String     @id @default(cuid())
+  parentId          String?    @map("parent_id")
+  baseId            String     @map("base_id")
+  resourceType      String     @map("resource_type")
+  resourceId        String     @map("resource_id")
+  order             Float      @map("order")
+
+  createdTime       DateTime   @default(now()) @map("created_time")
+  createdBy         String     @map("created_by")
+  lastModifiedTime  DateTime?  @updatedAt      @map("last_modified_time")
+  lastModifiedBy    String?    @map("last_modified_by")
+
+  parent            BaseNode?  @relation("NodeToChildren", fields: [parentId], references: [id])
+  children          BaseNode[] @relation("NodeToChildren")
+
+  @@unique([baseId, resourceType, resourceId])
+
+  @@map("base_node")
+}
+
+model BaseNodeFolder {
+  id                String     @id @default(cuid())
+  baseId            String     @map("base_id")
+  name              String     @map("name")
+
+  createdTime       DateTime   @default(now()) @map("created_time")
+  createdBy         String     @map("created_by")
+  lastModifiedTime  DateTime?  @updatedAt      @map("last_modified_time")
+  lastModifiedBy    String?    @map("last_modified_by")
+
+  @@unique([baseId, name])
+
+  @@map("base_node_folder")
+}
