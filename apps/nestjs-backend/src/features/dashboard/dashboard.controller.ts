@@ -26,6 +26,8 @@ import type {
   IDashboardPluginUpdateStorageVo,
   IGetDashboardInstallPluginVo,
 } from '@teable/openapi';
+import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
+import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { DashboardService } from './dashboard.service';
@@ -51,6 +53,7 @@ export class DashboardController {
 
   @Post()
   @Permissions('base|update')
+  @EmitControllerEvent(Events.DASHBOARD_CREATE)
   createDashboard(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(createDashboardRoSchema)) ro: ICreateDashboardRo
@@ -60,6 +63,7 @@ export class DashboardController {
 
   @Patch(':id/rename')
   @Permissions('base|update')
+  @EmitControllerEvent(Events.DASHBOARD_UPDATE)
   updateDashboard(
     @Param('baseId') baseId: string,
     @Param('id') id: string,
@@ -80,12 +84,14 @@ export class DashboardController {
 
   @Delete(':id')
   @Permissions('base|update')
+  @EmitControllerEvent(Events.DASHBOARD_DELETE)
   deleteDashboard(@Param('baseId') baseId: string, @Param('id') id: string): Promise<void> {
     return this.dashboardService.deleteDashboard(baseId, id);
   }
 
   @Post(':id/duplicate')
   @Permissions('base|update')
+  @EmitControllerEvent(Events.DASHBOARD_CREATE)
   duplicateDashboard(
     @Param('baseId') baseId: string,
     @Param('id') id: string,

@@ -17,7 +17,7 @@ export const useContextMenu = () => {
   const copyRecordUrl = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
-      const recordUrl = `${publicOrigin}/base/${baseId}/${tableId}?recordId=${recordId}`;
+      const recordUrl = `${publicOrigin}/base/${baseId}/table/${tableId}?recordId=${recordId}`;
       await syncCopy(recordUrl);
       toast.success(t('sdk:expandRecord.copy'));
     },
@@ -27,7 +27,7 @@ export const useContextMenu = () => {
   const viewRecordHistory = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
-      const recordUrl = `${publicOrigin}/base/${baseId}/${tableId}?recordId=${recordId}&showHistory=true`;
+      const recordUrl = `${publicOrigin}/base/${baseId}/table/${tableId}?recordId=${recordId}&showHistory=true`;
       await router.push(recordUrl, undefined, {
         shallow: true,
       });
@@ -38,7 +38,7 @@ export const useContextMenu = () => {
   const addRecordComment = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
-      const recordUrl = `${publicOrigin}/base/${baseId}/${tableId}?recordId=${recordId}&showComment=true`;
+      const recordUrl = `${publicOrigin}/base/${baseId}/table/${tableId}?recordId=${recordId}&showComment=true`;
       await router.push(recordUrl, undefined, {
         shallow: true,
       });

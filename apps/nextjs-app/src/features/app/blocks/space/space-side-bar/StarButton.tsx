@@ -45,7 +45,14 @@ export const StarButton = (props: IStarButtonProps) => {
   return (
     <TooltipProvider>
       <Tooltip>
-        <TooltipTrigger>
+        <TooltipTrigger
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (addPinLoading || deletePinLoading) return;
+            isPin ? deletePinMutation({ id, type }) : addPinMutation({ id, type });
+          }}
+        >
           <Star
             className={cn(
               'size-3 shrink-0 opacity-0 group-hover:opacity-100 transition-colors',
@@ -55,12 +62,6 @@ export const StarButton = (props: IStarButtonProps) => {
               },
               className
             )}
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              if (addPinLoading || deletePinLoading) return;
-              isPin ? deletePinMutation({ id, type }) : addPinMutation({ id, type });
-            }}
           />
         </TooltipTrigger>
         <TooltipContent>

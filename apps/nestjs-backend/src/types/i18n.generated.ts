@@ -473,6 +473,7 @@ export type I18nTranslations = {
             "aiChat": string;
             "app": string;
             "webSearch": string;
+            "folder": string;
             "float": string;
         };
         "level": {

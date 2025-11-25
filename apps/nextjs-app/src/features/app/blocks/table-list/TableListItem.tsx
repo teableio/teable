@@ -1,4 +1,5 @@
 import { Table2 } from '@teable/icons';
+import { PinType } from '@teable/openapi';
 import type { Table } from '@teable/sdk/model';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { Input } from '@teable/ui-lib/shadcn/ui/input';
@@ -7,6 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
+import { StarButton } from '../space/space-side-bar/StarButton';
 import { useGridSearchStore } from '../view/grid/useGridSearchStore';
 import { TableOperation } from './TableOperation';
 
@@ -92,13 +94,17 @@ export const TableListItem: React.FC<IProps> = ({
             {' ' + table.name}
           </p>
           {!isDragging && (
-            <TableOperation
-              table={table}
-              className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
-              onRename={() => setIsEditing(true)}
-              open={open}
-              setOpen={setOpen}
-            />
+            // eslint-disable-next-line jsx-a11y/no-static-element-interactions
+            <div className="flex items-center gap-1" onMouseDown={(e) => e.stopPropagation()}>
+              <StarButton id={table.id} type={PinType.Table} className="size-3.5" />
+              <TableOperation
+                table={table}
+                className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+                onRename={() => setIsEditing(true)}
+                open={open}
+                setOpen={setOpen}
+              />
+            </div>
           )}
         </div>
       </Button>

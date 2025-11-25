@@ -222,4 +222,6 @@ export const ReactQueryKeys = {
   oauthAppList: () => ['oauth-app-list'] as const,
 
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
+
+  baseNode: (baseId: string) => ['base-node', baseId] as const,
 };

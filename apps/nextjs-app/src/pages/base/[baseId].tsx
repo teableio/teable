@@ -29,7 +29,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         if (tables.find((table) => table.id === userLastVisit.resourceId)) {
           return {
             redirect: {
-              destination: `/base/${baseId}/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
+              destination: `/base/${baseId}/table/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
               permanent: false,
             },
           };
@@ -37,7 +37,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
         return {
           redirect: {
-            destination: `/base/${baseId}/${tables[0].id}/${tables[0].defaultViewId}`,
+            destination: `/base/${baseId}/table/${tables[0].id}/${tables[0].defaultViewId}`,
             permanent: false,
           },
         };

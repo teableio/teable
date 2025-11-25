@@ -9,7 +9,14 @@ import { match, P } from 'ts-pattern';
 import { EMIT_EVENT_NAME } from '../decorators/emit-controller-event.decorator';
 import { EventEmitterService } from '../event-emitter.service';
 import type { IEventContext } from '../events';
-import { Events, BaseEventFactory, SpaceEventFactory } from '../events';
+import {
+  Events,
+  BaseEventFactory,
+  SpaceEventFactory,
+  DashboardEventFactory,
+  AppEventFactory,
+  WorkflowEventFactory,
+} from '../events';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -68,6 +75,36 @@ export class EventMiddleware implements NestInterceptor {
       )
       .with(P.union(Events.SPACE_CREATE, Events.SPACE_UPDATE), () =>
         SpaceEventFactory.create(eventName, { space: resolveData, ...reqParams }, eventContext)
+      )
+      .with(Events.WORKFLOW_DELETE, () =>
+        WorkflowEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+      )
+      .with(P.union(Events.WORKFLOW_CREATE, Events.WORKFLOW_UPDATE), () =>
+        WorkflowEventFactory.create(
+          eventName,
+          { baseId: reqParams.baseId, workflow: resolveData, ...reqParams },
+          eventContext
+        )
+      )
+      .with(Events.APP_DELETE, () =>
+        AppEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+      )
+      .with(P.union(Events.APP_CREATE, Events.APP_UPDATE), () =>
+        AppEventFactory.create(
+          eventName,
+          { baseId: reqParams.baseId, app: resolveData, ...reqParams },
+          eventContext
+        )
+      )
+      .with(Events.DASHBOARD_DELETE, () =>
+        DashboardEventFactory.create(eventName, { ...resolveData, ...reqParams }, eventContext)
+      )
+      .with(P.union(Events.DASHBOARD_CREATE, Events.DASHBOARD_UPDATE), () =>
+        DashboardEventFactory.create(
+          eventName,
+          { baseId: reqParams.baseId, dashboard: resolveData, ...reqParams },
+          eventContext
+        )
       )
       .otherwise(() => null);
   }

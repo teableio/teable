@@ -282,7 +282,8 @@
     "credits": "算力",
     "aiChat": "AI 对话",
     "app": "应用",
-    "webSearch": "网络搜索"
+    "webSearch": "网络搜索",
+    "folder": "文件夹"
   },
   "level": {
     "free": "免费版",

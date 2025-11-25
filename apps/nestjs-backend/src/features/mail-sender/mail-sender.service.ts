@@ -248,7 +248,7 @@ export class MailSenderService {
     let subject, partialBody;
     const refLength = recordIds.length;
 
-    const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/${tableId}`;
+    const viewRecordUrlPrefix = `${this.mailConfig.origin}/base/${baseId}/table/${tableId}`;
     const { brandName } = await this.settingOpenApiService.getServerBrand();
     if (refLength <= 1) {
       subject = this.i18n.t('common.email.templates.collaboratorCellTag.subject', {

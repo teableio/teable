@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
 
-const useDefaultFields = (): IFieldRo[] => {
+export const useDefaultFields = (): IFieldRo[] => {
   const { t } = useTranslation('table');
   return [
     { name: t('field.default.singleLineText.title'), type: FieldType.SingleLineText },

@@ -23,4 +23,5 @@ export enum LocalStorageKeys {
   InteractionMode = 'ls_interaction_mode',
   ChatPanel = 'ls_chat_panel',
   Chat = 'ls_chat',
+  BaseNodeExpandedItems = 'ls_base_node_expanded_items',
 }

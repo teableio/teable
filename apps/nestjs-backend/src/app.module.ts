@@ -12,6 +12,7 @@ import { AiModule } from './features/ai/ai.module';
 import { AttachmentsModule } from './features/attachments/attachments.module';
 import { AuthModule } from './features/auth/auth.module';
 import { BaseModule } from './features/base/base.module';
+import { BaseNodeModule } from './features/base-node/base-node.module';
 import { ChatModule } from './features/chat/chat.module';
 import { CollaboratorModule } from './features/collaborator/collaborator.module';
 import { CommentOpenApiModule } from './features/comment/comment-open-api.module';
@@ -59,6 +60,7 @@ export const appModules = {
     FieldOpenApiModule,
     TemplateOpenApiModule,
     BaseModule,
+    BaseNodeModule,
     IntegrityModule,
     ChatModule,
     AttachmentsModule,

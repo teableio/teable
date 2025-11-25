@@ -270,11 +270,15 @@ export class TableOpenApiService {
     return tablesMeta.map((tableMeta, i) => {
       const defaultViewId = tableDefaultViewIds[i];
       if (!defaultViewId) {
-        throw new CustomHttpException('defaultViewId is not found', HttpErrorCode.NOT_FOUND, {
-          localization: {
-            i18nKey: 'httpErrors.view.defaultViewNotFound',
-          },
-        });
+        throw new CustomHttpException(
+          `defaultViewId is not found in table ${tableMeta.id}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.defaultViewNotFound',
+            },
+          }
+        );
       }
       return {
         ...tableMeta,

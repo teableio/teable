@@ -97,6 +97,9 @@ export class PinService {
     const spaceIds: string[] = [];
     const tableIds: string[] = [];
     const viewIds: string[] = [];
+    const dashboardIds: string[] = [];
+    const workflowIds: string[] = [];
+    const appIds: string[] = [];
     list.forEach((item) => {
       switch (item.type) {
         case PinType.Base:
@@ -110,6 +113,15 @@ export class PinService {
           break;
         case PinType.View:
           viewIds.push(item.resourceId);
+          break;
+        case PinType.Dashboard:
+          dashboardIds.push(item.resourceId);
+          break;
+        case PinType.Workflow:
+          workflowIds.push(item.resourceId);
+          break;
+        case PinType.App:
+          appIds.push(item.resourceId);
           break;
       }
     });
@@ -160,10 +172,40 @@ export class PinService {
       SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
     `)
       : [];
+    const dashboardList = dashboardIds.length
+      ? await this.prismaService.dashboard.findMany({
+          where: { id: { in: dashboardIds } },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
+    const workflowList = workflowIds.length
+      ? await this.prismaService.workflow.findMany({
+          where: { id: { in: workflowIds }, deletedTime: null },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
+    const appList = appIds.length
+      ? await this.prismaService.app.findMany({
+          where: { id: { in: appIds }, deletedTime: null },
+          select: {
+            id: true,
+            name: true,
+          },
+        })
+      : [];
     const spaceMap = keyBy(spaceList, 'id');
     const baseMap = keyBy(baseList, 'id');
     const tableMap = keyBy(tableList, 'id');
     const viewMap = keyBy(viewList, 'id');
+    const dashboardMap = keyBy(dashboardList, 'id');
+    const workflowMap = keyBy(workflowList, 'id');
+    const appMap = keyBy(appList, 'id');
     const getResource = (type: PinType, resourceId: string) => {
       switch (type) {
         case PinType.Base:
@@ -203,6 +245,24 @@ export class PinService {
             },
           };
         }
+        case PinType.Dashboard:
+          return dashboardMap[resourceId]
+            ? {
+                name: dashboardMap[resourceId].name,
+              }
+            : undefined;
+        case PinType.Workflow:
+          return workflowMap[resourceId]
+            ? {
+                name: workflowMap[resourceId].name,
+              }
+            : undefined;
+        case PinType.App:
+          return appMap[resourceId]
+            ? {
+                name: appMap[resourceId].name,
+              }
+            : undefined;
         default:
           return undefined;
       }

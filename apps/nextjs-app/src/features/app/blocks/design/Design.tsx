@@ -16,7 +16,7 @@ export const Design = () => {
 
   const handleBack = () => {
     if (tableId) {
-      router.push(`/base/${baseId}/${tableId}`);
+      router.push(`/base/${baseId}/table/${tableId}`);
     } else {
       router.push(`/base/${baseId}`);
     }

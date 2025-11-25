@@ -41,3 +41,7 @@ export function getToolCallChannel(toolCallId: string) {
 export function getChatChannel(chatId: string) {
   return `__chat_${chatId}`;
 }
+
+export function getBaseNodeChannel(baseId: string) {
+  return `__base_node_${baseId}`;
+}

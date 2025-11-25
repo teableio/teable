@@ -8,6 +8,7 @@ import { useTranslation } from 'next-i18next';
 import React, { Fragment } from 'react';
 import { AppLayout } from '@/features/app/layouts';
 import { WorkFlowPanelModal } from '../automation/workflow-panel/WorkFlowPanelModal';
+import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
 import { BaseSidebarHeaderLeft } from '../blocks/base/base-side-bar/BaseSidebarHeaderLeft';
 import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
@@ -40,29 +41,31 @@ export const BaseLayout: React.FC<{
               }}
             >
               <BaseProvider>
-                <BasePermissionListener />
-                <TableProvider serverData={tableServerData}>
-                  <div
-                    id="portal"
-                    className="relative flex h-screen w-full items-start"
-                    onContextMenu={(e) => e.preventDefault()}
-                  >
-                    <div className="flex h-screen w-full">
-                      <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
-                        <Fragment>
-                          <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
-                            <BaseSideBar />
-                          </div>
-                          <div className="grow basis-0" />
-                          <SideBarFooter />
-                        </Fragment>
-                      </Sidebar>
-                      <div className="min-w-80 flex-1">{children}</div>
+                <BaseNodeProvider>
+                  <BasePermissionListener />
+                  <TableProvider serverData={tableServerData}>
+                    <div
+                      id="portal"
+                      className="relative flex h-screen w-full items-start"
+                      onContextMenu={(e) => e.preventDefault()}
+                    >
+                      <div className="flex h-screen w-full">
+                        <Sidebar headerLeft={<BaseSidebarHeaderLeft />}>
+                          <Fragment>
+                            <div className="flex flex-col gap-2 divide-y divide-solid overflow-auto py-2">
+                              <BaseSideBar />
+                            </div>
+                            <div className="grow basis-0" />
+                            <SideBarFooter />
+                          </Fragment>
+                        </Sidebar>
+                        <div className="min-w-80 flex-1">{children}</div>
+                      </div>
                     </div>
-                  </div>
-                  <UsageLimitModal />
-                  <WorkFlowPanelModal />
-                </TableProvider>
+                    <UsageLimitModal />
+                    <WorkFlowPanelModal />
+                  </TableProvider>
+                </BaseNodeProvider>
               </BaseProvider>
             </AnchorContext.Provider>
           </NotificationProvider>

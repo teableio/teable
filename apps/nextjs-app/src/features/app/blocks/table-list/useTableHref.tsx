@@ -20,7 +20,7 @@ export const useTableHref = () => {
     const map: Record<string, string> = {};
     tables.forEach((table) => {
       map[table.id] =
-        `/base/${baseId}/${table.id}/${userLastVisitMap?.[table.id]?.resourceId || table.defaultViewId}`;
+        `/base/${baseId}/table/${table.id}/${userLastVisitMap?.[table.id]?.resourceId || table.defaultViewId}`;
     });
     return map;
   }, [baseId, tables, userLastVisitMap]);

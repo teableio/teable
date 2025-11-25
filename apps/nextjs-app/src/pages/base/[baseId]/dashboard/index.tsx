@@ -19,7 +19,7 @@ const Node: NextPageWithLayout = () => <DashboardPage />;
 export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
-      const { baseId, dashboardId: dashboardIdQuery } = context.query;
+      const { baseId } = context.query;
       const queryClient = new QueryClient();
 
       const [tables, lastVisit, dashboardList] = await Promise.all([
@@ -38,22 +38,14 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         }),
       ]);
 
-      if (!dashboardIdQuery && lastVisit) {
+      const dashboardId = lastVisit?.resourceId || dashboardList[0]?.id;
+      if (dashboardId) {
         return {
           redirect: {
-            destination: `/base/${baseId}/dashboard?dashboardId=${lastVisit.resourceId}`,
+            destination: `/base/${baseId}/dashboard/${dashboardId}`,
             permanent: false,
           },
         };
-      }
-
-      const dashboardId = dashboardIdQuery ? (dashboardIdQuery as string) : dashboardList[0]?.id;
-
-      if (dashboardId) {
-        await queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.getDashboard(dashboardId),
-          queryFn: ({ queryKey }) => ssrApi.getDashboard(baseId as string, queryKey[1]),
-        });
       }
 
       return {

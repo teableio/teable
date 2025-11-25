@@ -29,7 +29,7 @@ import { CustomMarkers, getMarker } from './CustomMakers';
 import { SelfConnectingEdge } from './SelfConnectingEdge';
 
 const openTable = (baseId: string, tableId: string) => {
-  const url = new URL(`/base/${baseId}/${tableId}`, window.location.origin);
+  const url = new URL(`/base/${baseId}/table/${tableId}`, window.location.origin);
   window.open(url.toString(), '_blank');
 };
 

@@ -101,7 +101,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         dashboardId={dashboardId}
         onChange={(dashboardId) => {
           router.push({
-            pathname: '/base/[baseId]/dashboard',
+            pathname: '/base/[baseId]/dashboard/[dashboardId]',
             query: { baseId, dashboardId },
           });
         }}

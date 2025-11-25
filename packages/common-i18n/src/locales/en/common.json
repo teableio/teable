@@ -282,7 +282,8 @@
     "credits": "Credits",
     "aiChat": "AI Chat",
     "app": "App",
-    "webSearch": "Web search"
+    "webSearch": "Web search",
+    "folder": "Folder"
   },
   "level": {
     "free": "Free",

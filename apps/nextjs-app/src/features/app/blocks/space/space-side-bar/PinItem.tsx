@@ -1,11 +1,13 @@
 import { ViewType } from '@teable/core';
-import { Component, Database, Table2 } from '@teable/icons';
+import { Component, Database, Gauge, Table2 } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
-import { PinType } from '@teable/openapi';
+import { BaseNodeResourceType, PinType } from '@teable/openapi';
+import { Bot } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
+import { BaseNodeResourceIconMap, getNodeUrl } from '../../base/base-node/hooks';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { ItemButton } from './ItemButton';
 
@@ -120,7 +122,63 @@ export const PinItem = (props: IPinItemProps) => {
         </ItemButton>
       );
     }
-
+    case PinType.Dashboard: {
+      const IconComponent = BaseNodeResourceIconMap.dashboard;
+      return (
+        <ItemButton className={className}>
+          <Link
+            href={getNodeUrl({
+              baseId: pin.parentBaseId!,
+              resourceType: BaseNodeResourceType.Dashboard,
+              resourceId: pin.id,
+            })}
+            title={pin.name}
+          >
+            <IconComponent className="size-4 shrink-0" />
+            <p className="grow truncate">{pin.name}</p>
+            {right}
+          </Link>
+        </ItemButton>
+      );
+    }
+    case PinType.Workflow: {
+      const IconComponent = BaseNodeResourceIconMap.workflow;
+      return (
+        <ItemButton className={className}>
+          <Link
+            href={getNodeUrl({
+              baseId: pin.parentBaseId!,
+              resourceType: BaseNodeResourceType.Workflow,
+              resourceId: pin.id,
+            })}
+            title={pin.name}
+          >
+            <IconComponent className="size-4 shrink-0" />
+            <p className="grow truncate">{pin.name}</p>
+            {right}
+          </Link>
+        </ItemButton>
+      );
+    }
+    case PinType.App: {
+      const IconComponent = BaseNodeResourceIconMap.app;
+      return (
+        <ItemButton className={className}>
+          <Link
+            href={getNodeUrl({
+              baseId: pin.parentBaseId!,
+              resourceType: BaseNodeResourceType.App,
+              resourceId: pin.id,
+            })}
+            title={pin.name}
+          >
+            <IconComponent className="size-4 shrink-0" />
+            <p className="grow truncate">{pin.name}</p>
+            {right}
+          </Link>
+        </ItemButton>
+      );
+    }
     default:
       return <div>unknown</div>;
   }

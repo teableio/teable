@@ -541,18 +541,18 @@ export class NotificationService {
     switch (notifyType) {
       case NotificationTypeEnum.System: {
         const { baseId, tableId } = urlMeta || {};
-        return `/base/${baseId}/${tableId}`;
+        return `/base/${baseId}/table/${tableId}`;
       }
       case NotificationTypeEnum.Comment: {
         const { baseId, tableId, recordId, commentId } = urlMeta || {};
 
-        return `/base/${baseId}/${tableId}${`?recordId=${recordId}&commentId=${commentId}`}`;
+        return `/base/${baseId}/table/${tableId}${`?recordId=${recordId}&commentId=${commentId}`}`;
       }
       case NotificationTypeEnum.CollaboratorCellTag:
       case NotificationTypeEnum.CollaboratorMultiRowTag: {
         const { baseId, tableId, recordId } = urlMeta || {};
 
-        return `/base/${baseId}/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
+        return `/base/${baseId}/table/${tableId}${recordId ? `?recordId=${recordId}` : ''}`;
       }
       case NotificationTypeEnum.ExportBase: {
         const { downloadUrl } = urlMeta || {};
