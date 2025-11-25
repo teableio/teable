@@ -116,6 +116,8 @@
     "@dnd-kit/sortable": "8.0.0",
     "@dnd-kit/utilities": "3.2.2",
     "@glideapps/glide-data-grid": "6.0.3",
+    "@headless-tree/core": "1.5.1",
+    "@headless-tree/react": "1.5.1",
     "@radix-ui/react-accordion": "^1.1.2",
     "@radix-ui/react-alert-dialog": "1.0.5",
     "@radix-ui/react-avatar": "1.0.4",
