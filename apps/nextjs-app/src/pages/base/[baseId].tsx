@@ -1,9 +1,10 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { LastVisitResourceType, type ITableVo } from '@teable/openapi';
+import { type ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { CommunityPage } from '@/features/app/base/CommunityPage';
+import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks/helper';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
@@ -19,28 +20,27 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
-      const [userLastVisit, tables] = await Promise.all([
-        ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId as string),
+      const [tables, userLastVisitNode, nodes] = await Promise.all([
         ssrApi.getTables(baseId as string),
+        ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId as string }),
+        ssrApi.getBaseNodeList(baseId as string),
       ]);
 
-      if (tables.length && userLastVisit && userLastVisit.childResourceId) {
-        // if userLastVisit.resourceId has no permission to the tables, redirect to the first table
-        if (tables.find((table) => table.id === userLastVisit.resourceId)) {
+      const findNode = nodes.find((node) => node.resourceId === userLastVisitNode?.resourceId);
+      if (findNode) {
+        const url = getNodeUrl({
+          baseId: baseId as string,
+          resourceType: findNode.resourceType,
+          resourceId: findNode.resourceId,
+        });
+        if (url.pathname) {
           return {
             redirect: {
-              destination: `/base/${baseId}/table/${userLastVisit.resourceId}/${userLastVisit.childResourceId}`,
+              destination: url.pathname,
               permanent: false,
             },
           };
         }
-
-        return {
-          redirect: {
-            destination: `/base/${baseId}/table/${tables[0].id}/${tables[0].defaultViewId}`,
-            permanent: false,
-          },
-        };
       }
 
       const queryClient = new QueryClient();

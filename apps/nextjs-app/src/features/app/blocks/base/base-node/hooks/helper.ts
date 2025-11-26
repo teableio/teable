@@ -1,6 +1,6 @@
 import type { UrlObject } from 'url';
 import { Table2 } from '@teable/icons';
-import { BaseNodeResourceType } from '@teable/openapi';
+import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
 
 export const ROOT_ID = '__root__';
@@ -11,6 +11,13 @@ export const BaseNodeResourceIconMap = {
   [BaseNodeResourceType.Workflow]: BotIcon,
   [BaseNodeResourceType.App]: AppWindowMacIcon,
   [BaseNodeResourceType.Table]: Table2,
+};
+
+export const BaseNodeResourceLastVisitMap = {
+  [BaseNodeResourceType.Table]: LastVisitResourceType.Table,
+  [BaseNodeResourceType.Dashboard]: LastVisitResourceType.Dashboard,
+  [BaseNodeResourceType.Workflow]: LastVisitResourceType.Automation,
+  [BaseNodeResourceType.App]: LastVisitResourceType.App,
 };
 
 export const getNodeUrl = (props: {

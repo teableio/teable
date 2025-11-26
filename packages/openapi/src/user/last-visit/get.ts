@@ -11,6 +11,7 @@ export enum LastVisitResourceType {
   View = 'view',
   Dashboard = 'dashboard',
   Automation = 'automation',
+  App = 'app',
 }
 
 export const userLastVisitVoSchema = z.object({

@@ -9,10 +9,13 @@ import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type {
+  AppDeleteEvent,
   BaseDeleteEvent,
+  DashboardDeleteEvent,
   SpaceDeleteEvent,
   TableDeleteEvent,
   ViewDeleteEvent,
+  WorkflowDeleteEvent,
 } from '../../event-emitter/events';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -382,8 +385,18 @@ export class PinService {
   @OnEvent(Events.TABLE_DELETE, { async: true })
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.SPACE_DELETE, { async: true })
+  @OnEvent(Events.DASHBOARD_DELETE, { async: true })
+  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
+  @OnEvent(Events.APP_DELETE, { async: true })
   protected async resourceDeleteListener(
-    listenerEvent: ViewDeleteEvent | TableDeleteEvent | BaseDeleteEvent | SpaceDeleteEvent
+    listenerEvent:
+      | ViewDeleteEvent
+      | TableDeleteEvent
+      | BaseDeleteEvent
+      | SpaceDeleteEvent
+      | DashboardDeleteEvent
+      | WorkflowDeleteEvent
+      | AppDeleteEvent
   ) {
     switch (listenerEvent.name) {
       case Events.TABLE_VIEW_DELETE:
@@ -408,6 +421,24 @@ export class PinService {
         await this.deletePinWithoutException({
           id: listenerEvent.payload.spaceId,
           type: PinType.Space,
+        });
+        break;
+      case Events.DASHBOARD_DELETE:
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.dashboardId,
+          type: PinType.Dashboard,
+        });
+        break;
+      case Events.WORKFLOW_DELETE:
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.workflowId,
+          type: PinType.Workflow,
+        });
+        break;
+      case Events.APP_DELETE:
+        await this.deletePinWithoutException({
+          id: listenerEvent.payload.appId,
+          type: PinType.App,
         });
         break;
     }

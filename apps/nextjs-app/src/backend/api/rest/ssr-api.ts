@@ -30,6 +30,9 @@ import type {
   IUserLastVisitVo,
   IUsageVo,
   IUserLastVisitListBaseVo,
+  IUserLastVisitBaseNodeVo,
+  IGetUserLastVisitBaseNodeRo,
+  IBaseNodeListVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -63,6 +66,8 @@ import {
   GET_USER_LAST_VISIT,
   GET_INSTANCE_USAGE,
   GET_USER_LAST_VISIT_LIST_BASE,
+  GET_USER_LAST_VISIT_BASE_NODE,
+  GET_BASE_NODE_LIST,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -264,6 +269,18 @@ export class SsrApi {
       .get<IUserLastVisitVo | undefined>(GET_USER_LAST_VISIT, {
         params: { resourceType, parentResourceId },
       })
+      .then(({ data }) => data);
+  }
+
+  async getUserLastVisitBaseNode(params: IGetUserLastVisitBaseNodeRo) {
+    return this.axios
+      .get<IUserLastVisitBaseNodeVo | undefined>(GET_USER_LAST_VISIT_BASE_NODE, { params })
+      .then(({ data }) => data);
+  }
+
+  async getBaseNodeList(baseId: string) {
+    return this.axios
+      .get<IBaseNodeListVo>(urlBuilder(GET_BASE_NODE_LIST, { baseId }))
       .then(({ data }) => data);
   }
 

@@ -10,6 +10,7 @@ import {
   deleteBase,
   deleteView,
   getUserLastVisit,
+  getUserLastVisitBaseNode,
   getUserLastVisitListBase,
   getUserLastVisitMap,
   LastVisitResourceType,
@@ -17,6 +18,7 @@ import {
   updateUserLastVisit,
   userLastVisitListBaseVoSchema,
 } from '@teable/openapi';
+import { isEmpty } from 'lodash';
 import { getViews, initApp, permanentDeleteBase } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
@@ -235,5 +237,114 @@ describe('OpenAPI OAuthController (e2e)', () => {
       },
     });
     expect(userLastVisit.length).toEqual(0);
+  });
+
+  describe('getUserLastVisitBaseNode', () => {
+    let testBase: ICreateBaseVo;
+    let testTable: ITableFullVo;
+
+    beforeAll(async () => {
+      testBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'base_node_test',
+      }).then((res) => res.data);
+      testTable = await createTable(testBase.id, { name: 'test_table' }).then((res) => res.data);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(testBase.id, testTable.id);
+      await permanentDeleteBase(testBase.id);
+    });
+
+    it('should return undefined when no visit record exists', async () => {
+      const newBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'empty_base',
+      }).then((res) => res.data);
+
+      const res = await getUserLastVisitBaseNode({
+        parentResourceId: newBase.id,
+      }).then((res) => res.data);
+
+      expect(isEmpty(res)).toBe(true);
+
+      await permanentDeleteBase(newBase.id);
+    });
+
+    it('should return table visit after visiting a table', async () => {
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.Table,
+        parentResourceId: testBase.id,
+        resourceId: testTable.id,
+      });
+
+      const res = await getUserLastVisitBaseNode({
+        parentResourceId: testBase.id,
+      });
+
+      expect(res.data).toEqual({
+        resourceId: testTable.id,
+        resourceType: LastVisitResourceType.Table,
+      });
+    });
+
+    it('should return most recent visit when multiple base nodes visited', async () => {
+      const table2 = await createTable(testBase.id, { name: 'test_table_2' }).then(
+        (res) => res.data
+      );
+
+      // Visit first table
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.Table,
+        parentResourceId: testBase.id,
+        resourceId: testTable.id,
+      });
+
+      // Visit second table
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.Table,
+        parentResourceId: testBase.id,
+        resourceId: table2.id,
+      });
+
+      const res = await getUserLastVisitBaseNode({
+        parentResourceId: testBase.id,
+      });
+
+      // Should return the most recent visit (table2)
+      expect(res.data).toEqual({
+        resourceId: table2.id,
+        resourceType: LastVisitResourceType.Table,
+      });
+
+      await permanentDeleteTable(testBase.id, table2.id);
+    });
+
+    it('should not include view visits in base node results', async () => {
+      // Clear previous visits by creating a fresh base
+      const freshBase = await createBase({
+        spaceId: globalThis.testConfig.spaceId,
+        name: 'fresh_base',
+      }).then((res) => res.data);
+      const freshTable = await createTable(freshBase.id, { name: 'fresh_table' }).then(
+        (res) => res.data
+      );
+
+      // Only visit a view (not a base node type)
+      await updateUserLastVisit({
+        resourceType: LastVisitResourceType.View,
+        parentResourceId: freshTable.id,
+        resourceId: freshTable.views[0].id,
+      });
+
+      const res = await getUserLastVisitBaseNode({
+        parentResourceId: freshBase.id,
+      }).then((res) => res.data);
+
+      expect(isEmpty(res)).toBe(true);
+
+      await permanentDeleteTable(freshBase.id, freshTable.id);
+      await permanentDeleteBase(freshBase.id);
+    });
   });
 });
