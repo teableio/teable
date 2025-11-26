@@ -41,127 +41,65 @@ DO $$
 DECLARE
     has_app BOOLEAN;
     has_workflow BOOLEAN;
+    has_dashboard BOOLEAN;
+    has_table_meta BOOLEAN;
+    select_sql TEXT := '';
     insert_sql TEXT;
+    first_select BOOLEAN := FALSE;
 BEGIN
-    -- Check for tables existence
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'app') INTO has_app;
-    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'workflow') INTO has_workflow;
+    -- Check for tables existence with schema filter
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'app' AND table_schema = current_schema()) INTO has_app;
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'workflow' AND table_schema = current_schema()) INTO has_workflow;
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'dashboard' AND table_schema = current_schema()) INTO has_dashboard;
+    SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'table_meta' AND table_schema = current_schema()) INTO has_table_meta;
 
-    -- 1. Insert existing resources into base_node
-    insert_sql := '
-    INSERT INTO "base_node" ("id", "base_id", "resource_type", "resource_id", "order", "created_by", "created_time", "last_modified_time")
-    SELECT
-        gen_random_uuid(),
-        base_id,
-        resource_type,
-        resource_id,
-        row_number() OVER (PARTITION BY base_id ORDER BY last_modified_time DESC NULLS LAST, created_time DESC),
-        ''anonymous'',
-        created_time,
-        last_modified_time
-    FROM (
-        SELECT base_id, ''table'' as resource_type, id as resource_id, created_time, last_modified_time FROM "table_meta" WHERE deleted_time IS NULL
-        UNION ALL
-        SELECT base_id, ''dashboard'' as resource_type, id as resource_id, created_time, last_modified_time FROM "dashboard"
-    ';
+    -- 1. Build select SQL for all resources
+    -- dashboard and app: sort by last_modified_time DESC (newer first), use negative epoch
+    -- workflow and table_meta: sort by order ASC (smaller first)
+    IF has_dashboard THEN
+        select_sql := 'SELECT base_id, ''dashboard'' as resource_type, id as resource_id, created_time, last_modified_time, -COALESCE(EXTRACT(EPOCH FROM last_modified_time), 0) as sort_value FROM "dashboard"';
+        first_select := TRUE;
+    END IF;
 
     IF has_app THEN
-        insert_sql := insert_sql || '
-        UNION ALL
-        SELECT base_id, ''app'' as resource_type, id as resource_id, created_time, last_modified_time FROM "app" WHERE deleted_time IS NULL
-        ';
+        IF first_select THEN
+            select_sql := select_sql || ' UNION ALL ';
+        END IF;
+        select_sql := select_sql || 'SELECT base_id, ''app'' as resource_type, id as resource_id, created_time, last_modified_time, -COALESCE(EXTRACT(EPOCH FROM last_modified_time), 0) as sort_value FROM "app" WHERE deleted_time IS NULL';
+        first_select := TRUE;
     END IF;
 
     IF has_workflow THEN
-        insert_sql := insert_sql || '
-        UNION ALL
-        SELECT base_id, ''workflow'' as resource_type, id as resource_id, created_time, last_modified_time FROM "workflow" WHERE deleted_time IS NULL
-        ';
+        IF first_select THEN
+            select_sql := select_sql || ' UNION ALL ';
+        END IF;
+        select_sql := select_sql || 'SELECT base_id, ''workflow'' as resource_type, id as resource_id, created_time, last_modified_time, COALESCE("order", 0) as sort_value FROM "workflow" WHERE deleted_time IS NULL';
+        first_select := TRUE;
     END IF;
 
-    insert_sql := insert_sql || ') as all_resources';
+    IF has_table_meta THEN
+        IF first_select THEN
+            select_sql := select_sql || ' UNION ALL ';
+        END IF;
+        select_sql := select_sql || 'SELECT base_id, ''table'' as resource_type, id as resource_id, created_time, last_modified_time, COALESCE("order", 0) as sort_value FROM "table_meta" WHERE deleted_time IS NULL';
+        first_select := TRUE;
+    END IF;
 
-    EXECUTE insert_sql;
+    -- 2. Build insert SQL with the select query
+    IF first_select THEN
+        insert_sql := '
+        INSERT INTO "base_node" ("id", "base_id", "resource_type", "resource_id", "order", "created_by", "created_time", "last_modified_time")
+        SELECT
+            gen_random_uuid(),
+            base_id,
+            resource_type,
+            resource_id,
+            row_number() OVER (PARTITION BY base_id ORDER BY sort_value ASC NULLS LAST),
+            ''anonymous'',
+            created_time,
+            last_modified_time
+        FROM (' || select_sql || ') as all_resources';
 
+        EXECUTE insert_sql;
+    END IF;
 END $$;
-
--- 2. Create folders and move items (Apps)
-WITH apps_to_move AS (
-    SELECT DISTINCT base_id
-    FROM "base_node"
-    WHERE resource_type = 'app'
-),
-created_folders AS (
-    INSERT INTO "base_node_folder" ("id", "base_id", "name", "created_by")
-    SELECT gen_random_uuid(), base_id, 'Apps', 'anonymous'
-    FROM apps_to_move
-    ON CONFLICT ("base_id", "name") DO NOTHING
-    RETURNING id, base_id
-),
-created_node_items AS (
-    INSERT INTO "base_node" ("id", "base_id", "resource_type", "resource_id", "order", "created_by")
-    SELECT gen_random_uuid(), base_id, 'folder', id, -3, 'anonymous'
-    FROM created_folders
-    RETURNING id, resource_id, base_id
-)
-UPDATE "base_node"
-SET parent_id = cni.id,
-    "order" = row_number() OVER (PARTITION BY "base_node".base_id ORDER BY "base_node"."order")
-FROM created_node_items cni
-INNER JOIN created_folders cf ON cni.resource_id = cf.id
-WHERE "base_node".base_id = cf.base_id
-  AND "base_node".resource_type = 'app';
-
--- 3. Create folders and move items (Workflows)
-WITH workflows_to_move AS (
-    SELECT DISTINCT base_id
-    FROM "base_node"
-    WHERE resource_type = 'workflow'
-),
-created_folders AS (
-    INSERT INTO "base_node_folder" ("id", "base_id", "name", "created_by")
-    SELECT gen_random_uuid(), base_id, 'Workflows', 'anonymous'
-    FROM workflows_to_move
-    ON CONFLICT ("base_id", "name") DO NOTHING
-    RETURNING id, base_id
-),
-created_node_items AS (
-    INSERT INTO "base_node" ("id", "base_id", "resource_type", "resource_id", "order", "created_by")
-    SELECT gen_random_uuid(), base_id, 'folder', id, -2, 'anonymous'
-    FROM created_folders
-    RETURNING id, resource_id, base_id
-)
-UPDATE "base_node"
-SET parent_id = cni.id,
-    "order" = row_number() OVER (PARTITION BY "base_node".base_id ORDER BY "base_node"."order")
-FROM created_node_items cni
-INNER JOIN created_folders cf ON cni.resource_id = cf.id
-WHERE "base_node".base_id = cf.base_id
-  AND "base_node".resource_type = 'workflow';
-
--- 4. Create folders and move items (Dashboards)
-WITH dashboards_to_move AS (
-    SELECT DISTINCT base_id
-    FROM "base_node"
-    WHERE resource_type = 'dashboard'
-),
-created_folders AS (
-    INSERT INTO "base_node_folder" ("id", "base_id", "name", "created_by")
-    SELECT gen_random_uuid(), base_id, 'Dashboards', 'anonymous'
-    FROM dashboards_to_move
-    ON CONFLICT ("base_id", "name") DO NOTHING
-    RETURNING id, base_id
-),
-created_node_items AS (
-    INSERT INTO "base_node" ("id", "base_id", "resource_type", "resource_id", "order", "created_by")
-    SELECT gen_random_uuid(), base_id, 'folder', id, -1, 'anonymous'
-    FROM created_folders
-    RETURNING id, resource_id, base_id
-)
-UPDATE "base_node"
-SET parent_id = cni.id,
-    "order" = row_number() OVER (PARTITION BY "base_node".base_id ORDER BY "base_node"."order")
-FROM created_node_items cni
-INNER JOIN created_folders cf ON cni.resource_id = cf.id
-WHERE "base_node".base_id = cf.base_id
-  AND "base_node".resource_type = 'dashboard';
