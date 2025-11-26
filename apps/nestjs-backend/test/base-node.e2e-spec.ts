@@ -1,5 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, ViewType } from '@teable/core';
+import { FieldType, Role, ViewType } from '@teable/core';
 import type { IBaseNodeVo } from '@teable/openapi';
 import {
   createBaseNode,
@@ -11,7 +12,21 @@ import {
   duplicateBaseNode,
   BaseNodeResourceType,
   createBase,
+  emailBaseInvitation,
+  createSpace as apiCreateSpace,
+  permanentDeleteSpace as apiPermanentDeleteSpace,
+  urlBuilder,
+  GET_BASE_NODE_LIST,
+  GET_BASE_NODE_TREE,
+  GET_BASE_NODE,
+  CREATE_BASE_NODE,
+  UPDATE_BASE_NODE,
+  DELETE_BASE_NODE,
+  MOVE_BASE_NODE,
+  DUPLICATE_BASE_NODE,
 } from '@teable/openapi';
+import type { AxiosInstance } from 'axios';
+import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
 import { initApp, permanentDeleteBase } from './utils/init-app';
 
@@ -890,6 +905,510 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         const found = tree.data.nodes.find((n: IBaseNodeVo) => n.id === node.id);
         expect(found).toBeDefined();
       }
+    });
+  });
+
+  describe('Permission tests', () => {
+    let permissionSpaceId: string;
+    let permissionBaseId: string;
+    let viewerAxios: AxiosInstance;
+    let creatorAxios: AxiosInstance;
+    let nonCollaboratorAxios: AxiosInstance;
+    const nodesToCleanup: string[] = [];
+
+    const viewerEmail = 'base-node-viewer@test.com';
+    const creatorEmail = 'base-node-creator@test.com';
+    const nonCollaboratorEmail = 'base-node-non-collaborator@test.com';
+
+    beforeAll(async () => {
+      // Create a new space and base for permission tests
+      const space = await apiCreateSpace({ name: 'Permission Test Space' }).then((res) => res.data);
+      permissionSpaceId = space.id;
+
+      const base = await createBase({
+        name: 'Permission Test Base',
+        spaceId: permissionSpaceId,
+      }).then((res) => res.data);
+      permissionBaseId = base.id;
+
+      // Create test users
+      viewerAxios = await createNewUserAxios({
+        email: viewerEmail,
+        password: '12345678',
+      });
+
+      creatorAxios = await createNewUserAxios({
+        email: creatorEmail,
+        password: '12345678',
+      });
+
+      nonCollaboratorAxios = await createNewUserAxios({
+        email: nonCollaboratorEmail,
+        password: '12345678',
+      });
+
+      // Invite viewer with Viewer role (read-only)
+      await emailBaseInvitation({
+        baseId: permissionBaseId,
+        emailBaseInvitationRo: {
+          emails: [viewerEmail],
+          role: Role.Viewer,
+        },
+      });
+
+      // Invite creator with Creator role (full access)
+      await emailBaseInvitation({
+        baseId: permissionBaseId,
+        emailBaseInvitationRo: {
+          emails: [creatorEmail],
+          role: Role.Creator,
+        },
+      });
+    });
+
+    afterAll(async () => {
+      // Cleanup nodes first
+      for (const nodeId of nodesToCleanup) {
+        try {
+          await deleteBaseNode(permissionBaseId, nodeId);
+        } catch (e) {
+          // Ignore cleanup errors
+        }
+      }
+      // Then delete the space (which will delete the base)
+      await apiPermanentDeleteSpace(permissionSpaceId);
+    });
+
+    describe('Non-collaborator access', () => {
+      it('should fail to get node list when user is not a collaborator', async () => {
+        const error = await getError(() =>
+          nonCollaboratorAxios.get(urlBuilder(GET_BASE_NODE_LIST, { baseId: permissionBaseId }))
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should fail to get node tree when user is not a collaborator', async () => {
+        const error = await getError(() =>
+          nonCollaboratorAxios.get(urlBuilder(GET_BASE_NODE_TREE, { baseId: permissionBaseId }))
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should fail to create node when user is not a collaborator', async () => {
+        const error = await getError(() =>
+          nonCollaboratorAxios.post(urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }), {
+            resourceType: BaseNodeResourceType.Folder,
+            name: 'Unauthorized Folder',
+          })
+        );
+        expect(error?.status).toBe(403);
+      });
+    });
+
+    describe('Viewer role permissions', () => {
+      let testFolderId: string;
+      let testTableId: string;
+      let testDashboardId: string;
+
+      beforeAll(async () => {
+        // Create test nodes as owner for viewer to test against
+        const folder = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Folder,
+          name: 'Viewer Test Folder',
+        });
+        testFolderId = folder.data.id;
+        nodesToCleanup.push(testFolderId);
+
+        const table = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'Viewer Test Table',
+          fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        });
+        testTableId = table.data.id;
+        nodesToCleanup.push(testTableId);
+
+        const dashboard = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Dashboard,
+          name: 'Viewer Test Dashboard',
+        });
+        testDashboardId = dashboard.data.id;
+        nodesToCleanup.push(testDashboardId);
+      });
+
+      it('should allow viewer to get node list', async () => {
+        const response = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE_LIST, { baseId: permissionBaseId })
+        );
+        expect(response.status).toBe(200);
+        expect(Array.isArray(response.data)).toBe(true);
+      });
+
+      it('should allow viewer to get node tree', async () => {
+        const response = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE_TREE, { baseId: permissionBaseId })
+        );
+        expect(response.status).toBe(200);
+        expect(response.data).toHaveProperty('nodes');
+      });
+
+      it('should allow viewer to get single folder node', async () => {
+        const response = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE, { baseId: permissionBaseId, nodeId: testFolderId })
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.id).toBe(testFolderId);
+      });
+
+      it('should allow viewer to get single table node', async () => {
+        const response = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE, { baseId: permissionBaseId, nodeId: testTableId })
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.id).toBe(testTableId);
+      });
+
+      it('should allow viewer to get single dashboard node', async () => {
+        const response = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE, { baseId: permissionBaseId, nodeId: testDashboardId })
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.id).toBe(testDashboardId);
+      });
+
+      it('should deny viewer from creating folder node', async () => {
+        const error = await getError(() =>
+          viewerAxios.post(urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }), {
+            resourceType: BaseNodeResourceType.Folder,
+            name: 'Viewer Created Folder',
+          })
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from creating table node', async () => {
+        // Viewer doesn't have table|create permission
+        const error = await getError(() =>
+          viewerAxios.post(urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }), {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Viewer Table',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          })
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from creating dashboard node', async () => {
+        // Viewer doesn't have base|update permission required for Dashboard creation
+        const error = await getError(() =>
+          viewerAxios.post(urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }), {
+            resourceType: BaseNodeResourceType.Dashboard,
+            name: 'Viewer Dashboard',
+          })
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from updating table node', async () => {
+        // Viewer doesn't have table|update permission
+        const error = await getError(() =>
+          viewerAxios.put(
+            urlBuilder(UPDATE_BASE_NODE, { baseId: permissionBaseId, nodeId: testTableId }),
+            { name: 'Viewer Updated Table' }
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from updating dashboard node', async () => {
+        // Viewer doesn't have base|update permission
+        const error = await getError(() =>
+          viewerAxios.put(
+            urlBuilder(UPDATE_BASE_NODE, { baseId: permissionBaseId, nodeId: testDashboardId }),
+            { name: 'Viewer Updated Dashboard' }
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from deleting table node', async () => {
+        // Viewer doesn't have table|delete permission
+        const error = await getError(() =>
+          viewerAxios.delete(
+            urlBuilder(DELETE_BASE_NODE, { baseId: permissionBaseId, nodeId: testTableId })
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from deleting dashboard node', async () => {
+        // Viewer doesn't have base|update permission
+        const error = await getError(() =>
+          viewerAxios.delete(
+            urlBuilder(DELETE_BASE_NODE, { baseId: permissionBaseId, nodeId: testDashboardId })
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from moving node (requires base|update)', async () => {
+        // Move operation requires base|update permission
+        const error = await getError(() =>
+          viewerAxios.put(
+            urlBuilder(MOVE_BASE_NODE, { baseId: permissionBaseId, nodeId: testTableId }),
+            { parentId: testFolderId }
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+
+      it('should deny viewer from duplicating table node', async () => {
+        // Duplicate requires base_node|read and base_node|create
+        // For table, create requires table|create which viewer doesn't have
+        const error = await getError(() =>
+          viewerAxios.post(
+            urlBuilder(DUPLICATE_BASE_NODE, { baseId: permissionBaseId, nodeId: testTableId }),
+            { name: 'Duplicated Table' }
+          )
+        );
+        expect(error?.status).toBe(403);
+      });
+    });
+
+    describe('Creator role permissions', () => {
+      const creatorNodesToCleanup: string[] = [];
+
+      afterEach(async () => {
+        for (const nodeId of creatorNodesToCleanup) {
+          try {
+            await deleteBaseNode(permissionBaseId, nodeId);
+          } catch (e) {
+            // Ignore cleanup errors
+          }
+        }
+        creatorNodesToCleanup.length = 0;
+      });
+
+      it('should allow creator to get node list', async () => {
+        const response = await creatorAxios.get(
+          urlBuilder(GET_BASE_NODE_LIST, { baseId: permissionBaseId })
+        );
+        expect(response.status).toBe(200);
+      });
+
+      it('should allow creator to get node tree', async () => {
+        const response = await creatorAxios.get(
+          urlBuilder(GET_BASE_NODE_TREE, { baseId: permissionBaseId })
+        );
+        expect(response.status).toBe(200);
+      });
+
+      it('should allow creator to create folder node', async () => {
+        const response = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Folder,
+            name: 'Creator Folder',
+          }
+        );
+        expect(response.status).toBe(201);
+        expect(response.data.name).toBe('Creator Folder');
+        creatorNodesToCleanup.push(response.data.id);
+      });
+
+      it('should allow creator to create table node', async () => {
+        const response = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Creator Table',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          }
+        );
+        expect(response.status).toBe(201);
+        expect(response.data.name).toBe('Creator Table');
+        creatorNodesToCleanup.push(response.data.id);
+      });
+
+      it('should allow creator to create dashboard node', async () => {
+        const response = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Dashboard,
+            name: 'Creator Dashboard',
+          }
+        );
+        expect(response.status).toBe(201);
+        expect(response.data.name).toBe('Creator Dashboard');
+        creatorNodesToCleanup.push(response.data.id);
+      });
+
+      it('should allow creator to update table node', async () => {
+        const table = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Table to Update',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          }
+        );
+        creatorNodesToCleanup.push(table.data.id);
+
+        const response = await creatorAxios.put(
+          urlBuilder(UPDATE_BASE_NODE, { baseId: permissionBaseId, nodeId: table.data.id }),
+          { name: 'Updated Table Name' }
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.name).toBe('Updated Table Name');
+      });
+
+      it('should allow creator to delete table node', async () => {
+        const table = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Table to Delete',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          }
+        );
+
+        const response = await creatorAxios.delete(
+          urlBuilder(DELETE_BASE_NODE, { baseId: permissionBaseId, nodeId: table.data.id })
+        );
+        expect(response.status).toBe(200);
+      });
+
+      it('should allow creator to move node', async () => {
+        const folder = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Folder,
+            name: 'Move Target Folder',
+          }
+        );
+        creatorNodesToCleanup.push(folder.data.id);
+
+        const table = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Table to Move',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          }
+        );
+        creatorNodesToCleanup.push(table.data.id);
+
+        const response = await creatorAxios.put(
+          urlBuilder(MOVE_BASE_NODE, { baseId: permissionBaseId, nodeId: table.data.id }),
+          { parentId: folder.data.id }
+        );
+        expect(response.status).toBe(200);
+        expect(response.data.parentId).toBe(folder.data.id);
+      });
+
+      it('should allow creator to duplicate table node', async () => {
+        const table = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Table,
+            name: 'Table to Duplicate',
+            fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+            views: [{ name: 'Grid view', type: ViewType.Grid }],
+          }
+        );
+        creatorNodesToCleanup.push(table.data.id);
+
+        const response = await creatorAxios.post(
+          urlBuilder(DUPLICATE_BASE_NODE, { baseId: permissionBaseId, nodeId: table.data.id }),
+          { name: 'Duplicated Table' }
+        );
+        expect(response.status).toBe(201);
+        expect(response.data.name).toBe('Duplicated Table');
+        creatorNodesToCleanup.push(response.data.id);
+      });
+
+      it('should allow creator to duplicate dashboard node', async () => {
+        const dashboard = await creatorAxios.post(
+          urlBuilder(CREATE_BASE_NODE, { baseId: permissionBaseId }),
+          {
+            resourceType: BaseNodeResourceType.Dashboard,
+            name: 'Dashboard to Duplicate',
+          }
+        );
+        creatorNodesToCleanup.push(dashboard.data.id);
+
+        const response = await creatorAxios.post(
+          urlBuilder(DUPLICATE_BASE_NODE, { baseId: permissionBaseId, nodeId: dashboard.data.id }),
+          { name: 'Duplicated Dashboard' }
+        );
+        expect(response.status).toBe(201);
+        expect(response.data.name).toBe('Duplicated Dashboard');
+        creatorNodesToCleanup.push(response.data.id);
+      });
+    });
+
+    describe('Permission filtering on list/tree endpoints', () => {
+      it('should filter nodes based on user permissions in list', async () => {
+        // Create nodes as owner
+        const folder = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Folder,
+          name: 'Shared Folder',
+        });
+        nodesToCleanup.push(folder.data.id);
+
+        const table = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Table,
+          name: 'Shared Table',
+          fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+          views: [{ name: 'Grid view', type: ViewType.Grid }],
+        });
+        nodesToCleanup.push(table.data.id);
+
+        // Viewer should see nodes they have permission to read
+        const viewerList = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE_LIST, { baseId: permissionBaseId })
+        );
+        expect(viewerList.status).toBe(200);
+
+        // Viewer has table|read so they should see the table
+        const viewerTableNode = viewerList.data.find((n: IBaseNodeVo) => n.id === table.data.id);
+        expect(viewerTableNode).toBeDefined();
+
+        // Viewer has base|read so they should see the folder (folder has no special permission)
+        const viewerFolderNode = viewerList.data.find((n: IBaseNodeVo) => n.id === folder.data.id);
+        expect(viewerFolderNode).toBeDefined();
+      });
+
+      it('should filter nodes based on user permissions in tree', async () => {
+        const folder = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Folder,
+          name: 'Tree Test Folder',
+        });
+        nodesToCleanup.push(folder.data.id);
+
+        const dashboard = await createBaseNode(permissionBaseId, {
+          resourceType: BaseNodeResourceType.Dashboard,
+          name: 'Tree Test Dashboard',
+        });
+        nodesToCleanup.push(dashboard.data.id);
+
+        // Viewer should see nodes in tree
+        const viewerTree = await viewerAxios.get(
+          urlBuilder(GET_BASE_NODE_TREE, { baseId: permissionBaseId })
+        );
+        expect(viewerTree.status).toBe(200);
+
+        // Viewer has base|read so they should see dashboard (dashboard read requires base|read)
+        const viewerDashboardNode = viewerTree.data.nodes.find(
+          (n: IBaseNodeVo) => n.id === dashboard.data.id
+        );
+        expect(viewerDashboardNode).toBeDefined();
+      });
     });
   });
 });

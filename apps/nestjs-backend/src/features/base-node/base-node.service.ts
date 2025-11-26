@@ -222,7 +222,6 @@ export class BaseNodeService {
   }
 
   protected getResourceTypes(): BaseNodeResourceType[] {
-    console.log('Community: BaseNodeService getResourceTypes');
     return [
       BaseNodeResourceType.Folder,
       BaseNodeResourceType.Table,
@@ -258,9 +257,6 @@ export class BaseNodeService {
       (n) => n.parentId && !validParentIds.has(n.parentId) && !toDelete.includes(n)
     );
 
-    console.log('Community: prepareTree toCreate', toCreate.length, toCreate);
-    console.log('Community: prepareTree toDelete', toDelete.length, toDelete);
-    console.log('Community: prepareTree orphans', orphans.length, orphans);
     if (toCreate.length === 0 && toDelete.length === 0 && orphans.length === 0) {
       return nodes.map((entry) => {
         const key = `${entry.resourceType}_${entry.resourceId}`;
@@ -339,6 +335,10 @@ export class BaseNodeService {
     );
   }
 
+  async getList(baseId: string): Promise<IBaseNodeVo[]> {
+    return this.prepareTree(baseId);
+  }
+
   async getTree(baseId: string): Promise<IBaseNodeTreeVo> {
     const nodes = await this.prepareTree(baseId);
 
@@ -348,11 +348,23 @@ export class BaseNodeService {
     };
   }
 
-  async getNode(baseId: string, nodeId: string): Promise<IBaseNodeVo> {
-    const node = await this.prismaService.baseNode.findFirstOrThrow({
-      where: { baseId, id: nodeId },
-      select: this.getSelect(),
-    });
+  async getNode(baseId: string, nodeId: string) {
+    const node = await this.prismaService.baseNode
+      .findFirstOrThrow({
+        where: { baseId, id: nodeId },
+        select: this.getSelect(),
+      })
+      .catch(() => {
+        throw new CustomHttpException(`Base node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+      });
+    return {
+      ...node,
+      resourceType: node.resourceType as BaseNodeResourceType,
+    };
+  }
+
+  async getNodeVo(baseId: string, nodeId: string): Promise<IBaseNodeVo> {
+    const node = await this.getNode(baseId, nodeId);
     return this.entry2vo(node);
   }
 
@@ -415,7 +427,6 @@ export class BaseNodeService {
         return { id: folder.id, name: folder.name };
       }
       case BaseNodeResourceType.Table: {
-        console.log('Community: createResource table ro', ro);
         const table = await this.tableOpenApiService.createTable(
           baseId,
           ro as ICreateTableWithDefault
@@ -548,6 +559,11 @@ export class BaseNodeService {
   ): Promise<void> {
     const { name, icon } = updateRo;
     switch (type) {
+      case BaseNodeResourceType.Folder:
+        if (name) {
+          await this.baseNodeFolderService.renameFolder(baseId, id, { name });
+        }
+        break;
       case BaseNodeResourceType.Table:
         if (name) {
           await this.tableOpenApiService.updateName(baseId, id, name);
@@ -808,10 +824,9 @@ export class BaseNodeService {
         name = event.payload.folder.name;
         break;
       case Events.TABLE_CREATE:
-        console.log('prepareResourceCreate', event.payload.table);
         baseId = event.payload.baseId;
         resourceType = BaseNodeResourceType.Table;
-        // todo: get the table id from the table op
+        // get the table id from the table op
         resourceId = (event.payload.table as unknown as { id: string }).id;
         name = event.payload.table.name;
         icon = event.payload.table.icon;
