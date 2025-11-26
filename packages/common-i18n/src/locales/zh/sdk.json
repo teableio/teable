@@ -1116,6 +1116,7 @@
       "lookupFieldIdInvalid": "查找字段 {{lookupFieldId}} 无效",
       "formulaExpressionParseError": "公式的表达式解析错误",
       "formulaReferenceNotFound": "公式的引用字段 {{fieldIds}} 不存在",
+      "formulaReferenceNotFieldId": "公式引用 {{fieldIds}} 不存在。公式必须使用字段 ID（fldXXXXXXXXXXXXXXXX 格式），而不是字段名称。",
       "rollupExpressionParseError": "汇总字段的表达式解析错误",
       "choiceNameAlreadyExists": "选项名称 {{name}} 已存在",
       "symmetricFieldIdRequired": "双向关联对称的字段 ID 不能为空",

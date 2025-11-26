@@ -3,7 +3,7 @@ import { assertNever } from '../../asserts';
 import type { IEnsureKeysMatchInterface } from '../../types';
 import { IdPrefix } from '../../utils';
 import { z } from '../../zod';
-import { fieldAIConfigSchema } from './ai-config';
+import { fieldAIConfigSchema, getAiConfigSchema, type IFieldAIConfig } from './ai-config';
 import { CellValueType, DbFieldType, FieldType } from './constant';
 import { selectFieldOptionsRoSchema } from './derivate/abstract/select.field.abstract';
 import { attachmentFieldOptionsSchema } from './derivate/attachment-option.schema';
@@ -247,13 +247,14 @@ const refineOptions = (
     isConditionalLookup?: boolean;
     lookupOptions?: ILookupOptionsRo;
     options?: IFieldOptionsRo;
+    aiConfig?: IFieldAIConfig | null;
   },
   ctx: RefinementCtx
 ) => {
   if (data.isConditionalLookup && !data.isLookup) {
     ctx.addIssue({
       path: ['isConditionalLookup'],
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'isConditionalLookup requires isLookup to be true.',
     });
   }
@@ -262,10 +263,24 @@ const refineOptions = (
   validateRes.forEach((item) => {
     ctx.addIssue({
       path: item.path,
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: item.message,
     });
   });
+
+  // Validate aiConfig matches field type
+  if (data.aiConfig != null) {
+    const aiConfigSchema = getAiConfigSchema(data.type);
+    const result = aiConfigSchema.safeParse(data.aiConfig);
+    if (!result.success) {
+      result.error.issues.forEach((issue) => {
+        ctx.addIssue({
+          ...issue,
+          path: ['aiConfig', ...issue.path],
+        });
+      });
+    }
+  }
 };
 
 const baseFieldRoSchema = fieldVoSchema

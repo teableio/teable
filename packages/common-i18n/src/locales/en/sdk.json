@@ -1116,6 +1116,7 @@
       "lookupFieldIdInvalid": "Lookup field {{lookupFieldId}} invalid",
       "formulaExpressionParseError": "Formula expression parse error",
       "formulaReferenceNotFound": "Formula reference field {{fieldIds}} not found",
+      "formulaReferenceNotFieldId": "Formula references {{fieldIds}} not found. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.",
       "rollupExpressionParseError": "Rollup expression parse error",
       "choiceNameAlreadyExists": "Choice name {{name}} already exists",
       "symmetricFieldIdRequired": "Symmetric field ID is required",

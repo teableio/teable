@@ -450,7 +450,7 @@ export const timeZoneStringSchema = z
         return false;
       }
     },
-    { message: 'Invalid timezone' }
+    { message: 'Invalid timezone, please use iso 8601 format' }
   )
   .meta({
     type: 'string',

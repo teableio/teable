@@ -10,21 +10,31 @@ const baseFormatting = z.object({
   precision: z.number().max(5).min(0),
 });
 
-export const decimalFormattingSchema = baseFormatting.extend({
-  type: z.literal(NumberFormattingType.Decimal),
-});
+export const decimalFormattingSchema = baseFormatting
+  .extend({
+    type: z.literal(NumberFormattingType.Decimal),
+  })
+  .strict();
 
-export const percentFormattingSchema = baseFormatting.extend({
-  type: z.literal(NumberFormattingType.Percent),
-});
+export const percentFormattingSchema = baseFormatting
+  .extend({
+    type: z.literal(NumberFormattingType.Percent),
+  })
+  .strict();
 
-export const currencyFormattingSchema = baseFormatting.extend({
-  type: z.literal(NumberFormattingType.Currency),
-  symbol: z.string(),
-});
+export const currencyFormattingSchema = baseFormatting
+  .extend({
+    type: z.literal(NumberFormattingType.Currency),
+    symbol: z.string(),
+  })
+  .strict();
 
 export const numberFormattingSchema = z
-  .union([decimalFormattingSchema, percentFormattingSchema, currencyFormattingSchema])
+  .discriminatedUnion('type', [
+    decimalFormattingSchema,
+    percentFormattingSchema,
+    currencyFormattingSchema,
+  ])
   .describe(
     'Only be used in number field (number field or formula / rollup field with cellValueType equals Number'
   );

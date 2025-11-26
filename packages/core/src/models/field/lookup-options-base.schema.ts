@@ -75,15 +75,91 @@ const lookupConditionalOptionsVoSchema = z.object({
 
 const lookupConditionalOptionsRoSchema = lookupConditionalOptionsVoSchema;
 
-export const lookupOptionsVoSchema = z.union([
-  lookupLinkOptionsVoSchema.strict(),
-  lookupConditionalOptionsVoSchema.strict(),
-]);
+// Helper function for lookup options error handling
+function getLookupOptionsError(input: Record<string, unknown>) {
+  // Check for common mistake: expression in lookupOptions
+  if ('expression' in input) {
+    return 'Rollup field configuration error: "expression" (e.g., "sum({values})") should be in "options", not "lookupOptions". lookupOptions should contain: { linkFieldId, lookupFieldId, foreignTableId } for link lookup, or { foreignTableId, lookupFieldId, filter } for conditional lookup';
+  }
 
-export const lookupOptionsRoSchema = z.union([
-  lookupLinkOptionsRoSchema.strict(),
-  lookupConditionalOptionsRoSchema.strict(),
-]);
+  // Determine which schema to use based on discriminator
+  // Link lookup has linkFieldId, conditional lookup has filter
+  const hasLinkFieldId = 'linkFieldId' in input;
+  const hasFilter = 'filter' in input;
+
+  let targetSchema;
+  let schemaType;
+
+  if (hasLinkFieldId) {
+    targetSchema = lookupLinkOptionsVoSchema.strict();
+    schemaType = 'Link lookup';
+  } else if (hasFilter) {
+    targetSchema = lookupConditionalOptionsVoSchema.strict();
+    schemaType = 'Conditional lookup';
+  } else {
+    return 'Lookup options must be either link lookup (with linkFieldId) or conditional lookup (with filter)';
+  }
+
+  // Parse with specific schema to get accurate error
+  const result = targetSchema.safeParse(input);
+  if (!result.success) {
+    return `${schemaType} error: ${result.error.issues[0].message}`;
+  }
+
+  return undefined;
+}
+
+export const lookupOptionsVoSchema = z.union(
+  [lookupLinkOptionsVoSchema.strict(), lookupConditionalOptionsVoSchema.strict()],
+  {
+    error: (issue) => {
+      if (issue.input && typeof issue.input === 'object') {
+        return getLookupOptionsError(issue.input as Record<string, unknown>);
+      }
+      return undefined;
+    },
+  }
+);
+
+export const lookupOptionsRoSchema = z.union(
+  [lookupLinkOptionsRoSchema.strict(), lookupConditionalOptionsRoSchema.strict()],
+  {
+    error: (issue) => {
+      if (issue.input && typeof issue.input === 'object') {
+        const input = issue.input as Record<string, unknown>;
+
+        // Check for common mistake first
+        if ('expression' in input) {
+          return 'Rollup field configuration error: "expression" (e.g., "sum({values})") should be in "options", not "lookupOptions". lookupOptions should contain: { linkFieldId, lookupFieldId, foreignTableId }';
+        }
+
+        // Determine schema based on discriminator
+        const hasLinkFieldId = 'linkFieldId' in input;
+        const hasFilter = 'filter' in input;
+
+        let targetSchema;
+        let schemaType;
+
+        if (hasLinkFieldId) {
+          targetSchema = lookupLinkOptionsRoSchema.strict();
+          schemaType = 'Link lookup';
+        } else if (hasFilter) {
+          targetSchema = lookupConditionalOptionsRoSchema.strict();
+          schemaType = 'Conditional lookup';
+        } else {
+          return 'Lookup options must be either link lookup (with linkFieldId) or conditional lookup (with filter)';
+        }
+
+        // Parse with specific schema
+        const result = targetSchema.safeParse(input);
+        if (!result.success) {
+          return `${schemaType} error: ${result.error.issues[0].message}`;
+        }
+      }
+      return undefined;
+    },
+  }
+);
 
 export type ILookupOptionsVo = z.infer<typeof lookupOptionsVoSchema>;
 export type ILookupOptionsRo = z.infer<typeof lookupOptionsRoSchema>;

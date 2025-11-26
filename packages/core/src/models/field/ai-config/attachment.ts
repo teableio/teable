@@ -36,7 +36,7 @@ export type IAttachmentFieldCustomizeAIConfig = z.infer<
   typeof attachmentFieldCustomizeAIConfigSchema
 >;
 
-export const attachmentFieldAIConfigSchema = z.union([
+export const attachmentFieldAIConfigSchema = z.discriminatedUnion('type', [
   attachmentFieldGenerateImageAIConfigSchema.strict(),
   attachmentFieldCustomizeAIConfigSchema.strict(),
 ]);

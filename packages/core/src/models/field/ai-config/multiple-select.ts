@@ -20,7 +20,7 @@ export type IMultipleSelectFieldCustomizeAIConfig = z.infer<
   typeof multipleSelectFieldCustomizeAIConfigSchema
 >;
 
-export const multipleSelectFieldAIConfigSchema = z.union([
+export const multipleSelectFieldAIConfigSchema = z.discriminatedUnion('type', [
   multipleSelectFieldTagAIConfigSchema.strict(),
   multipleSelectFieldCustomizeAIConfigSchema.strict(),
 ]);

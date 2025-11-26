@@ -724,19 +724,27 @@ export class FieldSupplementService {
     const batchFields = batchFieldVos?.map((fieldVo) => createFieldInstanceByVo(fieldVo));
     const fieldMap = keyBy(fields.concat(batchFields || []), 'id');
 
-    if (fieldIds.find((id) => !fieldMap[id])) {
-      throw new CustomHttpException(
-        `formula field reference ${fieldIds.join()} not found`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.field.formulaReferenceNotFound',
-            context: {
-              fieldIds: fieldIds.join(),
-            },
-          },
-        }
+    const missingFieldIds = fieldIds.filter((id) => !fieldMap[id]);
+    if (missingFieldIds.length > 0) {
+      // Check if user might have used field names instead of field IDs
+      const looksLikeFieldNames = missingFieldIds.some(
+        (id) => !id.startsWith('fld') || id.length !== 19
       );
+
+      const errorMessage = looksLikeFieldNames
+        ? `Formula references not found: ${missingFieldIds.join(', ')}. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.`
+        : `Formula field references not found: ${missingFieldIds.join(', ')}. These field IDs do not exist in the table.`;
+
+      throw new CustomHttpException(errorMessage, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: looksLikeFieldNames
+            ? 'httpErrors.field.formulaReferenceNotFieldId'
+            : 'httpErrors.field.formulaReferenceNotFound',
+          context: {
+            fieldIds: missingFieldIds.join(', '),
+          },
+        },
+      });
     }
 
     let cellValueType: CellValueType;

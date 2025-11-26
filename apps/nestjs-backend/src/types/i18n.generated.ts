@@ -2366,6 +2366,7 @@ export type I18nTranslations = {
                     "clickCountReachedMaxCount": string;
                     "notSupportReset": string;
                 };
+                "formulaReferenceNotFieldId": string;
             };
             "view": {
                 "notFound": string;

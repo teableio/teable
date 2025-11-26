@@ -63,12 +63,12 @@ export const textFieldCustomizeAIConfigSchema = commonFieldAIConfig.extend({
 
 export type ITextFieldCustomizeAIConfig = z.infer<typeof textFieldCustomizeAIConfigSchema>;
 
-export const textFieldAIConfigSchema = z.union([
-  textFieldExtractInfoAIConfigSchema,
-  textFieldSummarizeAIConfigSchema,
-  textFieldTranslateAIConfigSchema,
-  textFieldImproveTextAIConfigSchema,
-  textFieldCustomizeAIConfigSchema,
+export const textFieldAIConfigSchema = z.discriminatedUnion('type', [
+  textFieldExtractInfoAIConfigSchema.strict(),
+  textFieldSummarizeAIConfigSchema.strict(),
+  textFieldTranslateAIConfigSchema.strict(),
+  textFieldImproveTextAIConfigSchema.strict(),
+  textFieldCustomizeAIConfigSchema.strict(),
 ]);
 
 export type ITextFieldAIConfig = z.infer<typeof textFieldAIConfigSchema>;
