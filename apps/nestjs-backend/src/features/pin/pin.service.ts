@@ -5,7 +5,9 @@ import { HttpErrorCode, nullsToUndefined, type ViewType } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import type { IGetPinListVo, AddPinRo, DeletePinRo, UpdatePinOrderRo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
+import { Knex } from 'knex';
 import { keyBy } from 'lodash';
+import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type {
@@ -26,7 +28,8 @@ import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 export class PinService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
   private async getMaxOrder(where: Prisma.PinResourceWhereInput) {
@@ -96,184 +99,47 @@ export class PinService {
         order: 'asc',
       },
     });
-    const baseIds: string[] = [];
-    const spaceIds: string[] = [];
-    const tableIds: string[] = [];
-    const viewIds: string[] = [];
-    const dashboardIds: string[] = [];
-    const workflowIds: string[] = [];
-    const appIds: string[] = [];
-    list.forEach((item) => {
-      switch (item.type) {
-        case PinType.Base:
-          baseIds.push(item.resourceId);
-          break;
-        case PinType.Space:
-          spaceIds.push(item.resourceId);
-          break;
-        case PinType.Table:
-          tableIds.push(item.resourceId);
-          break;
-        case PinType.View:
-          viewIds.push(item.resourceId);
-          break;
-        case PinType.Dashboard:
-          dashboardIds.push(item.resourceId);
-          break;
-        case PinType.Workflow:
-          workflowIds.push(item.resourceId);
-          break;
-        case PinType.App:
-          appIds.push(item.resourceId);
-          break;
-      }
-    });
-    const baseList = baseIds.length
-      ? await this.prismaService.base.findMany({
-          where: {
-            id: { in: baseIds },
-            deletedTime: null,
-          },
-          select: {
-            id: true,
-            name: true,
-            icon: true,
-          },
-        })
-      : [];
-    const spaceList = spaceIds.length
-      ? await this.prismaService.space.findMany({
-          where: { id: { in: spaceIds }, deletedTime: null },
-          select: {
-            id: true,
-            name: true,
-          },
-        })
-      : [];
-    const tableList = tableIds.length
-      ? await this.prismaService.tableMeta.findMany({
-          where: { id: { in: tableIds }, deletedTime: null },
-          select: {
-            id: true,
-            name: true,
-            baseId: true,
-            icon: true,
-          },
-        })
-      : [];
-    const viewList = viewIds.length
-      ? await this.prismaService.$queryRaw<
-          {
-            id: string;
-            name: string;
-            base_id: string;
-            table_id: string;
-            type: ViewType;
-            options: string;
-          }[]
-        >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options FROM view left join table_meta on view.table_id = table_meta.id WHERE view.id IN (${Prisma.join(viewIds)}) and view.deleted_time is null and table_meta.deleted_time is null
-    `)
-      : [];
-    const dashboardList = dashboardIds.length
-      ? await this.prismaService.dashboard.findMany({
-          where: { id: { in: dashboardIds } },
-          select: {
-            id: true,
-            name: true,
-          },
-        })
-      : [];
-    const workflowList = workflowIds.length
-      ? await this.prismaService.workflow.findMany({
-          where: { id: { in: workflowIds }, deletedTime: null },
-          select: {
-            id: true,
-            name: true,
-          },
-        })
-      : [];
-    const appList = appIds.length
-      ? await this.prismaService.app.findMany({
-          where: { id: { in: appIds }, deletedTime: null },
-          select: {
-            id: true,
-            name: true,
-          },
-        })
-      : [];
-    const spaceMap = keyBy(spaceList, 'id');
-    const baseMap = keyBy(baseList, 'id');
-    const tableMap = keyBy(tableList, 'id');
-    const viewMap = keyBy(viewList, 'id');
-    const dashboardMap = keyBy(dashboardList, 'id');
-    const workflowMap = keyBy(workflowList, 'id');
-    const appMap = keyBy(appList, 'id');
-    const getResource = (type: PinType, resourceId: string) => {
-      switch (type) {
-        case PinType.Base:
-          return baseMap[resourceId]
-            ? {
-                name: baseMap[resourceId].name,
-                icon: baseMap[resourceId].icon,
-              }
-            : undefined;
-        case PinType.Space:
-          return spaceMap[resourceId]
-            ? {
-                name: spaceMap[resourceId].name,
-              }
-            : undefined;
-        case PinType.Table:
-          return tableMap[resourceId]
-            ? {
-                name: tableMap[resourceId].name,
-                parentBaseId: tableMap[resourceId].baseId,
-                icon: tableMap[resourceId].icon,
-              }
-            : undefined;
-        case PinType.View: {
-          const view = viewMap[resourceId];
-          if (!view) {
-            return undefined;
-          }
-          const pluginLogo = view.options ? JSON.parse(view.options)?.pluginLogo : undefined;
-          return {
-            name: view.name,
-            parentBaseId: view.base_id,
-            viewMeta: {
-              tableId: view.table_id,
-              type: view.type,
-              pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
-            },
-          };
+
+    // Group resource IDs by type
+    const idsByType = list.reduce(
+      (acc, item) => {
+        const type = item.type as PinType;
+        if (!acc[type]) {
+          acc[type] = [];
         }
-        case PinType.Dashboard:
-          return dashboardMap[resourceId]
-            ? {
-                name: dashboardMap[resourceId].name,
-              }
-            : undefined;
-        case PinType.Workflow:
-          return workflowMap[resourceId]
-            ? {
-                name: workflowMap[resourceId].name,
-              }
-            : undefined;
-        case PinType.App:
-          return appMap[resourceId]
-            ? {
-                name: appMap[resourceId].name,
-              }
-            : undefined;
-        default:
-          return undefined;
-      }
+        acc[type].push(item.resourceId);
+        return acc;
+      },
+      {} as Record<PinType, string[]>
+    );
+
+    // Fetch all resources in parallel
+    const [baseList, spaceList, tableList, viewList, dashboardList, workflowList, appList] =
+      await Promise.all([
+        this.fetchBases(idsByType[PinType.Base]),
+        this.fetchSpaces(idsByType[PinType.Space]),
+        this.fetchTables(idsByType[PinType.Table]),
+        this.fetchViews(idsByType[PinType.View]),
+        this.fetchDashboards(idsByType[PinType.Dashboard]),
+        this.fetchWorkflows(idsByType[PinType.Workflow]),
+        this.fetchApps(idsByType[PinType.App]),
+      ]);
+
+    // Create lookup maps
+    const resourceMaps = {
+      [PinType.Base]: keyBy(baseList, 'id'),
+      [PinType.Space]: keyBy(spaceList, 'id'),
+      [PinType.Table]: keyBy(tableList, 'id'),
+      [PinType.View]: keyBy(viewList, 'id'),
+      [PinType.Dashboard]: keyBy(dashboardList, 'id'),
+      [PinType.Workflow]: keyBy(workflowList, 'id'),
+      [PinType.App]: keyBy(appList, 'id'),
     };
+
     return list
       .map((item) => {
         const { resourceId, type, order } = item;
-        const resource = getResource(type as PinType, resourceId);
+        const resource = this.transformResource(type as PinType, resourceId, resourceMaps);
         if (!resource) {
           return undefined;
         }
@@ -285,6 +151,111 @@ export class PinService {
         };
       })
       .filter(Boolean) as IGetPinListVo;
+  }
+
+  private async fetchBases(ids?: string[]) {
+    if (!ids?.length) return [];
+    return this.prismaService.base.findMany({
+      where: { id: { in: ids }, deletedTime: null },
+      select: { id: true, name: true, icon: true },
+    });
+  }
+
+  private async fetchSpaces(ids?: string[]) {
+    if (!ids?.length) return [];
+    return this.prismaService.space.findMany({
+      where: { id: { in: ids }, deletedTime: null },
+      select: { id: true, name: true },
+    });
+  }
+
+  private async fetchTables(ids?: string[]) {
+    if (!ids?.length) return [];
+    return this.prismaService.tableMeta.findMany({
+      where: { id: { in: ids }, deletedTime: null },
+      select: { id: true, name: true, baseId: true, icon: true },
+    });
+  }
+
+  private async fetchViews(ids?: string[]) {
+    if (!ids?.length) return [];
+    return this.prismaService.$queryRaw<
+      {
+        id: string;
+        name: string;
+        base_id: string;
+        table_id: string;
+        type: ViewType;
+        options: string;
+      }[]
+    >(Prisma.sql`
+      SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options
+      FROM view
+      LEFT JOIN table_meta ON view.table_id = table_meta.id
+      WHERE view.id IN (${Prisma.join(ids)})
+        AND view.deleted_time IS NULL
+        AND table_meta.deleted_time IS NULL
+    `);
+  }
+
+  private async fetchDashboards(ids?: string[]) {
+    if (!ids?.length) return [];
+    return this.prismaService.dashboard.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+  }
+
+  private async fetchWorkflows(ids?: string[]) {
+    if (!ids?.length) return [];
+    const sql = this.knex('workflow')
+      .select('id', 'name')
+      .whereIn('id', ids)
+      .whereNull('deleted_time')
+      .toQuery();
+    return this.prismaService.$queryRawUnsafe<{ id: string; name: string }[]>(sql);
+  }
+
+  private async fetchApps(ids?: string[]) {
+    if (!ids?.length) return [];
+    const sql = this.knex('app')
+      .select('id', 'name')
+      .whereIn('id', ids)
+      .whereNull('deleted_time')
+      .toQuery();
+    return this.prismaService.$queryRawUnsafe<{ id: string; name: string }[]>(sql);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private transformResource(type: PinType, resourceId: string, resourceMaps: Record<PinType, any>) {
+    const resource = resourceMaps[type]?.[resourceId];
+    if (!resource) return undefined;
+
+    switch (type) {
+      case PinType.Base:
+        return { name: resource.name, icon: resource.icon };
+      case PinType.Space:
+      case PinType.Dashboard:
+      case PinType.Workflow:
+      case PinType.App:
+        return { name: resource.name };
+      case PinType.Table:
+        return { name: resource.name, parentBaseId: resource.baseId, icon: resource.icon };
+      case PinType.View: {
+        const pluginLogo = resource.options ? JSON.parse(resource.options)?.pluginLogo : undefined;
+        return {
+          name: resource.name,
+          parentBaseId: resource.base_id,
+          viewMeta: {
+            tableId: resource.table_id,
+            type: resource.type,
+            pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
+          },
+        };
+      }
+      default:
+        return undefined;
+    }
   }
 
   async updateOrder(data: UpdatePinOrderRo) {
