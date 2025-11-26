@@ -76,10 +76,8 @@ export const mergeFilter = (
   filter2?: IFilter,
   conjunction: IConjunction = and.value
 ) => {
-  const parsedFilter1 = filterSchema.safeParse(filter1);
-  const finalFilter1 = parsedFilter1.success ? parsedFilter1.data : undefined;
-  const parsedFilter2 = filterSchema.safeParse(filter2);
-  const finalFilter2 = parsedFilter2.success ? parsedFilter2.data : undefined;
+  const finalFilter1 = filter1;
+  const finalFilter2 = filter2;
 
   if (!finalFilter1 && !finalFilter2) return;
 
