@@ -52,6 +52,11 @@ export type I18nTranslations = {
         };
         "socialAuth": {
             "title": string;
+            "sso": {
+                "title": string;
+                "description": string;
+                "error": string;
+            };
         };
         "resetPassword": {
             "header": string;
