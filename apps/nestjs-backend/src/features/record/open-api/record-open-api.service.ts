@@ -17,6 +17,7 @@ import type {
   IRecordHistoryVo,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
+  IButtonClickVo,
 } from '@teable/openapi';
 import { keyBy, pick } from 'lodash';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
@@ -337,7 +338,18 @@ export class RecordOpenApiService {
       });
   }
 
-  async buttonClick(tableId: string, recordId: string, fieldId: string) {
+  async buttonClick(tableId: string, recordId: string, fieldId: string): Promise<IButtonClickVo> {
+    const options = await this.getButtonFieldOptions(fieldId);
+    const action = options.action || 'workflow';
+
+    if (action === 'openLink') {
+      return this.handleOpenLinkAction(tableId, recordId, fieldId, options);
+    }
+
+    return this.handleWorkflowAction(tableId, recordId, fieldId, options);
+  }
+
+  private async getButtonFieldOptions(fieldId: string): Promise<IButtonFieldOptions> {
     const fieldRaw = await this.prismaService.txClient().field.findFirstOrThrow({
       where: {
         id: fieldId,
@@ -347,37 +359,146 @@ export class RecordOpenApiService {
     });
 
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
-    const options = fieldInstance.options as IButtonFieldOptions;
+    return fieldInstance.options as IButtonFieldOptions;
+  }
+
+  private async handleOpenLinkAction(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    options: IButtonFieldOptions
+  ): Promise<IButtonClickVo> {
+    if (!options.url) {
+      throw new BadRequestException('URL is not configured for openLink action');
+    }
+
+    const record = await this.recordService.getRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    const resolvedUrl = this.resolveUrlFromField(options.url, record.fields);
+    this.validateUrlFormat(options.url, resolvedUrl);
+
+    // Only return the field value, don't increment count for openLink action
+    const recordWithFieldOnly: IRecord = {
+      ...record,
+      fields: pick(record.fields, [fieldId]),
+    };
+
+    return {
+      tableId,
+      fieldId,
+      record: recordWithFieldOnly,
+      action: 'openLink',
+      url: resolvedUrl,
+      openInNewTab: options.openInNewTab ?? true,
+    };
+  }
+
+  private resolveUrlFromField(url: string, fields: Record<string, unknown>): string {
+    if (!url.startsWith('{') || !url.endsWith('}')) {
+      return url;
+    }
+
+    const referencedFieldId = url.slice(1, -1);
+    const referencedFieldValue = fields[referencedFieldId];
+
+    if (referencedFieldValue === null || referencedFieldValue === undefined) {
+      throw new BadRequestException(`Field ${referencedFieldId} has no value for URL`);
+    }
+
+    if (typeof referencedFieldValue === 'string') {
+      return referencedFieldValue;
+    }
+
+    if (Array.isArray(referencedFieldValue) && referencedFieldValue.length > 0) {
+      return String(referencedFieldValue[0]);
+    }
+
+    return String(referencedFieldValue);
+  }
+
+  private validateUrlFormat(originalUrl: string, resolvedUrl: string): void {
+    if (originalUrl.startsWith('{')) {
+      return; // Skip validation for field references
+    }
+
+    try {
+      new URL(resolvedUrl);
+    } catch {
+      throw new BadRequestException(`Invalid URL format: ${resolvedUrl}`);
+    }
+  }
+
+  private async handleWorkflowAction(
+    tableId: string,
+    recordId: string,
+    fieldId: string,
+    options: IButtonFieldOptions
+  ): Promise<IButtonClickVo> {
+    this.validateWorkflowIsActive(options);
+
+    const record = await this.recordService.getRecord(tableId, recordId, {
+      fieldKeyType: FieldKeyType.Id,
+    });
+
+    this.validateButtonClickCount(record.fields[fieldId] as IButtonFieldCellValue, options);
+
+    const updatedRecord = await this.incrementButtonCount(tableId, recordId, fieldId);
+
+    return {
+      tableId,
+      fieldId,
+      record: updatedRecord,
+      action: 'workflow',
+    };
+  }
+
+  private validateWorkflowIsActive(options: IButtonFieldOptions): void {
     const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
     if (!isActive) {
       throw new BadRequestException(
         `Button field's workflow ${options.workflow?.id} is not active`
       );
     }
+  }
 
+  private validateButtonClickCount(
+    fieldValue: IButtonFieldCellValue | undefined,
+    options: IButtonFieldOptions
+  ): void {
     const maxCount = options.maxCount || 0;
+    if (maxCount === 0) {
+      return;
+    }
+
+    const count = fieldValue?.count || 0;
+    if (count >= maxCount) {
+      throw new BadRequestException(`Button click count ${count} reached max count ${maxCount}`);
+    }
+  }
+
+  private async incrementButtonCount(
+    tableId: string,
+    recordId: string,
+    fieldId: string
+  ): Promise<IRecord> {
     const record = await this.recordService.getRecord(tableId, recordId, {
       fieldKeyType: FieldKeyType.Id,
     });
 
     const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
     const count = fieldValue?.count || 0;
-    if (maxCount > 0 && count >= maxCount) {
-      throw new BadRequestException(`Button click count ${count} reached max count ${maxCount}`);
-    }
+
     const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
       record: {
         fields: { [fieldId]: { count: count + 1 } },
       },
       fieldKeyType: FieldKeyType.Id,
     });
-    updatedRecord.fields = pick(updatedRecord.fields, [fieldId]);
 
-    return {
-      tableId,
-      fieldId,
-      record: updatedRecord,
-    };
+    updatedRecord.fields = pick(updatedRecord.fields, [fieldId]);
+    return updatedRecord;
   }
 
   async resetButton(tableId: string, recordId: string, fieldId: string) {

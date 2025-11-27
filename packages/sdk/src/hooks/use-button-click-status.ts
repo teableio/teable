@@ -37,8 +37,40 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
         ? shareViewButtonClickApi(shareId, ro.recordId, ro.fieldId)
         : buttonClickApi(ro.tableId, ro.recordId, ro.fieldId),
     onSuccess: (res, ro) => {
+      // Handle openLink action
+      if (res.data.action === 'openLink' && res.data.url) {
+        let url = res.data.url;
+
+        // Convert relative URLs to absolute URLs
+        if (
+          url &&
+          !url.startsWith('http://') &&
+          !url.startsWith('https://') &&
+          !url.startsWith('/')
+        ) {
+          url = `https://${url}`;
+        }
+
+        if (res.data.openInNewTab) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } else {
+          window.location.href = url;
+        }
+
+        // For openLink action, we don't need to show loading status
+        setComplated({
+          runId: '',
+          recordId: ro.recordId,
+          fieldId: ro.fieldId,
+          loading: false,
+          name: ro.name,
+        });
+        return;
+      }
+
+      // Handle workflow action (existing logic)
       setStatus({
-        runId: res.data.runId,
+        runId: res.data.runId || '',
         recordId: ro.recordId,
         fieldId: ro.fieldId,
         loading: !!res.data.runId,

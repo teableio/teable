@@ -5,6 +5,15 @@ export const checkButtonClickable = (
   fieldOptions: IButtonFieldOptions,
   cellValue?: IButtonFieldCellValue
 ) => {
+  const action = fieldOptions.action || 'workflow';
+
+  // For openLink action, we only need to check URL (no click count limit)
+  if (action === 'openLink') {
+    // URL can be a hardcoded value or a field reference like {fieldId}
+    return Boolean(fieldOptions.url);
+  }
+
+  // For workflow action (existing logic)
   const workflow = fieldOptions.workflow;
   if (!workflow) {
     return false;

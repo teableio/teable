@@ -849,10 +849,20 @@ export class FieldConvertingService {
   ) {
     const oldWorkflow = oldField.options.workflow;
     const newWorkflow = newField.options.workflow;
+    const { action: oldAction = 'workflow' } = oldField.options;
+    const { action: newAction = 'workflow' } = newField.options;
+    const oldUrl = oldField.options.url;
+    const newUrl = newField.options.url;
 
-    if (oldWorkflow?.id === newWorkflow?.id) return;
+    // Check if workflow changed
+    if (oldWorkflow?.id !== newWorkflow?.id) {
+      return await this.updateOptionsFromButtonField(tableId, oldField);
+    }
 
-    return await this.updateOptionsFromButtonField(tableId, oldField);
+    // Check if action changed or URL changed for openLink action
+    if (oldAction !== newAction || oldUrl !== newUrl) {
+      return await this.updateOptionsFromButtonField(tableId, oldField);
+    }
   }
 
   private async modifyOptions(

@@ -940,6 +940,13 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     if (cellInfo.type === CellType.Button) {
       const { data } = cellInfo as IButtonCell;
       const { fieldOptions, cellValue } = data;
+      const action = fieldOptions.action || 'workflow';
+
+      // Don't show click count for openLink action
+      if (action === 'openLink') {
+        return;
+      }
+
       const { label } = fieldOptions;
       const count = cellValue?.count ?? 0;
       const maxCount = fieldOptions?.maxCount ?? 0;
