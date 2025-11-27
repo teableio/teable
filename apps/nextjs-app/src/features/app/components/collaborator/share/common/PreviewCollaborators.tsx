@@ -21,7 +21,7 @@ export const PreviewCollaborators = ({ collaborators, total }: IPreviewCollabora
                 name={collaborator.userName}
                 avatar={collaborator.avatar}
                 size={128}
-                className="size-8 border-2 border-background"
+                className="size-8 border-2 border-background dark:border-popover"
               />
             );
           case PrincipalType.Department:

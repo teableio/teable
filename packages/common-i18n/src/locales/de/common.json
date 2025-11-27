@@ -516,7 +516,7 @@
     "editConfig": "Konfiguration bearbeiten",
     "resetConfig": "Zurücksetzen",
     "testEmail": "Test-E-Mail",
-    "testEmailPlaceholder": "Bitte Test-E-Mail eingeben",
+    "testEmailPlaceholder": "Geben Sie die E-Mail-Adressen ein und trennen Sie sie mit der Eingabetaste",
     "testEmailError": "Bitte korrekte Test-E-Mail-Adresse eingeben",
     "testEmailSend": "Test-E-Mail erfolgreich gesendet, bitte überprüfen Sie Ihr E-Mail-Postfach",
     "configError": "Bitte korrekte E-Mail-Konfiguration eingeben",

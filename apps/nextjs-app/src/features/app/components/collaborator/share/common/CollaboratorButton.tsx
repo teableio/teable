@@ -21,7 +21,7 @@ export const CollaboratorButton = forwardRef<
       ref={ref}
       onClick={onClick}
       className={cn(
-        'inline-flex h-12 w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap rounded-md p-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground dark:bg-white/5 dark:hover:bg-white/10',
+        'inline-flex h-12 w-full cursor-pointer items-center justify-between gap-2 whitespace-nowrap rounded-md p-2 text-sm transition-colors hover:bg-accent hover:text-accent-foreground',
         className
       )}
     >
@@ -29,7 +29,7 @@ export const CollaboratorButton = forwardRef<
         <PreviewCollaborators collaborators={collaborators || []} total={total} />
         <p>{t('invite.dialog.haveAccess')}</p>
       </div>
-      <ChevronRight className="size-4" />
+      <ChevronRight className="size-4 text-muted-foreground" />
     </div>
   );
 });

@@ -15,14 +15,18 @@ export const InviteLinkButton = ({
 
   return (
     <Button
-      variant="outline"
-      className={cn('flex w-full justify-between border-none font-normal shadow-none', className)}
+      variant="ghost"
+      className={cn(
+        'flex w-full justify-between font-normal shadow-none',
+        linkListCount === 0 && 'text-muted-foreground',
+        className
+      )}
       onClick={onClick}
     >
       {linkListCount > 0
         ? `${linkListCount} ${t('invite.dialog.linkTitle')}`
         : t('invite.dialog.noInviteLinks')}
-      <ChevronRight className="size-4" />
+      <ChevronRight className="size-4 text-muted-foreground" />
     </Button>
   );
 };

@@ -300,7 +300,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
           />
         }
       />
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <InviteEmailButton onClick={() => setTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">
@@ -311,7 +311,7 @@ export const InviteSpaceContent = (props: IInviteSpaceContentProps) => {
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
           <InviteLinkButton
-            className="box-content -translate-x-2 px-2 py-0"
+            className="box-content -translate-x-2 bg-transparent px-2 py-0"
             linkListCount={linkListCount}
             onClick={() => setTabType('link')}
           />

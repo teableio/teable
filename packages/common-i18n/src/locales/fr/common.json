@@ -212,7 +212,7 @@
       "desc_one": "Cet espace a <b>{{count}} collaborateur</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
       "desc_other": "Cet espace a <b>{{count}} collaborateurs</b>. Ajouter un collaborateur à l'espace lui donnera accès à toutes les bases au sein de cet espace.",
       "tabEmail": "Inviter par email",
-      "emailPlaceholder": "Inviter plus de collaborateurs via email",
+      "emailPlaceholder": "Saisissez les adresses e-mail, séparées par la touche Entrée",
       "tabLink": "Inviter par lien",
       "linkPlaceholder": "Créer un lien d'invitation qui accorde <0/> l'accès à quiconque l'ouvre.",
       "emailSend": "Envoyer l'invitation",

@@ -256,7 +256,7 @@ export const ShareBaseContent = ({
         }
       />
       {enabledAuthority && <AuthorityTips onViewDetail={toAuthorityManage} />}
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <InviteEmailButton onClick={() => setTabType('email')} />
         {user?.organization && (
           <div className="space-y-2">

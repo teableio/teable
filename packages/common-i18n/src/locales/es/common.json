@@ -229,7 +229,7 @@
   "invite": {
     "dialog": {
       "tabEmail": "Invitar por correo electrónico",
-      "emailPlaceholder": "Invitar a más colaboradores por correo electrónico",
+      "emailPlaceholder": "Introduce las direcciones de correo electrónico, separadas por Enter",
       "tabLink": "Invitar por enlace",
       "linkPlaceholder": "Cree un enlace de invitación que otorgue el acceso <0/> a cualquier persona que lo abra.",
       "emailSend": "Enviar invitación",
