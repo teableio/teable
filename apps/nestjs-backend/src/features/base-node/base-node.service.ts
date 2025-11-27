@@ -1,6 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { generateBaseNodeId, getBaseNodeChannel, HttpErrorCode } from '@teable/core';
+import {
+  ANONYMOUS_USER_ID,
+  generateBaseNodeId,
+  getBaseNodeChannel,
+  HttpErrorCode,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IBaseNodePresenceCreatePayload,
@@ -21,7 +26,7 @@ import type {
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { isString, keyBy } from 'lodash';
+import { isString, keyBy, snakeCase } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
@@ -292,28 +297,24 @@ export class BaseNodeService {
       if (toCreate.length > 0) {
         await prisma.baseNode.createMany({
           data: toCreate.map((r) => ({
+            id: generateBaseNodeId(),
             baseId,
             resourceType: r.type,
             resourceId: r.id,
             order: nextOrder++,
             parentId: null,
             createdBy: this.userId,
-            lastModifiedBy: this.userId,
           })),
         });
       }
 
+      // Reset orphans to root level with new order
       if (orphans.length > 0) {
-        await Promise.all(
-          orphans.map((orphan, index) =>
-            prisma.baseNode.update({
-              where: { id: orphan.id },
-              data: {
-                parentId: null,
-                order: nextOrder + index,
-              },
-            })
-          )
+        await this.batchUpdateBaseNodes(
+          orphans.map((orphan, index) => ({
+            id: orphan.id,
+            values: { parentId: null, order: nextOrder + index },
+          }))
         );
       }
       return prisma.baseNode.findMany({
@@ -385,7 +386,6 @@ export class BaseNodeService {
         order: maxOrder + 1,
         parentId,
         createdBy: this.userId,
-        lastModifiedBy: this.userId,
       },
       select: this.getSelect(),
     });
@@ -480,7 +480,6 @@ export class BaseNodeService {
         order: maxOrder + 1,
         parentId: node.parentId,
         createdBy: this.userId,
-        lastModifiedBy: this.userId,
       },
       select: this.getSelect(),
     });
@@ -797,13 +796,35 @@ export class BaseNodeService {
   @OnEvent(Events.DASHBOARD_CREATE)
   @OnEvent(Events.WORKFLOW_CREATE)
   @OnEvent(Events.APP_CREATE)
-  async createResourceNode(event: IResourceCreateEvent) {
-    const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
+  async onResourceCreate(event: IResourceCreateEvent) {
+    const { baseId, resourceType, resourceId, userId } = this.prepareResourceCreate(event);
 
     if (!baseId || !resourceType || !resourceId) {
       this.logger.error('Invalid resource create event', event);
       return;
     }
+
+    await this.prismaService.$tx(async (prisma) => {
+      const findNode = await prisma.baseNode.findFirst({
+        where: { baseId, resourceType, resourceId },
+      });
+      if (findNode) {
+        this.logger.warn('Base node already exists', event);
+        return;
+      }
+      const maxOrder = await this.getMaxOrder(baseId);
+      await prisma.baseNode.create({
+        data: {
+          id: generateBaseNodeId(),
+          baseId,
+          resourceType,
+          resourceId,
+          parentId: null,
+          order: maxOrder + 1,
+          createdBy: userId || ANONYMOUS_USER_ID,
+        },
+      });
+    });
 
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
@@ -867,7 +888,7 @@ export class BaseNodeService {
   @OnEvent(Events.DASHBOARD_UPDATE)
   @OnEvent(Events.WORKFLOW_UPDATE)
   @OnEvent(Events.APP_UPDATE)
-  async updateResourceNode(event: IResourceUpdateEvent) {
+  async onResourceUpdate(event: IResourceUpdateEvent) {
     const { baseId, resourceType, resourceId } = this.prepareResourceUpdate(event);
     if (baseId && resourceType && resourceId) {
       this.presenceHandler(baseId, (presence) => {
@@ -932,7 +953,7 @@ export class BaseNodeService {
   @OnEvent(Events.DASHBOARD_DELETE)
   @OnEvent(Events.WORKFLOW_DELETE)
   @OnEvent(Events.APP_DELETE)
-  async deleteResourceNode(event: IResourceDeleteEvent) {
+  async onResourceDelete(event: IResourceDeleteEvent) {
     const { baseId, resourceType, resourceId } = this.prepareResourceDelete(event);
     if (!baseId) {
       return;
@@ -943,13 +964,45 @@ export class BaseNodeService {
       });
       return;
     }
-    if (resourceType && resourceId) {
-      this.presenceHandler(baseId, (presence) => {
-        presence.submit({
-          event: 'flush',
-        });
-      });
+    if (!resourceType || !resourceId) {
+      this.logger.error('Invalid resource delete event', event);
+      return;
     }
+
+    await this.prismaService.$tx(async (prisma) => {
+      const toDeleteNode = await prisma.baseNode.findFirst({
+        where: { baseId, resourceType, resourceId },
+      });
+      if (!toDeleteNode) {
+        this.logger.warn('Base node has already been deleted', event);
+        return;
+      }
+      const maxOrder = await this.getMaxOrder(baseId);
+      await prisma.baseNode.delete({
+        where: { id: toDeleteNode.id },
+      });
+      const orphans = await prisma.baseNode.findMany({
+        where: { baseId, parentId: toDeleteNode.parentId },
+        select: { id: true, order: true },
+      });
+      if (orphans.length > 0) {
+        await this.batchUpdateBaseNodes(
+          orphans.map((orphan) => ({
+            id: orphan.id,
+            values: {
+              parentId: null,
+              order: maxOrder + orphan.order + 1,
+            },
+          }))
+        );
+      }
+    });
+
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'flush',
+      });
+    });
   }
 
   private prepareResourceDelete(event: IResourceDeleteEvent) {
@@ -994,7 +1047,8 @@ export class BaseNodeService {
   }
 
   private async getMaxOrder(baseId: string, parentId?: string | null) {
-    const aggregate = await this.prismaService.baseNode.aggregate({
+    const prisma = this.prismaService.txClient();
+    const aggregate = await prisma.baseNode.aggregate({
       where: { baseId, parentId },
       _max: { order: true },
     });
@@ -1098,5 +1152,53 @@ export class BaseNodeService {
       .$queryRawUnsafe<Array<{ id: string }>>(finalQuery);
 
     return result.length > 0;
+  }
+
+  private async batchUpdateBaseNodes(data: { id: string; values: { [key: string]: unknown } }[]) {
+    const sql = this.buildBatchUpdateSql(data);
+    if (!sql) {
+      return;
+    }
+    await this.prismaService.txClient().$executeRawUnsafe(sql);
+  }
+
+  buildBatchUpdateSql(data: { id: string; values: { [key: string]: unknown } }[]): string | null {
+    if (data.length === 0) {
+      return null;
+    }
+
+    const caseStatements: Record<string, { when: string; then: unknown }[]> = {};
+    for (const { id, values } of data) {
+      for (const [key, value] of Object.entries(values)) {
+        if (!caseStatements[key]) {
+          caseStatements[key] = [];
+        }
+        caseStatements[key].push({ when: id, then: value });
+      }
+    }
+
+    const updatePayload: Record<string, Knex.Raw> = {};
+    for (const [key, statements] of Object.entries(caseStatements)) {
+      if (statements.length === 0) {
+        continue;
+      }
+      const column = snakeCase(key);
+      const whenClauses: string[] = [];
+      const caseBindings: unknown[] = [];
+      for (const { when, then } of statements) {
+        whenClauses.push('WHEN ?? = ? THEN ?');
+        caseBindings.push('id', when, then);
+      }
+      const caseExpression = `CASE ${whenClauses.join(' ')} ELSE ?? END`;
+      const rawExpression = this.knex.raw(caseExpression, [...caseBindings, column]);
+      updatePayload[column] = rawExpression;
+    }
+
+    if (Object.keys(updatePayload).length === 0) {
+      return null;
+    }
+
+    const idsToUpdate = data.map((item) => item.id);
+    return this.knex('base_node').update(updatePayload).whereIn('id', idsToUpdate).toQuery();
   }
 }
