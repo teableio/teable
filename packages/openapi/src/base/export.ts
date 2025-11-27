@@ -1,6 +1,7 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { fieldVoSchema, IdPrefix, viewVoSchema } from '@teable/core';
 import { axios } from '../axios';
+import { BaseNodeResourceType } from '../base-node/types';
 import { pluginInstallStorageSchema } from '../dashboard';
 import { PluginPosition } from '../plugin';
 import { registerRoute, urlBuilder } from '../utils';
@@ -142,6 +143,31 @@ export const viewPluginJsonSchema = viewJsonSchema.extend({
   }),
 });
 
+export const folderJsonSchema = z.object({
+  id: z.string().openapi({
+    description: 'The id of the folder.',
+  }),
+  name: z.string().openapi({
+    description: 'The name of the folder.',
+  }),
+});
+
+export const nodeJsonSchema = z.object({
+  id: z.string().openapi({
+    description: 'The id of the node.',
+  }),
+  parentId: z.string().nullable().openapi({
+    description: 'The id of the parent node.',
+  }),
+  resourceId: z.string().openapi({
+    description: 'The id of the resource.',
+  }),
+  resourceType: z.nativeEnum(BaseNodeResourceType).openapi({
+    description: 'The type of the resource.',
+  }),
+  order: z.number(),
+});
+
 export const pluginJsonSchema = z.object({
   [PluginPosition.Dashboard]: dashboardJsonSchema.array(),
   [PluginPosition.Panel]: pluginPanelJsonSchema.array(),
@@ -152,6 +178,8 @@ export const BaseJsonSchema = z.object({
   name: z.string(),
   icon: z.string().nullable(),
   tables: tableJsonSchema.array(),
+  folders: folderJsonSchema.array(),
+  nodes: nodeJsonSchema.array(),
   plugins: pluginJsonSchema,
   version: z.string(),
 });

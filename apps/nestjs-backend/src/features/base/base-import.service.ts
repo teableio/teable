@@ -4,6 +4,8 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   FieldType,
   generateBaseId,
+  generateBaseNodeFolderId,
+  generateBaseNodeId,
   generateDashboardId,
   generateLogId,
   generatePluginInstallId,
@@ -12,7 +14,7 @@ import {
   ViewType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, PluginPosition } from '@teable/openapi';
+import { UploadType, PluginPosition, BaseNodeResourceType } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IBaseJson,
@@ -241,8 +243,13 @@ export class BaseImportService {
     return logId;
   }
 
-  async createBaseStructure(spaceId: string, structure: IBaseJson, baseId?: string) {
-    const { name, icon, tables, plugins } = structure;
+  async createBaseStructure(
+    spaceId: string,
+    structure: IBaseJson,
+    baseId?: string,
+    skipCreateBaseNodes?: boolean
+  ) {
+    const { name, icon, tables, plugins, folders } = structure;
 
     // create base
     const newBase = baseId
@@ -277,8 +284,27 @@ export class BaseImportService {
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
     // create plugins
-    await this.createPlugins(newBase.id, plugins, tableIdMap, fieldIdMap, viewIdMap);
+    const { dashboardIdMap } = await this.createPlugins(
+      newBase.id,
+      plugins,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap
+    );
     this.logger.log(`base-duplicate-service: Duplicate base plugins successfully`);
+
+    // create folders
+    const { folderIdMap } = await this.createFolders(newBase.id, folders);
+    this.logger.log(`base-duplicate-service: Duplicate base folders successfully`);
+
+    // create base nodes
+    if (!skipCreateBaseNodes) {
+      await this.createBaseNodes(newBase.id, structure.nodes, {
+        folderIdMap,
+        tableIdMap,
+        dashboardIdMap,
+      });
+    }
 
     return {
       base: newBase,
@@ -287,6 +313,8 @@ export class BaseImportService {
       viewIdMap,
       structure,
       fkMap,
+      folderIdMap,
+      dashboardIdMap,
     };
   }
 
@@ -453,6 +481,109 @@ export class BaseImportService {
     return viewMap;
   }
 
+  private async createFolders(baseId: string, folders: IBaseJson['folders']) {
+    const prisma = this.prismaService.txClient();
+    const userId = this.cls.get('user.id');
+    const folderIdMap: Record<string, string> = {};
+    for (const folder of folders) {
+      const { id, name } = folder;
+      const newFolderId = generateBaseNodeFolderId();
+      await prisma.baseNodeFolder.create({
+        data: { id: newFolderId, name, baseId, createdBy: userId },
+      });
+      folderIdMap[id] = newFolderId;
+    }
+    return { folderIdMap };
+  }
+
+  async createBaseNodes(
+    baseId: string,
+    nodes: IBaseJson['nodes'],
+    idMapContext: {
+      folderIdMap?: Record<string, string>;
+      tableIdMap?: Record<string, string>;
+      dashboardIdMap?: Record<string, string>;
+      workflowIdMap?: Record<string, string>;
+      appIdMap?: Record<string, string>;
+    }
+  ) {
+    if (!nodes || nodes.length === 0) {
+      return;
+    }
+
+    const prisma = this.prismaService.txClient();
+    const userId = this.cls.get('user.id');
+    const {
+      folderIdMap = {},
+      tableIdMap = {},
+      dashboardIdMap = {},
+      workflowIdMap = {},
+      appIdMap = {},
+    } = idMapContext;
+
+    const allNodeIdMap = nodes.reduce(
+      (acc, cur) => {
+        acc[cur.id] = generateBaseNodeId();
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+
+    const allTypeNodeIdMap = nodes.reduce(
+      (acc, cur) => {
+        const { resourceType, resourceId } = cur;
+        acc[resourceType] = acc[resourceType] ?? {};
+        switch (resourceType) {
+          case BaseNodeResourceType.Folder:
+            acc[resourceType][resourceId] = folderIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Table:
+            acc[resourceType][resourceId] = tableIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Dashboard:
+            acc[resourceType][resourceId] = dashboardIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.Workflow:
+            acc[resourceType][resourceId] = workflowIdMap[resourceId];
+            break;
+          case BaseNodeResourceType.App:
+            acc[resourceType][resourceId] = appIdMap[resourceId];
+            break;
+          default:
+            break;
+        }
+        return acc;
+      },
+      {} as Record<BaseNodeResourceType, Record<string, string>>
+    );
+    for (const node of nodes) {
+      const { id, parentId, resourceId, resourceType, order } = node;
+      const newId = allNodeIdMap[id];
+      const newParentId = parentId && allNodeIdMap[parentId] ? allNodeIdMap[parentId] : null;
+      const newResourceId =
+        allTypeNodeIdMap[resourceType] && allTypeNodeIdMap[resourceType][resourceId]
+          ? allTypeNodeIdMap[resourceType][resourceId]
+          : null;
+      if (!newResourceId) {
+        this.logger.error(
+          `base-import-service: create base node failed, nodeId: ${id}, resourceId: ${resourceId}, resourceType: ${resourceType}`
+        );
+        continue;
+      }
+      await prisma.baseNode.create({
+        data: {
+          id: newId,
+          parentId: newParentId,
+          resourceId: newResourceId,
+          resourceType,
+          baseId,
+          createdBy: userId,
+          order,
+        },
+      });
+    }
+  }
+
   private async createPlugins(
     baseId: string,
     plugins: IBaseJson['plugins'],
@@ -460,7 +591,12 @@ export class BaseImportService {
     fieldMap: Record<string, string>,
     viewIdMap: Record<string, string>
   ) {
-    await this.createDashboard(baseId, plugins[PluginPosition.Dashboard], tableIdMap, fieldMap);
+    const { dashboardIdMap } = await this.createDashboard(
+      baseId,
+      plugins[PluginPosition.Dashboard],
+      tableIdMap,
+      fieldMap
+    );
     await this.createPanel(baseId, plugins[PluginPosition.Panel], tableIdMap, fieldMap);
     await this.createPluginViews(
       baseId,
@@ -469,6 +605,7 @@ export class BaseImportService {
       fieldMap,
       viewIdMap
     );
+    return { dashboardIdMap };
   }
 
   async createDashboard(
@@ -529,7 +666,7 @@ export class BaseImportService {
     }
 
     return {
-      dashboardMap,
+      dashboardIdMap: dashboardMap,
     };
   }
 

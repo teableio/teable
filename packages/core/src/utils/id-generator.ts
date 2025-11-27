@@ -4,6 +4,9 @@ export enum IdPrefix {
   Space = 'spc',
   Base = 'bse',
 
+  BaseNode = 'bno',
+  BaseNodeFolder = 'bnf',
+
   Table = 'tbl',
   Field = 'fld',
   View = 'viw',
@@ -84,6 +87,14 @@ export function getRandomString(len: number, type: RandomType = RandomType.Strin
     return nanoidNumber(len);
   }
   return nanoid(len);
+}
+
+export function generateBaseNodeId() {
+  return IdPrefix.BaseNode + getRandomString(16);
+}
+
+export function generateBaseNodeFolderId() {
+  return IdPrefix.BaseNodeFolder + getRandomString(16);
 }
 
 export function generateTableId() {

@@ -24,6 +24,10 @@ import {
   getPluginPanel,
   getPluginPanelPlugin,
   getViewList,
+  createBaseNode,
+  getBaseNodeTree,
+  moveBaseNode,
+  BaseNodeResourceType,
 } from '@teable/openapi';
 import { pick } from 'lodash';
 import type { ClsStore } from 'nestjs-cls';
@@ -840,6 +844,203 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
           ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
           : primaryFieldRaw.meta ?? {};
       expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
+    });
+  });
+
+  describe('export and import the base with nodes [Folder, Table, Dashboard]', () => {
+    let nodeBaseId: string | undefined;
+    let importedNodeBaseId: string | undefined;
+    let awaitNodeExport: <T>(fn: () => Promise<T>) => Promise<{ previewUrl: string }>;
+
+    beforeAll(async () => {
+      awaitNodeExport = createAwaitWithEventWithResult<{ previewUrl: string }>(
+        app.get(EventEmitterService),
+        Events.BASE_EXPORT_COMPLETE
+      );
+    });
+
+    afterAll(async () => {
+      if (importedNodeBaseId) {
+        await permanentDeleteBase(importedNodeBaseId);
+      }
+      if (nodeBaseId) {
+        await permanentDeleteBase(nodeBaseId);
+      }
+    });
+
+    it('should export and import base with node hierarchy correctly', async () => {
+      // 1. Create source base with node hierarchy
+      const sourceBase = await createBase({
+        name: 'node_hierarchy_source',
+        spaceId,
+        icon: '📁',
+      }).then((res) => res.data);
+      nodeBaseId = sourceBase.id;
+
+      // Create folders using createBaseNode
+      const folder1Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder 1',
+      }).then((res) => res.data);
+      const folder2Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder 2',
+      }).then((res) => res.data);
+
+      // Create tables using createBaseNode
+      const table1Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table 1',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const table2Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table 2',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      // Create dashboards using createBaseNode
+      const dashboard1Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Dashboard,
+        name: 'Dashboard 1',
+      }).then((res) => res.data);
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const dashboard2Node = await createBaseNode(nodeBaseId, {
+        resourceType: BaseNodeResourceType.Dashboard,
+        name: 'Dashboard 2',
+      }).then((res) => res.data);
+
+      // Move table1 into folder1 and dashboard1 into folder2
+      await moveBaseNode(nodeBaseId, table1Node.id, { parentId: folder1Node.id });
+      await moveBaseNode(nodeBaseId, dashboard1Node.id, { parentId: folder2Node.id });
+
+      // Get updated node tree
+      const updatedSourceNodeTree = await getBaseNodeTree(nodeBaseId).then((res) => res.data);
+      const updatedSourceNodes = updatedSourceNodeTree.nodes;
+
+      // 2. Export the base
+      const { previewUrl } = await awaitNodeExport(async () => {
+        await exportBase(nodeBaseId!);
+      });
+
+      // 3. Import the base
+      const attachmentService = getAttachmentService(app);
+      const clsService = app.get(ClsService);
+
+      const notify = await clsService.runWith<Promise<IAttachmentItem>>(
+        {
+          user: {
+            id: userId,
+            name: 'Test User',
+            email: 'test@example.com',
+            isAdmin: null,
+          },
+        } as unknown as ClsStore,
+        async () => {
+          return await attachmentService.uploadFromUrl(appUrl + previewUrl);
+        }
+      );
+
+      const { base: importedBase } = (
+        await importBase({
+          notify: notify as unknown as INotifyVo,
+          spaceId,
+        })
+      ).data;
+
+      importedNodeBaseId = importedBase.id;
+
+      // 4. Verify imported node tree
+      const importedNodeTree = await getBaseNodeTree(importedNodeBaseId).then((res) => res.data);
+      const importedNodes = importedNodeTree.nodes;
+
+      // Verify same number of nodes
+      expect(importedNodes.length).toBe(updatedSourceNodes.length);
+
+      // Verify resource types distribution
+      const sourceResourceTypes = updatedSourceNodes
+        .map((n) => n.resourceType)
+        .sort()
+        .join(',');
+      const importedResourceTypes = importedNodes
+        .map((n) => n.resourceType)
+        .sort()
+        .join(',');
+      expect(importedResourceTypes).toBe(sourceResourceTypes);
+
+      // Verify folder count
+      const sourceFolders = updatedSourceNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Folder
+      );
+      const importedFolders = importedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Folder
+      );
+      expect(importedFolders.length).toBe(sourceFolders.length);
+
+      // Verify table count
+      const sourceTables = updatedSourceNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Table
+      );
+      const importedTables = importedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Table
+      );
+      expect(importedTables.length).toBe(sourceTables.length);
+
+      // Verify dashboard count
+      const sourceDashboards = updatedSourceNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Dashboard
+      );
+      const importedDashboards = importedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Dashboard
+      );
+      expect(importedDashboards.length).toBe(sourceDashboards.length);
+
+      // Verify hierarchy: nodes with parents should still have parents
+      const sourceNodesWithParent = updatedSourceNodes.filter((n) => n.parentId !== null);
+      const importedNodesWithParent = importedNodes.filter((n) => n.parentId !== null);
+      expect(importedNodesWithParent.length).toBe(sourceNodesWithParent.length);
+
+      // Verify folder names are preserved
+      const sourceFolderNames = sourceFolders.map((f) => f.name).sort();
+      const importedFolderNames = importedFolders.map((f) => f.name).sort();
+      expect(importedFolderNames).toEqual(sourceFolderNames);
+
+      // Verify that table inside folder1 exists in imported base
+      const importedFolder1 = importedFolders.find((f) => f.name === folder1Node.name);
+      expect(importedFolder1).toBeDefined();
+      const tableInsideFolder = importedNodes.find((n) => {
+        return n.resourceType === BaseNodeResourceType.Table && n.parentId === importedFolder1!.id;
+      });
+      expect(tableInsideFolder).toBeDefined();
+
+      // Verify that dashboard inside folder2 exists in imported base
+      const importedFolder2 = importedFolders.find((f) => f.name === folder2Node.name);
+      expect(importedFolder2).toBeDefined();
+      const dashboardInsideFolder = importedNodes.find((n) => {
+        return (
+          n.resourceType === BaseNodeResourceType.Dashboard && n.parentId === importedFolder2!.id
+        );
+      });
+      expect(dashboardInsideFolder).toBeDefined();
+
+      // Verify tables are accessible
+      const importedTableList = await getTableList(importedNodeBaseId).then((res) => res.data);
+      expect(importedTableList.length).toBe(2);
+      expect(importedTableList.map((t) => t.name).sort()).toEqual(
+        [table1Node.name, table2Node.name].sort()
+      );
+
+      // Verify dashboards are accessible
+      const importedDashboardList = await getDashboardList(importedNodeBaseId).then(
+        (res) => res.data
+      );
+      expect(importedDashboardList.length).toBe(2);
+      expect(importedDashboardList.map((d) => d.name).sort()).toEqual(
+        [dashboard1Node.name, dashboard2Node.name].sort()
+      );
     });
   });
 });

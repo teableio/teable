@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { getBaseNodeChannel, HttpErrorCode } from '@teable/core';
+import { generateBaseNodeId, getBaseNodeChannel, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IBaseNodePresenceCreatePayload,
@@ -378,6 +378,7 @@ export class BaseNodeService {
     const maxOrder = await this.getMaxOrder(baseId);
     const entry = await this.prismaService.baseNode.create({
       data: {
+        id: generateBaseNodeId(),
         baseId,
         resourceType,
         resourceId,
@@ -472,6 +473,7 @@ export class BaseNodeService {
     const maxOrder = await this.getMaxOrder(baseId);
     const entry = await this.prismaService.baseNode.create({
       data: {
+        id: generateBaseNodeId(),
         baseId,
         resourceType,
         resourceId: resource.id,

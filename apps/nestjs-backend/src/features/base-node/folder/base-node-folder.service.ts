@@ -1,5 +1,5 @@
 import { Logger, Injectable } from '@nestjs/common';
-import { getUniqName, HttpErrorCode } from '@teable/core';
+import { generateBaseNodeFolderId, getUniqName, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ICreateBaseNodeFolderRo, IUpdateBaseNodeFolderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -24,6 +24,7 @@ export class BaseNodeFolderService {
     this.logger.log('createFolder uniqueName', uniqueName);
     return await this.prismaService.baseNodeFolder.create({
       data: {
+        id: generateBaseNodeFolderId(),
         baseId,
         name: uniqueName,
         createdBy: this.userId,

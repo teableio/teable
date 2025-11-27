@@ -11,8 +11,10 @@ import {
 } from '@teable/core';
 import type { ICreateBaseVo, ICreateSpaceVo } from '@teable/openapi';
 import {
+  BaseNodeResourceType,
   CREATE_SPACE,
   createBase,
+  createBaseNode,
   createDashboard,
   createField,
   createPluginPanel,
@@ -22,6 +24,7 @@ import {
   duplicateBase,
   EMAIL_SPACE_INVITATION,
   getBaseList,
+  getBaseNodeTree,
   getDashboard,
   getDashboardInstallPlugin,
   getDashboardList,
@@ -36,6 +39,7 @@ import {
   installViewPlugin,
   listPluginPanels,
   LLMProviderType,
+  moveBaseNode,
   updateSetting,
   urlBuilder,
 } from '@teable/openapi';
@@ -48,6 +52,7 @@ import {
   getRecords,
   initApp,
   updateRecord,
+  permanentDeleteBase,
 } from './utils/init-app';
 
 describe('OpenAPI Base Duplicate (e2e)', () => {
@@ -55,6 +60,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
   let base: ICreateBaseVo;
   let spaceId: string;
   let newUserAxios: AxiosInstance;
+  let duplicateBaseId: string | undefined;
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
@@ -83,7 +89,10 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
   });
 
   afterEach(async () => {
-    await deleteBase(base.id);
+    await permanentDeleteBase(base.id);
+    if (duplicateBaseId) {
+      await permanentDeleteBase(duplicateBaseId);
+    }
   });
 
   if (globalThis.testConfig.driver !== DriverClient.Pg) {
@@ -426,6 +435,148 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     });
 
     await deleteBase(dupResult.data.id);
+  });
+
+  it('should duplicate the base with node [Folder, Table, Dashboard]', async () => {
+    const nodeBaseId = base.id;
+
+    // Create folders using createBaseNode
+    const folder1Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Folder,
+      name: 'Folder 1',
+    }).then((res) => res.data);
+    const folder2Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Folder,
+      name: 'Folder 2',
+    }).then((res) => res.data);
+
+    // Create tables using createBaseNode
+    const table1Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Table,
+      name: 'Table 1',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      views: [{ name: 'Grid view', type: ViewType.Grid }],
+    }).then((res) => res.data);
+    const table2Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Table,
+      name: 'Table 2',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      views: [{ name: 'Grid view', type: ViewType.Grid }],
+    }).then((res) => res.data);
+
+    // Create dashboards using createBaseNode
+    const dashboard1Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Dashboard,
+      name: 'Dashboard 1',
+    }).then((res) => res.data);
+    const dashboard2Node = await createBaseNode(nodeBaseId, {
+      resourceType: BaseNodeResourceType.Dashboard,
+      name: 'Dashboard 2',
+    }).then((res) => res.data);
+
+    // Move table1 into folder1 and dashboard1 into folder2
+    await moveBaseNode(nodeBaseId, table1Node.id, { parentId: folder1Node.id });
+    await moveBaseNode(nodeBaseId, dashboard1Node.id, { parentId: folder2Node.id });
+
+    // Get updated node tree
+    const updatedSourceNodeTree = await getBaseNodeTree(nodeBaseId).then((res) => res.data);
+    const updatedSourceNodes = updatedSourceNodeTree.nodes;
+
+    // Duplicate the base
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId: spaceId,
+      name: 'test base copy',
+    }).then((res) => res.data);
+
+    duplicateBaseId = dupResult.id;
+
+    // Verify duplicated node tree
+    const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+    const duplicatedNodes = duplicatedNodeTree.nodes;
+
+    // Verify same number of nodes
+    expect(duplicatedNodes.length).toBe(updatedSourceNodes.length);
+
+    // Verify resource types distribution
+    const sourceResourceTypes = updatedSourceNodes
+      .map((n) => n.resourceType)
+      .sort()
+      .join(',');
+    const duplicatedResourceTypes = duplicatedNodes
+      .map((n) => n.resourceType)
+      .sort()
+      .join(',');
+    expect(duplicatedResourceTypes).toBe(sourceResourceTypes);
+
+    // Verify folder count
+    const sourceFolders = updatedSourceNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Folder
+    );
+    const duplicatedFolders = duplicatedNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Folder
+    );
+    expect(duplicatedFolders.length).toBe(sourceFolders.length);
+
+    // Verify table count
+    const sourceTables = updatedSourceNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Table
+    );
+    const duplicatedTables = duplicatedNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Table
+    );
+    expect(duplicatedTables.length).toBe(sourceTables.length);
+
+    // Verify dashboard count
+    const sourceDashboards = updatedSourceNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Dashboard
+    );
+    const duplicatedDashboards = duplicatedNodes.filter(
+      (n) => n.resourceType === BaseNodeResourceType.Dashboard
+    );
+    expect(duplicatedDashboards.length).toBe(sourceDashboards.length);
+
+    // Verify hierarchy: nodes with parents should still have parents
+    const sourceNodesWithParent = updatedSourceNodes.filter((n) => n.parentId !== null);
+    const duplicatedNodesWithParent = duplicatedNodes.filter((n) => n.parentId !== null);
+    expect(duplicatedNodesWithParent.length).toBe(sourceNodesWithParent.length);
+
+    // Verify folder names are preserved
+    const sourceFolderNames = sourceFolders.map((f) => f.name).sort();
+    const duplicatedFolderNames = duplicatedFolders.map((f) => f.name).sort();
+    expect(duplicatedFolderNames).toEqual(sourceFolderNames);
+
+    // Verify that table inside folder1 exists in imported base
+    const duplicatedFolder1 = duplicatedFolders.find((f) => f.name === folder1Node.name);
+    expect(duplicatedFolder1).toBeDefined();
+    const tableInsideFolder = duplicatedNodes.find((n) => {
+      return n.resourceType === BaseNodeResourceType.Table && n.parentId === duplicatedFolder1!.id;
+    });
+    expect(tableInsideFolder).toBeDefined();
+
+    // Verify that dashboard inside folder2 exists in imported base
+    const duplicatedFolder2 = duplicatedFolders.find((f) => f.name === folder2Node.name);
+    expect(duplicatedFolder2).toBeDefined();
+    const dashboardInsideFolder = duplicatedNodes.find((n) => {
+      return (
+        n.resourceType === BaseNodeResourceType.Dashboard && n.parentId === duplicatedFolder2!.id
+      );
+    });
+    expect(dashboardInsideFolder).toBeDefined();
+
+    // Verify tables are accessible
+    const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+    expect(duplicatedTableList.length).toBe(2);
+    expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(
+      [table1Node.name, table2Node.name].sort()
+    );
+
+    // Verify dashboards are accessible
+    const duplicatedDashboardList = await getDashboardList(duplicateBaseId).then((res) => res.data);
+    expect(duplicatedDashboardList.length).toBe(2);
+    expect(duplicatedDashboardList.map((d) => d.name).sort()).toEqual(
+      [dashboard1Node.name, dashboard2Node.name].sort()
+    );
   });
 
   describe('Duplicate cross space', () => {

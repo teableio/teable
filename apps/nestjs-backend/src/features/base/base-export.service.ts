@@ -6,7 +6,7 @@ import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teab
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
-import type { IBaseJson } from '@teable/openapi';
+import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
 import { stringify } from 'csv-stringify/sync';
 import { Knex } from 'knex';
@@ -302,6 +302,8 @@ export class BaseExportService {
     }
 
     const plugins = await this.generatePluginConfig(baseId);
+    const folders = await this.generateFolderConfig(baseId);
+    const nodes = await this.generateNodeConfig(baseId);
 
     return {
       name: baseName,
@@ -309,6 +311,8 @@ export class BaseExportService {
       version: process.env.NEXT_PUBLIC_BUILD_VERSION!,
       tables,
       plugins,
+      folders,
+      nodes,
     };
   }
 
@@ -818,6 +822,54 @@ export class BaseExportService {
           order: index,
         })) as IBaseJson['tables'][number]['views']
     );
+  }
+
+  async generateFolderConfig(baseId: string): Promise<IBaseJson['folders']> {
+    const prisma = this.prismaService.txClient();
+    const folderRaws = await prisma.baseNodeFolder.findMany({
+      where: {
+        baseId,
+      },
+      orderBy: {
+        createdTime: 'asc',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+
+    return folderRaws.map((folderRaw) => ({
+      id: folderRaw.id,
+      name: folderRaw.name,
+    }));
+  }
+
+  async generateNodeConfig(baseId: string): Promise<IBaseJson['nodes']> {
+    const prisma = this.prismaService.txClient();
+    const nodeRaws = await prisma.baseNode.findMany({
+      where: {
+        baseId,
+      },
+      orderBy: {
+        createdTime: 'asc',
+      },
+      select: {
+        id: true,
+        parentId: true,
+        resourceId: true,
+        resourceType: true,
+        order: true,
+      },
+    });
+
+    return nodeRaws.map((nodeRaw) => ({
+      id: nodeRaw.id,
+      parentId: nodeRaw.parentId,
+      resourceId: nodeRaw.resourceId,
+      resourceType: nodeRaw.resourceType as BaseNodeResourceType,
+      order: nodeRaw.order,
+    }));
   }
 
   async generatePluginConfig(baseId: string) {
