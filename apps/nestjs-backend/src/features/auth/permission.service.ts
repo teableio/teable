@@ -281,7 +281,10 @@ export class PermissionService {
         HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
-            i18nKey: 'httpErrors.permission.notAllowedTable',
+            i18nKey: 'httpErrors.permission.notAllowedTables',
+            context: {
+              tableIds: resourceId,
+            },
           },
         }
       );

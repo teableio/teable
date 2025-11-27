@@ -975,7 +975,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Невозможно работать с пространством, убедитесь, что в пространстве есть члены организации и они являются владельцами",
       "notBelongToOrg": "Это пространство не принадлежит организации",
-      "invalidSpaceIds": "Недопустимые идентификаторы пространства"
+      "invalidSpaceIds": "Недопустимые идентификаторы пространства: {{spaceIds}}"
     },
     "base": {
       "notFound": "База не найдена",
@@ -1059,7 +1059,7 @@
       "invalidResource": "Ресурс недействителен",
       "notAllowedSpace": "У вас нет разрешения на доступ к этому пространству",
       "notAllowedBase": "У вас нет разрешения на доступ к этой базе",
-      "notAllowedTable": "У вас нет разрешения на доступ к этой таблице",
+      "notAllowedTables": "У вас нет разрешения на доступ к таблицам({{tableIds}})",
       "notAllowedOperationTable": "У вас нет разрешения на операции с этой таблицей",
       "notAllowedOperationRecord": "У вас нет разрешения на операции с этой записью",
       "notAllowedRecordUpdate": "У вас нет разрешения на обновление этой записи",
@@ -1076,7 +1076,7 @@
       "notFound": "Матрица полномочий не найдена",
       "primaryFieldCannotBeDisabledForRead": "Основное поле не может быть отключено для чтения",
       "fieldDuplicated": "Поле дублируется в конфигурации разрешений",
-      "cannotSetRecordPermissionGroup": "Невозможно установить эту комбинацию разрешений записи",
+      "cannotSetRecordPermissionGroup": "Невозможно установить эту комбинацию разрешений записи({{actions}})",
       "notFoundBaseAndTable": "ID базы и ID таблицы не найдены",
       "roleTablesShouldNotBeEmpty": "Таблицы ролей матрицы полномочий не должны быть пустыми"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
       "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена",
       "testLLMFailed": "Тест подключения LLM не прошел",
-      "audioNotSupported": "Аудио ввод не поддерживается этой моделью",
-      "imageNotSupported": "Ввод изображения не поддерживается этой моделью",
+      "audioNotSupported": "Аудио ввод не поддерживается этой моделью {{model}}",
+      "imageNotSupported": "Ввод изображения не поддерживается этой моделью {{model}}",
       "modelNotSet": "Модель ИИ не установлена",
-      "unsupportedFileType": "Неподдерживаемый тип файла",
+      "unsupportedFileType": "Неподдерживаемый тип файла {{mimetype}}",
       "unsupportedModelType": "Неподдерживаемый тип модели",
       "embeddingModelNotSet": "Модель встраивания не установлена",
       "validateActionFailed": "Не удалось проверить действие AI поля",
@@ -1252,7 +1252,7 @@
       "emailNotSpaceUser": "Email не является пользователем пространства",
       "authenticationNotFound": "Аутентификация не найдена",
       "spaceShouldExist": "Пространство организации должно существовать",
-      "emailsNotInOrgDomain": "Эти электронные адреса не находятся в домене организации"
+      "emailsNotInOrgDomain": "Эти электронные адреса {{emails}} не находятся в домене организации"
     },
     "user": {
       "disallowSignUp": "Текущий экземпляр запрещает регистрацию администратором",
@@ -1266,11 +1266,11 @@
       "cannotRemoveLastAdmin": "Невозможно убрать права администратора у последнего активного пользователя-администратора",
       "permanentDeleted": "Пользователь навсегда удален",
       "cannotDeleteSelf": "Вы не можете удалить себя",
-      "alreadyInDepartment": "Пользователь уже находится в целевом отделе",
-      "emailsNotFound": "Электронные адреса не найдены",
-      "deleted": "Пользователи удалены",
-      "alreadyInOrg": "Пользователи уже находятся в организации",
-      "notInOrg": "Пользователь не находится в организации"
+      "alreadyInDepartment": "Пользователь {{userId}} уже находится в целевом отделе",
+      "emailsNotFound": "Электронные адреса {{emails}} не найдены",
+      "deleted": "Пользователь {{userId}} удалены",
+      "alreadyInOrg": "Пользователь {{userId}} уже находится в организации",
+      "notInOrg": "Пользователь {{userId}} не находится в организации"
     },
     "record": {
       "notFound": "Запись не найдена",

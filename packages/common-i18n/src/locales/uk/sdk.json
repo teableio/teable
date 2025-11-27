@@ -975,7 +975,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
       "notBelongToOrg": "Цей простір не належить організації",
-      "invalidSpaceIds": "Недійсні ідентифікатори простору"
+      "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}"
     },
     "base": {
       "notFound": "База не знайдена",
@@ -1059,7 +1059,7 @@
       "invalidResource": "Ресурс недійсний",
       "notAllowedSpace": "У вас немає дозволу на доступ до цього простору",
       "notAllowedBase": "У вас немає дозволу на доступ до цієї бази",
-      "notAllowedTable": "У вас немає дозволу на доступ до цієї таблиці",
+      "notAllowedTables": "У вас немає дозволу на доступ до таблиц({{tableIds}})",
       "notAllowedOperationTable": "У вас немає дозволу на операції з цією таблицею",
       "notAllowedOperationRecord": "У вас немає дозволу на операції з цим записом",
       "notAllowedRecordUpdate": "У вас немає дозволу на оновлення цього запису",
@@ -1076,7 +1076,7 @@
       "notFound": "Матриця повноважень не знайдена",
       "primaryFieldCannotBeDisabledForRead": "Основне поле не може бути вимкнене для читання",
       "fieldDuplicated": "Поле дублюється в конфігурації дозволів",
-      "cannotSetRecordPermissionGroup": "Неможливо встановити цю комбінацію дозволів запису",
+      "cannotSetRecordPermissionGroup": "Неможливо встановити цю комбінацію дозволів запису({{actions}})",
       "notFoundBaseAndTable": "ID бази та ID таблиці не знайдено",
       "roleTablesShouldNotBeEmpty": "Таблиці ролей матриці повноважень не повинні бути порожніми"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
       "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено",
       "testLLMFailed": "Тест підключення LLM не пройшов",
-      "audioNotSupported": "Ця модель не підтримує введення аудіо",
-      "imageNotSupported": "Ця модель не підтримує введення зображень",
+      "audioNotSupported": "Ця модель {{model}} не підтримує введення аудіо",
+      "imageNotSupported": "Ця модель {{model}} не підтримує введення зображень",
       "modelNotSet": "Модель ШІ не встановлено",
-      "unsupportedFileType": "Непідтримуваний тип файлу",
+      "unsupportedFileType": "Непідтримуваний тип файлу {{mimetype}}",
       "unsupportedModelType": "Непідтримуваний тип моделі",
       "embeddingModelNotSet": "Модель вбудовування не встановлено",
       "validateActionFailed": "Не вдалося перевірити дію AI поля",
@@ -1252,7 +1252,7 @@
       "emailNotSpaceUser": "Email не є користувачем простору",
       "authenticationNotFound": "Автентифікація не знайдена",
       "spaceShouldExist": "Простір організації повинен існувати",
-      "emailsNotInOrgDomain": "Ці електронні адреси не знаходяться в домені організації"
+      "emailsNotInOrgDomain": "Ці електронні адреси {{emails}} не знаходяться в домені організації"
     },
     "user": {
       "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
@@ -1266,11 +1266,11 @@
       "cannotRemoveLastAdmin": "Неможливо забрати права адміністратора в останнього активного користувача-адміністратора",
       "permanentDeleted": "Користувач назавжди видалений",
       "cannotDeleteSelf": "Ви не можете видалити себе",
-      "alreadyInDepartment": "Користувач вже знаходиться в цільовому відділі",
-      "emailsNotFound": "Електронні адреси не знайдені",
-      "deleted": "Користувачі видалені",
-      "alreadyInOrg": "Користувачі вже знаходяться в організації",
-      "notInOrg": "Користувач не знаходиться в організації"
+      "alreadyInDepartment": "Користувач {{userId}} вже знаходиться в цільовому відділі",
+      "emailsNotFound": "Електронні адреси {{emails}} не знайдені",
+      "deleted": "Користувач {{userId}} видалений",
+      "alreadyInOrg": "Користувач {{userId}} вже знаходиться в організації",
+      "notInOrg": "Користувач {{userId}} не знаходиться в організації"
     },
     "record": {
       "notFound": "Запис не знайдено",

@@ -975,7 +975,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Impossible d'opérer sur un espace, veuillez vérifier qu'il y a des membres de l'organisation dans l'espace et qu'ils sont propriétaires",
       "notBelongToOrg": "Cet espace n'appartient pas à l'organisation",
-      "invalidSpaceIds": "Les IDs d'espace sont invalides"
+      "invalidSpaceIds": "Les IDs d'espace sont invalides: {{spaceIds}}"
     },
     "base": {
       "notFound": "Base non trouvée",
@@ -1059,7 +1059,7 @@
       "invalidResource": "La ressource n'est pas valide",
       "notAllowedSpace": "Vous n'avez pas la permission d'accéder à cet espace",
       "notAllowedBase": "Vous n'avez pas la permission d'accéder à cette base",
-      "notAllowedTable": "Vous n'avez pas la permission d'accéder à cette table",
+      "notAllowedTables": "Vous n'avez pas la permission d'accéder à tables({{tableIds}})",
       "notAllowedOperationTable": "Vous n'avez pas la permission d'opérer sur cette table",
       "notAllowedOperationRecord": "Vous n'avez pas la permission d'opérer sur cet enregistrement",
       "notAllowedRecordUpdate": "Vous n'avez pas la permission de mettre à jour cet enregistrement",
@@ -1076,7 +1076,7 @@
       "notFound": "Matrice d'autorité introuvable",
       "primaryFieldCannotBeDisabledForRead": "Le champ principal ne peut pas être désactivé pour l'accès en lecture",
       "fieldDuplicated": "Le champ est dupliqué dans la configuration des permissions",
-      "cannotSetRecordPermissionGroup": "Impossible de définir cette combinaison de permissions d'enregistrement",
+      "cannotSetRecordPermissionGroup": "Impossible de définir cette combinaison de permissions d'enregistrement({{actions}})",
       "notFoundBaseAndTable": "ID de base et ID de table introuvables",
       "roleTablesShouldNotBeEmpty": "Les tables de rôles de la matrice d'autorité ne doivent pas être vides"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Fournisseur IA non pris en charge {{type}}",
       "providerConfigurationNotSet": "La configuration du fournisseur IA n'est pas définie",
       "testLLMFailed": "Le test de connexion LLM a échoué",
-      "audioNotSupported": "L'entrée audio n'est pas prise en charge par ce modèle",
-      "imageNotSupported": "L'entrée d'image n'est pas prise en charge par ce modèle",
+      "audioNotSupported": "L'entrée audio n'est pas prise en charge par ce modèle {{model}}",
+      "imageNotSupported": "L'entrée d'image n'est pas prise en charge par ce modèle {{model}}",
       "modelNotSet": "Le modèle IA n'est pas défini",
-      "unsupportedFileType": "Type de fichier non pris en charge",
+      "unsupportedFileType": "Type de fichier non pris en charge {{mimetype}}",
       "unsupportedModelType": "Type de modèle non pris en charge",
       "embeddingModelNotSet": "Le modèle d'incorporation n'est pas défini",
       "validateActionFailed": "Échec de la validation de l'action IA du champ",
@@ -1252,7 +1252,7 @@
       "emailNotSpaceUser": "L'email n'est pas un utilisateur de l'espace",
       "authenticationNotFound": "Authentification non trouvée",
       "spaceShouldExist": "L'espace de l'organisation devrait exister",
-      "emailsNotInOrgDomain": "Ces e-mails ne sont pas dans le domaine de l'organisation"
+      "emailsNotInOrgDomain": "Ces e-mails {{emails}} ne sont pas dans le domaine de l'organisation"
     },
     "user": {
       "disallowSignUp": "L'instance actuelle n'autorise pas l'inscription par l'administrateur",
@@ -1266,11 +1266,11 @@
       "cannotRemoveLastAdmin": "Impossible de retirer les privilèges d'administrateur du dernier utilisateur administrateur actif",
       "permanentDeleted": "L'utilisateur a été définitivement supprimé",
       "cannotDeleteSelf": "Vous ne pouvez pas vous supprimer",
-      "alreadyInDepartment": "L'utilisateur est déjà dans le département cible",
-      "emailsNotFound": "E-mails non trouvés",
-      "deleted": "Les utilisateurs ont été supprimés",
-      "alreadyInOrg": "Les utilisateurs sont déjà dans l'organisation",
-      "notInOrg": "L'utilisateur n'est pas dans l'organisation"
+      "alreadyInDepartment": "L'utilisateur {{userId}} est déjà dans le département cible",
+      "emailsNotFound": "E-mails {{emails}} non trouvés",
+      "deleted": "L'utilisateur {{userId}} a été supprimé",
+      "alreadyInOrg": "L'utilisateur {{userId}} est déjà dans l'organisation",
+      "notInOrg": "L'utilisateur {{userId}} n'est pas dans l'organisation"
     },
     "record": {
       "notFound": "Enregistrement non trouvé",

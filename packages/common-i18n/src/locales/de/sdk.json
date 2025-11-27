@@ -975,7 +975,7 @@
       "deleted": "Space wurde gelöscht",
       "cannotOperate": "Kann nicht auf einem Space operieren, bitte überprüfen Sie, dass es Organisationsmitglieder im Space gibt und sie Eigentümer sind",
       "notBelongToOrg": "Dieser Space gehört nicht zur Organisation",
-      "invalidSpaceIds": "Space-IDs sind ungültig"
+      "invalidSpaceIds": "Space-IDs sind ungültig: {{spaceIds}}"
     },
     "base": {
       "notFound": "Base nicht gefunden",
@@ -1059,7 +1059,7 @@
       "invalidResource": "Ressource ist nicht gültig",
       "notAllowedSpace": "Sie haben keine Berechtigung, auf diesen Space zuzugreifen",
       "notAllowedBase": "Sie haben keine Berechtigung, auf diese Base zuzugreifen",
-      "notAllowedTable": "Sie haben keine Berechtigung, auf diese Tabelle zuzugreifen",
+      "notAllowedTables": "Sie haben keine Berechtigung, auf Tabellen({{tableIds}}) zuzugreifen",
       "notAllowedOperationTable": "Sie haben keine Berechtigung, diese Tabelle zu bearbeiten",
       "notAllowedOperationRecord": "Sie haben keine Berechtigung, diesen Datensatz zu bearbeiten",
       "notAllowedRecordUpdate": "Sie haben keine Berechtigung, diesen Datensatz zu aktualisieren",
@@ -1076,7 +1076,7 @@
       "notFound": "Berechtigungsmatrix nicht gefunden",
       "primaryFieldCannotBeDisabledForRead": "Primärfeld kann nicht für Lesezugriff deaktiviert werden",
       "fieldDuplicated": "Feld ist in der Berechtigungskonfiguration dupliziert",
-      "cannotSetRecordPermissionGroup": "Diese Kombination von Datensatzberechtigungen kann nicht festgelegt werden",
+      "cannotSetRecordPermissionGroup": "Diese Kombination von Datensatzberechtigungen({{actions}}) kann nicht festgelegt werden",
       "notFoundBaseAndTable": "Base-ID und Tabellen-ID nicht gefunden",
       "roleTablesShouldNotBeEmpty": "Berechtigungsmatrix-Rollentabellen dürfen nicht leer sein"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Nicht unterstützter KI-Anbieter {{type}}",
       "providerConfigurationNotSet": "KI-Anbieter-Konfiguration ist nicht festgelegt",
       "testLLMFailed": "LLM-Verbindungstest fehlgeschlagen",
-      "audioNotSupported": "Audio-Eingabe wird von diesem Modell nicht unterstützt",
-      "imageNotSupported": "Bild-Eingabe wird von diesem Modell nicht unterstützt",
+      "audioNotSupported": "Audio-Eingabe wird von diesem Modell {{model}} nicht unterstützt",
+      "imageNotSupported": "Bild-Eingabe wird von diesem Modell {{model}} nicht unterstützt",
       "modelNotSet": "KI-Modell ist nicht festgelegt",
-      "unsupportedFileType": "Nicht unterstützter Dateityp",
+      "unsupportedFileType": "Nicht unterstützter Dateityp {{mimetype}}",
       "unsupportedModelType": "Nicht unterstützter Modelltyp",
       "embeddingModelNotSet": "Einbettungsmodell ist nicht festgelegt",
       "validateActionFailed": "Validierung der Feld-AI-Aktion fehlgeschlagen",
@@ -1256,7 +1256,7 @@
       "notFound": "Organisation nicht gefunden",
       "authenticationNotFound": "Authentifizierung nicht gefunden",
       "spaceShouldExist": "Organisations-Space sollte existieren",
-      "emailsNotInOrgDomain": "Diese E-Mails sind nicht in der Organisations-Domain",
+      "emailsNotInOrgDomain": "Diese E-Mails {{emails}} sind nicht in der Organisations-Domain",
       "emailNotSpaceUser": "E-Mail ist kein Space-Benutzer"
     },
     "mail": {
@@ -1274,11 +1274,11 @@
       "cannotRemoveLastAdmin": "Administratorberechtigung kann nicht vom letzten aktiven Administrator-Benutzer entfernt werden",
       "permanentDeleted": "Benutzer ist dauerhaft gelöscht",
       "cannotDeleteSelf": "Sie können sich nicht selbst löschen",
-      "alreadyInDepartment": "Benutzer ist bereits in der Zielabteilung",
-      "emailsNotFound": "E-Mails wurden nicht gefunden",
-      "deleted": "Benutzer wurden gelöscht",
-      "alreadyInOrg": "Benutzer sind bereits in der Organisation",
-      "notInOrg": "Benutzer ist nicht in der Organisation"
+      "alreadyInDepartment": "Benutzer {{userId}} ist bereits in der Zielabteilung",
+      "emailsNotFound": "E-Mails {{emails}} wurden nicht gefunden",
+      "deleted": "Benutzer {{userId}} wurden gelöscht",
+      "alreadyInOrg": "Benutzer {{userId}} sind bereits in der Organisation",
+      "notInOrg": "Benutzer {{userId}} ist nicht in der Organisation"
     },
     "record": {
       "notFound": "Datensatz nicht gefunden",

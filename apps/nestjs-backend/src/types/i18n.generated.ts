@@ -2257,7 +2257,7 @@ export type I18nTranslations = {
                 "invalidResource": string;
                 "notAllowedSpace": string;
                 "notAllowedBase": string;
-                "notAllowedTable": string;
+                "notAllowedTables": string;
                 "notAllowedOperationTable": string;
                 "notAllowedOperationRecord": string;
                 "notAllowedRecordUpdate": string;

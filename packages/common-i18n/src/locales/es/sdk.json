@@ -987,7 +987,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "No se puede operar en un espacio, verifique que hay miembros de la organización en el espacio y que son propietarios",
       "notBelongToOrg": "Este espacio no pertenece a la organización",
-      "invalidSpaceIds": "Los IDs de espacio son inválidos"
+      "invalidSpaceIds": "Los IDs de espacio son inválidos: {{spaceIds}}"
     },
     "base": {
       "notFound": "Base no encontrada",
@@ -1071,7 +1071,7 @@
       "invalidResource": "El recurso no es válido",
       "notAllowedSpace": "No tienes permiso para acceder a este espacio",
       "notAllowedBase": "No tienes permiso para acceder a esta base",
-      "notAllowedTable": "No tienes permiso para acceder a esta tabla",
+      "notAllowedTables": "No tienes permiso para acceder a tablas({{tableIds}})",
       "notAllowedOperationTable": "No tienes permiso para operar en esta tabla",
       "notAllowedOperationRecord": "No tienes permiso para operar en este registro",
       "notAllowedRecordUpdate": "No tienes permiso para actualizar este registro",
@@ -1088,7 +1088,7 @@
       "notFound": "Matriz de autoridad no encontrada",
       "primaryFieldCannotBeDisabledForRead": "El campo primario no puede deshabilitarse para acceso de lectura",
       "fieldDuplicated": "El campo está duplicado en la configuración de permisos",
-      "cannotSetRecordPermissionGroup": "No se puede establecer esta combinación de permisos de registro",
+      "cannotSetRecordPermissionGroup": "No se puede establecer esta combinación de permisos de registro({{actions}})",
       "notFoundBaseAndTable": "ID de base y ID de tabla no encontrados",
       "roleTablesShouldNotBeEmpty": "Las tablas de roles de la matriz de autoridad no deben estar vacías"
     },
@@ -1190,10 +1190,10 @@
       "unsupportedProvider": "Proveedor de IA no compatible {{type}}",
       "providerConfigurationNotSet": "La configuración del proveedor de IA no está configurada",
       "testLLMFailed": "La prueba de conexión de LLM falló",
-      "audioNotSupported": "La entrada de audio no es compatible con este modelo",
-      "imageNotSupported": "La entrada de imagen no es compatible con este modelo",
+      "audioNotSupported": "La entrada de audio no es compatible con este modelo {{model}}",
+      "imageNotSupported": "La entrada de imagen no es compatible con este modelo {{model}}",
       "modelNotSet": "El modelo de IA no está configurado",
-      "unsupportedFileType": "Tipo de archivo no compatible",
+      "unsupportedFileType": "Tipo de archivo no compatible {{mimetype}}",
       "unsupportedModelType": "Tipo de modelo no compatible",
       "embeddingModelNotSet": "El modelo de incrustación no está configurado",
       "validateActionFailed": "Falló la validación de la acción AI del campo",
@@ -1264,7 +1264,7 @@
       "emailNotSpaceUser": "El correo electrónico no es usuario del espacio",
       "authenticationNotFound": "Autenticación no encontrada",
       "spaceShouldExist": "El espacio de la organización debería existir",
-      "emailsNotInOrgDomain": "Estos correos electrónicos no están en el dominio de la organización"
+      "emailsNotInOrgDomain": "Estos correos electrónicos {{emails}} no están en el dominio de la organización"
     },
     "user": {
       "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",
@@ -1278,11 +1278,11 @@
       "cannotRemoveLastAdmin": "No se pueden quitar los privilegios de administrador del último usuario administrador activo",
       "permanentDeleted": "El usuario ha sido eliminado permanentemente",
       "cannotDeleteSelf": "No puedes eliminarte a ti mismo",
-      "alreadyInDepartment": "El usuario ya está en el departamento objetivo",
-      "emailsNotFound": "Correos electrónicos no encontrados",
-      "deleted": "Los usuarios han sido eliminados",
-      "alreadyInOrg": "Los usuarios ya están en la organización",
-      "notInOrg": "El usuario no está en la organización"
+      "alreadyInDepartment": "El usuario {{userId}} ya está en el departamento objetivo",
+      "emailsNotFound": "Correos electrónicos {{emails}} no encontrados",
+      "deleted": "El usuario {{userId}} ha sido eliminado",
+      "alreadyInOrg": "El usuario {{userId}} ya está en la organización",
+      "notInOrg": "El usuario {{userId}} no está en la organización"
     },
     "record": {
       "notFound": "Registro no encontrado",

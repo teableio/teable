@@ -975,7 +975,7 @@
       "deleted": "空间已被删除",
       "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
       "notBelongToOrg": "此空间不属于该组织",
-      "invalidSpaceIds": "空间ID无效"
+      "invalidSpaceIds": "空间ID无效: {{spaceIds}}"
     },
     "base": {
       "notFound": "数据库不存在",
@@ -1059,7 +1059,7 @@
       "invalidResource": "资源无效",
       "notAllowedSpace": "您没有权限访问此空间",
       "notAllowedBase": "您没有权限访问此数据库",
-      "notAllowedTable": "您没有权限访问此表格",
+      "notAllowedTables": "您没有权限访问表格({{tableIds}})",
       "notAllowedOperationTable": "您没有权限操作此表格",
       "notAllowedOperationRecord": "您没有权限操作此记录",
       "notAllowedRecordUpdate": "您没有权限更新此记录",
@@ -1076,7 +1076,7 @@
       "notFound": "权限矩阵未找到",
       "primaryFieldCannotBeDisabledForRead": "主字段不能禁用读取权限",
       "fieldDuplicated": "权限配置中存在重复字段",
-      "cannotSetRecordPermissionGroup": "不能设置此记录权限组合",
+      "cannotSetRecordPermissionGroup": "不能设置此记录权限组合({{actions}})",
       "notFoundBaseAndTable": "未找到数据库ID和表格ID",
       "roleTablesShouldNotBeEmpty": "权限矩阵角色表不能为空"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
       "providerConfigurationNotSet": "AI 模型提供商配置未设置",
       "testLLMFailed": "LLM 连接测试失败",
-      "audioNotSupported": "此模型不支持音频输入",
-      "imageNotSupported": "此模型不支持图像输入",
+      "audioNotSupported": "此模型{{model}}不支持音频输入",
+      "imageNotSupported": "此模型{{model}}不支持图像输入",
       "modelNotSet": "AI 模型未设置",
-      "unsupportedFileType": "不支持的文件类型",
+      "unsupportedFileType": "不支持的文件类型 {{mimetype}}",
       "unsupportedModelType": "不支持的模型类型",
       "embeddingModelNotSet": "嵌入模型未设置",
       "validateActionFailed": "验证字段AI操作失败",
@@ -1256,7 +1256,7 @@
       "notFound": "组织未找到",
       "authenticationNotFound": "身份验证未找到",
       "spaceShouldExist": "组织空间应该存在",
-      "emailsNotInOrgDomain": "这些邮箱不在组织域名内",
+      "emailsNotInOrgDomain": "这些邮箱{{emails}}不在组织域名内",
       "emailNotSpaceUser": "邮箱不是空间用户"
     },
     "mail": {
@@ -1274,11 +1274,11 @@
       "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限",
       "permanentDeleted": "用户已被永久删除",
       "cannotDeleteSelf": "无法删除自己",
-      "alreadyInDepartment": "用户已在目标部门中",
-      "emailsNotFound": "邮箱未找到",
-      "deleted": "用户已被删除",
-      "alreadyInOrg": "用户已在组织中",
-      "notInOrg": "用户不在组织中"
+      "alreadyInDepartment": "用户{{userId}}已在目标部门中",
+      "emailsNotFound": "邮箱{{emails}}未找到",
+      "deleted": "用户{{userId}}已被删除",
+      "alreadyInOrg": "用户{{userId}}已在组织中",
+      "notInOrg": "用户{{userId}}不在组织中"
     },
     "record": {
       "notFound": "记录不存在",

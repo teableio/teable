@@ -975,7 +975,7 @@
       "deleted": "スペースが削除されました",
       "cannotOperate": "スペースで操作できません、スペースに組織メンバーがいて所有者であることを確認してください",
       "notBelongToOrg": "このスペースは組織に属していません",
-      "invalidSpaceIds": "スペースIDが無効です"
+      "invalidSpaceIds": "スペースIDが無効です: {{spaceIds}}"
     },
     "base": {
       "notFound": "ベース が見つかりません",
@@ -1059,7 +1059,7 @@
       "invalidResource": "リソースが無効です",
       "notAllowedSpace": "このスペースにアクセスする権限がありません",
       "notAllowedBase": "このベースにアクセスする権限がありません",
-      "notAllowedTable": "このテーブルにアクセスする権限がありません",
+      "notAllowedTables": "このテーブル({{tableIds}})にアクセスする権限がありません",
       "notAllowedOperationTable": "このテーブルを操作する権限がありません",
       "notAllowedOperationRecord": "このレコードを操作する権限がありません",
       "notAllowedRecordUpdate": "このレコードを更新する権限がありません",
@@ -1076,7 +1076,7 @@
       "notFound": "権限マトリックスが見つかりません",
       "primaryFieldCannotBeDisabledForRead": "主フィールドは読み取りアクセスを無効にできません",
       "fieldDuplicated": "権限設定でフィールドが重複しています",
-      "cannotSetRecordPermissionGroup": "このレコード権限の組み合わせを設定できません",
+      "cannotSetRecordPermissionGroup": "このレコード権限の組み合わせ({{actions}})を設定できません",
       "notFoundBaseAndTable": "ベースIDとテーブルIDが見つかりません",
       "roleTablesShouldNotBeEmpty": "権限マトリックスのロールテーブルは空にできません"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "サポートされていない AI プロバイダー {{type}}",
       "providerConfigurationNotSet": "AI プロバイダー設定が設定されていません",
       "testLLMFailed": "LLM 接続テストに失敗しました",
-      "audioNotSupported": "このモデルはオーディオ入力をサポートしていません",
-      "imageNotSupported": "このモデルは画像入力をサポートしていません",
+      "audioNotSupported": "このモデル {{model}} はオーディオ入力をサポートしていません",
+      "imageNotSupported": "このモデル {{model}} は画像入力をサポートしていません",
       "modelNotSet": "AIモデルが設定されていません",
-      "unsupportedFileType": "サポートされていないファイルタイプ",
+      "unsupportedFileType": "サポートされていないファイルタイプ {{mimetype}}",
       "unsupportedModelType": "サポートされていないモデルタイプ",
       "embeddingModelNotSet": "埋め込みモデルが設定されていません",
       "validateActionFailed": "フィールドAIアクションの検証に失敗しました",
@@ -1256,7 +1256,7 @@
       "notFound": "組織が見つかりません",
       "authenticationNotFound": "認証が見つかりません",
       "spaceShouldExist": "組織スペースが存在する必要があります",
-      "emailsNotInOrgDomain": "これらのメールアドレスは組織のドメインにありません",
+      "emailsNotInOrgDomain": "これらのメールアドレス {{emails}} は組織のドメインにありません",
       "emailNotSpaceUser": "メールアドレスはスペースユーザーではありません"
     },
     "mail": {
@@ -1274,11 +1274,11 @@
       "cannotRemoveLastAdmin": "最後のアクティブな管理者ユーザーから管理者権限を削除できません",
       "permanentDeleted": "ユーザーは完全に削除されています",
       "cannotDeleteSelf": "自分自身を削除することはできません",
-      "alreadyInDepartment": "ユーザーは既に対象部門にいます",
-      "emailsNotFound": "メールアドレスが見つかりません",
-      "deleted": "ユーザーが削除されています",
-      "alreadyInOrg": "ユーザーは既に組織にいます",
-      "notInOrg": "ユーザーは組織にいません"
+      "alreadyInDepartment": "ユーザー{{userId}}は既に対象部門にいます",
+      "emailsNotFound": "メールアドレス{{emails}}が見つかりません",
+      "deleted": "ユーザー{{userId}}が削除されています",
+      "alreadyInOrg": "ユーザー{{userId}}は既に組織にいます",
+      "notInOrg": "ユーザー{{userId}}は組織にいません"
     },
     "record": {
       "notFound": "レコードが見つかりません",

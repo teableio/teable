@@ -975,7 +975,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Can't operate on a space, please verify that there are organization members in the space and they are owners",
       "notBelongToOrg": "This space not belong to the organization",
-      "invalidSpaceIds": "Space ids is invalid"
+      "invalidSpaceIds": "Space ids is invalid: {{spaceIds}}"
     },
     "base": {
       "notFound": "Base not found",
@@ -1059,7 +1059,7 @@
       "invalidResource": "Resource is not valid",
       "notAllowedSpace": "You don't have permission to access this space",
       "notAllowedBase": "You don't have permission to access this base",
-      "notAllowedTable": "You don't have permission to access this table",
+      "notAllowedTables": "You don't have permission to access tables({{tableIds}})",
       "notAllowedOperationTable": "You don't have permission to operate on this table",
       "notAllowedOperationRecord": "You don't have permission to operate on this record",
       "notAllowedRecordUpdate": "You don't have permission to update this record",
@@ -1076,7 +1076,7 @@
       "notFound": "Authority matrix not found",
       "primaryFieldCannotBeDisabledForRead": "Primary field cannot be disabled for read access",
       "fieldDuplicated": "Field is duplicated in permission configuration",
-      "cannotSetRecordPermissionGroup": "Cannot set this combination of record permissions",
+      "cannotSetRecordPermissionGroup": "Cannot set this combination of record permissions({{actions}})",
       "notFoundBaseAndTable": "Base ID and Table ID not found",
       "roleTablesShouldNotBeEmpty": "Authority matrix role tables should not be empty"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Unsupported AI provider {{type}}",
       "providerConfigurationNotSet": "AI provider configuration is not set",
       "testLLMFailed": "LLM connection test failed",
-      "audioNotSupported": "Audio input not supported by this model",
-      "imageNotSupported": "Image input not supported by this model",
+      "audioNotSupported": "Audio input not supported by this model {{model}}",
+      "imageNotSupported": "Image input not supported by this model {{model}}",
       "modelNotSet": "AI Model is not set",
-      "unsupportedFileType": "Unsupported file type",
+      "unsupportedFileType": "Unsupported file type {{mimetype}}",
       "unsupportedModelType": "Unsupported model type",
       "embeddingModelNotSet": "Embedding Model is not set",
       "validateActionFailed": "Validate field AI action failed",
@@ -1256,7 +1256,7 @@
       "notFound": "Organization not found",
       "authenticationNotFound": "Authentication not found",
       "spaceShouldExist": "Organization space should exist",
-      "emailsNotInOrgDomain": "These emails are not in the organization domain",
+      "emailsNotInOrgDomain": "These emails {{emails}} are not in the organization domain",
       "emailNotSpaceUser": "Email is not a space user"
     },
     "mail": {
@@ -1274,11 +1274,11 @@
       "cannotRemoveLastAdmin": "Cannot remove admin privilege from the last active admin user",
       "permanentDeleted": "User is permanently deleted",
       "cannotDeleteSelf": "Cannot delete yourself",
-      "alreadyInDepartment": "User already in target department",
-      "emailsNotFound": "Emails are not found",
-      "deleted": "Users are deleted",
-      "alreadyInOrg": "Users are already in the organization",
-      "notInOrg": "User is not in the organization"
+      "alreadyInDepartment": "User {{userId}} already in target department",
+      "emailsNotFound": "Emails {{emails}} are not found",
+      "deleted": "User{{userId}} is deleted",
+      "alreadyInOrg": "User {{userId}} is already in the organization",
+      "notInOrg": "User {{userId}} is not in the organization"
     },
     "record": {
       "notFound": "Record not found",

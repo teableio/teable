@@ -975,7 +975,7 @@
       "deleted": "Space has been deleted",
       "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
       "notBelongToOrg": "Bu alan organizasyona ait değil",
-      "invalidSpaceIds": "Alan kimlikleri geçersiz"
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}"
     },
     "base": {
       "notFound": "Base bulunamadı",
@@ -1059,7 +1059,7 @@
       "invalidResource": "Kaynak geçerli değil",
       "notAllowedSpace": "Bu alana erişim izniniz yok",
       "notAllowedBase": "Bu tabana erişim izniniz yok",
-      "notAllowedTable": "Bu tabloya erişim izniniz yok",
+      "notAllowedTables": "Bu tablolar({{tableIds}}) erişim izniniz yok",
       "notAllowedOperationTable": "Bu tablo üzerinde işlem yapma izniniz yok",
       "notAllowedOperationRecord": "Bu kayıt üzerinde işlem yapma izniniz yok",
       "notAllowedRecordUpdate": "Bu kaydı güncelleme izniniz yok",
@@ -1076,7 +1076,7 @@
       "notFound": "Yetki matrisi bulunamadı",
       "primaryFieldCannotBeDisabledForRead": "Birincil alan okuma erişimi için devre dışı bırakılamaz",
       "fieldDuplicated": "Alan izin yapılandırmasında yineleniyor",
-      "cannotSetRecordPermissionGroup": "Bu kayıt izinleri kombinasyonu ayarlanamıyor",
+      "cannotSetRecordPermissionGroup": "Bu kayıt izinleri kombinasyonu({{actions}}) ayarlanamıyor",
       "notFoundBaseAndTable": "Taban kimliği ve tablo kimliği bulunamadı",
       "roleTablesShouldNotBeEmpty": "Yetki matrisi rol tabloları boş olmamalı"
     },
@@ -1178,10 +1178,10 @@
       "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
       "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
       "testLLMFailed": "LLM bağlantı testi başarısız oldu",
-      "audioNotSupported": "Bu model ses girişini desteklemiyor",
-      "imageNotSupported": "Bu model görüntü girişini desteklemiyor",
+      "audioNotSupported": "Bu model {{model}} ses girişini desteklemiyor",
+      "imageNotSupported": "Bu model {{model}} görüntü girişini desteklemiyor",
       "modelNotSet": "AI modeli ayarlanmamış",
-      "unsupportedFileType": "Desteklenmeyen dosya türü",
+      "unsupportedFileType": "Desteklenmeyen dosya türü {{mimetype}}",
       "unsupportedModelType": "Desteklenmeyen model türü",
       "embeddingModelNotSet": "Gömme modeli ayarlanmamış",
       "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
@@ -1252,7 +1252,7 @@
       "emailNotSpaceUser": "E-posta alan kullanıcısı değil",
       "authenticationNotFound": "Kimlik doğrulama bulunamadı",
       "spaceShouldExist": "Organizasyon alanı mevcut olmalı",
-      "emailsNotInOrgDomain": "Bu e-postalar organizasyon etki alanında değil"
+      "emailsNotInOrgDomain": "Bu e-postalar {{emails}} organizasyon etki alanında değil"
     },
     "user": {
       "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
@@ -1266,11 +1266,11 @@
       "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz",
       "permanentDeleted": "Kullanıcı kalıcı olarak silindi",
       "cannotDeleteSelf": "Kendinizi silemezsiniz",
-      "alreadyInDepartment": "Kullanıcı zaten hedef departmanda",
-      "emailsNotFound": "E-postalar bulunamadı",
-      "deleted": "Kullanıcılar silindi",
-      "alreadyInOrg": "Kullanıcılar zaten organizasyonda",
-      "notInOrg": "Kullanıcı organizasyonda değil"
+      "alreadyInDepartment": "Kullanıcı {{userId}} zaten hedef departmanda",
+      "emailsNotFound": "E-postalar {{emails}} bulunamadı",
+      "deleted": "Kullanıcı {{userId}} silindi",
+      "alreadyInOrg": "Kullanıcı {{userId}} zaten organizasyonda",
+      "notInOrg": "Kullanıcı {{userId}} organizasyonda değil"
     },
     "record": {
       "notFound": "Kayıt bulunamadı",
