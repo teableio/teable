@@ -99,19 +99,6 @@ export const BasePageRouter = () => {
           billingLevel: BillingProductLevel.Pro,
         },
         {
-          href: `/base/${baseId}/dashboard`,
-          label: t('common:noun.dashboard'),
-          Icon: Gauge,
-          hidden: !basePermission?.['base|read'],
-        },
-        {
-          href: `/base/${baseId}/automation`,
-          label: t('common:noun.automation'),
-          Icon: Bot,
-          hidden: !basePermission?.['automation|read'],
-          billingLevel: isEE ? BillingProductLevel.Pro : undefined,
-        },
-        {
           href: `/base/${baseId}/authority-matrix`,
           label: t('common:noun.authorityMatrix'),
           Icon: Lock,
@@ -119,7 +106,7 @@ export const BasePageRouter = () => {
           billingLevel: BillingProductLevel.Pro,
         },
       ].filter((item) => !item.hidden),
-    [baseId, basePermission, buildAppEnabled, isEE, t]
+    [baseId, basePermission, buildAppEnabled, t]
   );
 
   return (
