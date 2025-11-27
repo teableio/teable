@@ -329,7 +329,7 @@
       "desc_billable_one": "This space has <b>{{count}} collaborator</b> and <b>{{billableCount}} billable user</b>. Adding a space collaborator will give them access to all bases within this space.",
       "desc_billable_other": "This space has <b>{{count}} collaborators</b> and <b>{{billableCount}} billable users</b>. Adding a space collaborator will give them access to all bases within this space.",
       "tabEmail": "Invite by email",
-      "emailPlaceholder": "Invite more collaborators via email",
+      "emailPlaceholder": "Enter email addresses, separated by 'Enter' key",
       "tabLink": "Invite by link",
       "linkPlaceholder": "Create an invite link that grants <0/> access to anyone who opens it.",
       "emailSend": "Send invite",

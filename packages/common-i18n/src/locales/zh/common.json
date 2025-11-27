@@ -326,7 +326,7 @@
       "title": "{{spaceName}} 空间分享",
       "desc": "这个空间有<b>{{count}} 个协作者</b>。添加一个空间协作者将使他们能够访问该空间内的所有数据库。",
       "tabEmail": "通过电子邮件邀请",
-      "emailPlaceholder": "通过电子邮件邀请更多协作者",
+      "emailPlaceholder": "输入邮箱地址，按 Enter 键分隔邮箱",
       "tabLink": "通过链接邀请",
       "linkPlaceholder": "创建一个邀请链接，让任何打开它的人获得<0/>权限。",
       "emailSend": "发送邀请",

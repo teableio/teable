@@ -237,7 +237,7 @@
       "desc_one": "Questo spazio ha <b>{{count}} collaboratore</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
       "desc_other": "Questo spazio ha <b>{{count}} collaboratori</b>. Aggiungere un collaboratore dello spazio darà loro accesso a tutte le basi all'interno di questo spazio.",
       "tabEmail": "Invita via email",
-      "emailPlaceholder": "Invita più collaboratori via email",
+      "emailPlaceholder": "Inserisci gli indirizzi email, separandoli con Invio",
       "tabLink": "Invita tramite link",
       "linkPlaceholder": "Crea un link di invito che concede <0/> accesso a chiunque lo apra.",
       "emailSend": "Invia invito",

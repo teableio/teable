@@ -9,7 +9,7 @@ export const AuthorityTips = (props: IAuthorityTipsProps) => {
   const { onViewDetail } = props;
   const { t } = useTranslation('common');
   return (
-    <div className="relative flex flex-col gap-2 rounded-lg border bg-muted p-4">
+    <div className="relative flex flex-col gap-2 rounded-lg border bg-surface p-4">
       <div className="flex items-center gap-2">
         <ShieldHalf size={16} />
         <p className="text-sm font-medium">{t('invite.authority.title')}</p>

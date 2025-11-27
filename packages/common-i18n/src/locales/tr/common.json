@@ -217,7 +217,7 @@
       "desc_one": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
       "desc_other": "Bu alanda <b>{{count}} işbirlikçi</b> var. Bir alan işbirlikçisi eklemek, onlara bu alandaki tüm veritabanlarına erişim izni verecektir.",
       "tabEmail": "E-posta ile davet et",
-      "emailPlaceholder": "E-posta yoluyla daha fazla işbirlikçi davet et",
+      "emailPlaceholder": "E-posta adreslerini girin ve Enter tuşu ile ayırın",
       "tabLink": "Bağlantı ile davet et",
       "linkPlaceholder": "Açan herkese <0/> erişimi veren bir davet bağlantısı oluştur.",
       "emailSend": "Davet gönder",

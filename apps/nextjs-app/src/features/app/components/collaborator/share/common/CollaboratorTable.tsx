@@ -69,7 +69,7 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[300px]">{t('invite.table.collaborator')}</TableHead>
+            <TableHead className="w-[300px] px-4">{t('invite.table.collaborator')}</TableHead>
             <TableHead>{t('invite.table.accessPermission')}</TableHead>
             <TableHead>{t('invite.table.joinAt')}</TableHead>
             <TableHead className="w-[100px]">{t('actions.title')}</TableHead>
@@ -80,8 +80,8 @@ export const CollaboratorTable = (props: ICollaboratorTableProps) => {
             const isUser = item.type === PrincipalType.User;
             const { canUpdateRole, canDelete, showDelete } = getPermissions(item);
             return (
-              <TableRow key={isUser ? item.userId : item.departmentId}>
-                <TableCell>
+              <TableRow className="h-14" key={isUser ? item.userId : item.departmentId}>
+                <TableCell className="px-4">
                   <Collaborator
                     className="items-center"
                     item={

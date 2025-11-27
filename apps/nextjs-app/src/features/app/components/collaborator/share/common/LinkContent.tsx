@@ -48,7 +48,7 @@ export const LinkContent = ({
       </Button>
       <div className="space-y-2">
         <div className="flex flex-col gap-2">
-          <p className="text-sm text-muted-foreground">{t('invite.dialog.linkDescription')}</p>
+          <p className="text-sm">{t('invite.dialog.linkDescription')}</p>
         </div>
         <div className="flex items-center justify-between">
           <RoleSelect
@@ -72,8 +72,13 @@ export const LinkContent = ({
           <Separator />
           <div>
             <p className="mb-2 text-sm font-medium">{t('invite.dialog.linkTitle')}</p>
-            {list?.map((item) => (
-              <div key={item.invitationId} className="flex items-center gap-2 border-b py-2">
+            {list?.map((item, index) => (
+              <div
+                key={item.invitationId}
+                className={`flex items-center gap-2 py-2 ${
+                  index !== list.length - 1 ? 'border-b' : ''
+                }`}
+              >
                 <div className="flex flex-1 items-center gap-2 overflow-hidden">
                   <div className="flex flex-col gap-1 overflow-hidden">
                     <p className="truncate text-sm" title={item.inviteUrl}>
@@ -90,22 +95,25 @@ export const LinkContent = ({
                     disabled={isUpdateLoading}
                     onChange={(role) => onUpdate(item.invitationId, role)}
                   />
-                  <CopyButton
-                    size="xs"
-                    variant="ghost"
-                    className="text-muted-foreground"
-                    iconClassName="size-4"
-                    text={item.inviteUrl}
-                  />
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="text-muted-foreground"
-                    disabled={isDeleteLoading}
-                    onClick={() => onDelete(item.invitationId)}
-                  >
-                    {isDeleteLoading ? <Spin className="size-4" /> : <Trash className="size-4" />}
-                  </Button>
+                  <div className="flex items-center gap-0">
+                    {' '}
+                    <CopyButton
+                      size="xs"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      iconClassName="size-4"
+                      text={item.inviteUrl}
+                    />
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      className="text-muted-foreground"
+                      disabled={isDeleteLoading}
+                      onClick={() => onDelete(item.invitationId)}
+                    >
+                      {isDeleteLoading ? <Spin className="size-4" /> : <Trash className="size-4" />}
+                    </Button>
+                  </div>
                 </div>
               </div>
             ))}
