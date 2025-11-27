@@ -56,6 +56,9 @@ import type {
   WorkflowDeleteEvent,
   WorkflowUpdateEvent,
 } from '../../event-emitter/events/workflow/workflow.event';
+import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
+import { PerformanceCacheService } from '../../performance-cache/service';
+import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
@@ -104,6 +107,7 @@ const maxFolderDepth = 2;
 export class BaseNodeService {
   private readonly logger = new Logger(BaseNodeService.name);
   constructor(
+    private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly cls: ClsService<IClsStore>,
@@ -168,6 +172,7 @@ export class BaseNodeService {
       | IBaseNodePresenceUpdatePayload
       | IBaseNodePresenceDeletePayload,
   >(baseId: string, handler: (presence: LocalPresence<T>) => void) {
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
     const channel = getBaseNodeChannel(baseId);
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create(channel);
@@ -234,7 +239,7 @@ export class BaseNodeService {
     ];
   }
 
-  async prepareTree(baseId: string): Promise<IBaseNodeVo[]> {
+  async prepareNodeList(baseId: string): Promise<IBaseNodeVo[]> {
     const resourceTypes = this.getResourceTypes();
     const resourceResults = await Promise.all(
       resourceTypes.map((type) => this.getNodeResource(baseId, type))
@@ -336,12 +341,23 @@ export class BaseNodeService {
     );
   }
 
+  async getNodeListWithCache(baseId: string): Promise<IBaseNodeVo[]> {
+    return this.performanceCacheService.wrap(
+      generateBaseNodeListCacheKey(baseId),
+      () => this.prepareNodeList(baseId),
+      {
+        ttl: 60 * 60, // 1 hour
+        statsType: 'base-node-list',
+      }
+    );
+  }
+
   async getList(baseId: string): Promise<IBaseNodeVo[]> {
-    return this.prepareTree(baseId);
+    return this.getNodeListWithCache(baseId);
   }
 
   async getTree(baseId: string): Promise<IBaseNodeTreeVo> {
-    const nodes = await this.prepareTree(baseId);
+    const nodes = await this.getNodeListWithCache(baseId);
 
     return {
       nodes,
@@ -805,12 +821,11 @@ export class BaseNodeService {
       return;
     }
 
-    await this.prismaService.$tx(async (prisma) => {
+    const createNode = async (prisma: PrismaService) => {
       const findNode = await prisma.baseNode.findFirst({
         where: { baseId, resourceType, resourceId },
       });
       if (findNode) {
-        this.logger.warn('Base node already exists', event);
         return;
       }
       const maxOrder = await this.getMaxOrder(baseId);
@@ -825,7 +840,8 @@ export class BaseNodeService {
           createdBy: userId || ANONYMOUS_USER_ID,
         },
       });
-    });
+    };
+    await createNode(this.prismaService);
 
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
@@ -970,12 +986,11 @@ export class BaseNodeService {
       return;
     }
 
-    await this.prismaService.$tx(async (prisma) => {
+    const deleteNode = async (prisma: PrismaService) => {
       const toDeleteNode = await prisma.baseNode.findFirst({
         where: { baseId, resourceType, resourceId },
       });
       if (!toDeleteNode) {
-        this.logger.warn('Base node has already been deleted', event);
         return;
       }
       const maxOrder = await this.getMaxOrder(baseId);
@@ -997,7 +1012,8 @@ export class BaseNodeService {
           }))
         );
       }
-    });
+    };
+    await deleteNode(this.prismaService);
 
     this.presenceHandler(baseId, (presence) => {
       presence.submit({

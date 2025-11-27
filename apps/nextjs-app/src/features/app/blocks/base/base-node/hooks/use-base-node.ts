@@ -76,14 +76,14 @@ export const useBaseNode = () => {
 
   const queryClient = useQueryClient();
   const { data: queryData } = useQuery({
-    queryKey: ReactQueryKeys.baseNode(baseId),
+    queryKey: ReactQueryKeys.baseNodeTree(baseId),
     queryFn: ({ queryKey }) => getBaseNodeTree(queryKey[1]).then((res) => res.data),
     enabled: Boolean(baseId),
   });
 
   const invalidateMenu = useCallback(() => {
     if (baseId) {
-      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNode(baseId) });
+      queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseNodeTree(baseId) });
     }
   }, [baseId, queryClient]);
 

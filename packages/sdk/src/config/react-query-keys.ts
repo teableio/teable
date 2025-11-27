@@ -223,5 +223,5 @@ export const ReactQueryKeys = {
 
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
 
-  baseNode: (baseId: string) => ['base-node', baseId] as const,
+  baseNodeTree: (baseId: string) => ['base-node-tree', baseId] as const,
 };

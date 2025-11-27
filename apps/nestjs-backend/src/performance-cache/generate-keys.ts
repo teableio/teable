@@ -41,3 +41,7 @@ export function generateSettingCacheKey() {
 export function generateIntegrationCacheKey(spaceId: string) {
   return `integration:${spaceId}` as const;
 }
+
+export function generateBaseNodeListCacheKey(baseId: string) {
+  return `base-node-list:${baseId}` as const;
+}

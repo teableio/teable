@@ -29,6 +29,9 @@ export interface IPerformanceCacheStore {
 
   // instance setting cache, format: instance:setting
   'instance:setting': unknown;
+
+  // base node list cache, format: base-node-list:base_id
+  [key: `base-node-list:${string}`]: unknown;
 }
 
 /**
