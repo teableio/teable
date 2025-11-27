@@ -93,7 +93,8 @@ export class UserService {
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
     defaultSpaceName?: string,
-    inviteCode?: string
+    inviteCode?: string,
+    autoSpaceCreation: boolean = true
   ) {
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
@@ -111,7 +112,7 @@ export class UserService {
       await this.checkWaitlistInviteCode(inviteCode);
     }
 
-    return await this.createUser(user, account, defaultSpaceName);
+    return await this.createUser(user, account, defaultSpaceName, autoSpaceCreation);
   }
 
   async checkWaitlistInviteCode(inviteCode?: string) {
@@ -148,7 +149,8 @@ export class UserService {
   async createUser(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
-    defaultSpaceName?: string
+    defaultSpaceName?: string,
+    autoSpaceCreation: boolean = true
   ) {
     // defaults
     const defaultNotifyMeta: IUserNotifyMeta = {
@@ -190,7 +192,7 @@ export class UserService {
         data: { id: generateAccountId(), ...account, userId: id },
       });
     }
-    if (this.baseConfig.isCloud) {
+    if (this.baseConfig.isCloud && autoSpaceCreation) {
       await this.cls.runWith(this.cls.get(), async () => {
         this.cls.set('user.id', id);
         await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
@@ -337,14 +339,19 @@ export class UserService {
     });
   }
 
-  async findOrCreateUser(user: {
-    name: string;
-    email: string;
-    provider: string;
-    providerId: string;
-    type: string;
-    avatarUrl?: string;
-  }) {
+  async findOrCreateUser(
+    user: {
+      name: string;
+      email: string;
+      provider: string;
+      providerId: string;
+      type: string;
+      avatarUrl?: string;
+    },
+    autoSpaceCreation: boolean = true,
+    onCreateNewUser: () => void
+  ) {
+    let isNewUser = false;
     const res = await this.prismaService.$tx(async () => {
       const { email, name, provider, providerId, type, avatarUrl } = user;
       // account exist check
@@ -370,9 +377,14 @@ export class UserService {
         if (avatarUrl) {
           avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
         }
+        isNewUser = true;
+        onCreateNewUser();
         return await this.createUserWithSettingCheck(
           { id: userId, email, name, avatar },
-          { provider, providerId, type }
+          { provider, providerId, type },
+          undefined,
+          undefined,
+          autoSpaceCreation
         );
       }
 
@@ -381,7 +393,7 @@ export class UserService {
       });
       return existUser;
     });
-    if (res) {
+    if (res && isNewUser) {
       this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
     }
     return res;

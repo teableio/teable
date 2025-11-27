@@ -1,12 +1,13 @@
 import type { BillingProductLevel } from '@teable/openapi';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { UpgradeWrapper } from '../billing/UpgradeWrapper';
 
 export interface ISidebarContentRoute {
-  Icon: React.FC<{ className?: string }>;
+  Icon: React.FC<{ className?: string }> | LucideIcon;
   label: string | React.ReactNode;
   route: string;
   pathTo: string;

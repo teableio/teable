@@ -66,8 +66,8 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
           <div className="relative w-80 py-[5em] lg:py-24">
             {!passwordLoginDisabled && <SignForm type={signType} onSuccess={onSuccess} />}
             <SocialAuth />
-            <Terms />
             {children}
+            <Terms />
           </div>
         </div>
       </div>
