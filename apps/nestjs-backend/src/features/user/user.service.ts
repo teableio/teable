@@ -349,7 +349,7 @@ export class UserService {
       avatarUrl?: string;
     },
     autoSpaceCreation: boolean = true,
-    onCreateNewUser: () => void
+    onCreateNewUser?: () => void
   ) {
     let isNewUser = false;
     const res = await this.prismaService.$tx(async () => {
@@ -378,7 +378,7 @@ export class UserService {
           avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
         }
         isNewUser = true;
-        onCreateNewUser();
+        onCreateNewUser?.();
         return await this.createUserWithSettingCheck(
           { id: userId, email, name, avatar },
           { provider, providerId, type },
