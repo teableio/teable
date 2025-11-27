@@ -412,11 +412,8 @@ export class BaseNodeService {
       throw new CustomHttpException('Parent must be a folder', HttpErrorCode.VALIDATION_ERROR);
     }
 
-    if (parentNode) {
-      const depth = await this.getFolderDepth(baseId, parentNode.id);
-      if (depth > maxFolderDepth + 1) {
-        throw new CustomHttpException('Folder depth exceeded', HttpErrorCode.VALIDATION_ERROR);
-      }
+    if (parentNode && resourceType === BaseNodeResourceType.Folder) {
+      await this.assertFolderDepth(baseId, parentNode.id);
     }
 
     switch (resourceType) {
@@ -656,12 +653,12 @@ export class BaseNodeService {
     }
 
     let newNode: IBaseNodeEntry;
-    if (parentId === null) {
+    if (anchorId) {
+      newNode = await this.moveNodeTo(baseId, node.id, { anchorId, position });
+    } else if (parentId === null) {
       newNode = await this.moveNodeToRoot(baseId, node.id);
     } else if (parentId) {
       newNode = await this.moveNodeToFolder(baseId, node.id, parentId);
-    } else if (anchorId) {
-      newNode = await this.moveNodeTo(baseId, node.id, { anchorId, position });
     } else {
       throw new CustomHttpException(
         'At least one of parentId or anchorId must be provided',
@@ -756,6 +753,10 @@ export class BaseNodeService {
         .catch(() => {
           throw new CustomHttpException(`Anchor ${anchorId} not found`, HttpErrorCode.NOT_FOUND);
         });
+
+      if (node.resourceType === BaseNodeResourceType.Folder && anchor.parentId) {
+        await this.assertFolderDepth(baseId, anchor.parentId);
+      }
 
       await updateOrder({
         query: baseId,
@@ -1087,6 +1088,14 @@ export class BaseNodeService {
     return entry;
   }
 
+  private async assertFolderDepth(baseId: string, id: string) {
+    const folderDepth = await this.getFolderDepth(baseId, id);
+    console.log('folderDepth', folderDepth, 'maxFolderDepth', maxFolderDepth);
+    if (folderDepth >= maxFolderDepth) {
+      throw new CustomHttpException('Folder depth exceeded', HttpErrorCode.VALIDATION_ERROR);
+    }
+  }
+
   private async getFolderDepth(baseId: string, id: string) {
     const prisma = this.prismaService.txClient();
     const allFolders = await prisma.baseNode.findMany({
@@ -1094,10 +1103,15 @@ export class BaseNodeService {
       select: { id: true, parentId: true },
     });
 
+    let depth = 0;
+    if (allFolders.length === 0) {
+      return depth;
+    }
+
     const folderMap = keyBy(allFolders, 'id');
-    let depth = 1;
     let current = id;
     while (current) {
+      depth++;
       const folder = folderMap[current];
       if (!folder) {
         throw new CustomHttpException('Folder not found', HttpErrorCode.NOT_FOUND);
@@ -1106,7 +1120,6 @@ export class BaseNodeService {
         throw new CustomHttpException('Folder is itself', HttpErrorCode.VALIDATION_ERROR);
       }
       current = folder.parentId ?? '';
-      depth++;
     }
     return depth;
   }

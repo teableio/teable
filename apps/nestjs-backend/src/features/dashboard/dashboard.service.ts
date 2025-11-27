@@ -525,14 +525,14 @@ export class DashboardService {
     dashboard.name = newName;
 
     return this.prismaService.$tx(async () => {
-      const { dashboardMap } = await this.baseImportService.createDashboard(
+      const { dashboardIdMap } = await this.baseImportService.createDashboard(
         baseId,
         [dashboard],
         {},
         {}
       );
 
-      const newDashboardId = dashboardMap[dashboardId];
+      const newDashboardId = dashboardIdMap[dashboardId];
 
       return {
         id: newDashboardId,

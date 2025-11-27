@@ -97,11 +97,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     });
 
     afterEach(async () => {
-      try {
-        await deleteBaseNode(baseId, testNodeId);
-      } catch (e) {
-        // Node might already be deleted
-      }
+      await deleteBaseNode(baseId, testNodeId);
     });
 
     it('should get single node successfully', async () => {
@@ -133,11 +129,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     afterEach(async () => {
       // Cleanup created nodes
       for (const nodeId of nodesToCleanup) {
-        try {
-          await deleteBaseNode(baseId, nodeId);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
     });
@@ -293,11 +285,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     });
 
     afterEach(async () => {
-      try {
-        await deleteBaseNode(baseId, testNodeId);
-      } catch (e) {
-        // Node might already be deleted
-      }
+      await deleteBaseNode(baseId, testNodeId);
     });
 
     it('should update node name successfully', async () => {
@@ -400,11 +388,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
     afterEach(async () => {
       for (const nodeId of nodesToCleanup) {
-        try {
-          await deleteBaseNode(baseId, nodeId);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
     });
@@ -686,11 +670,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
     afterEach(async () => {
       for (const nodeId of nodesToCleanup) {
-        try {
-          await deleteBaseNode(baseId, nodeId);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
     });
@@ -760,11 +740,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
     afterEach(async () => {
       for (const nodeId of nodesToCleanup) {
-        try {
-          await deleteBaseNode(baseId, nodeId);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+        await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
     });
@@ -802,14 +778,12 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     });
 
     it('should handle complex folder hierarchy', async () => {
-      // Create root folder
       const root = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Root',
       });
       nodesToCleanup.push(root.data.id);
 
-      // Create level 1 children
       const child1 = await createBaseNode(baseId, {
         resourceType: BaseNodeResourceType.Folder,
         name: 'Child 1',
@@ -824,13 +798,14 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       });
       nodesToCleanup.push(child2.data.id);
 
-      // Create level 2 children
-      const grandchild = await createBaseNode(baseId, {
-        resourceType: BaseNodeResourceType.Folder,
-        name: 'Grandchild',
+      const child1Table = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Child 1 Table',
         parentId: child1.data.id,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
       });
-      nodesToCleanup.push(grandchild.data.id);
+      nodesToCleanup.push(child1Table.data.id);
 
       // Verify structure
       const tree = await getBaseNodeTree(baseId);
@@ -905,6 +880,173 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         const found = tree.data.nodes.find((n: IBaseNodeVo) => n.id === node.id);
         expect(found).toBeDefined();
       }
+    });
+  });
+
+  describe('Folder depth limitation', () => {
+    const nodesToCleanup: string[] = [];
+
+    afterEach(async () => {
+      // Cleanup nodes in reverse order to handle hierarchy
+      for (const nodeId of [...nodesToCleanup].reverse()) {
+        await deleteBaseNode(baseId, nodeId);
+      }
+      nodesToCleanup.length = 0;
+    });
+
+    it('should allow creating folders up to max depth (3 levels)', async () => {
+      // Create level 1 folder
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Level 1 Folder',
+      });
+      nodesToCleanup.push(level1.data.id);
+      expect(level1.data.parentId).toBeNull();
+
+      // Create level 2 folder
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Level 2 Folder',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+      expect(level2.data.parentId).toBe(level1.data.id);
+    });
+
+    it('should fail when creating folder exceeding max depth (4th level)', async () => {
+      // Create 3 levels of folders
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Depth Limit Level 1',
+      });
+      nodesToCleanup.push(level1.data.id);
+
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Depth Limit Level 2',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+
+      // Try to create level 4 folder (should fail)
+      const error = await getError(() =>
+        createBaseNode(baseId, {
+          resourceType: BaseNodeResourceType.Folder,
+          name: 'Depth Limit Level 3',
+          parentId: level2.data.id,
+        })
+      );
+
+      expect(error?.status).toBe(400);
+    });
+
+    it('should allow creating table in folder at max depth', async () => {
+      // Create 2 levels of folders
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Table Depth Level 1',
+      });
+      nodesToCleanup.push(level1.data.id);
+
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Table Depth Level 2',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+
+      // Create table in level 2 folder (should succeed - tables don't count as depth)
+      const table = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table in Max Depth',
+        parentId: level2.data.id,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(table.data.id);
+      expect(table.data.parentId).toBe(level2.data.id);
+    });
+
+    it('should fail when moving folder to exceed max depth using anchorId', async () => {
+      // Create 3 levels of folders
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Move Depth Level 1',
+      });
+      nodesToCleanup.push(level1.data.id);
+
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Move Depth Level 2',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+
+      const level3 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table in Move Depth Level 3',
+        parentId: level2.data.id,
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      });
+      nodesToCleanup.push(level3.data.id);
+
+      // Create a folder at root level to move
+      const folderToMove = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder to Move',
+      });
+      nodesToCleanup.push(folderToMove.data.id);
+
+      // Try to move folder next to level2 (which would make it level 3 if it had the same parent)
+      // Using anchorId with position should check depth
+      const error = await getError(() =>
+        moveBaseNode(baseId, folderToMove.data.id, {
+          anchorId: level3.data.id,
+          position: 'after',
+        })
+      );
+
+      expect(error?.status).toBe(400);
+    });
+
+    it('should allow moving folder within valid depth using anchorId', async () => {
+      // Create 2 levels of folders
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Valid Move Level 1',
+      });
+      nodesToCleanup.push(level1.data.id);
+
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Valid Move Level 2',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+
+      // Create a folder at root level
+      const folderToMove = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder to Move Valid',
+      });
+      nodesToCleanup.push(folderToMove.data.id);
+
+      // Move folder next to level2 (which makes it level 3 - still valid)
+      const response = await moveBaseNode(baseId, folderToMove.data.id, {
+        anchorId: level2.data.id,
+        position: 'after',
+      });
+
+      expect(response.data.id).toBe(folderToMove.data.id);
+      expect(response.data.parentId).toBe(level1.data.id);
+    });
+
+    it('should return maxFolderDepth in tree response', async () => {
+      const response = await getBaseNodeTree(baseId);
+
+      expect(response.data).toHaveProperty('maxFolderDepth');
+      expect(response.data.maxFolderDepth).toBe(2);
     });
   });
 
@@ -1181,11 +1323,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       afterEach(async () => {
         for (const nodeId of creatorNodesToCleanup) {
-          try {
-            await deleteBaseNode(permissionBaseId, nodeId);
-          } catch (e) {
-            // Ignore cleanup errors
-          }
+          await deleteBaseNode(permissionBaseId, nodeId);
         }
         creatorNodesToCleanup.length = 0;
       });
