@@ -556,7 +556,26 @@ export class BaseImportService {
       },
       {} as Record<BaseNodeResourceType, Record<string, string>>
     );
+    // Sort nodes by parent-child relationship (topological sort)
+    // Ensure parent nodes are created before child nodes
+    const sortedNodes: typeof nodes = [];
+    const nodeMap = new Map(nodes.map((node) => [node.id, node]));
+    const visited = new Set<string>();
+
+    const visit = (node: (typeof nodes)[0]) => {
+      if (visited.has(node.id)) return;
+      if (node.parentId && nodeMap.has(node.parentId)) {
+        visit(nodeMap.get(node.parentId)!);
+      }
+      visited.add(node.id);
+      sortedNodes.push(node);
+    };
+
     for (const node of nodes) {
+      visit(node);
+    }
+
+    for (const node of sortedNodes) {
       const { id, parentId, resourceId, resourceType, order } = node;
       const newId = allNodeIdMap[id];
       const newParentId = parentId && allNodeIdMap[parentId] ? allNodeIdMap[parentId] : null;
