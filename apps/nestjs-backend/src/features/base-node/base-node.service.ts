@@ -607,6 +607,14 @@ export class BaseNodeService {
       .catch(() => {
         throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
       });
+    if (node.resourceType === BaseNodeResourceType.Folder) {
+      const children = await this.prismaService.baseNode.findMany({
+        where: { baseId, parentId: nodeId },
+      });
+      if (children.length > 0) {
+        throw new CustomHttpException('Folder is not empty', HttpErrorCode.VALIDATION_ERROR);
+      }
+    }
     await this.deleteResource(baseId, node.resourceType as BaseNodeResourceType, node.resourceId);
     await this.prismaService.baseNode.delete({
       where: { id: nodeId },

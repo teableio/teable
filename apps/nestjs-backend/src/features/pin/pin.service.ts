@@ -183,13 +183,13 @@ export class PinService {
       {
         id: string;
         name: string;
-        base_id: string;
-        table_id: string;
+        baseId: string;
+        tableId: string;
         type: ViewType;
         options: string;
       }[]
     >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as base_id, table_meta.id as table_id, view.type, view.options
+      SELECT view.id, view.name, table_meta.base_id as baseId, table_meta.id as tableId, view.type, view.options
       FROM view
       LEFT JOIN table_meta ON view.table_id = table_meta.id
       WHERE view.id IN (${Prisma.join(ids)})
@@ -202,28 +202,28 @@ export class PinService {
     if (!ids?.length) return [];
     return this.prismaService.dashboard.findMany({
       where: { id: { in: ids } },
-      select: { id: true, name: true },
+      select: { id: true, name: true, baseId: true },
     });
   }
 
   private async fetchWorkflows(ids?: string[]) {
     if (!ids?.length) return [];
     const sql = this.knex('workflow')
-      .select('id', 'name')
+      .select('id', 'name', 'base_id as baseId')
       .whereIn('id', ids)
       .whereNull('deleted_time')
       .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string }[]>(sql);
+    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
   }
 
   private async fetchApps(ids?: string[]) {
     if (!ids?.length) return [];
     const sql = this.knex('app')
-      .select('id', 'name')
+      .select('id', 'name', 'base_id as baseId')
       .whereIn('id', ids)
       .whereNull('deleted_time')
       .toQuery();
-    return this.prismaService.$queryRawUnsafe<{ id: string; name: string }[]>(sql);
+    return this.prismaService.$queryRawUnsafe<{ id: string; name: string; baseId: string }[]>(sql);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,16 +238,16 @@ export class PinService {
       case PinType.Dashboard:
       case PinType.Workflow:
       case PinType.App:
-        return { name: resource.name };
+        return { name: resource.name, parentBaseId: resource.baseId };
       case PinType.Table:
         return { name: resource.name, parentBaseId: resource.baseId, icon: resource.icon };
       case PinType.View: {
         const pluginLogo = resource.options ? JSON.parse(resource.options)?.pluginLogo : undefined;
         return {
           name: resource.name,
-          parentBaseId: resource.base_id,
+          parentBaseId: resource.baseId,
           viewMeta: {
-            tableId: resource.table_id,
+            tableId: resource.tableId,
             type: resource.type,
             pluginLogo: pluginLogo ? getPublicFullStorageUrl(pluginLogo) : undefined,
           },

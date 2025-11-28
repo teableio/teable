@@ -381,6 +381,23 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       const error = await getError(() => deleteBaseNode(baseId, node.data.id));
       expect(error?.status).toBeGreaterThanOrEqual(400);
     });
+
+    it('should fail when delete folder node with children', async () => {
+      const folder = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder',
+      }).then((res) => res.data);
+
+      await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Child',
+        parentId: folder.id,
+      }).then((res) => res.data.id);
+
+      // Verify it's deleted
+      const error = await getError(() => deleteBaseNode(baseId, folder.id));
+      expect(error?.status).toBeGreaterThanOrEqual(400);
+    });
   });
 
   describe('PUT /api/base/:baseId/node/:nodeId/move - Move node', () => {

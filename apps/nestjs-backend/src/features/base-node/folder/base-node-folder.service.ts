@@ -50,16 +50,8 @@ export class BaseNodeFolderService {
   }
 
   async deleteFolder(baseId: string, folderId: string) {
-    await this.prismaService.$tx(async (prisma) => {
-      const children = await prisma.baseNode.findMany({
-        where: { parentId: folderId },
-      });
-
-      if (children.length > 0) {
-        throw new CustomHttpException('Folder is not empty', HttpErrorCode.VALIDATION_ERROR);
-      }
-
-      await prisma.baseNodeFolder.delete({ where: { baseId, id: folderId } });
+    await this.prismaService.baseNodeFolder.delete({
+      where: { baseId, id: folderId },
     });
   }
 
