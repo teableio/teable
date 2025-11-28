@@ -1,7 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { canManageRole, Role, type IBaseRole, type IRole } from '@teable/core';
+import { canManageRole, hasPermission, Role, type IBaseRole, type IRole } from '@teable/core';
 import type { CollaboratorItem, IAddCollaborator } from '@teable/openapi';
 import {
   addBaseCollaborator,
@@ -87,9 +87,11 @@ export const ShareBaseContent = ({
     return data?.pages.flatMap((page) => page.collaborators);
   }, [data]);
 
+  const hasInviteLinkPermission = hasPermission(userRole, 'base|invite_link');
   const { data: linkList } = useQuery({
     queryKey: ['invite-link-list', baseId],
     queryFn: ({ queryKey }) => listBaseInvitationLink(queryKey[1]).then((res) => res.data),
+    enabled: hasInviteLinkPermission,
   });
 
   const { mutate: emailInvitation, isLoading: emailInvitationLoading } = useMutation({
@@ -264,14 +266,16 @@ export const ShareBaseContent = ({
             <InviteOrgButton onClick={() => setTabType('organization')} />
           </div>
         )}
-        <div className="relative space-y-2">
-          <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
-          <InviteLinkButton
-            className="box-content -translate-x-2 px-2 py-0"
-            linkListCount={linkListCount}
-            onClick={() => setTabType('link')}
-          />
-        </div>
+        {hasInviteLinkPermission && (
+          <div className="relative space-y-2">
+            <p className="text-sm font-semibold">{t('invite.dialog.tabLink')}</p>
+            <InviteLinkButton
+              className="box-content -translate-x-2 px-2 py-0"
+              linkListCount={linkListCount}
+              onClick={() => setTabType('link')}
+            />
+          </div>
+        )}
         <div className="space-y-2">
           <p className="text-sm font-semibold">{t('invite.dialog.baseTitle')}</p>
           <CollaboratorsDialog
