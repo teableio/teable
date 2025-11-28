@@ -8,7 +8,13 @@ import { isEmpty, get, keyBy } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ROOT_ID } from './helper';
 
-type TreeRootItem = { id: typeof ROOT_ID; name: string; children: string[] };
+type TreeRootItem = {
+  id: typeof ROOT_ID;
+  name: string;
+  resourceType: BaseNodeResourceType.Folder;
+  resourceId: typeof ROOT_ID;
+  children: string[];
+};
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
 const cleanNodes = (nodes: IBaseNodeVo[], nodeMap: Record<string, IBaseNodeVo>): IBaseNodeVo[] => {
@@ -49,7 +55,9 @@ const buildTreeItems = (nodes: IBaseNodeVo[]): Record<string, TreeItemData> => {
   const result: Record<string, TreeRootItem | TreeItemData> = {
     [ROOT_ID]: {
       id: ROOT_ID,
-      name: 'Base Menu',
+      name: 'baseMenuRoot',
+      resourceType: BaseNodeResourceType.Folder,
+      resourceId: ROOT_ID,
       children: [],
     },
   };

@@ -1,7 +1,8 @@
 import { LaptopIcon } from '@radix-ui/react-icons';
-import { Moon, Settings, Sun, Table2 } from '@teable/icons';
+import { Moon, Settings, Sun } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
-import { useBase, useIsHydrated, useTables } from '@teable/sdk/hooks';
+import { BaseNodeResourceType } from '@teable/openapi';
+import { useBaseId, useIsHydrated } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -13,18 +14,21 @@ import {
   Button,
   cn,
 } from '@teable/ui-lib/shadcn';
+import { groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useSettingStore } from '@/features/app/components/setting/useSettingStore';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
+import { BaseNodeContext } from '../base-node/BaseNodeContext';
+import { BaseNodeResourceIconMap, getNodeUrl } from '../base-node/hooks';
 
 export const QuickAction = ({ children }: React.PropsWithChildren) => {
+  const baseId = useBaseId() as string;
   const [open, setOpen] = useState(false);
-  const tables = useTables();
-  const base = useBase();
   const setting = useSettingStore();
   const router = useRouter();
   const theme = useTheme();
@@ -41,6 +45,12 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   );
 
   const isHydrated = useIsHydrated();
+
+  const { treeItems } = useContext(BaseNodeContext);
+  const baseNodeTypeItems = groupBy(
+    Object.values(treeItems).filter((item) => item.resourceType !== BaseNodeResourceType.Folder),
+    'resourceType'
+  );
 
   return (
     <>
@@ -62,25 +72,53 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
         <CommandInput placeholder={t('common:quickAction.placeHolder')} />
         <CommandList>
           <CommandEmpty>{t('common:noResult')}</CommandEmpty>
-          <CommandGroup heading={t('common:noun.table')}>
-            {tables.map((table) => (
-              <CommandItem
-                className="flex gap-2"
-                key={table.id}
-                value={table.name}
-                onSelect={() => {
-                  setOpen(false);
-                  router.push({
-                    pathname: '/base/[baseId]/[tableId]',
-                    query: { baseId: base?.id, tableId: table.id },
+          {Object.entries(baseNodeTypeItems).map(([resourceType, items]) => {
+            const heading = () => {
+              switch (resourceType) {
+                case BaseNodeResourceType.Table:
+                  return t('common:noun.table');
+                case BaseNodeResourceType.Dashboard:
+                  return t('common:noun.dashboard');
+                case BaseNodeResourceType.App:
+                  return t('common:noun.app');
+                case BaseNodeResourceType.Workflow:
+                  return t('common:noun.automation');
+                default:
+                  return '';
+              }
+            };
+            return (
+              <CommandGroup heading={heading()} key={resourceType}>
+                {items.map((item) => {
+                  const { id, name, icon, resourceType, resourceId } = item;
+                  const IconComponent = BaseNodeResourceIconMap[resourceType];
+                  const url = getNodeUrl({
+                    baseId,
+                    resourceType,
+                    resourceId,
                   });
-                }}
-              >
-                <span>{table.icon || <Table2 className="size-4 shrink-0" />}</span>
-                <span>{table.name}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+                  return (
+                    <CommandItem
+                      className="flex gap-2"
+                      key={id}
+                      value={name}
+                      onSelect={() => {
+                        setOpen(false);
+                        router.push(url, undefined);
+                      }}
+                    >
+                      {icon ? (
+                        <Emoji emoji={icon} size={'1rem'} />
+                      ) : IconComponent ? (
+                        <IconComponent className="size-4 shrink-0" />
+                      ) : null}
+                      <span>{name}</span>
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            );
+          })}
           <CommandSeparator />
           <CommandGroup heading={t('common:settings.setting.theme')}>
             <CommandItem
