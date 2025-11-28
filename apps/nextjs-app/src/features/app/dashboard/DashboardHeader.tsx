@@ -10,7 +10,6 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import {
   Button,
-  cn,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,12 +21,11 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import { MenuDeleteItem } from '../components/MenuDeleteItem';
 import { useBrand } from '../hooks/useBrand';
 import { AddPluginDialog } from './components/AddPluginDialog';
-import { DashboardSwitcher } from './components/DashboardSwitcher';
 
 export const DashboardHeader = (props: { dashboardId: string }) => {
   const { dashboardId } = props;
@@ -35,7 +33,8 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [rename, setRename] = useState<string | null>(null);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [editName, setEditName] = useState<string>('');
   const renameRef = useRef<HTMLInputElement>(null);
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const basePermissions = useBasePermission();
@@ -71,60 +70,77 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   });
 
   const { mutate: renameDashboardMutate } = useMutation({
-    mutationFn: () => renameDashboard(baseId, dashboardId, rename!),
+    mutationFn: ({ name }: { name: string }) => renameDashboard(baseId, dashboardId, name),
     onSuccess: () => {
-      setRename(null);
+      setIsRenaming(false);
       queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
     },
   });
 
   const selectedDashboard = dashboardList?.find(({ id }) => id === dashboardId);
-  const submitRename = () => {
-    if (!rename || selectedDashboard?.name === rename) {
-      setRename(null);
-      return;
-    }
-    renameDashboardMutate();
+  const dashboardName = selectedDashboard?.name ?? t('common:noun.dashboard');
+
+  const startRename = () => {
+    setIsRenaming(true);
+    setEditName(dashboardName);
   };
 
+  const cancelRename = () => {
+    setIsRenaming(false);
+    setEditName(dashboardName);
+  };
+
+  const submitRename = () => {
+    const newName = editName.trim();
+    if (dashboardName === newName) {
+      setIsRenaming(false);
+      return;
+    }
+    setIsRenaming(false);
+    renameDashboardMutate({ name: newName });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      submitRename();
+    } else if (e.key === 'Escape') {
+      cancelRename();
+    }
+  };
+
+  useEffect(() => {
+    if (isRenaming && renameRef.current) {
+      renameRef.current.focus();
+      renameRef.current.select();
+    }
+  }, [isRenaming]);
+
   return (
-    <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+    <div className="flex h-12 shrink-0 items-center justify-between border-b px-4">
       <Head>
-        <title>
-          {selectedDashboard?.name ? `${selectedDashboard?.name} - ${brandName}` : brandName}
-        </title>
+        <title>{dashboardName ? `${dashboardName} - ${brandName}` : brandName}</title>
       </Head>
-      <DashboardSwitcher
-        className={cn('w-44', {
-          hidden: rename !== null,
-        })}
-        dashboardId={dashboardId}
-        onChange={(dashboardId) => {
-          router.push({
-            pathname: '/base/[baseId]/dashboard/[dashboardId]',
-            query: { baseId, dashboardId },
-          });
-        }}
-      />
-      <Input
-        ref={renameRef}
-        className={cn('w-44', {
-          hidden: rename === null,
-        })}
-        value={rename ?? ''}
-        onBlur={() => {
-          submitRename();
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            submitRename();
-          }
-          if (e.key === 'Escape') {
-            setRename(null);
-          }
-        }}
-        onChange={(e) => setRename(e.target.value)}
-      />
+      {isRenaming ? (
+        <Input
+          ref={renameRef}
+          className="max-w-60"
+          value={editName ?? ''}
+          onBlur={submitRename}
+          onKeyDown={handleKeyDown}
+          onChange={(e) => setEditName(e.target.value)}
+        />
+      ) : (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="justify-start text-sm"
+          disabled={!canManage}
+          onClick={startRename}
+        >
+          <span className="truncate"> {dashboardName}</span>
+        </Button>
+      )}
+
       <div className="flex items-center gap-2">
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
@@ -142,12 +158,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="relative min-w-36 overflow-hidden">
-              <DropdownMenuItem
-                onSelect={() => {
-                  setRename(selectedDashboard?.name ?? null);
-                  setTimeout(() => renameRef.current?.focus(), 200);
-                }}
-              >
+              <DropdownMenuItem onSelect={startRename}>
                 <Edit className="mr-1.5" />
                 {t('common:actions.rename')}
               </DropdownMenuItem>
