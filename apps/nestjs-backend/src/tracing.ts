@@ -26,16 +26,16 @@ const parseOtelHeaders = (headerStr?: string) => {
   );
 };
 
-const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
+const headers = parseOtelHeaders('signoz-ingestion-key=29118128-43c8-475f-adfb-9b1fa6c5f50e');
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Development fallbacks so local tracing/logging works without manual env setup.
 const devOtelDefaults = {
-  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
-  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'http://localhost:4318/v1/logs',
+  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'https://ingest.us.signoz.cloud:443/v1/logs',
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'https://ingest.us.signoz.cloud:443/v1/traces',
   OTEL_TRACES_SAMPLER: 'always_on',
-  OTEL_SERVICE_NAME: 'teable',
+  OTEL_SERVICE_NAME: 'teable-dev-bieber',
   OTEL_SAMPLER_RATIO: '1.0',
 } as const;
 

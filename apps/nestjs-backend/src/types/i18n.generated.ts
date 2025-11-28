@@ -3438,6 +3438,11 @@ export type I18nTranslations = {
                 "generatingData": string;
                 "generatingUpdates": string;
                 "recordsGenerated": string;
+                "recordsCount": string;
+                "fieldsCount": string;
+                "fieldsGenerated": string;
+                "updatedProperties": string;
+                "configured": string;
                 "recordsToUpdate": string;
                 "showingLast": string;
                 "recordLabel": string;
@@ -3529,8 +3534,10 @@ export type I18nTranslations = {
                 "deleteField": string;
                 "updateField": string;
                 "createRecord": string;
+                "createRecords": string;
                 "deleteRecord": string;
                 "updateRecord": string;
+                "updateRecords": string;
                 "updateBase": string;
                 "planTask": string;
                 "generateTables": string;
@@ -3589,6 +3596,8 @@ export type I18nTranslations = {
                 "queryReturned": string;
                 "row": string;
                 "moreRows": string;
+                "getDoc": string;
+                "getDocWithTopic": string;
             };
             "buildFlow": {
                 "progress": string;

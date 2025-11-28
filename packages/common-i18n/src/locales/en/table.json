@@ -762,6 +762,11 @@
       "generatingData": "Generating data...",
       "generatingUpdates": "Generating updates...",
       "recordsGenerated": "{{count}} record(s) generated",
+      "recordsCount": "Records({{count}})",
+      "fieldsCount": "Fields({{count}})",
+      "fieldsGenerated": "{{count}} field(s) generated",
+      "updatedProperties": "Updated ({{count}})",
+      "configured": "configured",
       "recordsToUpdate": "{{count}} record(s) to update",
       "showingLast": "last {{count}}",
       "recordLabel": "Record",
@@ -822,8 +827,10 @@
       "deleteField": "Delete field",
       "updateField": "Update field",
       "createRecord": "Create record",
+      "createRecords": "Create records",
       "deleteRecord": "Delete record",
       "updateRecord": "Update record",
+      "updateRecords": "Update records",
 
       "updateBase": "Update database info",
       "planTask": "Plan task...",
@@ -886,7 +893,9 @@
       "moreViews": "... +{{count}} more view(s)",
       "queryReturned": "Query returned {{rowCount}} row(s) × {{columnCount}} column(s)",
       "row": "Row {{index}}",
-      "moreRows": "... +{{count}} more row(s)"
+      "moreRows": "... +{{count}} more row(s)",
+      "getDoc": "Get Doc",
+      "getDocWithTopic": "Get Doc · {{topic}}"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",

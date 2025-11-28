@@ -764,6 +764,11 @@
       "generatingData": "正在生成数据...",
       "generatingUpdates": "正在生成更新...",
       "recordsGenerated": "已生成 {{count}} 条记录",
+      "recordsCount": "记录({{count}})",
+      "fieldsCount": "字段({{count}})",
+      "fieldsGenerated": "已生成 {{count}} 个字段",
+      "updatedProperties": "已更新 ({{count}})",
+      "configured": "已配置",
       "recordsToUpdate": "待更新 {{count}} 条记录",
       "showingLast": "后 {{count}} 条",
       "recordLabel": "记录",
@@ -824,8 +829,10 @@
       "deleteField": "删除字段",
       "updateField": "更新字段",
       "createRecord": "创建记录",
+      "createRecords": "创建记录",
       "deleteRecord": "删除记录",
       "updateRecord": "更新记录",
+      "updateRecords": "更新记录",
 
       "updateBase": "更新数据库信息",
       "planTask": "规划任务中...",
@@ -889,7 +896,9 @@
       "moreViews": "... +{{count}} 个视图",
       "queryReturned": "查询返回 {{rowCount}} 行 × {{columnCount}} 列",
       "row": "行 {{index}}",
-      "moreRows": "... +{{count}} 行"
+      "moreRows": "... +{{count}} 行",
+      "getDoc": "获取文档",
+      "getDocWithTopic": "获取文档 · {{topic}}"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
