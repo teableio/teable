@@ -207,7 +207,15 @@ export const BaseNodeTree = () => {
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
-    canDrop: (_, target) => canMoveNode && target.item.isFolder(),
+    canDrop: (item, target) => {
+      if (editingNodeId) return false;
+      if (!canMoveNode) return false;
+      if (item.length !== 1) return false;
+      if (!target.item.isFolder()) return false;
+      if (!item[0].isFolder()) return true;
+      if (getItemLevel(item[0]) < maxFolderDepth - 1) return true;
+      return false;
+    },
     onDrop: handleDrop,
     onPrimaryAction: handlePrimaryAction,
     features: [
@@ -227,7 +235,12 @@ export const BaseNodeTree = () => {
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     if (editingNodeId) {
-      timeout = setTimeout(() => inputRef.current?.focus());
+      timeout = setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+          inputRef.current.select();
+        }
+      }, 100);
     }
     return () => {
       if (timeout) {
@@ -280,7 +293,7 @@ export const BaseNodeTree = () => {
           </div>
         </BaseNodeAddResourceButton>
       </div>
-      <ScrollArea className="flex w-full" scrollBar="none">
+      <ScrollArea className="flex w-full !border-none" scrollBar="none">
         <Tree indent={INDENTATION_WIDTH} tree={tree}>
           <AssistiveTreeDescription tree={tree} />
           {tree.getItems().map((item) => {
@@ -318,13 +331,15 @@ export const BaseNodeTree = () => {
                         style={{
                           boxShadow: 'none',
                         }}
-                        className="round-none h-full cursor-text bg-background px-4 outline-none"
+                        className="round-none h-full cursor-text bg-background  outline-none"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') {
                             const newVal = e.currentTarget.value;
                             if (newVal && newVal !== item.getItemName()) {
                               curdHooks.updateNode(nodeId, { name: newVal });
                             }
+                            setEditingNodeId(null);
+                          } else if (e.key === 'Escape') {
                             setEditingNodeId(null);
                           }
                         }}

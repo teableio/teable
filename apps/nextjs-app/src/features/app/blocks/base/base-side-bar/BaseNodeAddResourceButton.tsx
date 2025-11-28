@@ -163,7 +163,6 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             {t('table:import.menu.excelFile')}
           </Button>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
       </>
     );
   };
