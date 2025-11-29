@@ -776,7 +776,17 @@
       "statusCreating": "创建中...",
       "statusUpdating": "更新中...",
       "statusCreated": "已创建",
-      "statusUpdated": "已更新"
+      "statusUpdated": "已更新",
+      "generateApp": {
+        "title": "应用生成器",
+        "listingApps": "获取应用列表",
+        "creatingApp": "创建应用",
+        "updatingApp": "更新应用",
+        "generatingApp": "生成应用",
+        "generating": "生成中...",
+        "openApp": "打开应用",
+        "viewProgress": "查看进度"
+      }
     },
     "tools": {
       "getTeableApi": "获取 Teable API",

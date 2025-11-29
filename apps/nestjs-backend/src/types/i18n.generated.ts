@@ -3451,6 +3451,16 @@ export type I18nTranslations = {
                 "statusUpdating": string;
                 "statusCreated": string;
                 "statusUpdated": string;
+                "generateApp": {
+                    "title": string;
+                    "listingApps": string;
+                    "creatingApp": string;
+                    "updatingApp": string;
+                    "generatingApp": string;
+                    "generating": string;
+                    "openApp": string;
+                    "viewProgress": string;
+                };
             };
             "codeBlock": {
                 "hiddenLines": string;

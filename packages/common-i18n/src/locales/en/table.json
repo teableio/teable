@@ -774,7 +774,17 @@
       "statusCreating": "Creating...",
       "statusUpdating": "Updating...",
       "statusCreated": "Created",
-      "statusUpdated": "Updated"
+      "statusUpdated": "Updated",
+      "generateApp": {
+        "title": "App Builder",
+        "listingApps": "Listing apps",
+        "creatingApp": "Creating app",
+        "updatingApp": "Updating app",
+        "generatingApp": "Generating app",
+        "generating": "Generating...",
+        "openApp": "Open App",
+        "viewProgress": "View Progress"
+      }
     },
     "tools": {
       "getTeableApi": "Get Teable API",
