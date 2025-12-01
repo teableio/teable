@@ -337,9 +337,14 @@ export async function getRecord(
   expectStatus = 200
 ): Promise<IRecord> {
   try {
-    const res = await apiGetRecord(tableId, recordId, {
+    const query: { fieldKeyType: FieldKeyType; cellFormat?: CellFormat } = {
       fieldKeyType: FieldKeyType.Id,
-      cellFormat,
+    };
+    if (cellFormat) {
+      query.cellFormat = cellFormat;
+    }
+    const res = await apiGetRecord(tableId, recordId, {
+      ...query,
     });
 
     expect(res.status).toEqual(expectStatus);

@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
-import type { IFieldRo, IRecordsVo } from '@teable/core';
+import type { IFieldRo } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
+import type { IRecordsVo } from '@teable/openapi';
 import {
   createBase,
   createField,
@@ -100,7 +101,7 @@ describe('Audit user fields (API only)', () => {
       fieldKeyType: FieldKeyType.Id,
     });
 
-    const updated = await getRecord(table.id, recordId, { fieldKeyType: FieldKeyType.Id });
+    const updated = await getRecord(table.id, recordId);
 
     expect(updated.fields[createdByField.id]).toMatchObject({
       title: userName,
