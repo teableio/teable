@@ -73,7 +73,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv-chunk';
 
   private logger = new Logger(ImportTableCsvChunkQueueProcessor.name);
-  private importQueueEvents: QueueEvents;
+  private importQueueEvents?: QueueEvents;
 
   constructor(
     private readonly notificationService: NotificationService,
@@ -82,10 +82,28 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     @InjectQueue(TABLE_IMPORT_CSV_CHUNK_QUEUE) public readonly queue: Queue<ITableImportChunkJob>
   ) {
     super();
-    this.importQueueEvents = new QueueEvents(TABLE_IMPORT_CSV_QUEUE, {
-      // Reuse the Redis connection configuration of the import queue
-      connection: this.importTableCsvQueueProcessor.queue.opts.connection,
-    });
+    // When BACKEND_CACHE_REDIS_URI is not set, queues are backed by the local
+    // fallback implementation instead of BullMQ. In that case the injected
+    // queue object does not expose BullMQ's `opts.connection`, so we must guard
+    // against it to avoid throwing during application bootstrap (e.g. e2e).
+    const underlyingQueue = this.importTableCsvQueueProcessor.queue as Queue<unknown> & {
+      // `opts` only exists when using the real BullMQ queue
+      opts?: { connection?: unknown };
+    };
+
+    const connection = underlyingQueue?.opts?.connection;
+
+    if (connection) {
+      this.importQueueEvents = new QueueEvents(TABLE_IMPORT_CSV_QUEUE, {
+        // Reuse the Redis connection configuration of the import queue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        connection: connection as any,
+      });
+    } else {
+      this.logger.log(
+        'ImportTableCsvChunkQueueProcessor initialized without Redis connection; QueueEvents disabled (fallback queue in use).'
+      );
+    }
   }
 
   public async process(job: Job<ITableImportChunkJob>) {
@@ -178,15 +196,16 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
               return;
             }
             try {
-              workerId === id &&
-                (await this.chunkToFile(
+              if (workerId === id) {
+                await this.chunkToFile(
                   jobData,
                   jobId,
                   table.id,
                   [recordCount - records.length, recordCount - 1],
                   records,
                   lastChunk
-                ));
+                );
+              }
               worker.postMessage({ type: 'done', chunkId });
             } catch (e: unknown) {
               const error = e as Error;
@@ -288,7 +307,11 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
 
     // Wait for the current chunk import job to complete before processing the next chunk,
     // ensuring that all chunks of the same import task are executed sequentially across multiple Pods.
-    await importJob.waitUntilFinished(this.importQueueEvents);
+    // In fallback (non-Redis) mode, `importQueueEvents` is undefined and jobs are handled
+    // in-process, so there is nothing to wait for.
+    if (this.importQueueEvents) {
+      await importJob.waitUntilFinished(this.importQueueEvents);
+    }
   }
 
   @OnWorkerEvent('error')
