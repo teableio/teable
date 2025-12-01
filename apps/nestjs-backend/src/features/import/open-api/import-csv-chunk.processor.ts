@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import os from 'os';
 import { Readable } from 'stream';
 import { Worker } from 'worker_threads';
 import { InjectQueue, OnWorkerEvent, Processor, WorkerHost } from '@nestjs/bullmq';
@@ -8,13 +9,16 @@ import { getRandomString } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
+import { toNumber } from 'lodash';
 import Papa from 'papaparse';
 import type { I18nPath } from '../../../types/i18n.generated';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
 import { ImportTableCsvQueueProcessor, TABLE_IMPORT_CSV_QUEUE } from './import-csv.processor';
-import { getWorkerPath, importerFactory } from './import.class';
+import { DEFAULT_IMPORT_CPU_USAGE, getWorkerPath, importerFactory } from './import.class';
+
+const importCpuUsage = toNumber(process.env.IMPORT_CPU_USAGE ?? DEFAULT_IMPORT_CPU_USAGE);
 
 class ImportError extends Error {
   constructor(
@@ -56,7 +60,10 @@ interface ITableImportChunkJob {
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
-export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = 6;
+export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = Math.max(
+  Math.floor(os.cpus().length * importCpuUsage),
+  1
+);
 
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_CHUNK_QUEUE, {

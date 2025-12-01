@@ -14,6 +14,8 @@ import { CustomHttpException } from '../../../custom.exception';
 import { exceptionParse } from '../../../utils/exception-parse';
 import { toLineDelimitedStream } from './delimiter-stream';
 
+export const DEFAULT_IMPORT_CPU_USAGE = 0.5;
+
 export const parseBoolean = (value: unknown): boolean => {
   if (typeof value === 'boolean') return value;
 
