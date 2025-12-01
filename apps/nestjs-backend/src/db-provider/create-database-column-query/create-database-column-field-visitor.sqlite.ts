@@ -432,14 +432,10 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       this.createStandardColumn(field);
       return;
     }
-    // Persist as generated column that mirrors __created_by (TEXT)
-    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      `TEXT GENERATED ALWAYS AS (__created_by) ${storageType}`
-    );
+    // Persist as a JSON column (stores collaborator payload)
+    this.createStandardColumn(field);
     (this.context.field as CreatedByFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 
@@ -448,14 +444,10 @@ export class CreateSqliteDatabaseColumnFieldVisitor implements IFieldVisitor<voi
       this.createStandardColumn(field);
       return;
     }
-    // Persist as generated column that mirrors __last_modified_by (TEXT)
-    const storageType = this.context.isNewTable ? 'STORED' : 'VIRTUAL';
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      `TEXT GENERATED ALWAYS AS (__last_modified_by) ${storageType}`
-    );
+    // Persist as a JSON column (stores collaborator payload)
+    this.createStandardColumn(field);
     (this.context.field as LastModifiedByFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 }

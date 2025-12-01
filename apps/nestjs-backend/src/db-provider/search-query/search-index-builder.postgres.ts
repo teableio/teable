@@ -36,7 +36,7 @@ export class FieldFormatter {
         }
         case CellValueType.String: {
           if (isStructuredCellValue) {
-            return `value->>'title'::text`;
+            return `jsonb_extract_path_text(to_jsonb(value), 'title')`;
           }
           if (field.type === FieldType.LongText) {
             // chr(13) is carriage return, chr(10) is line feed, chr(9) is tab

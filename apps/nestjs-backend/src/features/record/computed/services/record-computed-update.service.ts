@@ -32,6 +32,9 @@ export class RecordComputedUpdateService {
   private getUpdatableColumns(fields: IFieldInstance[]): string[] {
     const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
       f.type === FieldType.Formula;
+    const isPersistedGenerated = (f: IFieldInstance) =>
+      (f as { meta?: { persistedAsGeneratedColumn?: boolean } }).meta
+        ?.persistedAsGeneratedColumn === true;
 
     return fields
       .filter((f) => {
@@ -56,8 +59,11 @@ export class RecordComputedUpdateService {
           .with({ type: FieldType.AutoNumber }, () => false)
           .with({ type: FieldType.CreatedTime }, () => isLookupStyle)
           .with({ type: FieldType.LastModifiedTime }, () => isLookupStyle)
-          .with({ type: FieldType.CreatedBy }, () => isLookupStyle)
-          .with({ type: FieldType.LastModifiedBy }, () => isLookupStyle)
+          .with({ type: FieldType.CreatedBy }, (f) => isLookupStyle || !isPersistedGenerated(f))
+          .with(
+            { type: FieldType.LastModifiedBy },
+            (f) => isLookupStyle || !isPersistedGenerated(f)
+          )
           .otherwise(() => true);
       })
       .map((f) => f.dbFieldName);
@@ -66,6 +72,9 @@ export class RecordComputedUpdateService {
   private getReturningColumns(fields: IFieldInstance[]): string[] {
     const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
       f.type === FieldType.Formula;
+    const isPersistedGenerated = (f: IFieldInstance) =>
+      (f as { meta?: { persistedAsGeneratedColumn?: boolean } }).meta
+        ?.persistedAsGeneratedColumn === true;
     const cols: string[] = [];
     for (const f of fields) {
       if (
@@ -73,7 +82,8 @@ export class RecordComputedUpdateService {
         (f.type === FieldType.CreatedBy ||
           f.type === FieldType.LastModifiedBy ||
           f.type === FieldType.CreatedTime ||
-          f.type === FieldType.LastModifiedTime)
+          f.type === FieldType.LastModifiedTime) &&
+        isPersistedGenerated(f)
       ) {
         continue;
       }

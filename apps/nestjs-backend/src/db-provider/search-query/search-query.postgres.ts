@@ -149,7 +149,9 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
   protected json() {
     const { search, knex } = this;
     const searchValue = search[0];
-    return knex.raw(`${this.fieldName}->>'title' ILIKE ?`, [`%${searchValue}%`]);
+    return knex.raw(`jsonb_extract_path_text(to_jsonb(${this.fieldName}), 'title') ILIKE ?`, [
+      `%${searchValue}%`,
+    ]);
   }
 
   protected multipleText() {

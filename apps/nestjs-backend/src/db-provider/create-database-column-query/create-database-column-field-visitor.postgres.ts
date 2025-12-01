@@ -434,13 +434,10 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       this.createStandardColumn(field);
       return;
     }
-    // Persist as generated column that mirrors __created_by (TEXT)
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      'TEXT GENERATED ALWAYS AS (__created_by) STORED'
-    );
+    // Persist as a JSON column (stores collaborator payload)
+    this.createStandardColumn(field);
     (this.context.field as CreatedByFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 
@@ -449,13 +446,10 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       this.createStandardColumn(field);
       return;
     }
-    // Persist as generated column that mirrors __last_modified_by (TEXT)
-    this.context.table.specificType(
-      this.context.dbFieldName,
-      'TEXT GENERATED ALWAYS AS (__last_modified_by) STORED'
-    );
+    // Persist as a JSON column (stores collaborator payload)
+    this.createStandardColumn(field);
     (this.context.field as LastModifiedByFieldDto).setMetadata({
-      persistedAsGeneratedColumn: true,
+      persistedAsGeneratedColumn: false,
     });
   }
 }

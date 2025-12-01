@@ -8,6 +8,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  CreatedByFieldCore,
   FieldCore,
   IAttachmentCellValue,
   IColumnMeta,
@@ -81,11 +82,11 @@ import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
 import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
-import type { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -1159,10 +1160,21 @@ export class RecordService {
       fields: Record<string, unknown>;
     }[]
   ) {
-    const userId = this.cls.get('user.id');
+    const user = this.cls.get('user');
+    const userId = user.id;
     await this.creditCheck(table.id);
     const dbTableName = table.dbTableName;
     const fields = await this.getFieldsByProjection(table.id);
+    const auditUserValue =
+      user &&
+      UserFieldDto.fullAvatarUrl({
+        id: user.id,
+        title: user.name,
+        email: user.email,
+      });
+    const createdByFields = fields.filter(
+      (f) => f.type === FieldType.CreatedBy && f.shouldPersistAuditValue?.()
+    ) as IFieldInstance[];
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
         map[curField.id] = curField;
@@ -1177,6 +1189,13 @@ export class RecordService {
         const fieldInstance = fieldInstanceMap[fieldId];
         fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
       });
+      if (auditUserValue && createdByFields.length) {
+        createdByFields.forEach((field) => {
+          fieldsValues[field.dbFieldName] = field.convertCellValue2DBValue({
+            ...auditUserValue,
+          });
+        });
+      }
       return {
         __id: generateRecordId(),
         __created_by: userId,
@@ -1259,6 +1278,27 @@ export class RecordService {
       .filter((f) => f.type !== FieldType.Link)
       .filter((field) => field.notNull || field.unique);
 
+    const user = this.cls.get('user');
+    const auditUserValue =
+      user &&
+      UserFieldDto.fullAvatarUrl({
+        id: user.id,
+        title: user.name,
+        email: user.email,
+      });
+    const createdByFields = fields.filter(
+      (f) => f.type === FieldType.CreatedBy && (f as CreatedByFieldCore).shouldPersistAuditValue?.()
+    );
+    const cloneAuditUserValue = () => (auditUserValue ? { ...auditUserValue } : null);
+    const sanitizeAuditUserValue = () => {
+      const cloned = cloneAuditUserValue();
+      if (cloned && typeof cloned === 'object' && 'avatarUrl' in cloned) {
+        // Avatar URLs are derived; strip before persistence to keep storage lean
+        delete (cloned as { avatarUrl?: string }).avatarUrl;
+      }
+      return cloned;
+    };
+
     const snapshots = records
       .map((record, i) =>
         views.reduce<{ [viewIndexFieldName: string]: number }>((pre, cur) => {
@@ -1290,6 +1330,13 @@ export class RecordService {
           },
           {} as Record<string, unknown>
         );
+        const auditFieldValues: Record<string, unknown> = {};
+
+        if (auditUserValue && createdByFields.length) {
+          createdByFields.forEach((field) => {
+            auditFieldValues[field.dbFieldName] = sanitizeAuditUserValue();
+          });
+        }
 
         return removeUndefined({
           __id: snapshot.id,
@@ -1301,6 +1348,7 @@ export class RecordService {
           __version: 1,
           ...order,
           ...dbFieldValueMap,
+          ...auditFieldValues,
         });
       });
 
