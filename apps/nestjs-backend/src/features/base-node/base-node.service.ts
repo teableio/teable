@@ -7,6 +7,7 @@ import {
   getBaseNodeChannel,
   HttpErrorCode,
 } from '@teable/core';
+import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IBaseNodePresenceCreatePayload,
@@ -174,6 +175,11 @@ export class BaseNodeService {
       | IBaseNodePresenceDeletePayload,
   >(baseId: string, handler: (presence: LocalPresence<T>) => void) {
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
+    // Skip if ShareDB connection is already closed (e.g., during shutdown)
+    if (this.shareDbService.shareDbAdapter.closed) {
+      this.logger.error('ShareDB connection is already closed, presence handler skipped');
+      return;
+    }
     const channel = getBaseNodeChannel(baseId);
     const presence = this.shareDbService.connect().getPresence(channel);
     const localPresence = presence.create(channel);
@@ -1151,17 +1157,17 @@ export class BaseNodeService {
       return;
     }
 
-    const deleteNode = async (prisma: PrismaService) => {
+    const deleteNode = async (prisma: Prisma.TransactionClient) => {
       const toDeleteNode = await prisma.baseNode.findFirst({
         where: { baseId, resourceType, resourceId },
       });
       if (!toDeleteNode) {
         return;
       }
-      const maxOrder = await this.getMaxOrder(baseId);
-      await prisma.baseNode.delete({
+      await prisma.baseNode.deleteMany({
         where: { id: toDeleteNode.id },
       });
+      const maxOrder = await this.getMaxOrder(baseId);
       const orphans = await prisma.baseNode.findMany({
         where: { baseId, parentId: toDeleteNode.parentId },
         select: { id: true, order: true },
