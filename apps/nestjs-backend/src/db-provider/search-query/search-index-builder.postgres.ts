@@ -1,3 +1,4 @@
+/* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { assertNever, CellValueType, FieldType } from '@teable/core';
 import type { IFieldInstance } from '../../features/field/model/factory';
@@ -228,12 +229,16 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     return expectIndexDef
       .filter(({ indexDef }) => {
         const existIndex = existingIndex.map((idx) =>
-          idx.indexdef.toLowerCase().replace(/[()\s"']/g, '')
+          idx.indexdef
+            .toLowerCase()
+            .replace(/[()\s"']/g, '')
+            .replace(/::(jsonb|text\[\]|text)/g, '')
         );
         return !existIndex.includes(
           indexDef
             .toLowerCase()
             .replace(/[()\s"']/g, '')
+            .replace(/::(jsonb|text\[\]|text)/g, '')
             .replace(/ifnotexists/g, '')
         );
       })

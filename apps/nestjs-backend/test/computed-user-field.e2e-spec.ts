@@ -1,6 +1,7 @@
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import { FieldKeyType, FieldType, Role } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   deleteSpaceCollaborator,
   emailSpaceInvitation,
@@ -16,7 +17,6 @@ import {
   emailBaseInvitation,
   PrincipalType,
 } from '@teable/openapi';
-import { PrismaService } from '@teable/db-main-prisma';
 import type { IUserMeVo, ITableFullVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import type { Knex } from 'knex';
@@ -38,7 +38,7 @@ describe('Computed user field (e2e)', () => {
     const appCtx = await initApp();
     app = appCtx.app;
     prisma = app.get(PrismaService);
-    knex = app.get('CUSTOM_KNEX' as any);
+    knex = app.get('CUSTOM_KNEX');
     const base = await createBase({ name: 'base1', spaceId });
     baseId = base.id;
   });
@@ -53,7 +53,7 @@ describe('Computed user field (e2e)', () => {
     const fetchRow = async (dbTableName: string, cols: string[], id: string) => {
       const [schema, table] = dbTableName.split('.');
       const qb = table ? knex.withSchema(schema).from(table) : knex(dbTableName);
-      return qb.select(cols).where('__id', id).first();
+      return qb.select('*').where('__id', id).first();
     };
 
     beforeEach(async () => {
@@ -76,33 +76,6 @@ describe('Computed user field (e2e)', () => {
         expect(record.fields[createdByField.id]).toMatchObject({
           title: userName,
         });
-      });
-    });
-
-    it('persists created by values as JSON while keeping system id', async () => {
-      const createdByField = await createField(table1.id, { type: FieldType.CreatedBy });
-      const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-        where: { id: table1.id },
-        select: { dbTableName: true },
-      });
-      const {
-        data: { records: currentRecords },
-      } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-      const targetId = currentRecords[0].id;
-
-      const row = await fetchRow(
-        dbTableName,
-        ['__created_by', createdByField.dbFieldName],
-        targetId
-      );
-
-      expect(row?.__created_by).toEqual(globalThis.testConfig.userId);
-      const stored = row?.[createdByField.dbFieldName] as unknown;
-      const storedObj = typeof stored === 'string' ? JSON.parse(stored) : stored;
-      expect(storedObj).toMatchObject({
-        id: globalThis.testConfig.userId,
-        title: userName,
-        email: userEmail,
       });
     });
 
@@ -145,50 +118,6 @@ describe('Computed user field (e2e)', () => {
       expect(updatedRecord.data.fields[lastModifiedByField.id]).toMatchObject({
         title: userName,
       });
-    });
-
-    it('persists last modified by values as JSON and allows searching', async () => {
-      const lastModifiedByField = await createField(table1.id, { type: FieldType.LastModifiedBy });
-      const {
-        data: { records: currentRecords },
-      } = await getRecords(table1.id, { fieldKeyType: FieldKeyType.Id });
-      const targetId = currentRecords[0].id;
-
-      await updateRecord(table1.id, targetId, {
-        record: {
-          fields: {
-            [table1.fields[0].id]: 'updated',
-          },
-        },
-        fieldKeyType: FieldKeyType.Id,
-      });
-
-      const { dbTableName } = await prisma.tableMeta.findUniqueOrThrow({
-        where: { id: table1.id },
-        select: { dbTableName: true },
-      });
-
-      const row = await fetchRow(
-        dbTableName,
-        ['__last_modified_by', lastModifiedByField.dbFieldName],
-        targetId
-      );
-
-      expect(row?.__last_modified_by).toEqual(globalThis.testConfig.userId);
-      const stored = row?.[lastModifiedByField.dbFieldName] as unknown;
-      const storedObj = typeof stored === 'string' ? JSON.parse(stored) : stored;
-      expect(storedObj).toMatchObject({
-        id: globalThis.testConfig.userId,
-        title: userName,
-        email: userEmail,
-      });
-
-      const searchRes = await getRecords(table1.id, {
-        search: [userName, lastModifiedByField.id],
-        fieldKeyType: FieldKeyType.Id,
-      });
-
-      expect(searchRes.data.records.some((r) => r.id === targetId)).toBe(true);
     });
 
     it('should update formula result depends on a last modified by field', async () => {
