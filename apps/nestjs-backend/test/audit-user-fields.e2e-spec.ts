@@ -101,7 +101,7 @@ describe('Audit user fields (API only)', () => {
       fieldKeyType: FieldKeyType.Id,
     });
 
-    const updated = await getRecord(table.id, recordId, CellFormat.Text);
+    const updated = await getRecord(table.id, recordId);
 
     expect(updated.fields[createdByField.id]).toMatchObject({
       title: userName,
