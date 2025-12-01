@@ -170,7 +170,6 @@ export const BaseNodeTree = () => {
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
     const handler = createOnDropHandler<TreeItemData>((parentItem, newChildrenIds) => {
-      console.log('setTreeItems', parentItem.getId(), newChildrenIds);
       setTreeItems((prevItems) => ({
         ...prevItems,
         [parentItem.getId()]: {
@@ -214,7 +213,6 @@ export const BaseNodeTree = () => {
       const node = item.getItemData();
       const viewId = router.query.viewId as string;
       const { resourceType, resourceId } = node;
-      // fixme todo
       if (resourceType === BaseNodeResourceType.Table) {
         if (!tableHrefMap[resourceId]) {
           console.error('tableHrefMap[resourceId] not found', resourceId);

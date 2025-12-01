@@ -1,6 +1,6 @@
 import { noop } from 'lodash';
 import { createContext } from 'react';
-import type { TreeItemData } from '@/features/app/blocks/base/base-node/hooks/use-base-node';
+import type { TreeItemData } from './hooks';
 
 export const BaseNodeContext = createContext<{
   maxFolderDepth: number;

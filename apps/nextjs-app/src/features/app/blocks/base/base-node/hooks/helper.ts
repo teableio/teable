@@ -4,7 +4,7 @@ import type { IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
-import type { TreeItemData } from './use-base-node';
+import type { TreeItemData } from './useBaseNode';
 
 type TreeRootItem = {
   id: typeof ROOT_ID;
