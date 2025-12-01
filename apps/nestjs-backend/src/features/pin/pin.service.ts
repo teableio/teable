@@ -189,7 +189,7 @@ export class PinService {
         options: string;
       }[]
     >(Prisma.sql`
-      SELECT view.id, view.name, table_meta.base_id as baseId, table_meta.id as tableId, view.type, view.options
+      SELECT view.id, view.name, table_meta.base_id as "baseId", table_meta.id as "tableId", view.type, view.options
       FROM view
       LEFT JOIN table_meta ON view.table_id = table_meta.id
       WHERE view.id IN (${Prisma.join(ids)})
@@ -209,7 +209,7 @@ export class PinService {
   private async fetchWorkflows(ids?: string[]) {
     if (!ids?.length) return [];
     const sql = this.knex('workflow')
-      .select('id', 'name', 'base_id as baseId')
+      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
       .whereIn('id', ids)
       .whereNull('deleted_time')
       .toQuery();
@@ -219,7 +219,7 @@ export class PinService {
   private async fetchApps(ids?: string[]) {
     if (!ids?.length) return [];
     const sql = this.knex('app')
-      .select('id', 'name', 'base_id as baseId')
+      .select('id', 'name', this.knex.raw('base_id as "baseId"'))
       .whereIn('id', ids)
       .whereNull('deleted_time')
       .toQuery();
