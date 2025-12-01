@@ -101,17 +101,18 @@ describe('Audit user fields (API only)', () => {
       fieldKeyType: FieldKeyType.Id,
     });
 
-    const updated = await getRecord(table.id, recordId);
+    const updatedJson = await getRecord(table.id, recordId);
+    const updatedText = await getRecord(table.id, recordId, CellFormat.Text);
 
-    expect(updated.fields[createdByField.id]).toMatchObject({
+    expect(updatedJson.fields[createdByField.id]).toMatchObject({
       title: userName,
       email: userEmail,
     });
-    expect(updated.fields[lastModifiedByField.id]).toMatchObject({
+    expect(updatedJson.fields[lastModifiedByField.id]).toMatchObject({
       title: userName,
       email: userEmail,
     });
-    expect(updated.fields[formulaField.id]).toEqual(userName);
+    expect(updatedText.fields[formulaField.id]).toEqual(userName);
   });
 
   it('supports searching on user audit fields', async () => {
