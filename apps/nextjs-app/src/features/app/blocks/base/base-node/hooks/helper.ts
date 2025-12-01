@@ -1,7 +1,18 @@
 import type { UrlObject } from 'url';
 import { Table2 } from '@teable/icons';
+import type { IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
+import { keyBy } from 'lodash';
 import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
+import type { TreeItemData } from './use-base-node';
+
+type TreeRootItem = {
+  id: typeof ROOT_ID;
+  name: string;
+  resourceType: BaseNodeResourceType.Folder;
+  resourceId: typeof ROOT_ID;
+  children: string[];
+};
 
 export const ROOT_ID = '__root__';
 
@@ -85,4 +96,61 @@ export const cleanParentId = (parentId?: string | null) => {
     return null;
   }
   return parentId;
+};
+
+const cleanNodes = (nodes: IBaseNodeVo[], nodeMap: Record<string, IBaseNodeVo>): IBaseNodeVo[] => {
+  return nodes.map((node) => {
+    let parentId = null;
+    if (node.parentId) {
+      const parentNode = nodeMap[node.parentId];
+      if (
+        parentNode?.id === node.parentId &&
+        parentNode.resourceType === BaseNodeResourceType.Folder
+      ) {
+        parentId = node.parentId;
+      } else {
+        console.error(
+          `base menu node ${node.id} parentId is not valid, node: ${JSON.stringify(node)}, parentNode: ${JSON.stringify(parentNode)}`
+        );
+      }
+    }
+    const originalChildren = node.children ?? [];
+    let children = originalChildren;
+    if (children) {
+      children = children.filter((child) => nodeMap[child.id]?.id === child.id);
+      if (children.length !== originalChildren.length) {
+        console.error('base menu node children is not valid', node);
+      }
+    }
+    return {
+      ...node,
+      parentId,
+      children,
+    };
+  });
+};
+
+export const buildTreeItems = (nodes: IBaseNodeVo[]): Record<string, TreeItemData> => {
+  const nodeMap = keyBy(nodes, 'id');
+  const cleanedNodes = cleanNodes(nodes, nodeMap);
+  const result: Record<string, TreeRootItem | TreeItemData> = {
+    [ROOT_ID]: {
+      id: ROOT_ID,
+      name: 'baseMenuRoot',
+      resourceType: BaseNodeResourceType.Folder,
+      resourceId: ROOT_ID,
+      children: [],
+    },
+  };
+
+  for (const node of cleanedNodes) {
+    if (!node.parentId) {
+      result[ROOT_ID].children.push(node.id);
+    }
+    result[node.id] = {
+      ...node,
+      children: (node.children ?? []).map((child) => child.id),
+    };
+  }
+  return result as Record<string, TreeItemData>;
 };

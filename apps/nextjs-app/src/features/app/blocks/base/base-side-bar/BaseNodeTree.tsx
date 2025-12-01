@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import type { IUpdateUserLastVisitRo } from '@teable/openapi';
+import type { IBaseNodeVo, IDuplicateBaseNodeRo, IUpdateUserLastVisitRo } from '@teable/openapi';
 import {
   BaseNodeResourceType,
   updateUserLastVisit as updateUserLastVisitApi,
@@ -27,7 +27,7 @@ import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
@@ -61,12 +61,64 @@ export const BaseNodeTree = () => {
   }>();
   const tableHrefMap = useTableHref();
   const permission = useBasePermission();
-  const { confirm } = useConfirm();
+  const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { maxFolderDepth, treeItems, setTreeItems } = useContext(BaseNodeContext);
-  const curdHooks = useBaseNodeCrud();
+  const { maxFolderDepth, treeItems, setTreeItems, invalidateMenu } = useContext(BaseNodeContext);
+  const [pendingEditNodeId, setPendingEditNodeId] = useState<string | null>(null);
+
+  const createSuccefulyCallback = useCallback(
+    (node: IBaseNodeVo) => {
+      const { resourceType, resourceId } = node;
+      const url = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+      });
+      if (!url) {
+        return;
+      }
+      if (resourceType === BaseNodeResourceType.Table) {
+        router.push(url);
+        invalidateMenu();
+        setEditingNodeId(node.id);
+        return;
+      }
+      router.push(url, undefined, { shallow: true });
+      invalidateMenu();
+      setEditingNodeId(node.id);
+    },
+    [baseId, router, invalidateMenu]
+  );
+
+  const duplicateSuccefulyCallback = useCallback(
+    (node: IBaseNodeVo) => {
+      const { resourceType, resourceId } = node;
+      const url = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+      });
+      if (resourceType === BaseNodeResourceType.Table) {
+        router.push(url);
+        invalidateMenu();
+        setEditingNodeId(node.id);
+        return;
+      }
+      router.push(url, undefined, { shallow: true });
+      invalidateMenu();
+      setEditingNodeId(node.id);
+    },
+    [baseId, router, invalidateMenu]
+  );
+
+  const curdHooks = useBaseNodeCrud({
+    onCreateSuccess: createSuccefulyCallback,
+    onDuplicateSuccess: duplicateSuccefulyCallback,
+    onDeleteSuccess: () => invalidateMenu(),
+    onMoveSuccess: () => invalidateMenu(),
+  });
   const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
   const treeItemsRef = useRef(treeItems);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
@@ -232,6 +284,39 @@ export const BaseNodeTree = () => {
     tree.rebuildTree();
   }, [tree, treeItems]);
 
+  // Handle pending edit node - scroll to it and set editing mode
+  useEffect(() => {
+    if (!pendingEditNodeId || !treeItems[pendingEditNodeId]) return;
+
+    const node = treeItems[pendingEditNodeId];
+
+    // Expand parent folder if exists
+    if (node.parentId && node.parentId !== ROOT_ID) {
+      setExpandedItems((prev) => {
+        const expanded = prev ?? [];
+        if (!expanded.includes(node.parentId!)) {
+          return [...expanded, node.parentId!];
+        }
+        return expanded;
+      });
+    }
+
+    // Use requestAnimationFrame to wait for DOM update after tree rebuild
+    requestAnimationFrame(() => {
+      // Scroll to the node element
+      const nodeElement = document.querySelector(`[data-rct-item-id="${pendingEditNodeId}"]`);
+      if (nodeElement) {
+        nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+
+      // Set editing mode
+      setEditingNodeId(pendingEditNodeId);
+
+      // Clear pending edit node
+      setPendingEditNodeId(null);
+    });
+  }, [pendingEditNodeId, treeItems, setExpandedItems]);
+
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     if (editingNodeId) {
@@ -378,20 +463,22 @@ export const BaseNodeTree = () => {
                             resourceId={resourceId}
                             className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
                             onRename={() => setEditingNodeId(nodeId)}
-                            onDelete={async () => {
-                              const result = await confirm({
-                                title: t('common:actions.delete'),
-                                description: t('common:actions.deleteTip', {
-                                  name,
-                                }),
-                                confirmText: t('common:actions.delete'),
-                                cancelText: t('common:actions.cancel'),
-                                confirmButtonVariant: 'destructive',
-                              });
+                            onDelete={async (permanent: boolean, confirm: boolean = true) => {
+                              const result = !confirm
+                                ? true
+                                : await comfirmModal({
+                                    title: t('common:actions.delete'),
+                                    description: t('common:actions.deleteTip', {
+                                      name,
+                                    }),
+                                    confirmText: t('common:actions.delete'),
+                                    cancelText: t('common:actions.cancel'),
+                                    confirmButtonVariant: 'destructive',
+                                  });
                               if (result) {
                                 const aboveItem = item.getItemAbove();
                                 const belowItem = item.getItemBelow();
-                                await curdHooks.deleteNode(nodeId);
+                                await curdHooks.deleteNode(nodeId, permanent);
                                 if (!selectedItems.includes(nodeId)) {
                                   return;
                                 }
@@ -399,12 +486,15 @@ export const BaseNodeTree = () => {
                                   handlePrimaryAction(belowItem);
                                 } else if (aboveItem) {
                                   handlePrimaryAction(aboveItem);
-                                } else {
-                                  router.push(`/base/${baseId}`, undefined, { shallow: true });
                                 }
                               }
                             }}
-                            onDuplicate={() => curdHooks.duplicateNode(nodeId, { name })}
+                            onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
+                              await curdHooks.duplicateNode(nodeId, {
+                                name,
+                                ...(ro ?? {}),
+                              });
+                            }}
                           />
                         </div>
                       </div>

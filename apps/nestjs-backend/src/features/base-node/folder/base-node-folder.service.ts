@@ -50,7 +50,7 @@ export class BaseNodeFolderService {
   }
 
   async deleteFolder(baseId: string, folderId: string) {
-    await this.prismaService.baseNodeFolder.delete({
+    await this.prismaService.txClient().baseNodeFolder.delete({
       where: { baseId, id: folderId },
     });
   }

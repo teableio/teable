@@ -119,6 +119,16 @@ export class BaseNodeController {
     return this.baseNodeService.delete(baseId, nodeId);
   }
 
+  @Delete(':nodeId/permanent')
+  @Permissions('base|read')
+  @BaseNodePermissions('base_node|delete')
+  async permanentDelete(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string
+  ): Promise<void> {
+    return this.baseNodeService.delete(baseId, nodeId, true);
+  }
+
   protected async getPermissionContext(_baseId: string) {
     const permissions = this.cls.get('permissions');
     const permissionSet = new Set(permissions);

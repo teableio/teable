@@ -8,6 +8,7 @@ import { baseNodeVoSchema, type IBaseNodeVo } from './types';
 
 export const DUPLICATE_BASE_NODE = '/base/{baseId}/node/{nodeId}/duplicate';
 
+// workflow and app use the same schema
 export const duplicateNodeRoSchema = z.object({
   name: z.string().trim().optional(),
 });

@@ -59,6 +59,7 @@ export const BaseTrashPage = () => {
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.getTrashItems(baseId));
+      queryClient.invalidateQueries(ReactQueryKeys.baseNodeTree(baseId));
       toast.success(t('actions.restoreSucceed'));
     },
   });

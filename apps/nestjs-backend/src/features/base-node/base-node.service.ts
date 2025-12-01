@@ -463,39 +463,76 @@ export class BaseNodeService {
   }
 
   async duplicate(baseId: string, nodeId: string, ro: IDuplicateBaseNodeRo) {
-    const node = await this.prismaService.baseNode
+    const anchor = await this.prismaService.baseNode
       .findFirstOrThrow({
         where: { baseId, id: nodeId },
       })
       .catch(() => {
         throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
       });
-    const { resourceType, resourceId } = node;
+    const { resourceType, resourceId } = anchor;
 
     if (resourceType === BaseNodeResourceType.Folder) {
       throw new CustomHttpException('Cannot duplicate folder', HttpErrorCode.VALIDATION_ERROR);
     }
 
-    const resource = await this.duplicateResource(
-      baseId,
-      resourceType as BaseNodeResourceType,
-      resourceId,
-      ro
-    );
-
-    const maxOrder = await this.getMaxOrder(baseId);
-    const entry = await this.prismaService.baseNode.create({
-      data: {
-        id: generateBaseNodeId(),
+    const { entry, resource } = await this.prismaService.$tx(async (prisma) => {
+      const resource = await this.duplicateResource(
         baseId,
-        resourceType,
-        resourceId: resource.id,
-        order: maxOrder + 1,
-        parentId: node.parentId,
-        createdBy: this.userId,
-      },
-      select: this.getSelect(),
+        resourceType as BaseNodeResourceType,
+        resourceId,
+        ro
+      );
+
+      const maxOrder = await this.getMaxOrder(baseId, anchor.parentId);
+      const newNodeId = generateBaseNodeId();
+      const entry = await prisma.baseNode.create({
+        data: {
+          id: newNodeId,
+          baseId,
+          resourceType,
+          resourceId: resource.id,
+          order: maxOrder + 1,
+          parentId: anchor.parentId,
+          createdBy: this.userId,
+        },
+        select: this.getSelect(),
+      });
+
+      await updateOrder({
+        query: baseId,
+        position: 'after',
+        item: entry,
+        anchorItem: anchor,
+        getNextItem: async (whereOrder, align) => {
+          return prisma.baseNode.findFirst({
+            where: {
+              baseId,
+              parentId: anchor.parentId,
+              order: whereOrder,
+              id: { not: newNodeId },
+            },
+            select: { order: true, id: true },
+            orderBy: { order: align },
+          });
+        },
+        update: async (_, id, data) => {
+          await prisma.baseNode.update({
+            where: { id },
+            data: { parentId: anchor.parentId, order: data.newOrder },
+          });
+        },
+        shuffle: async () => {
+          await this.shuffleOrders(baseId, anchor.parentId);
+        },
+      });
+
+      return {
+        entry,
+        resource,
+      };
     });
+
     const vo = await this.entry2vo(entry, {
       name: resource.name,
       icon: resource.icon,
@@ -599,7 +636,7 @@ export class BaseNodeService {
     }
   }
 
-  async delete(baseId: string, nodeId: string) {
+  async delete(baseId: string, nodeId: string, permanent?: boolean) {
     const node = await this.prismaService.baseNode
       .findFirstOrThrow({
         where: { baseId, id: nodeId },
@@ -615,9 +652,17 @@ export class BaseNodeService {
         throw new CustomHttpException('Folder is not empty', HttpErrorCode.VALIDATION_ERROR);
       }
     }
-    await this.deleteResource(baseId, node.resourceType as BaseNodeResourceType, node.resourceId);
-    await this.prismaService.baseNode.delete({
-      where: { id: nodeId },
+
+    await this.prismaService.$tx(async (prisma) => {
+      await this.deleteResource(
+        baseId,
+        node.resourceType as BaseNodeResourceType,
+        node.resourceId,
+        permanent
+      );
+      await prisma.baseNode.delete({
+        where: { id: nodeId },
+      });
     });
 
     this.presenceHandler(baseId, (presence) => {
@@ -628,13 +673,22 @@ export class BaseNodeService {
     });
   }
 
-  protected async deleteResource(baseId: string, type: BaseNodeResourceType, id: string) {
+  protected async deleteResource(
+    baseId: string,
+    type: BaseNodeResourceType,
+    id: string,
+    permanent?: boolean
+  ) {
     switch (type) {
       case BaseNodeResourceType.Folder:
         await this.baseNodeFolderService.deleteFolder(baseId, id);
         break;
       case BaseNodeResourceType.Table:
-        await this.tableOpenApiService.deleteTable(baseId, id);
+        if (permanent) {
+          await this.tableOpenApiService.permanentDeleteTables(baseId, [id]);
+        } else {
+          await this.tableOpenApiService.deleteTable(baseId, id);
+        }
         break;
       case BaseNodeResourceType.Dashboard:
         await this.dashboardService.deleteDashboard(baseId, id);

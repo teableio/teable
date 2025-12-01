@@ -4,9 +4,10 @@ export * from './get-tree';
 export * from './get-list';
 export * from './move';
 export * from './create';
-export * from './delete';
 export * from './duplicate';
 export * from './update';
+export * from './delete';
+export * from './permanent-delete';
 
 export * from './folder/create';
 export * from './folder/update';

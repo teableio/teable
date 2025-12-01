@@ -178,8 +178,9 @@ export class DashboardService {
   }
 
   async deleteDashboard(baseId: string, id: string) {
-    await this.prismaService.dashboard
-      .delete({
+    await this.prismaService
+      .txClient()
+      .dashboard.delete({
         where: {
           baseId,
           id,

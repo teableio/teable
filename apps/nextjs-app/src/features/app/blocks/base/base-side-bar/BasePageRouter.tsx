@@ -1,4 +1,4 @@
-import { Gauge, Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
+import { Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { BillingProductLevel } from '@teable/openapi';
 import { useBasePermission } from '@teable/sdk/hooks';
 import {
@@ -9,14 +9,11 @@ import {
   cn,
 } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
-import { AppWindowMac, Bot } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper';
-import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
-import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { tableConfig } from '@/features/i18n/table.config';
 import { QuickAction } from './QuickAction';
 
@@ -80,8 +77,6 @@ export const BasePageRouter = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
-  const isEE = useIsEE();
-  const { buildApp: buildAppEnabled } = useDisableAIAction();
 
   const pageRoutes: {
     href: string;
@@ -92,13 +87,6 @@ export const BasePageRouter = () => {
     () =>
       [
         {
-          href: `/base/${baseId}/app`,
-          label: t('common:noun.app'),
-          Icon: AppWindowMac,
-          hidden: !basePermission?.['base|update'] || !buildAppEnabled,
-          billingLevel: BillingProductLevel.Pro,
-        },
-        {
           href: `/base/${baseId}/authority-matrix`,
           label: t('common:noun.authorityMatrix'),
           Icon: Lock,
@@ -106,7 +94,7 @@ export const BasePageRouter = () => {
           billingLevel: BillingProductLevel.Pro,
         },
       ].filter((item) => !item.hidden),
-    [baseId, basePermission, buildAppEnabled, t]
+    [baseId, basePermission, t]
   );
 
   return (

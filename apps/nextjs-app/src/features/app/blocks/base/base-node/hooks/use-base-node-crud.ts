@@ -5,7 +5,7 @@ import type {
   ICreateBaseNodeRo,
   IDuplicateBaseNodeRo,
   IUpdateBaseNodeRo,
-  BaseNodeResourceType,
+  IBaseNodeVo,
 } from '@teable/openapi';
 import {
   moveBaseNode,
@@ -13,93 +13,55 @@ import {
   deleteBaseNode,
   duplicateBaseNode,
   updateBaseNode,
+  permanentDeleteBaseNode,
 } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useContext, useMemo } from 'react';
 import { BaseNodeContext } from '../BaseNodeContext';
-import { cleanParentId, getNodeUrl } from './helper';
+import { cleanParentId } from './helper';
 
-export const useBaseNodeCrud = () => {
+interface IUseBaseNodeCrudOptions {
+  onCreateSuccess?: (node: IBaseNodeVo) => void;
+  onDuplicateSuccess?: (node: IBaseNodeVo) => void;
+  onUpdateSuccess?: (node: IBaseNodeVo) => void;
+  onMoveSuccess?: (node: IBaseNodeVo) => void;
+  onDeleteSuccess?: (nodeId: string) => void;
+}
+
+export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const baseId = useBaseId() as string;
   const { t } = useTranslation(['table', 'common']);
-  const router = useRouter();
 
-  const { invalidateMenu, treeItems } = useContext(BaseNodeContext);
-
-  const createSuccefulyCallback = useCallback(
-    async ({
-      resourceType,
-      resourceId,
-    }: {
-      resourceType: BaseNodeResourceType;
-      resourceId: string;
-    }) => {
-      const url = getNodeUrl({
-        baseId,
-        resourceType,
-        resourceId,
-      });
-      router.push(url, undefined, { shallow: true });
-      invalidateMenu();
-    },
-    [baseId, router, invalidateMenu]
-  );
-
-  const duplicateSuccefulyCallback = useCallback(
-    async ({
-      resourceType,
-      resourceId,
-    }: {
-      resourceType: BaseNodeResourceType;
-      resourceId: string;
-    }) => {
-      const url = getNodeUrl({
-        baseId,
-        resourceType,
-        resourceId,
-      });
-      router.push(url, undefined, { shallow: true });
-    },
-    [baseId, router]
-  );
+  const { treeItems } = useContext(BaseNodeContext);
 
   const { mutateAsync: createNodeFn } = useMutation({
     mutationFn: (ro: ICreateBaseNodeRo) => createBaseNode(baseId, ro).then((res) => res.data),
-    onSuccess: ({ resourceId, resourceType }) =>
-      createSuccefulyCallback({
-        resourceType,
-        resourceId,
-      }),
+    onSuccess: (node) => props?.onCreateSuccess?.(node),
   });
 
   const { mutateAsync: updateNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IUpdateBaseNodeRo }) =>
       updateBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: () => invalidateMenu(),
+    onSuccess: (node) => props?.onUpdateSuccess?.(node),
   });
 
   const { mutateAsync: duplicateNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IDuplicateBaseNodeRo }) =>
       duplicateBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: ({ resourceId, resourceType }) =>
-      duplicateSuccefulyCallback({
-        resourceType,
-        resourceId,
-      }),
+    onSuccess: (node) => props?.onDuplicateSuccess?.(node),
   });
 
   const { mutateAsync: moveNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IMoveBaseNodeRo }) =>
       moveBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: () => invalidateMenu(),
+    onSuccess: (node) => props?.onMoveSuccess?.(node),
   });
 
   const { mutateAsync: deleteNodeFn } = useMutation({
-    mutationFn: ({ nodeId }: { nodeId: string }) =>
-      deleteBaseNode(baseId, nodeId).then((res) => res.data),
-    onSuccess: () => invalidateMenu(),
+    mutationFn: ({ nodeId, permanent }: { nodeId: string; permanent?: boolean }) =>
+      permanent ? permanentDeleteBaseNode(baseId, nodeId) : deleteBaseNode(baseId, nodeId),
+    onSuccess: (_, { nodeId }) => props?.onDeleteSuccess?.(nodeId),
   });
 
   const createNode = useCallback(
@@ -129,8 +91,8 @@ export const useBaseNodeCrud = () => {
       updateNode: async (nodeId: string, ro: IUpdateBaseNodeRo) => {
         return updateNodeFn({ nodeId, ro });
       },
-      deleteNode: async (nodeId: string) => {
-        return deleteNodeFn({ nodeId });
+      deleteNode: async (nodeId: string, permanent?: boolean) => {
+        return deleteNodeFn({ nodeId, permanent });
       },
       moveNode: async (nodeId: string, ro: IMoveBaseNodeRo) => {
         return moveNodeFn({ nodeId, ro });
