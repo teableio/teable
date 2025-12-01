@@ -1,10 +1,4 @@
-import {
-  BadGatewayException,
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import {
   CellValueType,
@@ -39,6 +33,7 @@ import { Knex } from 'knex';
 import { groupBy, isDate, isEmpty, isString, keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -75,6 +70,7 @@ export class AggregationService implements IAggregationService {
     private readonly prisma: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly cls: ClsService<IClsStore>,
     private readonly recordPermissionService: RecordPermissionService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
@@ -268,6 +264,10 @@ export class AggregationService implements IAggregationService {
         builder: permissionProbe.builder,
       }
     );
+
+    if (groupBy?.length) {
+      qb.limit(this.thresholdConfig.maxGroupPoints);
+    }
 
     const aggSql = qb.toQuery();
     this.logger.debug('handleAggregation aggSql: %s', aggSql);
