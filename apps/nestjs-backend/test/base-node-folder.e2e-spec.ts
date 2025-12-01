@@ -197,10 +197,10 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       }).then((res) => res.data);
 
       // Try to delete the parent folder
-      const error = await getError(() => deleteBaseNodeFolder(baseId, parentFolder.id));
+      const error = await getError(() => deleteBaseNode(baseId, parentFolder.id));
 
       expect(error?.status).toBe(400);
-      expect(error?.message).toContain('Folder is not empty');
+      expect(error?.message).toContain('Cannot delete folder because it is not empty');
 
       // Cleanup - need to delete the folder manually after removing children
       await deleteBaseNode(baseId, childFolder.id);
