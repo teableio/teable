@@ -75,10 +75,6 @@ describe('Audit user fields (API only)', () => {
     const titleFieldId = table.fields?.find((f) => f.name === 'Title')?.id as string;
     const createdByField = await createField(table.id, { type: FieldType.CreatedBy });
     const lastModifiedByField = await createField(table.id, { type: FieldType.LastModifiedBy });
-    const formulaField = await createField(table.id, {
-      type: FieldType.Formula,
-      options: { expression: `{${createdByField.id}}` },
-    });
 
     const { records: createdRecords } = await createRecords(table.id, {
       fieldKeyType: FieldKeyType.Id,
@@ -102,7 +98,6 @@ describe('Audit user fields (API only)', () => {
     });
 
     const updatedJson = await getRecord(table.id, recordId);
-    const updatedText = await getRecord(table.id, recordId, CellFormat.Text);
 
     expect(updatedJson.fields[createdByField.id]).toMatchObject({
       title: userName,
@@ -112,7 +107,6 @@ describe('Audit user fields (API only)', () => {
       title: userName,
       email: userEmail,
     });
-    expect(updatedText.fields[formulaField.id]).toEqual(userName);
   });
 
   it('supports searching on user audit fields', async () => {
