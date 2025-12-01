@@ -1,8 +1,7 @@
 import { ViewType } from '@teable/core';
-import { Component, Database, Gauge, Table2 } from '@teable/icons';
+import { Component, Database, Table2 } from '@teable/icons';
 import type { IGetPinListVo } from '@teable/openapi';
 import { BaseNodeResourceType, PinType } from '@teable/openapi';
-import { Bot } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';

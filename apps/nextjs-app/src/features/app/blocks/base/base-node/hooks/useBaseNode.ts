@@ -37,7 +37,6 @@ export const useBaseNode = () => {
 
   useEffect(() => {
     if (queryData?.nodes) {
-      console.log('queryData?.nodes', queryData?.nodes);
       setNodes(queryData?.nodes);
     }
   }, [queryData?.nodes, setNodes]);
