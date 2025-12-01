@@ -92,6 +92,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     await permanentDeleteBase(base.id);
     if (duplicateBaseId) {
       await permanentDeleteBase(duplicateBaseId);
+      duplicateBaseId = undefined;
     }
   });
 
@@ -604,7 +605,6 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       expect(baseResult.data.length).toBe(1);
 
       expect(tableResult.data.length).toBe(1);
-      await deleteBase(dupResult.data.id);
     });
   });
 
@@ -633,7 +633,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         spaceId: spaceId,
         name: 'test base copy',
       });
-
+      duplicateBaseId = dupResult.data.id;
       const newBaseId = dupResult.data.id;
 
       const dashboardList = (await getDashboardList(newBaseId)).data;
@@ -651,8 +651,6 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       expect(dashboardList.length).toBe(2);
       expect(installedPlugins.name).toBe('plugin1');
-
-      await deleteBase(dupResult.data.id);
     });
 
     it('should duplicate all panel plugins', async () => {
@@ -681,7 +679,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         spaceId: spaceId,
         name: 'test base copy',
       });
-
+      duplicateBaseId = dupResult.data.id;
       const panelList = (await listPluginPanels(pluginTable.id)).data;
 
       const panel1Info = (
@@ -699,8 +697,6 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       expect(panel1Info.layout?.length).toBe(2);
       expect(panelList.length).toBe(2);
       expect(installedPlugins.name).toBe('plugin1');
-
-      await deleteBase(dupResult.data.id);
     });
 
     it('should duplicate all view plugins', async () => {
@@ -719,7 +715,7 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
         spaceId: spaceId,
         name: 'test base copy',
       });
-
+      duplicateBaseId = dupResult.data.id;
       const views = (await getViewList(tableId)).data;
 
       const pluginViews = views.filter(({ type }) => type === ViewType.Plugin);
@@ -728,8 +724,6 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
 
       expect(pluginViews.find(({ name }) => name === sheetView1.name)).toBeDefined();
       expect(pluginViews.find(({ name }) => name === sheetView2.name)).toBeDefined();
-
-      await deleteBase(dupResult.data.id);
     });
   });
 });

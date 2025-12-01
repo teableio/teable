@@ -128,7 +128,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
     afterEach(async () => {
       // Cleanup created nodes
-      for (const nodeId of nodesToCleanup) {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
         await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
@@ -404,7 +404,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     const nodesToCleanup: string[] = [];
 
     afterEach(async () => {
-      for (const nodeId of nodesToCleanup) {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
         await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
@@ -686,7 +686,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     const nodesToCleanup: string[] = [];
 
     afterEach(async () => {
-      for (const nodeId of nodesToCleanup) {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
         await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
@@ -756,7 +756,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
     const nodesToCleanup: string[] = [];
 
     afterEach(async () => {
-      for (const nodeId of nodesToCleanup) {
+      for (const nodeId of [...nodesToCleanup].reverse()) {
         await deleteBaseNode(baseId, nodeId);
       }
       nodesToCleanup.length = 0;
@@ -1127,12 +1127,8 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
     afterAll(async () => {
       // Cleanup nodes first
-      for (const nodeId of nodesToCleanup) {
-        try {
-          await deleteBaseNode(permissionBaseId, nodeId);
-        } catch (e) {
-          // Ignore cleanup errors
-        }
+      for (const nodeId of [...nodesToCleanup].reverse()) {
+        await deleteBaseNode(permissionBaseId, nodeId);
       }
       // Then delete the space (which will delete the base)
       await apiPermanentDeleteSpace(permissionSpaceId);
@@ -1339,7 +1335,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       const creatorNodesToCleanup: string[] = [];
 
       afterEach(async () => {
-        for (const nodeId of creatorNodesToCleanup) {
+        for (const nodeId of [...creatorNodesToCleanup].reverse()) {
           await deleteBaseNode(permissionBaseId, nodeId);
         }
         creatorNodesToCleanup.length = 0;
