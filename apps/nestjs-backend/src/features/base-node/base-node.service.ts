@@ -404,23 +404,30 @@ export class BaseNodeService {
   async create(baseId: string, ro: ICreateBaseNodeRo): Promise<IBaseNodeVo> {
     const { resourceType, parentId } = ro;
 
-    const resource = await this.createResource(baseId, ro);
-    const resourceId = resource.id;
+    const { entry, resource } = await this.prismaService.$tx(async (prisma) => {
+      const resource = await this.createResource(baseId, ro);
+      const resourceId = resource.id;
 
-    // Try to create menu item with correct parentId
-    const maxOrder = await this.getMaxOrder(baseId);
-    const entry = await this.prismaService.baseNode.create({
-      data: {
-        id: generateBaseNodeId(),
-        baseId,
-        resourceType,
-        resourceId,
-        order: maxOrder + 1,
-        parentId,
-        createdBy: this.userId,
-      },
-      select: this.getSelect(),
+      const maxOrder = await this.getMaxOrder(baseId);
+      const entry = await prisma.baseNode.create({
+        data: {
+          id: generateBaseNodeId(),
+          baseId,
+          resourceType,
+          resourceId,
+          order: maxOrder + 1,
+          parentId,
+          createdBy: this.userId,
+        },
+        select: this.getSelect(),
+      });
+
+      return {
+        entry,
+        resource,
+      };
     });
+
     const vo = await this.entry2vo(entry, {
       name: resource.name,
       icon: resource.icon,
@@ -628,12 +635,16 @@ export class BaseNodeService {
           },
         });
       });
-    await this.updateResource(
-      baseId,
-      node.resourceType as BaseNodeResourceType,
-      node.resourceId,
-      ro
-    );
+
+    await this.prismaService.$tx(async () => {
+      await this.updateResource(
+        baseId,
+        node.resourceType as BaseNodeResourceType,
+        node.resourceId,
+        ro
+      );
+    });
+
     const vo = await this.entry2vo(node);
     this.presenceHandler(baseId, (presence) => {
       presence.submit({

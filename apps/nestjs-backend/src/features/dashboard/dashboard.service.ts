@@ -110,7 +110,7 @@ export class DashboardService {
 
   async createDashboard(baseId: string, dashboard: ICreateDashboardRo) {
     const userId = this.cls.get('user.id');
-    return this.prismaService.dashboard.create({
+    return this.prismaService.txClient().dashboard.create({
       data: {
         id: generateDashboardId(),
         baseId,
@@ -125,8 +125,9 @@ export class DashboardService {
   }
 
   async renameDashboard(baseId: string, id: string, name: string) {
-    return this.prismaService.dashboard
-      .update({
+    return this.prismaService
+      .txClient()
+      .dashboard.update({
         where: {
           baseId,
           id,

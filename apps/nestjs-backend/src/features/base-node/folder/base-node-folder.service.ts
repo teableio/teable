@@ -21,8 +21,7 @@ export class BaseNodeFolderService {
   async createFolder(baseId: string, ro: ICreateBaseNodeFolderRo) {
     const { name } = ro;
     const uniqueName = await this.getUniqueName(baseId, name);
-    this.logger.log('createFolder uniqueName', uniqueName);
-    return await this.prismaService.baseNodeFolder.create({
+    return this.prismaService.txClient().baseNodeFolder.create({
       data: {
         id: generateBaseNodeFolderId(),
         baseId,
@@ -34,22 +33,27 @@ export class BaseNodeFolderService {
 
   async renameFolder(baseId: string, folderId: string, body: IUpdateBaseNodeFolderRo) {
     const { name } = body;
-    const prismaService = this.prismaService;
 
-    const find = await prismaService.baseNodeFolder.findFirst({
-      where: { baseId, name, id: { not: folderId } },
-    });
-    if (find) {
-      throw new CustomHttpException('Folder name already exists', HttpErrorCode.VALIDATION_ERROR, {
-        localization: {
-          i18nKey: 'httpErrors.baseNode.nameAlreadyExists',
-        },
+    return this.prismaService.$tx(async (prisma) => {
+      const find = await prisma.baseNodeFolder.findFirst({
+        where: { baseId, name, id: { not: folderId } },
       });
-    }
+      if (find) {
+        throw new CustomHttpException(
+          'Folder name already exists',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.nameAlreadyExists',
+            },
+          }
+        );
+      }
 
-    return await this.prismaService.baseNodeFolder.update({
-      where: { id: folderId },
-      data: { name, lastModifiedBy: this.userId },
+      return prisma.baseNodeFolder.update({
+        where: { id: folderId },
+        data: { name, lastModifiedBy: this.userId },
+      });
     });
   }
 
