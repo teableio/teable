@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type {
   IButtonFieldOptions,
   IDateFieldOptions,
@@ -207,6 +207,9 @@ export class SelectionService {
       filterHidden: true,
       projection,
     });
+    const filteredFields = ranges.reduce((acc, range) => {
+      return acc.concat(fields.slice(range[0], range[1] + 1));
+    }, [] as IFieldVo[]);
 
     const records = await this.recordService.getRecordsFields(
       tableId,
@@ -215,16 +218,14 @@ export class SelectionService {
         skip: 0,
         take: -1,
         fieldKeyType: FieldKeyType.Id,
-        projection: this.fieldsToProjection(fields, FieldKeyType.Id),
+        projection: this.fieldsToProjection(filteredFields, FieldKeyType.Id),
       },
       true
     );
 
     return {
       records,
-      fields: ranges.reduce((acc, range) => {
-        return acc.concat(fields.slice(range[0], range[1] + 1));
-      }, [] as IFieldVo[]),
+      fields: filteredFields,
     };
   }
 
@@ -585,9 +586,9 @@ export class SelectionService {
     return {
       fieldKeyType: FieldKeyType.Id,
       typecast: true,
-      records: oldRecords.map(({ id, fields }, index) => {
+      records: oldRecords.map(({ id }, index) => {
         const newFields = newRecords?.[index]?.fields;
-        const updateFields = newFields ? { ...fields, ...newFields } : {};
+        const updateFields = newFields ?? {};
         return {
           id,
           fields: updateFields,
@@ -944,6 +945,7 @@ export class SelectionService {
     const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
     const payload: IUpdateRecordsInternalRo =
       maybeInternal.fieldIds !== undefined ? maybeInternal : { ...maybeInternal, fieldIds };
+    console.log('ddddddd', JSON.stringify(payload, null, 2));
     await this.recordOpenApiService.updateRecords(tableId, payload, windowId);
   }
 
