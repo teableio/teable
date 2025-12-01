@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "Base {{baseId}} and space {{spaceId}} mismatch",
       "templateNotFound": "Template {{templateId}} not found"
     },
+    "baseNode": {
+      "invalidResourceType": "Invalid resource type",
+      "notFound": "Base node not found",
+      "parentMustBeFolder": "Parent must be a folder",
+      "cannotDuplicateFolder": "Cannot duplicate folder",
+      "cannotDeleteEmptyFolder": "Cannot delete folder because it is not empty",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Only one of parentId or anchorId must be provided",
+      "cannotMoveToItself": "Cannot move node to itself",
+      "cannotMoveToCircularReference": "Cannot move node to its own child (circular reference)",
+      "anchorIdOrParentIdRequired": "At least one of parentId or anchorId must be provided",
+      "parentNotFound": "Parent node not found",
+      "parentIsNotFolder": "Parent is not a folder",
+      "circularReference": "Circular reference detected",
+      "folderDepthLimitExceeded": "Folder depth limit exceeded",
+      "folderNotFound": "Folder not found",
+      "anchorNotFound": "Anchor node not found",
+      "nameAlreadyExists": "Name already exists"
+    },
     "dashboard": {
       "notFound": "Dashboard not found"
     },

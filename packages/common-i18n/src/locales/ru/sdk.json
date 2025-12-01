@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "База {{baseId}} и пространство {{spaceId}} не совпадают",
       "templateNotFound": "Шаблон {{templateId}} не найден"
     },
+    "baseNode": {
+      "invalidResourceType": "Недопустимый тип ресурса",
+      "notFound": "Базовый узел не найден",
+      "parentMustBeFolder": "Родитель должен быть папкой",
+      "cannotDuplicateFolder": "Невозможно дублировать папку",
+      "cannotDeleteEmptyFolder": "Невозможно удалить папку, так как она не пуста",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Необходимо указать только parentId или anchorId",
+      "cannotMoveToItself": "Невозможно переместить узел на себя",
+      "cannotMoveToCircularReference": "Невозможно переместить узел в свой собственный дочерний узел (циклическая ссылка)",
+      "anchorIdOrParentIdRequired": "Необходимо указать хотя бы parentId или anchorId",
+      "parentNotFound": "Родительский узел не найден",
+      "parentIsNotFolder": "Родитель не является папкой",
+      "circularReference": "Обнаружена циклическая ссылка",
+      "folderDepthLimitExceeded": "Превышен лимит глубины папки",
+      "folderNotFound": "Папка не найдена",
+      "anchorNotFound": "Якорный узел не найден",
+      "nameAlreadyExists": "Имя уже существует"
+    },
     "dashboard": {
       "notFound": "Панель управления не найдена"
     },

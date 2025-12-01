@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
       "templateNotFound": "Şablon {{templateId}} bulunamadı"
     },
+    "baseNode": {
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Temel düğüm bulunamadı",
+      "parentMustBeFolder": "Üst öğe bir klasör olmalıdır",
+      "cannotDuplicateFolder": "Klasör çoğaltılamaz",
+      "cannotDeleteEmptyFolder": "Klasör boş olmadığı için silinemez",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Yalnızca parentId veya anchorId belirtilmelidir",
+      "cannotMoveToItself": "Düğüm kendisine taşınamaz",
+      "cannotMoveToCircularReference": "Düğüm kendi alt düğümüne taşınamaz (döngüsel referans)",
+      "anchorIdOrParentIdRequired": "En az parentId veya anchorId belirtilmelidir",
+      "parentNotFound": "Üst düğüm bulunamadı",
+      "parentIsNotFolder": "Üst öğe bir klasör değil",
+      "circularReference": "Döngüsel referans algılandı",
+      "folderDepthLimitExceeded": "Klasör derinlik sınırı aşıldı",
+      "folderNotFound": "Klasör bulunamadı",
+      "anchorNotFound": "Bağlantı düğümü bulunamadı",
+      "nameAlreadyExists": "İsim zaten mevcut"
+    },
     "dashboard": {
       "notFound": "Gösterge paneli bulunamadı"
     },

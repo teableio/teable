@@ -2220,6 +2220,24 @@ export type I18nTranslations = {
                 "baseAndSpaceMismatch": string;
                 "templateNotFound": string;
             };
+            "baseNode": {
+                "invalidResourceType": string;
+                "notFound": string;
+                "parentMustBeFolder": string;
+                "cannotDuplicateFolder": string;
+                "cannotDeleteEmptyFolder": string;
+                "onlyOneOfParentIdOrAnchorIdRequired": string;
+                "cannotMoveToItself": string;
+                "cannotMoveToCircularReference": string;
+                "anchorIdOrParentIdRequired": string;
+                "parentNotFound": string;
+                "parentIsNotFolder": string;
+                "circularReference": string;
+                "folderDepthLimitExceeded": string;
+                "folderNotFound": string;
+                "anchorNotFound": string;
+                "nameAlreadyExists": string;
+            };
             "dashboard": {
                 "notFound": string;
             };

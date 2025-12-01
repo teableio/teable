@@ -158,7 +158,12 @@ export const checkBaseNodePermissionCreate = (
   if (!resourceType) {
     throw new CustomHttpException(
       'Cannot create base node with empty resource type',
-      HttpErrorCode.VALIDATION_ERROR
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.invalidResourceType',
+        },
+      }
     );
   }
 

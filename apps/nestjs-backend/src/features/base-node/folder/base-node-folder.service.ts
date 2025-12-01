@@ -40,7 +40,11 @@ export class BaseNodeFolderService {
       where: { baseId, name, id: { not: folderId } },
     });
     if (find) {
-      throw new CustomHttpException('Folder name already exists', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException('Folder name already exists', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.nameAlreadyExists',
+        },
+      });
     }
 
     return await this.prismaService.baseNodeFolder.update({

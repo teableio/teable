@@ -31,6 +31,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useTableHref } from '../../table-list/useTableHref';
 import { BaseNodeContext } from '../base-node/BaseNodeContext';
 import {
@@ -61,12 +62,21 @@ export const BaseNodeTree = () => {
   }>();
   const tableHrefMap = useTableHref();
   const permission = useBasePermission();
+  const { buildApp: buildAppEnabled } = useDisableAIAction();
+  const canCreateTable = Boolean(permission?.['table|create']);
+  const canCreateDashboard = Boolean(permission?.['base|update']);
+  const canCreateWorkflow = Boolean(permission?.['automation|create']);
+  const canCreateApp = Boolean(buildAppEnabled && permission?.['base|update']);
+  const canCreateFolder = Boolean(permission?.['base|update']);
+  const canCreateResource = Boolean(
+    canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
+  );
+  const canMoveNode = Boolean(permission?.['base|update']);
+
+  const { maxFolderDepth, treeItems, setTreeItems, invalidateMenu } = useContext(BaseNodeContext);
   const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-
-  const { maxFolderDepth, treeItems, setTreeItems, invalidateMenu } = useContext(BaseNodeContext);
-  const [pendingEditNodeId, setPendingEditNodeId] = useState<string | null>(null);
 
   const createSuccefulyCallback = useCallback(
     (node: IBaseNodeVo) => {
@@ -126,8 +136,6 @@ export const BaseNodeTree = () => {
     LocalStorageKeys.BaseNodeExpandedItems,
     []
   );
-  const canMoveNode = Boolean(permission?.['base|update']);
-  const canCreateFolder = Boolean(permission?.['base|update']);
 
   const { mutateAsync: updateUserLastVisit } = useMutation({
     mutationFn: (ro: IUpdateUserLastVisitRo) => {
@@ -284,39 +292,6 @@ export const BaseNodeTree = () => {
     tree.rebuildTree();
   }, [tree, treeItems]);
 
-  // Handle pending edit node - scroll to it and set editing mode
-  useEffect(() => {
-    if (!pendingEditNodeId || !treeItems[pendingEditNodeId]) return;
-
-    const node = treeItems[pendingEditNodeId];
-
-    // Expand parent folder if exists
-    if (node.parentId && node.parentId !== ROOT_ID) {
-      setExpandedItems((prev) => {
-        const expanded = prev ?? [];
-        if (!expanded.includes(node.parentId!)) {
-          return [...expanded, node.parentId!];
-        }
-        return expanded;
-      });
-    }
-
-    // Use requestAnimationFrame to wait for DOM update after tree rebuild
-    requestAnimationFrame(() => {
-      // Scroll to the node element
-      const nodeElement = document.querySelector(`[data-rct-item-id="${pendingEditNodeId}"]`);
-      if (nodeElement) {
-        nodeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-
-      // Set editing mode
-      setEditingNodeId(pendingEditNodeId);
-
-      // Clear pending edit node
-      setPendingEditNodeId(null);
-    });
-  }, [pendingEditNodeId, treeItems, setExpandedItems]);
-
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     if (editingNodeId) {
@@ -370,12 +345,14 @@ export const BaseNodeTree = () => {
           curdHooks={curdHooks}
           parentId={ROOT_ID}
           canCreateFolder={canCreateFolder}
+          canCreateTable={canCreateTable}
+          canCreateDashboard={canCreateDashboard}
+          canCreateWorkflow={canCreateWorkflow}
+          canCreateApp={canCreateApp}
         >
-          <div className="px-3">
-            <Button variant={'outline'} size={'xs'} className="w-full">
-              <AddBoldIcon />
-            </Button>
-          </div>
+          <Button variant={'outline'} size={'xs'} className="w-full" disabled={!canCreateResource}>
+            <AddBoldIcon />
+          </Button>
         </BaseNodeAddResourceButton>
       </div>
       <ScrollArea className="flex w-full !border-none" scrollBar="none">
@@ -444,17 +421,23 @@ export const BaseNodeTree = () => {
                         className="flex cursor-pointer items-center gap-2"
                       >
                         <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
-                          <BaseNodeAddResourceButton
-                            curdHooks={curdHooks}
-                            parentId={nodeId === ROOT_ID ? undefined : nodeId}
-                            canCreateFolder={
-                              canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
-                            }
-                          >
-                            <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
-                              <AddBoldIcon className="size-full" />
-                            </Button>
-                          </BaseNodeAddResourceButton>
+                          {canCreateResource && (
+                            <BaseNodeAddResourceButton
+                              curdHooks={curdHooks}
+                              parentId={nodeId === ROOT_ID ? undefined : nodeId}
+                              canCreateFolder={
+                                canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
+                              }
+                              canCreateTable={canCreateTable}
+                              canCreateDashboard={canCreateDashboard}
+                              canCreateWorkflow={canCreateWorkflow}
+                              canCreateApp={canCreateApp}
+                            >
+                              <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
+                                <AddBoldIcon className="size-full" />
+                              </Button>
+                            </BaseNodeAddResourceButton>
+                          )}
                         </div>
                         <BaseNodeStarButton resourceType={resourceType} resourceId={resourceId} />
                         <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">

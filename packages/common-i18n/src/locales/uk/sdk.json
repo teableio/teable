@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
       "templateNotFound": "Шаблон {{templateId}} не знайдено"
     },
+    "baseNode": {
+      "invalidResourceType": "Недійсний тип ресурсу",
+      "notFound": "Базовий вузол не знайдено",
+      "parentMustBeFolder": "Батьківський елемент має бути папкою",
+      "cannotDuplicateFolder": "Неможливо дублювати папку",
+      "cannotDeleteEmptyFolder": "Неможливо видалити папку, оскільки вона не порожня",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Необхідно вказати лише parentId або anchorId",
+      "cannotMoveToItself": "Неможливо перемістити вузол на себе",
+      "cannotMoveToCircularReference": "Неможливо перемістити вузол до власного дочірнього вузла (циклічне посилання)",
+      "anchorIdOrParentIdRequired": "Необхідно вказати принаймні parentId або anchorId",
+      "parentNotFound": "Батьківський вузол не знайдено",
+      "parentIsNotFolder": "Батьківський елемент не є папкою",
+      "circularReference": "Виявлено циклічне посилання",
+      "folderDepthLimitExceeded": "Перевищено ліміт глибини папки",
+      "folderNotFound": "Папку не знайдено",
+      "anchorNotFound": "Якірний вузол не знайдено",
+      "nameAlreadyExists": "Ім'я вже існує"
+    },
     "dashboard": {
       "notFound": "Панель управління не знайдена"
     },

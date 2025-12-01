@@ -1,7 +1,7 @@
 import { getUniqName, ViewType } from '@teable/core';
 import { File, FileCsv, FileExcel } from '@teable/icons';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
-import { useBasePermission, useTables } from '@teable/sdk';
+import { useTables } from '@teable/sdk';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,6 @@ import {
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
-import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { TableImport } from '../../import-table';
 import { useDefaultFields } from '../../table-list/useAddTable';
 import { BaseNodeResourceIconMap, ROOT_ID } from '../base-node/hooks';
@@ -22,13 +21,25 @@ import type { BaseNodeCrudHooks } from '../base-node/hooks';
 interface BaseNodeAddResourceButtonProps {
   parentId?: string;
   canCreateFolder?: boolean;
+  canCreateTable?: boolean;
+  canCreateDashboard?: boolean;
+  canCreateWorkflow?: boolean;
+  canCreateApp?: boolean;
   curdHooks: BaseNodeCrudHooks;
   children: React.ReactNode;
 }
 
 export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps) => {
-  const { curdHooks, parentId, canCreateFolder, children } = props;
-  const permission = useBasePermission();
+  const {
+    curdHooks,
+    parentId,
+    canCreateFolder,
+    children,
+    canCreateTable,
+    canCreateDashboard,
+    canCreateWorkflow,
+    canCreateApp,
+  } = props;
   const { t } = useTranslation(['table', 'common']);
   const [tableImportdialogVisible, setTableImportdialogVisible] = useState(false);
   const [fileType, setFileType] = useState<SUPPORTEDTYPE>(SUPPORTEDTYPE.CSV);
@@ -36,12 +47,6 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     setTableImportdialogVisible(true);
     setFileType(type);
   };
-
-  const { buildApp: buildAppEnabled } = useDisableAIAction();
-  const canCreateTable = Boolean(permission?.['table|create']);
-  const canCreateDashboard = Boolean(permission?.['base|update']);
-  const canCreateWorkflow = Boolean(permission?.['automation|create']);
-  const canCreateApp = Boolean(buildAppEnabled && permission?.['base|update']);
 
   const fieldRos = useDefaultFields();
   const tables = useTables();

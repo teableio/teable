@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "ベース {{baseId}} とスペース {{spaceId}} が一致しません",
       "templateNotFound": "テンプレート {{templateId}} が見つかりません"
     },
+    "baseNode": {
+      "invalidResourceType": "無効なリソースタイプ",
+      "notFound": "ベースノードが見つかりません",
+      "parentMustBeFolder": "親はフォルダーである必要があります",
+      "cannotDuplicateFolder": "フォルダーを複製できません",
+      "cannotDeleteEmptyFolder": "フォルダーが空ではないため削除できません",
+      "onlyOneOfParentIdOrAnchorIdRequired": "parentId または anchorId のいずれか一方のみを指定してください",
+      "cannotMoveToItself": "ノードを自分自身に移動できません",
+      "cannotMoveToCircularReference": "ノードを自身の子ノードに移動できません（循環参照）",
+      "anchorIdOrParentIdRequired": "parentId または anchorId のいずれかを指定する必要があります",
+      "parentNotFound": "親ノードが見つかりません",
+      "parentIsNotFolder": "親がフォルダーではありません",
+      "circularReference": "循環参照が検出されました",
+      "folderDepthLimitExceeded": "フォルダーの深さ制限を超えました",
+      "folderNotFound": "フォルダーが見つかりません",
+      "anchorNotFound": "アンカーノードが見つかりません",
+      "nameAlreadyExists": "名前がすでに存在します"
+    },
     "dashboard": {
       "notFound": "ダッシュボードが見つかりません"
     },

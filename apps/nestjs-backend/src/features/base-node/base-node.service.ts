@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import {
@@ -226,7 +227,12 @@ export class BaseNodeService {
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.invalidResourceType',
+            },
+          }
         );
     }
   }
@@ -372,7 +378,11 @@ export class BaseNodeService {
         select: this.getSelect(),
       })
       .catch(() => {
-        throw new CustomHttpException(`Base node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException(`Base node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.notFound',
+          },
+        });
       });
     return {
       ...node,
@@ -425,7 +435,11 @@ export class BaseNodeService {
     const { resourceType, parentId, ...ro } = createRo;
     const parentNode = parentId ? await this.getParentNodeOrThrow(parentId) : null;
     if (parentNode && parentNode.resourceType !== BaseNodeResourceType.Folder) {
-      throw new CustomHttpException('Parent must be a folder', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException('Parent must be a folder', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.parentMustBeFolder',
+        },
+      });
     }
 
     if (parentNode && resourceType === BaseNodeResourceType.Folder) {
@@ -457,7 +471,12 @@ export class BaseNodeService {
       default:
         throw new CustomHttpException(
           `Invalid resource type ${resourceType}`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.invalidResourceType',
+            },
+          }
         );
     }
   }
@@ -468,12 +487,20 @@ export class BaseNodeService {
         where: { baseId, id: nodeId },
       })
       .catch(() => {
-        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.notFound',
+          },
+        });
       });
     const { resourceType, resourceId } = anchor;
 
     if (resourceType === BaseNodeResourceType.Folder) {
-      throw new CustomHttpException('Cannot duplicate folder', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException('Cannot duplicate folder', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.cannotDuplicateFolder',
+        },
+      });
     }
 
     const { entry, resource } = await this.prismaService.$tx(async (prisma) => {
@@ -572,7 +599,12 @@ export class BaseNodeService {
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.invalidResourceType',
+            },
+          }
         );
     }
   }
@@ -584,7 +616,11 @@ export class BaseNodeService {
         select: this.getSelect(),
       })
       .catch(() => {
-        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.notFound',
+          },
+        });
       });
     await this.updateResource(
       baseId,
@@ -631,7 +667,12 @@ export class BaseNodeService {
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.invalidResourceType',
+            },
+          }
         );
     }
   }
@@ -642,14 +683,26 @@ export class BaseNodeService {
         where: { baseId, id: nodeId },
       })
       .catch(() => {
-        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.notFound',
+          },
+        });
       });
     if (node.resourceType === BaseNodeResourceType.Folder) {
       const children = await this.prismaService.baseNode.findMany({
         where: { baseId, parentId: nodeId },
       });
       if (children.length > 0) {
-        throw new CustomHttpException('Folder is not empty', HttpErrorCode.VALIDATION_ERROR);
+        throw new CustomHttpException(
+          'Cannot delete folder because it is not empty',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.cannotDeleteEmptyFolder',
+            },
+          }
+        );
       }
     }
 
@@ -696,7 +749,12 @@ export class BaseNodeService {
       default:
         throw new CustomHttpException(
           `Invalid resource type ${type}`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.invalidResourceType',
+            },
+          }
         );
     }
   }
@@ -709,24 +767,42 @@ export class BaseNodeService {
         where: { baseId, id: nodeId },
       })
       .catch(() => {
-        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.notFound',
+          },
+        });
       });
 
     if (isString(parentId) && isString(anchorId)) {
       throw new CustomHttpException(
         'Only one of parentId or anchorId must be provided',
-        HttpErrorCode.VALIDATION_ERROR
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.onlyOneOfParentIdOrAnchorIdRequired',
+          },
+        }
       );
     }
 
     if (parentId === nodeId) {
-      throw new CustomHttpException('Cannot move node to itself', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException('Cannot move node to itself', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.cannotMoveToItself',
+        },
+      });
     }
 
     if (anchorId === nodeId) {
       throw new CustomHttpException(
         'Cannot move node to its own child (circular reference)',
-        HttpErrorCode.VALIDATION_ERROR
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.cannotMoveToCircularReference',
+          },
+        }
       );
     }
 
@@ -740,7 +816,12 @@ export class BaseNodeService {
     } else {
       throw new CustomHttpException(
         'At least one of parentId or anchorId must be provided',
-        HttpErrorCode.VALIDATION_ERROR
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.anchorIdOrParentIdRequired',
+          },
+        }
       );
     }
 
@@ -777,13 +858,22 @@ export class BaseNodeService {
           where: { baseId, id: parentId },
         })
         .catch(() => {
-          throw new CustomHttpException(`Parent ${parentId} not found`, HttpErrorCode.NOT_FOUND);
+          throw new CustomHttpException(`Parent ${parentId} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.parentNotFound',
+            },
+          });
         });
 
       if (parentNode.resourceType !== BaseNodeResourceType.Folder) {
         throw new CustomHttpException(
           `Parent ${parentId} is not a folder`,
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.parentIsNotFolder',
+            },
+          }
         );
       }
 
@@ -792,7 +882,12 @@ export class BaseNodeService {
       if (isCircular) {
         throw new CustomHttpException(
           'Cannot move node to its own child (circular reference)',
-          HttpErrorCode.VALIDATION_ERROR
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.circularReference',
+            },
+          }
         );
       }
 
@@ -821,7 +916,11 @@ export class BaseNodeService {
           where: { baseId, id: nodeId },
         })
         .catch(() => {
-          throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND);
+          throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.notFound',
+            },
+          });
         });
 
       const anchor = await prisma.baseNode
@@ -829,7 +928,11 @@ export class BaseNodeService {
           where: { baseId, id: anchorId },
         })
         .catch(() => {
-          throw new CustomHttpException(`Anchor ${anchorId} not found`, HttpErrorCode.NOT_FOUND);
+          throw new CustomHttpException(`Anchor ${anchorId} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.anchorNotFound',
+            },
+          });
         });
 
       if (node.resourceType === BaseNodeResourceType.Folder && anchor.parentId) {
@@ -1161,16 +1264,23 @@ export class BaseNodeService {
       },
     });
     if (!entry) {
-      throw new CustomHttpException('Base node not found', HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException('Base node not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.notFound',
+        },
+      });
     }
     return entry;
   }
 
   private async assertFolderDepth(baseId: string, id: string) {
     const folderDepth = await this.getFolderDepth(baseId, id);
-    console.log('folderDepth', folderDepth, 'maxFolderDepth', maxFolderDepth);
     if (folderDepth >= maxFolderDepth) {
-      throw new CustomHttpException('Folder depth exceeded', HttpErrorCode.VALIDATION_ERROR);
+      throw new CustomHttpException('Folder depth limit exceeded', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.folderDepthLimitExceeded',
+        },
+      });
     }
   }
 
@@ -1192,10 +1302,22 @@ export class BaseNodeService {
       depth++;
       const folder = folderMap[current];
       if (!folder) {
-        throw new CustomHttpException('Folder not found', HttpErrorCode.NOT_FOUND);
+        throw new CustomHttpException('Folder not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.baseNode.folderNotFound',
+          },
+        });
       }
       if (folder.parentId === id) {
-        throw new CustomHttpException('Folder is itself', HttpErrorCode.VALIDATION_ERROR);
+        throw new CustomHttpException(
+          'A folder cannot be its own parent',
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.circularReference',
+            },
+          }
+        );
       }
       current = folder.parentId ?? '';
     }

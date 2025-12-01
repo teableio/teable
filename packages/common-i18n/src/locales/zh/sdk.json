@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
       "templateNotFound": "模板 {{templateId}} 不存在"
     },
+    "baseNode": {
+      "invalidResourceType": "无效的资源类型",
+      "notFound": "节点未找到",
+      "parentMustBeFolder": "父级必须是文件夹",
+      "cannotDuplicateFolder": "不能复制文件夹",
+      "cannotDeleteEmptyFolder": "不能删除非空文件夹",
+      "onlyOneOfParentIdOrAnchorIdRequired": "只能提供 parentId 或 anchorId 中的一个",
+      "cannotMoveToItself": "不能移动到自身",
+      "cannotMoveToCircularReference": "不能移动节点到其子节点（循环引用）",
+      "anchorIdOrParentIdRequired": "必须提供 anchorId 或 parentId",
+      "parentNotFound": "父级节点未找到",
+      "parentIsNotFolder": "父级不是文件夹",
+      "circularReference": "检测到循环引用",
+      "folderDepthLimitExceeded": "文件夹深度超限",
+      "folderNotFound": "文件夹未找到",
+      "anchorNotFound": "锚点节点未找到",
+      "nameAlreadyExists": "名称已存在"
+    },
     "dashboard": {
       "notFound": "仪表板不存在"
     },

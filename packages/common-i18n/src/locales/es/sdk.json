@@ -997,6 +997,24 @@
       "baseAndSpaceMismatch": "Base {{baseId}} y espacio {{spaceId}} no coinciden",
       "templateNotFound": "Plantilla {{templateId}} no encontrada"
     },
+    "baseNode": {
+      "invalidResourceType": "Tipo de recurso no válido",
+      "notFound": "Nodo base no encontrado",
+      "parentMustBeFolder": "El padre debe ser una carpeta",
+      "cannotDuplicateFolder": "No se puede duplicar la carpeta",
+      "cannotDeleteEmptyFolder": "No se puede eliminar la carpeta porque no está vacía",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Solo se debe proporcionar parentId o anchorId",
+      "cannotMoveToItself": "No se puede mover el nodo a sí mismo",
+      "cannotMoveToCircularReference": "No se puede mover el nodo a su propio hijo (referencia circular)",
+      "anchorIdOrParentIdRequired": "Se debe proporcionar al menos parentId o anchorId",
+      "parentNotFound": "Nodo padre no encontrado",
+      "parentIsNotFolder": "El padre no es una carpeta",
+      "circularReference": "Referencia circular detectada",
+      "folderDepthLimitExceeded": "Límite de profundidad de carpeta excedido",
+      "folderNotFound": "Carpeta no encontrada",
+      "anchorNotFound": "Nodo ancla no encontrado",
+      "nameAlreadyExists": "El nombre ya existe"
+    },
     "dashboard": {
       "notFound": "Panel de control no encontrado"
     },

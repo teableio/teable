@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "Base {{baseId}} und Space {{spaceId}} stimmen nicht überein",
       "templateNotFound": "Vorlage {{templateId}} nicht gefunden"
     },
+    "baseNode": {
+      "invalidResourceType": "Ungültiger Ressourcentyp",
+      "notFound": "Basisknoten nicht gefunden",
+      "parentMustBeFolder": "Übergeordnetes Element muss ein Ordner sein",
+      "cannotDuplicateFolder": "Ordner kann nicht dupliziert werden",
+      "cannotDeleteEmptyFolder": "Ordner kann nicht gelöscht werden, da er nicht leer ist",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Es darf nur parentId oder anchorId angegeben werden",
+      "cannotMoveToItself": "Knoten kann nicht zu sich selbst verschoben werden",
+      "cannotMoveToCircularReference": "Knoten kann nicht zu seinem eigenen Unterknoten verschoben werden (Zirkelverweis)",
+      "anchorIdOrParentIdRequired": "Mindestens parentId oder anchorId muss angegeben werden",
+      "parentNotFound": "Übergeordneter Knoten nicht gefunden",
+      "parentIsNotFolder": "Übergeordnetes Element ist kein Ordner",
+      "circularReference": "Zirkelverweis erkannt",
+      "folderDepthLimitExceeded": "Ordnertiefenlimit überschritten",
+      "folderNotFound": "Ordner nicht gefunden",
+      "anchorNotFound": "Ankerknoten nicht gefunden",
+      "nameAlreadyExists": "Name existiert bereits"
+    },
     "dashboard": {
       "notFound": "Dashboard nicht gefunden"
     },

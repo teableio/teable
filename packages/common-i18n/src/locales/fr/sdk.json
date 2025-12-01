@@ -985,6 +985,24 @@
       "baseAndSpaceMismatch": "La base {{baseId}} et l'espace {{spaceId}} ne correspondent pas",
       "templateNotFound": "Modèle {{templateId}} non trouvé"
     },
+    "baseNode": {
+      "invalidResourceType": "Type de ressource invalide",
+      "notFound": "Nœud de base non trouvé",
+      "parentMustBeFolder": "Le parent doit être un dossier",
+      "cannotDuplicateFolder": "Impossible de dupliquer le dossier",
+      "cannotDeleteEmptyFolder": "Impossible de supprimer le dossier car il n'est pas vide",
+      "onlyOneOfParentIdOrAnchorIdRequired": "Seul parentId ou anchorId doit être fourni",
+      "cannotMoveToItself": "Impossible de déplacer le nœud vers lui-même",
+      "cannotMoveToCircularReference": "Impossible de déplacer le nœud vers son propre enfant (référence circulaire)",
+      "anchorIdOrParentIdRequired": "Au moins parentId ou anchorId doit être fourni",
+      "parentNotFound": "Nœud parent non trouvé",
+      "parentIsNotFolder": "Le parent n'est pas un dossier",
+      "circularReference": "Référence circulaire détectée",
+      "folderDepthLimitExceeded": "Limite de profondeur de dossier dépassée",
+      "folderNotFound": "Dossier non trouvé",
+      "anchorNotFound": "Nœud d'ancrage non trouvé",
+      "nameAlreadyExists": "Le nom existe déjà"
+    },
     "dashboard": {
       "notFound": "Tableau de bord non trouvé"
     },
