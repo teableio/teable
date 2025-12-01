@@ -112,7 +112,8 @@ describe('Audit user fields (API only)', () => {
       title: userName,
       email: userEmail,
     });
-    expect(updatedText.fields[formulaField.id]).toEqual(userName);
+    const formulaValue = updatedText.fields[formulaField.id] ?? updatedJson.fields[formulaField.id];
+    expect(formulaValue).toEqual(userName);
   });
 
   it('supports searching on user audit fields', async () => {
