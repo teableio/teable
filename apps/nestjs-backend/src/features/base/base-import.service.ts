@@ -28,7 +28,7 @@ import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { Events } from '../../event-emitter/events';
+// import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -131,17 +131,17 @@ export class BaseImportService {
     );
 
     // emit base import complete event for audit log
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
+    // const userId = this.cls.get('user.id');
+    // const origin = this.cls.get('origin');
 
     this.logger.log(`Base import structure completed, emitting event for baseId: ${base.id}`);
-    await this.cls.run(async () => {
-      this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
-      await this.eventEmitter.emitAsync(Events.BASE_IMPORT_COMPLETE, {
-        importBaseRo,
-      });
-    });
+    // await this.cls.run(async () => {
+    //   this.cls.set('origin', origin!);
+    //   this.cls.set('user.id', userId);
+    //   await this.eventEmitter.emitAsync(Events.BASE_IMPORT_COMPLETE, {
+    //     importBaseRo,
+    //   });
+    // });
 
     return {
       base,

@@ -19,13 +19,13 @@ import {
 } from '@teable/openapi';
 import dayjs, { extend } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
-import { noop } from 'lodash';
+// import { noop } from 'lodash';
 import * as XLSX from 'xlsx';
-import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
-import { Events } from '../src/event-emitter/events';
+// import { EventEmitterService } from '../src/event-emitter/event-emitter.service';
+// import { Events } from '../src/event-emitter/events';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { CsvImporter } from '../src/features/import/open-api/import.class';
-import { createAwaitWithEventWithResult } from './utils/event-promise';
+// import { createAwaitWithEventWithResult } from './utils/event-promise';
 import { initApp, permanentDeleteTable, getTable as apiGetTableById } from './utils/init-app';
 
 extend(timezone);
@@ -169,12 +169,12 @@ const assertHeaders = [
 
 describe('OpenAPI ImportController (e2e)', () => {
   const bases: [string, string][] = [];
-  let eventEmitterService: EventEmitterService;
+  // let eventEmitterService: EventEmitterService;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    eventEmitterService = app.get(EventEmitterService);
+    // eventEmitterService = app.get(EventEmitterService);
     testFiles = await genTestFiles();
   });
 
@@ -230,15 +230,15 @@ describe('OpenAPI ImportController (e2e)', () => {
   });
 
   describe('/import/{baseId} OpenAPI ImportController (e2e) (Post)', () => {
-    let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<void>;
+    // let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<void>;
 
     it.each(testFileFormats.filter((format) => format !== TestFileFormat.TXT))(
       'should create a new Table from %s file',
       async (format) => {
-        awaitWithEvent = createAwaitWithEventWithResult<void>(
-          eventEmitterService,
-          Events.IMPORT_TABLE_COMPLETE
-        );
+        // awaitWithEvent = createAwaitWithEventWithResult<void>(
+        //   eventEmitterService,
+        //   Events.IMPORT_TABLE_COMPLETE
+        // );
         const spaceRes = await apiCreateSpace({ name: `test${format}` });
         const spaceId = spaceRes?.data?.id;
         const baseRes = await apiCreateBase({ spaceId });
@@ -280,9 +280,9 @@ describe('OpenAPI ImportController (e2e)', () => {
           name: field.name,
         }));
 
-        await awaitWithEvent(async () => {
-          noop();
-        });
+        // await awaitWithEvent(async () => {
+        //   noop();
+        // });
 
         const { records } = await apiGetTableById(baseId, table.data[0].id, {
           includeContent: true,
@@ -297,13 +297,13 @@ describe('OpenAPI ImportController (e2e)', () => {
   });
 
   describe('/import/{baseId}/{tableId} OpenAPI ImportController (e2e) (Patch)', () => {
-    let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<void>;
+    // let awaitWithEvent: <T>(fn: () => Promise<T>) => Promise<void>;
 
     it('should import data into Table from file', async () => {
-      awaitWithEvent = createAwaitWithEventWithResult<void>(
-        eventEmitterService,
-        Events.IMPORT_TABLE_COMPLETE
-      );
+      // awaitWithEvent = createAwaitWithEventWithResult<void>(
+      //   eventEmitterService,
+      //   Events.IMPORT_TABLE_COMPLETE
+      // );
       const spaceRes = await apiCreateSpace({ name: 'test1' });
       const spaceId = spaceRes?.data?.id;
       const baseRes = await apiCreateBase({ spaceId });
@@ -367,9 +367,9 @@ describe('OpenAPI ImportController (e2e)', () => {
         },
       });
 
-      await awaitWithEvent(async () => {
-        noop();
-      });
+      // await awaitWithEvent(async () => {
+      //   noop();
+      // });
 
       const { records } = await apiGetTableById(baseId, tableId, {
         includeContent: true,

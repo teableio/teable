@@ -19,7 +19,7 @@ import Papa from 'papaparse';
 import type { CreateOp } from 'sharedb';
 import type { LocalPresence } from 'sharedb/lib/client';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
-import { Events } from '../../../event-emitter/events';
+// import { Events } from '../../../event-emitter/events';
 import { ShareDbService } from '../../../share-db/share-db.service';
 import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
@@ -101,16 +101,16 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           });
 
         // emit event to audit log
-        this.cls.run(async () => {
-          this.cls.set('origin', origin!);
-          this.cls.set('user.id', userId);
-          await this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
-            ro,
-            recordsLength: range?.at(-1),
-            baseId,
-            tableId: table.id,
-          });
-        });
+        // this.cls.run(async () => {
+        //   this.cls.set('origin', origin!);
+        //   this.cls.set('user.id', userId);
+        //   await this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
+        //     ro,
+        //     recordsLength: range?.at(-1),
+        //     baseId,
+        //     tableId: table.id,
+        //   });
+        // });
 
         this.setImportStatus(localPresence, false);
         localPresence.destroy();
