@@ -2,7 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import { type IBaseNodeVo, baseNodeVoSchema } from '../types';
 
 export const DELETE_BASE_NODE_FOLDER = '/base/{baseId}/node/folder/{folderId}';
 
@@ -19,11 +18,6 @@ export const DeleteBaseNodeFolderRoute: RouteConfig = registerRoute({
   responses: {
     200: {
       description: 'Deleted folder node (for client side cleanup)',
-      content: {
-        'application/json': {
-          schema: baseNodeVoSchema,
-        },
-      },
     },
   },
   tags: ['base node'],

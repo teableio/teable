@@ -28,6 +28,10 @@ export class BaseNodeFolderService {
         name: uniqueName,
         createdBy: this.userId,
       },
+      select: {
+        id: true,
+        name: true,
+      },
     });
   }
 
@@ -53,6 +57,10 @@ export class BaseNodeFolderService {
       return prisma.baseNodeFolder.update({
         where: { id: folderId },
         data: { name, lastModifiedBy: this.userId },
+        select: {
+          id: true,
+          name: true,
+        },
       });
     });
   }

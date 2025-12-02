@@ -2,8 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../../axios';
 import { registerRoute, urlBuilder } from '../../utils';
 import { z } from '../../zod';
-import type { IBaseNodeVo } from '../types';
-import { baseNodeVoSchema } from '../types';
 
 export const UPDATE_BASE_NODE_FOLDER = '/base/{baseId}/node/folder/{folderId}';
 
@@ -12,6 +10,13 @@ export const updateBaseNodeFolderRoSchema = z.object({
 });
 
 export type IUpdateBaseNodeFolderRo = z.infer<typeof updateBaseNodeFolderRoSchema>;
+
+export const updateBaseNodeFolderVoSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+export type IUpdateBaseNodeFolderVo = z.infer<typeof updateBaseNodeFolderVoSchema>;
 
 export const UpdateBaseNodeFolderRoute: RouteConfig = registerRoute({
   method: 'patch',
@@ -35,7 +40,7 @@ export const UpdateBaseNodeFolderRoute: RouteConfig = registerRoute({
       description: 'Updated node folder',
       content: {
         'application/json': {
-          schema: baseNodeVoSchema,
+          schema: updateBaseNodeFolderVoSchema,
         },
       },
     },
@@ -48,5 +53,8 @@ export const updateBaseNodeFolder = async (
   folderId: string,
   ro: IUpdateBaseNodeFolderRo
 ) => {
-  return axios.patch<IBaseNodeVo>(urlBuilder(UPDATE_BASE_NODE_FOLDER, { baseId, folderId }), ro);
+  return axios.patch<IUpdateBaseNodeFolderVo>(
+    urlBuilder(UPDATE_BASE_NODE_FOLDER, { baseId, folderId }),
+    ro
+  );
 };

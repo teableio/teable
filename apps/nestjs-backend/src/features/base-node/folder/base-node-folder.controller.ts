@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Controller, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import type { ICreateBaseNodeFolderVo, IUpdateBaseNodeFolderVo } from '@teable/openapi';
 import {
   createBaseNodeFolderRoSchema,
   ICreateBaseNodeFolderRo,
@@ -22,7 +23,7 @@ export class BaseNodeFolderController {
   async createFolder(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(createBaseNodeFolderRoSchema)) ro: ICreateBaseNodeFolderRo
-  ) {
+  ): Promise<ICreateBaseNodeFolderVo> {
     return this.baseNodeFolderService.createFolder(baseId, ro);
   }
 
@@ -33,7 +34,7 @@ export class BaseNodeFolderController {
     @Param('baseId') baseId: string,
     @Param('folderId') folderId: string,
     @Body(new ZodValidationPipe(updateBaseNodeFolderRoSchema)) ro: IUpdateBaseNodeFolderRo
-  ) {
+  ): Promise<IUpdateBaseNodeFolderVo> {
     return this.baseNodeFolderService.renameFolder(baseId, folderId, ro);
   }
 
