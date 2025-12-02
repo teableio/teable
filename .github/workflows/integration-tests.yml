@@ -20,8 +20,7 @@ jobs:
       matrix:
         node-version: [20.9.0]
         database-type: [postgres]
-        shardIndex: [1, 2]
-        shardTotal: [2]
+        shard: [1/2, 2/2]
     env:
       CI: 1
 
@@ -41,7 +40,7 @@ jobs:
           CI: 1
           VITEST_MAX_THREADS: 2
           VITEST_MIN_THREADS: 1
-          VITEST_SHARD: ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+          VITEST_SHARD: ${{ matrix.shard }}
           VITEST_REPORTER: blob
         run: |
           make ${{ matrix.database-type }}.integration.test
