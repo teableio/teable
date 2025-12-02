@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import type { IShareDbReadonlyAdapterService } from '../interface';
+import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
@@ -61,6 +61,30 @@ export class ViewReadonlyServiceAdapter
       })
       .then((res) => {
         return this.formatVersionAndType(res);
+      });
+  }
+
+  getVersionAndTypeMap(tableId: string, viewIds: string[]) {
+    return this.prismaService.view
+      .findMany({
+        where: {
+          id: { in: viewIds },
+          tableId,
+        },
+        select: {
+          id: true,
+          version: true,
+          deletedTime: true,
+        },
+      })
+      .then((views) => {
+        return views.reduce(
+          (acc, view) => {
+            acc[view.id] = this.formatVersionAndType(view);
+            return acc;
+          },
+          {} as Record<string, { version: number; type: RawOpType }>
+        );
       });
   }
 }
