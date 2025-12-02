@@ -8,19 +8,24 @@ import { useView } from './use-view';
 export const usePersonalView = () => {
   const { isPersonalView, personalViewMap, personalViewCommonQuery, personalViewAggregationQuery } =
     useContext(PersonalViewContext);
-  const { removePersonalView, setPersonalViewMap } = usePersonalViewStore();
+  const { removePersonalView, setPersonalViewMap, backupPersonalView, restorePersonalView } =
+    usePersonalViewStore();
 
   const view = useView();
   const viewId = view?.id ?? '';
 
   const closePersonalView = () => {
+    backupPersonalView(viewId);
     removePersonalView(viewId);
   };
 
   const openPersonalView = () => {
-    setPersonalViewMap(viewId, (prev) => {
-      return { ...prev, ...generatePersonalViewProps(view) };
-    });
+    const restored = restorePersonalView(viewId);
+    if (!restored) {
+      setPersonalViewMap(viewId, (prev) => {
+        return { ...prev, ...generatePersonalViewProps(view) };
+      });
+    }
   };
 
   const syncViewProperties = async () => {
