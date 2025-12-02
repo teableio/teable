@@ -775,15 +775,33 @@
       "statusUpdating": "Updating...",
       "statusCreated": "Created",
       "statusUpdated": "Updated",
+      "getApps": {
+        "title": "App List",
+        "loading": "Loading apps...",
+        "foundApps": "Found {{count}} app(s)",
+        "noApps": "No apps found in this base",
+        "openApp": "Open App"
+      },
       "generateApp": {
         "title": "App Builder",
-        "listingApps": "Listing apps",
         "creatingApp": "Creating app",
         "updatingApp": "Updating app",
         "generatingApp": "Generating app",
         "generating": "Generating...",
         "openApp": "Open App",
         "viewProgress": "View Progress"
+      },
+      "generateAutomation": {
+        "title": "Automation Builder",
+        "creatingAutomation": "Creating automation",
+        "updatingAutomation": "Updating automation",
+        "generatingAutomation": "Building automation",
+        "building": "Building...",
+        "openAutomation": "Open Automation",
+        "viewProgress": "View Progress",
+        "testResults": "Test Results",
+        "triggerTest": "Trigger",
+        "actionTest": "Action {{index}}"
       }
     },
     "tools": {
@@ -860,6 +878,11 @@
       "generateScriptAction": "Generate script action node",
       "generateSendMailAction": "Generate send mail action node",
       "generateAction": "Generate action node",
+
+      "setupAutomationTrigger": "Setup automation trigger",
+      "testAutomationNode": "Test automation node",
+      "activateAutomation": "Activate automation",
+      "wait": "Wait",
       "initialize": "Initialize environment",
       "rename": "Generate app name",
       "buildTest": "Build test",
@@ -905,7 +928,18 @@
       "row": "Row {{index}}",
       "moreRows": "... +{{count}} more row(s)",
       "getDoc": "Get Doc",
-      "getDocWithTopic": "Get Doc · {{topic}}"
+      "getDocWithTopic": "Get Doc · {{topic}}",
+      "getAutomations": "Query automations",
+      "getAutomation": "Query automation",
+      "getAutomationRuns": "Query automation runs",
+      "foundAutomations": "Found {{count}} automation(s)",
+      "moreAutomations": "... +{{count}} more automation(s)",
+      "foundRuns": "Found {{count}} run(s)",
+      "moreRuns": "... +{{count}} more run(s)",
+      "active": "Active",
+      "trigger": "Trigger",
+      "actions": "{{count}} action(s)",
+      "moreActions": "... +{{count}} more action(s)"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
@@ -949,6 +983,26 @@
     "buildAutomation": {
       "title": "Build automation",
       "generateSuccess": "Generate automation successfully"
+    },
+    "automation": {
+      "created": "Created",
+      "updated": "Updated",
+      "workflowId": "Workflow",
+      "triggerId": "Trigger",
+      "scriptActionId": "Script Action",
+      "testPassed": "Test Passed",
+      "testFailed": "Test Failed",
+      "testOutput": "Test Output",
+      "activated": "Activated",
+      "deactivated": "Deactivated",
+      "discarded": "Changes Discarded",
+      "activateFailed": "Activate Failed",
+      "deactivateFailed": "Deactivate Failed",
+      "discardFailed": "Discard Failed",
+      "scriptUpdated": "Script Updated",
+      "scriptUpdateFailed": "Update Failed",
+      "waitedSeconds": "Waited {{seconds}}s",
+      "waitFailed": "Wait failed"
     },
     "newChat": "New Chat",
     "noModel": "No available models",

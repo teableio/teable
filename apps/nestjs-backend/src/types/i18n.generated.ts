@@ -3451,15 +3451,33 @@ export type I18nTranslations = {
                 "statusUpdating": string;
                 "statusCreated": string;
                 "statusUpdated": string;
+                "getApps": {
+                    "title": string;
+                    "loading": string;
+                    "foundApps": string;
+                    "noApps": string;
+                    "openApp": string;
+                };
                 "generateApp": {
                     "title": string;
-                    "listingApps": string;
                     "creatingApp": string;
                     "updatingApp": string;
                     "generatingApp": string;
                     "generating": string;
                     "openApp": string;
                     "viewProgress": string;
+                };
+                "generateAutomation": {
+                    "title": string;
+                    "creatingAutomation": string;
+                    "updatingAutomation": string;
+                    "generatingAutomation": string;
+                    "building": string;
+                    "openAutomation": string;
+                    "viewProgress": string;
+                    "testResults": string;
+                    "triggerTest": string;
+                    "actionTest": string;
                 };
             };
             "codeBlock": {
@@ -3565,6 +3583,10 @@ export type I18nTranslations = {
                 "generateScriptAction": string;
                 "generateSendMailAction": string;
                 "generateAction": string;
+                "setupAutomationTrigger": string;
+                "testAutomationNode": string;
+                "activateAutomation": string;
+                "wait": string;
                 "initialize": string;
                 "rename": string;
                 "buildTest": string;
@@ -3608,6 +3630,17 @@ export type I18nTranslations = {
                 "moreRows": string;
                 "getDoc": string;
                 "getDocWithTopic": string;
+                "getAutomations": string;
+                "getAutomation": string;
+                "getAutomationRuns": string;
+                "foundAutomations": string;
+                "moreAutomations": string;
+                "foundRuns": string;
+                "moreRuns": string;
+                "active": string;
+                "trigger": string;
+                "actions": string;
+                "moreActions": string;
             };
             "buildFlow": {
                 "progress": string;
@@ -3645,6 +3678,26 @@ export type I18nTranslations = {
             "buildAutomation": {
                 "title": string;
                 "generateSuccess": string;
+            };
+            "automation": {
+                "created": string;
+                "updated": string;
+                "workflowId": string;
+                "triggerId": string;
+                "scriptActionId": string;
+                "testPassed": string;
+                "testFailed": string;
+                "testOutput": string;
+                "activated": string;
+                "deactivated": string;
+                "discarded": string;
+                "activateFailed": string;
+                "deactivateFailed": string;
+                "discardFailed": string;
+                "scriptUpdated": string;
+                "scriptUpdateFailed": string;
+                "waitedSeconds": string;
+                "waitFailed": string;
             };
             "dataVisualization": {
                 "error": string;

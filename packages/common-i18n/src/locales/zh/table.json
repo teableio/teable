@@ -777,15 +777,33 @@
       "statusUpdating": "更新中...",
       "statusCreated": "已创建",
       "statusUpdated": "已更新",
+      "getApps": {
+        "title": "应用列表",
+        "loading": "加载应用中...",
+        "foundApps": "找到 {{count}} 个应用",
+        "noApps": "当前数据库中没有应用",
+        "openApp": "打开应用"
+      },
       "generateApp": {
         "title": "应用生成器",
-        "listingApps": "获取应用列表",
         "creatingApp": "创建应用",
         "updatingApp": "更新应用",
         "generatingApp": "生成应用",
         "generating": "生成中...",
         "openApp": "打开应用",
         "viewProgress": "查看进度"
+      },
+      "generateAutomation": {
+        "title": "自动化构建器",
+        "creatingAutomation": "创建自动化",
+        "updatingAutomation": "更新自动化",
+        "generatingAutomation": "构建自动化",
+        "building": "构建中...",
+        "openAutomation": "打开自动化",
+        "viewProgress": "查看进度",
+        "testResults": "测试结果",
+        "triggerTest": "触发器",
+        "actionTest": "动作 {{index}}"
       }
     },
     "tools": {
@@ -863,6 +881,11 @@
       "generateSendMailAction": "生成发送邮件节点",
       "generateAction": "生成节点",
 
+      "setupAutomationTrigger": "设置自动化触发器",
+      "testAutomationNode": "测试自动化节点",
+      "activateAutomation": "启用自动化",
+      "wait": "等待",
+
       "getRelativeData": "获取相关数据",
       "getPreviousNodeOutputVariables": "获取其他节点输出变量",
       "getApiJson": "获取 API 信息",
@@ -908,7 +931,18 @@
       "row": "行 {{index}}",
       "moreRows": "... +{{count}} 行",
       "getDoc": "获取文档",
-      "getDocWithTopic": "获取文档 · {{topic}}"
+      "getDocWithTopic": "获取文档 · {{topic}}",
+      "getAutomations": "查询自动化",
+      "getAutomation": "查询自动化详情",
+      "getAutomationRuns": "查询自动化运行记录",
+      "foundAutomations": "找到 {{count}} 个自动化",
+      "moreAutomations": "... +{{count}} 个自动化",
+      "foundRuns": "找到 {{count}} 条运行记录",
+      "moreRuns": "... +{{count}} 条记录",
+      "active": "已启用",
+      "trigger": "触发器",
+      "actions": "{{count}} 个操作",
+      "moreActions": "... +{{count}} 个操作"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
@@ -952,6 +986,26 @@
     "buildAutomation": {
       "title": "生成自动化",
       "generateSuccess": "生成自动化成功"
+    },
+    "automation": {
+      "created": "已创建",
+      "updated": "已更新",
+      "workflowId": "工作流",
+      "triggerId": "触发器",
+      "scriptActionId": "脚本动作",
+      "testPassed": "测试通过",
+      "testFailed": "测试失败",
+      "testOutput": "测试输出",
+      "activated": "已启用",
+      "deactivated": "已禁用",
+      "discarded": "已撤销更改",
+      "activateFailed": "启用失败",
+      "deactivateFailed": "禁用失败",
+      "discardFailed": "撤销失败",
+      "scriptUpdated": "脚本已更新",
+      "scriptUpdateFailed": "更新失败",
+      "waitedSeconds": "已等待 {{seconds}} 秒",
+      "waitFailed": "等待失败"
     },
     "newChat": "新对话",
     "noModel": "暂无可用模型",

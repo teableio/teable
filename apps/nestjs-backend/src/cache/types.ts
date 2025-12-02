@@ -32,6 +32,7 @@ export interface ICacheStore {
   })[];
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
+  [key: `automation:email:rate:${string}:${number}`]: number;
 }
 
 export interface IAttachmentSignatureCache {
