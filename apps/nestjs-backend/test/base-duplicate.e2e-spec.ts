@@ -543,12 +543,14 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(duplicatedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
     // Verify folder names are preserved
-    const sourceFolderNames = sourceFolders.map((f) => f.name).sort();
-    const duplicatedFolderNames = duplicatedFolders.map((f) => f.name).sort();
+    const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
+    const duplicatedFolderNames = duplicatedFolders.map((f) => f.resourceMeta?.name).sort();
     expect(duplicatedFolderNames).toEqual(sourceFolderNames);
 
     // Verify that table inside folder1 exists in imported base
-    const duplicatedFolder1 = duplicatedFolders.find((f) => f.name === folder1Node.name);
+    const duplicatedFolder1 = duplicatedFolders.find(
+      (f) => f.resourceMeta?.name === folder1Node.resourceMeta?.name
+    );
     expect(duplicatedFolder1).toBeDefined();
     const tableInsideFolder = duplicatedNodes.find((n) => {
       return n.resourceType === BaseNodeResourceType.Table && n.parentId === duplicatedFolder1!.id;
@@ -556,7 +558,9 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     expect(tableInsideFolder).toBeDefined();
 
     // Verify that dashboard inside folder2 exists in imported base
-    const duplicatedFolder2 = duplicatedFolders.find((f) => f.name === folder2Node.name);
+    const duplicatedFolder2 = duplicatedFolders.find(
+      (f) => f.resourceMeta?.name === folder2Node.resourceMeta?.name
+    );
     expect(duplicatedFolder2).toBeDefined();
     const dashboardInsideFolder = duplicatedNodes.find((n) => {
       return (
@@ -569,14 +573,14 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedTableList.length).toBe(2);
     expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(
-      [table1Node.name, table2Node.name].sort()
+      [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
     );
 
     // Verify dashboards are accessible
     const duplicatedDashboardList = await getDashboardList(duplicateBaseId).then((res) => res.data);
     expect(duplicatedDashboardList.length).toBe(2);
     expect(duplicatedDashboardList.map((d) => d.name).sort()).toEqual(
-      [dashboard1Node.name, dashboard2Node.name].sort()
+      [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
     );
   });
 
