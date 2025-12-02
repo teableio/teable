@@ -374,7 +374,7 @@ export const BaseNodeTree = () => {
                       <div className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
                         {resourceType === BaseNodeResourceType.Table && (
                           <EmojiPicker
-                            className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
+                            className="flex size-4 items-center justify-center hover:bg-muted-foreground/60"
                             onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
                           >
                             {icon ? (
