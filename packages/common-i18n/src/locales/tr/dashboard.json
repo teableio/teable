@@ -11,5 +11,9 @@
     "placeholder": "Gösterge paneli adını girin"
   },
   "findDashboard": "Gösterge paneli ara...",
-  "expand": "Genişlet"
+  "expand": "Genişlet",
+  "deprecation": {
+    "title": "Gösterge paneli düğümü özelliği sonlandırılacak",
+    "description": "Size daha akıllı ve verimli bir deneyim sunmak için gösterge paneli düğümü özelliğinin desteğini sonlandıracağız. AI ile oluşturulan uygulamada AI aracılığıyla kolayca yeni gösterge panelleri oluşturabilirsiniz."
+  }
 }

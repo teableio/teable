@@ -11,5 +11,9 @@
     "placeholder": "Ingresa el nombre del tablero"
   },
   "findDashboard": "Buscar un tablero...",
-  "expand": "Expandir"
+  "expand": "Expandir",
+  "deprecation": {
+    "title": "La función de nodo del tablero será descontinuada",
+    "description": "Para brindarte una experiencia más inteligente y eficiente, descontinuaremos el soporte para la función de nodo del tablero. Podrás crear nuevos tableros fácilmente a través de IA en la aplicación generada por IA."
+  }
 }

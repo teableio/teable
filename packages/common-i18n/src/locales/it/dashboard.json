@@ -11,5 +11,9 @@
     "placeholder": "Inserisci il nome della dashboard"
   },
   "findDashboard": "Trova una dashboard...",
-  "expand": "Espandi"
+  "expand": "Espandi",
+  "deprecation": {
+    "title": "La funzione del nodo dashboard sarà interrotta",
+    "description": "Per offrirti un'esperienza più intelligente ed efficiente, interromperemo il supporto per la funzione del nodo dashboard. Potrai creare facilmente nuove dashboard tramite AI nell'applicazione generata da AI."
+  }
 }

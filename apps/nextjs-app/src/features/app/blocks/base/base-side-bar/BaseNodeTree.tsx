@@ -32,6 +32,7 @@ import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
+import { useSetting } from '@/features/app/hooks/useSetting';
 import { useTableHref } from '../../table-list/useTableHref';
 import { BaseNodeContext } from '../base-node/BaseNodeContext';
 import {
@@ -127,8 +128,9 @@ export const BaseNodeTree = () => {
   const tableHrefMap = useTableHref();
   const permission = useBasePermission();
   const { buildApp: buildAppEnabled } = useDisableAIAction();
+  const { disallowDashboard } = useSetting();
   const canCreateTable = Boolean(permission?.['table|create']);
-  const canCreateDashboard = Boolean(permission?.['base|update']);
+  const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = Boolean(permission?.['automation|create']);
   const canCreateApp = Boolean(buildAppEnabled && permission?.['base|update']);
   const canCreateFolder = Boolean(permission?.['base|update']);

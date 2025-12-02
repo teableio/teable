@@ -64,6 +64,7 @@ export class SettingOpenApiController {
       SettingKey.DISALLOW_SIGN_UP,
       SettingKey.DISALLOW_SPACE_CREATION,
       SettingKey.DISALLOW_SPACE_INVITATION,
+      SettingKey.DISALLOW_DASHBOARD,
       SettingKey.ENABLE_EMAIL_VERIFICATION,
       SettingKey.ENABLE_WAITLIST,
       SettingKey.AI_CONFIG,

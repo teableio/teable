@@ -33,6 +33,7 @@ export const publicSettingVoSchema = settingVoSchema
     disallowSignUp: true,
     disallowSpaceCreation: true,
     disallowSpaceInvitation: true,
+    disallowDashboard: true,
     enableEmailVerification: true,
     enableWaitlist: true,
     createdTime: true,

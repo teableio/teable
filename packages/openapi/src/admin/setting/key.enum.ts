@@ -5,6 +5,7 @@ export enum SettingKey {
   DISALLOW_SIGN_UP = 'disallowSignUp',
   DISALLOW_SPACE_CREATION = 'disallowSpaceCreation',
   DISALLOW_SPACE_INVITATION = 'disallowSpaceInvitation',
+  DISALLOW_DASHBOARD = 'disallowDashboard',
   ENABLE_EMAIL_VERIFICATION = 'enableEmailVerification',
   ENABLE_WAITLIST = 'enableWaitlist',
   AI_CONFIG = 'aiConfig',

@@ -11,5 +11,9 @@
     "placeholder": "Name des Dashboards eingeben"
   },
   "findDashboard": "Ein Dashboards finden...",
-  "expand": "Erweitern"
+  "expand": "Erweitern",
+  "deprecation": {
+    "title": "Die Dashboard-Knoten-Funktion wird eingestellt",
+    "description": "Um Ihnen ein intelligenteres und effizienteres Erlebnis zu bieten, werden wir die Unterstützung für die Dashboard-Knoten-Funktion einstellen. Sie können neue Dashboards einfach über KI in der KI-generierten Anwendung erstellen."
+  }
 }

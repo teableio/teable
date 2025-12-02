@@ -44,7 +44,7 @@ export const DashboardMain = (props: { dashboardId: string }) => {
     );
   }
   return (
-    <div className="flex-1 overflow-y-scroll p-4">
+    <div className="flex-1 overflow-y-auto p-4">
       <DashboardGrid dashboardId={dashboardId} />
     </div>
   );

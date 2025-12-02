@@ -35,6 +35,7 @@ import {
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { useSetting } from '@/features/app/hooks/useSetting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { TableImport } from '../../import-table';
@@ -125,10 +126,11 @@ const CommonOperation = (props: ICommonOperationProps) => {
 
 export const DashboardOperation = (props: IBaseNodeMoreProps) => {
   const permission = useBasePermission();
+  const { disallowDashboard } = useSetting();
   const canRename = Boolean(permission?.['base|update']);
   const canDelete = false;
   const canPermanentDelete = Boolean(permission?.['base|delete']);
-  const canDuplicate = Boolean(permission?.['base|update']);
+  const canDuplicate = Boolean(permission?.['base|update'] && !disallowDashboard);
 
   return (
     <CommonOperation

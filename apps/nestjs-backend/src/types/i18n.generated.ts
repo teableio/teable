@@ -1056,6 +1056,10 @@ export type I18nTranslations = {
         };
         "findDashboard": string;
         "expand": string;
+        "deprecation": {
+            "title": string;
+            "description": string;
+        };
         "pluginUrlEmpty": string;
         "install": string;
         "publisher": string;
