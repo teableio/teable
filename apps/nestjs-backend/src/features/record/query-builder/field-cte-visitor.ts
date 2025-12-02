@@ -1823,10 +1823,13 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         return;
       }
 
+      const requiredLinkFields = new Map<string, LinkFieldCore>();
+
       const ensureLinkDependencies = (candidate?: FieldCore) => {
         if (!candidate) return;
         for (const linkField of candidate.getLinkFields(foreignTable)) {
           if (!linkField) continue;
+          requiredLinkFields.set(linkField.id, linkField as LinkFieldCore);
           if (this.state.getFieldCteMap().has(linkField.id)) continue;
           this.generateLinkFieldCteForTable(foreignTable, linkField as LinkFieldCore);
         }
@@ -1854,6 +1857,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         foreignAliasUsed,
         selectVisitor
       );
+
+      const joinLinkDependencies = (qb: Knex.QueryBuilder) => {
+        for (const linkField of requiredLinkFields.values()) {
+          const cteName = this.getCteNameForField(linkField.id);
+          if (!cteName) continue;
+          qb.leftJoin(cteName, `${foreignAliasUsed}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+        }
+      };
 
       let orderByClause: string | undefined;
       if (sort?.fieldId) {
@@ -1978,6 +1989,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           .select('*')
           .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
 
+        joinLinkDependencies(rankedSourceQuery);
         applyConditionalFilter(rankedSourceQuery, equalityPlan.residualFilter);
 
         const rankedWithWindow = this.qb.client
@@ -2044,6 +2056,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         .select('*')
         .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
 
+      joinLinkDependencies(aggregateSourceQuery);
       applyConditionalFilter(aggregateSourceQuery);
 
       if (orderByClause) {

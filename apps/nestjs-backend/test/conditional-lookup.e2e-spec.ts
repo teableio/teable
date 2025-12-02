@@ -453,9 +453,9 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
           } as IFieldRo,
         ],
         records: [
-          { fields: { Title: 'Alpha', Status: 'Active', Color: [{ id: colors.records[1].id }] } },
-          { fields: { Title: 'Beta', Status: 'Active', Color: [{ id: colors.records[0].id }] } },
-          { fields: { Title: 'Gamma', Status: 'Closed', Color: [{ id: colors.records[1].id }] } },
+          { fields: { Title: 'Alpha', Status: 'Active', Color: { id: colors.records[1].id } } },
+          { fields: { Title: 'Beta', Status: 'Active', Color: { id: colors.records[0].id } } },
+          { fields: { Title: 'Gamma', Status: 'Closed', Color: { id: colors.records[1].id } } },
         ],
       });
       const titleId = items.fields.find((f) => f.name === 'Title')!.id;
