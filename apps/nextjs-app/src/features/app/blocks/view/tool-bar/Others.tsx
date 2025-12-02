@@ -90,6 +90,7 @@ export const Others: React.FC = () => {
   return (
     <div className="flex flex-1 items-center justify-end @container/toolbar-others md:gap-0">
       <SearchButton />
+      <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
       <UndoRedoButtons />
       <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
       <OthersList
