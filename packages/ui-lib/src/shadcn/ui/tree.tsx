@@ -145,9 +145,9 @@ function TreeItemLabel<T = any>({
       data-drag-target={isDragTarget ? 'true' : undefined}
       data-search-match={isSearchMatch ? 'true' : undefined}
       className={cn(
-        'flex items-center gap-1 rounded-sm bg-background px-2 py-1.5 text-sm transition-colors hover:bg-accent group-focus-visible:ring-[3px] group-focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+        'flex items-center gap-1 rounded-sm border border-transparent bg-background px-2 py-1.5 text-sm transition-colors hover:bg-accent group-focus-visible:ring-[3px] group-focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
         !isFolder && 'ps-7',
-        isDragTarget && 'bg-accent',
+        isDragTarget && 'border-dashed border-foreground bg-foreground/[0.06]',
         isSearchMatch && 'bg-blue-400/20',
         isSelected && 'bg-accent text-accent-foreground',
         className
@@ -177,7 +177,7 @@ function TreeDragLine({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     <div
       style={dragLine}
       className={cn(
-        'absolute z-30 -mt-px h-0.5 w-[unset] bg-primary before:absolute before:-top-[3px] before:left-0 before:size-2 before:rounded-full before:border-2 before:border-primary before:bg-background',
+        'absolute z-30 -mt-px h-px w-[unset] bg-foreground before:absolute before:-left-[3px] before:-top-[2.5px] before:border-y-[3px] before:border-l-[3px] before:border-y-transparent before:border-l-foreground',
         className
       )}
       {...props}
