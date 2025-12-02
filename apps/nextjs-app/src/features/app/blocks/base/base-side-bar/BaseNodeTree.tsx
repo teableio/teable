@@ -187,10 +187,10 @@ export const BaseNodeTree = () => {
           let anchorId: string | undefined;
           let position: 'before' | 'after' | undefined;
 
-          if (newIndex > 0) {
+          if (newIndex > 0 && newChildrenIds[newIndex - 1]) {
             anchorId = newChildrenIds[newIndex - 1];
             position = 'after';
-          } else if (newChildrenIds.length > 1) {
+          } else if (newChildrenIds[newIndex + 1]) {
             anchorId = newChildrenIds[newIndex + 1];
             position = 'before';
           }
