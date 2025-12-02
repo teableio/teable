@@ -104,7 +104,9 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
                       value={name}
                       onSelect={() => {
                         setOpen(false);
-                        router.push(url, undefined);
+                        if (url) {
+                          router.push(url);
+                        }
                       }}
                     >
                       {icon ? (

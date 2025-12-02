@@ -36,7 +36,7 @@ export const getNodeUrl = (props: {
   resourceType: BaseNodeResourceType;
   resourceId: string;
   viewId?: string;
-}): UrlObject => {
+}): UrlObject | null => {
   const { baseId, resourceId, resourceType, viewId } = props;
   switch (resourceType) {
     case BaseNodeResourceType.Table:
@@ -47,8 +47,10 @@ export const getNodeUrl = (props: {
       return { pathname: `/base/${baseId}/automation/${resourceId}` };
     case BaseNodeResourceType.App:
       return { pathname: `/base/${baseId}/app/${resourceId}` };
+    case BaseNodeResourceType.Folder:
+      return null;
     default:
-      return { pathname: `/base/${baseId}` };
+      return null;
   }
 };
 

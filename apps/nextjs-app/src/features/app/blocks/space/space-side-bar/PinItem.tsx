@@ -126,11 +126,13 @@ export const PinItem = (props: IPinItemProps) => {
       return (
         <ItemButton className={className}>
           <Link
-            href={getNodeUrl({
-              baseId: pin.parentBaseId!,
-              resourceType: BaseNodeResourceType.Dashboard,
-              resourceId: pin.id,
-            })}
+            href={
+              getNodeUrl({
+                baseId: pin.parentBaseId!,
+                resourceType: BaseNodeResourceType.Dashboard,
+                resourceId: pin.id,
+              }) ?? {}
+            }
             title={pin.name}
           >
             <IconComponent className="size-4 shrink-0" />
@@ -145,11 +147,13 @@ export const PinItem = (props: IPinItemProps) => {
       return (
         <ItemButton className={className}>
           <Link
-            href={getNodeUrl({
-              baseId: pin.parentBaseId!,
-              resourceType: BaseNodeResourceType.Workflow,
-              resourceId: pin.id,
-            })}
+            href={
+              getNodeUrl({
+                baseId: pin.parentBaseId!,
+                resourceType: BaseNodeResourceType.Workflow,
+                resourceId: pin.id,
+              }) ?? {}
+            }
             title={pin.name}
           >
             <IconComponent className="size-4 shrink-0" />
@@ -164,11 +168,13 @@ export const PinItem = (props: IPinItemProps) => {
       return (
         <ItemButton className={className}>
           <Link
-            href={getNodeUrl({
-              baseId: pin.parentBaseId!,
-              resourceType: BaseNodeResourceType.App,
-              resourceId: pin.id,
-            })}
+            href={
+              getNodeUrl({
+                baseId: pin.parentBaseId!,
+                resourceType: BaseNodeResourceType.App,
+                resourceId: pin.id,
+              }) ?? {}
+            }
             title={pin.name}
           >
             <IconComponent className="size-4 shrink-0" />

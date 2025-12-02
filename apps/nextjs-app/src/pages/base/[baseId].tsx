@@ -33,7 +33,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           resourceType: findNode.resourceType,
           resourceId: findNode.resourceId,
         });
-        if (url.pathname) {
+        if (url && url.pathname) {
           return {
             redirect: {
               destination: url.pathname,

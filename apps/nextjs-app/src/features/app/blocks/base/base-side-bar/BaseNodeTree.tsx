@@ -86,16 +86,14 @@ export const BaseNodeTree = () => {
         resourceType,
         resourceId,
       });
-      if (!url) {
-        return;
+      if (url) {
+        if (resourceType === BaseNodeResourceType.Table) {
+          router.push(url);
+        } else {
+          router.push(url, undefined, { shallow: true });
+        }
       }
-      if (resourceType === BaseNodeResourceType.Table) {
-        router.push(url);
-        invalidateMenu();
-        setEditingNodeId(node.id);
-        return;
-      }
-      router.push(url, undefined, { shallow: true });
+
       invalidateMenu();
       setEditingNodeId(node.id);
     },
@@ -110,13 +108,14 @@ export const BaseNodeTree = () => {
         resourceType,
         resourceId,
       });
-      if (resourceType === BaseNodeResourceType.Table) {
-        router.push(url);
-        invalidateMenu();
-        setEditingNodeId(node.id);
-        return;
+      if (url) {
+        if (resourceType === BaseNodeResourceType.Table) {
+          router.push(url);
+        } else {
+          router.push(url, undefined, { shallow: true });
+        }
       }
-      router.push(url, undefined, { shallow: true });
+
       invalidateMenu();
       setEditingNodeId(node.id);
     },
@@ -213,6 +212,7 @@ export const BaseNodeTree = () => {
       const node = item.getItemData();
       const viewId = router.query.viewId as string;
       const { resourceType, resourceId } = node;
+
       if (resourceType === BaseNodeResourceType.Table) {
         if (!tableHrefMap[resourceId]) {
           console.error('tableHrefMap[resourceId] not found', resourceId);
@@ -229,11 +229,13 @@ export const BaseNodeTree = () => {
         );
         return;
       }
+
       const url = getNodeUrl({
         baseId,
         resourceType,
         resourceId,
       });
+      if (!url) return;
       router.push(url, undefined, {
         shallow: true,
       });
@@ -298,7 +300,7 @@ export const BaseNodeTree = () => {
           inputRef.current.focus();
           inputRef.current.select();
         }
-      }, 100);
+      }, 200);
     }
     return () => {
       if (timeout) {
