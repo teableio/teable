@@ -57,11 +57,6 @@ export const useConnection = (path?: string) => {
     updateRefreshTime();
   }, [socket, updateRefreshTime]);
 
-  if (typeof window !== 'undefined') {
-    window.dreconnect = () => socket?.reconnect();
-    window.dclose = () => socket?.close();
-  }
-
   useConnectionAutoManage(socket, updateShareDb, {
     // 10 minutes, it will be closed when the user is leave the page for 1 hour
     inactiveTimeout: 1000 * 60 * 60,
