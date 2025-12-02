@@ -42,7 +42,7 @@
     "test": "run-s test-unit test-e2e",
     "test-unit:watch": "vitest --watch",
     "test-unit": "vitest run --silent --bail 1",
-    "test-unit-cover": "pnpm test-unit --coverage --bail 1 ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
+    "test-unit-cover": "pnpm test-unit --coverage ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
     "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable/db-main-prisma prisma-db-seed -- --e2e",
     "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent",
     "test-e2e-cover": "pnpm test-e2e --coverage --bail 1 ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
