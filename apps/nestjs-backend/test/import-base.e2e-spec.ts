@@ -1004,12 +1004,14 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(importedNodesWithParent.length).toBe(sourceNodesWithParent.length);
 
       // Verify folder names are preserved
-      const sourceFolderNames = sourceFolders.map((f) => f.name).sort();
-      const importedFolderNames = importedFolders.map((f) => f.name).sort();
+      const sourceFolderNames = sourceFolders.map((f) => f.resourceMeta?.name).sort();
+      const importedFolderNames = importedFolders.map((f) => f.resourceMeta?.name).sort();
       expect(importedFolderNames).toEqual(sourceFolderNames);
 
       // Verify that table inside folder1 exists in imported base
-      const importedFolder1 = importedFolders.find((f) => f.name === folder1Node.name);
+      const importedFolder1 = importedFolders.find(
+        (f) => f.resourceMeta?.name === folder1Node.resourceMeta?.name
+      );
       expect(importedFolder1).toBeDefined();
       const tableInsideFolder = importedNodes.find((n) => {
         return n.resourceType === BaseNodeResourceType.Table && n.parentId === importedFolder1!.id;
@@ -1017,7 +1019,9 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       expect(tableInsideFolder).toBeDefined();
 
       // Verify that dashboard inside folder2 exists in imported base
-      const importedFolder2 = importedFolders.find((f) => f.name === folder2Node.name);
+      const importedFolder2 = importedFolders.find(
+        (f) => f.resourceMeta?.name === folder2Node.resourceMeta?.name
+      );
       expect(importedFolder2).toBeDefined();
       const dashboardInsideFolder = importedNodes.find((n) => {
         return (
@@ -1030,7 +1034,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       const importedTableList = await getTableList(importedNodeBaseId).then((res) => res.data);
       expect(importedTableList.length).toBe(2);
       expect(importedTableList.map((t) => t.name).sort()).toEqual(
-        [table1Node.name, table2Node.name].sort()
+        [table1Node.resourceMeta?.name, table2Node.resourceMeta?.name].sort()
       );
 
       // Verify dashboards are accessible
@@ -1039,7 +1043,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
       );
       expect(importedDashboardList.length).toBe(2);
       expect(importedDashboardList.map((d) => d.name).sort()).toEqual(
-        [dashboard1Node.name, dashboard2Node.name].sort()
+        [dashboard1Node.resourceMeta?.name, dashboard2Node.resourceMeta?.name].sort()
       );
     });
   });

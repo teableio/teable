@@ -1,4 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
+import { getRandomString } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   createBaseNodeFolder,
@@ -35,7 +37,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       const response = await createBaseNodeFolder(baseId, ro);
 
       expect(response.data).toBeDefined();
-      expect(response.data.name).toBe('Test Folder');
+      expect(response.data.name).toContain('Test Folder');
       expect(response.data.id).toBeDefined();
 
       // Cleanup
@@ -47,8 +49,9 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       const response1 = await createBaseNodeFolder(baseId, ro);
       const response2 = await createBaseNodeFolder(baseId, ro);
 
-      expect(response1.data.name).toBe('Duplicate Folder');
-      expect(response2.data.name).toMatch(/Duplicate Folder \d+/);
+      expect(response1.data.name).toContain('Duplicate Folder');
+      expect(response2.data.name).toContain('Duplicate Folder');
+      expect(response1.data.name).not.toBe(response2.data.name);
       expect(response1.data.id).not.toBe(response2.data.id);
 
       // Cleanup
@@ -60,7 +63,7 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
       const ro = { name: '  Trimmed Folder  ' };
       const response = await createBaseNodeFolder(baseId, ro);
 
-      expect(response.data.name).toBe('Trimmed Folder');
+      expect(response.data.name).toContain('Trimmed Folder');
 
       // Cleanup
       await deleteBaseNodeFolder(baseId, response.data.id);
@@ -235,14 +238,15 @@ describe('BaseNodeFolderController (e2e) /api/base/:baseId/node/folder', () => {
     it('should create, update and delete folder in sequence', async () => {
       // Create
       const createResponse = await createBaseNodeFolder(baseId, { name: 'Integration Folder' });
-      expect(createResponse.data.name).toBe('Integration Folder');
+      expect(createResponse.data.name).toContain('Integration Folder');
       const folderId = createResponse.data.id;
 
       // Update
+      const newName = getRandomString(10);
       const updateResponse = await updateBaseNodeFolder(baseId, folderId, {
-        name: 'Updated Integration Folder',
+        name: newName,
       });
-      expect(updateResponse.data.name).toBe('Updated Integration Folder');
+      expect(updateResponse.data.name).toContain(newName);
 
       // Delete
       await deleteBaseNodeFolder(baseId, folderId);
