@@ -945,7 +945,6 @@ export class SelectionService {
     const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
     const payload: IUpdateRecordsInternalRo =
       maybeInternal.fieldIds !== undefined ? maybeInternal : { ...maybeInternal, fieldIds };
-    console.log('ddddddd', JSON.stringify(payload, null, 2));
     await this.recordOpenApiService.updateRecords(tableId, payload, windowId);
   }
 
