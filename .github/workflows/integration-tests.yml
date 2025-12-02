@@ -20,8 +20,8 @@ jobs:
       matrix:
         node-version: [20.9.0]
         database-type: [postgres]
-        shardIndex: [1, 2, 3, 4]
-        shardTotal: [4]
+        shardIndex: [1, 2]
+        shardTotal: [2]
     env:
       CI: 1
 
