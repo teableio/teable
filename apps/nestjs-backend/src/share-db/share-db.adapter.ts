@@ -444,10 +444,14 @@ export class ShareDbAdapter extends ShareDb.DB {
     );
     const needGetSnapshotDataIds: string[] = [];
     for (const [id, from] of Object.entries(fromMap)) {
+      const versionAndType = versionAndTypeMap[id];
+      if (!versionAndType) {
+        continue;
+      }
       if (
         this.hasGapVersion({
-          opType: versionAndTypeMap[id].type,
-          currentVersion: versionAndTypeMap[id].version,
+          opType: versionAndType.type,
+          currentVersion: versionAndType.version,
           fromVersion: from,
         })
       ) {
@@ -485,7 +489,8 @@ export class ShareDbAdapter extends ShareDb.DB {
           result[id] = data;
         },
         {
-          getVersionAndType: async (_collectionId, id) => versionAndTypeMap[id],
+          getVersionAndType: async (_collectionId, id) =>
+            versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
           getSnapshotData: async (...args) => {
             const ids = args[2];
             return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
