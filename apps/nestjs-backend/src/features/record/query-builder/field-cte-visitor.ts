@@ -1853,8 +1853,22 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         field
       );
 
-      const applyConditionalFilter = (targetQb: Knex.QueryBuilder) => {
-        if (!filter) return;
+      const resolvedLimit = normalizeConditionalLimit(limit);
+      const equalityPlan = this.extractConditionalEqualityJoinPlan(
+        filter,
+        table,
+        foreignTable,
+        mainAlias,
+        foreignAliasUsed
+      );
+      const lookupAlias = `conditional_lookup_${field.id}`;
+      const rollupAlias = `conditional_rollup_${field.id}`;
+
+      const applyConditionalFilter = (
+        targetQb: Knex.QueryBuilder,
+        targetFilter: IFilter | null | undefined = filter
+      ) => {
+        if (!targetFilter) return;
 
         const fieldMap = foreignTable.fieldList.reduce(
           (map, f) => {
@@ -1877,13 +1891,89 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         }
 
         this.dbProvider
-          .filterQuery(targetQb, fieldMap, filter, undefined, {
+          .filterQuery(targetQb, fieldMap, targetFilter, undefined, {
             selectionMap,
             fieldReferenceSelectionMap,
             fieldReferenceFieldMap,
           })
           .appendQueryBuilder();
       };
+
+      if (equalityPlan?.joinKeys.length) {
+        const partitionClause = equalityPlan.joinKeys.map((cond) => cond.foreignExpr).join(', ');
+        const windowOrder = orderByClause ? ` ORDER BY ${orderByClause}` : '';
+        const windowClause = partitionClause
+          ? `PARTITION BY ${partitionClause}${windowOrder}`
+          : windowOrder.trim();
+        const rowNumberExpr = windowClause
+          ? `ROW_NUMBER() OVER (${windowClause})`
+          : 'ROW_NUMBER() OVER ()';
+
+        const rankedSourceQuery = this.qb.client
+          .queryBuilder()
+          .select('*')
+          .from(`${foreignTable.dbTableName} as ${foreignAliasUsed}`);
+
+        applyConditionalFilter(rankedSourceQuery, equalityPlan.residualFilter);
+
+        const rankedWithWindow = this.qb.client
+          .queryBuilder()
+          .from(rankedSourceQuery.as(foreignAliasUsed))
+          .select(`${foreignAliasUsed}.*`)
+          .select(this.qb.client.raw(`${rowNumberExpr} as "__cl_rank"`));
+
+        const limitedSourceQuery = this.qb.client
+          .queryBuilder()
+          .from(rankedWithWindow.as(foreignAliasUsed))
+          .select('*')
+          .whereRaw('"__cl_rank" <= ?', [resolvedLimit]);
+
+        const aggregateQuery = this.qb.client
+          .queryBuilder()
+          .from(limitedSourceQuery.as(foreignAliasUsed));
+
+        for (const cond of equalityPlan.joinKeys) {
+          aggregateQuery
+            .select(this.qb.client.raw(`${cond.foreignExpr} as "${cond.alias}"`))
+            .groupByRaw(cond.foreignExpr);
+        }
+
+        aggregateQuery.select(
+          this.qb.client.raw(`${castedAggregateExpression} as reference_value`)
+        );
+        const aggregateSql = aggregateQuery.toQuery();
+        const joinAlias = `__cl_${field.id}`;
+
+        this.withCte(
+          cteName,
+          (cqb) => {
+            cqb.select(`${mainAlias}.${ID_FIELD_NAME} as main_record_id`);
+            cqb.select(cqb.client.raw(`${joinAlias}."reference_value" as "${lookupAlias}"`));
+            if (field.type === FieldType.ConditionalRollup) {
+              cqb.select(cqb.client.raw(`${joinAlias}."reference_value" as "${rollupAlias}"`));
+            }
+            this.fromTableWithRestriction(cqb, table, mainAlias);
+            cqb.leftJoin(this.qb.client.raw(`(${aggregateSql}) as ${joinAlias}`), (join) => {
+              for (const cond of equalityPlan.joinKeys) {
+                join.on(
+                  this.qb.client.raw(cond.hostExpr),
+                  '=',
+                  this.qb.client.raw(`${joinAlias}."${cond.alias}"`)
+                );
+              }
+            });
+          },
+          { materialized: preferMaterializedCte }
+        );
+
+        if (joinToMain && !this.state.isCteJoined(cteName)) {
+          this.qb.leftJoin(cteName, `${mainAlias}.${ID_FIELD_NAME}`, `${cteName}.main_record_id`);
+          this.state.markCteJoined(cteName);
+        }
+
+        this.state.setFieldCte(field.id, cteName);
+        return;
+      }
 
       const aggregateSourceQuery = this.qb.client
         .queryBuilder()
@@ -1896,7 +1986,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         aggregateSourceQuery.orderByRaw(orderByClause);
       }
 
-      const resolvedLimit = normalizeConditionalLimit(limit);
       aggregateSourceQuery.limit(resolvedLimit);
 
       const aggregateQuery = this.qb.client
@@ -1906,8 +1995,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       aggregateQuery.select(this.qb.client.raw(`${castedAggregateExpression} as reference_value`));
 
       const aggregateSql = aggregateQuery.toQuery();
-      const lookupAlias = `conditional_lookup_${field.id}`;
-      const rollupAlias = `conditional_rollup_${field.id}`;
 
       this.withCte(
         cteName,
