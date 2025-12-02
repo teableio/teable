@@ -340,7 +340,7 @@ export const BaseNodeTree = () => {
 
   return (
     <>
-      <div className="flex w-full flex-col pt-4">
+      <div className="flex w-full flex-col px-4 pt-4">
         <BaseNodeAddResourceButton
           curdHooks={curdHooks}
           parentId={ROOT_ID}
@@ -355,7 +355,7 @@ export const BaseNodeTree = () => {
           </Button>
         </BaseNodeAddResourceButton>
       </div>
-      <ScrollArea className="flex w-full !border-none" scrollBar="none">
+      <ScrollArea className="flex w-full !border-none px-4" scrollBar="none">
         <Tree indent={INDENTATION_WIDTH} tree={tree}>
           <AssistiveTreeDescription tree={tree} />
           {tree.getItems().map((item) => {
@@ -372,16 +372,21 @@ export const BaseNodeTree = () => {
                     {!item.isFolder() && (
                       // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
                       <div className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                        <EmojiPicker
-                          className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
-                          onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
-                        >
-                          {icon ? (
-                            <Emoji emoji={icon} size={'1rem'} />
-                          ) : (
-                            <IconComponent className="size-4 shrink-0" />
-                          )}
-                        </EmojiPicker>
+                        {resourceType === BaseNodeResourceType.Table && (
+                          <EmojiPicker
+                            className="flex size-5 items-center justify-center hover:bg-muted-foreground/60"
+                            onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
+                          >
+                            {icon ? (
+                              <Emoji emoji={icon} size={'1rem'} />
+                            ) : (
+                              <IconComponent className="size-4 shrink-0" />
+                            )}
+                          </EmojiPicker>
+                        )}
+                        {resourceType !== BaseNodeResourceType.Table && (
+                          <IconComponent className="size-4 shrink-0" />
+                        )}
                       </div>
                     )}
                     {editingNodeId === nodeId ? (

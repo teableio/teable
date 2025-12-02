@@ -103,7 +103,6 @@ export class BaseNodeController {
 
   @Put(':nodeId/move')
   @Permissions('base|update')
-  @BaseNodePermissions('base_node|update')
   async move(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
