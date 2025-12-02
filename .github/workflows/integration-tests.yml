@@ -20,6 +20,8 @@ jobs:
       matrix:
         node-version: [20.9.0]
         database-type: [postgres]
+        shardIndex: [1, 2, 3, 4]
+        shardTotal: [4]
     env:
       CI: 1
 
@@ -39,23 +41,41 @@ jobs:
           CI: 1
           VITEST_MAX_THREADS: 2
           VITEST_MIN_THREADS: 1
+          VITEST_SHARD: ${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+          VITEST_REPORTER: blob
         run: |
           make ${{ matrix.database-type }}.integration.test
+      - name: Upload blob report to GitHub Actions Artifacts
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: blob-report-${{ matrix.shardIndex }}
+          path: .vitest-reports/*
+          include-hidden-files: true
+          retention-days: 1
+  
+
+  finish:
+    if: ${{ !cancelled() }}
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: run unit tests
+        run: |
           pnpm -F "@teable/backend" test-unit-cover
           pnpm -F "@teable/backend" merge-cover
           pnpm -F "@teable/backend" generate-cover
 
-      - name: Coveralls Parallel
-        uses: coverallsapp/github-action@v2
+      - name: Download blob reports from GitHub Actions Artifacts
+        uses: actions/download-artifact@v4
         with:
-          flag-name: run-${{ join(matrix.*, '-') }}
-          file: apps/nestjs-backend/coverage/nestjs-backend/clover.xml
-          parallel: true
+          path: .vitest-reports
+          pattern: blob-report-*
+          merge-multiple: true
 
-  finish:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
+      - name: Merge reports
+        run: npx vitest --merge-reports
+
       - name: Coveralls Finished
         uses: coverallsapp/github-action@v2
         with:

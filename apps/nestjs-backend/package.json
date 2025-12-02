@@ -44,14 +44,15 @@
     "test-unit": "vitest run --silent --bail 1",
     "test-unit-cover": "pnpm test-unit --coverage",
     "pre-test-e2e": "cross-env NODE_ENV=test pnpm -F @teable/db-main-prisma prisma-db-seed -- --e2e",
-    "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent",
-    "test-e2e-cover": "pnpm test-e2e --coverage",
+    "test-e2e": "pnpm pre-test-e2e && vitest run --config ./vitest-e2e.config.ts --silent --bail 1 ${VITEST_REPORTER:+--reporter=$VITEST_REPORTER} ${VITEST_SHARD:+--shard=$VITEST_SHARD}",
+    "test-e2e-cover": "pnpm test-e2e ${VITEST_REPORTER:+--coverage}",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "lint": "eslint . --ext .ts,.js,.cjs,.mjs,.mdx --cache --cache-location ../../.cache/eslint/nestjs-backend.eslintcache",
     "fix-all-files": "eslint . --ext .ts,.tsx,.js,.jsx,.cjs,.mjs,.mdx --fix",
     "flamegraph-home": "npx 0x --output-dir './.debug/flamegraph/{pid}.0x' --on-port 'autocannon http://localhost:$PORT --duration 20' -- node ../../node_modules/.bin/next start",
     "merge-cover": "istanbul-merge --out ./coverage/nestjs-backend/coverage-final.json ./coverage/e2e/coverage-final.json ./coverage/unit/coverage-final.json",
-    "generate-cover": "nyc report --report-dir=coverage/nestjs-backend --temp-dir=coverage/nestjs-backend -r text -r html -r clover"
+    "generate-cover": "nyc report --report-dir=coverage/nestjs-backend --temp-dir=coverage/nestjs-backend -r text -r html -r clover",
+    "merge-reports": "vitest run --config ./vitest-e2e.config.ts --merge-reports"
   },
   "devDependencies": {
     "@faker-js/faker": "8.4.1",
