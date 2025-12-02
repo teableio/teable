@@ -334,14 +334,29 @@ export const BaseNodeTree = () => {
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
-    canDrop: (item, target) => {
-      if (editingNodeId) return false;
-      if (!canMoveNode) return false;
-      if (item.length !== 1) return false;
-      if (!target.item.isFolder()) return false;
-      if (!item[0].isFolder()) return true;
-      if (item[0].isFolder() && getItemLevel(target.item) < maxFolderDepth - 1) return true;
-      return false;
+    canDrop: (items, target) => {
+      // Basic validation
+      if (editingNodeId || !canMoveNode || items.length !== 1) return false;
+
+      const isDraggingFolder = items[0].isFolder();
+      const isReordering = 'childIndex' in target;
+
+      // === Non-folder items ===
+      if (!isDraggingFolder) {
+        // Reorder: ✅ allowed at any level
+        if (isReordering) return true;
+        // Drop into folder: ✅ | Drop into non-folder: ❌
+        return target.item.isFolder();
+      }
+
+      // === Folder items ===
+      if (isReordering) {
+        // Reorder at level 0, 1: ✅ | Reorder at level >= 2: ❌
+        return target.dragLineLevel < maxFolderDepth;
+      }
+
+      // Drop into level 0 folder: ✅ | Drop into level 1+ folder or non-folder: ❌
+      return target.item.isFolder() && getItemLevel(target.item) < maxFolderDepth - 1;
     },
     onDrop: handleDrop,
     onPrimaryAction: handlePrimaryAction,
@@ -430,7 +445,7 @@ export const BaseNodeTree = () => {
         className="flex w-full !border-none px-4"
         scrollBar="none"
       >
-        <Tree indent={INDENTATION_WIDTH} tree={tree}>
+        <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
           <AssistiveTreeDescription tree={tree} />
           {tree.getItems().map((item) => {
             const nodeId = item.getId();
