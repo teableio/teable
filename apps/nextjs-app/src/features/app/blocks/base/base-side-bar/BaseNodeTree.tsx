@@ -48,6 +48,68 @@ import { BaseNodeMore } from './BaseNodeMore';
 import { BaseNodeStarButton } from './BaseNodeStarButton';
 
 const INDENTATION_WIDTH = 16;
+const SCROLL_EDGE_THRESHOLD = 60; // pixels from edge to trigger scroll
+const SCROLL_MAX_SPEED = 15; // max pixels per frame
+
+// Custom hook for auto-scroll during drag
+const useDragAutoScroll = (viewportRef: React.RefObject<HTMLDivElement | null>) => {
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    let scrollSpeed = 0;
+
+    const scroll = () => {
+      if (scrollSpeed !== 0) {
+        viewport.scrollTop += scrollSpeed;
+        rafRef.current = requestAnimationFrame(scroll);
+      } else {
+        rafRef.current = null;
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      const rect = viewport.getBoundingClientRect();
+      const y = e.clientY;
+      const distanceFromTop = y - rect.top;
+      const distanceFromBottom = rect.bottom - y;
+
+      if (distanceFromTop < SCROLL_EDGE_THRESHOLD) {
+        // Accelerate based on proximity to edge
+        const ratio = 1 - distanceFromTop / SCROLL_EDGE_THRESHOLD;
+        scrollSpeed = -Math.round(SCROLL_MAX_SPEED * ratio);
+        if (!rafRef.current) rafRef.current = requestAnimationFrame(scroll);
+      } else if (distanceFromBottom < SCROLL_EDGE_THRESHOLD) {
+        const ratio = 1 - distanceFromBottom / SCROLL_EDGE_THRESHOLD;
+        scrollSpeed = Math.round(SCROLL_MAX_SPEED * ratio);
+        if (!rafRef.current) rafRef.current = requestAnimationFrame(scroll);
+      } else {
+        scrollSpeed = 0;
+      }
+    };
+
+    const stopScroll = () => {
+      scrollSpeed = 0;
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    };
+
+    viewport.addEventListener('dragover', handleDragOver);
+    viewport.addEventListener('dragend', stopScroll);
+    viewport.addEventListener('drop', stopScroll);
+
+    return () => {
+      viewport.removeEventListener('dragover', handleDragOver);
+      viewport.removeEventListener('dragend', stopScroll);
+      viewport.removeEventListener('drop', stopScroll);
+      stopScroll();
+    };
+  }, [viewportRef]);
+};
 
 export const BaseNodeTree = () => {
   const { t } = useTranslation(['common']);
@@ -79,6 +141,7 @@ export const BaseNodeTree = () => {
   const inputRef = useRef<HTMLInputElement>(null);
   const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
   const treeItemsRef = useRef(treeItems);
+  const viewportRef = useRef<HTMLDivElement>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [expandedItems, setExpandedItems] = useLocalStorage<string[]>(
     LocalStorageKeys.BaseNodeExpandedItems,
@@ -296,6 +359,9 @@ export const BaseNodeTree = () => {
     tree.rebuildTree();
   }, [tree, treeItems]);
 
+  // Auto-scroll during drag
+  useDragAutoScroll(viewportRef);
+
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     if (editingNodeId) {
@@ -359,7 +425,11 @@ export const BaseNodeTree = () => {
           </Button>
         </BaseNodeAddResourceButton>
       </div>
-      <ScrollArea className="flex w-full !border-none px-4" scrollBar="none">
+      <ScrollArea
+        viewportRef={viewportRef}
+        className="flex w-full !border-none px-4"
+        scrollBar="none"
+      >
         <Tree indent={INDENTATION_WIDTH} tree={tree}>
           <AssistiveTreeDescription tree={tree} />
           {tree.getItems().map((item) => {
