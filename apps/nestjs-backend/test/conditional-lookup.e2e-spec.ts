@@ -432,6 +432,88 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
         await updateRecordByApi(host.id, activeRecordId, statusFilterId, 'Active');
       }
     });
+
+    it('sorts referenced lookup fields with limits applied', async () => {
+      const colors = await createTable(baseId, {
+        name: 'ConditionalLookup_Sort_Colors',
+        fields: [{ name: 'Color', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Color: 'Amber' } }, { fields: { Color: 'Teal' } }],
+      });
+      const colorId = colors.fields.find((f) => f.name === 'Color')!.id;
+
+      const items = await createTable(baseId, {
+        name: 'ConditionalLookup_Sort_Items',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Status', type: FieldType.SingleLineText } as IFieldRo,
+          {
+            name: 'Color',
+            type: FieldType.Link,
+            options: { relationship: Relationship.ManyOne, foreignTableId: colors.id },
+          } as IFieldRo,
+        ],
+        records: [
+          { fields: { Title: 'Alpha', Status: 'Active', Color: [{ id: colors.records[1].id }] } },
+          { fields: { Title: 'Beta', Status: 'Active', Color: [{ id: colors.records[0].id }] } },
+          { fields: { Title: 'Gamma', Status: 'Closed', Color: [{ id: colors.records[1].id }] } },
+        ],
+      });
+      const titleId = items.fields.find((f) => f.name === 'Title')!.id;
+      const statusId = items.fields.find((f) => f.name === 'Status')!.id;
+      const colorLinkId = items.fields.find((f) => f.name === 'Color')!.id;
+
+      const colorLookup = await createField(items.id, {
+        name: 'Color Name',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: colors.id,
+          linkFieldId: colorLinkId,
+          lookupFieldId: colorId,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const host = await createTable(baseId, {
+        name: 'ConditionalLookup_Sort_Lookup_Host',
+        fields: [{ name: 'StatusFilter', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { StatusFilter: 'Active' } }, { fields: { StatusFilter: 'Closed' } }],
+      });
+      const statusFilterId = host.fields.find((f) => f.name === 'StatusFilter')!.id;
+      const activeId = host.records[0].id;
+      const closedId = host.records[1].id;
+
+      const lookupField = await createField(host.id, {
+        name: 'Top By Color',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          foreignTableId: items.id,
+          lookupFieldId: titleId,
+          filter: {
+            conjunction: 'and',
+            filterSet: [
+              {
+                fieldId: statusId,
+                operator: 'is',
+                value: { type: 'field', fieldId: statusFilterId },
+              },
+            ],
+          },
+          sort: { fieldId: colorLookup.id, order: SortFunc.Asc },
+          limit: 1,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+
+      const activeRecord = await getRecord(host.id, activeId);
+      const closedRecord = await getRecord(host.id, closedId);
+      expect(activeRecord.fields[lookupField.id]).toEqual(['Beta']);
+      expect(closedRecord.fields[lookupField.id]).toEqual(['Gamma']);
+
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, items.id);
+      await permanentDeleteTable(baseId, colors.id);
+    });
   });
 
   describe('filter scenarios', () => {

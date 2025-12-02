@@ -1822,6 +1822,16 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       if (!targetField) {
         return;
       }
+
+      const ensureLinkDependencies = (candidate?: FieldCore) => {
+        if (!candidate) return;
+        for (const linkField of candidate.getLinkFields(foreignTable)) {
+          if (!linkField) continue;
+          if (this.state.getFieldCteMap().has(linkField.id)) continue;
+          this.generateLinkFieldCteForTable(foreignTable, linkField as LinkFieldCore);
+        }
+      };
+      ensureLinkDependencies(targetField);
       const preferMaterializedCte = this.dbProvider.driver === DriverClient.Pg;
 
       const joinToMain = table === this.table;
@@ -1849,6 +1859,8 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       if (sort?.fieldId) {
         const sortField = foreignTable.getField(sort.fieldId);
         if (sortField) {
+          ensureLinkDependencies(sortField);
+
           let sortExpression = this.resolveConditionalComputedTargetExpression(
             sortField,
             foreignTable,

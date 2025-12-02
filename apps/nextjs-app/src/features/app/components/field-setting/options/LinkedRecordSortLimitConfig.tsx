@@ -26,6 +26,7 @@ interface ILinkedRecordSortLimitConfigProps {
   defaultLimit?: number;
   onSortChange: (sort?: ISortOrderValue) => void;
   onLimitChange: (limit?: number) => void;
+  onDisable?: () => void;
   toggleTestId?: string;
 }
 
@@ -39,6 +40,7 @@ export const LinkedRecordSortLimitConfig = ({
   defaultLimit = DEFAULT_LIMIT,
   onSortChange,
   onLimitChange,
+  onDisable,
   toggleTestId = 'linked-record-sort-limit-toggle',
 }: ILinkedRecordSortLimitConfigProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
@@ -112,10 +114,14 @@ export const LinkedRecordSortLimitConfig = ({
       }
 
       setLimitDraft('');
+      if (onDisable) {
+        onDisable();
+        return;
+      }
       onSortChange(undefined);
       onLimitChange(undefined);
     },
-    [defaultLimit, limit, onLimitChange, onSortChange]
+    [defaultLimit, limit, onDisable, onLimitChange, onSortChange]
   );
 
   const handleSortFieldChange = useCallback(
