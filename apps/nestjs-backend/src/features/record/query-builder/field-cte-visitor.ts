@@ -1349,25 +1349,20 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             if (!foreignField || !hostField) {
               return { ok: false, residual: null };
             }
-            // Only use the equality join fast-path when both sides share the same DB type.
-            // Mixed types (e.g., text vs jsonb) would produce invalid operators like text = jsonb.
-            if (foreignField.dbFieldType !== hostField.dbFieldType) {
-              return { ok: false, residual: null };
-            }
             if (isDateLikeField(foreignField) || isDateLikeField(hostField)) {
               return { ok: false, residual: null };
             }
-            const caseInsensitive =
-              foreignField.dbFieldType === DbFieldType.Text &&
-              hostField.dbFieldType === DbFieldType.Text;
+            const joinKey = this.buildConditionalEqualityJoinKey(
+              hostField,
+              foreignField,
+              mainAlias,
+              foreignAlias
+            );
+            if (!joinKey) {
+              return { ok: false, residual: null };
+            }
             const alias = `__cr_key_${joinKeys.length}`;
-            const foreignExpr = caseInsensitive
-              ? `LOWER("${foreignAlias}"."${foreignField.dbFieldName}")`
-              : `"${foreignAlias}"."${foreignField.dbFieldName}"`;
-            const hostExpr = caseInsensitive
-              ? `LOWER("${mainAlias}"."${hostField.dbFieldName}")`
-              : `"${mainAlias}"."${hostField.dbFieldName}"`;
-            joinKeys.push({ alias, hostExpr, foreignExpr });
+            joinKeys.push({ alias, ...joinKey });
             continue;
           }
 
@@ -1431,6 +1426,40 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       default:
         return null;
     }
+  }
+
+  private buildConditionalEqualityJoinKey(
+    hostField: FieldCore,
+    foreignField: FieldCore,
+    mainAlias: string,
+    foreignAlias: string
+  ): { hostExpr: string; foreignExpr: string } | null {
+    const hostDbType = hostField.dbFieldType;
+    const foreignDbType = foreignField.dbFieldType;
+    const hostRef = `"${mainAlias}"."${hostField.dbFieldName}"`;
+    const foreignRef = `"${foreignAlias}"."${foreignField.dbFieldName}"`;
+
+    const isTextHost = hostDbType === DbFieldType.Text;
+    const isTextForeign = foreignDbType === DbFieldType.Text;
+    const isJsonHost = hostDbType === DbFieldType.Json;
+    const isJsonForeign = foreignDbType === DbFieldType.Json;
+
+    // Exact type match (e.g., text-text, integer-integer)
+    if (hostDbType === foreignDbType) {
+      if (isTextHost && isTextForeign) {
+        return { hostExpr: `LOWER(${hostRef})`, foreignExpr: `LOWER(${foreignRef})` };
+      }
+      return { hostExpr: hostRef, foreignExpr: foreignRef };
+    }
+
+    // Text/JSON combos: coerce both sides to text to avoid operator errors (text = jsonb)
+    if ((isTextHost && isJsonForeign) || (isJsonHost && isTextForeign)) {
+      const hostExpr = `LOWER((${hostRef})::text)`;
+      const foreignExpr = `LOWER((${foreignRef})::text)`;
+      return { hostExpr, foreignExpr };
+    }
+
+    return null;
   }
 
   private resolveConditionalComputedTargetExpression(
