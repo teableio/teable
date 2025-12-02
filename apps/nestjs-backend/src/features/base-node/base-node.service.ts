@@ -870,6 +870,18 @@ export class BaseNodeService {
 
   private async moveNodeToFolder(baseId: string, nodeId: string, parentId: string) {
     return this.prismaService.$tx(async (prisma) => {
+      const node = await prisma.baseNode
+        .findFirstOrThrow({
+          where: { baseId, id: nodeId },
+        })
+        .catch(() => {
+          throw new CustomHttpException(`Node ${nodeId} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.baseNode.notFound',
+            },
+          });
+        });
+
       const parentNode = await prisma.baseNode
         .findFirstOrThrow({
           where: { baseId, id: parentId },
@@ -892,6 +904,10 @@ export class BaseNodeService {
             },
           }
         );
+      }
+
+      if (node.resourceType === BaseNodeResourceType.Folder && parentId) {
+        await this.assertFolderDepth(baseId, parentId);
       }
 
       // Check for circular reference

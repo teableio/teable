@@ -75,7 +75,6 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             {t('table.operator.createBlank')}
           </Button>
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
       </>
     );
   };

@@ -1027,6 +1027,38 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       expect(error?.status).toBe(400);
     });
 
+    it('should fail when moving folder to another folder exceeds max depth using parentId', async () => {
+      // Create 2 levels of folders (max depth)
+      const level1 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Parent Move Depth Level 1',
+      });
+      nodesToCleanup.push(level1.data.id);
+
+      const level2 = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Parent Move Depth Level 2',
+        parentId: level1.data.id,
+      });
+      nodesToCleanup.push(level2.data.id);
+
+      // Create a folder at root level to move
+      const folderToMove = await createBaseNode(baseId, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder to Move Into Depth',
+      });
+      nodesToCleanup.push(folderToMove.data.id);
+
+      // Try to move folder into level2 using parentId (would exceed max depth)
+      const error = await getError(() =>
+        moveBaseNode(baseId, folderToMove.data.id, {
+          parentId: level2.data.id,
+        })
+      );
+
+      expect(error?.status).toBe(400);
+    });
+
     it('should allow moving folder within valid depth using anchorId', async () => {
       // Create 2 levels of folders
       const level1 = await createBaseNode(baseId, {

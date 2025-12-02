@@ -273,7 +273,7 @@ export const BaseNodeTree = () => {
       if (item.length !== 1) return false;
       if (!target.item.isFolder()) return false;
       if (!item[0].isFolder()) return true;
-      if (getItemLevel(item[0]) < maxFolderDepth - 1) return true;
+      if (item[0].isFolder() && getItemLevel(target.item) < maxFolderDepth - 1) return true;
       return false;
     },
     onDrop: handleDrop,
