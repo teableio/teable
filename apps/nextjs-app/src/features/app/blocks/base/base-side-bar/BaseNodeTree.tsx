@@ -77,10 +77,24 @@ export const BaseNodeTree = () => {
   const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
+  const treeItemsRef = useRef(treeItems);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
+  const [expandedItems, setExpandedItems] = useLocalStorage<string[]>(
+    LocalStorageKeys.BaseNodeExpandedItems,
+    []
+  );
+
+  const { mutateAsync: updateUserLastVisit } = useMutation({
+    mutationFn: (ro: IUpdateUserLastVisitRo) => {
+      return updateUserLastVisitApi(ro);
+    },
+  });
 
   const createSuccefulyCallback = useCallback(
     (node: IBaseNodeVo) => {
-      const { resourceType, resourceId } = node;
+      const { resourceType, resourceId, parentId } = node;
+      const parentItem = parentId ? treeItemsRef.current[parentId] : null;
       const url = getNodeUrl({
         baseId,
         resourceType,
@@ -95,9 +109,12 @@ export const BaseNodeTree = () => {
       }
 
       invalidateMenu();
+      if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
+        setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
+      }
       setEditingNodeId(node.id);
     },
-    [baseId, router, invalidateMenu]
+    [baseId, router, invalidateMenu, setExpandedItems]
   );
 
   const duplicateSuccefulyCallback = useCallback(
@@ -127,19 +144,6 @@ export const BaseNodeTree = () => {
     onDuplicateSuccess: duplicateSuccefulyCallback,
     onDeleteSuccess: () => invalidateMenu(),
     onMoveSuccess: () => invalidateMenu(),
-  });
-  const draggedItemsRef = useRef<ItemInstance<TreeItemData>[]>([]);
-  const treeItemsRef = useRef(treeItems);
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [expandedItems, setExpandedItems] = useLocalStorage<string[]>(
-    LocalStorageKeys.BaseNodeExpandedItems,
-    []
-  );
-
-  const { mutateAsync: updateUserLastVisit } = useMutation({
-    mutationFn: (ro: IUpdateUserLastVisitRo) => {
-      return updateUserLastVisitApi(ro);
-    },
   });
 
   useEffect(() => {
