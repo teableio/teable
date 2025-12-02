@@ -53,7 +53,7 @@ describe('PermissionService', () => {
     });
 
     it('should throw a ForbiddenException if collaborator is not found', async () => {
-      const spaceId = 'space-id';
+      const spaceId = 'space-id1';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
       prismaServiceMock.space.findFirst.mockResolvedValue({ deletedTime: null } as any);
       const res = await service['getRoleBySpaceId'](spaceId);
@@ -71,7 +71,7 @@ describe('PermissionService', () => {
     });
 
     it('should return null if collaborator is not found', async () => {
-      const baseId = 'base-id';
+      const baseId = 'base-id1';
       prismaServiceMock.collaborator.findMany.mockResolvedValue([]);
       const result = await service['getRoleByBaseId'](baseId);
       expect(result).toBeNull();
