@@ -1349,6 +1349,11 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
             if (!foreignField || !hostField) {
               return { ok: false, residual: null };
             }
+            // Only use the equality join fast-path when both sides share the same DB type.
+            // Mixed types (e.g., text vs jsonb) would produce invalid operators like text = jsonb.
+            if (foreignField.dbFieldType !== hostField.dbFieldType) {
+              return { ok: false, residual: null };
+            }
             if (isDateLikeField(foreignField) || isDateLikeField(hostField)) {
               return { ok: false, residual: null };
             }
