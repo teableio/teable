@@ -37,6 +37,8 @@ import { BaseNodeContext } from '../base-node/BaseNodeContext';
 import {
   BaseNodeResourceIconMap,
   BaseNodeResourceLastVisitMap,
+  getNodeIcon,
+  getNodeName,
   getNodeUrl,
   parseNodeUrl,
   ROOT_ID,
@@ -331,7 +333,7 @@ export const BaseNodeTree = () => {
       getItem: (itemId) => treeItemsRef.current[itemId],
       getChildren: (itemId) => treeItemsRef.current[itemId]?.children ?? [],
     },
-    getItemName: (item) => item.getItemData().name,
+    getItemName: (item) => getNodeName(item.getItemData()),
     isItemFolder: (item) => item.getItemData().resourceType === BaseNodeResourceType.Folder,
     canReorder: true,
     canDrop: (items, target) => {
@@ -406,7 +408,10 @@ export const BaseNodeTree = () => {
         ...prevItems,
         [nodeId]: {
           ...prevItems[nodeId],
-          name: newVal,
+          resourceMeta: {
+            ...prevItems[nodeId].resourceMeta,
+            name: newVal,
+          },
         },
       }));
       curdHooks.updateNode(nodeId, {
@@ -452,7 +457,9 @@ export const BaseNodeTree = () => {
             const data = item.getItemData();
             if (!data) return null;
             const IconComponent = BaseNodeResourceIconMap[data.resourceType];
-            const { resourceType, resourceId, name, icon } = data;
+            const { resourceType, resourceId } = data;
+            const name = getNodeName(data);
+            const icon = getNodeIcon(data);
             return (
               <TreeItem key={nodeId} item={item}>
                 <TreeItemLabel>

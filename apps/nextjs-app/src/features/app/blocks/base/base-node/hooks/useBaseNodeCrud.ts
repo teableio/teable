@@ -19,7 +19,7 @@ import { useBaseId } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useContext, useMemo } from 'react';
 import { BaseNodeContext } from '../BaseNodeContext';
-import { cleanParentId } from './helper';
+import { cleanParentId, getNodeName } from './helper';
 
 interface IUseBaseNodeCrudOptions {
   onCreateSuccess?: (node: IBaseNodeVo) => void;
@@ -75,7 +75,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
         parentId,
         name: getUniqName(
           name,
-          nodes.map((node) => node.name)
+          nodes.map((node) => getNodeName(node))
         ),
       });
     },

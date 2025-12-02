@@ -1,6 +1,6 @@
 import type { UrlObject } from 'url';
 import { Table2 } from '@teable/icons';
-import type { IBaseNodeVo } from '@teable/openapi';
+import type { IBaseNodeResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { keyBy } from 'lodash';
 import { AppWindowMacIcon, BotIcon, CircleGaugeIcon, FolderClosedIcon } from 'lucide-react';
@@ -8,9 +8,9 @@ import type { TreeItemData } from './useBaseNode';
 
 type TreeRootItem = {
   id: typeof ROOT_ID;
-  name: string;
   resourceType: BaseNodeResourceType.Folder;
   resourceId: typeof ROOT_ID;
+  resourceMeta: IBaseNodeResourceMeta;
   children: string[];
 };
 
@@ -29,6 +29,16 @@ export const BaseNodeResourceLastVisitMap = {
   [BaseNodeResourceType.Dashboard]: LastVisitResourceType.Dashboard,
   [BaseNodeResourceType.Workflow]: LastVisitResourceType.Automation,
   [BaseNodeResourceType.App]: LastVisitResourceType.App,
+};
+
+export const getNodeName = (node: { resourceMeta?: IBaseNodeResourceMeta }): string => {
+  return node.resourceMeta?.name ?? '';
+};
+
+export const getNodeIcon = (node: {
+  resourceMeta?: IBaseNodeResourceMeta;
+}): string | null | undefined => {
+  return node.resourceMeta?.icon;
 };
 
 export const getNodeUrl = (props: {
@@ -138,9 +148,11 @@ export const buildTreeItems = (nodes: IBaseNodeVo[]): Record<string, TreeItemDat
   const result: Record<string, TreeRootItem | TreeItemData> = {
     [ROOT_ID]: {
       id: ROOT_ID,
-      name: 'baseMenuRoot',
       resourceType: BaseNodeResourceType.Folder,
       resourceId: ROOT_ID,
+      resourceMeta: {
+        name: 'baseMenuRoot',
+      },
       children: [],
     },
   };

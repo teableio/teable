@@ -77,7 +77,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       const createdNode = response.data.nodes.find((n: IBaseNodeVo) => n.id === node.data.id);
 
       expect(createdNode).toBeDefined();
-      expect(createdNode?.name).toBe('Tree Test Folder');
+      expect(createdNode?.resourceMeta?.name).toBe('Tree Test Folder');
       expect(createdNode?.resourceType).toBe(BaseNodeResourceType.Folder);
 
       // Cleanup
@@ -105,7 +105,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       expect(response.data).toBeDefined();
       expect(response.data.id).toBe(testNodeId);
-      expect(response.data.name).toBe(getTestFolder);
+      expect(response.data.resourceMeta?.name).toBe(getTestFolder);
       expect(response.data.resourceType).toBe(BaseNodeResourceType.Folder);
     });
 
@@ -141,7 +141,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       });
 
       expect(response.data).toBeDefined();
-      expect(response.data.name).toBe(testFolder);
+      expect(response.data.resourceMeta?.name).toBe(testFolder);
       expect(response.data.resourceType).toBe(BaseNodeResourceType.Folder);
       expect(response.data.id).toBeDefined();
 
@@ -157,7 +157,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       });
 
       expect(response.data).toBeDefined();
-      expect(response.data.name).toBe(testTableName);
+      expect(response.data.resourceMeta?.name).toBe(testTableName);
       expect(response.data.resourceType).toBe(BaseNodeResourceType.Table);
       expect(response.data.resourceId).toBeDefined();
 
@@ -171,7 +171,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       });
 
       expect(response.data).toBeDefined();
-      expect(response.data.name).toBe('Test Dashboard');
+      expect(response.data.resourceMeta?.name).toBe('Test Dashboard');
       expect(response.data.resourceType).toBe(BaseNodeResourceType.Dashboard);
       expect(response.data.resourceId).toBeDefined();
 
@@ -209,7 +209,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         name: '  Trimmed Name  ',
       });
 
-      expect(response.data.name).toBe('Trimmed Name');
+      expect(response.data.resourceMeta?.name).toBe('Trimmed Name');
       nodesToCleanup.push(response.data.id);
     });
 
@@ -293,7 +293,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         name: updatedName,
       });
 
-      expect(response.data.name).toBe(updatedName);
+      expect(response.data.resourceMeta?.name).toBe(updatedName);
       expect(response.data.id).toBe(testNodeId);
     });
 
@@ -302,7 +302,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         icon: '📁',
       });
 
-      expect(response.data.icon).toBe('📁');
+      expect(response.data.resourceMeta?.icon).toBe('📁');
       expect(response.data.id).toBe(testNodeId);
     });
 
@@ -312,8 +312,8 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         icon: '🎯',
       });
 
-      expect(response.data.name).toBe(updatedName);
-      expect(response.data.icon).toBe('🎯');
+      expect(response.data.resourceMeta?.name).toBe(updatedName);
+      expect(response.data.resourceMeta?.icon).toBe('🎯');
     });
 
     it('should trim name when updating', async () => {
@@ -321,14 +321,14 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         name: '  Trimmed Updated  ',
       });
 
-      expect(response.data.name).toBe('Trimmed Updated');
+      expect(response.data.resourceMeta?.name).toBe('Trimmed Updated');
     });
 
     it('should handle empty update object', async () => {
       const response = await updateBaseNode(baseId, testNodeId, {});
 
       expect(response.data.id).toBe(testNodeId);
-      expect(response.data.name).toBe(originalName);
+      expect(response.data.resourceMeta?.name).toBe(originalName);
     });
 
     it('should fail when updating non-existent node', async () => {
@@ -724,7 +724,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
 
       expect(duplicate.data.id).not.toBe(original.data.id);
       expect(duplicate.data.resourceId).not.toBe(original.data.resourceId);
-      expect(duplicate.data.name).toBe('Duplicated Table');
+      expect(duplicate.data.resourceMeta?.name).toBe('Duplicated Table');
     });
 
     it('should duplicate dashboard successfully', async () => {
@@ -740,7 +740,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       nodesToCleanup.push(duplicate.data.id);
 
       expect(duplicate.data.id).not.toBe(original.data.id);
-      expect(duplicate.data.name).toBe('Duplicated Dashboard');
+      expect(duplicate.data.resourceMeta?.name).toBe('Duplicated Dashboard');
     });
 
     it('should fail when duplicating non-existent node', async () => {
@@ -770,7 +770,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
       });
-      expect(created.data.name).toBe('Lifecycle Test');
+      expect(created.data.resourceMeta?.name).toBe('Lifecycle Test');
       nodesToCleanup.push(created.data.id);
 
       // Read
@@ -782,8 +782,8 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         name: 'Updated Lifecycle Test',
         icon: '🔄',
       });
-      expect(updated.data.name).toBe('Updated Lifecycle Test');
-      expect(updated.data.icon).toBe('🔄');
+      expect(updated.data.resourceMeta?.name).toBe('Updated Lifecycle Test');
+      expect(updated.data.resourceMeta?.icon).toBe('🔄');
 
       // Delete
       await deleteBaseNode(baseId, created.data.id);
@@ -1396,7 +1396,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           }
         );
         expect(response.status).toBe(201);
-        expect(response.data.name).toBe('Creator Folder');
+        expect(response.data.resourceMeta?.name).toBe('Creator Folder');
         creatorNodesToCleanup.push(response.data.id);
       });
 
@@ -1411,7 +1411,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           }
         );
         expect(response.status).toBe(201);
-        expect(response.data.name).toBe('Creator Table');
+        expect(response.data.resourceMeta?.name).toBe('Creator Table');
         creatorNodesToCleanup.push(response.data.id);
       });
 
@@ -1424,7 +1424,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           }
         );
         expect(response.status).toBe(201);
-        expect(response.data.name).toBe('Creator Dashboard');
+        expect(response.data.resourceMeta?.name).toBe('Creator Dashboard');
         creatorNodesToCleanup.push(response.data.id);
       });
 
@@ -1445,7 +1445,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           { name: 'Updated Table Name' }
         );
         expect(response.status).toBe(200);
-        expect(response.data.name).toBe('Updated Table Name');
+        expect(response.data.resourceMeta?.name).toBe('Updated Table Name');
       });
 
       it('should allow creator to delete table node', async () => {
@@ -1511,7 +1511,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           { name: 'Duplicated Table' }
         );
         expect(response.status).toBe(201);
-        expect(response.data.name).toBe('Duplicated Table');
+        expect(response.data.resourceMeta?.name).toBe('Duplicated Table');
         creatorNodesToCleanup.push(response.data.id);
       });
 
@@ -1530,7 +1530,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
           { name: 'Duplicated Dashboard' }
         );
         expect(response.status).toBe(201);
-        expect(response.data.name).toBe('Duplicated Dashboard');
+        expect(response.data.resourceMeta?.name).toBe('Duplicated Dashboard');
         creatorNodesToCleanup.push(response.data.id);
       });
     });

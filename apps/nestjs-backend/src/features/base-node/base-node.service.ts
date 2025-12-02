@@ -25,10 +25,12 @@ import type {
   IDuplicateDashboardRo,
   IUpdateBaseNodeRo,
   IBaseNodePresenceFlushPayload,
+  IBaseNodeResourceMeta,
+  IBaseNodeResourceMetaWithId,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { isString, keyBy, snakeCase } from 'lodash';
+import { isString, keyBy, omit, snakeCase } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
@@ -144,26 +146,28 @@ export class BaseNodeService {
 
   private async entry2vo(
     entry: IBaseNodeEntry,
-    resource?: { name?: string; icon?: string | null }
+    resource?: IBaseNodeResourceMeta
   ): Promise<IBaseNodeVo> {
     const { name, icon } = resource ?? {};
     if (name) {
       return {
         ...entry,
-        name,
-        icon,
         resourceType: entry.resourceType as BaseNodeResourceType,
+        resourceMeta: {
+          name,
+          icon,
+        },
       };
     }
     const { resourceType, resourceId } = entry;
     const list = await this.getNodeResource(entry.baseId, resourceType as BaseNodeResourceType, [
       resourceId,
     ]);
+    const resourceMeta = list[0];
     return {
       ...entry,
-      name: list[0].name,
-      icon: list[0].icon ?? undefined,
       resourceType: resourceType as BaseNodeResourceType,
+      resourceMeta: omit(resourceMeta, 'id'),
     };
   }
 
@@ -222,7 +226,7 @@ export class BaseNodeService {
     baseId: string,
     type: BaseNodeResourceType,
     ids?: string[]
-  ): Promise<Pick<IBaseNodeVo, 'id' | 'name' | 'icon'>[]> {
+  ): Promise<IBaseNodeResourceMetaWithId[]> {
     switch (type) {
       case BaseNodeResourceType.Folder:
         return this.getFolderResources(baseId, ids);
@@ -286,8 +290,7 @@ export class BaseNodeService {
         return {
           ...entry,
           resourceType: entry.resourceType as BaseNodeResourceType,
-          name: resource?.name,
-          icon: (resource as { icon?: string })?.icon,
+          resourceMeta: omit(resource, 'id'),
         };
       });
     }
@@ -345,10 +348,7 @@ export class BaseNodeService {
       finalMenus.map(async (entry) => {
         const key = `${entry.resourceType}_${entry.resourceId}`;
         const resource = resourceMap[key];
-        return await this.entry2vo(entry, {
-          name: resource?.name,
-          icon: resource?.icon,
-        });
+        return await this.entry2vo(entry, omit(resource, 'id'));
       })
     );
   }
@@ -428,10 +428,7 @@ export class BaseNodeService {
       };
     });
 
-    const vo = await this.entry2vo(entry, {
-      name: resource.name,
-      icon: resource.icon,
-    });
+    const vo = await this.entry2vo(entry, omit(resource, 'id'));
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
@@ -444,7 +441,7 @@ export class BaseNodeService {
   protected async createResource(
     baseId: string,
     createRo: ICreateBaseNodeRo
-  ): Promise<Pick<IBaseNodeVo, 'id' | 'name' | 'icon'>> {
+  ): Promise<IBaseNodeResourceMetaWithId> {
     const { resourceType, parentId, ...ro } = createRo;
     const parentNode = parentId ? await this.getParentNodeOrThrow(parentId) : null;
     if (parentNode && parentNode.resourceType !== BaseNodeResourceType.Folder) {
@@ -573,10 +570,7 @@ export class BaseNodeService {
       };
     });
 
-    const vo = await this.entry2vo(entry, {
-      name: resource.name,
-      icon: resource.icon,
-    });
+    const vo = await this.entry2vo(entry, omit(resource, 'id'));
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'create',
@@ -591,7 +585,7 @@ export class BaseNodeService {
     type: BaseNodeResourceType,
     id: string,
     duplicateRo: IDuplicateBaseNodeRo
-  ): Promise<Pick<IBaseNodeVo, 'id' | 'name' | 'icon'>> {
+  ): Promise<IBaseNodeResourceMetaWithId> {
     switch (type) {
       case BaseNodeResourceType.Table: {
         const table = await this.tableDuplicateService.duplicateTable(
