@@ -14,7 +14,6 @@ export async function setupSwagger(
   publicOrigin: string,
   enabledSnippet: boolean
 ) {
-  return;
   const openApiDocumentation = await getOpenApiDocumentation({
     origin: publicOrigin,
     snippet: enabledSnippet,
