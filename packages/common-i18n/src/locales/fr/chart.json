@@ -16,6 +16,99 @@
     "area": "Zone",
     "table": "Tableau"
   },
+  "chartV2": {
+    "dataConfig": "Configuration des données",
+    "chartAppearance": "Apparence du graphique",
+    "goConfig": "Aller à la configuration",
+    "appearance": {
+      "title": "Apparence du graphique",
+      "display": "Affichage",
+      "theme": "Thème",
+      "legend": "Légende",
+      "coordinateAxis": "Axe de coordonnées",
+      "label": "Étiquette",
+      "showAxisLine": "Afficher la ligne d'axe",
+      "showAxisTick": "Afficher les graduations",
+      "showSplitLine": "Afficher la ligne de séparation",
+      "backgroundColor": "Couleur d'arrière-plan",
+      "reset": "Réinitialiser",
+      "style": "Style",
+      "padding": "Espacement",
+      "left": "Gauche",
+      "right": "Droite",
+      "bottom": "Bas",
+      "top": "Haut"
+    },
+    "noData": "Aucune donnée",
+    "form": {
+      "name": "Nom",
+      "chartType": {
+        "title": "Type de graphique",
+        "bar": "Barres",
+        "line": "Ligne",
+        "pie": "Secteurs",
+        "donutChart": "Graphique en anneau",
+        "area": "Zone",
+        "table": "Tableau"
+      },
+      "dataSource": {
+        "title": "Source de données",
+        "fromTable": "Depuis le tableau",
+        "fromQuery": "Depuis SQL"
+      },
+      "label": {
+        "table": "Tableau",
+        "dataRange": "Plage de données",
+        "view": "vue",
+        "filter": "filtre"
+      },
+      "axisConfig": {
+        "noCountFields": "Aucun champ de comptage",
+        "defaultSeriesName": "Compte",
+        "title": "Configuration des axes",
+        "xAxis": "Axe X",
+        "yAxis": "Axe Y",
+        "field": "Champ",
+        "Statistic": "Statistique par",
+        "totalRecords": "Total des enregistrements",
+        "fieldValue": "Valeur du champ",
+        "groupBy": "Grouper par",
+        "none": "Aucun",
+        "groupAggregation": "Agrégation de groupe"
+      },
+      "view": {
+        "allData": "Toutes les données"
+      },
+      "dataSourceTitle": "Source de données",
+      "order": {
+        "orderBy": {
+          "title": "Trier par",
+          "byXAxis": "Par axe x",
+          "byYAxis": "Par axe y"
+        },
+        "orderType": {
+          "title": "Type de tri",
+          "asc": "Croissant",
+          "desc": "Décroissant"
+        }
+      },
+      "filter": {
+        "title": "Filtrer les données",
+        "addFilter": "Ajouter un filtre",
+        "cancel": "Annuler",
+        "confirm": "Confirmer"
+      },
+      "sql": {
+        "title": "Configurer la requête de données",
+        "sqlEditor": "Éditeur SQL",
+        "runTest": "Exécuter le test",
+        "saveSql": "Enregistrer",
+        "aiGenerate": "Générer avec IA",
+        "resultPreview": "Aperçu des résultats",
+        "addSeries": "Ajouter une série"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Sélectionner le type de graphique",

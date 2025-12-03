@@ -222,4 +222,16 @@ export const ReactQueryKeys = {
   oauthAppList: () => ['oauth-app-list'] as const,
 
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
+
+  dashboardPluginQueryV2: (baseId: string, positionId: string, pluginInstallId: string) =>
+    ['dashboard-plugin-query-v2', baseId, positionId, pluginInstallId] as const,
+
+  pluginPanelPluginQueryV2: (tableId: string, positionId: string, pluginInstallId: string) =>
+    ['plugin-panel-plugin-query-v2', tableId, positionId, pluginInstallId] as const,
+
+  dashboardPluginInstall: (baseId: string, positionId: string, pluginInstallId: string) =>
+    ['dashboard-plugin-install', baseId, positionId, pluginInstallId] as const,
+
+  pluginPanelPluginInstall: (tableId: string, positionId: string, pluginInstallId: string) =>
+    ['plugin-panel-plugin-install', tableId, positionId, pluginInstallId] as const,
 };

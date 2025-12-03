@@ -2,6 +2,9 @@ export enum ChartType {
   Bar = 'bar',
   Pie = 'pie',
   Line = 'line',
+  Area = 'area',
+  DonutChart = 'donutChart',
+  Table = 'table',
 }
 
 export interface ISeries {

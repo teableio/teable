@@ -639,6 +639,7 @@
     "description": "Data in the trash still occupies record usage and attachment usage."
   },
   "pluginCenter": {
+    "addPluginTitle": "Add Plugin",
     "pluginUrlEmpty": "Plugin Not Setting url",
     "install": "Install",
     "publisher": "Publisher",

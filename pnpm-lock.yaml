@@ -279,6 +279,9 @@ importers:
       http-proxy-middleware:
         specifier: 3.0.3
         version: 3.0.3
+      immer:
+        specifier: 10.0.4
+        version: 10.0.4
       ioredis:
         specifier: 5.4.1
         version: 5.4.1
@@ -637,15 +640,24 @@ importers:
       '@codemirror/commands':
         specifier: 6.3.3
         version: 6.3.3
+      '@codemirror/lang-javascript':
+        specifier: 6.2.4
+        version: 6.2.4
       '@codemirror/lang-json':
         specifier: 6.0.1
         version: 6.0.1
+      '@codemirror/lang-sql':
+        specifier: 6.10.0
+        version: 6.10.0(@codemirror/view@6.26.0)
       '@codemirror/language':
         specifier: 6.10.1
         version: 6.10.1
       '@codemirror/lint':
         specifier: 6.8.2
         version: 6.8.2
+      '@codemirror/search':
+        specifier: 6.5.11
+        version: 6.5.11
       '@codemirror/state':
         specifier: 6.4.1
         version: 6.4.1
@@ -736,6 +748,9 @@ importers:
       '@teable/ui-lib':
         specifier: workspace:^
         version: link:../../packages/ui-lib
+      '@uiw/codemirror-theme-vscode':
+        specifier: 4.25.3
+        version: 4.25.3(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)
       allotment:
         specifier: 1.20.0
         version: 1.20.0(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -778,6 +793,9 @@ importers:
       i18next:
         specifier: 23.10.1
         version: 23.10.1
+      immer:
+        specifier: 10.0.4
+        version: 10.0.4
       is-port-reachable:
         specifier: 3.1.0
         version: 3.1.0
@@ -3381,14 +3399,23 @@ packages:
   '@codemirror/commands@6.3.3':
     resolution: {integrity: sha512-dO4hcF0fGT9tu1Pj1D2PvGvxjeGkbC6RGcZw6Qs74TH+Ed1gw98jmUgd2axWvIZEqTeTuFrg1lEB1KV6cK9h1A==}
 
+  '@codemirror/lang-javascript@6.2.4':
+    resolution: {integrity: sha512-0WVmhp1QOqZ4Rt6GlVGwKJN3KW7Xh4H2q8ZZNGZaP6lRdxXJzmjm4FqvmOojVj6khWJHIb9sp7U/72W7xQgqAA==}
+
   '@codemirror/lang-json@6.0.1':
     resolution: {integrity: sha512-+T1flHdgpqDDlJZ2Lkil/rLiRy684WMLc74xUnjJH48GQdfJo/pudlTRreZmKwzP8/tGdKf83wlbAdOCzlJOGQ==}
+
+  '@codemirror/lang-sql@6.10.0':
+    resolution: {integrity: sha512-6ayPkEd/yRw0XKBx5uAiToSgGECo/GY2NoJIHXIIQh1EVwLuKoU8BP/qK0qH5NLXAbtJRLuT73hx7P9X34iO4w==}
 
   '@codemirror/language@6.10.1':
     resolution: {integrity: sha512-5GrXzrhq6k+gL5fjkAwt90nYDmjlzTIJV8THnxNFtNKWotMIlzzN+CpqxqwXOECnUdOndmSeWntVrVcv5axWRQ==}
 
   '@codemirror/lint@6.8.2':
     resolution: {integrity: sha512-PDFG5DjHxSEjOXk9TQYYVjZDqlZTFaDBfhQixHnQOEVDDNHUbEh/hstAjcQJaA6FQdZTD1hquXTK0rVBLADR1g==}
+
+  '@codemirror/search@6.5.11':
+    resolution: {integrity: sha512-KmWepDE6jUdL6n8cAAqIpRmLPBZ5ZKnicE8oGU/s3QrAVID+0VhLFrzUucVKHG5035/BSykhExDL/Xm7dHthiA==}
 
   '@codemirror/state@6.4.1':
     resolution: {integrity: sha512-QkEyUiLhsJoZkbumGZlswmAhA7CBU02Wrz7zvH4SrcifbsqwlXShVXg65f3v/ts57W3dqyamEriMhij1Z3Zz4A==}
@@ -4705,6 +4732,9 @@ packages:
 
   '@lezer/highlight@1.2.0':
     resolution: {integrity: sha512-WrS5Mw51sGrpqjlh3d4/fOwpEV2Hd3YOkp9DBt4k8XZQcoTHZFB7sx030A6OcahF4J1nDQAa3jXlTVVYH50IFA==}
+
+  '@lezer/javascript@1.5.4':
+    resolution: {integrity: sha512-vvYx3MhWqeZtGPwDStM2dwgljd5smolYD2lR2UyFcHfxbBQebqx8yjmFmxtJ/E6nN6u1D9srOiVWm3Rb4tmcUA==}
 
   '@lezer/json@1.0.3':
     resolution: {integrity: sha512-BP9KzdF9Y35PDpv04r0VeSTKDeox5vVr3efE7eBbx3r4s3oNLfunchejZhjArmeieBH+nVOpgIiBJpEAv8ilqQ==}
@@ -8409,6 +8439,16 @@ packages:
   '@udecode/utils@47.2.7':
     resolution: {integrity: sha512-tQ8tIcdW+ZqWWrDgyf/moTLWtcErcHxaOfuCD/6qIL5hCq+jZm67nGHQToOT4Czti5Jr7CDPMgr8lYpdTEZcew==}
 
+  '@uiw/codemirror-theme-vscode@4.25.3':
+    resolution: {integrity: sha512-4bKsR1P3Lit/ycJKIOeK1/w28Y8oxhGekLxQw93/2CYXH/B/MyUs1y1vmGCCL5Cq1qIZ+w2nFvXbZYELKFiwXw==}
+
+  '@uiw/codemirror-themes@4.25.3':
+    resolution: {integrity: sha512-k7/B7Vf4jU/WcdewgJWP9tMFxbjB6UpUymZ3fx/TsbGwt2JXAouw0uyqCn1RlYBfr7YQnvEs3Ju9ECkd2sKzdg==}
+    peerDependencies:
+      '@codemirror/language': '>=6.0.0'
+      '@codemirror/state': '>=6.0.0'
+      '@codemirror/view': '>=6.0.0'
+
   '@ungap/structured-clone@1.2.1':
     resolution: {integrity: sha512-fEzPV3hSkSMltkw152tJKNARhOupqbH96MZWyRjNaYZOMIzbrTeQDG+MTc6Mr2pgzFQzFxAfmhGDNP5QK++2ZA==}
 
@@ -8685,7 +8725,6 @@ packages:
 
   '@univerjs/sheets-thread-comment-base@0.3.0':
     resolution: {integrity: sha512-JNAMb52Nqf6KY5Usa3tTqilM0lz76xXEFnkDCOqt6Zv7rbLOpgKw1j9MriEov9lCQVFSnmTmabTOdR7iOXzW6w==}
-    deprecated: Package no longer supported.
     peerDependencies:
       '@univerjs/core': 0.3.0
       '@univerjs/engine-formula': 0.3.0
@@ -13998,7 +14037,6 @@ packages:
   multer@1.4.4-lts.1:
     resolution: {integrity: sha512-WeSGziVj6+Z2/MwQo3GvqzgR+9Uc+qt8SwHKh3gvNPiISKfsMfG4SvCOFYlxxgkXt7yIV2i1yczehm0EOKIxIg==}
     engines: {node: '>= 6.0.0'}
-    deprecated: Multer 1.x is impacted by a number of vulnerabilities, which have been patched in 2.x. You should upgrade to the latest 2.x version.
 
   multer@1.4.5-lts.1:
     resolution: {integrity: sha512-ywPWvcDMeH+z9gQq5qYHCCy+ethsk4goepZ45GLD63fOu0YcNecQxi64nDs3qluZB+murG3/D4dJ7+dGctcCQQ==}
@@ -20463,10 +20501,31 @@ snapshots:
       '@codemirror/view': 6.26.0
       '@lezer/common': 1.2.3
 
+  '@codemirror/lang-javascript@6.2.4':
+    dependencies:
+      '@codemirror/autocomplete': 6.15.0(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)(@lezer/common@1.2.3)
+      '@codemirror/language': 6.10.1
+      '@codemirror/lint': 6.8.2
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.26.0
+      '@lezer/common': 1.2.3
+      '@lezer/javascript': 1.5.4
+
   '@codemirror/lang-json@6.0.1':
     dependencies:
       '@codemirror/language': 6.10.1
       '@lezer/json': 1.0.3
+
+  '@codemirror/lang-sql@6.10.0(@codemirror/view@6.26.0)':
+    dependencies:
+      '@codemirror/autocomplete': 6.15.0(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)(@lezer/common@1.2.3)
+      '@codemirror/language': 6.10.1
+      '@codemirror/state': 6.4.1
+      '@lezer/common': 1.2.3
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.2
+    transitivePeerDependencies:
+      - '@codemirror/view'
 
   '@codemirror/language@6.10.1':
     dependencies:
@@ -20478,6 +20537,12 @@ snapshots:
       style-mod: 4.1.2
 
   '@codemirror/lint@6.8.2':
+    dependencies:
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.26.0
+      crelt: 1.0.6
+
+  '@codemirror/search@6.5.11':
     dependencies:
       '@codemirror/state': 6.4.1
       '@codemirror/view': 6.26.0
@@ -21529,6 +21594,12 @@ snapshots:
   '@lezer/highlight@1.2.0':
     dependencies:
       '@lezer/common': 1.2.3
+
+  '@lezer/javascript@1.5.4':
+    dependencies:
+      '@lezer/common': 1.2.3
+      '@lezer/highlight': 1.2.0
+      '@lezer/lr': 1.4.2
 
   '@lezer/json@1.0.3':
     dependencies:
@@ -26391,6 +26462,20 @@ snapshots:
       slate-dom: 0.114.0(slate@0.114.0)
 
   '@udecode/utils@47.2.7': {}
+
+  '@uiw/codemirror-theme-vscode@4.25.3(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)':
+    dependencies:
+      '@uiw/codemirror-themes': 4.25.3(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)
+    transitivePeerDependencies:
+      - '@codemirror/language'
+      - '@codemirror/state'
+      - '@codemirror/view'
+
+  '@uiw/codemirror-themes@4.25.3(@codemirror/language@6.10.1)(@codemirror/state@6.4.1)(@codemirror/view@6.26.0)':
+    dependencies:
+      '@codemirror/language': 6.10.1
+      '@codemirror/state': 6.4.1
+      '@codemirror/view': 6.26.0
 
   '@ungap/structured-clone@1.2.1': {}
 

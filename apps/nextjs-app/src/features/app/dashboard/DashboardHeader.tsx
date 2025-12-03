@@ -88,7 +88,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   };
 
   return (
-    <div className="flex h-16 shrink-0 items-center justify-between border-b px-4">
+    <div className="flex h-16 shrink-0 items-center justify-between border-b px-8">
       <Head>
         <title>
           {selectedDashboard?.name ? `${selectedDashboard?.name} - ${brandName}` : brandName}
@@ -128,7 +128,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
       <div className="flex items-center gap-2">
         {canManage && (
           <AddPluginDialog dashboardId={dashboardId}>
-            <Button variant={'outline'} size={'xs'}>
+            <Button size={'sm'} className="h-9 gap-2 px-3 text-sm">
               <Plus />
               {t('dashboard:addPlugin')}
             </Button>
@@ -137,7 +137,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
         {canManage && (
           <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="outline" className="size-7">
+              <Button size="icon" variant="outline" className="size-9">
                 <MoreHorizontal className="size-3.5" />
               </Button>
             </DropdownMenuTrigger>

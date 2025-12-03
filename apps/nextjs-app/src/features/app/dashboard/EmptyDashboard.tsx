@@ -16,7 +16,7 @@ export const EmptyDashboard = () => {
   const isDark = resolvedTheme === 'dark';
 
   return (
-    <div className="flex h-full flex-col items-center justify-center gap-5 px-20">
+    <div className="flex h-full flex-col items-center justify-center gap-6 px-20">
       <Image
         src={
           isDark
@@ -29,13 +29,13 @@ export const EmptyDashboard = () => {
         className="mb-6"
       />
       <div className="text-center">
-        <h3 className="mb-3 text-xl font-semibold text-foreground">{t('dashboard:empty.title')}</h3>
+        <h3 className="mb-2 text-xl font-semibold text-foreground">{t('dashboard:empty.title')}</h3>
         <p className="mb-6 max-w-md text-sm text-muted-foreground">
           {t('dashboard:empty.description')}
         </p>
         {canManage && (
           <CreateDashboardDialog>
-            <Button size="lg" className="px-8">
+            <Button size="lg" className="px-4">
               <Plus /> {t('dashboard:empty.create')}
             </Button>
           </CreateDashboardDialog>

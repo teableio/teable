@@ -93,6 +93,7 @@ function BaseSingleSelect<V extends string, O extends IOption<V> = IOption<V>>(
             setOpen(false);
             return;
           }
+          console.log('ggggggg111', option);
           onSelect(option.value);
           setOpen(false);
         }}

@@ -8,9 +8,9 @@ import { useViewListener } from '../../../../hooks';
 export const useViewFilterLinkContext = (
   tableId: string | undefined,
   viewId: string | undefined,
-  config: { disabled?: boolean }
+  config: { disabled?: boolean; preventGlobalError?: boolean }
 ) => {
-  const { disabled } = config;
+  const { disabled, preventGlobalError } = config;
   const queryClient = useQueryClient();
   const enabledQuery = Boolean(!disabled && tableId && viewId);
 
@@ -19,6 +19,7 @@ export const useViewFilterLinkContext = (
     queryFn: ({ queryKey }) =>
       getViewFilterLinkRecords(queryKey[1], queryKey[2]).then((data) => data.data),
     enabled: enabledQuery,
+    meta: { preventGlobalError },
   });
 
   const updateContext = useCallback(() => {

@@ -12,7 +12,8 @@ import {
   getViewIframeUrl,
 } from './utils';
 
-const componentPluginIds = ['plgchart'];
+// dashboard is inner plugin, using component render
+const componentPluginIds = ['plgchart', 'plgchartV2'];
 
 export const useIframeUrl = (params: IPluginParams) => {
   const { pluginUrl } = params;

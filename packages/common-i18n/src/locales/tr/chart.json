@@ -16,6 +16,99 @@
     "area": "Alan",
     "table": "Tablo"
   },
+  "chartV2": {
+    "dataConfig": "Veri Yapılandırması",
+    "chartAppearance": "Grafik Görünümü",
+    "goConfig": "Yapılandırmaya git",
+    "appearance": {
+      "title": "Grafik Görünümü",
+      "display": "Görünüm",
+      "theme": "Tema",
+      "legend": "Açıklama",
+      "coordinateAxis": "Koordinat ekseni",
+      "label": "Etiket",
+      "showAxisLine": "Eksen Çizgisini Göster",
+      "showAxisTick": "Eksen İşaretini Göster",
+      "showSplitLine": "Bölme Çizgisini Göster",
+      "backgroundColor": "Arka Plan Rengi",
+      "reset": "Sıfırla",
+      "style": "Stil",
+      "padding": "Dolgu",
+      "left": "Sol",
+      "right": "Sağ",
+      "bottom": "Alt",
+      "top": "Üst"
+    },
+    "noData": "Veri yok",
+    "form": {
+      "name": "İsim",
+      "chartType": {
+        "title": "Grafik Türü",
+        "bar": "Çubuk",
+        "line": "Çizgi",
+        "pie": "Pasta",
+        "donutChart": "Halka Grafik",
+        "area": "Alan",
+        "table": "Tablo"
+      },
+      "dataSource": {
+        "title": "Veri Kaynağı",
+        "fromTable": "Tablodan",
+        "fromQuery": "SQL'den"
+      },
+      "label": {
+        "table": "Tablo",
+        "dataRange": "Veri Aralığı",
+        "view": "görünüm",
+        "filter": "filtre"
+      },
+      "axisConfig": {
+        "noCountFields": "Sayım alanı yok",
+        "defaultSeriesName": "Sayım",
+        "title": "Eksen Yapılandırması",
+        "xAxis": "X Ekseni",
+        "yAxis": "Y Ekseni",
+        "field": "Alan",
+        "Statistic": "İstatistik",
+        "totalRecords": "Toplam Kayıt",
+        "fieldValue": "Alan değeri",
+        "groupBy": "Gruplandır",
+        "none": "Yok",
+        "groupAggregation": "Grup Toplamı"
+      },
+      "view": {
+        "allData": "Tüm Veri"
+      },
+      "dataSourceTitle": "Veri Kaynağı",
+      "order": {
+        "orderBy": {
+          "title": "Sıralama Ölçütü",
+          "byXAxis": "X eksenine göre",
+          "byYAxis": "Y eksenine göre"
+        },
+        "orderType": {
+          "title": "Sıralama Türü",
+          "asc": "Artan",
+          "desc": "Azalan"
+        }
+      },
+      "filter": {
+        "title": "Veriyi Filtrele",
+        "addFilter": "Filtre Ekle",
+        "cancel": "İptal",
+        "confirm": "Onayla"
+      },
+      "sql": {
+        "title": "Veri sorgusunu yapılandır",
+        "sqlEditor": "SQL Editörü",
+        "runTest": "Test Çalıştır",
+        "saveSql": "Kaydet",
+        "aiGenerate": "AI Üret",
+        "resultPreview": "Sonuç Önizlemesi",
+        "addSeries": "Seri ekle"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Grafik Türünü Seçin",

@@ -16,6 +16,99 @@
     "area": "Area",
     "table": "Table"
   },
+  "chartV2": {
+    "dataConfig": "Data Config",
+    "chartAppearance": "Chart Appearance",
+    "goConfig": "Go to configuration",
+    "appearance": {
+      "title": "Chart Appearance",
+      "display": "Display",
+      "theme": "Theme",
+      "legend": "Legend",
+      "coordinateAxis": "Coordinate axis",
+      "label": "Label",
+      "showAxisLine": "Show Axis Line",
+      "showAxisTick": "Show Axis Tick",
+      "showSplitLine": "Show Split Line",
+      "backgroundColor": "Background Color",
+      "reset": "Reset",
+      "style": "Style",
+      "padding": "Padding",
+      "left": "Left",
+      "right": "Right",
+      "bottom": "Bottom",
+      "top": "Top"
+    },
+    "noData": "No data or configuration error",
+    "form": {
+      "name": "Name",
+      "chartType": {
+        "title": "Chart Type",
+        "bar": "Bar",
+        "line": "Line",
+        "pie": "Pie",
+        "donutChart": "Donut Chart",
+        "area": "Area",
+        "table": "Table"
+      },
+      "dataSource": {
+        "title": "Data Source",
+        "fromTable": "From Table",
+        "fromQuery": "From SQL"
+      },
+      "label": {
+        "table": "Table",
+        "dataRange": "Data Range",
+        "view": "view",
+        "filter": "filter"
+      },
+      "axisConfig": {
+        "noCountFields": "No count fields",
+        "defaultSeriesName": "Count",
+        "title": "Axis Config",
+        "xAxis": "X Axis",
+        "yAxis": "Y Axis",
+        "field": "Field",
+        "Statistic": "Statistic by",
+        "totalRecords": "Total Records",
+        "fieldValue": "Field value",
+        "groupBy": "Group by",
+        "none": "None",
+        "groupAggregation": "Group Aggregation"
+      },
+      "view": {
+        "allData": "All Data"
+      },
+      "dataSourceTitle": "Data Source",
+      "order": {
+        "orderBy": {
+          "title": "Order By",
+          "byXAxis": "By x axis",
+          "byYAxis": "By y axis"
+        },
+        "orderType": {
+          "title": "Order Type",
+          "asc": "Asc",
+          "desc": "Desc"
+        }
+      },
+      "filter": {
+        "title": "Filter Data",
+        "addFilter": "Add Filter",
+        "cancel": "Cancel",
+        "confirm": "Confirm"
+      },
+      "sql": {
+        "title": "Config data query",
+        "sqlEditor": "SQL Editor",
+        "runTest": "Run Test",
+        "saveSql": "Save",
+        "aiGenerate": "AI Generate",
+        "resultPreview": "Result Preview",
+        "addSeries": "Add a series"
+      }
+    }
+  },
   "form": {
     "chartType": {
       "placeholder": "Select chart type",

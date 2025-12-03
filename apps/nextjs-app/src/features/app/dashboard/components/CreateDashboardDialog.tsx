@@ -65,7 +65,9 @@ export const CreateDashboardDialog = forwardRef<
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>{props.children}</DialogTrigger>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>{t('dashboard:createDashboard.title')}</DialogHeader>
+          <DialogHeader className="text-lg font-semibold">
+            {t('dashboard:createDashboard.title')}
+          </DialogHeader>
           <div>
             <Input
               placeholder={t('dashboard:createDashboard.placeholder')}
@@ -74,12 +76,14 @@ export const CreateDashboardDialog = forwardRef<
                 setError(undefined);
                 setName(e.target.value);
               }}
+              className="px-2 py-[10px] placeholder:text-sm"
             />
             <Error error={error} />
           </div>
           <DialogFooter>
             <Button
-              size={'sm'}
+              size={'lg'}
+              className="px-4"
               onClick={() => {
                 const valid = z
                   .string()

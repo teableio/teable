@@ -1,7 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
+import { Plus } from '@teable/icons';
 import type { IGetPluginCenterListVo, IPluginI18n, PluginPosition } from '@teable/openapi';
 import { getPluginCenterList } from '@teable/openapi';
-import { Button, cn, Dialog, DialogContent, DialogTrigger } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  cn,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@teable/ui-lib/shadcn';
 import { get } from 'lodash';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
@@ -59,16 +68,16 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
       >
         <DialogTrigger asChild>{children}</DialogTrigger>
         <DialogContent
-          className="max-w-4xl"
+          className="flex max-w-4xl flex-col"
           style={{ width: 'calc(100% - 40px)', height: 'calc(100% - 100px)' }}
         >
+          <DialogHeader className="m-0 p-0">
+            <DialogTitle>{t('common:pluginCenter.addPluginTitle')}</DialogTitle>
+          </DialogHeader>
           <div
-            className={cn(
-              'md:h-fit mt-4 w-full space-y-3 md:grid md:grid-cols-2 md:gap-4 md:space-y-0',
-              {
-                'md:h-auto flex md:flex': isEmpty,
-              }
-            )}
+            className={cn('mt-4 w-full flex-1 gap-2 flex flex-col', {
+              'md:h-auto flex md:flex': isEmpty,
+            })}
           >
             {plugins?.map((plugin) => {
               const name = get(plugin.i18n, [language, 'name']) ?? plugin.name;
@@ -77,7 +86,7 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
               return (
                 <button
                   key={plugin.id}
-                  className="flex h-20 w-full cursor-pointer items-center gap-3 rounded border p-2 hover:bg-accent"
+                  className="flex h-[72px] w-full cursor-pointer items-center gap-3 rounded-xl border p-3 px-4 hover:bg-accent"
                   onClick={() =>
                     setDetailPlugin({
                       ...plugin,
@@ -90,8 +99,8 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                   <Image
                     src={plugin.logo}
                     alt={name}
-                    width={56}
-                    height={56}
+                    width={48}
+                    height={48}
                     sizes="100%"
                     style={{
                       objectFit: 'contain',
@@ -114,7 +123,9 @@ export const PluginCenterDialog = forwardRef<IPluginCenterDialogRef, IPluginCent
                       onClose();
                       e.stopPropagation();
                     }}
+                    className="gap-2"
                   >
+                    <Plus className="size-4" />
                     {t('common:pluginCenter.install')}
                   </Button>
                 </button>
