@@ -588,8 +588,8 @@ export const BaseNodeTree = () => {
               const name = getNodeName(node);
 
               return (
-                <TreeItem key={nodeId} item={item} className="w-full cursor-pointer">
-                  <TreeItemLabel className="w-full min-w-0">
+                <TreeItem key={nodeId} item={item} className="h-8 w-full cursor-pointer">
+                  <TreeItemLabel className="size-full min-w-0 py-0">
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       {editingNodeId === nodeId ? (
                         <Input
@@ -600,7 +600,7 @@ export const BaseNodeTree = () => {
                           style={{
                             boxShadow: 'none',
                           }}
-                          className="round-none size-full h-5 cursor-text bg-background outline-none"
+                          className="round-none size-full cursor-text bg-background outline-none"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;
