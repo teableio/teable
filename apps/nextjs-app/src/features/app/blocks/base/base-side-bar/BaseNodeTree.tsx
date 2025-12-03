@@ -250,7 +250,7 @@ export const BaseNodeTree = () => {
     rootItemId: ROOT_ID,
     indent: INDENTATION_WIDTH,
     dataLoader: {
-      getItem: (itemId) => treeItemsRef.current[itemId],
+      getItem: (itemId) => treeItemsRef.current[itemId] ?? {},
       getChildren: (itemId) => treeItemsRef.current[itemId]?.children ?? [],
     },
     getItemName: (item) => getNodeName(item.getItemData()),
@@ -372,7 +372,7 @@ export const BaseNodeTree = () => {
           (item) => !item.isFolder() && item.getId() !== nodeId
         );
         if (nonFolderItems.length === 0) {
-          router.push(`/base/${baseId}`);
+          router.push(`/base/${baseId}`, undefined, { shallow: true });
           return;
         }
 
@@ -583,7 +583,7 @@ export const BaseNodeTree = () => {
             {tree.getItems().map((item) => {
               const nodeId = item.getId();
               const node = item.getItemData();
-              if (!node) return null;
+              if (!node || Object.keys(node).length === 0) return null;
               const { resourceType, resourceId } = node;
               const name = getNodeName(node);
 
