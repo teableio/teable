@@ -24,7 +24,7 @@ import { useSettingStore } from '@/features/app/components/setting/useSettingSto
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
 import { BaseNodeContext } from '../base-node/BaseNodeContext';
-import { BaseNodeResourceIconMap, getNodeUrl } from '../base-node/hooks';
+import { BaseNodeResourceIconMap, getNodeIcon, getNodeName, getNodeUrl } from '../base-node/hooks';
 
 export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const baseId = useBaseId() as string;
@@ -90,7 +90,9 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
             return (
               <CommandGroup heading={heading()} key={resourceType}>
                 {items.map((item) => {
-                  const { id, name, icon, resourceType, resourceId } = item;
+                  const { id, resourceType, resourceId } = item;
+                  const name = getNodeName(item);
+                  const icon = getNodeIcon(item);
                   const IconComponent = BaseNodeResourceIconMap[resourceType];
                   const url = getNodeUrl({
                     baseId,
