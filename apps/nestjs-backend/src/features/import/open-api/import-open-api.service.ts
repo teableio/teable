@@ -132,8 +132,8 @@ export class ImportOpenApiService {
           },
           {
             jobId,
-            removeOnComplete: true,
-            removeOnFail: true,
+            removeOnComplete: 1000,
+            removeOnFail: 1000,
           }
         );
       }
