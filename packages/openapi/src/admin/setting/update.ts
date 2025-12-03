@@ -75,6 +75,9 @@ export const appConfigSchema = z.object({
   vercelToken: z.string().optional(),
   customDomain: z.string().optional(),
   creditCount: z.number().min(0).optional(),
+  // Proxy URLs for v0 and Vercel API (Cloudflare Workers reverse proxy)
+  v0BaseUrl: z.url().optional(),
+  vercelBaseUrl: z.url().optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

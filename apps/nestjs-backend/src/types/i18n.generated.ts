@@ -746,6 +746,10 @@ export type I18nTranslations = {
                     "customDomainDescription": string;
                     "vercelToken": string;
                     "vercelTokenDescription": string;
+                    "apiProxy": string;
+                    "apiProxyDescription": string;
+                    "v0BaseUrl": string;
+                    "vercelBaseUrl": string;
                 };
                 "instanceTitle": string;
             };

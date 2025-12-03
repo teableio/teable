@@ -549,7 +549,11 @@
         "customDomain": "自定义域名 (可选)",
         "customDomainDescription": "设置应用部署的自定义域名，访问 <a>Vercel 域名</a> 获取自定义域名",
         "vercelToken": "Vercel API 密钥",
-        "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥"
+        "vercelTokenDescription": "设置 Vercel API 密钥以启用自定义域名部署功能，访问 <a>Vercel 设置</a> 获取 API 密钥",
+        "apiProxy": "API 代理 (可选)",
+        "apiProxyDescription": "配置 v0 和 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
+        "v0BaseUrl": "v0 API 代理地址",
+        "vercelBaseUrl": "Vercel API 代理地址"
       }
     },
     "action": {

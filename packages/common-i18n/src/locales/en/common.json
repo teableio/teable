@@ -552,7 +552,11 @@
         "customDomain": "Custom Domain (Optional)",
         "customDomainDescription": "Set your custom domain for app deployment, access <a>Vercel domain</a> to get custom domain",
         "vercelToken": "Vercel API Token",
-        "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token"
+        "vercelTokenDescription": "Access <a>Vercel settings</a> to get API token",
+        "apiProxy": "API Proxy (Optional)",
+        "apiProxyDescription": "Configure reverse proxy URLs for v0 and Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
+        "v0BaseUrl": "v0 API Base URL",
+        "vercelBaseUrl": "Vercel API Base URL"
       }
     },
     "action": {
