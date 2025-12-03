@@ -586,9 +586,9 @@ export class SelectionService {
     return {
       fieldKeyType: FieldKeyType.Id,
       typecast: true,
-      records: oldRecords.map(({ id }, index) => {
+      records: oldRecords.map(({ id, fields: oldFields }, index) => {
         const newFields = newRecords?.[index]?.fields;
-        const updateFields = newFields ?? {};
+        const updateFields = newFields !== undefined ? { ...oldFields, ...newFields } : {};
         return {
           id,
           fields: updateFields,
