@@ -66,6 +66,15 @@ export const LookupOptions = (props: {
   });
   const baseId = useBaseId();
 
+  useEffect(() => {
+    setInnerOptions((prev) => ({
+      ...prev,
+      foreignTableId: options.foreignTableId,
+      linkFieldId: options.linkFieldId,
+      lookupFieldId: options.lookupFieldId,
+    }));
+  }, [options.foreignTableId, options.linkFieldId, options.lookupFieldId]);
+
   const [moreVisible, setMoreVisible] = useState<boolean>(
     requireFilter || Boolean(options?.filter)
   );
@@ -102,7 +111,7 @@ export const LookupOptions = (props: {
             <Selector
               className="w-full"
               placeholder={t('table:field.editor.selectField')}
-              selectedId={options.linkFieldId}
+              selectedId={innerOptions.linkFieldId}
               onChange={(selected: string) => {
                 const selectedLinkField = linkFields.find((l) => l.id === selected);
                 setOptions({
