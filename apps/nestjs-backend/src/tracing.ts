@@ -26,16 +26,16 @@ const parseOtelHeaders = (headerStr?: string) => {
   );
 };
 
-const headers = parseOtelHeaders('signoz-ingestion-key=29118128-43c8-475f-adfb-9b1fa6c5f50e');
+const headers = parseOtelHeaders(process.env.OTEL_EXPORTER_OTLP_HEADERS);
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Development fallbacks so local tracing/logging works without manual env setup.
 const devOtelDefaults = {
-  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'https://ingest.us.signoz.cloud:443/v1/logs',
-  OTEL_EXPORTER_OTLP_ENDPOINT: 'https://ingest.us.signoz.cloud:443/v1/traces',
+  OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
+  OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: 'http://localhost:4318/v1/logs',
   OTEL_TRACES_SAMPLER: 'always_on',
-  OTEL_SERVICE_NAME: 'teable-dev-bieber',
+  OTEL_SERVICE_NAME: 'teable',
   OTEL_SAMPLER_RATIO: '1.0',
 } as const;
 
@@ -117,26 +117,6 @@ const otelSDK = new opentelemetry.NodeSDK({
           '/health',
         ];
         return ignorePaths.some((path) => request.url?.startsWith(path));
-      },
-      // 确保追踪 outgoing HTTP 请求（如 AI API 调用）
-      ignoreOutgoingRequestHook: (_options) => {
-        // 不忽略任何出站请求，这样可以追踪到 AI API 调用
-        return false;
-      },
-      // 添加请求和响应钩子以获取更多信息
-      requestHook: (span, request) => {
-        // 为 AI API 请求添加特殊标记
-        if (typeof request === 'object' && 'host' in request) {
-          const host = request.host || '';
-          if (
-            host.includes('api.openai.com') ||
-            host.includes('hash070.com') ||
-            host.includes('opapi.win') ||
-            host.includes('generativelanguage.googleapis.com')
-          ) {
-            span.setAttribute('ai.provider', 'detected');
-          }
-        }
       },
     }),
     new ExpressInstrumentation({
