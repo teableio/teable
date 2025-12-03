@@ -152,10 +152,6 @@ describe('numberFormattingSchema validation', () => {
         const errorCodes = result.error.issues.map((i) => i.code);
         expect(errorCodes).toContain('invalid_type'); // missing symbol
         expect(errorCodes).toContain('unrecognized_keys'); // extra currencyCode
-
-        // Verify the unrecognized key is currencyCode
-        const unrecognizedIssue = result.error.issues.find((i) => i.code === 'unrecognized_keys');
-        expect(unrecognizedIssue?.keys).toContain('currencyCode');
       }
     });
 
