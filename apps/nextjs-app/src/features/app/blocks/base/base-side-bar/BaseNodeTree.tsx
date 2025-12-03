@@ -296,25 +296,29 @@ export const BaseNodeTree = () => {
 
   const createSuccefulyCallback = useCallback(
     (node: IBaseNodeVo) => {
-      const { resourceType, resourceId, parentId } = node;
+      const { resourceType, resourceId, parentId, resourceMeta } = node;
+      const viewId =
+        resourceType === BaseNodeResourceType.Table ? resourceMeta?.defaultViewId : undefined;
       const parentItem = parentId ? treeItemsRef.current[parentId] : null;
+
       const url = getNodeUrl({
         baseId,
         resourceType,
         resourceId,
+        viewId,
       });
       if (url) {
         if (resourceType === BaseNodeResourceType.Table) {
-          router.push(url);
+          router.push(url, undefined, { shallow: Boolean(viewId) });
         } else {
           router.push(url, undefined, { shallow: true });
         }
       }
 
-      invalidateMenu();
       if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
         setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
       }
+      invalidateMenu();
       setEditingNodeId(node.id);
     },
     [baseId, router, invalidateMenu, setExpandedItems]
@@ -322,15 +326,18 @@ export const BaseNodeTree = () => {
 
   const duplicateSuccefulyCallback = useCallback(
     (node: IBaseNodeVo) => {
-      const { resourceType, resourceId } = node;
+      const { resourceType, resourceId, resourceMeta } = node;
+      const viewId =
+        resourceType === BaseNodeResourceType.Table ? resourceMeta?.defaultViewId : undefined;
       const url = getNodeUrl({
         baseId,
         resourceType,
         resourceId,
+        viewId,
       });
       if (url) {
         if (resourceType === BaseNodeResourceType.Table) {
-          router.push(url);
+          router.push(url, undefined, { shallow: Boolean(viewId) });
         } else {
           router.push(url, undefined, { shallow: true });
         }

@@ -15,52 +15,47 @@ const defaultResourceMetaSchema = z.object({
   icon: z.string().nullable().optional(),
 });
 
-export const folderResourceMetaSchema = defaultResourceMetaSchema;
+export const baseNodeFolderResourceMetaSchema = defaultResourceMetaSchema;
 
-export type IFolderResourceMeta = z.infer<typeof folderResourceMetaSchema>;
+export type IBaseNodeFolderResourceMeta = z.infer<typeof baseNodeFolderResourceMetaSchema>;
 
-export const tableResourceMetaSchema = defaultResourceMetaSchema.extend({
+export const baseNodeTableResourceMetaSchema = defaultResourceMetaSchema.extend({
   defaultViewId: z.string().nullable().optional(),
 });
 
-export type ITableResourceMeta = z.infer<typeof tableResourceMetaSchema>;
+export type IBaseNodeTableResourceMeta = z.infer<typeof baseNodeTableResourceMetaSchema>;
 
-export const appResourceMetaSchema = defaultResourceMetaSchema;
+export const baseNodeAppResourceMetaSchema = defaultResourceMetaSchema;
 
-export type IAppResourceMeta = z.infer<typeof appResourceMetaSchema>;
+export type IBaseNodeAppResourceMeta = z.infer<typeof baseNodeAppResourceMetaSchema>;
 
-export const dashboardResourceMetaSchema = defaultResourceMetaSchema;
+export const baseNodeDashboardResourceMetaSchema = defaultResourceMetaSchema;
 
-export type IDashboardResourceMeta = z.infer<typeof dashboardResourceMetaSchema>;
+export type IBaseNodeDashboardResourceMeta = z.infer<typeof baseNodeDashboardResourceMetaSchema>;
 
-export const workFlowResourceMetaSchema = defaultResourceMetaSchema.extend({
+export const baseNodeWorkflowResourceMetaSchema = defaultResourceMetaSchema.extend({
   isActive: z.boolean().nullable().optional(),
 });
 
-export type IWorkflowResourceMeta = z.infer<typeof workFlowResourceMetaSchema>;
+export type IBaseNodeWorkflowResourceMeta = z.infer<typeof baseNodeWorkflowResourceMetaSchema>;
 
 const baseNodeResourceMetaSchema = z.union([
-  workFlowResourceMetaSchema,
-  tableResourceMetaSchema,
-  appResourceMetaSchema,
-  dashboardResourceMetaSchema,
-  folderResourceMetaSchema,
+  baseNodeWorkflowResourceMetaSchema,
+  baseNodeTableResourceMetaSchema,
+  baseNodeAppResourceMetaSchema,
+  baseNodeDashboardResourceMetaSchema,
+  baseNodeFolderResourceMetaSchema,
 ]);
 
 export type IBaseNodeResourceMeta = z.infer<typeof baseNodeResourceMetaSchema>;
 
 export type IBaseNodeResourceMetaWithId = IBaseNodeResourceMeta & { id: string };
 
-export const baseNodeSchema = z.object({
+const baseNodeBaseSchema = z.object({
   id: z.string(),
   parentId: z.string().nullable(),
   resourceId: z.string(),
-  resourceType: baseNodeResourceTypeSchema,
   order: z.number(),
-  resourceMeta: baseNodeResourceMetaSchema.optional(),
-});
-
-export const baseNodeVoSchema = baseNodeSchema.extend({
   parent: z
     .object({
       id: z.string(),
@@ -77,6 +72,29 @@ export const baseNodeVoSchema = baseNodeSchema.extend({
     .nullable()
     .optional(),
 });
+
+export const baseNodeVoSchema = z.discriminatedUnion('resourceType', [
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.Table),
+    resourceMeta: baseNodeTableResourceMetaSchema.optional(),
+  }),
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.Dashboard),
+    resourceMeta: baseNodeDashboardResourceMetaSchema.optional(),
+  }),
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.Workflow),
+    resourceMeta: baseNodeWorkflowResourceMetaSchema.optional(),
+  }),
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.App),
+    resourceMeta: baseNodeAppResourceMetaSchema.optional(),
+  }),
+  baseNodeBaseSchema.extend({
+    resourceType: z.literal(BaseNodeResourceType.Folder),
+    resourceMeta: baseNodeFolderResourceMetaSchema.optional(),
+  }),
+]);
 
 export type IBaseNodeVo = z.infer<typeof baseNodeVoSchema>;
 

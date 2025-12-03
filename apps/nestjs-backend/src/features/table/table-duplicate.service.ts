@@ -116,6 +116,9 @@ export class TableDuplicateService {
             tableId: newTableVo.id,
             deletedTime: null,
           },
+          orderBy: {
+            order: 'asc',
+          },
         });
 
         const fieldPlain = await this.prismaService.txClient().field.findMany({
@@ -134,6 +137,7 @@ export class TableDuplicateService {
           fields: fieldPlain.map((f) => omit(rawField2FieldObj(f), ['meta'])),
           viewMap: sourceToTargetViewMap,
           fieldMap: sourceToTargetFieldMap,
+          defaultViewId: viewPlain[0]?.id,
         } as IDuplicateTableVo;
       },
       {

@@ -148,15 +148,11 @@ export class BaseNodeService {
     entry: IBaseNodeEntry,
     resource?: IBaseNodeResourceMeta
   ): Promise<IBaseNodeVo> {
-    const { name, icon } = resource ?? {};
-    if (name) {
+    if (resource) {
       return {
         ...entry,
         resourceType: entry.resourceType as BaseNodeResourceType,
-        resourceMeta: {
-          name,
-          icon,
-        },
+        resourceMeta: resource,
       };
     }
     const { resourceType, resourceId } = entry;
@@ -469,7 +465,12 @@ export class BaseNodeService {
           baseId,
           ro as ICreateTableWithDefault
         );
-        return { id: table.id, name: table.name, icon: table.icon };
+        return {
+          id: table.id,
+          name: table.name,
+          icon: table.icon,
+          defaultViewId: table.defaultViewId,
+        };
       }
       case BaseNodeResourceType.Dashboard: {
         const dashboard = await this.dashboardService.createDashboard(
@@ -593,7 +594,13 @@ export class BaseNodeService {
           id,
           duplicateRo as IDuplicateTableRo
         );
-        return { id: table.id, name: table.name, icon: table.icon ?? undefined };
+
+        return {
+          id: table.id,
+          name: table.name,
+          icon: table.icon ?? undefined,
+          defaultViewId: table.defaultViewId,
+        };
       }
       case BaseNodeResourceType.Dashboard: {
         const dashboard = await this.dashboardService.duplicateDashboard(

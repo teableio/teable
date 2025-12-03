@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
 import { FieldType, Role, ViewType } from '@teable/core';
-import type { IBaseNodeVo } from '@teable/openapi';
+import type { IBaseNodeTableResourceMeta, IBaseNodeVo } from '@teable/openapi';
 import {
   createBaseNode,
   getBaseNodeTree,
@@ -155,9 +155,10 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
         fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
         views: [{ name: 'Grid view', type: ViewType.Grid }],
       });
-
+      const resourceMeta = response.data.resourceMeta as IBaseNodeTableResourceMeta;
       expect(response.data).toBeDefined();
-      expect(response.data.resourceMeta?.name).toBe(testTableName);
+      expect(resourceMeta.name).toBe(testTableName);
+      expect(resourceMeta.defaultViewId).toBeDefined();
       expect(response.data.resourceType).toBe(BaseNodeResourceType.Table);
       expect(response.data.resourceId).toBeDefined();
 
