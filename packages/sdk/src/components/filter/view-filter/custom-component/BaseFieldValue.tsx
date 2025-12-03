@@ -18,7 +18,7 @@ import {
   TooltipTrigger,
   cn,
 } from '@teable/ui-lib';
-import { cloneElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { cloneElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactElement } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import type { DateField, IFieldInstance } from '../../../../model';
@@ -103,6 +103,47 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
   );
 
   const toggleDisabled = !operatorSupportsReferences || !referenceFields.length;
+  const lastDefaultKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!referenceFields.length || !field || !operator || !operatorSupportsReferences) {
+      return;
+    }
+
+    const currentKey = `${field.id}:${operator}`;
+    if (value !== null && value !== undefined) {
+      lastDefaultKeyRef.current = currentKey;
+      return;
+    }
+
+    if (lastDefaultKeyRef.current === currentKey) {
+      return;
+    }
+
+    const comparableField = referenceFields.find(
+      (candidate) => !isReferenceFieldDisabled(candidate)
+    );
+    const targetField = comparableField ?? referenceFields[0];
+    if (!targetField) {
+      return;
+    }
+
+    lastDefaultKeyRef.current = currentKey;
+    onSelect({
+      type: 'field',
+      fieldId: targetField.id,
+      tableId: targetField.tableId ?? referenceTableId,
+    } satisfies IFieldReferenceValue);
+  }, [
+    field,
+    isReferenceFieldDisabled,
+    onSelect,
+    operator,
+    operatorSupportsReferences,
+    referenceFields,
+    referenceTableId,
+    value,
+  ]);
 
   const handleToggle = () => {
     if (toggleDisabled) {
