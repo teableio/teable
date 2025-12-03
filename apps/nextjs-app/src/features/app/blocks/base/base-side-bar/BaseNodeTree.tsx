@@ -434,8 +434,8 @@ export const BaseNodeTree = () => {
   }, [treeItems]);
 
   useEffect(() => {
-    if (Object.keys(treeItemsRef.current).length === 0) return;
-    const nodes = Object.values(treeItemsRef.current);
+    if (Object.keys(treeItems).length === 0) return;
+    const nodes = Object.values(treeItems);
     const { resourceType, resourceId } = parseNodeUrl({ baseId, url: urlPath, urlParams }) ?? {};
     const node = nodes.find(
       (node) => node.resourceType === resourceType && node.resourceId === resourceId
@@ -452,7 +452,7 @@ export const BaseNodeTree = () => {
         parentResourceId: baseId,
       });
     }
-  }, [urlPath, urlParams, baseId, updateUserLastVisit]);
+  }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
 
   useEffect(() => {
     if (!Object.keys(treeItems).length) return;

@@ -21,12 +21,12 @@ import type {
   IDuplicateTableRo,
   ICreateDashboardRo,
   ICreateFolderNodeRo,
-  ICreateTableWithDefault,
   IDuplicateDashboardRo,
   IUpdateBaseNodeRo,
   IBaseNodePresenceFlushPayload,
   IBaseNodeResourceMeta,
   IBaseNodeResourceMetaWithId,
+  ICreateTableRo,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -68,6 +68,7 @@ import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
+import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
 
@@ -461,10 +462,9 @@ export class BaseNodeService {
         return { id: folder.id, name: folder.name };
       }
       case BaseNodeResourceType.Table: {
-        const table = await this.tableOpenApiService.createTable(
-          baseId,
-          ro as ICreateTableWithDefault
-        );
+        const preparedRo = prepareCreateTableRo(ro as ICreateTableRo);
+        const table = await this.tableOpenApiService.createTable(baseId, preparedRo);
+
         return {
           id: table.id,
           name: table.name,
