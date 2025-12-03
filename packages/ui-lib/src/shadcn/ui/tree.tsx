@@ -145,7 +145,7 @@ function TreeItemLabel<T = any>({
       data-drag-target={isDragTarget ? 'true' : undefined}
       data-search-match={isSearchMatch ? 'true' : undefined}
       className={cn(
-        'flex items-center gap-1 rounded-sm border border-transparent bg-background px-2 py-1.5 text-sm transition-colors hover:bg-accent group-focus-visible:ring-[3px] group-focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
+        'flex items-center gap-1 rounded-sm border border-transparent bg-background px-2 py-1 text-sm transition-colors hover:bg-accent group-focus-visible:ring-[3px] group-focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
         !isFolder && 'ps-7',
         isDragTarget && 'border-dashed border-foreground bg-foreground/[0.06]',
         isSearchMatch && 'bg-blue-400/20',

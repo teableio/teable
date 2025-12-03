@@ -21,7 +21,7 @@ import {
 } from '@teable/ui-lib/base/headless-tree';
 import type { DragTarget, ItemInstance } from '@teable/ui-lib/base/headless-tree';
 import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
-import { Button, Input } from '@teable/ui-lib/shadcn';
+import { Button, Input, Skeleton } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
 import { useParams } from 'next/navigation';
@@ -139,7 +139,8 @@ export const BaseNodeTree = () => {
   );
   const canMoveNode = Boolean(permission?.['base|update']);
 
-  const { maxFolderDepth, treeItems, setTreeItems, invalidateMenu } = useContext(BaseNodeContext);
+  const { isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu } =
+    useContext(BaseNodeContext);
   const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -158,85 +159,41 @@ export const BaseNodeTree = () => {
     },
   });
 
-  const createSuccefulyCallback = useCallback(
-    (node: IBaseNodeVo) => {
-      const { resourceType, resourceId, parentId } = node;
-      const parentItem = parentId ? treeItemsRef.current[parentId] : null;
-      const url = getNodeUrl({
-        baseId,
-        resourceType,
-        resourceId,
-      });
-      if (url) {
-        if (resourceType === BaseNodeResourceType.Table) {
-          router.push(url);
-        } else {
-          router.push(url, undefined, { shallow: true });
-        }
-      }
-
-      invalidateMenu();
-      if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
-        setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
-      }
-      setEditingNodeId(node.id);
-    },
-    [baseId, router, invalidateMenu, setExpandedItems]
-  );
-
-  const duplicateSuccefulyCallback = useCallback(
-    (node: IBaseNodeVo) => {
+  const handlePrimaryAction = useCallback(
+    (item: ItemInstance<TreeItemData>) => {
+      const node = item.getItemData();
+      const viewId = router.query.viewId as string;
       const { resourceType, resourceId } = node;
+
+      if (resourceType === BaseNodeResourceType.Table) {
+        if (!tableHrefMap[resourceId]) {
+          console.error('tableHrefMap[resourceId] not found', resourceId);
+          return;
+        }
+        router.push(
+          {
+            pathname: tableHrefMap[resourceId],
+          },
+          undefined,
+          {
+            shallow: Boolean(viewId),
+          }
+        );
+        return;
+      }
+
       const url = getNodeUrl({
         baseId,
         resourceType,
         resourceId,
       });
-      if (url) {
-        if (resourceType === BaseNodeResourceType.Table) {
-          router.push(url);
-        } else {
-          router.push(url, undefined, { shallow: true });
-        }
-      }
-
-      invalidateMenu();
-      setEditingNodeId(node.id);
-    },
-    [baseId, router, invalidateMenu]
-  );
-
-  const curdHooks = useBaseNodeCrud({
-    onCreateSuccess: createSuccefulyCallback,
-    onDuplicateSuccess: duplicateSuccefulyCallback,
-    onDeleteSuccess: () => invalidateMenu(),
-    onMoveSuccess: () => invalidateMenu(),
-  });
-
-  useEffect(() => {
-    treeItemsRef.current = treeItems;
-  }, [treeItems]);
-
-  useEffect(() => {
-    if (Object.keys(treeItems).length === 0) return;
-    const nodes = Object.values(treeItems);
-    const { resourceType, resourceId } = parseNodeUrl({ baseId, url: urlPath, urlParams }) ?? {};
-    const node = nodes.find(
-      (node) => node.resourceType === resourceType && node.resourceId === resourceId
-    );
-    if (!node) return;
-
-    setSelectedItems([node.id]);
-    const lastVisitResourceType =
-      BaseNodeResourceLastVisitMap[node.resourceType as keyof typeof BaseNodeResourceLastVisitMap];
-    if (lastVisitResourceType) {
-      updateUserLastVisit({
-        resourceId: node.resourceId,
-        resourceType: lastVisitResourceType,
-        parentResourceId: baseId,
+      if (!url) return;
+      router.push(url, undefined, {
+        shallow: true,
       });
-    }
-  }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
+    },
+    [baseId, router, tableHrefMap]
+  );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
     const handler = createOnDropHandler<TreeItemData>((parentItem, newChildrenIds) => {
@@ -277,42 +234,6 @@ export const BaseNodeTree = () => {
     draggedItemsRef.current = items;
     return handler(items, target);
   };
-
-  const handlePrimaryAction = useCallback(
-    (item: ItemInstance<TreeItemData>) => {
-      const node = item.getItemData();
-      const viewId = router.query.viewId as string;
-      const { resourceType, resourceId } = node;
-
-      if (resourceType === BaseNodeResourceType.Table) {
-        if (!tableHrefMap[resourceId]) {
-          console.error('tableHrefMap[resourceId] not found', resourceId);
-          return;
-        }
-        router.push(
-          {
-            pathname: tableHrefMap[resourceId],
-          },
-          undefined,
-          {
-            shallow: Boolean(viewId),
-          }
-        );
-        return;
-      }
-
-      const url = getNodeUrl({
-        baseId,
-        resourceType,
-        resourceId,
-      });
-      if (!url) return;
-      router.push(url, undefined, {
-        shallow: true,
-      });
-    },
-    [baseId, router, tableHrefMap]
-  );
 
   const tree = useTree<TreeItemData>({
     state: {
@@ -373,6 +294,164 @@ export const BaseNodeTree = () => {
     ],
   });
 
+  const createSuccefulyCallback = useCallback(
+    (node: IBaseNodeVo) => {
+      const { resourceType, resourceId, parentId } = node;
+      const parentItem = parentId ? treeItemsRef.current[parentId] : null;
+      const url = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+      });
+      if (url) {
+        if (resourceType === BaseNodeResourceType.Table) {
+          router.push(url);
+        } else {
+          router.push(url, undefined, { shallow: true });
+        }
+      }
+
+      invalidateMenu();
+      if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
+        setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
+      }
+      setEditingNodeId(node.id);
+    },
+    [baseId, router, invalidateMenu, setExpandedItems]
+  );
+
+  const duplicateSuccefulyCallback = useCallback(
+    (node: IBaseNodeVo) => {
+      const { resourceType, resourceId } = node;
+      const url = getNodeUrl({
+        baseId,
+        resourceType,
+        resourceId,
+      });
+      if (url) {
+        if (resourceType === BaseNodeResourceType.Table) {
+          router.push(url);
+        } else {
+          router.push(url, undefined, { shallow: true });
+        }
+      }
+
+      invalidateMenu();
+      setEditingNodeId(node.id);
+    },
+    [baseId, router, invalidateMenu]
+  );
+
+  const getAllParentIds = useCallback((nodeId: string) => {
+    const parentIds: string[] = [];
+    let parentId = treeItemsRef.current[nodeId]?.parentId;
+    while (parentId) {
+      parentIds.push(parentId);
+      parentId = treeItemsRef.current[parentId]?.parentId;
+    }
+    return parentIds;
+  }, []);
+
+  const deleteSuccefulyCallback = useCallback(
+    (nodeId: string) => {
+      const clickNextItem = (nodeId: string) => {
+        if (!selectedItems.includes(nodeId)) {
+          return;
+        }
+        const item = tree.getItemInstance(nodeId);
+        if (!item) return;
+        if (item.isFolder()) {
+          return;
+        }
+        const allItems = tree.getItems();
+        const nonFolderItems = allItems.filter(
+          (item) => !item.isFolder() && item.getId() !== nodeId
+        );
+        if (nonFolderItems.length === 0) {
+          router.push(`/base/${baseId}`);
+          return;
+        }
+
+        // Find next non-folder item by alternating below and above
+        const findNextNonFolderItem = (
+          startItem: ItemInstance<TreeItemData>
+        ): ItemInstance<TreeItemData> | null => {
+          let belowItem: ItemInstance<TreeItemData> | undefined = startItem;
+          let aboveItem: ItemInstance<TreeItemData> | undefined = startItem;
+
+          while (belowItem || aboveItem) {
+            // Try below first
+            if (belowItem) {
+              belowItem = belowItem.getItemBelow();
+              if (belowItem && !belowItem.isFolder()) {
+                return belowItem;
+              }
+            }
+            // Then try above
+            if (aboveItem) {
+              aboveItem = aboveItem.getItemAbove();
+              if (aboveItem && !aboveItem.isFolder()) {
+                return aboveItem;
+              }
+            }
+          }
+          return null;
+        };
+
+        const nextItem = findNextNonFolderItem(item);
+        if (nextItem) {
+          const nextParentIds = getAllParentIds(nextItem.getId());
+          setExpandedItems((prev) => [...new Set([...(prev ?? []), ...nextParentIds])]);
+          handlePrimaryAction(nextItem);
+        }
+      };
+      clickNextItem(nodeId);
+      invalidateMenu();
+    },
+    [
+      router,
+      baseId,
+      selectedItems,
+      tree,
+      invalidateMenu,
+      handlePrimaryAction,
+      setExpandedItems,
+      getAllParentIds,
+    ]
+  );
+
+  const curdHooks = useBaseNodeCrud({
+    onCreateSuccess: createSuccefulyCallback,
+    onDuplicateSuccess: duplicateSuccefulyCallback,
+    onDeleteSuccess: deleteSuccefulyCallback,
+    onMoveSuccess: () => invalidateMenu(),
+  });
+
+  useEffect(() => {
+    treeItemsRef.current = treeItems;
+  }, [treeItems]);
+
+  useEffect(() => {
+    if (Object.keys(treeItems).length === 0) return;
+    const nodes = Object.values(treeItems);
+    const { resourceType, resourceId } = parseNodeUrl({ baseId, url: urlPath, urlParams }) ?? {};
+    const node = nodes.find(
+      (node) => node.resourceType === resourceType && node.resourceId === resourceId
+    );
+    if (!node) return;
+
+    setSelectedItems([node.id]);
+    const lastVisitResourceType =
+      BaseNodeResourceLastVisitMap[node.resourceType as keyof typeof BaseNodeResourceLastVisitMap];
+    if (lastVisitResourceType) {
+      updateUserLastVisit({
+        resourceId: node.resourceId,
+        resourceType: lastVisitResourceType,
+        parentResourceId: baseId,
+      });
+    }
+  }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
+
   useEffect(() => {
     if (!Object.keys(treeItems).length) return;
     tree.rebuildTree();
@@ -430,6 +509,39 @@ export const BaseNodeTree = () => {
     return null;
   }
 
+  const ItemIcon = ({ item }: { item: ItemInstance<TreeItemData> }) => {
+    const nodeId = item.getId();
+    const data = item.getItemData();
+    if (!data) return null;
+    const IconComponent = BaseNodeResourceIconMap[data.resourceType];
+    const { resourceType } = data;
+    const icon = getNodeIcon(data);
+    const isFolder = item.isFolder();
+    if (isFolder) {
+      return <IconComponent className="size-4 shrink-0" />;
+    }
+    return (
+      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+      <div className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
+        {resourceType === BaseNodeResourceType.Table && (
+          <EmojiPicker
+            className="flex size-4 items-center justify-center hover:bg-muted-foreground/60"
+            onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
+          >
+            {icon ? (
+              <Emoji emoji={icon} size={'1rem'} />
+            ) : (
+              <IconComponent className="size-4 shrink-0" />
+            )}
+          </EmojiPicker>
+        )}
+        {resourceType !== BaseNodeResourceType.Table && (
+          <IconComponent className="size-4 shrink-0" />
+        )}
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="flex w-full flex-col px-4 pt-4">
@@ -447,153 +559,141 @@ export const BaseNodeTree = () => {
           </Button>
         </BaseNodeAddResourceButton>
       </div>
-      <ScrollArea
-        viewportRef={viewportRef}
-        className="flex w-full !border-none px-4"
-        scrollBar="none"
-      >
-        <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
-          <AssistiveTreeDescription tree={tree} />
-          {tree.getItems().map((item) => {
-            const nodeId = item.getId();
-            const data = item.getItemData();
-            if (!data) return null;
-            const IconComponent = BaseNodeResourceIconMap[data.resourceType];
-            const { resourceType, resourceId } = data;
-            const name = getNodeName(data);
-            const icon = getNodeIcon(data);
-            return (
-              <TreeItem key={nodeId} item={item}>
-                <TreeItemLabel>
-                  <div className="flex w-full items-center gap-2">
-                    {item.isFolder() && <IconComponent className="size-4 shrink-0" />}
-                    {!item.isFolder() && (
-                      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-                      <div className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
-                        {resourceType === BaseNodeResourceType.Table && (
-                          <EmojiPicker
-                            className="flex size-4 items-center justify-center hover:bg-muted-foreground/60"
-                            onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
-                          >
-                            {icon ? (
-                              <Emoji emoji={icon} size={'1rem'} />
-                            ) : (
-                              <IconComponent className="size-4 shrink-0" />
-                            )}
-                          </EmojiPicker>
-                        )}
-                        {resourceType !== BaseNodeResourceType.Table && (
-                          <IconComponent className="size-4 shrink-0" />
-                        )}
-                      </div>
-                    )}
-                    {editingNodeId === nodeId ? (
-                      <Input
-                        ref={inputRef}
-                        type="text"
-                        placeholder="name"
-                        defaultValue={item.getItemName()}
-                        style={{
-                          boxShadow: 'none',
-                        }}
-                        className="round-none h-full cursor-text bg-background  outline-none"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            const newVal = e.currentTarget.value;
-                            if (newVal && newVal !== item.getItemName()) {
-                              curdHooks.updateNode(nodeId, { name: newVal });
+
+      {isLoading && Object.keys(treeItems).length === 0 ? (
+        <div className="flex w-full flex-col gap-2 px-4">
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+        </div>
+      ) : (
+        <ScrollArea
+          viewportRef={viewportRef}
+          className="flex w-full !border-none px-4"
+          scrollBar="none"
+        >
+          <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
+            <AssistiveTreeDescription tree={tree} />
+            {tree.getItems().map((item) => {
+              const nodeId = item.getId();
+              const data = item.getItemData();
+              if (!data) return null;
+              const { resourceType, resourceId } = data;
+              const name = getNodeName(data);
+              return (
+                <TreeItem key={nodeId} item={item}>
+                  <TreeItemLabel>
+                    <div className="flex w-full items-center gap-2">
+                      {editingNodeId === nodeId ? (
+                        <Input
+                          ref={inputRef}
+                          type="text"
+                          placeholder="name"
+                          defaultValue={item.getItemName()}
+                          style={{
+                            boxShadow: 'none',
+                          }}
+                          className="round-none size-full h-5 cursor-text border-none bg-background outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const newVal = e.currentTarget.value;
+                              if (newVal && newVal !== item.getItemName()) {
+                                curdHooks.updateNode(nodeId, { name: newVal });
+                              }
+                              setEditingNodeId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingNodeId(null);
                             }
-                            setEditingNodeId(null);
-                          } else if (e.key === 'Escape') {
-                            setEditingNodeId(null);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                        }}
-                      />
-                    ) : (
-                      <p className="grow truncate text-left">{' ' + item.getItemName()}</p>
-                    )}
-                    {
-                      // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-                      <div
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        className="flex cursor-pointer items-center gap-2"
-                      >
-                        <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
-                          {canCreateResource && (
-                            <BaseNodeAddResourceButton
-                              curdHooks={curdHooks}
-                              parentId={nodeId === ROOT_ID ? undefined : nodeId}
-                              canCreateFolder={
-                                canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
-                              }
-                              canCreateTable={canCreateTable}
-                              canCreateDashboard={canCreateDashboard}
-                              canCreateWorkflow={canCreateWorkflow}
-                              canCreateApp={canCreateApp}
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <ItemIcon item={item} />
+                          <p className="grow truncate text-left">{' ' + item.getItemName()}</p>
+                          {
+                            // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                            <div
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              className="flex cursor-pointer items-center gap-2"
                             >
-                              <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
-                                <AddBoldIcon className="size-full" />
-                              </Button>
-                            </BaseNodeAddResourceButton>
-                          )}
-                        </div>
-                        <BaseNodeStarButton resourceType={resourceType} resourceId={resourceId} />
-                        <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
-                          <BaseNodeMore
-                            resourceType={resourceType}
-                            resourceId={resourceId}
-                            className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
-                            onRename={() => setEditingNodeId(nodeId)}
-                            onDelete={async (permanent: boolean, confirm: boolean = true) => {
-                              const result = !confirm
-                                ? true
-                                : await comfirmModal({
-                                    title: t('common:actions.delete'),
-                                    description: t('common:actions.deleteTip', {
+                              <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
+                                {canCreateResource && (
+                                  <BaseNodeAddResourceButton
+                                    curdHooks={curdHooks}
+                                    parentId={nodeId === ROOT_ID ? undefined : nodeId}
+                                    canCreateFolder={
+                                      canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
+                                    }
+                                    canCreateTable={canCreateTable}
+                                    canCreateDashboard={canCreateDashboard}
+                                    canCreateWorkflow={canCreateWorkflow}
+                                    canCreateApp={canCreateApp}
+                                  >
+                                    <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
+                                      <AddBoldIcon className="size-full" />
+                                    </Button>
+                                  </BaseNodeAddResourceButton>
+                                )}
+                              </div>
+                              <BaseNodeStarButton
+                                resourceType={resourceType}
+                                resourceId={resourceId}
+                              />
+                              <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
+                                <BaseNodeMore
+                                  resourceType={resourceType}
+                                  resourceId={resourceId}
+                                  className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+                                  onRename={() => setEditingNodeId(nodeId)}
+                                  onDelete={async (permanent: boolean, confirm: boolean = true) => {
+                                    const result = !confirm
+                                      ? true
+                                      : await comfirmModal({
+                                          title: t('common:actions.delete'),
+                                          description: t('common:actions.deleteTip', {
+                                            name,
+                                          }),
+                                          confirmText: t('common:actions.delete'),
+                                          cancelText: t('common:actions.cancel'),
+                                          confirmButtonVariant: 'destructive',
+                                        });
+                                    if (result) {
+                                      await curdHooks.deleteNode(nodeId, permanent);
+                                    }
+                                  }}
+                                  onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
+                                    await curdHooks.duplicateNode(nodeId, {
                                       name,
-                                    }),
-                                    confirmText: t('common:actions.delete'),
-                                    cancelText: t('common:actions.cancel'),
-                                    confirmButtonVariant: 'destructive',
-                                  });
-                              if (result) {
-                                const aboveItem = item.getItemAbove();
-                                const belowItem = item.getItemBelow();
-                                await curdHooks.deleteNode(nodeId, permanent);
-                                if (!selectedItems.includes(nodeId)) {
-                                  return;
-                                }
-                                if (belowItem) {
-                                  handlePrimaryAction(belowItem);
-                                } else if (aboveItem) {
-                                  handlePrimaryAction(aboveItem);
-                                }
-                              }
-                            }}
-                            onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
-                              await curdHooks.duplicateNode(nodeId, {
-                                name,
-                                ...(ro ?? {}),
-                              });
-                            }}
-                          />
-                        </div>
-                      </div>
-                    }
-                  </div>
-                </TreeItemLabel>
-              </TreeItem>
-            );
-          })}
-          <TreeDragLine />
-        </Tree>
-        <ScrollBar className="z-30" />
-      </ScrollArea>
+                                      ...(ro ?? {}),
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          }
+                        </>
+                      )}
+                    </div>
+                  </TreeItemLabel>
+                </TreeItem>
+              );
+            })}
+            <TreeDragLine />
+          </Tree>
+          <ScrollBar className="z-30" />
+        </ScrollArea>
+      )}
     </>
   );
 };

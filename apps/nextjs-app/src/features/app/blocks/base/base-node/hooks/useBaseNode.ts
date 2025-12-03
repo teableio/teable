@@ -19,7 +19,7 @@ export const useBaseNode = () => {
   const [treeItems, setTreeItems] = useState<Record<string, TreeItemData>>({});
 
   const queryClient = useQueryClient();
-  const { data: queryData } = useQuery({
+  const { data: queryData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.baseNodeTree(baseId),
     queryFn: ({ queryKey }) => getBaseNodeTree(queryKey[1]).then((res) => res.data),
     enabled: Boolean(baseId),
@@ -81,10 +81,11 @@ export const useBaseNode = () => {
 
   return useMemo(() => {
     return {
+      isLoading,
       maxFolderDepth,
       treeItems,
       setTreeItems,
       invalidateMenu,
     };
-  }, [maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
+  }, [isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu]);
 };

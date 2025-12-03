@@ -3,6 +3,7 @@ import { createContext } from 'react';
 import type { TreeItemData } from './hooks';
 
 export const BaseNodeContext = createContext<{
+  isLoading: boolean;
   maxFolderDepth: number;
   treeItems: Record<string, TreeItemData>;
   setTreeItems: (
@@ -10,6 +11,7 @@ export const BaseNodeContext = createContext<{
   ) => void;
   invalidateMenu: () => void;
 }>({
+  isLoading: false,
   maxFolderDepth: 2,
   treeItems: {},
   setTreeItems: noop,
