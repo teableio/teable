@@ -88,9 +88,9 @@
     }
   },
   "settings": {
-    "title": "Settings",
+    "title": "Instance settings",
     "templateAdmin": {
-      "title": "Template Admin",
+      "title": "Template admin",
       "noData": "No data",
       "importing": "Importing...",
       "usageCount": "Usage count: {{count}}",
@@ -226,7 +226,7 @@
       "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
     },
     "setting": {
-      "title": "My Settings",
+      "title": "My settings",
       "theme": "Theme",
       "themeDesc": "Select the theme for the app.",
       "dark": "Dark",
@@ -240,7 +240,7 @@
       "systemMode": "Follow System"
     },
     "nav": {
-      "settings": "Settings",
+      "settings": "Instance settings",
       "logout": "Log out",
       "contactSupport": "Contact Support"
     },
@@ -267,13 +267,13 @@
     "automation": "Automation",
     "authorityMatrix": "Authority Matrix",
     "design": "Design",
-    "adminPanel": "Admin Panel",
-    "license": "Self-hosted License",
+    "adminPanel": "Admin panel",
+    "license": "Self-hosted license",
     "instanceId": "Instance ID",
     "beta": "Beta",
     "trash": "Trash",
     "global": "Global",
-    "organizationPanel": "Organization Panel",
+    "organizationPanel": "Organization panel",
     "unknownError": "Unknown error",
     "pluginPanel": "Panel",
     "pluginContextMenu": "Context Menu",
@@ -397,7 +397,7 @@
   },
   "admin": {
     "setting": {
-      "instanceTitle": "Instance Settings",
+      "instanceTitle": "Instance settings",
       "description": "Change the settings for your current instance",
       "allowSignUp": "Allow creating new accounts",
       "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",

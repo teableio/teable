@@ -88,7 +88,7 @@
     }
   },
   "settings": {
-    "title": "设置",
+    "title": "实例设置",
     "templateAdmin": {
       "title": "模板管理",
       "noData": "暂无数据",
@@ -240,7 +240,7 @@
       "systemMode": "跟随系统"
     },
     "nav": {
-      "settings": "设置",
+      "settings": "实例设置",
       "logout": "退出登录",
       "contactSupport": "联系支持"
     },
