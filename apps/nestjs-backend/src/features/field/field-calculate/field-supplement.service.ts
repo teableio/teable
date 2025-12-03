@@ -253,8 +253,9 @@ export class FieldSupplementService {
     }
 
     if (baseId) {
-      await this.prismaService.tableMeta
-        .findFirstOrThrow({
+      await this.prismaService
+        .txClient()
+        .tableMeta.findFirstOrThrow({
           where: { id: foreignTableId, baseId, deletedTime: null },
           select: { id: true },
         })
@@ -336,8 +337,9 @@ export class FieldSupplementService {
     }
 
     if (baseId) {
-      await this.prismaService.tableMeta
-        .findFirstOrThrow({
+      await this.prismaService
+        .txClient()
+        .tableMeta.findFirstOrThrow({
           where: { id: foreignTableId, baseId, deletedTime: null },
           select: { id: true },
         })

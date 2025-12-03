@@ -1,6 +1,8 @@
 import type { IFieldVo, IOtOperation } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import type { IConvertFieldOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
+import type { IThresholdConfig } from '../../../configs/threshold.config';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { createFieldInstanceByVo } from '../../field/model/factory';
 import type { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
@@ -21,7 +23,11 @@ export interface IConvertFieldPayload {
 }
 
 export class ConvertFieldOperation {
-  constructor(private readonly fieldOpenApiService: FieldOpenApiService) {}
+  constructor(
+    private readonly fieldOpenApiService: FieldOpenApiService,
+    private readonly prismaService: PrismaService,
+    private readonly thresholdConfig: IThresholdConfig
+  ) {}
 
   async event2Operation(payload: IConvertFieldPayload): Promise<IConvertFieldOperation> {
     return {
@@ -65,21 +71,26 @@ export class ConvertFieldOperation {
     const { tableId } = params;
     const { oldField, newField, modifiedOps, references, supplementChange } = result;
 
-    await this.fieldOpenApiService.performConvertField({
-      tableId,
-      oldField: createFieldInstanceByVo(newField),
-      newField: createFieldInstanceByVo(oldField),
-      modifiedOps: modifiedOps && this.revertOpsMap(modifiedOps),
-      supplementChange: supplementChange && {
-        tableId: supplementChange.tableId,
-        oldField: createFieldInstanceByVo(supplementChange.newField),
-        newField: createFieldInstanceByVo(supplementChange.oldField),
-      },
-    });
+    await this.prismaService.$tx(
+      async () => {
+        await this.fieldOpenApiService.performConvertField({
+          tableId,
+          oldField: createFieldInstanceByVo(newField),
+          newField: createFieldInstanceByVo(oldField),
+          modifiedOps: modifiedOps && this.revertOpsMap(modifiedOps),
+          supplementChange: supplementChange && {
+            tableId: supplementChange.tableId,
+            oldField: createFieldInstanceByVo(supplementChange.newField),
+            newField: createFieldInstanceByVo(supplementChange.oldField),
+          },
+        });
 
-    if (references) {
-      await this.fieldOpenApiService.restoreReference(references);
-    }
+        if (references) {
+          await this.fieldOpenApiService.restoreReference(references);
+        }
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
 
     return operation;
   }
@@ -88,21 +99,26 @@ export class ConvertFieldOperation {
     const { params, result } = operation;
     const { tableId } = params;
     const { oldField, newField, modifiedOps, references, supplementChange } = result;
-    await this.fieldOpenApiService.performConvertField({
-      tableId,
-      oldField: createFieldInstanceByVo(oldField),
-      newField: createFieldInstanceByVo(newField),
-      modifiedOps,
-      supplementChange: supplementChange && {
-        tableId: supplementChange.tableId,
-        oldField: createFieldInstanceByVo(supplementChange.oldField),
-        newField: createFieldInstanceByVo(supplementChange.newField),
-      },
-    });
+    await this.prismaService.$tx(
+      async () => {
+        await this.fieldOpenApiService.performConvertField({
+          tableId,
+          oldField: createFieldInstanceByVo(oldField),
+          newField: createFieldInstanceByVo(newField),
+          modifiedOps,
+          supplementChange: supplementChange && {
+            tableId: supplementChange.tableId,
+            oldField: createFieldInstanceByVo(supplementChange.oldField),
+            newField: createFieldInstanceByVo(supplementChange.newField),
+          },
+        });
 
-    if (references) {
-      await this.fieldOpenApiService.restoreReference(references);
-    }
+        if (references) {
+          await this.fieldOpenApiService.restoreReference(references);
+        }
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
 
     return operation;
   }

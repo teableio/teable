@@ -86,7 +86,11 @@ export class UndoRedoOperationService {
       this.recordOpenApiService,
       this.prismaService
     );
-    this.convertField = new ConvertFieldOperation(this.fieldOpenApiService);
+    this.convertField = new ConvertFieldOperation(
+      this.fieldOpenApiService,
+      this.prismaService,
+      this.thresholdConfig
+    );
     this.pasteSelection = new PasteSelectionOperation(
       this.recordOpenApiService,
       this.fieldOpenApiService

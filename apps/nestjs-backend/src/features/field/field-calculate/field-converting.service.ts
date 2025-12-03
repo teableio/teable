@@ -458,7 +458,7 @@ export class FieldConvertingService {
       return;
     }
 
-    const relatedFieldsRaw = await this.prismaService.field.findMany({
+    const relatedFieldsRaw = await this.prismaService.txClient().field.findMany({
       where: {
         lookupLinkedFieldId: newField.id,
         deletedTime: null,
@@ -467,7 +467,7 @@ export class FieldConvertingService {
 
     const relatedFields = relatedFieldsRaw.map(createFieldInstanceByRaw);
 
-    const lookupToFields = await this.prismaService.field.findMany({
+    const lookupToFields = await this.prismaService.txClient().field.findMany({
       where: {
         id: {
           in: relatedFields.map((field) => field.lookupOptions?.lookupFieldId as string),
