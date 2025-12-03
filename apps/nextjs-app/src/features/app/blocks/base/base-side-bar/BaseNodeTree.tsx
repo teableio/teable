@@ -162,24 +162,16 @@ export const BaseNodeTree = () => {
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
       const node = item.getItemData();
-      const viewId = router.query.viewId as string;
       const { resourceType, resourceId } = node;
-
       if (resourceType === BaseNodeResourceType.Table) {
-        if (!tableHrefMap[resourceId]) {
-          console.error('tableHrefMap[resourceId] not found', resourceId);
+        const viewId = router.query.viewId as string;
+        const url = tableHrefMap[resourceId];
+        if (url) {
+          router.push({ pathname: url }, undefined, {
+            shallow: Boolean(viewId),
+          });
           return;
         }
-        router.push(
-          {
-            pathname: tableHrefMap[resourceId],
-          },
-          undefined,
-          {
-            shallow: Boolean(viewId),
-          }
-        );
-        return;
       }
 
       const url = getNodeUrl({
@@ -464,9 +456,6 @@ export const BaseNodeTree = () => {
     tree.rebuildTree();
   }, [tree, treeItems]);
 
-  // Auto-scroll during drag
-  useDragAutoScroll(viewportRef);
-
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
     if (editingNodeId) {
@@ -511,6 +500,8 @@ export const BaseNodeTree = () => {
       setEditingNodeId(null);
     }
   });
+
+  useDragAutoScroll(viewportRef);
 
   if (!baseId) {
     return null;

@@ -52,28 +52,23 @@ export const getNodeUrl = (props: {
     case BaseNodeResourceType.Table:
       if (viewId) {
         return {
-          pathname: `/base/[baseId]/table/[tableId]/[viewId]`,
-          query: { baseId, tableId: resourceId, viewId },
+          pathname: `/base/${baseId}/table/${resourceId}/${viewId}`,
         };
       }
       return {
-        pathname: `/base/[baseId]/table/[tableId]`,
-        query: { baseId, tableId: resourceId },
+        pathname: `/base/${baseId}/table/${resourceId}`,
       };
     case BaseNodeResourceType.Dashboard:
       return {
-        pathname: `/base/[baseId]/dashboard/[dashboardId]`,
-        query: { baseId, dashboardId: resourceId },
+        pathname: `/base/${baseId}/dashboard/${resourceId}`,
       };
     case BaseNodeResourceType.Workflow:
       return {
-        pathname: `/base/[baseId]/automation/[automationId]`,
-        query: { baseId, automationId: resourceId },
+        pathname: `/base/${baseId}/automation/${resourceId}`,
       };
     case BaseNodeResourceType.App:
       return {
-        pathname: `/base/[baseId]/app/[appId]`,
-        query: { baseId, appId: resourceId },
+        pathname: `/base/${baseId}/app/${resourceId}`,
       };
     case BaseNodeResourceType.Folder:
       return null;
