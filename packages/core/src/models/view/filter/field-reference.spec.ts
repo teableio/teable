@@ -104,8 +104,8 @@ describe('field reference operator helpers', () => {
     expect(isFieldReferenceOperatorSupported(dateField, isBefore.value)).toBe(true);
     expect(isFieldReferenceOperatorSupported(stringField, isAfter.value)).toBe(false);
     expect(isFieldReferenceOperatorSupported(multiUserField, hasAnyOf.value)).toBe(true);
-    expect(isFieldReferenceOperatorSupported(stringField, isAnyOf.value)).toBe(true);
-    expect(isFieldReferenceOperatorSupported(stringField, isNoneOf.value)).toBe(true);
+    expect(isFieldReferenceOperatorSupported(stringField, isAnyOf.value)).toBe(false);
+    expect(isFieldReferenceOperatorSupported(stringField, isNoneOf.value)).toBe(false);
     expect(isFieldReferenceOperatorSupported(numberField, null)).toBe(false);
   });
 
