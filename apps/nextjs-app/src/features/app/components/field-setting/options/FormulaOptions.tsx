@@ -130,7 +130,7 @@ export const FormulaOptionsInner = (props: {
         </span>
         <Dialog open={visible} onOpenChange={setVisible}>
           <DialogTrigger asChild>
-            <code className="block min-h-[36px] cursor-pointer items-center whitespace-pre-wrap break-words rounded-md border border-input bg-background px-3 py-2 ring-offset-background">
+            <code className="block min-h-[36px] cursor-pointer items-center whitespace-pre-wrap break-words rounded-md border border-input bg-transparent dark:bg-input px-3 py-2 ring-offset-background">
               {expressionByName}
             </code>
           </DialogTrigger>

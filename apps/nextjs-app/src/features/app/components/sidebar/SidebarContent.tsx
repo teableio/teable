@@ -1,12 +1,13 @@
 import type { BillingProductLevel } from '@teable/openapi';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
+import type { LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { UpgradeWrapper } from '../billing/UpgradeWrapper';
 
 export interface ISidebarContentRoute {
-  Icon: React.FC<{ className?: string }>;
+  Icon: React.FC<{ className?: string }> | LucideIcon;
   label: string | React.ReactNode;
   route: string;
   pathTo: string;
@@ -25,7 +26,7 @@ export const SidebarContent = (props: ISidebarContentProps) => {
 
   return (
     <div className={cn('flex flex-col gap-2 border-t px-4 py-2', className)}>
-      {title && <span className="text-sm text-slate-500">{title}</span>}
+      {title && <span className="text-sm text-muted-foreground">{title}</span>}
       <ul>
         {routes.map(({ Icon, label, route, pathTo, billingLevel }) => {
           return (
@@ -42,7 +43,7 @@ export const SidebarContent = (props: ISidebarContentProps) => {
                     asChild
                     className={cn(
                       'w-full justify-start text-sm my-[2px]',
-                      route === router.pathname && 'bg-secondary'
+                      route === router.pathname && 'bg-accent'
                     )}
                   >
                     <Link href={pathTo} className="font-normal">

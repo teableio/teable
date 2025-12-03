@@ -37,6 +37,6 @@ export class SettingModel {
     statsType: 'instance:setting',
   })
   async getSetting() {
-    return await this.prismaService.txClient().setting.findMany();
+    return await this.prismaService.setting.findMany();
   }
 }

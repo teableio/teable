@@ -6,16 +6,26 @@ import {
   isFieldReferenceOperatorSupported,
 } from './field-reference';
 import {
+  contains,
+  doesNotContain,
+  hasAllOf,
+  hasAnyOf,
+  hasNoneOf,
   is,
   isAfter,
+  isAnyOf,
   isBefore,
+  isExactly,
   isGreater,
   isGreaterEqual,
   isLess,
   isLessEqual,
   isNot,
+  isNotExactly,
+  isNoneOf,
   isOnOrAfter,
   isOnOrBefore,
+  isWithIn,
 } from './operator';
 
 describe('field reference operator helpers', () => {
@@ -48,8 +58,13 @@ describe('field reference operator helpers', () => {
     type: FieldType.CreatedBy,
   } as const;
 
-  it('returns equality operators for string fields', () => {
-    expect(getFieldReferenceSupportedOperators(stringField)).toEqual([is.value, isNot.value]);
+  it('returns text operators for string fields', () => {
+    expect(getFieldReferenceSupportedOperators(stringField)).toEqual([
+      is.value,
+      isNot.value,
+      contains.value,
+      doesNotContain.value,
+    ]);
   });
 
   it('returns comparison operators for number fields', () => {
@@ -67,6 +82,7 @@ describe('field reference operator helpers', () => {
     expect(getFieldReferenceSupportedOperators(dateField)).toEqual([
       is.value,
       isNot.value,
+      isWithIn.value,
       isBefore.value,
       isAfter.value,
       isOnOrBefore.value,
@@ -74,14 +90,22 @@ describe('field reference operator helpers', () => {
     ]);
   });
 
-  it('excludes operators for multi-value user field', () => {
-    expect(getFieldReferenceSupportedOperators(multiUserField)).toEqual([]);
+  it('returns collection operators for multi-value user field', () => {
+    expect(getFieldReferenceSupportedOperators(multiUserField)).toEqual([
+      hasAnyOf.value,
+      hasAllOf.value,
+      isExactly.value,
+      hasNoneOf.value,
+      isNotExactly.value,
+    ]);
   });
 
   it('checks operator support', () => {
     expect(isFieldReferenceOperatorSupported(dateField, isBefore.value)).toBe(true);
     expect(isFieldReferenceOperatorSupported(stringField, isAfter.value)).toBe(false);
-    expect(isFieldReferenceOperatorSupported(multiUserField, is.value)).toBe(false);
+    expect(isFieldReferenceOperatorSupported(multiUserField, hasAnyOf.value)).toBe(true);
+    expect(isFieldReferenceOperatorSupported(stringField, isAnyOf.value)).toBe(false);
+    expect(isFieldReferenceOperatorSupported(stringField, isNoneOf.value)).toBe(false);
     expect(isFieldReferenceOperatorSupported(numberField, null)).toBe(false);
   });
 

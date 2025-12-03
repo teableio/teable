@@ -1,4 +1,5 @@
 /* eslint-disable sonarjs/no-identical-functions */
+import { isTextLikeParam, resolveFormulaParamInfo } from '../../utils/formula-param-metadata.util';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -7,28 +8,45 @@ import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract
  * for use in generated columns. All generated SQL must be immutable.
  */
 export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
+  private getParamInfo(index?: number) {
+    return resolveFormulaParamInfo(this.currentCallMetadata, index);
+  }
+
+  private isStringLiteral(value: string): boolean {
+    const trimmed = value.trim();
+    return /^'.*'$/.test(trimmed);
+  }
+
   private isEmptyStringLiteral(value: string): boolean {
     return value.trim() === "''";
   }
 
   private normalizeBlankComparable(value: string): string {
+    // Treat NULL and empty strings as empty text for comparison parity with interpreter
     return `COALESCE(NULLIF(CAST((${value}) AS TEXT), ''), '')`;
   }
 
   private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
-    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
-    if (!shouldNormalize) {
+    const leftIsEmptyLiteral = this.isEmptyStringLiteral(left);
+    const rightIsEmptyLiteral = this.isEmptyStringLiteral(right);
+    const leftInfo = this.getParamInfo(0);
+    const rightInfo = this.getParamInfo(1);
+    const textComparison =
+      leftIsEmptyLiteral ||
+      rightIsEmptyLiteral ||
+      this.isStringLiteral(left) ||
+      this.isStringLiteral(right) ||
+      isTextLikeParam(leftInfo) ||
+      isTextLikeParam(rightInfo);
+
+    if (!textComparison) {
       return `(${left} ${operator} ${right})`;
     }
 
-    const normalizedLeft = this.isEmptyStringLiteral(left)
-      ? "''"
-      : this.normalizeBlankComparable(left);
-    const normalizedRight = this.isEmptyStringLiteral(right)
-      ? "''"
-      : this.normalizeBlankComparable(right);
+    const normalize = (value: string, isEmptyLiteral: boolean) =>
+      isEmptyLiteral ? "''" : this.normalizeBlankComparable(value);
 
-    return `(${normalizedLeft} ${operator} ${normalizedRight})`;
+    return `(${normalize(left, leftIsEmptyLiteral)} ${operator} ${normalize(right, rightIsEmptyLiteral)})`;
   }
 
   // Numeric Functions
@@ -325,6 +343,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return { unit: 'seconds', factor: 0.001 };
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return { unit: 'seconds', factor: 1 };
@@ -335,6 +354,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return { unit: 'minutes', factor: 1 };
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return { unit: 'hours', factor: 1 };
@@ -359,7 +379,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
 
   private normalizeDiffUnit(
     unitLiteral: string
-  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
     const normalized = unitLiteral.replace(/^'|'$/g, '').trim().toLowerCase();
     switch (normalized) {
       case 'millisecond':
@@ -368,6 +388,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return 'millisecond';
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return 'second';
@@ -378,12 +399,22 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return 'minute';
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return 'hour';
       case 'week':
       case 'weeks':
         return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
       default:
         return 'day';
     }
@@ -397,6 +428,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
       case 'ms':
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return '%Y-%m-%d %H:%M:%S';
@@ -407,6 +439,7 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return '%Y-%m-%d %H:%M';
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return '%Y-%m-%d %H';
@@ -436,6 +469,23 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `DATE(${date})`;
   }
 
+  private buildMonthDiff(startDate: string, endDate: string): string {
+    const startYear = `CAST(STRFTIME('%Y', ${startDate}) AS INTEGER)`;
+    const endYear = `CAST(STRFTIME('%Y', ${endDate}) AS INTEGER)`;
+    const startMonth = `CAST(STRFTIME('%m', ${startDate}) AS INTEGER)`;
+    const endMonth = `CAST(STRFTIME('%m', ${endDate}) AS INTEGER)`;
+    const startDay = `CAST(STRFTIME('%d', ${startDate}) AS INTEGER)`;
+    const endDay = `CAST(STRFTIME('%d', ${endDate}) AS INTEGER)`;
+    const startLastDay = `CAST(STRFTIME('%d', DATE(${startDate}, 'start of month', '+1 month', '-1 day')) AS INTEGER)`;
+    const endLastDay = `CAST(STRFTIME('%d', DATE(${endDate}, 'start of month', '+1 month', '-1 day')) AS INTEGER)`;
+
+    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+
+    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
+  }
+
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
     const baseDiffDays = `(JULIANDAY(${startDate}) - JULIANDAY(${endDate}))`;
     switch (this.normalizeDiffUnit(unit)) {
@@ -449,6 +499,14 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
         return `(${baseDiffDays}) * 24.0`;
       case 'week':
         return `(${baseDiffDays}) / 7.0`;
+      case 'month':
+        return this.buildMonthDiff(startDate, endDate);
+      case 'quarter':
+        return `${this.buildMonthDiff(startDate, endDate)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(startDate, endDate);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
       case 'day':
       default:
         return `${baseDiffDays}`;
@@ -657,6 +715,25 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
+  private buildJsonArrayUnion(
+    arrays: string[],
+    opts?: { filterNulls?: boolean; withOrdinal?: boolean }
+  ): string {
+    const selects = arrays.map((array, index) => {
+      const base = `SELECT value, ${index} AS arg_index, CAST(key AS INTEGER) AS ord FROM json_each(COALESCE(${array}, '[]'))`;
+      const whereClause = opts?.filterNulls
+        ? " WHERE value IS NOT NULL AND value != 'null' AND value != ''"
+        : '';
+      return `${base}${whereClause}`;
+    });
+
+    if (selects.length === 0) {
+      return 'SELECT NULL AS value, 0 AS arg_index, 0 AS ord WHERE 0';
+    }
+
+    return selects.join(' UNION ALL ');
+  }
+
   arrayJoin(array: string, separator?: string): string {
     // SQLite generated columns don't support subqueries, so we'll use simple string manipulation
     // This assumes arrays are stored as JSON strings like ["a","b","c"] or ["a", "b", "c"]
@@ -671,36 +748,46 @@ export class GeneratedColumnQuerySqlite extends GeneratedColumnQueryAbstract {
     )`;
   }
 
-  arrayUnique(array: string): string {
-    // SQLite generated columns don't support complex operations for uniqueness
-    // For now, return the array as-is (this is a limitation)
-    return `(
-      CASE
-        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
-        ELSE ${array}
-      END
+  arrayUnique(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, { withOrdinal: true, filterNulls: true });
+    return `COALESCE(
+      '[' || (
+        SELECT GROUP_CONCAT(json_quote(value))
+        FROM (
+          SELECT value, ROW_NUMBER() OVER (PARTITION BY value ORDER BY arg_index, ord) AS rn, arg_index, ord
+          FROM (${unionQuery}) AS combined
+        )
+        WHERE rn = 1
+        ORDER BY arg_index, ord
+      ) || ']',
+      '[]'
     )`;
   }
 
-  arrayFlatten(array: string): string {
-    // For SQLite generated columns, flattening is complex without subqueries
-    // Return the array as-is (this is a limitation)
-    return `(
-      CASE
-        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
-        ELSE ${array}
-      END
+  arrayFlatten(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, { withOrdinal: true });
+    return `COALESCE(
+      '[' || (
+        SELECT GROUP_CONCAT(json_quote(value))
+        FROM (${unionQuery}) AS combined
+        ORDER BY arg_index, ord
+      ) || ']',
+      '[]'
     )`;
   }
 
-  arrayCompact(array: string): string {
-    // SQLite generated columns don't support complex filtering without subqueries
-    // For now, return the array as-is (this is a limitation)
-    return `(
-      CASE
-        WHEN json_valid(${array}) AND json_type(${array}) = 'array' THEN ${array}
-        ELSE ${array}
-      END
+  arrayCompact(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, {
+      filterNulls: true,
+      withOrdinal: true,
+    });
+    return `COALESCE(
+      '[' || (
+        SELECT GROUP_CONCAT(json_quote(value))
+        FROM (${unionQuery}) AS combined
+        ORDER BY arg_index, ord
+      ) || ']',
+      '[]'
     )`;
   }
 

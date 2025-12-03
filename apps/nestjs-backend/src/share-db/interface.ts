@@ -21,6 +21,11 @@ export interface IShareDbReadonlyAdapterService extends IReadonlyAdapterService 
     collectionId: string,
     docId: string
   ): Promise<{ version: number; type: RawOpType }>;
+
+  getVersionAndTypeMap(
+    collectionId: string,
+    docIds: string[]
+  ): Promise<Record<string, { version: number; type: RawOpType }>>;
 }
 
 export interface IAdapterService {

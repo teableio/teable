@@ -34,6 +34,7 @@ export const notificationSchema = z.object({
   notifyType: z.nativeEnum(NotificationTypeEnum),
   url: z.string(),
   message: z.string(),
+  messageI18n: z.string().nullable().optional(),
   isRead: z.boolean(),
   createdTime: z.string(),
 });

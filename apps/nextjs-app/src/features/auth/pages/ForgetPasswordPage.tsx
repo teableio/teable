@@ -2,7 +2,8 @@ import { useMutation } from '@tanstack/react-query';
 import { HttpErrorCode, type HttpError } from '@teable/core';
 import { sendResetPasswordEmail } from '@teable/openapi';
 import { Spin, Error } from '@teable/ui-lib/base';
-import { Button, Input, Label, Separator, useToast } from '@teable/ui-lib/shadcn';
+import { Button, Input, Label, Separator } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { z } from 'zod';
@@ -17,7 +18,6 @@ export const ForgetPasswordPage = () => {
   const [email, setEmail] = useState<string>();
   const { t } = useTranslation(authConfig.i18nNamespaces);
   useAutoFavicon();
-  const { toast } = useToast();
   const { countdown, setCountdown } = useCutDown();
   const { data: setting } = usePublicSettingQuery();
   const { resetPasswordSendMailRate } = setting ?? {};
@@ -25,8 +25,7 @@ export const ForgetPasswordPage = () => {
   const { mutate: sendResetPasswordEmailMutate, isLoading } = useMutation({
     mutationFn: sendResetPasswordEmail,
     onSuccess: () => {
-      toast({
-        title: t('auth:forgetPassword.success.title'),
+      toast.success(t('auth:forgetPassword.success.title'), {
         description: t('auth:forgetPassword.success.description'),
       });
       if (typeof resetPasswordSendMailRate === 'number' && resetPasswordSendMailRate > 0) {

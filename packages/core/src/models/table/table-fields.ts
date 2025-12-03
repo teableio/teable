@@ -256,6 +256,16 @@ export class TableFields {
   }
 
   /**
+   * Get last modified fields
+   */
+  getLastModifiedFields(): FieldCore[] {
+    return this._fields.filter(
+      (field) =>
+        field.type === FieldType.LastModifiedTime || field.type === FieldType.LastModifiedBy
+    );
+  }
+
+  /**
    * Get computed fields
    */
   getComputedFields(): FieldCore[] {
@@ -318,6 +328,10 @@ export class TableFields {
    */
   toFieldNameMap(): Map<string, FieldCore> {
     return new Map(this._fields.map((field) => [field.name, field]));
+  }
+
+  toFieldDbNameMap(): Map<string, FieldCore> {
+    return new Map(this._fields.map((field) => [field.dbFieldName, field]));
   }
 
   /**

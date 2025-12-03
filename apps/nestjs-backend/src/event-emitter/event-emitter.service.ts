@@ -160,7 +160,7 @@ export class EventEmitterService {
   }
 
   private handleEventResult(result: OpEvent): void {
-    this.logger.debug({ eventName: result.name, eventList: result });
+    // this.logger.debug({ eventName: result.name, eventList: result });
     this.emitAsync(result.name, result);
   }
 

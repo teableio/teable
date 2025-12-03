@@ -90,7 +90,7 @@ export const BaseSideBar = () => {
                       asChild
                       className={cn(
                         'w-full justify-start text-sm my-[2px]',
-                        router.asPath.startsWith(href) && 'bg-secondary'
+                        router.asPath.startsWith(href) && 'bg-accent'
                       )}
                     >
                       <Link href={href} className="font-normal">

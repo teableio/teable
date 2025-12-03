@@ -6,6 +6,7 @@ import {
   Colors,
   FieldKeyType,
   FieldType,
+  generateFieldId,
   generateWorkflowId,
   Relationship,
   ViewType,
@@ -40,6 +41,62 @@ describe('OpenAPI FieldOpenApiController for duplicate field (e2e)', () => {
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
+  });
+
+  describe('duplicate formula fields with auto number metadata', () => {
+    let table: ITableFullVo;
+    let autoFieldId: string;
+    let autoLenFieldId: string;
+
+    beforeAll(async () => {
+      autoFieldId = generateFieldId();
+      table = await createTable(baseId, {
+        name: 'auto-len-duplicate',
+        fields: [
+          {
+            id: autoFieldId,
+            name: 'auto',
+            type: FieldType.AutoNumber,
+          },
+        ],
+      });
+
+      const autoLen = await createField(table.id, {
+        name: 'auto-len',
+        type: FieldType.Formula,
+        options: {
+          expression: `LEN({${autoFieldId}})`,
+        },
+      });
+      const fields = (await getFields(table.id)).data;
+      autoLenFieldId = fields.find((f) => f.name === 'auto-len')?.id ?? '';
+      expect(autoLenFieldId).toBeTruthy();
+
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Name,
+        records: [
+          {
+            fields: {},
+          },
+        ],
+      });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should duplicate formula and preserve evaluation on auto number columns', async () => {
+      const duplicated = await duplicateField(table.id, autoLenFieldId, {
+        name: 'auto-len-copy',
+      });
+
+      const { records } = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const first = records[0];
+
+      expect(first.fields[autoLenFieldId]).toEqual(1);
+      expect(first.fields[duplicated.data.id]).toEqual(1);
+    });
   });
 
   afterAll(async () => {

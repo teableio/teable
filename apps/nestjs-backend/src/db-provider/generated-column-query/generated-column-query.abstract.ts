@@ -1,3 +1,4 @@
+import type { IFormulaParamMetadata } from '@teable/core';
 import type {
   IFormulaConversionContext,
   IGeneratedColumnQueryInterface,
@@ -11,10 +12,15 @@ import type {
 export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQueryInterface {
   /** Current conversion context */
   protected context?: IFormulaConversionContext;
+  protected currentCallMetadata?: IFormulaParamMetadata[];
 
   /** Set the conversion context */
   setContext(context: IFormulaConversionContext): void {
     this.context = context;
+  }
+
+  setCallMetadata(metadata?: IFormulaParamMetadata[]): void {
+    this.currentCallMetadata = metadata;
   }
 
   /** Check if we're in a generated column context */
@@ -108,9 +114,9 @@ export abstract class GeneratedColumnQueryAbstract implements IGeneratedColumnQu
   abstract countA(params: string[]): string;
   abstract countAll(value: string): string;
   abstract arrayJoin(array: string, separator?: string): string;
-  abstract arrayUnique(array: string): string;
-  abstract arrayFlatten(array: string): string;
-  abstract arrayCompact(array: string): string;
+  abstract arrayUnique(arrays: string[]): string;
+  abstract arrayFlatten(arrays: string[]): string;
+  abstract arrayCompact(arrays: string[]): string;
 
   // System Functions
   abstract recordId(): string;

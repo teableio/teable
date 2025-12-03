@@ -50,7 +50,7 @@ export class SqliteRecordQueryDialect implements IRecordQueryDialectProvider {
       )`;
   }
 
-  formatStringArray(expr: string): string {
+  formatStringArray(expr: string, _opts?: { fieldInfo?: FieldCore }): string {
     const safeArrayExpr = `CASE WHEN json_valid(${expr}) THEN ${expr} ELSE json('[]') END`;
     return `(
         SELECT GROUP_CONCAT(

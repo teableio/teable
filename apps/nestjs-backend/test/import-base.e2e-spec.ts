@@ -839,7 +839,7 @@ describe('OpenAPI BaseController for base import (e2e)', () => {
         typeof primaryFieldRaw.meta === 'string'
           ? (JSON.parse(primaryFieldRaw.meta) as { persistedAsGeneratedColumn?: boolean })
           : primaryFieldRaw.meta ?? {};
-      expect(persistedMeta?.persistedAsGeneratedColumn).toBe(true);
+      expect(persistedMeta?.persistedAsGeneratedColumn).not.toBe(true);
     });
   });
 });

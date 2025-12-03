@@ -46,7 +46,8 @@ import {
   useTableId,
   useView,
 } from '@teable/sdk/hooks';
-import { Skeleton, useToast } from '@teable/ui-lib/shadcn';
+import { Skeleton } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { uniqueId } from 'lodash';
 import { useRouter } from 'next/router';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -54,6 +55,7 @@ import { useTranslation } from 'react-i18next';
 import { useClickAway } from 'react-use';
 import { DomBox } from '@/features/app/blocks/view/grid/DomBox';
 import { useGridSearchStore } from '@/features/app/blocks/view/grid/useGridSearchStore';
+import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -77,7 +79,6 @@ export const GridViewBase = (props: IGridViewProps) => {
   const gridRef = useRef<IGridRef>(null);
   const container = useRef<HTMLDivElement>(null);
   const expandRecordRef = useRef<IExpandRecordContainerRef>(null);
-  const { toast } = useToast();
   const theme = useGridTheme();
   const rowCount = useRowCount();
   const ssrRecords = useSSRRecords();
@@ -90,6 +91,7 @@ export const GridViewBase = (props: IGridViewProps) => {
   const { onColumnOrdered } = useGridColumnOrder();
   const { searchQuery: search } = useSearch();
   const visibleFields = useFields();
+  const allFields = useFields({ withHidden: true });
   const customIcons = useGridIcons();
   const { openTooltip, closeTooltip } = useGridTooltipStore();
   const { setGridRef, searchCursor } = useGridSearchStore();
@@ -98,14 +100,24 @@ export const GridViewBase = (props: IGridViewProps) => {
   const prepare = isHydrated && view && columns.length;
   const { filter, sort } = view ?? {};
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
-  const rowHeight =
-    GIRD_ROW_HEIGHT_DEFINITIONS[
-      (view?.options as IGridViewOptions)?.rowHeight ?? RowHeightLevel.Short
-    ];
-  const columnHeaderHeight =
-    GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[
-      (view?.options as IGridViewOptions)?.fieldNameDisplayLines ?? 1
-    ];
+  const {
+    rowHeight: rowHeightLevel = RowHeightLevel.Short,
+    fieldNameDisplayLines = 1,
+    frozenFieldId,
+    frozenColumnCount: frozenColumnCountOption,
+  } = (view?.options ?? {}) as IGridViewOptions;
+  const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[rowHeightLevel];
+  const columnHeaderHeight = GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[fieldNameDisplayLines];
+
+  const frozenColumnCount = useMemo(() => {
+    return computeFrozenColumnCount({
+      isTouchDevice,
+      frozenFieldId,
+      frozenColumnCount: frozenColumnCountOption,
+      visibleColumns: columns,
+      allFields,
+    });
+  }, [isTouchDevice, frozenFieldId, columns, allFields, frozenColumnCountOption]);
 
   const groupCollection = useGridGroupCollection();
 
@@ -193,9 +205,11 @@ export const GridViewBase = (props: IGridViewProps) => {
 
   const onColumnFreeze = useCallback(
     (count: number) => {
-      view?.updateOption({ frozenColumnCount: count });
+      const anchorId = columns[Math.max(0, count - 1)]?.id;
+      if (!view || !anchorId) return;
+      view.updateOption({ frozenFieldId: anchorId });
     },
-    [view]
+    [view, columns]
   );
 
   const rowControls = useMemo(
@@ -230,12 +244,12 @@ export const GridViewBase = (props: IGridViewProps) => {
     async (selection: CombinedSelection) => {
       const allowCopy = view?.shareMeta?.allowCopy;
       if (!allowCopy) {
-        toast({ title: "Sorry, the table's owner has disabled copying" });
+        toast.warning("Sorry, the table's owner has disabled copying");
         return;
       }
       await copy(selection);
     },
-    [copy, view?.shareMeta?.allowCopy, toast]
+    [copy, view?.shareMeta?.allowCopy]
   );
 
   const onColumnStatisticClick = useCallback(
@@ -312,9 +326,7 @@ export const GridViewBase = (props: IGridViewProps) => {
             rowHeight={rowHeight}
             columnHeaderHeight={columnHeaderHeight}
             columnStatistics={columnStatistics}
-            freezeColumnCount={
-              isTouchDevice ? 0 : (view?.options as IGridViewOptions)?.frozenColumnCount ?? 1
-            }
+            freezeColumnCount={frozenColumnCount}
             columns={columns}
             searchCursor={searchCursor}
             searchHitIndex={searchHitIndex}

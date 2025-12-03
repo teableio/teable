@@ -5,7 +5,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import type { IShareDbReadonlyAdapterService } from '../interface';
+import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
@@ -66,7 +66,7 @@ export class RecordReadonlyServiceAdapter
       .then((res) => res.data);
   }
 
-  async getVersionAndType(tableId: string, recordId: string) {
+  private async validateTable(tableId: string) {
     const table = await this.prismaService.tableMeta.findUnique({
       where: {
         id: tableId,
@@ -80,6 +80,11 @@ export class RecordReadonlyServiceAdapter
     if (!table) {
       throw new NotFoundException('Table not found');
     }
+    return table;
+  }
+
+  async getVersionAndType(tableId: string, recordId: string) {
+    const table = await this.validateTable(tableId);
     return this.prismaService
       .$queryRawUnsafe<
         { version: number; deletedTime: Date | null }[]
@@ -87,5 +92,23 @@ export class RecordReadonlyServiceAdapter
       .then((res) => {
         return this.formatVersionAndType(res[0]);
       });
+  }
+
+  async getVersionAndTypeMap(tableId: string, recordIds: string[]) {
+    const table = await this.validateTable(tableId);
+    const nativeQuery = this.knex(table.dbTableName)
+      .select('__version as version', '__id')
+      .whereIn('__id', recordIds)
+      .toQuery();
+    const recordRaw = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ version: number; deletedTime: Date | null; __id: string }[]>(nativeQuery);
+    return recordRaw.reduce(
+      (acc, record) => {
+        acc[record.__id] = this.formatVersionAndType(record);
+        return acc;
+      },
+      {} as Record<string, { version: number; type: RawOpType }>
+    );
   }
 }

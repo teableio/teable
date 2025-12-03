@@ -1,7 +1,7 @@
 {
   "apiQueryBuilder": "API query builder",
   "subTitle": "You can quickly build your query requests through a interactive UI and copy the code that can be run directly",
-  "apiList": "Complete API List",
+  "apiList": "Complete API list",
   "cellFormat": "Cell result format",
   "fieldKeyType": "Field key type",
   "chooseSource": "Choose a data source",

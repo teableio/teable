@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
@@ -777,15 +778,15 @@ export class FieldOpenApiService {
     const fieldRaws = await this.prismaService.field.findMany({
       where: { tableId, id: { in: fieldIds }, deletedTime: null },
     });
-    const fieldVos = fieldIds
-      .map((id) => rawField2FieldObj(fieldRaws.find((raw) => raw.id === id)!))
-      .filter(Boolean);
-    const fields = fieldVos.map(createFieldInstanceByVo);
+    const fieldRawMap = new Map(fieldRaws.map((raw) => [raw.id, raw]));
 
-    if (fields.length !== fieldIds.length) {
-      const notExistField = fieldIds.find((id) => !fields.find((field) => field.id === id));
-      throw new NotFoundException(`Field ${notExistField} not found`);
+    if (fieldRawMap.size !== fieldIds.length) {
+      const notExistFieldId = fieldIds.find((id) => !fieldRawMap.has(id));
+      throw new NotFoundException(`Field ${notExistFieldId} not found`);
     }
+
+    const fieldVos = fieldIds.map((id) => rawField2FieldObj(fieldRawMap.get(id)!));
+    const fields = fieldVos.map(createFieldInstanceByVo);
 
     const nonComputedFields = fields.filter((field) => !field.isComputed);
     const projection = nonComputedFields.map((field) => field.id);
@@ -947,6 +948,7 @@ export class FieldOpenApiService {
     oldField,
     modifiedOps,
     supplementChange,
+    dependentFieldIds,
   }: {
     tableId: string;
     newField: IFieldInstance;
@@ -957,6 +959,7 @@ export class FieldOpenApiService {
       newField: IFieldInstance;
       oldField: IFieldInstance;
     };
+    dependentFieldIds?: string[];
   }): Promise<{ compatibilityIssue: boolean }> {
     let encounteredCompatibilityIssue = false;
 
@@ -983,67 +986,84 @@ export class FieldOpenApiService {
       }
     };
 
+    const sourceMap = new Map<string, Set<string>>();
+    const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
+    const addSource = (tid: string, fieldIds: string[]) => {
+      const set = sourceMap.get(tid) ?? new Set<string>();
+      fieldIds.forEach((id) => set.add(id));
+      sourceMap.set(tid, set);
+    };
+
+    if (shouldRecomputeSelf) {
+      addSource(tableId, [newField.id]);
+    }
+
+    if (dependentFieldIds?.length) {
+      const dependentFields = await this.prismaService.txClient().field.findMany({
+        where: { id: { in: dependentFieldIds }, deletedTime: null },
+        select: { id: true, tableId: true },
+      });
+      dependentFields
+        .filter(
+          ({ id, tableId: depTableId }) =>
+            shouldRecomputeSelf || id !== newField.id || depTableId !== tableId
+        )
+        .forEach(({ id, tableId: depTableId }) => addSource(depTableId, [id]));
+    }
+
+    if (supplementChange) {
+      addSource(supplementChange.tableId, [supplementChange.newField.id]);
+    }
+
+    const sources = Array.from(sourceMap.entries()).map(([tid, ids]) => ({
+      tableId: tid,
+      fieldIds: Array.from(ids),
+    }));
+    const hasSources = sources.length > 0;
+
     // 1. stage close constraint
     await this.fieldConvertingService.closeConstraint(tableId, newField, oldField);
 
     // 2. stage alter + apply record changes and calculate field with computed publishing (atomic)
-    await this.prismaService.$tx(
-      async () => {
-        const sources = [{ tableId, fieldIds: [newField.id] }];
-        if (supplementChange)
-          sources.push({
-            tableId: supplementChange.tableId,
-            fieldIds: [supplementChange.newField.id],
-          });
+    const runCompute = async () => {
+      // Update dependencies and schema first so evaluate() sees new schema
+      await this.fieldViewSyncService.convertDependenciesByFieldIds(tableId, newField, oldField);
+      await this.syncConditionalFiltersByFieldChanges(newField, oldField);
+      if (supplementChange) {
+        const { newField: sNew, oldField: sOld } = supplementChange;
+        await this.syncConditionalFiltersByFieldChanges(sNew, sOld);
+      }
+      await this.fieldConvertingService.deleteOrCreateSupplementLink(tableId, newField, oldField);
+      await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
+      if (supplementChange) {
+        const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
+        await this.fieldConvertingService.stageAlter(sTid, sNew, sOld);
+      }
 
-        const runCompute = async () => {
-          // Update dependencies and schema first so evaluate() sees new schema
-          await this.fieldViewSyncService.convertDependenciesByFieldIds(
-            tableId,
-            newField,
-            oldField
-          );
-          await this.syncConditionalFiltersByFieldChanges(newField, oldField);
-          if (supplementChange) {
-            const { newField: sNew, oldField: sOld } = supplementChange;
-            await this.syncConditionalFiltersByFieldChanges(sNew, sOld);
-          }
-          await this.fieldConvertingService.deleteOrCreateSupplementLink(
-            tableId,
-            newField,
-            oldField
-          );
-          await this.fieldConvertingService.stageAlter(tableId, newField, oldField);
-          if (supplementChange) {
-            const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
-            await this.fieldConvertingService.stageAlter(sTid, sNew, sOld);
-          }
+      // Then apply record changes (base ops) prior to computed publishing
+      await runStageCalculate(tableId, newField, oldField, modifiedOps);
+      if (supplementChange) {
+        const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
+        await runStageCalculate(sTid, sNew, sOld);
+      }
+    };
 
-          // Then apply record changes (base ops) prior to computed publishing
-          await runStageCalculate(tableId, newField, oldField, modifiedOps);
-          if (supplementChange) {
-            const { tableId: sTid, newField: sNew, oldField: sOld } = supplementChange;
-            await runStageCalculate(sTid, sNew, sOld);
-          }
-        };
-
-        try {
-          await this.computedOrchestrator.computeCellChangesForFields(sources, runCompute);
-        } catch (error) {
-          if (this.isFieldReferenceCompatibilityError(error)) {
-            encounteredCompatibilityIssue = true;
-            return;
-          }
+    if (hasSources) {
+      try {
+        await this.computedOrchestrator.computeCellChangesForFields(sources, runCompute);
+      } catch (error) {
+        if (this.isFieldReferenceCompatibilityError(error)) {
+          encounteredCompatibilityIssue = true;
+        } else {
           throw error;
         }
-      },
-      { timeout: this.thresholdConfig.bigTransactionTimeout }
-    );
+      }
+    } else {
+      await runCompute();
+    }
 
     // 4. stage supplement field constraint
-    await this.prismaService.$tx(async () => {
-      await this.fieldConvertingService.alterFieldConstraint(tableId, newField, oldField);
-    });
+    await this.fieldConvertingService.alterFieldConstraint(tableId, newField, oldField);
 
     // Persist values for a newly created symmetric link field (if any).
     // When using tableCache for reads, link values must be materialized in the physical column.
@@ -1082,83 +1102,131 @@ export class FieldOpenApiService {
     updateFieldRo: IConvertFieldRo,
     windowId?: string
   ): Promise<IFieldVo> {
-    // stage analysis and collect field changes
-    const { newField, oldField, modifiedOps, supplementChange, references } =
-      await this.fieldConvertingService.stageAnalysis(tableId, fieldId, updateFieldRo);
-
-    const { compatibilityIssue } = await this.performConvertField({
-      tableId,
-      newField,
-      oldField,
-      modifiedOps,
-      supplementChange,
-    });
-
-    const shouldForceLookupError =
-      oldField.type === FieldType.Link &&
-      !oldField.isLookup &&
-      !newField.isLookup &&
-      (newField.type !== FieldType.Link ||
-        ((newField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null) !==
-          ((oldField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null));
-
-    const dependentRefs = await this.prismaService.reference.findMany({
-      where: { fromFieldId: fieldId },
-      select: { toFieldId: true },
-    });
-    const dependentFieldIds = Array.from(
-      new Set([...(references ?? []), ...dependentRefs.map((ref) => ref.toFieldId)])
-    );
-
-    if (dependentFieldIds.length) {
-      try {
-        await this.restoreReference(dependentFieldIds);
-        const dependentFieldRaws = await this.prismaService.field.findMany({
-          where: { id: { in: dependentFieldIds }, deletedTime: null },
-        });
-        for (const raw of dependentFieldRaws) {
-          const instance = createFieldInstanceByRaw(raw);
-          const isValid = await this.isFieldConfigurationValid(raw.tableId, instance);
-          await this.markError(raw.tableId, instance, !isValid);
-        }
-
-        if (shouldForceLookupError) {
-          const lookupFieldsToMark = dependentFieldRaws.filter(
-            (raw) =>
-              raw.id !== fieldId &&
-              (raw.isLookup ||
-                raw.type === FieldType.Rollup ||
-                raw.type === FieldType.ConditionalRollup)
+    const { oldFieldVo, newFieldVo, modifiedOps, references, supplementChange } =
+      await this.prismaService.$tx(
+        async () => {
+          // stage analysis and collect field changes
+          const analysisResult = await this.fieldConvertingService.stageAnalysis(
+            tableId,
+            fieldId,
+            updateFieldRo
           );
-          if (lookupFieldsToMark.length) {
-            const grouped = groupBy(lookupFieldsToMark, 'tableId');
-            for (const [lookupTableId, fields] of Object.entries(grouped)) {
-              await this.fieldService.markError(
-                lookupTableId,
-                fields.map((f) => f.id),
-                true
+          const { newField, oldField } = analysisResult;
+          this.logger.debug(
+            `convertField stageAnalysis done table=${tableId} field=${fieldId} newType=${newField.type} oldType=${oldField.type}`
+          );
+
+          const dependentRefs = await this.prismaService
+            .txClient()
+            .reference.findMany({ where: { fromFieldId: fieldId }, select: { toFieldId: true } });
+          const dependentFieldIds = Array.from(
+            new Set([
+              ...(analysisResult.references ?? []),
+              ...dependentRefs.map((ref) => ref.toFieldId),
+            ])
+          );
+
+          const shouldRecomputeSelf = this.fieldConvertingService.needCalculate(newField, oldField);
+          const filteredDependentFieldIds = shouldRecomputeSelf
+            ? dependentFieldIds
+            : dependentFieldIds.filter((id) => id !== newField.id);
+
+          const { compatibilityIssue } = await this.performConvertField({
+            tableId,
+            newField,
+            oldField,
+            modifiedOps: analysisResult.modifiedOps,
+            supplementChange: analysisResult.supplementChange,
+            dependentFieldIds: filteredDependentFieldIds,
+          });
+
+          const shouldForceLookupError =
+            oldField.type === FieldType.Link &&
+            !oldField.isLookup &&
+            !newField.isLookup &&
+            (newField.type !== FieldType.Link ||
+              ((newField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null) !==
+                ((oldField.options as ILinkFieldOptions | undefined)?.foreignTableId ?? null));
+
+          if (filteredDependentFieldIds.length) {
+            await this.restoreReference(filteredDependentFieldIds);
+            const dependentFieldRaws = await this.prismaService.txClient().field.findMany({
+              where: { id: { in: filteredDependentFieldIds }, deletedTime: null },
+            });
+
+            if (dependentFieldRaws.length) {
+              const dependentSourceMap = dependentFieldRaws.reduce<Record<string, Set<string>>>(
+                (acc, field) => {
+                  const set = acc[field.tableId] ?? new Set<string>();
+                  set.add(field.id);
+                  acc[field.tableId] = set;
+                  return acc;
+                },
+                {}
               );
+              const dependentSources = Object.entries(dependentSourceMap).map(([tid, ids]) => ({
+                tableId: tid,
+                fieldIds: Array.from(ids),
+              }));
+              if (dependentSources.length) {
+                await this.computedOrchestrator.computeCellChangesForFields(
+                  dependentSources,
+                  async () => {
+                    // schema/meta already up to date; nothing additional to run here
+                  }
+                );
+              }
+            }
+
+            for (const raw of dependentFieldRaws) {
+              const instance = createFieldInstanceByRaw(raw);
+              const isValid = await this.isFieldConfigurationValid(raw.tableId, instance);
+              await this.markError(raw.tableId, instance, !isValid);
+            }
+
+            if (shouldForceLookupError) {
+              const lookupFieldsToMark = dependentFieldRaws.filter(
+                (raw) =>
+                  raw.id !== fieldId &&
+                  (raw.isLookup ||
+                    raw.type === FieldType.Rollup ||
+                    raw.type === FieldType.ConditionalRollup)
+              );
+              if (lookupFieldsToMark.length) {
+                const grouped = groupBy(lookupFieldsToMark, 'tableId');
+                for (const [lookupTableId, fields] of Object.entries(grouped)) {
+                  await this.fieldService.markError(
+                    lookupTableId,
+                    fields.map((f) => f.id),
+                    true
+                  );
+                }
+              }
             }
           }
-        }
-      } catch (e) {
-        this.logger.warn(
-          `convertField: restoreReference/checkError failed for ${fieldId}: ${String(e)}`
-        );
-      }
-    }
 
-    if (
-      compatibilityIssue &&
-      (newField.isConditionalLookup ||
-        newField.isLookup ||
-        newField.type === FieldType.ConditionalRollup)
-    ) {
-      await this.markError(tableId, newField, true);
-    }
+          if (
+            compatibilityIssue &&
+            (newField.isConditionalLookup ||
+              newField.isLookup ||
+              newField.type === FieldType.ConditionalRollup)
+          ) {
+            await this.markError(tableId, newField, true);
+          }
 
-    const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
-    const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+          const oldFieldVo = instanceToPlain(oldField, { excludePrefixes: ['_'] }) as IFieldVo;
+          const newFieldVo = instanceToPlain(newField, { excludePrefixes: ['_'] }) as IFieldVo;
+
+          return {
+            oldFieldVo,
+            newFieldVo,
+            modifiedOps: analysisResult.modifiedOps,
+            references: analysisResult.references,
+            supplementChange: analysisResult.supplementChange,
+          };
+        },
+        { timeout: this.thresholdConfig.bigTransactionTimeout }
+      );
 
     this.cls.set('oldField', oldFieldVo);
 
@@ -1237,6 +1305,9 @@ export class FieldOpenApiService {
     } as IFieldInstance;
 
     delete newFieldInstance.isPrimary;
+    if (newFieldInstance.type === FieldType.Formula) {
+      newFieldInstance.meta = undefined;
+    }
 
     if (viewId) {
       const view = await prisma.view.findUniqueOrThrow({

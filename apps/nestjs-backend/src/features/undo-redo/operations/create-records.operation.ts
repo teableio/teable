@@ -3,6 +3,7 @@ import type { ICreateRecordsRo, IRecordsVo } from '@teable/openapi';
 import { OperationName, type ICreateRecordsOperation } from '../../../cache/types';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordService } from '../../record/record.service';
+import type { TableDomainQueryService } from '../../table-domain';
 
 export interface ICreateRecordsPayload {
   reqParams: { tableId: string };
@@ -13,7 +14,8 @@ export interface ICreateRecordsPayload {
 export class CreateRecordsOperation {
   constructor(
     private readonly recordOpenApiService: RecordOpenApiService,
-    private readonly recordService: RecordService
+    private readonly recordService: RecordService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   async event2Operation(payload: ICreateRecordsPayload): Promise<ICreateRecordsOperation> {
@@ -23,7 +25,8 @@ export class CreateRecordsOperation {
 
     const recordIds = records.map((record) => record.id);
 
-    const indexes = await this.recordService.getRecordIndexes(tableId, recordIds);
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
+    const indexes = await this.recordService.getRecordIndexes(table, recordIds);
     return {
       name: OperationName.CreateRecords,
       params: {

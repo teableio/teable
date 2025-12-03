@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Suelta para subir archivo",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Pega o arrastra y suelta para subir aquí",
       "upload": "subir"
     },
@@ -140,6 +142,7 @@
     "displayLabel_other": "Filtrar por {{fieldName}} y {{count}} otros campos",
     "addCondition": "Agregar condición",
     "addConditionGroup": "Agregar grupo de condición",
+    "nestedLimitTip": "Filter conditions can only be nested {{depth}} levels deep",
     "linkInputPlaceholder": "Ingrese un valor",
     "groupDescription": "Cualquiera de los siguientes es cierto ...",
     "currentUser": "Yo (usuario actual)",
@@ -188,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "hoy",
@@ -220,6 +227,71 @@
         "nextNumberOfDays": "Siguiente número de días"
       }
     }
+  },
+  "color": {
+    "label": "color"
+  },
+  "rowHeight": {
+    "short": "corto",
+    "medium": "medio",
+    "tall": "alto",
+    "extraTall": "extratall",
+    "title": "Configuración de altura de fila"
+  },
+  "fieldNameConfig": {
+    "title": "Configuración de nombre de campo",
+    "displayLines": "{{count}} líneas"
+  },
+  "share": {
+    "title": "compartir"
+  },
+  "extensions": {
+    "title": "extensiones"
+  },
+  "hidden": {
+    "label": "Campos ocultos",
+    "configLabel_one": "{{count}} hidden field",
+    "configLabel_other": "{{count}} hidden fields",
+    "configLabel_other_visible": "{{count}} visible fields",
+    "showAll": "Mostrar todo",
+    "hideAll": "Esconderse",
+    "primaryKey": "Campo primario: identifica registros\n"
+  },
+  "expandRecord": {
+    "copy": "Copiar al portapapeles",
+    "duplicateRecord": "Récord duplicado",
+    "copyRecordUrl": "Copiar URL de registro",
+    "deleteRecord": "Eliminar registro",
+    "addRecordComment": "Agregar comentario",
+    "viewRecordHistory": "Ver historial del registro",
+    "recordHistory": {
+      "hiddenRecordHistory": "Ocultar historia de registro",
+      "showRecordHistory": "Mostrar historia discográfica",
+      "createdTime": "Tiempo creado",
+      "createdBy": "Creado por",
+      "before": "Antes",
+      "after": "Después",
+      "viewRecord": "Ver registro"
+    },
+    "showHiddenFields": "Show {{count}} hidden fields",
+    "hideHiddenFields": "Hide {{count}} hidden fields"
+  },
+  "sort": {
+    "label": "Clasificar",
+    "displayLabel_one": "Sort by {{count}} field",
+    "displayLabel_other": "Sort by {{count}} fields",
+    "setTips": "Ordenar por",
+    "addButton": "Agregar otro tipo",
+    "autoSort": "Ordenar los registros automáticamente",
+    "selectASCLabel": "Primero → último",
+    "selectDESCLabel": "Último → Primero"
+  },
+  "group": {
+    "label": "Grupo",
+    "displayLabel_one": "Group by {{count}} fields",
+    "displayLabel_other": "Group by {{count}} fields",
+    "setTips": "Agrupar",
+    "addButton": "Agregar subgrupo"
   },
   "field": {
     "title": {
@@ -275,6 +347,77 @@
       "twoWay": "Bidireccional"
     }
   },
+  "permission": {
+    "actionDescription": {
+      "spaceCreate": "Crear espacio",
+      "spaceDelete": "Eliminar espacio",
+      "spaceRead": "Leer espacio",
+      "spaceUpdate": "Actualizar espacio",
+      "spaceInviteEmail": "Invitar por correo electrónico en el espacio",
+      "spaceInviteLink": "Invitar a través de un enlace en el espacio",
+      "spaceGrantRole": "Faid de papel en el espacio",
+      "baseCreate": "Crear base",
+      "baseDelete": "Eliminar la base",
+      "baseRead": "Base de lectura",
+      "baseReadAll": "Lea todas las bases",
+      "baseUpdate": "Base de actualización",
+      "baseInviteEmail": "Invitar por correo electrónico en la base",
+      "baseInviteLink": "Invitar a través de un enlace en la base",
+      "baseTableImport": "Importar datos a la base",
+      "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
+      "baseDbConnect": "Conectarse a la base de datos",
+      "tableCreate": "Crear mesa",
+      "tableRead": "Tabla de lectura",
+      "tableDelete": "Eliminar mesa",
+      "tableUpdate": "Tabla de actualización",
+      "tableImport": "Importar datos a la tabla",
+      "tableExport": "Datos de la tabla de exportación",
+      "tableTrashRead": "Lea la basura de la mesa",
+      "tableTrashUpdate": "Actualizar la basura de la tabla",
+      "tableTrashReset": "Restablecer la basura de la mesa",
+      "viewCreate": "Crear vista",
+      "viewDelete": "Eliminar vista",
+      "viewRead": "Leer vista",
+      "viewUpdate": "Vista de actualización",
+      "viewShare": "Vista de compartir",
+      "fieldCreate": "Crear campo",
+      "fieldDelete": "Eliminar campo",
+      "fieldRead": "Campo de lectura",
+      "fieldUpdate": "Campo de actualización",
+      "recordCreate": "Crear registro",
+      "recordComment": "Comentario sobre el registro",
+      "recordDelete": "Eliminar registro",
+      "recordRead": "Récord de lectura",
+      "recordUpdate": "Registro de actualización",
+      "recordCopy": "Copy record",
+      "automationCreate": "Crear automatización",
+      "automationDelete": "Eliminar la automatización",
+      "automationRead": "Leer automatización",
+      "automationUpdate": "Actualización de automatización",
+      "userProfileRead": "Lea el perfil de usuario actual",
+      "userEmailRead": "Lea el correo electrónico actual del usuario",
+      "recordHistoryRead": "Leer Historia de registro",
+      "baseQuery": "Base de consulta",
+      "instanceRead": "Instancia de lectura",
+      "instanceUpdate": "Instancia de actualización",
+      "enterpriseRead": "Leer la configuración empresarial",
+      "enterpriseUpdate": "Actualizar la configuración empresarial"
+    }
+  },
+  "noun": {
+    "table": "Mesa",
+    "view": "Vista",
+    "space": "Espacio",
+    "base": "Base",
+    "field": "Campo",
+    "record": "Registro",
+    "automation": "Automatización",
+    "user": "Usuario",
+    "recordHistory": "Historia récord",
+    "you": "Tú",
+    "instance": "Instancia",
+    "enterprise": "Empresa"
+  },
   "formula": {
     "SUM": {
       "summary": "Suma los números. Equivalente a número1 + número2 + ...",
@@ -290,7 +433,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Devuelve la fecha y hora de la modificación más reciente realizada por un usuario en un campo no calculado en la tabla.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "AVERAGE": {
       "summary": "Devuelve el promedio de los números.",
@@ -375,6 +518,10 @@
     "SEARCH": {
       "summary": "Búsqueda de una aparición de StringToFind en Wheretosearch String que comienza desde una Opcional StartFromposition. ",
       "example": "Buscar (\"table\", \"hello table\") => 7\n"
+    },
+    "MID": {
+      "summary": "Extrae una subcadena de count caracteres comenzando en whereToStart.",
+      "example": "MID(\"Hello Teable\", 6, 6) => \"Teable\""
     },
     "LEFT": {
       "summary": "Extraiga a Howmany personajes desde el comienzo de la cadena.",
@@ -472,6 +619,10 @@
       "summary": "Devuelve el año de cuatro dígitos de una hora de fecha.",
       "example": "Año (\"2023-09-08\") => 2023"
     },
+    "MONTH": {
+      "summary": "Devuelve el mes de una fecha como un número entre 1 (Enero) y 12 (Diciembre).",
+      "example": "MONTH(\"2023-09-08\") => 9"
+    },
     "WEEKNUM": {
       "summary": "Devuelve el número de semana en un año.",
       "example": "Weeknum (\"2023-09-08\") => 36"
@@ -552,6 +703,10 @@
       "summary": "Devuelve el tiempo de creación del registro actual.",
       "example": "Creat_time () => \"2023-09-08 18:00:00\""
     },
+    "LAST_MODIFIED_TIME": {
+      "summary": "Devuelve la fecha y hora de la modificación más reciente realizada por un usuario en un campo no calculado en la tabla.",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+    },
     "COUNTALL": {
       "summary": "Devuelve el número de todos los elementos, incluidos el texto y los espacios en blanco.",
       "example": "Countall (100, 200, \"\", \"Table\", True ()) => 5"
@@ -606,130 +761,6 @@
     "array": "Formación",
     "system": "Sistema"
   },
-  "color": {
-    "label": "color"
-  },
-  "rowHeight": {
-    "short": "corto",
-    "medium": "medio",
-    "tall": "alto",
-    "extraTall": "extratall",
-    "title": "Configuración de altura de fila"
-  },
-  "fieldNameConfig": {
-    "title": "Configuración de nombre de campo",
-    "displayLines": "{{count}} líneas"
-  },
-  "share": {
-    "title": "compartir"
-  },
-  "extensions": {
-    "title": "extensiones"
-  },
-  "hidden": {
-    "label": "Campos ocultos",
-    "showAll": "Mostrar todo",
-    "hideAll": "Esconderse",
-    "primaryKey": "Campo primario: identifica registros\n"
-  },
-  "expandRecord": {
-    "copy": "Copiar al portapapeles",
-    "duplicateRecord": "Récord duplicado",
-    "copyRecordUrl": "Copiar URL de registro",
-    "deleteRecord": "Eliminar registro",
-    "recordHistory": {
-      "hiddenRecordHistory": "Ocultar historia de registro",
-      "showRecordHistory": "Mostrar historia discográfica",
-      "createdTime": "Tiempo creado",
-      "createdBy": "Creado por",
-      "before": "Antes",
-      "after": "Después",
-      "viewRecord": "Ver registro"
-    }
-  },
-  "sort": {
-    "label": "Clasificar",
-    "setTips": "Ordenar por",
-    "addButton": "Agregar otro tipo",
-    "autoSort": "Ordenar los registros automáticamente",
-    "selectASCLabel": "Primero → último",
-    "selectDESCLabel": "Último → Primero"
-  },
-  "group": {
-    "label": "Grupo",
-    "setTips": "Agrupar",
-    "addButton": "Agregar subgrupo"
-  },
-  "permission": {
-    "actionDescription": {
-      "spaceCreate": "Crear espacio",
-      "spaceDelete": "Eliminar espacio",
-      "spaceRead": "Leer espacio",
-      "spaceUpdate": "Actualizar espacio",
-      "spaceInviteEmail": "Invitar por correo electrónico en el espacio",
-      "spaceInviteLink": "Invitar a través de un enlace en el espacio",
-      "spaceGrantRole": "Faid de papel en el espacio",
-      "baseCreate": "Crear base",
-      "baseDelete": "Eliminar la base",
-      "baseRead": "Base de lectura",
-      "baseReadAll": "Lea todas las bases",
-      "baseUpdate": "Base de actualización",
-      "baseInviteEmail": "Invitar por correo electrónico en la base",
-      "baseInviteLink": "Invitar a través de un enlace en la base",
-      "baseTableImport": "Importar datos a la base",
-      "baseAuthorityMatrixConfig": "Configurar la matriz de autoridad",
-      "baseDbConnect": "Conectarse a la base de datos",
-      "tableCreate": "Crear mesa",
-      "tableRead": "Tabla de lectura",
-      "tableDelete": "Eliminar mesa",
-      "tableUpdate": "Tabla de actualización",
-      "tableImport": "Importar datos a la tabla",
-      "tableExport": "Datos de la tabla de exportación",
-      "tableTrashRead": "Lea la basura de la mesa",
-      "tableTrashUpdate": "Actualizar la basura de la tabla",
-      "tableTrashReset": "Restablecer la basura de la mesa",
-      "viewCreate": "Crear vista",
-      "viewDelete": "Eliminar vista",
-      "viewRead": "Leer vista",
-      "viewUpdate": "Vista de actualización",
-      "viewShare": "Vista de compartir",
-      "fieldCreate": "Crear campo",
-      "fieldDelete": "Eliminar campo",
-      "fieldRead": "Campo de lectura",
-      "fieldUpdate": "Campo de actualización",
-      "recordCreate": "Crear registro",
-      "recordComment": "Comentario sobre el registro",
-      "recordDelete": "Eliminar registro",
-      "recordRead": "Récord de lectura",
-      "recordUpdate": "Registro de actualización",
-      "automationCreate": "Crear automatización",
-      "automationDelete": "Eliminar la automatización",
-      "automationRead": "Leer automatización",
-      "automationUpdate": "Actualización de automatización",
-      "userProfileRead": "Lea el perfil de usuario actual",
-      "userEmailRead": "Lea el correo electrónico actual del usuario",
-      "recordHistoryRead": "Leer Historia de registro",
-      "baseQuery": "Base de consulta",
-      "instanceRead": "Instancia de lectura",
-      "instanceUpdate": "Instancia de actualización",
-      "enterpriseRead": "Leer la configuración empresarial",
-      "enterpriseUpdate": "Actualizar la configuración empresarial"
-    }
-  },
-  "noun": {
-    "table": "Mesa",
-    "view": "Vista",
-    "space": "Espacio",
-    "base": "Base",
-    "field": "Campo",
-    "record": "Registro",
-    "automation": "Automatización",
-    "user": "Usuario",
-    "recordHistory": "Historia récord",
-    "you": "Tú",
-    "instance": "Instancia",
-    "enterprise": "Empresa"
-  },
   "statisticFunc": {
     "none": "Ninguno",
     "count": "Contar",
@@ -757,6 +788,7 @@
     "add": "Agregar",
     "error": {
       "invalidCol": "Columna no válida, vuelva a seleccionar",
+      "invalidCols": "Invalid columns: {{colNames}}",
       "invalidTable": "Mesa no válida, vuelva a seleccionar",
       "requiredSelect": "Debes seleccionar uno"
     },
@@ -803,6 +835,7 @@
     "placeholder": "Deja un comentario ...",
     "emptyComment": "Comience una conversación",
     "deletedComment": "Comentario eliminado",
+    "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Editando...",
       "edited": "(Editado)",
@@ -852,7 +885,6 @@
     "databaseConnectionUnavailable": "Conexión de base de datos no disponible",
     "gatewayTimeout": "Tiempo de espera de puerta de enlace",
     "unknownErrorCode": "Código de error desconocido",
-    "viewNotFound": "Vista no encontrada",
     "requestTimeout": "El tiempo de espera de la solicitud ha excedido",
     "failedDependency": "Dependencia fallida",
     "automationNodeParseError": "Error de análisis del nodo de automatización",
@@ -864,31 +896,213 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" campo no permite asociaciones duplicadas con el mismo registro",
       "requestTimeout": "El ámbito de la operación actual es demasiado grande, por favor intente con un ámbito más pequeño.",
       "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo.",
-      "dependencyNodeRequire": "Nodo de dependencia no probado, por favor verifica si todos los nodos anteriores han sido probados"
+      "dependencyNodeRequire": "Nodo de dependencia no probado, por favor verifica si todos los nodos anteriores han sido probados",
+      "invalidOperation": "Operación no válida detectada, por favor verifique los parámetros de la operación"
+    },
+    "comment": {
+      "listCountExceeded": "El número de comentarios solicitados excede el límite máximo de 1000",
+      "invalidContentType": "Tipo de contenido de comentario no válido"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "La expiración del token debe ser menor a 7 días",
+      "s3RegionRequired": "La región S3 es obligatoria",
+      "s3EndpointRequired": "El endpoint S3 es obligatorio",
+      "s3AccessKeyRequired": "La clave de acceso S3 es obligatoria",
+      "s3SecretKeyRequired": "La clave secreta S3 es obligatoria",
+      "s3UploadMethodMustBePut": "El método de carga S3 debe ser PUT",
+      "presignedError": "Error al generar la URL prefirmada",
+      "invalidObjectMeta": "Metadatos de objeto no válidos",
+      "invalidImageStream": "Flujo de imagen no válido",
+      "calculateImageSizeFailed": "Error al calcular el tamaño de la imagen",
+      "uploadFailed": "Error en la carga",
+      "invalidImage": "Imagen no válida",
+      "cantGetImageStream": "No se puede obtener el flujo de imagen",
+      "invalidProvider": "Proveedor de almacenamiento no válido",
+      "failedToDeleteDirectory": "Error al eliminar el directorio",
+      "invalidToken": "Token no válido",
+      "tokenExpired": "El token ha expirado",
+      "sizeMismatch": "El tamaño del archivo no coincide",
+      "notAllowUploadFileType": "Tipo de archivo {{mimetype}} no permitido para carga",
+      "notFound": "Archivo adjunto no encontrado",
+      "invalidPath": "Ruta de archivo adjunto no válida",
+      "fileSizeExceedsMaximumLimit": "El tamaño del archivo excede el límite máximo de {{maxSize}}",
+      "invalidUploadType": "Tipo de carga no válido",
+      "urlReject": "URL rechazada o inaccesible"
     },
     "email": {
       "testEmailError": "Error de configuración de correo {{message}}"
     },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Este campo de botón ya está vinculado a {{name}}[{{id}}] este proceso de automatización, por favor seleccione otro campo de botón",
-      "triggerNotFound": "Trigger no encontrado",
+      "triggerNotFound": "La automatización debe tener un nodo disparador",
       "nodeNotFound": "{{nodeId}} nodo no encontrado",
-      "workflowNotFound": "{{workflowId}} flujo de trabajo no encontrado",
       "triggerTestFailed": "Prueba de trigger falló, por favor verifica la configuración del trigger",
-      "workflowTestFailed": "Prueba de flujo de trabajo falló, por favor verifica la configuración del flujo de trabajo",
+      "testFailed": "Prueba de automatización fallida, por favor revise la configuración de automatización",
       "nodeParseError": "{{name}} la configuración del nodo está incompleta o tiene errores, por favor verifique la configuración del nodo",
       "nodeNeedTest": "{{name}} el nodo necesita ser probado",
-      "nodeTestOutdated": "{{name}} la prueba del nodo está desactualizada"
+      "nodeTestOutdated": "{{name}} la prueba del nodo está desactualizada",
+      "notFound": "Automatización no encontrada",
+      "currentSnapshotEmpty": "La instantánea actual de automatización está vacía",
+      "runNotFound": "Ejecución de automatización no encontrada",
+      "anchorNotFound": "Automatización de anclaje no encontrada",
+      "validationError": "Error de validación de configuración de automatización",
+      "tableNotInBase": "Solo puedes suscribirte a una tabla dentro de tu base de datos",
+      "alreadyActiveAndNotDraft": "La automatización ya está activa y no es un borrador",
+      "noActiveSnapshot": "La automatización no tiene instantánea activa",
+      "triggerNodeAlreadyExists": "Esta automatización ya tiene un nodo disparador",
+      "generateLogicError": "Error al generar el nodo de lógica",
+      "logicNotFound": "Nodo de lógica de automatización no encontrado",
+      "actionNotFound": "Nodo de acción de automatización no encontrado",
+      "unSupportDuplicateWorkflowNodeType": "Duplicación de este tipo de nodo de automatización no soportada",
+      "unSupportLogicType": "Tipo de lógica no soportado",
+      "groupEndNotFound": "GroupEnd no encontrado para la lógica",
+      "insertNodeError": "Error al insertar nodo",
+      "controlNodeNotBeTested": "El nodo de control no debe ser probado",
+      "invalidNodeType": "Tipo de nodo inválido",
+      "unsupportedCategory": "Categoría no soportada"
+    },
+    "space": {
+      "notFound": "Espacio no encontrado",
+      "noPermission": "No tienes permiso para acceder a este espacio",
+      "disallowSpaceCreation": "La creación de espacios ha sido deshabilitada por el administrador",
+      "cannotChangeOnlyOwnerRole": "No se puede cambiar el rol del único propietario del espacio",
+      "cannotDeleteOnlyOwner": "No se puede eliminar al único propietario del espacio",
+      "deleted": "Space has been deleted",
+      "cannotOperate": "No se puede operar en un espacio, verifique que hay miembros de la organización en el espacio y que son propietarios",
+      "notBelongToOrg": "Este espacio no pertenece a la organización",
+      "invalidSpaceIds": "Los IDs de espacio son inválidos: {{spaceIds}}"
+    },
+    "base": {
+      "notFound": "Base no encontrada",
+      "cannotAccess": "No tienes permiso para acceder a la base {{baseId}}",
+      "anchorNotFound": "Base de anclaje {{anchorId}} no encontrada",
+      "baseAndSpaceMismatch": "Base {{baseId}} y espacio {{spaceId}} no coinciden",
+      "templateNotFound": "Plantilla {{templateId}} no encontrada"
+    },
+    "dashboard": {
+      "notFound": "Panel de control no encontrado"
+    },
+    "plugin": {
+      "notFound": "Plugin no encontrado",
+      "notSupportInstallInView": "El plugin no admite instalación en la vista",
+      "userNotFound": "Usuario del plugin no encontrado",
+      "invalidSecret": "Secreto inválido",
+      "invalidRefreshToken": "Token de actualización inválido",
+      "anomalousToken": "Token anómalo"
+    },
+    "pluginPanel": {
+      "notFound": "Panel de plugin no encontrado"
+    },
+    "pluginInstall": {
+      "notFound": "Plugin no instalado"
+    },
+    "share": {
+      "incorrectPassword": "Contraseña incorrecta",
+      "notAllowedToSubmit": "No se permite el envío de formularios",
+      "viewRequired": "Se requiere vista para esta operación",
+      "hiddenFieldsSubmissionNotAllowed": "No se permite el envío de formularios cuando se incluyen campos ocultos",
+      "submitRecordsError": "Error al enviar el registro",
+      "notAllowedToCopy": "No se permite la operación de copia",
+      "fieldHiddenNotAllowed": "El campo está oculto y no se puede acceder",
+      "fieldTypeNotLinkField": "El campo no es un campo de enlace",
+      "fieldIdRequired": "Se requiere ID de campo",
+      "fieldNotUserRelatedField": "El campo no es un campo relacionado con el usuario",
+      "viewTypeNotAllowed": "Este tipo de vista no está permitido para esta operación"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "La restricción de contraseña no está habilitada para esta vista compartida",
+      "shareViewNotFound": "Vista compartida no encontrada o el uso compartido está deshabilitado",
+      "linkFieldNotFound": "Campo de enlace no encontrado"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "No tiene permiso para acceder a esta vista",
+      "fieldPermissionNotAllowed": "No tiene permiso para acceder a estos campos",
+      "recordPermissionNotAllowed": "No tiene permiso para acceder a estos registros"
+    },
+    "pluginContextMenu": {
+      "notFound": "Menú contextual de plugin no encontrado",
+      "anchorNotFound": "Ancla de menú contextual de plugin no encontrada"
+    },
+    "pluginChart": {
+      "queryNotFound": "Consulta de gráfico de plugin no encontrada"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Driver de base de datos no soportado: {{driver}}",
+      "onlyOwnerCanRemove": "Solo el propietario de la base puede eliminar la conexión de base de datos para la base {{baseId}}",
+      "onlyOwnerCanCreate": "Solo el propietario de la base puede crear una conexión de base de datos para la base {{baseId}}",
+      "roleNotExist": "El rol de base de datos {{role}} no existe"
+    },
+    "baseQuery": {
+      "queryFailed": "Consulta fallida: {{message}}",
+      "invalidJoinType": "Tipo de unión no válido: {{joinType}}",
+      "tableNotFound": "Tabla {{tableId}} no encontrada en la base {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "No se permite ejecutar SQL con la palabra clave {{keyword}}",
+      "whiteListCheckError": "Ocurrió un error al verificar el acceso a la tabla: {{message}}",
+      "databaseConnectionFailed": "Conexión a la base de datos fallida: {{message}}",
+      "executeQuerySqlFailed": "Error al ejecutar la consulta SQL: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "No tienes permiso para crear registros con campos({{fields}})",
       "deleteRecords": "No tienes permiso para eliminar registros({{recordIds}})",
       "readRecordWithDeniedFields": "No tienes permiso para leer campos({{fields}}) en el registro({{recordId}})",
-      "updateRecordWithDeniedFields": "No tienes permiso para actualizar campos({{fields}}) en el registro({{recordId}})"
+      "updateRecordWithDeniedFields": "No tienes permiso para actualizar campos({{fields}}) en el registro({{recordId}})",
+      "checkIdNotExist": "El ID de verificación de permisos no existe",
+      "userNotAdmin": "El usuario no es administrador",
+      "accessTokenNoPermission": "El token de acceso no tiene el permiso requerido",
+      "invalidResource": "El recurso no es válido",
+      "notAllowedSpace": "No tienes permiso para acceder a este espacio",
+      "notAllowedBase": "No tienes permiso para acceder a esta base",
+      "notAllowedTables": "No tienes permiso para acceder a tablas({{tableIds}})",
+      "notAllowedOperationTable": "No tienes permiso para operar en esta tabla",
+      "notAllowedOperationRecord": "No tienes permiso para operar en este registro",
+      "notAllowedRecordUpdate": "No tienes permiso para actualizar este registro",
+      "notAllowedOperationView": "No tienes permiso para operar en esta vista",
+      "deniedByEnabledAuthorityMatrix": "Permiso denegado por matriz de autoridad habilitada",
+      "invalidRequestPath": "La ruta de la solicitud no es válida",
+      "notAllowedOperation": "No tienes permiso para realizar esta operación",
+      "notAllowedDepartment": "No tienes permitido acceder a este departamento"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Rol predeterminado no encontrado",
+      "alreadyDisabled": "La matriz de autoridad ya está deshabilitada",
+      "alreadyEnabled": "La matriz de autoridad ya está habilitada",
+      "notFound": "Matriz de autoridad no encontrada",
+      "primaryFieldCannotBeDisabledForRead": "El campo primario no puede deshabilitarse para acceso de lectura",
+      "fieldDuplicated": "El campo está duplicado en la configuración de permisos",
+      "cannotSetRecordPermissionGroup": "No se puede establecer esta combinación de permisos de registro({{actions}})",
+      "notFoundBaseAndTable": "ID de base y ID de tabla no encontrados",
+      "roleTablesShouldNotBeEmpty": "Las tablas de roles de la matriz de autoridad no deben estar vacías"
+    },
+    "selection": {
+      "invalidReturnType": "Tipo de retorno no válido",
+      "exceedMaxReadRows": "Se excedió el límite máximo de filas de lectura",
+      "invalidCellValueType": "Tipo de valor de celda no válido",
+      "exceedMaxCopyCells": "Se excedió el límite máximo de celdas para copiar",
+      "exceedMaxPasteCells": "Se excedió el límite máximo de celdas para pegar"
     },
     "field": {
       "unsupportedFieldType": "Tipo de campo no compatible {{type}}",
       "unsupportedPrimaryFieldType": "Tipo de campo no compatible {{type}} como campo primario",
+      "primaryFieldNotSupported": "El tipo de campo no es compatible como campo primario",
       "calculateRecordNotFound": "Registro no encontrado para: {{value}}, fieldId: {{fieldId}}, al calcular {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds o fromRecordIds es requerido para campo computado normal",
       "recordFieldsRequired": "Los campos de registro no están definidos",
@@ -897,8 +1111,9 @@
       "dbFieldNameAlreadyExists": "El nombre del campo de base de datos {{dbFieldName}} ya existe",
       "fieldValidationError": "Campo {{name}}[{{fieldId}}] error de validación de campo",
       "fieldNameAlreadyExists": "El nombre del campo {{name}} ya existe",
-      "fieldNotFound": "Campo {{fieldId}} no encontrado",
-      "fieldNotFoundInTable": "Campo {{fieldId}} no encontrado en la tabla {{tableId}}",
+      "notFound": "Campo no encontrado",
+      "fieldKeyTypeNotFound": "Campo \"{{fieldKeyType}}: {{missedFields}}\" no encontrado",
+      "notFoundInTable": "Campo {{fieldId}} no encontrado en la tabla {{tableId}}",
       "deleteFieldsNotFound": "Campos a eliminar {{fieldIds}} no encontrados en la tabla {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues debe ser un array cuando el campo de enlace tiene múltiples valores de celda",
       "linkCellValuesShouldBeArray": "linkCellValues debe ser un array cuando el campo de enlace tiene múltiples valores de celda",
@@ -921,18 +1136,189 @@
       "lookupFieldTypeNotEqual": "El tipo de campo actual {{fieldType}} no es igual al tipo de campo de búsqueda {{lookupFieldType}}",
       "recordNotFound": "Registro {{recordId}} no encontrado en {{tableId}}",
       "linkCellRecordIdAlreadyExists": "No se puede establecer recordId duplicado: {{recordId}} en la misma celda",
-      "linkConsistencyError": "Error de consistencia, recordId {{recordId}} no existe",
       "oneOneLinkCellValueCannotBeArray": "Los valores de campo de enlace uno a uno no pueden ser un array",
       "manyOneLinkCellValueCannotBeArray": "Los valores de campo de enlace muchos a uno no pueden ser un array",
+      "foreignKeyDuplicate": "Clave externa duplicada",
+      "linkConsistencyError": "Error de consistencia, recordId {{recordId}} no existe",
       "oneManyLinkCellValueShouldBeArray": "Los valores de campo de enlace uno a muchos deben ser un array",
       "manyManyLinkCellValueShouldBeArray": "Los valores de campo de enlace muchos a muchos deben ser un array",
-      "foreignKeyDuplicate": "Clave externa duplicada"
+      "onlyLinkFieldCanBeFiltered": "Solo los campos de enlace se pueden usar para filtrar",
+      "notLinkedToCurrentTable": "El campo no está vinculado a la tabla actual",
+      "notAttachment": "El campo no es un campo de adjunto",
+      "isComputed": "El campo es calculado y no se puede modificar",
+      "notFoundAICofig": "El campo no tiene configuración de AI",
+      "button": {
+        "clickCountReachedMaxCount": "El conteo de clics del botón ha alcanzado el límite máximo",
+        "notSupportReset": "El campo de botón no admite restablecimiento"
+      }
     },
     "view": {
-      "viewNotFound": "Vista {{viewId}} no encontrada"
+      "notFound": "Vista no encontrada",
+      "defaultViewNotFound": "Vista predeterminada no encontrada",
+      "propertyParseError": "Error al analizar la propiedad de la vista",
+      "primaryFieldCannotBeHidden": "El campo primario no se puede ocultar",
+      "filterUnsupportedFieldType": "Tipo de campo no compatible con el filtro",
+      "sortUnsupportedFieldType": "Tipo de campo no compatible con la ordenación",
+      "groupUnsupportedFieldType": "Tipo de campo no compatible con la agrupación",
+      "anchorNotFound": "Vista de anclaje no encontrada",
+      "notEnoughGapToShuffleRow": "No hay suficiente espacio para mezclar la fila",
+      "shareNotEnabled": "El uso compartido de vistas no está habilitado",
+      "shareAlreadyEnabled": "El uso compartido de vistas ya está habilitado",
+      "shareAlreadyDisabled": "El uso compartido de vistas ya está deshabilitado"
     },
     "billing": {
-      "insufficientCredit": "Crédito insuficiente"
+      "insufficientCredit": "Crédito insuficiente",
+      "exceedMaxRowLimit": "Se excedió el límite máximo de filas {{maxRowCount}}"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Se requiere consulta de búsqueda",
+      "maxSearchIndexResult": "El resultado máximo del índice de búsqueda es 1000",
+      "queryCollectionMustBeTableId": "La colección de consulta debe ser un identificador de tabla",
+      "searchTimeOut": "La búsqueda ha expirado, por favor reduce el ámbito de búsqueda y vuelve a intentarlo.",
+      "indexNotFound": "Índice no encontrado",
+      "invalidStartDateFieldId": "Identificador de campo de fecha de inicio inválido",
+      "invalidEndDateFieldId": "Identificador de campo de fecha de fin inválido",
+      "fieldMapRequired": "Se requiere mapa de campos cuando se establece la búsqueda",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected y filterLinkCellCandidate no se pueden establecer al mismo tiempo"
+    },
+    "ai": {
+      "chatModelLgNotSet": "El modelo de chat IA lg no está configurado",
+      "chatModelLgProviderNotSet": "El proveedor del modelo de chat IA lg no está configurado",
+      "chatModelSmNotSet": "El modelo de chat IA sm no está configurado",
+      "chatModelMdNotSet": "El modelo de chat IA md no está configurado",
+      "configurationNotSet": "La configuración de IA no está configurada",
+      "unsupportedProvider": "Proveedor de IA no compatible {{type}}",
+      "providerConfigurationNotSet": "La configuración del proveedor de IA no está configurada",
+      "testLLMFailed": "La prueba de conexión de LLM falló",
+      "audioNotSupported": "La entrada de audio no es compatible con este modelo {{model}}",
+      "imageNotSupported": "La entrada de imagen no es compatible con este modelo {{model}}",
+      "modelNotSet": "El modelo de IA no está configurado",
+      "unsupportedFileType": "Tipo de archivo no compatible {{mimetype}}",
+      "unsupportedModelType": "Tipo de modelo no compatible",
+      "embeddingModelNotSet": "El modelo de incrustación no está configurado",
+      "validateActionFailed": "Falló la validación de la acción AI del campo",
+      "generateFailed": "Falló la generación de AI",
+      "unsupportedActionType": "Tipo de acción AI no soportado"
+    },
+    "role": {
+      "notFound": "Rol no encontrado"
+    },
+    "collaborator": {
+      "alreadyExisted": "El colaborador ya existe",
+      "notFound": "Colaborador no encontrado",
+      "userNotFoundInCollaborator": "Usuario no encontrado en colaboradores",
+      "noPermissionToDelete": "No tienes permiso para eliminar este colaborador",
+      "noPermissionToUpdate": "No tienes permiso para actualizar este colaborador",
+      "noPermissionToOperateRole": "No tienes permiso para operar este rol",
+      "alreadyExistedInBase": "El colaborador ya existe en la base",
+      "userNotFound": "Usuario no encontrado: {{userIds}}",
+      "baseNotFound": "Base no encontrada",
+      "noPermissionToAddRole": "No tienes permiso para agregar un colaborador con este rol",
+      "departmentNotFound": "Departamento no encontrado"
+    },
+    "table": {
+      "notFound": "Tabla no encontrada",
+      "dbTableNameAlreadyExists": "El nombre de la tabla de base de datos ya existe",
+      "anchorNotFound": "Tabla de anclaje no encontrada",
+      "notInTrash": "La tabla no está en la papelera",
+      "notSupportTableIndex": "El tipo de índice de tabla no es compatible",
+      "createTableIndexError": "Error al crear el índice de tabla",
+      "dropTableIndexError": "Error al eliminar el índice de tabla",
+      "notFoundPrimaryField": "Campo primario no encontrado en la tabla"
+    },
+    "export": {
+      "notSupportViewType": "El tipo de vista {{viewType}} no es compatible con la exportación"
+    },
+    "import": {
+      "notSupportedFileFormat": "Formato de archivo no compatible, solo se admiten {{supportType}}, el tipo de contenido de su archivo es {{fileFormat}}",
+      "notSupportedFileType": "Tipo de archivo de importación no compatible",
+      "exceedMaxFieldsLength": "El número de campos en la tabla no puede exceder {{maxFieldsLength}}, el actual es {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "La instancia actual no permite invitaciones de espacio por parte del administrador",
+      "invalidCode": "Código de invitación no válido",
+      "linkNotFound": "Enlace de invitación no encontrado",
+      "linkExpired": "El enlace de invitación ha expirado",
+      "limitExceeded": "Ha alcanzado el número máximo de invitaciones por hora"
+    },
+    "pin": {
+      "alreadyExists": "El favorito ya existe",
+      "notFound": "Favorito no encontrado",
+      "anchorNotFound": "Anclaje de favorito no encontrado"
+    },
+    "trash": {
+      "invalidResourceType": "Tipo de recurso no válido",
+      "notFound": "Elemento de la papelera no encontrado",
+      "parentSpaceTrashed": "No se puede restaurar esta base porque su espacio principal también está en la papelera",
+      "parentBaseOrSpaceTrashed": "No se puede restaurar esta tabla porque su base o espacio principal también está en la papelera",
+      "tableNotFound": "Elemento de papelera de tabla no encontrado"
+    },
+    "license": {
+      "invalid": "La licencia no es válida",
+      "instanceIdMismatch": "El ID de instancia entrante no coincide con el ID de instancia de la instancia actual",
+      "expired": "La licencia ha expirado",
+      "userLimitExceeded": "El número de usuarios en la instancia actual excede el límite de asientos de la licencia. Por favor desactive algunos usuarios o actualice la licencia"
+    },
+    "organization": {
+      "notFound": "Organización no encontrada",
+      "emailNotSpaceUser": "El correo electrónico no es usuario del espacio",
+      "authenticationNotFound": "Autenticación no encontrada",
+      "spaceShouldExist": "El espacio de la organización debería existir",
+      "emailsNotInOrgDomain": "Estos correos electrónicos {{emails}} no están en el dominio de la organización"
+    },
+    "user": {
+      "disallowSignUp": "La instancia actual no permite el registro por parte del administrador",
+      "waitlistInviteCodeRequired": "La lista de espera está habilitada, se requiere código de invitación",
+      "waitlistInviteCodeInvalid": "La lista de espera está habilitada, el código de invitación no es válido",
+      "systemUser": "El usuario es un usuario del sistema",
+      "collaboratorsInSpaces": "El usuario tiene colaboradores en espacios (o espacios eliminados en la papelera)",
+      "notFound": "Usuario no encontrado",
+      "cannotDeleteAdmin": "No se puede eliminar el usuario administrador",
+      "cannotDeactivateAdmin": "No se puede desactivar el usuario administrador",
+      "cannotRemoveLastAdmin": "No se pueden quitar los privilegios de administrador del último usuario administrador activo",
+      "permanentDeleted": "El usuario ha sido eliminado permanentemente",
+      "cannotDeleteSelf": "No puedes eliminarte a ti mismo",
+      "alreadyInDepartment": "El usuario {{userId}} ya está en el departamento objetivo",
+      "emailsNotFound": "Correos electrónicos {{emails}} no encontrados",
+      "deleted": "El usuario {{userId}} ha sido eliminado",
+      "alreadyInOrg": "El usuario {{userId}} ya está en la organización",
+      "notInOrg": "El usuario {{userId}} no está en la organización"
+    },
+    "record": {
+      "notFound": "Registro no encontrado",
+      "deletedIdsNotFound": "Algunos registros para eliminar no se encuentran",
+      "updateFailed": "Error al actualizar el registro",
+      "noFileOrUrlProvided": "No se proporcionó archivo o URL",
+      "createRecordsEmpty": "Crear registros no puede estar vacío",
+      "duplicateFailed": "Error al duplicar el registro"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Error en la validación del valor de celda"
+    },
+    "workflow": {
+      "notActive": "El flujo de trabajo no está activo"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Tipo de recurso no válido"
+    },
+    "template": {
+      "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
+      "sourceTemplateNotFound": "Plantilla de origen no encontrada",
+      "noMinOrderFound": "No se encontró el orden mínimo"
+    },
+    "domainVerification": {
+      "notFound": "No se encontró código de verificación de dominio",
+      "invalidCode": "Código de verificación inválido",
+      "resendCooldown": "Por favor espera 1 minuto antes de solicitar un nuevo código"
+    },
+    "mail": {
+      "failedToSendEmail": "Error al enviar el correo electrónico"
+    },
+    "department": {
+      "parentNotFound": "Departamento padre no encontrado",
+      "notFound": "Departamento no encontrado",
+      "cannotMoveToItself": "No se puede mover el departamento a sí mismo",
+      "cannotMoveToSub": "No se puede mover el departamento a su sub-departamento"
     }
   }
 }

@@ -4,6 +4,7 @@ import type {
   IFieldVo,
   IOtOperation,
   IRecord,
+  ISnapshotBase,
   ITablePropertyKey,
 } from '@teable/core';
 import {
@@ -263,10 +264,18 @@ export class ShareDbAdapter extends ShareDb.DB {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private async getSnapshotData(docType: IdPrefix, collectionId: string, id: string, options: any) {
+  private async getSnapshotData(
+    docType: IdPrefix,
+    collectionId: string,
+    ids: string[],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any
+  ) {
+    if (ids.length === 0) {
+      return [];
+    }
     if (docType === IdPrefix.Table) {
-      return await this.tableServiceInner.getSnapshotBulk(collectionId, [id], {
+      return await this.tableServiceInner.getSnapshotBulk(collectionId, ids, {
         ignoreDefaultViewId: true,
       });
     }
@@ -278,9 +287,10 @@ export class ShareDbAdapter extends ShareDb.DB {
         shareViewId: shareId,
       },
       async () => {
-        return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(collectionId, [
-          id,
-        ]);
+        return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
+          collectionId,
+          ids
+        );
       }
     );
 
@@ -295,47 +305,60 @@ export class ShareDbAdapter extends ShareDb.DB {
     return snapshots;
   }
 
-  // Get operations between [from, to) non-inclusively. (Ie, the range should
-  // contain start but not end).
-  //
-  // If end is null, this function should return all operations from start onwards.
-  //
-  // The operations that getOps returns don't need to have a version: field.
-  // The version will be inferred from the parameters if it is missing.
-  //
-  // Callback should be called as callback(error, [list of ops]);
-  async getOps(
+  private hasGapVersion({
+    opType,
+    currentVersion,
+    fromVersion,
+  }: {
+    opType: RawOpType;
+    currentVersion: number;
+    fromVersion: number;
+  }) {
+    if (opType === RawOpType.Del) {
+      return false;
+    }
+
+    if (fromVersion > currentVersion) {
+      return false;
+    }
+    return true;
+  }
+
+  async internalGetOps(
     collection: string,
     id: string,
     from: number,
     to: number | null,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     options: any,
-    callback: (error: unknown, data?: unknown) => void
+    callback: (error: unknown, data?: unknown) => void,
+    dataFunctions: {
+      getVersionAndType: (
+        collectionId: string,
+        id: string
+      ) => Promise<{ version: number; type: RawOpType }>;
+      getSnapshotData: (
+        docType: IdPrefix,
+        collectionId: string,
+        ids: string[],
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        options: any
+      ) => Promise<ISnapshotBase<unknown>[]>;
+    }
   ) {
+    const { getVersionAndType, getSnapshotData } = dataFunctions;
     try {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const [docType, collectionId] = collection.split('_');
-      const { version, type } = await this.getReadonlyService(
-        docType as IdPrefix
-      ).getVersionAndType(collectionId, id);
 
-      if (type === RawOpType.Del) {
+      const { version, type } = await getVersionAndType(collectionId, id);
+
+      if (!this.hasGapVersion({ opType: type, currentVersion: version, fromVersion: from })) {
         callback(null, []);
         return;
       }
 
-      if (from > version) {
-        callback(null, []);
-        return;
-      }
-
-      const snapshotData = await this.getSnapshotData(
-        docType as IdPrefix,
-        collectionId,
-        id,
-        options
-      );
+      const snapshotData = await getSnapshotData(docType as IdPrefix, collectionId, [id], options);
 
       if (!snapshotData.length) {
         throw new NotFoundException(`docType: ${docType}, id: ${id} not found`);
@@ -377,6 +400,109 @@ export class ShareDbAdapter extends ShareDb.DB {
       this.logger.error(err);
       callback(exceptionParse(err as Error));
     }
+  }
+
+  // Get operations between [from, to) non-inclusively. (Ie, the range should
+  // contain start but not end).
+  //
+  // If end is null, this function should return all operations from start onwards.
+  //
+  // The operations that getOps returns don't need to have a version: field.
+  // The version will be inferred from the parameters if it is missing.
+  //
+  // Callback should be called as callback(error, [list of ops]);
+  async getOps(
+    collection: string,
+    id: string,
+    from: number,
+    to: number | null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
+    callback: (error: unknown, data?: unknown) => void
+  ) {
+    const [docType] = collection.split('_');
+    const readonlyService = this.getReadonlyService(docType as IdPrefix);
+    await this.internalGetOps(collection, id, from, to, options, callback, {
+      getVersionAndType: async (...args) => await readonlyService.getVersionAndType(...args),
+      getSnapshotData: async (...args) => await this.getSnapshotData(...args),
+    });
+  }
+
+  async getOpsBulk(
+    collection: string,
+    fromMap: Record<string, number>,
+    toMap: Record<string, number | null> | undefined,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    options: any,
+    callback: (error: unknown, data?: unknown) => void
+  ) {
+    const [docType, collectionId] = collection.split('_');
+    const readonlyService = this.getReadonlyService(docType as IdPrefix);
+    const versionAndTypeMap = await readonlyService.getVersionAndTypeMap(
+      collectionId,
+      Object.keys(fromMap)
+    );
+    const needGetSnapshotDataIds: string[] = [];
+    for (const [id, from] of Object.entries(fromMap)) {
+      const versionAndType = versionAndTypeMap[id];
+      if (!versionAndType) {
+        continue;
+      }
+      if (
+        this.hasGapVersion({
+          opType: versionAndType.type,
+          currentVersion: versionAndType.version,
+          fromVersion: from,
+        })
+      ) {
+        needGetSnapshotDataIds.push(id);
+      }
+    }
+
+    const snapshotDataMap = await this.getSnapshotData(
+      docType as IdPrefix,
+      collectionId,
+      needGetSnapshotDataIds,
+      options
+    ).then((snapshots) => {
+      return snapshots.reduce(
+        (acc, snapshot) => {
+          acc[snapshot.id] = snapshot;
+          return acc;
+        },
+        {} as Record<string, ISnapshotBase<unknown>>
+      );
+    });
+    const result: Record<string, unknown> = {};
+    for (const [id, from] of Object.entries(fromMap)) {
+      let resultError: unknown = null;
+      await this.internalGetOps(
+        collection,
+        id,
+        from,
+        toMap?.[id] ?? null,
+        options,
+        (err, data) => {
+          if (err) {
+            resultError = err;
+          }
+          result[id] = data;
+        },
+        {
+          getVersionAndType: async (_collectionId, id) =>
+            versionAndTypeMap[id] ?? { version: 0, type: RawOpType.Del },
+          getSnapshotData: async (...args) => {
+            const ids = args[2];
+            return ids.map((id) => snapshotDataMap[id]).filter(Boolean);
+          },
+        }
+      );
+      if (resultError) {
+        callback(resultError);
+        return;
+      }
+    }
+    callback(null, result);
   }
 
   private getOpsFromSnapshot(docType: IdPrefix, snapshot: unknown): IOtOperation[] {

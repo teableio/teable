@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Відпустіть, щоб завантажити файл",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Вставте або перетягніть, щоб завантажити сюди",
       "upload": "завантажити"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "сьогодні",
@@ -252,10 +258,12 @@
     "primaryKey": "Основне поле: Ідентифікує записи\nне можна приховати або видалити, видно у зв'язаних записах."
   },
   "expandRecord": {
-    "Копіювати": "Копіювати в буфер обміну",
+    "copy": "Копіювати в буфер обміну",
     "duplicateRecord": "Дублювати запис",
     "copyRecordUrl": "Копіювати URL записи",
     "deleteRecord": "Видалити запис",
+    "addRecordComment": "Додати коментар",
+    "viewRecordHistory": "Переглянути історію запису",
     "recordHistory": {
       "hiddenRecordHistory": "Приховати історію запису",
       "showRecordHistory": "Показати історію запису",
@@ -381,6 +389,7 @@
       "recordDelete": "Видалити запис",
       "recordRead": "Прочитати запис",
       "recordUpdate": "Оновити запис",
+      "recordCopy": "Copy record",
       "automationCreate": "Створити автоматизацію",
       "automationDelete": "Видалити автоматизацію",
       "automationRead": "Автоматизація читання",
@@ -684,7 +693,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Повертає дату й час останньої зміни, внесеної користувачем у необчислюване поле в таблиці.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Повертає кількість усіх елементів, включаючи текст і пробіли.",
@@ -755,7 +764,7 @@
     "percentEmpty": "Відсоток порожніх",
     "percentFilled": "Відсоток заповнених",
     "percentUnique": "Відсоток унікальних",
-    "%percentChecked": "Відсоток зазначених",
+    "percentChecked": "Percent Checked",
     "percentUnChecked": "Відсоток невідзначених",
     "earliestDate": "Найраніша дата",
     "latestDate": "Найпізніша дата",
@@ -864,7 +873,6 @@
     "databaseConnectionUnavailable": "Недоступна база даних",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Невідомий код помилки",
-    "viewNotFound": "Не знайдено вид",
     "requestTimeout": "Таймаут запиту",
     "failedDependency": "Залежність не виконана",
     "automationNodeParseError": "Помилка аналізу вузла автоматизації",
@@ -876,31 +884,213 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускає дублікатів зв'язків з одним і тим самим запису",
       "requestTimeout": "Текущая операция слишком велика, пожалуйста, попробуйте снова с меньшим диапазоном.",
       "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
-      "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані"
+      "dependencyNodeRequire": "Залежний вузол не протестований, перевірте, чи всі попередні вузли протестовані",
+      "invalidOperation": "Виявлено недопустиму операцію, будь ласка, перевірте параметри операції"
+    },
+    "comment": {
+      "listCountExceeded": "Кількість запитуваних коментарів перевищує максимальний ліміт 1000",
+      "invalidContentType": "Неправильний тип вмісту коментаря"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "Термін дії токена має бути менше 7 днів",
+      "s3RegionRequired": "Регіон S3 обов'язковий",
+      "s3EndpointRequired": "Кінцева точка S3 обов'язкова",
+      "s3AccessKeyRequired": "Ключ доступу S3 обов'язковий",
+      "s3SecretKeyRequired": "Секретний ключ S3 обов'язковий",
+      "s3UploadMethodMustBePut": "Метод завантаження S3 має бути PUT",
+      "presignedError": "Не вдалося згенерувати попередньо підписаний URL",
+      "invalidObjectMeta": "Недійсні метадані об'єкта",
+      "invalidImageStream": "Недійсний потік зображення",
+      "calculateImageSizeFailed": "Не вдалося розрахувати розмір зображення",
+      "uploadFailed": "Завантаження не вдалося",
+      "invalidImage": "Недійсне зображення",
+      "cantGetImageStream": "Неможливо отримати потік зображення",
+      "invalidProvider": "Недійсний постачальник сховища",
+      "failedToDeleteDirectory": "Не вдалося видалити каталог",
+      "invalidToken": "Недійсний токен",
+      "tokenExpired": "Термін дії токена закінчився",
+      "sizeMismatch": "Розмір файлу не збігається",
+      "notAllowUploadFileType": "Тип файлу {{mimetype}} не дозволений для завантаження",
+      "notFound": "Вкладення не знайдено",
+      "invalidPath": "Недійсний шлях до вкладення",
+      "fileSizeExceedsMaximumLimit": "Розмір файлу перевищує максимальний ліміт {{maxSize}}",
+      "invalidUploadType": "Недійсний тип завантаження",
+      "urlReject": "URL відхилено або недоступний"
     },
     "email": {
       "testEmailError": "Помилка конфігурації пошти {{message}}"
     },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Це поле кнопки вже пов'язано з {{name}}[{{id}}] цей процес автоматизації, будь ласка, виберіть інше поле кнопки",
-      "triggerNotFound": "Тригер не знайдено",
+      "triggerNotFound": "Автоматизація повинна мати вузол тригера",
       "nodeNotFound": "{{nodeId}} вузол не знайдено",
-      "workflowNotFound": "{{workflowId}} робочий процес не знайдено",
       "triggerTestFailed": "Тест тригера провалився, будь ласка, перевірте конфігурацію тригера",
-      "workflowTestFailed": "Тест робочого процесу провалився, будь ласка, перевірте конфігурацію робочого процесу",
+      "testFailed": "Тест автоматизації не пройшов, перевірте конфігурацію автоматизації",
       "nodeParseError": "{{name}} конфігурація вузла неповна або містить помилки, будь ласка, перевірте конфігурацію вузла",
       "nodeNeedTest": "{{name}} вузол потребує тестування",
-      "nodeTestOutdated": "{{name}} тест вузла застарів"
+      "nodeTestOutdated": "{{name}} тест вузла застарів",
+      "notFound": "Автоматизацію не знайдено",
+      "currentSnapshotEmpty": "Поточний знімок автоматизації порожній",
+      "runNotFound": "Виконання автоматизації не знайдено",
+      "anchorNotFound": "Опорну автоматизацію не знайдено",
+      "validationError": "Помилка валідації конфігурації автоматизації",
+      "tableNotInBase": "Ви можете підписатися лише на таблицю в межах вашої бази даних",
+      "alreadyActiveAndNotDraft": "Автоматизація вже активна і не є чернеткою",
+      "noActiveSnapshot": "У автоматизації немає активного знімка",
+      "triggerNodeAlreadyExists": "У цієї автоматизації вже є вузол тригера",
+      "generateLogicError": "Помилка генерації вузла логіки",
+      "logicNotFound": "Вузол логіки автоматизації не знайдено",
+      "actionNotFound": "Вузол дії автоматизації не знайдено",
+      "unSupportDuplicateWorkflowNodeType": "Дублювання цього типу вузла автоматизації не підтримується",
+      "unSupportLogicType": "Непідтримуваний тип логіки",
+      "groupEndNotFound": "GroupEnd не знайдено для логіки",
+      "insertNodeError": "Помилка вставки вузла",
+      "controlNodeNotBeTested": "Вузол керування не повинен тестуватися",
+      "invalidNodeType": "Недійсний тип вузла",
+      "unsupportedCategory": "Непідтримувана категорія"
+    },
+    "space": {
+      "notFound": "Простір не знайдено",
+      "noPermission": "У вас немає дозволу на доступ до цього простору",
+      "disallowSpaceCreation": "Створення просторів вимкнено адміністратором",
+      "cannotChangeOnlyOwnerRole": "Неможливо змінити роль єдиного власника простору",
+      "cannotDeleteOnlyOwner": "Неможливо видалити єдиного власника простору",
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Неможливо працювати з простором, переконайтеся, що в просторі є члени організації і вони є власниками",
+      "notBelongToOrg": "Цей простір не належить організації",
+      "invalidSpaceIds": "Недійсні ідентифікатори простору: {{spaceIds}}"
+    },
+    "base": {
+      "notFound": "База не знайдена",
+      "cannotAccess": "У вас немає дозволу на доступ до бази {{baseId}}",
+      "anchorNotFound": "Якірна база {{anchorId}} не знайдена",
+      "baseAndSpaceMismatch": "База {{baseId}} та простір {{spaceId}} не співпадають",
+      "templateNotFound": "Шаблон {{templateId}} не знайдено"
+    },
+    "dashboard": {
+      "notFound": "Панель управління не знайдена"
+    },
+    "plugin": {
+      "notFound": "Плагін не знайдено",
+      "notSupportInstallInView": "Плагін не підтримує встановлення у вид",
+      "userNotFound": "Користувач плагіна не знайдений",
+      "invalidSecret": "Недійсний секрет",
+      "invalidRefreshToken": "Недійсний токен оновлення",
+      "anomalousToken": "Аномальний токен"
+    },
+    "pluginPanel": {
+      "notFound": "Панель плагінів не знайдена"
+    },
+    "pluginInstall": {
+      "notFound": "Плагін не встановлено"
+    },
+    "share": {
+      "incorrectPassword": "Неправильний пароль",
+      "notAllowedToSubmit": "Відправлення форми не дозволено",
+      "viewRequired": "Для цієї операції потрібне подання",
+      "hiddenFieldsSubmissionNotAllowed": "Відправлення форми не дозволено, коли включені приховані поля",
+      "submitRecordsError": "Помилка відправлення запису",
+      "notAllowedToCopy": "Операція копіювання не дозволена",
+      "fieldHiddenNotAllowed": "Поле приховано і недоступне",
+      "fieldTypeNotLinkField": "Поле не є полем зв'язку",
+      "fieldIdRequired": "Потрібен ID поля",
+      "fieldNotUserRelatedField": "Поле не пов'язане з користувачем",
+      "viewTypeNotAllowed": "Цей тип подання не дозволений для цієї операції"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Обмеження паролем не ввімкнено для цього спільного подання",
+      "shareViewNotFound": "Спільне подання не знайдено або спільний доступ вимкнено",
+      "linkFieldNotFound": "Поле зв'язку не знайдено"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "У вас немає дозволу на доступ до цього подання",
+      "fieldPermissionNotAllowed": "У вас немає дозволу на доступ до цих полів",
+      "recordPermissionNotAllowed": "У вас немає дозволу на доступ до цих записів"
+    },
+    "pluginContextMenu": {
+      "notFound": "Контекстне меню плагіна не знайдено",
+      "anchorNotFound": "Якір контекстного меню плагіна не знайдено"
+    },
+    "pluginChart": {
+      "queryNotFound": "Запит діаграми плагіна не знайдено"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Непідтримуваний драйвер бази даних: {{driver}}",
+      "onlyOwnerCanRemove": "Тільки власник бази може видалити підключення до бази даних для бази {{baseId}}",
+      "onlyOwnerCanCreate": "Тільки власник бази може створити підключення до бази даних для бази {{baseId}}",
+      "roleNotExist": "Роль бази даних {{role}} не існує"
+    },
+    "baseQuery": {
+      "queryFailed": "Запит не виконано: {{message}}",
+      "invalidJoinType": "Недопустимий тип об'єднання: {{joinType}}",
+      "tableNotFound": "Таблиця {{tableId}} не знайдена в базі {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Не дозволено виконувати SQL з ключовим словом {{keyword}}",
+      "whiteListCheckError": "Сталася помилка під час перевірки доступу до таблиці: {{message}}",
+      "databaseConnectionFailed": "Не вдалося підключитися до бази даних: {{message}}",
+      "executeQuerySqlFailed": "Не вдалося виконати запит SQL: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "У вас немає дозволу на створення записів з полями({{fields}})",
       "deleteRecords": "У вас немає дозволу на видалення записів({{recordIds}})",
       "readRecordWithDeniedFields": "У вас немає дозволу на читання полів({{fields}}) у записі({{recordId}})",
-      "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})"
+      "updateRecordWithDeniedFields": "У вас немає дозволу на оновлення полів({{fields}}) у записі({{recordId}})",
+      "checkIdNotExist": "ID перевірки дозволів не існує",
+      "userNotAdmin": "Користувач не є адміністратором",
+      "accessTokenNoPermission": "Токен доступу не має необхідного дозволу",
+      "invalidResource": "Ресурс недійсний",
+      "notAllowedSpace": "У вас немає дозволу на доступ до цього простору",
+      "notAllowedBase": "У вас немає дозволу на доступ до цієї бази",
+      "notAllowedTables": "У вас немає дозволу на доступ до таблиц({{tableIds}})",
+      "notAllowedOperationTable": "У вас немає дозволу на операції з цією таблицею",
+      "notAllowedOperationRecord": "У вас немає дозволу на операції з цим записом",
+      "notAllowedRecordUpdate": "У вас немає дозволу на оновлення цього запису",
+      "notAllowedOperationView": "У вас немає дозволу на операції з цим поданням",
+      "deniedByEnabledAuthorityMatrix": "Дозвіл відхилено активованою матрицею повноважень",
+      "invalidRequestPath": "Шлях запиту недійсний",
+      "notAllowedOperation": "У вас немає дозволу на виконання цієї операції",
+      "notAllowedDepartment": "Вам не дозволено доступ до цього відділу"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Роль за замовчуванням не знайдено",
+      "alreadyDisabled": "Матриця повноважень вже вимкнена",
+      "alreadyEnabled": "Матриця повноважень вже увімкнена",
+      "notFound": "Матриця повноважень не знайдена",
+      "primaryFieldCannotBeDisabledForRead": "Основне поле не може бути вимкнене для читання",
+      "fieldDuplicated": "Поле дублюється в конфігурації дозволів",
+      "cannotSetRecordPermissionGroup": "Неможливо встановити цю комбінацію дозволів запису({{actions}})",
+      "notFoundBaseAndTable": "ID бази та ID таблиці не знайдено",
+      "roleTablesShouldNotBeEmpty": "Таблиці ролей матриці повноважень не повинні бути порожніми"
+    },
+    "selection": {
+      "invalidReturnType": "Недійсний тип повернення",
+      "exceedMaxReadRows": "Перевищено максимальний ліміт читання рядків",
+      "invalidCellValueType": "Недійсний тип значення комірки",
+      "exceedMaxCopyCells": "Перевищено максимальний ліміт копіювання комірок",
+      "exceedMaxPasteCells": "Перевищено максимальний ліміт вставки комірок"
     },
     "field": {
       "unsupportedFieldType": "Непідтримуваний тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Непідтримуваний тип поля {{type}} як первинне поле",
+      "primaryFieldNotSupported": "Тип поля не підтримується як первинне поле",
       "calculateRecordNotFound": "Запис не знайдено для: {{value}}, fieldId: {{fieldId}}, під час обчислення {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds або fromRecordIds потрібен для звичайного обчислюваного поля",
       "recordFieldsRequired": "Поля запису не визначені",
@@ -909,8 +1099,9 @@
       "dbFieldNameAlreadyExists": "Ім'я поля бази даних {{dbFieldName}} вже існує",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] помилка перевірки поля",
       "fieldNameAlreadyExists": "Ім'я поля {{name}} вже існує",
-      "fieldNotFound": "Поле {{fieldId}} не знайдено",
-      "fieldNotFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
+      "notFound": "Поле не знайдено",
+      "fieldKeyTypeNotFound": "Поле \"{{fieldKeyType}}: {{missedFields}}\" не знайдено",
+      "notFoundInTable": "Поле {{fieldId}} не знайдено в таблиці {{tableId}}",
       "deleteFieldsNotFound": "Поля для видалення {{fieldIds}} не знайдені в таблиці {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
       "linkCellValuesShouldBeArray": "linkCellValues повинен бути масивом, коли поле зв'язку має кілька значень комірки",
@@ -933,18 +1124,189 @@
       "lookupFieldTypeNotEqual": "Поточний тип поля {{fieldType}} не дорівнює типу поля пошуку {{lookupFieldType}}",
       "recordNotFound": "Запис {{recordId}} не знайдено в {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Неможливо встановити дублюючий recordId: {{recordId}} в тій самій комірці",
-      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneOneLinkCellValueCannotBeArray": "Значення поля зв'язку один-до-одного не можуть бути масивом",
       "manyOneLinkCellValueCannotBeArray": "Значення поля зв'язку багато-до-одного не можуть бути масивом",
+      "foreignKeyDuplicate": "Дублікат зовнішнього ключа",
+      "linkConsistencyError": "Помилка узгодженості, recordId {{recordId}} не існує",
       "oneManyLinkCellValueShouldBeArray": "Значення поля зв'язку один-до-багатьох повинні бути масивом",
       "manyManyLinkCellValueShouldBeArray": "Значення поля зв'язку багато-до-багатьох повинні бути масивом",
-      "foreignKeyDuplicate": "Дублікат зовнішнього ключа"
+      "onlyLinkFieldCanBeFiltered": "Тільки поля зв'язку можуть використовуватися для фільтрації",
+      "notLinkedToCurrentTable": "Поле не пов'язане з поточною таблицею",
+      "notAttachment": "Поле не є полем вкладення",
+      "isComputed": "Поле обчислюється і не може бути змінене",
+      "notFoundAICofig": "Поле не має конфігурації AI",
+      "button": {
+        "clickCountReachedMaxCount": "Кількість натискань кнопки досягла максимальної межі",
+        "notSupportReset": "Кнопка не підтримує скидання"
+      }
     },
     "view": {
-      "viewNotFound": "Представлення {{viewId}} не знайдено"
+      "notFound": "Представлення не знайдено",
+      "defaultViewNotFound": "Представлення за замовчуванням не знайдено",
+      "propertyParseError": "Не вдалося розібрати властивість представлення",
+      "primaryFieldCannotBeHidden": "Первинне поле не може бути приховане",
+      "filterUnsupportedFieldType": "Фільтр не підтримує тип поля",
+      "sortUnsupportedFieldType": "Сортування не підтримує тип поля",
+      "groupUnsupportedFieldType": "Групування не підтримує тип поля",
+      "anchorNotFound": "Якірне представлення не знайдено",
+      "notEnoughGapToShuffleRow": "Недостатньо місця для перемішування рядка",
+      "shareNotEnabled": "Спільний доступ до представлення не ввімкнено",
+      "shareAlreadyEnabled": "Спільний доступ до представлення вже ввімкнено",
+      "shareAlreadyDisabled": "Спільний доступ до представлення вже вимкнено"
     },
     "billing": {
-      "insufficientCredit": "Недостатньо коштів"
+      "insufficientCredit": "Недостатньо коштів",
+      "exceedMaxRowLimit": "Перевищено максимальний ліміт рядків {{maxRowCount}}"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Пошуковий запит є обов'язковим",
+      "maxSearchIndexResult": "Максимальний результат пошукового індексу становить 1000",
+      "queryCollectionMustBeTableId": "Колекція запитів має бути ідентифікатором таблиці",
+      "searchTimeOut": "Пошук завершений, зменшіть область пошуку та повторіть.",
+      "indexNotFound": "Індекс не знайдено",
+      "invalidStartDateFieldId": "Недійсний ідентифікатор поля дати початку",
+      "invalidEndDateFieldId": "Недійсний ідентифікатор поля дати закінчення",
+      "fieldMapRequired": "Карта полів потрібна при встановленні пошуку",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected та filterLinkCellCandidate не можна встановити одночасно"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Модель чату ШІ lg не встановлено",
+      "chatModelLgProviderNotSet": "Провайдер моделі чату ШІ lg не встановлено",
+      "chatModelSmNotSet": "Модель чату ШІ sm не встановлено",
+      "chatModelMdNotSet": "Модель чату ШІ md не встановлено",
+      "configurationNotSet": "Конфігурацію ШІ не встановлено",
+      "unsupportedProvider": "Непідтримуваний провайдер ШІ {{type}}",
+      "providerConfigurationNotSet": "Конфігурацію провайдера ШІ не встановлено",
+      "testLLMFailed": "Тест підключення LLM не пройшов",
+      "audioNotSupported": "Ця модель {{model}} не підтримує введення аудіо",
+      "imageNotSupported": "Ця модель {{model}} не підтримує введення зображень",
+      "modelNotSet": "Модель ШІ не встановлено",
+      "unsupportedFileType": "Непідтримуваний тип файлу {{mimetype}}",
+      "unsupportedModelType": "Непідтримуваний тип моделі",
+      "embeddingModelNotSet": "Модель вбудовування не встановлено",
+      "validateActionFailed": "Не вдалося перевірити дію AI поля",
+      "generateFailed": "Не вдалося згенерувати AI",
+      "unsupportedActionType": "Непідтримуваний тип дії AI"
+    },
+    "role": {
+      "notFound": "Роль не знайдено"
+    },
+    "collaborator": {
+      "alreadyExisted": "Співавтор вже існує",
+      "notFound": "Співавтора не знайдено",
+      "userNotFoundInCollaborator": "Користувача не знайдено серед співавторів",
+      "noPermissionToDelete": "У вас немає дозволу на видалення цього співавтора",
+      "noPermissionToUpdate": "У вас немає дозволу на оновлення цього співавтора",
+      "noPermissionToOperateRole": "У вас немає дозволу на управління цією роллю",
+      "alreadyExistedInBase": "Співавтор вже існує в базі даних",
+      "userNotFound": "Користувача не знайдено: {{userIds}}",
+      "baseNotFound": "Базу даних не знайдено",
+      "noPermissionToAddRole": "У вас немає дозволу на додавання співавтора з цією роллю",
+      "departmentNotFound": "Відділ не знайдено"
+    },
+    "table": {
+      "notFound": "Таблицю не знайдено",
+      "dbTableNameAlreadyExists": "Ім'я таблиці бази даних вже існує",
+      "anchorNotFound": "Якірну таблицю не знайдено",
+      "notInTrash": "Таблиця не в кошику",
+      "notSupportTableIndex": "Тип індексу таблиці не підтримується",
+      "createTableIndexError": "Не вдалося створити індекс таблиці",
+      "dropTableIndexError": "Не вдалося видалити індекс таблиці",
+      "notFoundPrimaryField": "Первинне поле не знайдено в таблиці"
+    },
+    "export": {
+      "notSupportViewType": "Тип перегляду {{viewType}} не підтримується для експорту"
+    },
+    "import": {
+      "notSupportedFileFormat": "Формат файлу не підтримується, підтримуються лише {{supportType}}, тип вмісту вашого файлу {{fileFormat}}",
+      "notSupportedFileType": "Тип файлу імпорту не підтримується",
+      "exceedMaxFieldsLength": "Кількість полів у таблиці не може перевищувати {{maxFieldsLength}}, поточне значення {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Поточний екземпляр забороняє запрошення до простору адміністратором",
+      "invalidCode": "Недійсний код запрошення",
+      "linkNotFound": "Посилання запрошення не знайдено",
+      "linkExpired": "Термін дії посилання запрошення закінчився",
+      "limitExceeded": "Ви досягли максимальної кількості запрошень на годину"
+    },
+    "pin": {
+      "alreadyExists": "Вибране вже існує",
+      "notFound": "Вибране не знайдено",
+      "anchorNotFound": "Якір вибраного не знайдено"
+    },
+    "trash": {
+      "invalidResourceType": "Недійсний тип ресурсу",
+      "notFound": "Елемент кошика не знайдено",
+      "parentSpaceTrashed": "Неможливо відновити цю базу, оскільки її батьківський простір також знаходиться в кошику",
+      "parentBaseOrSpaceTrashed": "Неможливо відновити цю таблицю, оскільки її батьківська база або простір також знаходиться в кошику",
+      "tableNotFound": "Елемент кошика таблиці не знайдено"
+    },
+    "license": {
+      "invalid": "Ліцензія недійсна",
+      "instanceIdMismatch": "Вхідний ID екземпляра не відповідає ID екземпляра поточного екземпляра",
+      "expired": "Термін дії ліцензії закінчився",
+      "userLimitExceeded": "Кількість користувачів у поточному екземплярі перевищує ліміт місць ліцензії. Будь ласка, відключіть деяких користувачів або оновіть ліцензію"
+    },
+    "organization": {
+      "notFound": "Організацію не знайдено",
+      "emailNotSpaceUser": "Email не є користувачем простору",
+      "authenticationNotFound": "Автентифікація не знайдена",
+      "spaceShouldExist": "Простір організації повинен існувати",
+      "emailsNotInOrgDomain": "Ці електронні адреси {{emails}} не знаходяться в домені організації"
+    },
+    "user": {
+      "disallowSignUp": "Поточний екземпляр забороняє реєстрацію адміністратором",
+      "waitlistInviteCodeRequired": "Список очікування увімкнено, потрібен код запрошення",
+      "waitlistInviteCodeInvalid": "Список очікування увімкнено, код запрошення недійсний",
+      "systemUser": "Користувач є системним користувачем",
+      "collaboratorsInSpaces": "Користувач має співробітників у просторах (або видалені простори в кошику)",
+      "notFound": "Користувача не знайдено",
+      "cannotDeleteAdmin": "Неможливо видалити користувача-адміністратора",
+      "cannotDeactivateAdmin": "Неможливо вимкнути користувача-адміністратора",
+      "cannotRemoveLastAdmin": "Неможливо забрати права адміністратора в останнього активного користувача-адміністратора",
+      "permanentDeleted": "Користувач назавжди видалений",
+      "cannotDeleteSelf": "Ви не можете видалити себе",
+      "alreadyInDepartment": "Користувач {{userId}} вже знаходиться в цільовому відділі",
+      "emailsNotFound": "Електронні адреси {{emails}} не знайдені",
+      "deleted": "Користувач {{userId}} видалений",
+      "alreadyInOrg": "Користувач {{userId}} вже знаходиться в організації",
+      "notInOrg": "Користувач {{userId}} не знаходиться в організації"
+    },
+    "record": {
+      "notFound": "Запис не знайдено",
+      "deletedIdsNotFound": "Деякі записи для видалення не знайдено",
+      "updateFailed": "Не вдалося оновити запис",
+      "noFileOrUrlProvided": "Файл або URL не надано",
+      "createRecordsEmpty": "Створення записів не може бути порожнім",
+      "duplicateFailed": "Не вдалося дублювати запис"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Помилка перевірки значення комірки"
+    },
+    "workflow": {
+      "notActive": "Автоматизація не відкрита"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Недійсний тип ресурсу"
+    },
+    "template": {
+      "snapshotRequired": "Цей шаблон не можна опублікувати через відсутність знімка",
+      "sourceTemplateNotFound": "Вихідний шаблон не знайдено",
+      "noMinOrderFound": "Мінімальний порядок не знайдено"
+    },
+    "domainVerification": {
+      "notFound": "Код підтвердження домену не знайдено",
+      "invalidCode": "Невірний код підтвердження",
+      "resendCooldown": "Будь ласка, зачекайте 1 хвилину перед запитом нового коду"
+    },
+    "mail": {
+      "failedToSendEmail": "Не вдалось надіслати електронний лист"
+    },
+    "department": {
+      "parentNotFound": "Батьківський відділ не знайдено",
+      "notFound": "Відділ не знайдено",
+      "cannotMoveToItself": "Неможливо перемістити відділ в самого себе",
+      "cannotMoveToSub": "Неможливо перемістити відділ в його підвідділ"
     }
   }
 }

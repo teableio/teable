@@ -111,6 +111,10 @@ const ConditionalLookupForeignSection = ({
   sourceTableId,
 }: IConditionalLookupForeignSectionProps) => {
   const table = useTable();
+  const handleSortLimitDisable = useCallback(() => {
+    onSortChange(undefined);
+    onLimitChange(undefined);
+  }, [onLimitChange, onSortChange]);
 
   return (
     <div className="space-y-3">
@@ -145,6 +149,7 @@ const ConditionalLookupForeignSection = ({
         onLimitChange={onLimitChange}
         defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
         toggleTestId="conditional-lookup-sort-limit-toggle"
+        onDisable={handleSortLimitDisable}
       />
     </div>
   );

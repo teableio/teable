@@ -80,21 +80,19 @@ describe('Undo Redo (e2e)', () => {
   });
 
   it('should undo / redo create records', async () => {
-    await awaitWithEvent(() => createField(table.id, { type: FieldType.CreatedTime }));
-    await awaitWithEvent(() => createField(table.id, { type: FieldType.LastModifiedTime }));
+    await createField(table.id, { type: FieldType.CreatedTime });
+    await createField(table.id, { type: FieldType.LastModifiedTime });
 
     const record1 = (
-      await awaitWithEvent(() =>
-        createRecords(table.id, {
-          fieldKeyType: FieldKeyType.Id,
-          records: [{ fields: { [table.fields[0].id]: 'record1' } }],
-          order: {
-            viewId: table.views[0].id,
-            anchorId: table.records[0].id,
-            position: 'after',
-          },
-        })
-      )
+      await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table.fields[0].id]: 'record1' } }],
+        order: {
+          viewId: table.views[0].id,
+          anchorId: table.records[0].id,
+          position: 'after',
+        },
+      })
     ).data.records[0];
 
     const allRecords = await getRecords(table.id, {

@@ -22,21 +22,30 @@ export class RedisPubSub extends PubSub {
 
     const devRedisOptions = {
       retryStrategy(times: number) {
-        return Math.min(times * 50, 2000);
+        if (times > 20) {
+          console.error('Redis connection retry limit exceeded');
+          return null;
+        }
+        return Math.min(times * 100, 3000);
       },
-      maxRetriesPerRequest: 5,
+      maxRetriesPerRequest: null,
       reconnectOnError(err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
         return (
           message.includes('Connection is closed') ||
           message.includes('READONLY') ||
-          message.includes('ECONNRESET')
+          message.includes('ECONNRESET') ||
+          message.includes('ETIMEDOUT') ||
+          message.includes('ENOTFOUND')
         );
       },
       autoResendUnfulfilledCommands: true,
       autoResubscribe: true,
       connectTimeout: 10000,
       commandTimeout: 5000,
+      enableReadyCheck: true,
+      enableOfflineQueue: true,
+      lazyConnect: false,
     };
 
     this.client = isDev
@@ -50,7 +59,38 @@ export class RedisPubSub extends PubSub {
       ? new Redis(options.redisURI, devRedisOptions)
       : new Redis(options.redisURI);
 
+    if (isDev) {
+      this.setupConnectionListeners(this.client, 'client');
+      this.setupConnectionListeners(this.observer, 'observer');
+    }
+
     this.observer.on('message', this.handleMessage.bind(this));
+  }
+
+  private setupConnectionListeners(redis: Redis, name: string): void {
+    redis.on('connect', () => {
+      console.log(`[ShareDB Redis ${name}] Connecting...`);
+    });
+
+    redis.on('ready', () => {
+      console.log(`[ShareDB Redis ${name}] Ready`);
+    });
+
+    redis.on('error', (err) => {
+      console.error(`[ShareDB Redis ${name}] Error:`, err.message);
+    });
+
+    redis.on('close', () => {
+      console.warn(`[ShareDB Redis ${name}] Connection closed`);
+    });
+
+    redis.on('reconnecting', (delay: number) => {
+      console.log(`[ShareDB Redis ${name}] Reconnecting in ${delay}ms...`);
+    });
+
+    redis.on('end', () => {
+      console.warn(`[ShareDB Redis ${name}] Connection ended`);
+    });
   }
 
   close(

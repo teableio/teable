@@ -21,6 +21,9 @@ env:
   MAIN_IMAGE_REPOSITORY: registry.cn-shenzhen.aliyuncs.com/teable/teable
   IMAGE_TAG: ${{ github.sha }}-amd64
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   check-pr:
     runs-on: ubuntu-latest

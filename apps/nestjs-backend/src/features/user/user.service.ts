@@ -1,10 +1,11 @@
 import https from 'https';
 import { join } from 'path';
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   generateAccountId,
   generateSpaceId,
   generateUserId,
+  HttpErrorCode,
   minidenticon,
   Role,
 } from '@teable/core';
@@ -13,9 +14,11 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, PrincipalType, UploadType } from '@teable/openapi';
 import type { IUserInfoVo, ICreateSpaceRo, IUserNotifyMeta } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { I18nContext } from 'nestjs-i18n';
 import sharp from 'sharp';
 import { CacheService } from '../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { CustomHttpException } from '../../custom.exception';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { Events } from '../../event-emitter/events';
 import { UserSignUpEvent } from '../../event-emitter/events/user/user.event';
@@ -90,27 +93,52 @@ export class UserService {
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
     defaultSpaceName?: string,
-    inviteCode?: string
+    inviteCode?: string,
+    autoSpaceCreation: boolean = true
   ) {
     const setting = await this.settingService.getSetting();
     if (setting?.disallowSignUp) {
-      throw new BadRequestException('The current instance disallow sign up by the administrator');
+      throw new CustomHttpException(
+        'The current instance disallow sign up by the administrator',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.disallowSignUp',
+          },
+        }
+      );
     }
     if (setting.enableWaitlist) {
       await this.checkWaitlistInviteCode(inviteCode);
     }
 
-    return await this.createUser(user, account, defaultSpaceName);
+    return await this.createUser(user, account, defaultSpaceName, autoSpaceCreation);
   }
 
   async checkWaitlistInviteCode(inviteCode?: string) {
     if (!inviteCode) {
-      throw new BadRequestException('Waitlist is enabled, invite code is required');
+      throw new CustomHttpException(
+        'Waitlist is enabled, invite code is required',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.waitlistInviteCodeRequired',
+          },
+        }
+      );
     }
 
     const times = await this.cacheService.get(`waitlist:invite-code:${inviteCode}`);
     if (!times || times <= 0) {
-      throw new BadRequestException('Waitlist is enabled, invite code is invalid');
+      throw new CustomHttpException(
+        'Waitlist is enabled, invite code is invalid',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.user.waitlistInviteCodeInvalid',
+          },
+        }
+      );
     }
 
     await this.cacheService.set(`waitlist:invite-code:${inviteCode}`, times - 1, '30d');
@@ -121,7 +149,8 @@ export class UserService {
   async createUser(
     user: Omit<Prisma.UserCreateInput, 'name'> & { name?: string },
     account?: Omit<Prisma.AccountUncheckedCreateInput, 'userId'>,
-    defaultSpaceName?: string
+    defaultSpaceName?: string,
+    autoSpaceCreation: boolean = true
   ) {
     // defaults
     const defaultNotifyMeta: IUserNotifyMeta = {
@@ -154,6 +183,7 @@ export class UserService {
         ...user,
         name: user.name ?? user.email.split('@')[0],
         isAdmin: isAdmin ? true : null,
+        lang: I18nContext.current()?.lang,
       },
     });
     const { id, name } = newUser;
@@ -162,7 +192,7 @@ export class UserService {
         data: { id: generateAccountId(), ...account, userId: id },
       });
     }
-    if (this.baseConfig.isCloud) {
+    if (this.baseConfig.isCloud && autoSpaceCreation) {
       await this.cls.runWith(this.cls.get(), async () => {
         this.cls.set('user.id', id);
         await this.createSpaceBySignup({ name: defaultSpaceName || `${name}'s space` });
@@ -238,6 +268,15 @@ export class UserService {
     });
   }
 
+  async updateLang(id: string, lang: string) {
+    await this.prismaService.txClient().user.update({
+      data: {
+        lang,
+      },
+      where: { id, deletedTime: null },
+    });
+  }
+
   private async generateDefaultAvatar(id: string) {
     const path = join(StorageAdapter.getDir(UploadType.Avatar), id);
     const bucket = StorageAdapter.getBucket(UploadType.Avatar);
@@ -300,14 +339,19 @@ export class UserService {
     });
   }
 
-  async findOrCreateUser(user: {
-    name: string;
-    email: string;
-    provider: string;
-    providerId: string;
-    type: string;
-    avatarUrl?: string;
-  }) {
+  async findOrCreateUser(
+    user: {
+      name: string;
+      email: string;
+      provider: string;
+      providerId: string;
+      type: string;
+      avatarUrl?: string;
+    },
+    autoSpaceCreation: boolean = true,
+    onCreateNewUser?: () => void
+  ) {
+    let isNewUser = false;
     const res = await this.prismaService.$tx(async () => {
       const { email, name, provider, providerId, type, avatarUrl } = user;
       // account exist check
@@ -321,7 +365,11 @@ export class UserService {
       // user exist check
       const existUser = await this.getUserByEmail(email);
       if (existUser && existUser.isSystem) {
-        throw new UnauthorizedException('User is system user');
+        throw new CustomHttpException('User is system user', HttpErrorCode.UNAUTHORIZED, {
+          localization: {
+            i18nKey: 'httpErrors.user.systemUser',
+          },
+        });
       }
       if (!existUser) {
         const userId = generateUserId();
@@ -329,9 +377,14 @@ export class UserService {
         if (avatarUrl) {
           avatar = await this.uploadAvatarByUrl(userId, avatarUrl);
         }
+        isNewUser = true;
+        onCreateNewUser?.();
         return await this.createUserWithSettingCheck(
           { id: userId, email, name, avatar },
-          { provider, providerId, type }
+          { provider, providerId, type },
+          undefined,
+          undefined,
+          autoSpaceCreation
         );
       }
 
@@ -340,7 +393,7 @@ export class UserService {
       });
       return existUser;
     });
-    if (res) {
+    if (res && isNewUser) {
       this.eventEmitterService.emitAsync(Events.USER_SIGNUP, new UserSignUpEvent(res.id));
     }
     return res;

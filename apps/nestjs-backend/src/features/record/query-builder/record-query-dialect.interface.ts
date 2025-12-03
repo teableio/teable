@@ -77,7 +77,7 @@ export interface IRecordQueryDialectProvider {
    * //          FROM json_each(CASE WHEN json_valid(t.tags) THEN t.tags ELSE json('[]') END)
    * ```
    */
-  formatStringArray(expr: string): string;
+  formatStringArray(expr: string, opts?: { fieldInfo?: FieldCore }): string;
 
   /**
    * Format rating values: emit integer text if it is an integer; otherwise real as text.

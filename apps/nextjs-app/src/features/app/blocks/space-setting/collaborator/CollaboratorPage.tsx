@@ -6,8 +6,8 @@ import { useIsHydrated } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
+import { InviteSpacePopover } from '@/features/app/components/collaborator/space/InviteSpacePopover';
 import { Collaborators } from '@/features/app/components/collaborator-manage/space/Collaborators';
-import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { SpaceSettingContainer } from '@/features/app/components/SpaceSettingContainer';
 import { spaceConfig } from '@/features/i18n/space.config';
 
@@ -46,11 +46,11 @@ export const CollaboratorPage = () => {
             role={space.role}
             collaboratorQuery={{ includeBase: true }}
           >
-            <SpaceCollaboratorModalTrigger space={space}>
+            <InviteSpacePopover space={space}>
               <Button size="sm">
                 <UserPlus className="size-4" /> {t('space:action.invite')}
               </Button>
-            </SpaceCollaboratorModalTrigger>
+            </InviteSpacePopover>
           </Collaborators>
         </div>
       )}

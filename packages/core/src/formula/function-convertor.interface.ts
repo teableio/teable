@@ -1,4 +1,24 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import type { FieldType, DbFieldType } from '../models/field/constant';
 import type { FieldCore } from '../models/field/field';
+
+export type FormulaParamType = 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
+
+export interface IFormulaParamFieldMetadata {
+  id: string;
+  type?: FieldType;
+  cellValueType?: string;
+  isMultiple?: boolean;
+  isLookup?: boolean;
+  dbFieldName?: string;
+  dbFieldType?: DbFieldType;
+}
+
+export interface IFormulaParamMetadata {
+  type: FormulaParamType;
+  isFieldReference: boolean;
+  field?: IFormulaParamFieldMetadata;
+}
 
 /**
  * Generic field map type for formula conversion contexts
@@ -13,6 +33,7 @@ export type IFieldMap<T extends FieldCore = FieldCore> = Map<string, T>;
 export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   // Context management
   setContext(context: TContext): void;
+  setCallMetadata(metadata?: IFormulaParamMetadata[]): void;
   // Numeric Functions
   sum(params: string[]): TReturn;
   average(params: string[]): TReturn;
@@ -100,9 +121,9 @@ export interface ITeableToDbFunctionConverter<TReturn, TContext> {
   countA(params: string[]): TReturn;
   countAll(value: string): TReturn;
   arrayJoin(array: string, separator?: string): TReturn;
-  arrayUnique(array: string): TReturn;
-  arrayFlatten(array: string): TReturn;
-  arrayCompact(array: string): TReturn;
+  arrayUnique(arrays: string[]): TReturn;
+  arrayFlatten(arrays: string[]): TReturn;
+  arrayCompact(arrays: string[]): TReturn;
 
   // System Functions
   recordId(): TReturn;

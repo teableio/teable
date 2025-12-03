@@ -6,9 +6,9 @@ import type {
   IButtonFieldOptions,
   IMakeOptional,
 } from '@teable/core';
-import { FieldKeyType, FieldType } from '@teable/core';
+import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ICreateRecordsRo } from '@teable/openapi';
+import { ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -17,18 +17,20 @@ import type {
   IRecordHistoryVo,
   IRecordInsertOrderRo,
   IUpdateRecordRo,
-  IUpdateRecordsRo,
 } from '@teable/openapi';
 import { keyBy, pick } from 'lodash';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import { CustomHttpException } from '../../../custom.exception';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { createFieldInstanceByRaw } from '../../field/model/factory';
+import { TableDomainQueryService } from '../../table-domain';
 import { RecordModifyService } from '../record-modify/record-modify.service';
 import { RecordModifySharedService } from '../record-modify/record-modify.shared.service';
 import type { IRecordInnerRo } from '../record.service';
 import { RecordService } from '../record.service';
+import type { IUpdateRecordsInternalRo } from '../type';
 
 @Injectable()
 export class RecordOpenApiService {
@@ -38,7 +40,8 @@ export class RecordOpenApiService {
     private readonly attachmentsService: AttachmentsService,
     private readonly recordModifyService: RecordModifyService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
-    private readonly recordModifySharedService: RecordModifySharedService
+    private readonly recordModifySharedService: RecordModifySharedService,
+    private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   @retryOnDeadlock()
@@ -82,31 +85,19 @@ export class RecordOpenApiService {
   }
 
   @retryOnDeadlock()
-  async updateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    },
-    windowId?: string
-  ) {
-    return await this.recordModifyService.updateRecords(tableId, updateRecordsRo, windowId);
+  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo, windowId?: string) {
+    return await this.recordModifyService.updateRecords(
+      tableId,
+      updateRecordsRo as IUpdateRecordsInternalRo,
+      windowId
+    );
   }
 
-  async simpleUpdateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    }
-  ) {
-    return await this.recordModifyService.simpleUpdateRecords(tableId, updateRecordsRo);
+  async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {
+    return await this.recordModifyService.simpleUpdateRecords(
+      tableId,
+      updateRecordsRo as IUpdateRecordsInternalRo
+    );
   }
 
   async updateRecord(
@@ -134,7 +125,11 @@ export class RecordOpenApiService {
     );
 
     if (snapshots.length !== 1) {
-      throw new Error('update record failed');
+      throw new CustomHttpException('update record failed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.updateFailed',
+        },
+      });
     }
 
     return snapshots[0].data;
@@ -277,21 +272,37 @@ export class RecordOpenApiService {
         },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     if (field.type !== FieldType.Attachment) {
-      throw new BadRequestException('Field is not an attachment');
+      throw new CustomHttpException('Field is not an attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.notAttachment',
+        },
+      });
     }
 
     if (field.isComputed) {
-      throw new BadRequestException('Field is computed');
+      throw new CustomHttpException('Field is computed', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.field.isComputed',
+        },
+      });
     }
 
     const recordData = await this.recordService.getRecordsById(tableId, [recordId]);
     const record = recordData.records[0];
     if (!record) {
-      throw new NotFoundException(`Record ${recordId} not found`);
+      throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
     return record;
   }
@@ -304,7 +315,11 @@ export class RecordOpenApiService {
     fileUrl?: string
   ) {
     if (!file && !fileUrl) {
-      throw new BadRequestException('No file or URL provided');
+      throw new CustomHttpException('No file or URL provided', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.record.noFileOrUrlProvided',
+        },
+      });
     }
 
     const record = await this.getValidateAttachmentRecord(tableId, recordId, fieldId);
@@ -360,8 +375,14 @@ export class RecordOpenApiService {
     const options = fieldInstance.options as IButtonFieldOptions;
     const isActive = options.workflow && options.workflow.id && options.workflow.isActive;
     if (!isActive) {
-      throw new BadRequestException(
-        `Button field's workflow ${options.workflow?.id} is not active`
+      throw new CustomHttpException(
+        `Button field's workflow ${options.workflow?.id} is not active`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.workflow.notActive',
+          },
+        }
       );
     }
 
@@ -373,7 +394,15 @@ export class RecordOpenApiService {
     const fieldValue = record.fields[fieldId] as IButtonFieldCellValue;
     const count = fieldValue?.count || 0;
     if (maxCount > 0 && count >= maxCount) {
-      throw new BadRequestException(`Button click count ${count} reached max count ${maxCount}`);
+      throw new CustomHttpException(
+        `Button click count ${count} reached max count ${maxCount}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.button.clickCountReachedMaxCount',
+          },
+        }
+      );
     }
     const updatedRecord: IRecord = await this.updateRecord(tableId, recordId, {
       record: {
@@ -402,7 +431,15 @@ export class RecordOpenApiService {
     const fieldInstance = createFieldInstanceByRaw(fieldRaw);
     const fieldOptions = fieldInstance.options as IButtonFieldOptions;
     if (!fieldOptions.resetCount) {
-      throw new BadRequestException('Button field does not support reset');
+      throw new CustomHttpException(
+        'Button field does not support reset',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.button.notSupportReset',
+          },
+        }
+      );
     }
 
     return await this.updateRecord(tableId, recordId, {
@@ -415,7 +452,7 @@ export class RecordOpenApiService {
     });
   }
 
-  public validateFieldsAndTypecast<
+  public async validateFieldsAndTypecast<
     T extends {
       fields: Record<string, unknown>;
     },
@@ -426,8 +463,9 @@ export class RecordOpenApiService {
     typecast: boolean = false,
     ignoreMissingFields: boolean = false
   ) {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     return this.recordModifySharedService.validateFieldsAndTypecast(
-      tableId,
+      table,
       records,
       fieldKeyType,
       typecast,

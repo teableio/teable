@@ -12,7 +12,9 @@ on:
       - 'packages/core/**'
       - 'packages/sdk/**'
       - 'packages/openapi/**'
-
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   test:
     runs-on: ubuntu-latest

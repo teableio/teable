@@ -276,6 +276,8 @@
     "duplicateRecord": "复制记录",
     "copyRecordUrl": "复制记录链接",
     "deleteRecord": "删除记录",
+    "addRecordComment": "添加评论",
+    "viewRecordHistory": "查看记录历史",
     "recordHistory": {
       "hiddenRecordHistory": "隐藏记录历史",
       "showRecordHistory": "显示记录历史",
@@ -690,8 +692,8 @@
       "example": "CREATED_TIME() => \"2023-09-08 18:00:00\""
     },
     "LAST_MODIFIED_TIME": {
-      "summary": "返回用户在表格的非计算字段中进行的最近修改的日期和时间。",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "summary": "返回用户在表格的非计算字段中进行的最近修改的日期和时间，可选地传入一个字段以仅跟踪该列的更新。",
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "返回包括文本和空白在内的所有元素的数量。",
@@ -872,7 +874,6 @@
     "gatewayTimeout": "服务器未及时收到上游服务器的响应",
     "unknownErrorCode": "发生未知错误",
     "requestTimeout": "请求超时",
-    "viewNotFound": "请求的视图不存在",
     "failedDependency": "依赖操作失败",
     "automationNodeParseError": "自动化节点解析错误",
     "automationNodeNeedTest": "自动化节点需要测试",
@@ -883,28 +884,213 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" 字段不允许重复关联同一条记录",
       "requestTimeout": "当前操作范围过大，请缩小范围重新尝试",
       "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
-      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试"
+      "dependencyNodeRequire": "依赖节点未测试，请检查前置节点是否通过测试",
+      "invalidOperation": "检测到无效操作，请检查操作参数"
+    },
+    "comment": {
+      "listCountExceeded": "请求的评论数量超过最大限制 1000",
+      "invalidContentType": "无效的评论内容类型"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "令牌过期时间必须小于 7 天",
+      "s3RegionRequired": "S3 区域不能为空",
+      "s3EndpointRequired": "S3 端点不能为空",
+      "s3AccessKeyRequired": "S3 访问密钥不能为空",
+      "s3SecretKeyRequired": "S3 密钥不能为空",
+      "s3UploadMethodMustBePut": "S3 上传方法必须是 PUT",
+      "presignedError": "生成预签名 URL 失败",
+      "invalidObjectMeta": "无效的对象元数据",
+      "invalidImageStream": "无效的图片流",
+      "calculateImageSizeFailed": "计算图片大小失败",
+      "uploadFailed": "上传失败",
+      "invalidImage": "无效的图片",
+      "cantGetImageStream": "无法获取图片流",
+      "invalidProvider": "无效的存储提供商",
+      "failedToDeleteDirectory": "删除目录失败",
+      "invalidToken": "无效的令牌",
+      "tokenExpired": "令牌已过期",
+      "sizeMismatch": "文件大小不匹配",
+      "notAllowUploadFileType": "不允许上传 {{mimetype}} 文件类型",
+      "notFound": "附件不存在",
+      "invalidPath": "无效的附件路径",
+      "fileSizeExceedsMaximumLimit": "文件大小超过最大限制 {{maxSize}}",
+      "invalidUploadType": "无效的上传类型",
+      "urlReject": "URL 被拒绝或无法访问"
+    },
+    "email": {
+      "testEmailError": "Mail config error {{message}}"
+    },
+    "auth": {
+      "invalidConfirm": "确认输入无效",
+      "emailNotRegistered": "此邮箱尚未注册",
+      "passwordNotSet": "该账户尚未设置密码",
+      "systemUser": "这是系统用户账户",
+      "alreadyRegistered": "此邮箱已被注册",
+      "passwordIncorrect": "密码错误",
+      "tokenInvalid": "令牌无效或已过期",
+      "passwordAlreadyExists": "该账户已设置密码",
+      "verificationCodeInvalid": "验证码无效或已过期",
+      "newEmailSameAsCurrentEmail": "新邮箱地址与当前邮箱相同",
+      "emailAlreadyRegistered": "该邮箱地址已被注册",
+      "waitlistNotEnabled": "等待列表功能未启用",
+      "emailOrPasswordIncorrect": "邮箱或密码错误",
+      "accountDeactivated": "该账户已被管理员停用",
+      "accountLockedOut": "由于登录失败次数过多，您的账户已被锁定，请稍后再试"
     },
     "automation": {
       "buttonClickTriggerDuplicated": "该按钮字段已经和 {{name}}[{{id}}] 这个自动化流程绑定，请选择其他按钮字段",
-      "triggerNotFound": "触发器未找到",
+      "triggerNotFound": "自动化必须有一个触发器节点",
       "nodeNotFound": "{{nodeId}} 节点未找到",
-      "workflowNotFound": "{{workflowId}} 工作流未找到",
       "triggerTestFailed": "触发器测试失败, 请检查触发器配置",
-      "workflowTestFailed": "工作流测试失败, 请检查工作流配置",
+      "testFailed": "自动化测试失败, 请检查自动化配置",
       "nodeParseError": "{{name}} 节点配置未完成或者有错误，请检查该节点配置",
       "nodeNeedTest": "{{name}} 节点需要测试",
-      "nodeTestOutdated": "{{name}} 节点测试已过期"
+      "nodeTestOutdated": "{{name}} 节点测试已过期",
+      "notFound": "自动化未找到",
+      "currentSnapshotEmpty": "自动化当前快照为空",
+      "runNotFound": "自动化运行记录未找到",
+      "anchorNotFound": "锚点自动化未找到",
+      "validationError": "自动化配置验证错误",
+      "tableNotInBase": "您只能订阅当前数据库内的表格",
+      "alreadyActiveAndNotDraft": "自动化已激活且不是草稿状态",
+      "noActiveSnapshot": "自动化没有活动快照",
+      "triggerNodeAlreadyExists": "此自动化已存在触发器节点",
+      "unSupportLogicType": "不支持的逻辑类型",
+      "generateLogicError": "生成逻辑节点错误",
+      "logicNotFound": "自动化逻辑节点未找到",
+      "groupEndNotFound": "未找到对应逻辑的组结束节点",
+      "insertNodeError": "插入节点错误",
+      "actionNotFound": "自动化动作节点未找到",
+      "unSupportDuplicateWorkflowNodeType": "不支持复制此自动化节点类型",
+      "controlNodeNotBeTested": "控制节点不应被测试",
+      "invalidNodeType": "无效的节点类型",
+      "unsupportedCategory": "不支持的类别"
+    },
+    "space": {
+      "notFound": "空间不存在",
+      "noPermission": "您没有权限访问此空间",
+      "disallowSpaceCreation": "管理员已禁用空间创建功能",
+      "cannotChangeOnlyOwnerRole": "无法更改空间唯一所有者的角色",
+      "cannotDeleteOnlyOwner": "无法删除空间的唯一所有者",
+      "deleted": "空间已被删除",
+      "cannotOperate": "无法操作此空间，请确认空间中有组织成员且为所有者",
+      "notBelongToOrg": "此空间不属于该组织",
+      "invalidSpaceIds": "空间ID无效: {{spaceIds}}"
+    },
+    "base": {
+      "notFound": "数据库不存在",
+      "cannotAccess": "没有权限访问数据库 {{baseId}}",
+      "anchorNotFound": "锚点数据库 {{anchorId}} 不存在",
+      "baseAndSpaceMismatch": "数据库 {{baseId}} 与空间 {{spaceId}} 不匹配",
+      "templateNotFound": "模板 {{templateId}} 不存在"
+    },
+    "dashboard": {
+      "notFound": "仪表板不存在"
+    },
+    "plugin": {
+      "notFound": "插件不存在",
+      "notSupportInstallInView": "插件不支持在视图中安装",
+      "userNotFound": "插件用户不存在",
+      "invalidSecret": "无效的密钥",
+      "invalidRefreshToken": "无效的刷新令牌",
+      "anomalousToken": "异常令牌"
+    },
+    "pluginPanel": {
+      "notFound": "插件面板不存在"
+    },
+    "pluginInstall": {
+      "notFound": "插件未安装"
+    },
+    "share": {
+      "incorrectPassword": "密码错误",
+      "notAllowedToSubmit": "不允许提交表单",
+      "viewRequired": "此操作需要视图",
+      "hiddenFieldsSubmissionNotAllowed": "表单包含隐藏字段，不允许提交",
+      "submitRecordsError": "记录提交失败",
+      "notAllowedToCopy": "不允许复制",
+      "fieldHiddenNotAllowed": "字段已隐藏，无法访问",
+      "fieldTypeNotLinkField": "字段类型不是关联字段",
+      "fieldIdRequired": "字段 ID 不能为空",
+      "fieldNotUserRelatedField": "字段不是用户相关字段",
+      "viewTypeNotAllowed": "此视图类型不允许执行该操作"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "此共享视图未启用密码限制",
+      "shareViewNotFound": "共享视图不存在或已禁用分享",
+      "linkFieldNotFound": "关联字段不存在"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "您没有权限访问此视图",
+      "fieldPermissionNotAllowed": "您没有权限访问这些字段",
+      "recordPermissionNotAllowed": "您没有权限访问这些记录"
+    },
+    "pluginContextMenu": {
+      "notFound": "未找到插件右键菜单",
+      "anchorNotFound": "未找到插件右键菜单锚点"
+    },
+    "pluginChart": {
+      "queryNotFound": "未找到插件图表查询"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "不支持的数据库驱动：{{driver}}",
+      "onlyOwnerCanRemove": "只有数据库所有者可以移除数据库 {{baseId}} 的连接",
+      "onlyOwnerCanCreate": "只有数据库所有者可以创建数据库 {{baseId}} 的连接",
+      "roleNotExist": "数据库角色 {{role}} 不存在"
+    },
+    "baseQuery": {
+      "queryFailed": "查询失败：{{message}}",
+      "invalidJoinType": "无效的连接类型：{{joinType}}",
+      "tableNotFound": "在数据库 {{baseId}} 中未找到表 {{tableId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "不允许执行包含关键字 {{keyword}} 的 SQL",
+      "whiteListCheckError": "检查表访问时发生错误：{{message}}",
+      "databaseConnectionFailed": "数据库连接失败：{{message}}",
+      "executeQuerySqlFailed": "执行查询 SQL 失败：{{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "没有权限创建带有字段({{fields}})的记录",
       "deleteRecords": "没有权限删除记录({{recordIds}})",
       "readRecordWithDeniedFields": "没有权限在记录({{recordId}})中读取字段({{fields}})",
-      "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})"
+      "updateRecordWithDeniedFields": "没有权限在记录({{recordId}})中更新字段({{fields}})",
+      "checkIdNotExist": "权限检查ID不存在",
+      "userNotAdmin": "用户不是管理员",
+      "accessTokenNoPermission": "访问令牌没有所需的权限",
+      "invalidResource": "资源无效",
+      "notAllowedSpace": "您没有权限访问此空间",
+      "notAllowedBase": "您没有权限访问此数据库",
+      "notAllowedTables": "您没有权限访问表格({{tableIds}})",
+      "notAllowedOperationTable": "您没有权限操作此表格",
+      "notAllowedOperationRecord": "您没有权限操作此记录",
+      "notAllowedRecordUpdate": "您没有权限更新此记录",
+      "notAllowedOperationView": "您没有权限操作此视图",
+      "deniedByEnabledAuthorityMatrix": "权限矩阵已启用，操作被拒绝",
+      "invalidRequestPath": "请求路径无效",
+      "notAllowedOperation": "您没有权限执行此操作",
+      "notAllowedDepartment": "您没有权限访问此部门"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "默认角色未找到",
+      "alreadyDisabled": "权限矩阵已被禁用",
+      "alreadyEnabled": "权限矩阵已被启用",
+      "notFound": "权限矩阵未找到",
+      "primaryFieldCannotBeDisabledForRead": "主字段不能禁用读取权限",
+      "fieldDuplicated": "权限配置中存在重复字段",
+      "cannotSetRecordPermissionGroup": "不能设置此记录权限组合({{actions}})",
+      "notFoundBaseAndTable": "未找到数据库ID和表格ID",
+      "roleTablesShouldNotBeEmpty": "权限矩阵角色表不能为空"
+    },
+    "selection": {
+      "invalidReturnType": "无效的返回类型",
+      "exceedMaxReadRows": "超出最大读取行数限制",
+      "invalidCellValueType": "无效的单元格值类型",
+      "exceedMaxCopyCells": "超出最大复制单元格数限制",
+      "exceedMaxPasteCells": "超出最大粘贴单元格数限制"
     },
     "field": {
       "unsupportedFieldType": "不支持的字段类型 {{type}}",
       "unsupportedPrimaryFieldType": "不支持的字段类型 {{type}} 作为主字段",
+      "primaryFieldNotSupported": "字段类型不支持作为主字段",
       "calculateRecordNotFound": "计算 {{recordId}} 时未找到记录：{{value}}，字段ID：{{fieldId}}",
       "toRecordIdsOrFromRecordIdsRequired": "普通计算字段需要 toRecordIds 或 fromRecordIds",
       "recordFieldsRequired": "记录字段为空",
@@ -913,8 +1099,9 @@
       "dbFieldNameAlreadyExists": "数据库字段名 {{dbFieldName}} 已存在",
       "fieldValidationError": "字段 {{name}}[{{fieldId}}] 字段验证错误",
       "fieldNameAlreadyExists": "字段名 {{name}} 已存在",
-      "fieldNotFound": "字段 {{fieldId}} 不存在",
-      "fieldNotFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
+      "notFound": "字段不存在",
+      "fieldKeyTypeNotFound": "字段 \"{{fieldKeyType}}: {{missedFields}}\" 不存在",
+      "notFoundInTable": "字段 {{fieldId}} 不在表 {{tableId}} 中",
       "deleteFieldsNotFound": "删除字段 {{fieldIds}} 不在表 {{tableId}} 中",
       "lookupValuesShouldBeArray": "当链接字段为多选时，lookupValues 应为数组",
       "linkCellValuesShouldBeArray": "当链接字段为多选时，linkCellValues 应为数组",
@@ -942,13 +1129,184 @@
       "manyOneLinkCellValueCannotBeArray": "多对一关联字段的值不能是数组",
       "oneManyLinkCellValueShouldBeArray": "一对多关联字段的值应为数组",
       "manyManyLinkCellValueShouldBeArray": "多对多关联字段的值应为数组",
-      "foreignKeyDuplicate": "外键重复"
+      "foreignKeyDuplicate": "外键重复",
+      "onlyLinkFieldCanBeFiltered": "只能使用关联字段进行筛选",
+      "notLinkedToCurrentTable": "字段未关联到当前表",
+      "notAttachment": "字段不是附件字段",
+      "isComputed": "字段为计算字段，无法修改",
+      "notFoundAICofig": "字段没有AI配置",
+      "button": {
+        "clickCountReachedMaxCount": "按钮点击次数已达到最大限制",
+        "notSupportReset": "按钮不支持重置"
+      }
     },
     "view": {
-      "viewNotFound": "视图 {{viewId}} 不存在"
+      "notFound": "视图不存在",
+      "defaultViewNotFound": "默认视图不存在",
+      "propertyParseError": "视图属性解析失败",
+      "primaryFieldCannotBeHidden": "主字段不能被隐藏",
+      "filterUnsupportedFieldType": "筛选不支持的字段类型",
+      "sortUnsupportedFieldType": "排序不支持的字段类型",
+      "groupUnsupportedFieldType": "分组不支持的字段类型",
+      "anchorNotFound": "未找到锚点视图",
+      "notEnoughGapToShuffleRow": "没有足够的间隙来重新排列记录顺序",
+      "shareNotEnabled": "视图分享未启用",
+      "shareAlreadyEnabled": "视图分享已启用",
+      "shareAlreadyDisabled": "视图分享已禁用"
     },
     "billing": {
-      "insufficientCredit": "算力不足"
+      "insufficientCredit": "算力不足",
+      "exceedMaxRowLimit": "已超过最大行数限制 {{maxRowCount}}"
+    },
+    "aggregation": {
+      "searchQueryRequired": "搜索查询是必需的",
+      "maxSearchIndexResult": "最大搜索索引结果为 1000",
+      "queryCollectionMustBeTableId": "查询集合必须是表格 ID",
+      "searchTimeOut": "搜索超时，请尝试减少搜索范围重试",
+      "indexNotFound": "索引未找到",
+      "invalidStartDateFieldId": "开始日期字段 ID 无效",
+      "invalidEndDateFieldId": "结束日期字段 ID 无效",
+      "fieldMapRequired": "设置搜索时字段映射是必需的",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected 和 filterLinkCellCandidate 不能同时设置"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI 高级对话模型未设置",
+      "chatModelLgProviderNotSet": "AI 高级对话模型提供商未设置",
+      "chatModelSmNotSet": "AI 中级对话模型未设置",
+      "chatModelMdNotSet": "AI 基础对话模型未设置",
+      "configurationNotSet": "AI 配置未设置",
+      "unsupportedProvider": "不支持的 AI 模型提供商 {{type}}",
+      "providerConfigurationNotSet": "AI 模型提供商配置未设置",
+      "testLLMFailed": "LLM 连接测试失败",
+      "audioNotSupported": "此模型{{model}}不支持音频输入",
+      "imageNotSupported": "此模型{{model}}不支持图像输入",
+      "modelNotSet": "AI 模型未设置",
+      "unsupportedFileType": "不支持的文件类型 {{mimetype}}",
+      "unsupportedModelType": "不支持的模型类型",
+      "embeddingModelNotSet": "嵌入模型未设置",
+      "validateActionFailed": "验证字段AI操作失败",
+      "generateFailed": "AI生成失败",
+      "unsupportedActionType": "不支持的AI操作类型"
+    },
+    "role": {
+      "notFound": "角色不存在"
+    },
+    "collaborator": {
+      "alreadyExisted": "协作者已存在",
+      "notFound": "协作者不存在",
+      "userNotFoundInCollaborator": "在协作者中未找到用户",
+      "noPermissionToDelete": "您没有权限删除此协作者",
+      "noPermissionToUpdate": "您没有权限更新此协作者",
+      "noPermissionToOperateRole": "您没有权限操作此角色",
+      "alreadyExistedInBase": "协作者已在数据库中存在",
+      "userNotFound": "未找到用户：{{userIds}}",
+      "baseNotFound": "未找到数据库",
+      "noPermissionToAddRole": "您没有权限添加此角色的协作者",
+      "departmentNotFound": "部门未找到"
+    },
+    "table": {
+      "notFound": "表格不存在",
+      "dbTableNameAlreadyExists": "数据库表名已存在",
+      "anchorNotFound": "锚点表格不存在",
+      "notInTrash": "表格不在回收站中",
+      "notSupportTableIndex": "不支持的表格索引类型",
+      "createTableIndexError": "创建表格索引失败",
+      "dropTableIndexError": "删除表格索引失败",
+      "notFoundPrimaryField": "表格中未找到主字段"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} 视图类型不支持导出"
+    },
+    "import": {
+      "notSupportedFileFormat": "文件格式不支持，仅支持 {{supportType}}，您的文件内容类型是 {{fileFormat}}",
+      "notSupportedFileType": "不支持的导入文件类型",
+      "exceedMaxFieldsLength": "表格中的字段数不能超过 {{maxFieldsLength}}，当前为 {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "当前实例管理员已禁止空间邀请",
+      "invalidCode": "无效的邀请码",
+      "linkNotFound": "邀请链接不存在",
+      "linkExpired": "邀请链接已过期",
+      "limitExceeded": "您已达到每小时最大邀请次数限制"
+    },
+    "pin": {
+      "alreadyExists": "收藏已存在",
+      "notFound": "未找到收藏",
+      "anchorNotFound": "未找到锚点收藏"
+    },
+    "trash": {
+      "invalidResourceType": "无效的资源类型",
+      "notFound": "回收站项目未找到",
+      "parentSpaceTrashed": "无法恢复此数据库，因为其父空间也在回收站中",
+      "parentBaseOrSpaceTrashed": "无法恢复此表格，因为其父数据库或空间也在回收站中",
+      "tableNotFound": "表格回收站项目未找到"
+    },
+    "license": {
+      "invalid": "许可证无效",
+      "instanceIdMismatch": "传入的实例ID与当前实例ID不匹配",
+      "expired": "许可证已过期",
+      "userLimitExceeded": "当前实例的用户数量已超过许可证的席位限制。请停用一些用户或升级许可证"
+    },
+    "domainVerification": {
+      "notFound": "未找到域名验证码",
+      "invalidCode": "验证码无效",
+      "resendCooldown": "请等待1分钟后再请求新的验证码"
+    },
+    "organization": {
+      "notFound": "组织未找到",
+      "authenticationNotFound": "身份验证未找到",
+      "spaceShouldExist": "组织空间应该存在",
+      "emailsNotInOrgDomain": "这些邮箱{{emails}}不在组织域名内",
+      "emailNotSpaceUser": "邮箱不是空间用户"
+    },
+    "mail": {
+      "failedToSendEmail": "发送邮件失败"
+    },
+    "user": {
+      "disallowSignUp": "管理员已禁止当前实例的用户注册",
+      "waitlistInviteCodeRequired": "已启用等待列表，需要邀请码",
+      "waitlistInviteCodeInvalid": "已启用等待列表，邀请码无效",
+      "systemUser": "用户是系统用户",
+      "collaboratorsInSpaces": "用户在空间中有协作者（或在回收站中有已删除的空间）",
+      "notFound": "用户不存在",
+      "cannotDeleteAdmin": "无法删除管理员用户",
+      "cannotDeactivateAdmin": "无法停用管理员用户",
+      "cannotRemoveLastAdmin": "无法移除最后一个活跃管理员用户的管理员权限",
+      "permanentDeleted": "用户已被永久删除",
+      "cannotDeleteSelf": "无法删除自己",
+      "alreadyInDepartment": "用户{{userId}}已在目标部门中",
+      "emailsNotFound": "邮箱{{emails}}未找到",
+      "deleted": "用户{{userId}}已被删除",
+      "alreadyInOrg": "用户{{userId}}已在组织中",
+      "notInOrg": "用户{{userId}}不在组织中"
+    },
+    "record": {
+      "notFound": "记录不存在",
+      "deletedIdsNotFound": "部分待删除的记录未找到",
+      "updateFailed": "更新记录失败",
+      "noFileOrUrlProvided": "未提供文件或URL",
+      "createRecordsEmpty": "创建记录不能为空",
+      "duplicateFailed": "复制记录失败"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "单元格值验证失败"
+    },
+    "workflow": {
+      "notActive": "自动化未开启"
+    },
+    "lastVisit": {
+      "invalidResourceType": "无效的资源类型"
+    },
+    "template": {
+      "snapshotRequired": "此模板无法发布，因为缺少快照",
+      "sourceTemplateNotFound": "源模板不存在",
+      "noMinOrderFound": "未找到最小排序值"
+    },
+    "department": {
+      "parentNotFound": "父部门未找到",
+      "notFound": "部门未找到",
+      "cannotMoveToItself": "无法将部门移动到自身",
+      "cannotMoveToSub": "无法将部门移动到其子部门"
     }
   }
 }

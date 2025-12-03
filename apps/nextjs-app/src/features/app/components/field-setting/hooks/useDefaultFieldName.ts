@@ -130,6 +130,8 @@ export const useDefaultFieldName = () => {
           return t('field.default.checkbox.title');
         case FieldType.Button:
           return t('field.default.button.title');
+        case FieldType.Formula:
+          return t('field.default.formula.formula');
         case FieldType.Link: {
           const foreignTable = tables.find(
             (table) => table.id === (fieldRo.options as ILinkFieldOptionsRo).foreignTableId

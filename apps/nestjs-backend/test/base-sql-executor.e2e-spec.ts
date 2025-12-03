@@ -19,6 +19,7 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
     let baseId: string;
     let spaceId: string;
     let tableDbName: string;
+    let baseId2: string;
 
     beforeAll(async () => {
       const appCtx = await initApp();
@@ -31,6 +32,10 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
 
       baseId = await createBase({
         name: 'BaseSqlExecutorService test base',
+        spaceId,
+      }).then((base) => base.id);
+      baseId2 = await createBase({
+        name: 'BaseSqlExecutorService test base2',
         spaceId,
       }).then((base) => base.id);
 
@@ -61,13 +66,9 @@ describe.skipIf(globalThis.testConfig.driver === DriverClient.Sqlite)(
 
     it('read only role can read base', async () => {
       await expect(
-        baseSqlExecutorService.executeQuerySql(
-          globalThis.testConfig.baseId,
-          `select * from ${tableDbName}`,
-          {
-            projectionTableDbNames: [tableDbName.replaceAll('"', '')],
-          }
-        )
+        baseSqlExecutorService.executeQuerySql(baseId2, `select * from ${tableDbName}`, {
+          projectionTableDbNames: [tableDbName.replaceAll('"', '')],
+        })
       ).rejects.toThrow('ERROR: permission denied for schema');
     });
 

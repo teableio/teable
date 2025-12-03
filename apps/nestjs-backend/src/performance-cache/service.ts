@@ -3,7 +3,9 @@ import KeyvRedis from '@keyv/redis';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Keyv from 'keyv';
+import { floor } from 'lodash';
 import Redlock, { ExecutionError, ResourceLockedError } from 'redlock';
+import { CacheMetricsService } from './cache-metrics/metrics.service';
 import type { ICacheOptions, ICacheStats, IPerformanceCacheStore } from './types';
 
 @Injectable()
@@ -24,7 +26,10 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
   private readonly lockPrefix = 'perf:lock';
 
-  constructor(private readonly configService: ConfigService) {
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly cacheMetricsService: CacheMetricsService
+  ) {
     try {
       const redisUri = this.configService.get<string>('BACKEND_PERFORMANCE_CACHE');
 
@@ -42,7 +47,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       this.keyv = new Keyv({ namespace: 'teable_perf', store });
 
       this.keyv.on('error', (error) => {
-        this.logger.error('Performance cache connection error:', error);
+        this.logger.error(
+          `Performance cache connection error: ${error instanceof Error ? error.message : String(error)}`
+        );
         this.stats.errors++;
       });
 
@@ -58,16 +65,20 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       this.redlock.on('error', (error) => {
         // Check if it's a ResourceLockedError (normal during contention)
         if (error.name === 'ResourceLockedError') {
-          this.logger.debug('Resource locked (normal contention):', error.message);
+          this.logger.debug(`Resource locked (normal contention): ${error.message}`);
         } else {
-          this.logger.error('Redlock error:', error);
+          this.logger.error(
+            `Redlock error: ${error instanceof Error ? error.message : String(error)}`
+          );
           this.stats.errors++;
         }
       });
 
       this.logger.log('Performance cache initialized with Redis and Redlock');
     } catch (error) {
-      this.logger.error('Failed to initialize performance cache:', error);
+      this.logger.error(
+        `Failed to initialize performance cache: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.stats.errors++;
     }
   }
@@ -80,6 +91,13 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     if (type === 'hits') stats.hits++;
     else stats.misses++;
     this.typeStats[cacheType] = stats;
+    type === 'hits'
+      ? this.cacheMetricsService.recordHit(cacheType)
+      : this.cacheMetricsService.recordMiss(cacheType);
+    this.cacheMetricsService.recordHitRate(
+      cacheType,
+      floor(stats.hits / Math.max(stats.hits + stats.misses, 1), 4) * 100
+    );
   }
 
   /**
@@ -108,7 +126,11 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       return null;
     }
     try {
+      const startTime = Date.now();
       const value = await this.keyv.get(key as string);
+      const endTime = Date.now();
+      const durationMs = endTime - startTime;
+      options.statsType && this.cacheMetricsService.recordGetTime(options.statsType, durationMs);
       if (value == undefined) {
         this.stats.misses++;
         this.recordTypeStats('misses', options.statsType);
@@ -147,8 +169,11 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
       await this.setValueToKeyv(key as string, value, ttlMs);
       this.stats.sets++;
     } catch (error) {
-      this.logger.error('Error setting cache value:', error);
+      this.logger.error(
+        `Error setting cache value: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.stats.errors++;
+      console.error(error);
     }
   }
 
@@ -193,7 +218,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
         return value as T[TKey];
       });
     } catch (error) {
-      this.logger.error('Error getting multiple cache values:', error);
+      this.logger.error(
+        `Error getting multiple cache values: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.stats.errors++;
       return keys.map(() => null);
     }
@@ -219,7 +246,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
 
       this.stats.sets += keyValuePairs.length;
     } catch (error) {
-      this.logger.error('Error setting multiple cache values:', error);
+      this.logger.error(
+        `Error setting multiple cache values: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.stats.errors++;
     }
   }
@@ -237,7 +266,9 @@ export class PerformanceCacheService<T extends IPerformanceCacheStore = IPerform
     try {
       await this.keyv.clear();
     } catch (error) {
-      this.logger.error('Error deleting cache pattern:', error);
+      this.logger.error(
+        `Error deleting cache pattern: ${error instanceof Error ? error.message : String(error)}`
+      );
       this.stats.errors++;
     }
   }

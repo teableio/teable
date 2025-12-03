@@ -1,11 +1,13 @@
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider, LLMProviderType } from '@teable/openapi';
 import { IntegrationType, SettingKey, Task } from '@teable/openapi';
 import type { LanguageModelV1 } from 'ai';
 import { generateText, streamText } from 'ai';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
+import { CustomHttpException } from '../../custom.exception';
 import { SettingService } from '../setting/setting.service';
 import { getAdaptedProviderOptions, getTaskModelKey, modelProviders } from './util';
 
@@ -32,7 +34,15 @@ export class AiService {
     );
 
     if (!providerConfig) {
-      throw new Error('AI provider configuration is not set');
+      throw new CustomHttpException(
+        'AI provider configuration is not set',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.providerConfigurationNotSet',
+          },
+        }
+      );
     }
 
     const { baseUrl, apiKey } = providerConfig;
@@ -63,7 +73,11 @@ export class AiService {
     const { type, model, baseUrl, apiKey } = await this.getModelConfig(modelKey, llmProviders);
 
     if (!baseUrl || !apiKey) {
-      throw new Error('AI configuration is not set');
+      throw new CustomHttpException('AI configuration is not set', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.ai.configurationNotSet',
+        },
+      });
     }
 
     const provider = Object.entries(modelProviders).find(([key]) =>
@@ -71,7 +85,18 @@ export class AiService {
     )?.[1];
 
     if (!provider) {
-      throw new Error(`Unsupported AI provider: ${type}`);
+      throw new CustomHttpException(
+        `Unsupported AI provider: ${type}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.unsupportedProvider',
+            context: {
+              type,
+            },
+          },
+        }
+      );
     }
 
     const providerOptions = getAdaptedProviderOptions(type as LLMProviderType, {
@@ -97,7 +122,11 @@ export class AiService {
     const { aiConfig } = await this.settingService.getSetting();
 
     if (!aiIntegrationConfig && (!aiConfig || !aiConfig.enable)) {
-      throw new Error('AI configuration is not set');
+      throw new CustomHttpException('AI configuration is not set', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.ai.configurationNotSet',
+        },
+      });
     }
 
     if (!aiIntegrationConfig) {
@@ -265,7 +294,11 @@ export class AiService {
   async getChatModelInstance(baseId: string) {
     const { chatModel, llmProviders } = await this.getAIConfig(baseId);
     if (!chatModel?.lg) {
-      throw new Error('AI chat model lg is not set');
+      throw new CustomHttpException('AI chat model lg is not set', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.ai.chatModelLgNotSet',
+        },
+      });
     }
     const { type, model, name } = this.parseModelKey(chatModel?.lg);
     const lgProvider = llmProviders.find(
@@ -275,13 +308,29 @@ export class AiService {
         p.models.includes(model)
     );
     if (!lgProvider) {
-      throw new Error('AI provider configuration is not set');
+      throw new CustomHttpException(
+        'AI chat model lg provider is not set',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.ai.chatModelLgProviderNotSet',
+          },
+        }
+      );
     }
     if (!chatModel?.sm) {
-      throw new Error('AI chat model sm is not set');
+      throw new CustomHttpException('AI chat model sm is not set', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.ai.chatModelSmNotSet',
+        },
+      });
     }
     if (!chatModel?.md) {
-      throw new Error('AI chat model md is not set');
+      throw new CustomHttpException('AI chat model md is not set', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.ai.chatModelMdNotSet',
+        },
+      });
     }
 
     return {

@@ -6,7 +6,8 @@
     "invite": "Davet et"
   },
   "allSpaces": "Tüm alanlar",
-  "spaceIsEmpty": "Bu alan boş",
+  "emptySpaceTitle": "Bu alanda veritabanı yok",
+  "spaceIsEmpty": "Verimli veri yönetimi yolculuğunuza başlamak için şimdi bir veritabanı oluşturun",
   "baseModal": {
     "copy": "Kopyala",
     "duplicate": "\"{{baseName}}\" çoğalt",

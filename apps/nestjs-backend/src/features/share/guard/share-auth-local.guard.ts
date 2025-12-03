@@ -1,5 +1,7 @@
 import type { CanActivate, ExecutionContext } from '@nestjs/common';
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
+import { CustomHttpException } from '../../../custom.exception';
 import { ShareAuthService } from '../share-auth.service';
 
 @Injectable()
@@ -14,7 +16,11 @@ export class ShareAuthLocalGuard implements CanActivate {
     req.shareId = authShareId;
     req.password = password;
     if (!authShareId) {
-      throw new BadRequestException('Incorrect password.');
+      throw new CustomHttpException('Incorrect password.', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.share.incorrectPassword',
+        },
+      });
     }
     return true;
   }

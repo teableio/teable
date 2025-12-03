@@ -359,13 +359,20 @@ export class EvalVisitor
     rightTypedValue: TypedValue
   ): boolean {
     return (
-      this.isStringLikeTypedValue(leftTypedValue) || this.isStringLikeTypedValue(rightTypedValue)
+      this.isStringLikeTypedValue(leftTypedValue) ||
+      this.isStringLikeTypedValue(rightTypedValue) ||
+      this.isNumericLikeTypedValue(leftTypedValue) ||
+      this.isNumericLikeTypedValue(rightTypedValue)
     );
   }
 
   private normalizeBlankEqualityValue(typedValue: TypedValue, value: unknown) {
     if (value == null && this.isStringLikeTypedValue(typedValue)) {
       return '';
+    }
+
+    if (value == null && this.isNumericLikeTypedValue(typedValue)) {
+      return 0;
     }
 
     return value;
@@ -377,6 +384,18 @@ export class EvalVisitor
     }
 
     if (typedValue.field?.cellValueType === CellValueType.String) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private isNumericLikeTypedValue(typedValue: TypedValue): boolean {
+    if (typedValue.type === CellValueType.Number) {
+      return true;
+    }
+
+    if (typedValue.field?.cellValueType === CellValueType.Number) {
       return true;
     }
 

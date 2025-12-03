@@ -1,4 +1,4 @@
-import type { FieldCore, IFilter, IGroup, ISortItem, TableDomain } from '@teable/core';
+import type { FieldCore, IFilter, IGroup, ISortItem, TableDomain, Tables } from '@teable/core';
 import type { IAggregationField } from '@teable/openapi';
 import type { Knex } from 'knex';
 import type { IFieldSelectName } from './field-select.type';
@@ -26,6 +26,11 @@ export interface ICreateRecordQueryBuilderOptions {
   useQueryModel?: boolean;
   /** Limit SELECT to these field IDs (plus system columns) */
   projection?: string[];
+  /**
+   * Optional mapping of tableId -> fieldIds to further limit link/lookup CTE generation
+   * on related tables. If omitted, all dependent lookups on foreign tables are considered.
+   */
+  projectionByTable?: Record<string, string[]>;
   /** Optional pagination limit (take) */
   limit?: number;
   /** Optional pagination offset (skip) */
@@ -49,6 +54,10 @@ export interface ICreateRecordQueryBuilderOptions {
    * Useful when the caller intends to apply a final WHERE IN "__id" (...) filter anyway.
    */
   restrictRecordIds?: string[];
+  /**
+   * Optional table domain graph to reuse when building the query.
+   */
+  tables?: Tables;
 }
 
 /**

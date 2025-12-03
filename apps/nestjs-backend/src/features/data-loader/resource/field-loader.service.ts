@@ -76,6 +76,39 @@ export class FieldLoaderService extends TableCommonLoader<IFieldLoaderItem> {
     console.log(`cacheSet: ${this.cacheSet}, loadCount: ${this.loadCount}`);
   }
 
+  invalidateTables(tableIds: string | string[]) {
+    if (!this.cls.isActive() || !this.isEnable?.()) {
+      return;
+    }
+
+    const ids = (Array.isArray(tableIds) ? tableIds : [tableIds]).filter(Boolean);
+    if (!ids.length) {
+      return;
+    }
+
+    const loaderData = this.cls.get('dataLoaderCache.fieldData');
+    if (!loaderData) {
+      return;
+    }
+
+    const { dataMap, fullParentIds } = loaderData;
+
+    if (fullParentIds?.length) {
+      loaderData.fullParentIds = fullParentIds.filter((parentId) => !ids.includes(parentId));
+    }
+
+    if (dataMap?.size) {
+      const tableIdSet = new Set(ids);
+      for (const [fieldId, field] of dataMap.entries()) {
+        if (field?.tableId && tableIdSet.has(field.tableId)) {
+          dataMap.delete(fieldId);
+        }
+      }
+    }
+
+    this.cls.set('dataLoaderCache.fieldData', loaderData);
+  }
+
   resetStat() {
     this.cacheSet = 0;
     this.loadCount = 0;

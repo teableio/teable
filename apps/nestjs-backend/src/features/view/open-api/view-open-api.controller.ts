@@ -56,6 +56,7 @@ import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
+import { TableDomainQueryService } from '../../table-domain';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
 
@@ -63,7 +64,8 @@ import { ViewOpenApiService } from './view-open-api.service';
 export class ViewOpenApiController {
   constructor(
     private readonly viewService: ViewService,
-    private readonly viewOpenApiService: ViewOpenApiService
+    private readonly viewOpenApiService: ViewOpenApiService,
+    protected readonly tableDomainQueryService: TableDomainQueryService
   ) {}
 
   @Permissions('view|read')
@@ -275,8 +277,9 @@ export class ViewOpenApiController {
     updateRecordOrdersRo: IUpdateRecordOrdersRo,
     @Headers('x-window-id') windowId?: string
   ): Promise<void> {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     return await this.viewOpenApiService.updateRecordOrders(
-      tableId,
+      table,
       viewId,
       updateRecordOrdersRo,
       windowId

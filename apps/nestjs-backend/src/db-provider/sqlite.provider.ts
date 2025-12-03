@@ -375,8 +375,16 @@ export class SqliteProvider implements IDbProvider {
     subQuery: Knex.QueryBuilder;
     dbFieldNames: string[];
     returningDbFieldNames?: string[];
+    restrictRecordIds?: string[];
   }): string {
-    const { dbTableName, idFieldName, subQuery, dbFieldNames, returningDbFieldNames } = params;
+    const {
+      dbTableName,
+      idFieldName,
+      subQuery,
+      dbFieldNames,
+      returningDbFieldNames,
+      restrictRecordIds,
+    } = params;
     const subQuerySql = subQuery.toQuery();
     const wrap = (id: string) => this.knex.client.wrapIdentifier(id);
     const setClause = dbFieldNames
@@ -390,9 +398,15 @@ export class SqliteProvider implements IDbProvider {
     const returning = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)]
       .map((c) => wrap(c))
       .join(', ');
+    const restrictClause =
+      restrictRecordIds && restrictRecordIds.length
+        ? ` AND ${dbTableName}.${wrap(idFieldName)} IN (${restrictRecordIds
+            .map((id) => `'${id.replace(/'/g, "''")}'`)
+            .join(', ')})`
+        : '';
     return `UPDATE ${dbTableName} SET ${setClause} WHERE EXISTS (SELECT 1 FROM (${subQuerySql}) AS s WHERE s.${wrap(
       idFieldName
-    )} = ${dbTableName}.${wrap(idFieldName)}) RETURNING ${returning}`;
+    )} = ${dbTableName}.${wrap(idFieldName)})${restrictClause} RETURNING ${returning}`;
   }
 
   aggregationQuery(

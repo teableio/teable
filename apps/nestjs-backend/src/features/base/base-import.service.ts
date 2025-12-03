@@ -1,5 +1,6 @@
 import type { Readable } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import {
   FieldType,
   generateBaseId,
@@ -27,6 +28,7 @@ import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -52,7 +54,8 @@ export class BaseImportService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   private async getMaxOrder(spaceId: string) {
@@ -126,6 +129,19 @@ export class BaseImportService {
       fkMap,
       structure
     );
+
+    // emit base import complete event for audit log
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    this.logger.log(`Base import structure completed, emitting event for baseId: ${base.id}`);
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitter.emitAsync(Events.BASE_IMPORT_COMPLETE, {
+        importBaseRo,
+      });
+    });
 
     return {
       base,

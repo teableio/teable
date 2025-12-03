@@ -1,13 +1,9 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { FieldType } from '@teable/core';
+import { FieldType, HttpErrorCode } from '@teable/core';
 import type { IViewVo, IShareViewMeta, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { CustomHttpException } from '../../custom.exception';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
@@ -52,7 +48,15 @@ export class ShareAuthService {
     const shareMeta = view.shareMeta ? (JSON.parse(view.shareMeta) as IShareViewMeta) : undefined;
     const password = shareMeta?.password;
     if (!password) {
-      throw new BadRequestException('Password restriction is not enabled');
+      throw new CustomHttpException(
+        'Password restriction is not enabled',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.shareAuth.passwordRestrictionNotEnabled',
+          },
+        }
+      );
     }
     return pass === password ? shareId : null;
   }
@@ -66,7 +70,11 @@ export class ShareAuthService {
       where: { shareId, enableShare: true, deletedTime: null },
     });
     if (!view) {
-      throw new BadRequestException('share view not found');
+      throw new CustomHttpException('Share view not found', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.shareAuth.shareViewNotFound',
+        },
+      });
     }
     const viewVo = createViewVoByRaw(view);
     return {
@@ -80,16 +88,34 @@ export class ShareAuthService {
   async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
-        where: { id: linkFieldId, deletedTime: null },
+        where: {
+          id: linkFieldId,
+          deletedTime: null,
+        },
       })
       .catch((_err) => {
-        throw new NotFoundException(`Field ${linkFieldId} not exist`);
+        throw new CustomHttpException(
+          `Link field ${linkFieldId} not exist`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.shareAuth.linkFieldNotFound',
+            },
+          }
+        );
       });
 
     const field = createFieldInstanceByRaw(fieldRaw);
-
     if (field.type !== FieldType.Link) {
-      throw new BadRequestException('field is not a link field');
+      throw new CustomHttpException(
+        'Field is not a link field',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldTypeNotLinkField',
+          },
+        }
+      );
     }
 
     // make sure user has permission to access the table where the link field from

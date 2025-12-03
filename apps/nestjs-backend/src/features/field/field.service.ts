@@ -39,6 +39,7 @@ import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { convertNameToValidCharacter } from '../../utils/name-conversion';
 import { BatchService } from '../calculation/batch.service';
 
+import { DataLoaderService } from '../data-loader/data-loader.service';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
 import { FormulaFieldService } from './field-calculate/formula-field.service';
 import { LinkFieldQueryService } from './field-calculate/link-field-query.service';
@@ -60,6 +61,7 @@ export class FieldService implements IReadonlyAdapterService {
   constructor(
     private readonly batchService: BatchService,
     private readonly prismaService: PrismaService,
+    private readonly dataLoaderService: DataLoaderService,
     private readonly cls: ClsService<IClsStore>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
@@ -68,6 +70,14 @@ export class FieldService implements IReadonlyAdapterService {
     private readonly linkFieldQueryService: LinkFieldQueryService,
     private readonly tableDomainQueryService: TableDomainQueryService
   ) {}
+
+  private invalidateFieldLoader(tableIds: string | string[]) {
+    const ids = (Array.isArray(tableIds) ? tableIds : [tableIds]).filter(Boolean);
+    if (!ids.length) {
+      return;
+    }
+    this.dataLoaderService.field.invalidateTables(ids);
+  }
 
   async generateDbFieldName(tableId: string, name: string): Promise<string> {
     let dbFieldName = convertNameToValidCharacter(name, 40);
@@ -161,11 +171,13 @@ export class FieldService implements IReadonlyAdapterService {
       createdBy: userId,
     };
 
-    return this.prismaService.txClient().field.upsert({
+    const field = await this.prismaService.txClient().field.upsert({
       where: { id: data.id },
       create: data,
       update: { ...data, deletedTime: null, version: undefined },
     });
+    this.invalidateFieldLoader(tableId);
+    return field;
   }
 
   private async dbCreateFields(tableId: string, fieldInstances: IFieldInstance[]) {
@@ -239,9 +251,11 @@ export class FieldService implements IReadonlyAdapterService {
         })
       );
 
-    return this.prismaService.txClient().field.createMany({
+    const result = await this.prismaService.txClient().field.createMany({
       data: data,
     });
+    this.invalidateFieldLoader(tableId);
+    return result;
   }
 
   async dbCreateMultipleField(tableId: string, fieldInstances: IFieldInstance[]) {
@@ -658,7 +672,7 @@ export class FieldService implements IReadonlyAdapterService {
         HttpErrorCode.NOT_FOUND,
         {
           localization: {
-            i18nKey: 'httpErrors.field.fieldNotFoundInTable',
+            i18nKey: 'httpErrors.field.notFoundInTable',
             context: { tableId, fieldId },
           },
         }
@@ -710,8 +724,7 @@ export class FieldService implements IReadonlyAdapterService {
       if (!curView) {
         throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
-            i18nKey: 'httpErrors.view.viewNotFound',
-            context: { viewId },
+            i18nKey: 'httpErrors.view.notFound',
           },
         });
       }
@@ -1037,6 +1050,7 @@ export class FieldService implements IReadonlyAdapterService {
     });
     const fieldInstances = fieldsRaw.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     await this.alterTableDeleteField(dbTableName, fieldInstances, operationType);
+    this.invalidateFieldLoader(tableId);
   }
 
   async del(version: number, tableId: string, fieldId: string) {
@@ -1173,6 +1187,9 @@ export class FieldService implements IReadonlyAdapterService {
     // Persist meta after potential schema modifications that may set it (e.g., formula generated columns)
     if (newField.meta !== undefined) {
       result.meta = JSON.stringify(newField.meta);
+    } else if (oldField.meta !== undefined) {
+      // Explicitly clear meta when schema updates drop generated columns
+      result.meta = null;
     }
 
     await this.prismaService.txClient().field.update({
@@ -1182,6 +1199,7 @@ export class FieldService implements IReadonlyAdapterService {
 
     // Handle dependent formula fields after field update
     await this.handleDependentFormulaFields(tableId, newField, opContexts);
+    this.invalidateFieldLoader(tableId);
   }
 
   async getSnapshotBulk(tableId: string, ids: string[]): Promise<ISnapshotBase<IFieldVo>[]> {

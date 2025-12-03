@@ -83,8 +83,17 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
    * Format multiple string values (like multiple select) to comma-separated string
    * Also handles link field arrays with objects containing id and title
    */
-  private formatMultipleStringValues(): string {
-    return this.dialect.formatStringArray(this.fieldExpression);
+  private formatMultipleStringValues(
+    field?:
+      | SingleSelectFieldCore
+      | MultipleSelectFieldCore
+      | UserFieldCore
+      | CreatedByFieldCore
+      | LastModifiedByFieldCore
+      | FormulaFieldCore
+  ): string {
+    const fieldInfo = field ? { fieldInfo: field } : undefined;
+    return this.dialect.formatStringArray(this.fieldExpression, fieldInfo);
   }
 
   visitSingleLineTextField(_field: SingleLineTextFieldCore): string {
@@ -191,7 +200,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
       )
       .with({ cellValueType: CellValueType.String, isMultipleCellValue: true }, () => {
         // For multiple-value string fields (like multiple select), convert array to comma-separated string
-        return this.formatMultipleStringValues();
+        return this.formatMultipleStringValues(field);
       })
       .otherwise(() => {
         // For other cell value types (single String, Boolean), return as-is
@@ -211,7 +220,7 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
 
   visitUserField(_field: UserFieldCore): string {
     if (_field.isMultipleCellValue) {
-      return this.formatMultipleStringValues();
+      return this.formatMultipleStringValues(_field);
     }
     return this.dialect.jsonTitleFromExpr(this.fieldExpression);
   }

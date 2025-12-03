@@ -2,10 +2,12 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Knex } from 'knex';
+import { Knex } from 'knex';
 import { match } from 'ts-pattern';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { retryOnDeadlock } from '../../../../utils/retry-decorator';
+import { Timing } from '../../../../utils/timing';
 import { AUTO_NUMBER_FIELD_NAME } from '../../../field/constant';
 import type { IFieldInstance } from '../../../field/model/factory';
 import type { FormulaFieldDto } from '../../../field/model/field-dto/formula-field.dto';
@@ -30,6 +32,9 @@ export class RecordComputedUpdateService {
   private getUpdatableColumns(fields: IFieldInstance[]): string[] {
     const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
       f.type === FieldType.Formula;
+    const isPersistedGenerated = (f: IFieldInstance) =>
+      (f as { meta?: { persistedAsGeneratedColumn?: boolean } }).meta
+        ?.persistedAsGeneratedColumn === true;
 
     return fields
       .filter((f) => {
@@ -40,7 +45,12 @@ export class RecordComputedUpdateService {
         const hasError = (f as unknown as { hasError?: boolean }).hasError;
         const isLookupStyle = (f as unknown as { isLookup?: boolean }).isLookup === true;
         const isRollup = f.type === FieldType.Rollup || f.type === FieldType.ConditionalRollup;
-        if (hasError && !isLookupStyle && !isRollup) return false;
+        if (hasError && !isLookupStyle && !isRollup) {
+          // Only keep errored formulas in the updatable set when they are NOT persisted
+          // as generated columns (so we can null-out regular columns after dependency deletion).
+          if (f.type !== FieldType.Formula) return false;
+          if (isFormulaField(f) && f.getIsPersistedAsGeneratedColumn()) return false;
+        }
         // Persist lookup-of-link as well (computed link columns should be stored).
         // We rely on query builder to ensure subquery column types match target columns (e.g., jsonb).
         // Skip formula persisted as generated columns
@@ -49,8 +59,11 @@ export class RecordComputedUpdateService {
           .with({ type: FieldType.AutoNumber }, () => false)
           .with({ type: FieldType.CreatedTime }, () => isLookupStyle)
           .with({ type: FieldType.LastModifiedTime }, () => isLookupStyle)
-          .with({ type: FieldType.CreatedBy }, () => isLookupStyle)
-          .with({ type: FieldType.LastModifiedBy }, () => isLookupStyle)
+          .with({ type: FieldType.CreatedBy }, (f) => isLookupStyle || !isPersistedGenerated(f))
+          .with(
+            { type: FieldType.LastModifiedBy },
+            (f) => isLookupStyle || !isPersistedGenerated(f)
+          )
           .otherwise(() => true);
       })
       .map((f) => f.dbFieldName);
@@ -59,6 +72,9 @@ export class RecordComputedUpdateService {
   private getReturningColumns(fields: IFieldInstance[]): string[] {
     const isFormulaField = (f: IFieldInstance): f is FormulaFieldDto =>
       f.type === FieldType.Formula;
+    const isPersistedGenerated = (f: IFieldInstance) =>
+      (f as { meta?: { persistedAsGeneratedColumn?: boolean } }).meta
+        ?.persistedAsGeneratedColumn === true;
     const cols: string[] = [];
     for (const f of fields) {
       if (
@@ -66,7 +82,8 @@ export class RecordComputedUpdateService {
         (f.type === FieldType.CreatedBy ||
           f.type === FieldType.LastModifiedBy ||
           f.type === FieldType.CreatedTime ||
-          f.type === FieldType.LastModifiedTime)
+          f.type === FieldType.LastModifiedTime) &&
+        isPersistedGenerated(f)
       ) {
         continue;
       }
@@ -93,12 +110,33 @@ export class RecordComputedUpdateService {
     return Array.from(new Set(cols));
   }
 
+  @Timing()
+  private async lockRestrictRecords(dbTableName: string, recordIds?: string[]) {
+    if (!recordIds?.length) {
+      return;
+    }
+    if (typeof this.dbProvider.lockRecordsSql !== 'function') {
+      return;
+    }
+    const sql = this.dbProvider.lockRecordsSql({
+      dbTableName,
+      idFieldName: '__id',
+      recordIds,
+    });
+    if (!sql) {
+      return;
+    }
+    await this.prismaService.txClient().$queryRawUnsafe(sql);
+  }
+
+  @retryOnDeadlock()
   async updateFromSelect(
     tableId: string,
     qb: Knex.QueryBuilder,
-    fields: IFieldInstance[]
+    fields: IFieldInstance[],
+    opts?: { restrictRecordIds?: string[]; dbTableName?: string }
   ): Promise<Array<{ __id: string; __version: number } & Record<string, unknown>>> {
-    const dbTableName = await this.getDbTableName(tableId);
+    const dbTableName = opts?.dbTableName ?? (await this.getDbTableName(tableId));
 
     const columnNames = this.getUpdatableColumns(fields);
     const returningNames = this.getReturningColumns(fields);
@@ -112,7 +150,7 @@ export class RecordComputedUpdateService {
             Array<{ __id: string; __version: number } & Record<string, unknown>>
           >(selectSql);
       } catch (error) {
-        this.handleRawQueryError(error, selectSql, fields);
+        this.handleRawQueryError(error, selectSql, tableId, fields);
       }
     }
 
@@ -120,12 +158,25 @@ export class RecordComputedUpdateService {
       new Set([...returningNames, AUTO_NUMBER_FIELD_NAME])
     );
 
+    const restrictRecordIdsRaw = opts?.restrictRecordIds?.filter(
+      (id): id is string => typeof id === 'string' && id.length > 0
+    );
+    const restrictRecordIds =
+      restrictRecordIdsRaw && restrictRecordIdsRaw.length
+        ? Array.from(new Set(restrictRecordIdsRaw))
+        : undefined;
+
+    // Acquire row-level locks in a deterministic order to avoid deadlocks when multiple
+    // computed updates touch the same set of records concurrently.
+    await this.lockRestrictRecords(dbTableName, restrictRecordIds);
+
     const sql = this.dbProvider.updateFromSelectSql({
       dbTableName,
       idFieldName: '__id',
       subQuery: qb,
       dbFieldNames: columnNames,
       returningDbFieldNames: returningWithAutoNumber,
+      restrictRecordIds,
     });
     this.logger.debug('updateFromSelect SQL:', sql);
     try {
@@ -133,7 +184,7 @@ export class RecordComputedUpdateService {
         .txClient()
         .$queryRawUnsafe<Array<{ __id: string; __version: number } & Record<string, unknown>>>(sql);
     } catch (error) {
-      this.handleRawQueryError(error, sql, fields);
+      this.handleRawQueryError(error, sql, tableId, fields);
     }
   }
 
@@ -165,25 +216,37 @@ export class RecordComputedUpdateService {
     }
   }
 
-  private handleRawQueryError(error: unknown, sql: string, fields: IFieldInstance[]): never {
+  private handleRawQueryError(
+    error: unknown,
+    sql: string,
+    tableId: string,
+    fields: IFieldInstance[]
+  ): never {
     const fieldSnapshot = this.buildFieldDebugSnapshot(fields);
     const fieldSnapshotString = this.stringifyFieldDebugSnapshot(fieldSnapshot);
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
       this.logger.error(
-        `updateFromSelect known request error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+        `updateFromSelect known request error.
+        message: ${error.message}.
+        SQL: ${sql}.
+        Fields: ${fieldSnapshotString}`,
         error.stack ?? undefined
       );
       throw error;
     }
     this.logger.error(
-      `updateFromSelect unexpected query error. SQL: ${sql}. Fields: ${fieldSnapshotString}`,
+      `updateFromSelect unexpected query error.
+      message: ${(error as Error)?.message}.
+      SQL: ${sql}.
+      tableId: ${tableId}.
+      Fields: ${fieldSnapshotString}`,
       (error as Error)?.stack
     );
     if (error instanceof Error) {
-      error.message = `${error.message}\nSQL: ${sql}\nFields: ${fieldSnapshotString}`;
-      Object.assign(error, { sql, fields: fieldSnapshot });
+      error.message = `${error.message}\nSQL: ${sql}\nTableId: ${tableId}\nFields: ${fieldSnapshotString}`;
+      Object.assign(error, { sql, tableId, fields: fieldSnapshot });
     }
     throw error;
   }

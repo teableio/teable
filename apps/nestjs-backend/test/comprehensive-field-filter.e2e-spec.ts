@@ -690,15 +690,15 @@ describe('Comprehensive Field Filter Tests (e2e)', () => {
       });
 
       test('should filter with isLess operator', async () => {
-        await doTest('Generated Formula', isLess.value, 30, 1); // 10.5 * 2 = 21
+        await doTest('Generated Formula', isLess.value, 30, 2); // 10.5 * 2 = 21, blank -> 0
       });
 
       test('should filter with isEmpty operator', async () => {
-        await doTest('Generated Formula', isEmpty.value, null, 1);
+        await doTest('Generated Formula', isEmpty.value, null, 0);
       });
 
       test('should filter with isNotEmpty operator', async () => {
-        await doTest('Generated Formula', isNotEmpty.value, null, 2);
+        await doTest('Generated Formula', isNotEmpty.value, null, 3);
       });
     });
 

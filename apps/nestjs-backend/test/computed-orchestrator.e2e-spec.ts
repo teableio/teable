@@ -226,7 +226,7 @@ describe('Computed Orchestrator (e2e)', () => {
 
       await updateRecordByApi(table.id, recordId, aField.id, null);
       const updatedRecord = await getRecord(table.id, recordId);
-      expect(updatedRecord.fields[formulaField.id]).toBeUndefined();
+      expect(updatedRecord.fields[formulaField.id]).toBe(0);
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -2283,7 +2283,7 @@ IF(
       const dbName = await getDbTableName(table.id);
       const row = await getRow(dbName, table.records[0].id);
       const fFull = (await getFields(table.id)).find((x) => x.id === (f as any).id)! as any;
-      expect((row as any)[fFull.dbFieldName]).toBeUndefined();
+      expect((row as any)[fFull.dbFieldName]).toBeNull();
 
       await permanentDeleteTable(baseId, table.id);
     });
@@ -2339,8 +2339,8 @@ IF(
       const fields = await getFields(table.id);
       const bFull = fields.find((x) => x.id === (b as any).id)! as any;
       const cFull = fields.find((x) => x.id === (c as any).id)! as any;
-      expect((row as any)[bFull.dbFieldName]).toBeUndefined();
-      expect((row as any)[cFull.dbFieldName]).toBeUndefined();
+      expect((row as any)[bFull.dbFieldName]).toBeNull();
+      expect((row as any)[cFull.dbFieldName]).toBeNull();
 
       await permanentDeleteTable(baseId, table.id);
     });

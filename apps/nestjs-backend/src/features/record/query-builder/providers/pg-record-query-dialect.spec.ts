@@ -27,3 +27,21 @@ describe('PgRecordQueryDialect#flattenLookupCteValue', () => {
     expect(sql).toContain('to_jsonb("cte_lookup"."lookup_fld_scalar")');
   });
 });
+
+describe('PgRecordQueryDialect#linkExtractTitles', () => {
+  const dialect = new PgRecordQueryDialect({} as unknown as Knex);
+
+  it('extracts single-value link titles via metadata without pg_typeof guards', () => {
+    const sql = dialect.linkExtractTitles('"main"."LinkField"', false);
+    expect(sql).toBe(
+      `(CASE WHEN "main"."LinkField" IS NULL THEN NULL ELSE ("main"."LinkField"::jsonb)->>'title' END)`
+    );
+    expect(sql).not.toContain('pg_typeof');
+  });
+
+  it('extracts multi-value link titles using jsonb_array_elements without pg_typeof', () => {
+    const sql = dialect.linkExtractTitles('"cte"."link_value"', true);
+    expect(sql).toContain('jsonb_array_elements("cte"."link_value"::jsonb)');
+    expect(sql).not.toContain('pg_typeof');
+  });
+});

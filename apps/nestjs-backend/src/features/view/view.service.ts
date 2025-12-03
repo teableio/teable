@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type {
   ISnapshotBase,
@@ -17,6 +18,7 @@ import type {
   IGalleryViewOptions,
   ICalendarViewOptions,
   IColumn,
+  IGridColumnMeta,
 } from '@teable/core';
 import {
   getUniqName,
@@ -28,6 +30,7 @@ import {
   ViewType,
   FieldType,
   CellValueType,
+  HttpErrorCode,
 } from '@teable/core';
 import type { Prisma } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -36,6 +39,7 @@ import { isEmpty, isNull, isString, merge, snakeCase, uniq } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { fromZodError } from 'zod-validation-error';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
@@ -45,6 +49,7 @@ import { convertViewVoAttachmentUrl } from '../../utils/convert-view-vo-attachme
 import { BatchService } from '../calculation/batch.service';
 import { ROW_ORDER_FIELD_PREFIX } from './constant';
 import { createViewInstanceByRaw, createViewVoByRaw } from './model/factory';
+import { adjustFrozenField } from './utils/derive-frozen-fields';
 
 type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext;
 
@@ -333,7 +338,15 @@ export class ViewService implements IReadonlyAdapterService {
         where: { id: viewId, tableId, deletedTime: null },
       })
       .catch(() => {
-        throw new BadRequestException('Table not found');
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
 
     await this.del(version + 1, tableId, viewId);
@@ -354,7 +367,15 @@ export class ViewService implements IReadonlyAdapterService {
         },
       })
       .catch(() => {
-        throw new BadRequestException('View not found');
+        throw new CustomHttpException(
+          `View not found with id: ${viewId} and tableId: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.notFound',
+            },
+          }
+        );
       });
 
     const updateInput: Prisma.ViewUpdateInput = {
@@ -402,10 +423,13 @@ export class ViewService implements IReadonlyAdapterService {
       return Object.keys(property).length > 0 || Object.keys(columnMeta).length > 0;
     });
 
+    const isColumnMetaUpdated = updateViewKeySet.has('columnMeta');
     const viewRaws = await this.prismaService.txClient().view.findMany({
       where: { id: { in: updatedViewIds }, tableId, deletedTime: null },
       select: {
-        columnMeta: updateViewKeySet.has('columnMeta'),
+        columnMeta: isColumnMetaUpdated,
+        options: isColumnMetaUpdated,
+        type: isColumnMetaUpdated,
         id: true,
         version: true,
       },
@@ -416,7 +440,7 @@ export class ViewService implements IReadonlyAdapterService {
       id: string;
       values: { [key: string]: unknown };
     }[] = viewRaws.map((view) => {
-      const { id: viewId, version, columnMeta } = view;
+      const { id: viewId, version, columnMeta, options, type } = view;
       const updateView = updateViewMap[viewId];
 
       const values: Record<string, unknown> = {
@@ -432,6 +456,25 @@ export class ViewService implements IReadonlyAdapterService {
           updateView.columnMeta
         );
         values.columnMeta = JSON.stringify(newColumnMeta);
+
+        if (type === ViewType.Grid) {
+          const originOptions = options ? JSON.parse(options) : {};
+          const newOptions = adjustFrozenField(
+            originOptions,
+            originColumnMeta,
+            updateView.columnMeta as IGridColumnMeta
+          );
+
+          if (newOptions) {
+            values.options = JSON.stringify(newOptions);
+            const newOptionsOp = ViewOpBuilder.editor.setViewProperty.build({
+              key: 'options',
+              oldValue: originOptions,
+              newValue: newOptions,
+            });
+            opsMap[viewId] = [...(opsMap[viewId] ?? []), newOptionsOp];
+          }
+        }
       }
 
       return {
@@ -462,7 +505,7 @@ export class ViewService implements IReadonlyAdapterService {
       };
     });
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
+    this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.View, opDataList);
   }
 
   async create(tableId: string, view: IViewVo) {
@@ -502,7 +545,11 @@ export class ViewService implements IReadonlyAdapterService {
     const opContexts = ops.map((op) => {
       const ctx = ViewOpBuilder.detect(op);
       if (!ctx) {
-        throw new Error('unknown view editing op');
+        throw new CustomHttpException(`unknown view editing op`, HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.custom.invalidOperation',
+          },
+        });
       }
       return ctx as IViewOpContext;
     });
@@ -608,7 +655,15 @@ export class ViewService implements IReadonlyAdapterService {
       const { key, newValue } = opContext;
       const parseResult = viewVoSchema.partial().safeParse({ [key]: newValue });
       if (!parseResult.success) {
-        throw new BadRequestException(fromZodError(parseResult.error).message);
+        throw new CustomHttpException(
+          fromZodError(parseResult.error).message,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.view.propertyParseError',
+            },
+          }
+        );
       }
       const parsedValue = parseResult.data[key] as IViewPropertyKeys;
       result[key] =
@@ -671,7 +726,15 @@ export class ViewService implements IReadonlyAdapterService {
 
     if (views.length !== ids.length) {
       const notFoundIds = ids.filter((id) => !views.some((view) => view.id === id));
-      throw new BadRequestException(`View not found: ${notFoundIds.join(', ')}`);
+      throw new CustomHttpException(
+        `View not found: ${notFoundIds.join(', ')}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
     }
 
     return views
@@ -775,7 +838,11 @@ export class ViewService implements IReadonlyAdapterService {
     });
 
     if (!view) {
-      throw new Error(`no view in this table`);
+      throw new CustomHttpException(`no view in this table`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.view.notFound',
+        },
+      });
     }
 
     const opsMap: { [viewId: string]: IOtOperation[] } = {};

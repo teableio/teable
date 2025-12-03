@@ -1,4 +1,4 @@
-import { BadGatewayException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import {
   generateViewId,
@@ -6,6 +6,7 @@ import {
   FieldType,
   ViewType,
   generatePluginInstallId,
+  HttpErrorCode,
 } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -15,9 +16,11 @@ import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
+import { DataLoaderService } from '../data-loader/data-loader.service';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
 import { createFieldInstanceByRaw, rawField2FieldObj } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -36,13 +39,25 @@ export class TableDuplicateService {
     private readonly tableService: TableService,
     private readonly fieldOpenService: FieldOpenApiService,
     private readonly fieldDuplicateService: FieldDuplicateService,
+    private readonly dataLoaderService: DataLoaderService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
+  private disableTableDomainDataLoader() {
+    if (!this.cls.isActive()) {
+      return;
+    }
+    this.cls.set('dataLoaderCache.disabled', true);
+    this.cls.set('dataLoaderCache.cacheKeys', []);
+    this.dataLoaderService.field.clear();
+    this.dataLoaderService.table.clear();
+  }
+
   async duplicateTable(baseId: string, tableId: string, duplicateRo: IDuplicateTableRo) {
     const { includeRecords, name } = duplicateRo;
+    this.disableTableDomainDataLoader();
     const {
       id: sourceTableId,
       icon,
@@ -638,7 +653,15 @@ export class TableDuplicateService {
     for (const view of pluginViews) {
       const plugin = view.options ? JSON.parse(view.options) : null;
       if (!plugin) {
-        throw new BadGatewayException('Duplicate plugin view error: pluginId not found');
+        throw new CustomHttpException(
+          `Duplicate plugin view error: plugin not found`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.plugin.notFound',
+            },
+          }
+        );
       }
       const { pluginInstallId, pluginId } = plugin;
 

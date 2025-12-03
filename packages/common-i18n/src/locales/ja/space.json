@@ -6,7 +6,8 @@
     "invite": "招待"
   },
   "allSpaces": "すべてのスペース",
-  "spaceIsEmpty": "このスペースは空です",
+  "emptySpaceTitle": "このスペースにはデータベースがありません",
+  "spaceIsEmpty": "今すぐデータベースを作成して、効率的なデータ管理の旅を始めましょう",
   "baseModal": {
     "copy": "コピー",
     "duplicate": "\"{{baseName}}\" の複製",

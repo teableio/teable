@@ -10,7 +10,8 @@ import {
   getTableImportChannel,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, type IImportColumn } from '@teable/openapi';
+import { UploadType } from '@teable/openapi';
+import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import { toString } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -31,6 +32,12 @@ import { parseBoolean } from './import.class';
 interface ITableImportCsvJob {
   baseId: string;
   userId: string;
+  origin?: {
+    ip: string;
+    byApi: boolean;
+    userAgent: string;
+    referer: string;
+  };
   path: string;
   columnInfo?: IImportColumn[];
   fields: { id: string; type: FieldType }[];
@@ -40,12 +47,15 @@ interface ITableImportCsvJob {
   notification?: boolean;
   lastChunk?: boolean;
   parentJobId: string;
+  ro: IImportOptionRo | IInplaceImportOptionRo;
 }
 
 export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
 
 @Injectable()
-@Processor(TABLE_IMPORT_CSV_QUEUE)
+@Processor(TABLE_IMPORT_CSV_QUEUE, {
+  concurrency: 1,
+})
 export class ImportTableCsvQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv';
 
@@ -67,7 +77,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   }
 
   public async process(job: Job<ITableImportCsvJob>) {
-    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range } = job.data;
+    const { table, notification, baseId, userId, lastChunk, sourceColumnMap, range, origin, ro } =
+      job.data;
     const localPresence = this.createImportPresence(table.id, 'status');
     this.setImportStatus(localPresence, true);
     try {
@@ -78,12 +89,27 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
             baseId,
             tableId: table.id,
             toUserId: userId,
-            message: `🎉 ${table.name} ${sourceColumnMap ? 'inplace' : ''} imported successfully`,
+            message: sourceColumnMap
+              ? {
+                  i18nKey: 'common.email.templates.notify.import.table.success.inplace',
+                  context: { tableName: table.name },
+                }
+              : {
+                  i18nKey: 'common.email.templates.notify.import.table.success.message',
+                  context: { tableName: table.name },
+                },
           });
 
-        this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
-          baseId,
-          tableId: table.id,
+        // emit event to audit log
+        this.cls.run(async () => {
+          this.cls.set('origin', origin!);
+          this.cls.set('user.id', userId);
+          await this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
+            ro,
+            recordsLength: range?.at(-1),
+            baseId,
+            tableId: table.id,
+          });
         });
 
         this.setImportStatus(localPresence, false);
@@ -107,7 +133,14 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
           baseId,
           tableId: table.id,
           toUserId: userId,
-          message: `❌ ${table.name} import aborted: ${err.message} fail row range: [${range}]. Please check the data for this range and retry.`,
+          message: {
+            i18nKey: 'common.email.templates.notify.import.table.aborted.message',
+            context: {
+              tableName: table.name,
+              errorMessage: err.message,
+              range: `${range[0]}, ${range[1]}`,
+            },
+          },
         });
 
       throw err;

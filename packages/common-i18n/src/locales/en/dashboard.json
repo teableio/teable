@@ -4,7 +4,7 @@
     "description": "Dashboards help you visualize and manage your data more effectively.",
     "create": "Create dashboard"
   },
-  "addPlugin": "Add an Plugin",
+  "addPlugin": "Add a plugin",
   "createDashboard": {
     "button": "Create dashboard",
     "title": "Create new dashboard",

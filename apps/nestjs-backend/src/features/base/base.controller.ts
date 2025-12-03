@@ -297,7 +297,6 @@ export class BaseController {
   }
 
   @Delete(':baseId/permanent')
-  @Permissions('base|delete')
   @EmitControllerEvent(Events.BASE_DELETE)
   async permanentDeleteBase(@Param('baseId') baseId: string) {
     await this.baseService.permanentDeleteBase(baseId);

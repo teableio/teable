@@ -1,3 +1,5 @@
+/* eslint-disable regexp/no-unused-capturing-group */
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable regexp/no-dupe-characters-character-class */
 /* eslint-disable sonarjs/no-duplicated-branches */
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -15,6 +17,7 @@ import {
   FunctionCallContext,
   FunctionName,
   FieldType,
+  CellValueType,
   DriverClient,
   AbstractParseTreeVisitor,
   BinaryOpContext,
@@ -29,8 +32,12 @@ import {
   isLinkLookupOptions,
   normalizeFunctionNameAlias,
   DbFieldType,
+  DateFormattingPreset,
   extractFieldReferenceId,
   getFieldReferenceTokenText,
+  FUNCTIONS,
+  Relationship,
+  TimeFormatting,
 } from '@teable/core';
 import type {
   FormulaVisitor,
@@ -42,6 +49,10 @@ import type {
   LastModifiedTimeFieldCore,
   FormulaFieldCore,
   IFieldWithExpression,
+  IFormulaParamMetadata,
+  IFormulaParamFieldMetadata,
+  FormulaParamType,
+  IDatetimeFormatting,
 } from '@teable/core';
 import type { ITeableToDbFunctionConverter } from '@teable/core/src/formula/function-convertor.interface';
 import type { RootContext, UnaryOpContext } from '@teable/core/src/formula/parser/Formula';
@@ -77,6 +88,7 @@ const STRING_FUNCTIONS = new Set<FunctionName>([
   FunctionName.Substitute,
   FunctionName.Replace,
   FunctionName.T,
+  FunctionName.Blank,
   FunctionName.Datestr,
   FunctionName.Timestr,
   FunctionName.ArrayJoin,
@@ -112,6 +124,39 @@ const BOOLEAN_FUNCTIONS = new Set<FunctionName>([
   FunctionName.Or,
   FunctionName.Not,
   FunctionName.Xor,
+]);
+
+const MULTI_VALUE_AGGREGATED_FUNCTIONS = new Set<FunctionName>([
+  FunctionName.DatetimeFormat,
+  FunctionName.Value,
+  FunctionName.Abs,
+  FunctionName.Datestr,
+  FunctionName.Timestr,
+  FunctionName.Day,
+  FunctionName.Month,
+  FunctionName.Year,
+  FunctionName.Weekday,
+  FunctionName.WeekNum,
+  FunctionName.Hour,
+  FunctionName.Minute,
+  FunctionName.Second,
+  FunctionName.FromNow,
+  FunctionName.ToNow,
+  FunctionName.Round,
+  FunctionName.RoundUp,
+  FunctionName.RoundDown,
+  FunctionName.Floor,
+  FunctionName.Ceiling,
+  FunctionName.Int,
+]);
+
+const MULTI_VALUE_FIELD_TYPES = new Set<FieldType>([
+  FieldType.Link,
+  FieldType.Attachment,
+  FieldType.MultipleSelect,
+  FieldType.User,
+  FieldType.CreatedBy,
+  FieldType.LastModifiedBy,
 ]);
 
 const STRING_FIELD_TYPES = new Set<FieldType>([
@@ -162,6 +207,10 @@ export interface ISelectFormulaConversionContext extends IFormulaConversionConte
   tableAlias?: string;
   /** CTE map: linkFieldId -> cteName */
   fieldCteMap?: ReadonlyMap<string, string>;
+  /** Link field IDs whose CTEs have already been emitted (safe for reference) */
+  readyLinkFieldIds?: ReadonlySet<string>;
+  /** Current link field id whose CTE is being generated (used to avoid self references) */
+  currentLinkFieldId?: string;
   /** When true, prefer raw field references (no title formatting) to preserve native types */
   preferRawFieldReferences?: boolean;
   /** Target DB field type for the enclosing formula selection (used for type-sensitive raw projection) */
@@ -326,20 +375,26 @@ abstract class BaseSqlConversionVisitor<
   }
 
   visitUnaryOp(ctx: UnaryOpContext): string {
-    const operand = ctx.expr().accept(this);
+    const operandCtx = ctx.expr();
+    const operand = operandCtx.accept(this);
     const operator = ctx.MINUS();
+    const metadata = [this.buildParamMetadata(operandCtx)];
+    this.formulaQuery.setCallMetadata(metadata);
 
-    if (operator) {
-      return this.formulaQuery.unaryMinus(operand);
+    try {
+      if (operator) {
+        return this.formulaQuery.unaryMinus(operand);
+      }
+      return operand;
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
     }
-
-    return operand;
   }
 
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const normalizedFieldId = extractFieldReferenceId(ctx);
     const rawToken = getFieldReferenceTokenText(ctx);
-    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
 
     const fieldInfo = this.context.table.getField(fieldId);
     if (!fieldInfo) {
@@ -408,367 +463,845 @@ abstract class BaseSqlConversionVisitor<
     const rawName = ctx.func_name().text.toUpperCase();
     const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
     const exprContexts = ctx.expr();
-    const params = exprContexts.map((exprCtx) => exprCtx.accept(this));
+    let params = exprContexts.map((exprCtx) => exprCtx.accept(this));
+    params = this.normalizeFunctionParamsForMultiplicity(fnName, params, exprContexts);
+    const paramMetadata = exprContexts.map((exprCtx) => this.buildParamMetadata(exprCtx));
+    this.formulaQuery.setCallMetadata(paramMetadata);
 
-    return (
-      match(fnName)
-        // Numeric Functions
-        .with(FunctionName.Sum, () => this.formulaQuery.sum(params))
-        .with(FunctionName.Average, () => this.formulaQuery.average(params))
-        .with(FunctionName.Max, () => this.formulaQuery.max(params))
-        .with(FunctionName.Min, () => this.formulaQuery.min(params))
-        .with(FunctionName.Round, () => this.formulaQuery.round(params[0], params[1]))
-        .with(FunctionName.RoundUp, () => this.formulaQuery.roundUp(params[0], params[1]))
-        .with(FunctionName.RoundDown, () => this.formulaQuery.roundDown(params[0], params[1]))
-        .with(FunctionName.Ceiling, () => this.formulaQuery.ceiling(params[0]))
-        .with(FunctionName.Floor, () => this.formulaQuery.floor(params[0]))
-        .with(FunctionName.Even, () => this.formulaQuery.even(params[0]))
-        .with(FunctionName.Odd, () => this.formulaQuery.odd(params[0]))
-        .with(FunctionName.Int, () => this.formulaQuery.int(params[0]))
-        .with(FunctionName.Abs, () => this.formulaQuery.abs(params[0]))
-        .with(FunctionName.Sqrt, () => this.formulaQuery.sqrt(params[0]))
-        .with(FunctionName.Power, () => this.formulaQuery.power(params[0], params[1]))
-        .with(FunctionName.Exp, () => this.formulaQuery.exp(params[0]))
-        .with(FunctionName.Log, () => this.formulaQuery.log(params[0], params[1]))
-        .with(FunctionName.Mod, () => this.formulaQuery.mod(params[0], params[1]))
-        .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
+    const execute = () => {
+      const multiValueFormat = this.tryBuildMultiValueAggregator(fnName, params, exprContexts);
+      if (multiValueFormat) {
+        return multiValueFormat;
+      }
 
-        // Text Functions
-        .with(FunctionName.Concatenate, () => {
-          const coerced = params.map((param, index) =>
-            this.coerceToStringForConcatenation(param, exprContexts[index])
-          );
-          return this.formulaQuery.concatenate(coerced);
-        })
-        .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
-        .with(FunctionName.Search, () => this.formulaQuery.search(params[0], params[1], params[2]))
-        .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
-        .with(FunctionName.Left, () => {
-          const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
-          const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
-          return this.formulaQuery.left(textOperand, sliceLength);
-        })
-        .with(FunctionName.Right, () => {
-          const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
-          const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
-          return this.formulaQuery.right(textOperand, sliceLength);
-        })
-        .with(FunctionName.Replace, () =>
-          this.formulaQuery.replace(params[0], params[1], params[2], params[3])
-        )
-        .with(FunctionName.RegExpReplace, () =>
-          this.formulaQuery.regexpReplace(params[0], params[1], params[2])
-        )
-        .with(FunctionName.Substitute, () =>
-          this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
-        )
-        .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
-        .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
-        .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
-        .with(FunctionName.Trim, () => this.formulaQuery.trim(params[0]))
-        .with(FunctionName.Len, () => this.formulaQuery.len(params[0]))
-        .with(FunctionName.T, () => this.formulaQuery.t(params[0]))
-        .with(FunctionName.EncodeUrlComponent, () =>
-          this.formulaQuery.encodeUrlComponent(params[0])
-        )
+      return (
+        match(fnName)
+          // Numeric Functions
+          .with(FunctionName.Sum, () => this.formulaQuery.sum(params))
+          .with(FunctionName.Average, () => this.formulaQuery.average(params))
+          .with(FunctionName.Max, () => this.formulaQuery.max(params))
+          .with(FunctionName.Min, () => this.formulaQuery.min(params))
+          .with(FunctionName.Round, () => this.formulaQuery.round(params[0], params[1]))
+          .with(FunctionName.RoundUp, () => this.formulaQuery.roundUp(params[0], params[1]))
+          .with(FunctionName.RoundDown, () => this.formulaQuery.roundDown(params[0], params[1]))
+          .with(FunctionName.Ceiling, () => this.formulaQuery.ceiling(params[0]))
+          .with(FunctionName.Floor, () => this.formulaQuery.floor(params[0]))
+          .with(FunctionName.Even, () => this.formulaQuery.even(params[0]))
+          .with(FunctionName.Odd, () => this.formulaQuery.odd(params[0]))
+          .with(FunctionName.Int, () => this.formulaQuery.int(params[0]))
+          .with(FunctionName.Abs, () => this.formulaQuery.abs(params[0]))
+          .with(FunctionName.Sqrt, () => this.formulaQuery.sqrt(params[0]))
+          .with(FunctionName.Power, () => this.formulaQuery.power(params[0], params[1]))
+          .with(FunctionName.Exp, () => this.formulaQuery.exp(params[0]))
+          .with(FunctionName.Log, () => this.formulaQuery.log(params[0], params[1]))
+          .with(FunctionName.Mod, () => this.formulaQuery.mod(params[0], params[1]))
+          .with(FunctionName.Value, () => this.formulaQuery.value(params[0]))
 
-        // DateTime Functions
-        .with(FunctionName.Now, () => this.formulaQuery.now())
-        .with(FunctionName.Today, () => this.formulaQuery.today())
-        .with(FunctionName.DateAdd, () =>
-          this.formulaQuery.dateAdd(params[0], params[1], params[2])
-        )
-        .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
-        .with(FunctionName.DatetimeDiff, () => {
-          const unitExpr = params[2] ?? `'day'`;
-          return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
-        })
-        .with(FunctionName.DatetimeFormat, () =>
-          this.formulaQuery.datetimeFormat(params[0], params[1])
-        )
-        .with(FunctionName.DatetimeParse, () =>
-          this.formulaQuery.datetimeParse(params[0], params[1])
-        )
-        .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
-        .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
-        .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
-        .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
-        .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
-        .with(FunctionName.IsSame, () => this.formulaQuery.isSame(params[0], params[1], params[2]))
-        .with(FunctionName.LastModifiedTime, () => this.formulaQuery.lastModifiedTime())
-        .with(FunctionName.Minute, () => this.formulaQuery.minute(params[0]))
-        .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
-        .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
-        .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
-        .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
-        .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
-        .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
-        .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
-        .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
-        .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
-        .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
+          // Text Functions
+          .with(FunctionName.Concatenate, () => {
+            const coerced = params.map((param, index) =>
+              this.coerceToStringForConcatenation(param, exprContexts[index])
+            );
+            return this.formulaQuery.concatenate(coerced);
+          })
+          .with(FunctionName.Find, () => this.formulaQuery.find(params[0], params[1], params[2]))
+          .with(FunctionName.Search, () =>
+            this.formulaQuery.search(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Mid, () => this.formulaQuery.mid(params[0], params[1], params[2]))
+          .with(FunctionName.Left, () => {
+            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
+            return this.formulaQuery.left(textOperand, sliceLength);
+          })
+          .with(FunctionName.Right, () => {
+            const textOperand = this.coerceToStringForConcatenation(params[0], exprContexts[0]);
+            const sliceLength = this.normalizeTextSliceCount(params[1], exprContexts[1]);
+            return this.formulaQuery.right(textOperand, sliceLength);
+          })
+          .with(FunctionName.Replace, () =>
+            this.formulaQuery.replace(params[0], params[1], params[2], params[3])
+          )
+          .with(FunctionName.RegExpReplace, () =>
+            this.formulaQuery.regexpReplace(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Substitute, () =>
+            this.formulaQuery.substitute(params[0], params[1], params[2], params[3])
+          )
+          .with(FunctionName.Lower, () => this.formulaQuery.lower(params[0]))
+          .with(FunctionName.Upper, () => this.formulaQuery.upper(params[0]))
+          .with(FunctionName.Rept, () => this.formulaQuery.rept(params[0], params[1]))
+          .with(FunctionName.Trim, () => this.formulaQuery.trim(params[0]))
+          .with(FunctionName.Len, () => this.formulaQuery.len(params[0]))
+          .with(FunctionName.T, () => this.formulaQuery.t(params[0]))
+          .with(FunctionName.EncodeUrlComponent, () =>
+            this.formulaQuery.encodeUrlComponent(params[0])
+          )
 
-        // Logical Functions
-        .with(FunctionName.If, () => {
-          const [conditionSql, trueSql, falseSql] = params;
-          let coercedTrue = trueSql;
-          let coercedFalse = falseSql;
+          // DateTime Functions
+          .with(FunctionName.Now, () => this.formulaQuery.now())
+          .with(FunctionName.Today, () => this.formulaQuery.today())
+          .with(FunctionName.DateAdd, () =>
+            this.formulaQuery.dateAdd(params[0], params[1], params[2])
+          )
+          .with(FunctionName.Datestr, () => this.formulaQuery.datestr(params[0]))
+          .with(FunctionName.DatetimeDiff, () => {
+            const unitExpr = params[2] ?? `'day'`;
+            return this.formulaQuery.datetimeDiff(params[0], params[1], unitExpr);
+          })
+          .with(FunctionName.DatetimeFormat, () =>
+            this.formulaQuery.datetimeFormat(params[0], params[1])
+          )
+          .with(FunctionName.DatetimeParse, () =>
+            this.formulaQuery.datetimeParse(params[0], params[1])
+          )
+          .with(FunctionName.Day, () => this.formulaQuery.day(params[0]))
+          .with(FunctionName.FromNow, () => this.formulaQuery.fromNow(params[0]))
+          .with(FunctionName.Hour, () => this.formulaQuery.hour(params[0]))
+          .with(FunctionName.IsAfter, () => this.formulaQuery.isAfter(params[0], params[1]))
+          .with(FunctionName.IsBefore, () => this.formulaQuery.isBefore(params[0], params[1]))
+          .with(FunctionName.IsSame, () =>
+            this.formulaQuery.isSame(params[0], params[1], params[2])
+          )
+          .with(FunctionName.LastModifiedTime, () => this.formulaQuery.lastModifiedTime())
+          .with(FunctionName.Minute, () => this.formulaQuery.minute(params[0]))
+          .with(FunctionName.Month, () => this.formulaQuery.month(params[0]))
+          .with(FunctionName.Second, () => this.formulaQuery.second(params[0]))
+          .with(FunctionName.Timestr, () => this.formulaQuery.timestr(params[0]))
+          .with(FunctionName.ToNow, () => this.formulaQuery.toNow(params[0]))
+          .with(FunctionName.WeekNum, () => this.formulaQuery.weekNum(params[0]))
+          .with(FunctionName.Weekday, () => this.formulaQuery.weekday(params[0]))
+          .with(FunctionName.Workday, () => this.formulaQuery.workday(params[0], params[1]))
+          .with(FunctionName.WorkdayDiff, () => this.formulaQuery.workdayDiff(params[0], params[1]))
+          .with(FunctionName.Year, () => this.formulaQuery.year(params[0]))
+          .with(FunctionName.CreatedTime, () => this.formulaQuery.createdTime())
 
-          const trueExprCtx = exprContexts[1];
-          const falseExprCtx = exprContexts[2];
-          const trueType = this.inferExpressionType(trueExprCtx);
-          const falseType = this.inferExpressionType(falseExprCtx);
-          const trueIsBlank = this.isBlankLikeExpression(trueExprCtx) || trueSql.trim() === "''";
-          const falseIsBlank = this.isBlankLikeExpression(falseExprCtx) || falseSql.trim() === "''";
+          // Logical Functions
+          .with(FunctionName.If, () => {
+            const [rawConditionSql, rawTrueSql, rawFalseSql] = params;
+            const conditionSql = rawConditionSql ?? 'NULL';
+            const trueSql = rawTrueSql ?? 'NULL';
+            const falseSql = rawFalseSql ?? 'NULL';
 
-          const shouldNullOutTrueBranch = trueIsBlank && falseType !== 'string';
-          const shouldNullOutFalseBranch = falseIsBlank && trueType !== 'string';
+            let coercedTrue = trueSql;
+            let coercedFalse = falseSql;
 
-          if (shouldNullOutTrueBranch) {
-            coercedTrue = 'NULL';
-          }
+            const trueExprCtx = exprContexts[1];
+            const falseExprCtx = exprContexts[2];
+            const trueType = this.inferExpressionType(trueExprCtx);
+            const falseType = this.inferExpressionType(falseExprCtx);
+            const trueSqlTrimmed = (rawTrueSql ?? '').trim();
+            const falseSqlTrimmed = (rawFalseSql ?? '').trim();
+            const trueIsBlank =
+              rawTrueSql == null ||
+              this.isBlankLikeExpression(trueExprCtx) ||
+              trueSqlTrimmed === "''";
+            const falseIsBlank =
+              rawFalseSql == null ||
+              this.isBlankLikeExpression(falseExprCtx) ||
+              falseSqlTrimmed === "''";
 
-          if (shouldNullOutFalseBranch) {
-            coercedFalse = 'NULL';
-          }
+            const shouldNullOutTrueBranch = trueIsBlank && falseType !== 'string';
+            const shouldNullOutFalseBranch = falseIsBlank && trueType !== 'string';
 
-          if (this.inferExpressionType(ctx) === 'string') {
-            coercedTrue = this.coerceCaseBranchToText(coercedTrue);
-            coercedFalse = this.coerceCaseBranchToText(coercedFalse);
-          }
+            if (shouldNullOutTrueBranch) {
+              coercedTrue = 'NULL';
+            }
 
-          return this.formulaQuery.if(conditionSql, coercedTrue, coercedFalse);
-        })
-        .with(FunctionName.And, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.and(booleanParams);
-        })
-        .with(FunctionName.Or, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.or(booleanParams);
-        })
-        .with(FunctionName.Not, () => {
-          const booleanParam = this.normalizeBooleanExpression(params[0], exprContexts[0]);
-          return this.formulaQuery.not(booleanParam);
-        })
-        .with(FunctionName.Xor, () => {
-          const booleanParams = params.map((param, index) =>
-            this.normalizeBooleanExpression(param, exprContexts[index])
-          );
-          return this.formulaQuery.xor(booleanParams);
-        })
-        .with(FunctionName.Blank, () => this.formulaQuery.blank())
-        .with(FunctionName.IsError, () => this.formulaQuery.isError(params[0]))
-        .with(FunctionName.Switch, () => {
-          // Handle switch function with variable number of case-result pairs
-          const expression = params[0];
-          const cases: Array<{ case: string; result: string }> = [];
-          let defaultResult: string | undefined;
+            if (shouldNullOutFalseBranch) {
+              coercedFalse = 'NULL';
+            }
 
-          type SwitchResultEntry = {
-            sql: string;
-            ctx: ExprContext;
-            type: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
-          };
+            if (this.inferExpressionType(ctx) === 'string') {
+              coercedTrue = this.coerceCaseBranchToText(coercedTrue);
+              coercedFalse = this.coerceCaseBranchToText(coercedFalse);
+            }
 
-          const resultEntries: SwitchResultEntry[] = [];
+            return this.formulaQuery.if(conditionSql, coercedTrue, coercedFalse);
+          })
+          .with(FunctionName.And, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.and(booleanParams);
+          })
+          .with(FunctionName.Or, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.or(booleanParams);
+          })
+          .with(FunctionName.Not, () => {
+            const booleanParam = this.normalizeBooleanExpression(params[0], exprContexts[0]);
+            return this.formulaQuery.not(booleanParam);
+          })
+          .with(FunctionName.Xor, () => {
+            const booleanParams = params.map((param, index) =>
+              this.normalizeBooleanExpression(param, exprContexts[index])
+            );
+            return this.formulaQuery.xor(booleanParams);
+          })
+          .with(FunctionName.Blank, () => this.formulaQuery.blank())
+          .with(FunctionName.IsError, () => this.formulaQuery.isError(params[0]))
+          .with(FunctionName.Switch, () => {
+            // Handle switch function with variable number of case-result pairs
+            const expression = params[0];
+            const cases: Array<{ case: string; result: string }> = [];
+            let defaultResult: string | undefined;
 
-          // Helper to normalize blank-like results when other branches require stricter typing
-          const normalizeBlankResults = () => {
-            const hasNumber = resultEntries.some((entry) => entry.type === 'number');
-            const hasBoolean = resultEntries.some((entry) => entry.type === 'boolean');
-            const hasDatetime = resultEntries.some((entry) => entry.type === 'datetime');
+            type SwitchResultEntry = {
+              sql: string;
+              ctx: ExprContext;
+              type: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown';
+            };
 
-            const requiresNumeric = hasNumber;
-            const requiresBoolean = hasBoolean;
-            const requiresDatetime = hasDatetime;
+            const resultEntries: SwitchResultEntry[] = [];
 
-            const shouldNullifyEntry = (entry: SwitchResultEntry): boolean => {
-              const isBlank = this.isBlankLikeExpression(entry.ctx) || entry.sql.trim() === "''";
+            // Helper to normalize blank-like results when other branches require stricter typing
+            const normalizeBlankResults = () => {
+              const hasNumber = resultEntries.some((entry) => entry.type === 'number');
+              const hasBoolean = resultEntries.some((entry) => entry.type === 'boolean');
+              const hasDatetime = resultEntries.some((entry) => entry.type === 'datetime');
 
-              if (!isBlank) {
+              const requiresNumeric = hasNumber;
+              const requiresBoolean = hasBoolean;
+              const requiresDatetime = hasDatetime;
+
+              const shouldNullifyEntry = (entry: SwitchResultEntry): boolean => {
+                const isBlank =
+                  this.isBlankLikeExpression(entry.ctx) || (entry.sql ?? '').trim() === "''";
+
+                if (!isBlank) {
+                  return false;
+                }
+
+                if (requiresNumeric && entry.type !== 'number') {
+                  return true;
+                }
+
+                if (requiresBoolean && entry.type !== 'boolean') {
+                  return true;
+                }
+
+                if (requiresDatetime && entry.type !== 'datetime') {
+                  return true;
+                }
+
                 return false;
-              }
+              };
 
-              if (requiresNumeric && entry.type !== 'number') {
-                return true;
+              for (const entry of resultEntries) {
+                if (shouldNullifyEntry(entry)) {
+                  entry.sql = 'NULL';
+                }
               }
-
-              if (requiresBoolean && entry.type !== 'boolean') {
-                return true;
-              }
-
-              if (requiresDatetime && entry.type !== 'datetime') {
-                return true;
-              }
-
-              return false;
             };
 
-            for (const entry of resultEntries) {
-              if (shouldNullifyEntry(entry)) {
-                entry.sql = 'NULL';
+            // Collect case/result pairs and default (if any)
+            for (let i = 1; i < params.length; i += 2) {
+              if (i + 1 < params.length) {
+                const resultCtx = exprContexts[i + 1];
+                resultEntries.push({
+                  sql: params[i + 1],
+                  ctx: resultCtx,
+                  type: this.inferExpressionType(resultCtx),
+                });
+
+                cases.push({
+                  case: params[i],
+                  result: params[i + 1],
+                });
+              } else {
+                const resultCtx = exprContexts[i];
+                resultEntries.push({
+                  sql: params[i],
+                  ctx: resultCtx,
+                  type: this.inferExpressionType(resultCtx),
+                });
+                defaultResult = params[i];
               }
             }
-          };
 
-          // Collect case/result pairs and default (if any)
-          for (let i = 1; i < params.length; i += 2) {
-            if (i + 1 < params.length) {
-              const resultCtx = exprContexts[i + 1];
-              resultEntries.push({
-                sql: params[i + 1],
-                ctx: resultCtx,
-                type: this.inferExpressionType(resultCtx),
-              });
+            // Normalize blank results only after we have collected all branch types
+            normalizeBlankResults();
 
-              cases.push({
-                case: params[i],
-                result: params[i + 1],
-              });
-            } else {
-              const resultCtx = exprContexts[i];
-              resultEntries.push({
-                sql: params[i],
-                ctx: resultCtx,
-                type: this.inferExpressionType(resultCtx),
-              });
-              defaultResult = params[i];
+            if (this.inferExpressionType(ctx) === 'string') {
+              for (const entry of resultEntries) {
+                entry.sql = this.coerceCaseBranchToText(entry.sql);
+              }
             }
-          }
 
-          // Normalize blank results only after we have collected all branch types
-          normalizeBlankResults();
-
-          if (this.inferExpressionType(ctx) === 'string') {
-            for (const entry of resultEntries) {
-              entry.sql = this.coerceCaseBranchToText(entry.sql);
+            // Apply normalized SQL back to cases/default
+            let resultIndex = 0;
+            for (let i = 0; i < cases.length; i++) {
+              cases[i] = {
+                case: cases[i].case,
+                result: resultEntries[resultIndex++].sql,
+              };
             }
-          }
 
-          // Apply normalized SQL back to cases/default
-          let resultIndex = 0;
-          for (let i = 0; i < cases.length; i++) {
-            cases[i] = {
-              case: cases[i].case,
-              result: resultEntries[resultIndex++].sql,
-            };
-          }
+            if (defaultResult !== undefined) {
+              defaultResult = resultEntries[resultIndex]?.sql;
+            }
 
-          if (defaultResult !== undefined) {
-            defaultResult = resultEntries[resultIndex]?.sql;
-          }
+            return this.formulaQuery.switch(expression, cases, defaultResult);
+          })
 
-          return this.formulaQuery.switch(expression, cases, defaultResult);
-        })
+          // Array Functions
+          .with(FunctionName.Count, () => this.formulaQuery.count(params))
+          .with(FunctionName.CountA, () => this.formulaQuery.countA(params))
+          .with(FunctionName.CountAll, () => this.formulaQuery.countAll(params[0]))
+          .with(FunctionName.ArrayJoin, () => this.formulaQuery.arrayJoin(params[0], params[1]))
+          .with(FunctionName.ArrayUnique, () => this.formulaQuery.arrayUnique(params))
+          .with(FunctionName.ArrayFlatten, () => this.formulaQuery.arrayFlatten(params))
+          .with(FunctionName.ArrayCompact, () => this.formulaQuery.arrayCompact(params))
 
-        // Array Functions
-        .with(FunctionName.Count, () => this.formulaQuery.count(params))
-        .with(FunctionName.CountA, () => this.formulaQuery.countA(params))
-        .with(FunctionName.CountAll, () => this.formulaQuery.countAll(params[0]))
-        .with(FunctionName.ArrayJoin, () => this.formulaQuery.arrayJoin(params[0], params[1]))
-        .with(FunctionName.ArrayUnique, () => this.formulaQuery.arrayUnique(params[0]))
-        .with(FunctionName.ArrayFlatten, () => this.formulaQuery.arrayFlatten(params[0]))
-        .with(FunctionName.ArrayCompact, () => this.formulaQuery.arrayCompact(params[0]))
+          // System Functions
+          .with(FunctionName.RecordId, () => this.formulaQuery.recordId())
+          .with(FunctionName.AutoNumber, () => this.formulaQuery.autoNumber())
+          .with(FunctionName.TextAll, () => this.formulaQuery.textAll(params[0]))
 
-        // System Functions
-        .with(FunctionName.RecordId, () => this.formulaQuery.recordId())
-        .with(FunctionName.AutoNumber, () => this.formulaQuery.autoNumber())
-        .with(FunctionName.TextAll, () => this.formulaQuery.textAll(params[0]))
+          .otherwise((fn) => {
+            throw new Error(`Unsupported function: ${fn}`);
+          })
+      );
+    };
 
-        .otherwise((fn) => {
-          throw new Error(`Unsupported function: ${fn}`);
-        })
-    );
+    try {
+      return execute();
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
+    }
   }
 
   visitBinaryOp(ctx: BinaryOpContext): string {
-    let left = ctx.expr(0).accept(this);
-    let right = ctx.expr(1).accept(this);
-    const operator = ctx._op;
+    const exprContexts = [ctx.expr(0), ctx.expr(1)];
+    const paramMetadata = exprContexts.map((exprCtx) => this.buildParamMetadata(exprCtx));
+    this.formulaQuery.setCallMetadata(paramMetadata);
 
-    // For comparison operators, ensure operands are comparable to avoid
-    // Postgres errors like "operator does not exist: text > integer".
-    // If one side is number and the other is string, safely cast the string
-    // side to numeric (driver-aware) before building the comparison.
-    const leftType = this.inferExpressionType(ctx.expr(0));
-    const rightType = this.inferExpressionType(ctx.expr(1));
-    const needsNumericCoercion = (op: string) =>
-      ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
-    if (operator.text && needsNumericCoercion(operator.text)) {
-      if (leftType === 'number' && rightType === 'string') {
-        right = this.safeCastToNumeric(right);
-      } else if (leftType === 'string' && rightType === 'number') {
-        left = this.safeCastToNumeric(left);
-      }
-    }
+    try {
+      let left = exprContexts[0].accept(this);
+      let right = exprContexts[1].accept(this);
+      const operator = ctx._op;
 
-    // For arithmetic operators (except '+'), coerce string operands to numeric
-    // so expressions like "text * 3" or "'10' / '2'" work without errors in generated columns.
-    const needsArithmeticNumericCoercion = (op: string) => ['*', '/', '-', '%'].includes(op);
-    if (operator.text && needsArithmeticNumericCoercion(operator.text)) {
-      if (leftType === 'string') {
-        left = this.safeCastToNumeric(left);
-      }
-      if (rightType === 'string') {
-        right = this.safeCastToNumeric(right);
-      }
-    }
-
-    return match(operator.text)
-      .with('+', () => {
-        // Check if either operand is a string type for concatenation
-        const _leftType = this.inferExpressionType(ctx.expr(0));
-        const _rightType = this.inferExpressionType(ctx.expr(1));
-
-        if (
-          _leftType === 'string' ||
-          _rightType === 'string' ||
-          _leftType === 'datetime' ||
-          _rightType === 'datetime'
-        ) {
-          const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), _leftType);
-          const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), _rightType);
-          return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+      // For comparison operators, ensure operands are comparable to avoid
+      // Postgres errors like "operator does not exist: text > integer".
+      // If one side is number and the other is string, safely cast the string
+      // side to numeric (driver-aware) before building the comparison.
+      const leftType = this.inferExpressionType(exprContexts[0]);
+      const rightType = this.inferExpressionType(exprContexts[1]);
+      const needsNumericCoercion = (op: string) =>
+        ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
+      if (operator.text && needsNumericCoercion(operator.text)) {
+        if (leftType === 'number' && rightType === 'string') {
+          right = this.safeCastToNumeric(right);
+        } else if (leftType === 'string' && rightType === 'number') {
+          left = this.safeCastToNumeric(left);
         }
+      }
 
-        return this.formulaQuery.add(left, right);
-      })
-      .with('-', () => this.formulaQuery.subtract(left, right))
-      .with('*', () => this.formulaQuery.multiply(left, right))
-      .with('/', () => this.formulaQuery.divide(left, right))
-      .with('%', () => this.formulaQuery.modulo(left, right))
-      .with('>', () => this.formulaQuery.greaterThan(left, right))
-      .with('<', () => this.formulaQuery.lessThan(left, right))
-      .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
-      .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
-      .with('=', () => this.formulaQuery.equal(left, right))
-      .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
-      .with('&&', () => {
-        const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
-        const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
-        return this.formulaQuery.logicalAnd(normalizedLeft, normalizedRight);
-      })
-      .with('||', () => {
-        const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
-        const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
-        return this.formulaQuery.logicalOr(normalizedLeft, normalizedRight);
-      })
-      .with('&', () => {
-        // Always treat & as string concatenation to avoid type issues
-        const leftType = this.inferExpressionType(ctx.expr(0));
-        const rightType = this.inferExpressionType(ctx.expr(1));
-        const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), leftType);
-        const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), rightType);
-        return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
-      })
-      .otherwise((op) => {
-        throw new Error(`Unsupported binary operator: ${op}`);
-      });
+      // For arithmetic operators (except '+'), coerce string operands to numeric
+      // so expressions like "text * 3" or "'10' / '2'" work without errors in generated columns.
+      const needsArithmeticNumericCoercion = (op: string) => ['*', '/', '-', '%'].includes(op);
+      if (operator.text && needsArithmeticNumericCoercion(operator.text)) {
+        if (leftType === 'string') {
+          left = this.safeCastToNumeric(left);
+        }
+        if (rightType === 'string') {
+          right = this.safeCastToNumeric(right);
+        }
+      }
+
+      return match(operator.text)
+        .with('+', () => {
+          // Check if either operand is a string type for concatenation
+          const _leftType = this.inferExpressionType(exprContexts[0]);
+          const _rightType = this.inferExpressionType(exprContexts[1]);
+          const paramMetadata = [
+            this.buildParamMetadata(exprContexts[0]),
+            this.buildParamMetadata(exprContexts[1]),
+          ];
+          this.formulaQuery.setCallMetadata(paramMetadata);
+
+          const forceNumericAddition = this.shouldForceNumericAddition();
+
+          if (
+            !forceNumericAddition &&
+            (_leftType === 'string' ||
+              _rightType === 'string' ||
+              _leftType === 'datetime' ||
+              _rightType === 'datetime')
+          ) {
+            const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), _leftType);
+            const coercedRight = this.coerceToStringForConcatenation(
+              right,
+              ctx.expr(1),
+              _rightType
+            );
+            return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+          }
+
+          return this.formulaQuery.add(left, right);
+        })
+        .with('-', () => this.formulaQuery.subtract(left, right))
+        .with('*', () => this.formulaQuery.multiply(left, right))
+        .with('/', () => this.formulaQuery.divide(left, right))
+        .with('%', () => this.formulaQuery.modulo(left, right))
+        .with('>', () => this.formulaQuery.greaterThan(left, right))
+        .with('<', () => this.formulaQuery.lessThan(left, right))
+        .with('>=', () => this.formulaQuery.greaterThanOrEqual(left, right))
+        .with('<=', () => this.formulaQuery.lessThanOrEqual(left, right))
+        .with('=', () => this.formulaQuery.equal(left, right))
+        .with('!=', '<>', () => this.formulaQuery.notEqual(left, right))
+        .with('&&', () => {
+          const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
+          const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
+          return this.formulaQuery.logicalAnd(normalizedLeft, normalizedRight);
+        })
+        .with('||', () => {
+          const normalizedLeft = this.normalizeBooleanExpression(left, ctx.expr(0));
+          const normalizedRight = this.normalizeBooleanExpression(right, ctx.expr(1));
+          return this.formulaQuery.logicalOr(normalizedLeft, normalizedRight);
+        })
+        .with('&', () => {
+          // Always treat & as string concatenation to avoid type issues
+          const leftType = this.inferExpressionType(ctx.expr(0));
+          const rightType = this.inferExpressionType(ctx.expr(1));
+          const paramMetadata = [
+            this.buildParamMetadata(ctx.expr(0)),
+            this.buildParamMetadata(ctx.expr(1)),
+          ];
+          this.formulaQuery.setCallMetadata(paramMetadata);
+          const coercedLeft = this.coerceToStringForConcatenation(left, ctx.expr(0), leftType);
+          const coercedRight = this.coerceToStringForConcatenation(right, ctx.expr(1), rightType);
+          return this.formulaQuery.stringConcat(coercedLeft, coercedRight);
+        })
+        .otherwise((op) => {
+          throw new Error(`Unsupported binary operator: ${op}`);
+        });
+    } finally {
+      this.formulaQuery.setCallMetadata(undefined);
+    }
+  }
+
+  private normalizeFunctionParamsForMultiplicity(
+    fnName: FunctionName,
+    params: string[],
+    exprContexts: ExprContext[]
+  ): string[] {
+    const funcMeta = FUNCTIONS[fnName];
+    if (!funcMeta) {
+      return params;
+    }
+
+    return params.map((paramSql, index) => {
+      if (funcMeta.acceptMultipleValue) {
+        return paramSql;
+      }
+
+      if (this.shouldPreserveMultiValueParam(fnName, exprContexts[index], index, paramSql)) {
+        return paramSql;
+      }
+
+      return this.reduceMultiFieldReferenceParam(exprContexts[index], paramSql);
+    });
+  }
+
+  private tryBuildMultiValueAggregator(
+    fnName: FunctionName,
+    params: string[],
+    exprContexts: ExprContext[]
+  ): string | null {
+    if (!exprContexts[0] || this.dialect?.driver !== DriverClient.Pg) {
+      return null;
+    }
+
+    const isMulti = this.isMultiValueExpr(exprContexts[0], params[0]);
+    if (!isMulti) {
+      return null;
+    }
+
+    switch (fnName) {
+      case FunctionName.DatetimeFormat: {
+        const formatExpr = params[1] ?? `'YYYY-MM-DD HH:mm'`;
+        return this.buildPgDatetimeFormatAggregator(params[0], formatExpr);
+      }
+      case FunctionName.Value:
+        return this.buildPgNumericAggregator(params[0], (scalarText) =>
+          this.formulaQuery.value(scalarText)
+        );
+      case FunctionName.Abs:
+        return this.buildPgNumericAggregator(params[0], (scalarText) =>
+          this.formulaQuery.abs(this.formulaQuery.value(scalarText))
+        );
+      case FunctionName.Datestr:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.datestr(scalar)
+        );
+      case FunctionName.Timestr:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.timestr(scalar)
+        );
+      case FunctionName.Day:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.day(scalar)
+        );
+      case FunctionName.Month:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.month(scalar)
+        );
+      case FunctionName.Year:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.year(scalar)
+        );
+      case FunctionName.Weekday:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.weekday(scalar)
+        );
+      case FunctionName.WeekNum:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.weekNum(scalar)
+        );
+      case FunctionName.Hour:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.hour(scalar)
+        );
+      case FunctionName.Minute:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.minute(scalar)
+        );
+      case FunctionName.Second:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.second(scalar)
+        );
+      case FunctionName.FromNow:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.fromNow(scalar)
+        );
+      case FunctionName.ToNow:
+        return this.buildPgDatetimeScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.toNow(scalar)
+        );
+      case FunctionName.Round:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.round(scalar, params[1] ?? '0')
+        );
+      case FunctionName.RoundUp:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.roundUp(scalar, params[1] ?? '0')
+        );
+      case FunctionName.RoundDown:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.roundDown(scalar, params[1] ?? '0')
+        );
+      case FunctionName.Floor:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.floor(scalar)
+        );
+      case FunctionName.Ceiling:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.ceiling(scalar)
+        );
+      case FunctionName.Int:
+        return this.buildPgNumericScalarAggregator(params[0], (scalar) =>
+          this.formulaQuery.int(scalar)
+        );
+      default:
+        return null;
+    }
+  }
+
+  private shouldPreserveMultiValueParam(
+    fnName: FunctionName,
+    exprCtx: ExprContext,
+    index: number,
+    paramSql: string
+  ): boolean {
+    if (MULTI_VALUE_AGGREGATED_FUNCTIONS.has(fnName) && index === 0) {
+      return true;
+    }
+
+    return this.isMultiValueExpr(exprCtx, paramSql);
+  }
+
+  private reduceMultiFieldReferenceParam(exprCtx: ExprContext, paramSql: string): string {
+    if (!this.isMultiValueExpr(exprCtx, paramSql)) {
+      return paramSql;
+    }
+
+    const fieldInfo = this.getFieldInfoFromExpr(exprCtx);
+    if (fieldInfo) {
+      return this.extractSingleValueFromMultiReference(paramSql, fieldInfo);
+    }
+    return paramSql;
+  }
+
+  private getFieldInfoFromExpr(exprCtx: ExprContext): FieldCore | undefined {
+    if (!exprCtx) {
+      return undefined;
+    }
+
+    if (exprCtx instanceof BracketsContext) {
+      return this.getFieldInfoFromExpr(exprCtx.expr());
+    }
+
+    if (exprCtx instanceof FieldReferenceCurlyContext) {
+      const normalizedFieldId = extractFieldReferenceId(exprCtx);
+      const rawToken = getFieldReferenceTokenText(exprCtx);
+      const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
+      if (!fieldId) {
+        return undefined;
+      }
+      return this.context.table.getField(fieldId);
+    }
+
+    return undefined;
+  }
+
+  private isMultiValueField(fieldInfo?: FieldCore): boolean {
+    if (!fieldInfo) {
+      return false;
+    }
+
+    const fieldType = fieldInfo.type as FieldType;
+    const lookupHolder = fieldInfo as unknown as {
+      isLookup?: boolean;
+      dbFieldName?: string;
+      lookupOptions?: { linkFieldId?: string };
+      isMultipleCellValue?: boolean;
+    };
+
+    // Link fields: only treat as multi-value when the relationship is multi or explicitly flagged.
+    if (fieldType === FieldType.Link) {
+      return this.isLinkFieldMulti(fieldInfo);
+    }
+
+    const isLookupField =
+      lookupHolder.isLookup === true ||
+      lookupHolder.dbFieldName?.startsWith('lookup_') ||
+      lookupHolder.dbFieldName?.startsWith('conditional_lookup_');
+
+    // Lookup of link: mirror the link field multiplicity instead of assuming array values.
+    if (isLookupField && lookupHolder.lookupOptions?.linkFieldId) {
+      const linkField = this.context.table.getField(lookupHolder.lookupOptions.linkFieldId);
+      if (this.isLinkFieldMulti(linkField as FieldCore | undefined)) {
+        return true;
+      }
+    }
+
+    if (lookupHolder.isMultipleCellValue) {
+      return true;
+    }
+
+    // For lookup fields that are not multi-value (e.g., many-one link lookup), stop here to avoid
+    // treating scalar JSON objects as arrays.
+    if (isLookupField) {
+      return false;
+    }
+
+    if (MULTI_VALUE_FIELD_TYPES.has(fieldType)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private isLinkFieldMulti(linkField?: FieldCore): boolean {
+    if (!linkField) {
+      return false;
+    }
+    if ((linkField as unknown as { isMultipleCellValue?: boolean })?.isMultipleCellValue) {
+      return true;
+    }
+    const relationship = (
+      linkField as unknown as {
+        options?: { relationship?: Relationship };
+      }
+    ).options?.relationship;
+    if (!relationship) {
+      return false;
+    }
+    return relationship === Relationship.ManyMany || relationship === Relationship.OneMany;
+  }
+
+  private isMultiValueExpr(exprCtx: ExprContext, paramSql?: string): boolean {
+    const fieldInfo = this.getFieldInfoFromExpr(exprCtx);
+    if (this.isMultiValueField(fieldInfo)) {
+      return true;
+    }
+
+    if (paramSql) {
+      const normalized = paramSql.toLowerCase();
+      if (normalized.includes('lookup_') || normalized.includes('link_value')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private extractSingleValueFromMultiReference(expr: string, fieldInfo: FieldCore): string {
+    if (!this.dialect) {
+      return expr;
+    }
+
+    switch (this.dialect.driver) {
+      case DriverClient.Pg:
+        return this.buildPgSingleValueExtractor(expr, fieldInfo);
+      case DriverClient.Sqlite:
+        return this.buildSqliteSingleValueExtractor(expr);
+      default:
+        return expr;
+    }
+  }
+
+  private buildSqliteSingleValueExtractor(expr: string): string {
+    // SQLite formulas already treat multi-value columns as JSON text during coercion.
+    // Returning the original expression keeps existing behaviour consistent.
+    return expr;
+  }
+
+  private buildPgSingleValueExtractor(expr: string, _fieldInfo: FieldCore): string {
+    const fieldInfo = _fieldInfo;
+    const normalizedJson = this.normalizeMultiValueExprToJson(expr);
+
+    const firstElement = `(SELECT elem
+      FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+      WHERE jsonb_typeof(elem) <> 'null'
+      ORDER BY ord
+      LIMIT 1
+    )`;
+
+    const scalarJson = `(CASE
+      WHEN ${normalizedJson} IS NULL THEN NULL::jsonb
+      WHEN jsonb_typeof(${normalizedJson}) = 'array' THEN ${firstElement}
+      ELSE ${normalizedJson}
+    END)`;
+
+    return `(CASE
+      WHEN ${scalarJson} IS NULL THEN NULL
+      WHEN jsonb_typeof(${scalarJson}) = 'object' THEN COALESCE(
+        ${scalarJson}->>'title',
+        ${scalarJson}->>'name',
+        (${scalarJson})::text
+      )
+      WHEN jsonb_typeof(${scalarJson}) = 'array' THEN NULL
+      ELSE ${this.formatScalarDatetimeIfNeeded(`${scalarJson} #>> '{}'`, fieldInfo)}
+    END)`;
+  }
+
+  private formatScalarDatetimeIfNeeded(scalar: string, fieldInfo: FieldCore): string {
+    if (this.context?.isGeneratedColumn) {
+      return scalar;
+    }
+    const isDatetimeCell =
+      (fieldInfo as unknown as { cellValueType?: CellValueType })?.cellValueType ===
+        CellValueType.DateTime || fieldInfo.dbFieldType === DbFieldType.DateTime;
+
+    if (!isDatetimeCell || !this.dialect || typeof this.dialect.formatDate !== 'function') {
+      return scalar;
+    }
+
+    const formatting = this.getFieldDatetimeFormatting(fieldInfo);
+    const fallBackFormatting: IDatetimeFormatting = {
+      date: DateFormattingPreset.ISO,
+      time: TimeFormatting.Hour24,
+      timeZone: this.context?.timeZone ?? 'UTC',
+    };
+
+    return this.dialect.formatDate(scalar, formatting ?? fallBackFormatting);
+  }
+
+  private normalizeMultiValueExprToJson(expr: string): string {
+    const baseExpr = `(${expr})`;
+    const coercedJson = `(CASE
+      WHEN ${baseExpr} IS NULL THEN NULL::jsonb
+      WHEN pg_typeof(${baseExpr}) = 'jsonb'::regtype THEN (${baseExpr})::text::jsonb
+      WHEN pg_typeof(${baseExpr}) = 'json'::regtype THEN (${baseExpr})::text::jsonb
+      WHEN pg_typeof(${baseExpr}) IN ('text', 'varchar', 'bpchar', 'character varying', 'unknown') THEN
+        CASE
+          WHEN NULLIF(BTRIM((${baseExpr})::text), '') IS NULL THEN NULL::jsonb
+          WHEN LEFT(BTRIM((${baseExpr})::text), 1) = '[' THEN (${baseExpr})::text::jsonb
+          ELSE jsonb_build_array(to_jsonb(${baseExpr}))
+        END
+      ELSE to_jsonb(${baseExpr})
+    END)`;
+    return `(CASE
+      WHEN ${coercedJson} IS NULL THEN NULL::jsonb
+      WHEN jsonb_typeof(${coercedJson}) = 'array' THEN ${coercedJson}
+      ELSE jsonb_build_array(${coercedJson})
+    END)`;
+  }
+
+  private extractJsonScalarText(elemRef: string): string {
+    return `(CASE
+      WHEN jsonb_typeof(${elemRef}) = 'object' THEN COALESCE(${elemRef}->>'title', ${elemRef}->>'name', ${elemRef} #>> '{}')
+      WHEN jsonb_typeof(${elemRef}) = 'array' THEN NULL
+      ELSE ${elemRef} #>> '{}'
+    END)`;
+  }
+
+  private buildPgNumericAggregator(
+    valueExpr: string,
+    buildNumericExpr: (scalarTextExpr: string) => string
+  ): string {
+    const normalizedJson = this.normalizeMultiValueExprToJson(valueExpr);
+    const scalarText = this.extractJsonScalarText('elem');
+    const numericExpr = buildNumericExpr(scalarText);
+    const formattedExpr = `(CASE WHEN ${numericExpr} IS NULL THEN NULL ELSE ${numericExpr} END)`;
+    const aggregated = this.dialect!.stringAggregate(formattedExpr, ', ', 'ord');
+    return `(CASE
+      WHEN ${normalizedJson} IS NULL THEN NULL
+      ELSE (
+        SELECT ${aggregated}
+        FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+      )
+    END)`;
+  }
+
+  private buildPgDatetimeFormatAggregator(valueExpr: string, formatExpr: string): string {
+    return this.buildPgDatetimeScalarAggregator(valueExpr, (scalar) =>
+      this.formulaQuery.datetimeFormat(scalar, formatExpr)
+    );
+  }
+
+  private buildPgNumericScalarAggregator(
+    valueExpr: string,
+    buildScalarExpr: (numericScalar: string) => string
+  ): string {
+    const normalizedJson = this.normalizeMultiValueExprToJson(valueExpr);
+    const elementScalar = this.extractJsonScalarText('elem');
+    const sanitizedScalar = `NULLIF(${elementScalar}, '')`;
+    const numericScalar = this.formulaQuery.value(sanitizedScalar);
+    const computedExpr = buildScalarExpr(numericScalar);
+    const safeExpr = `(CASE WHEN ${numericScalar} IS NULL THEN NULL ELSE (${computedExpr})::text END)`;
+    const aggregated = this.dialect!.stringAggregate(safeExpr, ', ', 'ord');
+    return `(CASE
+      WHEN ${normalizedJson} IS NULL THEN NULL
+      ELSE (
+        SELECT ${aggregated}
+        FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+      )
+    END)`;
+  }
+
+  private buildPgDatetimeScalarAggregator(
+    valueExpr: string,
+    buildScalarExpr: (sanitizedScalar: string) => string
+  ): string {
+    const normalizedJson = this.normalizeMultiValueExprToJson(valueExpr);
+    const elementScalar = this.extractJsonScalarText('elem');
+    const sanitizedScalar = `NULLIF(${elementScalar}, '')`;
+    const computedExpr = buildScalarExpr(sanitizedScalar);
+    const safeExpr = `(CASE WHEN ${sanitizedScalar} IS NULL THEN NULL ELSE (${computedExpr})::text END)`;
+    const aggregated = this.dialect!.stringAggregate(safeExpr, ', ', 'ord');
+    return `(CASE
+      WHEN ${normalizedJson} IS NULL THEN NULL
+      ELSE (
+        SELECT ${aggregated}
+        FROM jsonb_array_elements(${normalizedJson}) WITH ORDINALITY AS t(elem, ord)
+      )
+    END)`;
   }
 
   /**
@@ -790,23 +1323,90 @@ abstract class BaseSqlConversionVisitor<
     exprCtx: ExprContext,
     inferredType?: 'string' | 'number' | 'boolean' | 'datetime' | 'unknown'
   ): string {
+    let fieldInfo: FieldCore | undefined;
     let normalizedValue = value;
+    let coercedMultiToString = false;
     if (exprCtx instanceof FieldReferenceCurlyContext) {
       const normalizedFieldId = extractFieldReferenceId(exprCtx);
       const rawToken = getFieldReferenceTokenText(exprCtx);
-      const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
-      const fieldInfo = this.context.table.getField(fieldId);
-      if (fieldInfo?.isMultipleCellValue && this.dialect) {
+      const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
+      fieldInfo = this.context.table.getField(fieldId);
+      const isMultiField = this.isMultiValueField(fieldInfo as FieldCore);
+      const cellValueType = (fieldInfo as unknown as { cellValueType?: CellValueType })
+        ?.cellValueType;
+      const hasDatetimeSemantics =
+        (fieldInfo && DATETIME_FIELD_TYPES.has(fieldInfo.type as FieldType)) ||
+        cellValueType === CellValueType.DateTime ||
+        fieldInfo?.dbFieldType === DbFieldType.DateTime;
+      if (
+        fieldInfo &&
+        (fieldInfo as unknown as { cellValueType?: CellValueType })?.cellValueType ===
+          CellValueType.DateTime
+      ) {
+        // Keep a note that this value carries datetime semantics even when inferred as string
+        inferredType = inferredType === undefined ? 'datetime' : inferredType;
+      }
+      if (isMultiField && this.dialect) {
         // Normalize multi-value references (lookup, link, multi-select, etc.) into a deterministic
         // comma-separated string so downstream text operations behave as expected.
-        normalizedValue = this.dialect.formatStringArray(value);
+        if (
+          fieldInfo &&
+          hasDatetimeSemantics &&
+          typeof this.dialect.formatDateArray === 'function'
+        ) {
+          const formatting =
+            this.getFieldDatetimeFormatting(fieldInfo) ??
+            ({
+              date: DateFormattingPreset.ISO,
+              time: TimeFormatting.Hour24,
+              timeZone: this.context?.timeZone ?? 'UTC',
+            } as IDatetimeFormatting);
+          normalizedValue = this.dialect.formatDateArray(value, formatting);
+        } else {
+          normalizedValue = this.dialect.formatStringArray(value, { fieldInfo });
+        }
+        coercedMultiToString = true;
       }
     }
-    const type = inferredType ?? this.inferExpressionType(exprCtx);
+    const type = coercedMultiToString
+      ? 'string'
+      : inferredType ?? this.inferExpressionType(exprCtx);
     if (type === 'datetime') {
-      return this.formulaQuery.datetimeFormat(normalizedValue, "'YYYY-MM-DD'");
+      if (fieldInfo && this.dialect?.formatDate) {
+        const formatting = this.getFieldDatetimeFormatting(fieldInfo);
+        const fallBackFormatting: IDatetimeFormatting = {
+          date: DateFormattingPreset.ISO,
+          time: TimeFormatting.Hour24,
+          timeZone: this.context?.timeZone ?? 'UTC',
+        };
+        return this.dialect.formatDate(normalizedValue, formatting ?? fallBackFormatting);
+      }
+      return this.formulaQuery.datetimeFormat(normalizedValue, "'YYYY-MM-DD HH24:MI'");
     }
     return normalizedValue;
+  }
+
+  private getFieldDatetimeFormatting(fieldInfo: FieldCore): IDatetimeFormatting | undefined {
+    const formatting = (fieldInfo as unknown as { options?: { formatting?: IDatetimeFormatting } })
+      ?.options?.formatting;
+    if (formatting) return formatting;
+
+    const getter = (
+      fieldInfo as unknown as {
+        getDatetimeFormatting?: () => IDatetimeFormatting | undefined;
+      }
+    )?.getDatetimeFormatting;
+    if (typeof getter === 'function') {
+      return getter.call(fieldInfo);
+    }
+
+    return undefined;
+  }
+
+  private shouldForceNumericAddition(): boolean {
+    const selectContext = this.context as ISelectFormulaConversionContext | undefined;
+    const targetType = selectContext?.targetDbFieldType;
+    return targetType === DbFieldType.Integer || targetType === DbFieldType.Real;
   }
 
   private coerceCaseBranchToText(expr: string): string {
@@ -844,6 +1444,13 @@ abstract class BaseSqlConversionVisitor<
       return '1';
     }
 
+    const trimmedLiteral = valueSql.trim();
+    if (/^[-+]?\d+(\.\d+)?$/.test(trimmedLiteral)) {
+      const literalNumber = Math.floor(Number(trimmedLiteral));
+      const clamped = Number.isFinite(literalNumber) ? Math.max(literalNumber, 0) : 0;
+      return clamped.toString();
+    }
+
     const type = this.inferExpressionType(exprCtx);
     const driver = this.context.driverClient ?? DriverClient.Pg;
 
@@ -855,15 +1462,12 @@ abstract class BaseSqlConversionVisitor<
     }
 
     const numericExpr = this.safeCastToNumeric(valueSql);
-    const flooredExpr =
-      driver === DriverClient.Sqlite ? `CAST(${numericExpr} AS INTEGER)` : `FLOOR(${numericExpr})`;
-    const flooredWrapped = `(${flooredExpr})`;
-
-    return `(CASE
-      WHEN ${flooredWrapped} IS NULL THEN 0
-      WHEN ${flooredWrapped} < 0 THEN 0
-      ELSE ${flooredWrapped}
-    END)`;
+    if (driver === DriverClient.Sqlite) {
+      const flooredExpr = `CAST(${numericExpr} AS INTEGER)`;
+      return `COALESCE(CASE WHEN ${flooredExpr} < 0 THEN 0 ELSE ${flooredExpr} END, 0)`;
+    }
+    const flooredExpr = `FLOOR(${numericExpr})`;
+    return `COALESCE(GREATEST(${flooredExpr}, 0), 0)`;
   }
   private normalizeBooleanExpression(valueSql: string, exprCtx: ExprContext): string {
     const type = this.inferExpressionType(exprCtx);
@@ -915,7 +1519,7 @@ abstract class BaseSqlConversionVisitor<
 
     const normalizedFieldId = extractFieldReferenceId(exprCtx);
     const rawToken = getFieldReferenceTokenText(exprCtx);
-    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
     const fieldInfo = this.context.table?.getField(fieldId);
     if (!fieldInfo) {
       return null;
@@ -1019,10 +1623,7 @@ abstract class BaseSqlConversionVisitor<
   private inferFieldReferenceType(
     ctx: FieldReferenceCurlyContext
   ): 'string' | 'number' | 'boolean' | 'datetime' | 'unknown' {
-    const normalizedFieldId = extractFieldReferenceId(ctx);
-    const rawToken = getFieldReferenceTokenText(ctx);
-    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
-    const fieldInfo = this.context.table.getField(fieldId);
+    const { fieldInfo } = this.resolveFieldReference(ctx);
 
     if (!fieldInfo) {
       return 'unknown';
@@ -1044,6 +1645,61 @@ abstract class BaseSqlConversionVisitor<
     }
 
     return this.mapFieldTypeToBasicType(fieldInfo);
+  }
+
+  private resolveFieldReference(ctx: FieldReferenceCurlyContext): {
+    fieldId: string;
+    fieldInfo?: FieldCore;
+  } {
+    const normalizedFieldId = extractFieldReferenceId(ctx);
+    const rawToken = getFieldReferenceTokenText(ctx);
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
+    const fieldInfo = this.context.table.getField(fieldId);
+    return { fieldId, fieldInfo };
+  }
+
+  private buildParamMetadata(exprCtx: ExprContext): IFormulaParamMetadata {
+    const type = this.inferExpressionType(exprCtx) as FormulaParamType;
+    const fieldRef = this.extractFieldReferenceMetadata(exprCtx);
+    if (fieldRef) {
+      const { fieldId, fieldInfo } = fieldRef;
+      const fieldMetadata: IFormulaParamFieldMetadata = {
+        id: fieldId,
+        type: fieldInfo?.type as FieldType | undefined,
+        cellValueType: fieldInfo?.cellValueType,
+        isMultiple: Boolean(fieldInfo?.isMultipleCellValue),
+        isLookup: Boolean(fieldInfo?.isLookup),
+        dbFieldName: fieldInfo?.dbFieldName,
+        dbFieldType: fieldInfo?.dbFieldType,
+      };
+      return {
+        type,
+        isFieldReference: true,
+        field: fieldMetadata,
+      };
+    }
+    return {
+      type,
+      isFieldReference: false,
+    };
+  }
+
+  private extractFieldReferenceMetadata(
+    exprCtx: ExprContext
+  ): { fieldId: string; fieldInfo?: FieldCore } | undefined {
+    if (exprCtx instanceof FieldReferenceCurlyContext) {
+      return this.resolveFieldReference(exprCtx);
+    }
+    if (exprCtx instanceof BracketsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    if (exprCtx instanceof LeftWhitespaceOrCommentsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    if (exprCtx instanceof RightWhitespaceOrCommentsContext) {
+      return this.extractFieldReferenceMetadata(exprCtx.expr());
+    }
+    return undefined;
   }
 
   /**
@@ -1103,6 +1759,7 @@ abstract class BaseSqlConversionVisitor<
       case 'boolean':
         return 'boolean';
       case 'datetime':
+      case 'dateTime':
         return 'datetime';
       default:
         return 'unknown';
@@ -1133,8 +1790,16 @@ abstract class BaseSqlConversionVisitor<
 
     if (fnName === FunctionName.If) {
       const [, trueExpr, falseExpr] = ctx.expr();
-      const trueType = this.inferExpressionType(trueExpr);
-      const falseType = this.inferExpressionType(falseExpr);
+      const trueType = trueExpr ? this.inferExpressionType(trueExpr) : 'unknown';
+      const falseType = falseExpr ? this.inferExpressionType(falseExpr) : 'unknown';
+
+      if (!falseExpr) {
+        return trueType;
+      }
+
+      if (!trueExpr) {
+        return falseType;
+      }
 
       if (trueType === falseType) {
         return trueType;
@@ -1309,7 +1974,7 @@ export class GeneratedColumnSqlConversionVisitor extends BaseSqlConversionVisito
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): string {
     const normalizedFieldId = extractFieldReferenceId(ctx);
     const rawToken = getFieldReferenceTokenText(ctx);
-    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1).trim() ?? '';
+    const fieldId = normalizedFieldId ?? rawToken?.slice(1, -1)?.trim() ?? '';
     this.dependencies.push(fieldId);
     return super.visitFieldReferenceCurly(ctx);
   }
@@ -1353,14 +2018,26 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     const selection = selectionMap?.get(fieldId);
     let selectionSql = typeof selection === 'string' ? selection : selection?.toSQL().sql;
     const cteMap = selectContext.fieldCteMap;
+    const readyLinkFieldIds =
+      selectContext.readyLinkFieldIds &&
+      typeof (selectContext.readyLinkFieldIds as { has?: unknown }).has === 'function'
+        ? (selectContext.readyLinkFieldIds as ReadonlySet<string>)
+        : undefined;
+    const isSelfReference = selectContext.currentLinkFieldId === fieldId;
     // For link fields with CTE mapping, use the CTE directly
     // No need for complex cross-CTE reference handling in most cases
 
     // Handle different field types that use CTEs
     if (isLinkField(fieldInfo)) {
-      // Prefer CTE map resolution when available
-      if (cteMap?.has(fieldId)) {
-        const cteName = cteMap.get(fieldId)!;
+      // Prefer direct column when raw references are requested; otherwise fallback to CTE mapping.
+      // However, when the field is not already part of the current selection (common when resolving
+      // display fields for nested link CTEs), we still need to reference the CTE to access the link
+      // value even in raw contexts; otherwise formulas that reference link fields end up reading
+      // NULL placeholders instead of the computed JSON payload.
+      const canReferenceCte =
+        !preferRaw && !isSelfReference && readyLinkFieldIds?.has(fieldId) && cteMap?.has(fieldId);
+      if (canReferenceCte) {
+        const cteName = cteMap!.get(fieldId)!;
         selectionSql = `"${cteName}"."link_value"`;
       }
       // Provide a safe fallback if selection map has no entry
@@ -1408,8 +2085,12 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           }
           columnRef = adjusted;
         }
-        if (fieldInfo.isLookup && isLinkLookupOptions(fieldInfo.lookupOptions)) {
-          if (preferRaw) {
+        if (
+          fieldInfo.type === FieldType.Link &&
+          fieldInfo.isLookup &&
+          isLinkLookupOptions(fieldInfo.lookupOptions)
+        ) {
+          if (preferRaw && selectContext.targetDbFieldType === DbFieldType.Json) {
             return columnRef;
           }
           if (fieldInfo.dbFieldType !== DbFieldType.Json) {
@@ -1420,7 +2101,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
             !!fieldInfo.isMultipleCellValue
           );
           if (fieldInfo.isMultipleCellValue) {
-            return this.dialect!.formatStringArray(titlesExpr);
+            return this.dialect!.formatStringArray(titlesExpr, { fieldInfo });
           }
           return titlesExpr;
         }
@@ -1510,6 +2191,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     if (
+      fieldInfo.type !== FieldType.Link ||
       !fieldInfo.isLookup ||
       !fieldInfo.lookupOptions ||
       !isLinkLookupOptions(fieldInfo.lookupOptions)
@@ -1518,10 +2200,8 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     const preferRaw = !!selectContext.preferRawFieldReferences;
-    if (preferRaw) {
-      return expr;
-    }
-    if (preferRaw && selectContext.targetDbFieldType === DbFieldType.Json) {
+    const targetDbType = selectContext.targetDbFieldType;
+    if (preferRaw && targetDbType === DbFieldType.Json) {
       return expr;
     }
 
@@ -1536,7 +2216,7 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
 
     const titlesExpr = dialect.linkExtractTitles(expr, !!fieldInfo.isMultipleCellValue);
     if (fieldInfo.isMultipleCellValue) {
-      return dialect.formatStringArray(titlesExpr);
+      return dialect.formatStringArray(titlesExpr, { fieldInfo });
     }
     return titlesExpr;
   }
@@ -1571,8 +2251,8 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
           return expr;
         }
         const safeJsonExpr = `(CASE
-          WHEN pg_typeof(${expr}) = 'jsonb'::regtype THEN (${expr})::jsonb
-          WHEN pg_typeof(${expr}) = 'json'::regtype THEN (${expr})::jsonb
+          WHEN pg_typeof(${expr}) = 'jsonb'::regtype THEN (${expr})::text::jsonb
+          WHEN pg_typeof(${expr}) = 'json'::regtype THEN (${expr})::text::jsonb
           ELSE NULL::jsonb
         END)`;
         return `(SELECT elem #>> '{}'

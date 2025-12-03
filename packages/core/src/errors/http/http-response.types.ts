@@ -59,6 +59,6 @@ export enum HttpErrorCode {
   AUTOMATION_NODE_TEST_OUTDATED = 'automation_node_test_outdated',
 }
 
-export type ICustomHttpExceptionData = Record<string, unknown> & {
-  localization?: ILocalization;
+export type ICustomHttpExceptionData<T extends string = string> = Record<string, unknown> & {
+  localization?: ILocalization<T>;
 };

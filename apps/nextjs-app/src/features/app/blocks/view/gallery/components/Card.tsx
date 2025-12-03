@@ -1,7 +1,17 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions,jsx-a11y/click-events-have-key-events */
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
-import { ArrowDown, ArrowUp, Copy, Image, Maximize2, Trash2 } from '@teable/icons';
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  History,
+  Image,
+  Link,
+  Maximize2,
+  MessageSquare,
+  Trash2,
+} from '@teable/icons';
 import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { createRecords, deleteRecord, duplicateRecord } from '@teable/openapi';
 import { CellValue } from '@teable/sdk/components';
@@ -17,6 +27,7 @@ import {
 import { useTranslation } from 'next-i18next';
 import { Fragment, useMemo } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import { useGallery } from '../hooks';
 import { CARD_COVER_HEIGHT, CARD_STYLE } from '../utils';
 import { CardCarousel } from './CardCarousel';
@@ -40,6 +51,7 @@ export const Card = (props: IKanbanCardProps) => {
     isFieldNameHidden,
     setExpandRecordId,
   } = useGallery();
+  const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
   const { cardCreatable, cardDeletable } = permission;
   const coverFieldId = coverField?.id;
@@ -86,11 +98,25 @@ export const Card = (props: IKanbanCardProps) => {
     }
   };
 
+  const onCopyRecordUrl = async () => {
+    await copyRecordUrl(card.id);
+  };
+
+  const onViewRecordHistory = async () => {
+    setExpandRecordId(card.id);
+    await viewRecordHistory(card.id);
+  };
+
+  const onAddRecordComment = async () => {
+    setExpandRecordId(card.id);
+    await addRecordComment(card.id);
+  };
+
   return (
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="size-full overflow-hidden rounded-md border border-input bg-background"
+          className="size-full overflow-hidden rounded-md border border-input bg-card hover:border-primary/15 cursor-pointer"
           onClick={onExpand}
         >
           {coverFieldId && (
@@ -107,7 +133,7 @@ export const Card = (props: IKanbanCardProps) => {
               )}
             </Fragment>
           )}
-          <div className="px-3 py-2">
+          <div className="px-3 py-2 gap-1 flex flex-col">
             <div
               className="flex pb-2 text-base font-semibold"
               style={{ height: CARD_STYLE.titleHeight }}
@@ -137,7 +163,7 @@ export const Card = (props: IKanbanCardProps) => {
               return (
                 <div key={fieldId} className="mb-2">
                   {!isFieldNameHidden && (
-                    <div className="mb-1 flex items-center space-x-1 text-slate-500 dark:text-slate-400">
+                    <div className="mb-1 flex items-center space-x-1 text-muted-foreground">
                       <Icon className="size-4 text-sm" />
                       <span className="text-xs">{name}</span>
                     </div>
@@ -170,6 +196,19 @@ export const Card = (props: IKanbanCardProps) => {
         <ContextMenuItem onClick={onExpand}>
           <Maximize2 className="mr-2 size-4" />
           {t('table:kanban.cardMenu.expandCard')}
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={onCopyRecordUrl}>
+          <Link className="mr-2 size-4" />
+          {t('sdk:expandRecord.copyRecordUrl')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onViewRecordHistory}>
+          <History className="mr-2 size-4" />
+          {t('sdk:expandRecord.viewRecordHistory')}
+        </ContextMenuItem>
+        <ContextMenuItem onClick={onAddRecordComment}>
+          <MessageSquare className="mr-2 size-4" />
+          {t('sdk:expandRecord.addRecordComment')}
         </ContextMenuItem>
         {cardDeletable && (
           <>

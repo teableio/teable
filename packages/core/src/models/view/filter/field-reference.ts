@@ -1,19 +1,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { CellValueType, FieldType } from '../../field/constant';
 import type { IOperator } from './operator';
-import {
-  getValidFilterOperators,
-  is,
-  isAfter,
-  isBefore,
-  isGreater,
-  isGreaterEqual,
-  isLess,
-  isLessEqual,
-  isNot,
-  isOnOrAfter,
-  isOnOrBefore,
-} from './operator';
+import { getValidFilterOperators, isEmpty, isNotEmpty } from './operator';
 
 type FieldShape = {
   cellValueType: CellValueType;
@@ -70,32 +58,11 @@ export function isFieldReferenceComparable(field: FieldShape, reference: FieldSh
   return getFieldReferenceComparisonKind(field) === getFieldReferenceComparisonKind(reference);
 }
 
-const FIELD_REFERENCE_OPERATOR_MAP: Record<CellValueType, ReadonlySet<IOperator>> = {
-  [CellValueType.String]: new Set<IOperator>([is.value, isNot.value]),
-  [CellValueType.Number]: new Set<IOperator>([
-    is.value,
-    isNot.value,
-    isGreater.value,
-    isGreaterEqual.value,
-    isLess.value,
-    isLessEqual.value,
-  ]),
-  [CellValueType.Boolean]: new Set<IOperator>([is.value, isNot.value]),
-  [CellValueType.DateTime]: new Set<IOperator>([
-    is.value,
-    isNot.value,
-    isBefore.value,
-    isAfter.value,
-    isOnOrBefore.value,
-    isOnOrAfter.value,
-  ]),
-};
+const FIELD_REFERENCE_UNSUPPORTED_OPERATORS = new Set<IOperator>([isEmpty.value, isNotEmpty.value]);
 
 export function getFieldReferenceSupportedOperators(field: FieldShape): IOperator[] {
   const validOperators = getValidFilterOperators(field);
-  const supported = FIELD_REFERENCE_OPERATOR_MAP[field.cellValueType] ?? new Set<IOperator>();
-
-  return validOperators.filter((op) => supported.has(op));
+  return validOperators.filter((op) => !FIELD_REFERENCE_UNSUPPORTED_OPERATORS.has(op));
 }
 
 export function isFieldReferenceOperatorSupported(
@@ -105,6 +72,10 @@ export function isFieldReferenceOperatorSupported(
   if (!operator) {
     return false;
   }
-  const supported = getFieldReferenceSupportedOperators(field);
-  return supported.includes(operator);
+  if (FIELD_REFERENCE_UNSUPPORTED_OPERATORS.has(operator)) {
+    return false;
+  }
+
+  const validOperators = getValidFilterOperators(field);
+  return validOperators.includes(operator);
 }

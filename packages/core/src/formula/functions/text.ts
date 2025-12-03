@@ -6,11 +6,29 @@ import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
 export const convertValueToString = (
   param?: TypedValue<string | number | boolean | null | (string | number | boolean | null)[]>,
   separator = ', '
+  // eslint-disable-next-line sonarjs/cognitive-complexity
 ): string | null => {
-  const { value, isMultiple } = param || {};
+  const { value, isMultiple, field } = param || {};
 
   if (value == null) return null;
-  if (isMultiple && Array.isArray(value)) return value.join(separator);
+  if (field?.cellValueType === CellValueType.DateTime) {
+    if (isMultiple && Array.isArray(value)) {
+      return value.map((item) => field.cellValue2String(item)).join(separator);
+    }
+    return field.cellValue2String(value);
+  }
+
+  if (isMultiple) {
+    if (Array.isArray(value)) return value.join(separator);
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.join(separator);
+      } catch {
+        // ignore parse errors and fall back to string cast
+      }
+    }
+  }
   return String(value);
 };
 

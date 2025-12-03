@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { type IRole } from '@teable/core';
+import { HttpErrorCode, type IRole } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IGetUserLastVisitRo,
@@ -16,6 +16,7 @@ import { Knex } from 'knex';
 import { keyBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import type { BaseDeleteEvent, SpaceDeleteEvent } from '../../../event-emitter/events';
 import { Events } from '../../../event-emitter/events';
@@ -375,7 +376,11 @@ export class LastVisitService {
       case LastVisitResourceType.Automation:
         return this.automationVisit(userId, params.parentResourceId);
       default:
-        throw new NotFoundException('Invalid resource type');
+        throw new CustomHttpException('Invalid resource type', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.lastVisit.invalidResourceType',
+          },
+        });
     }
   }
 

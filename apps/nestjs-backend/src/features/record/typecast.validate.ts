@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type {
+  FieldCore,
   IAttachmentCellValue,
   IAttachmentItem,
   ILinkCellValue,
@@ -13,12 +14,14 @@ import {
   FieldType,
   generateAttachmentId,
   generateChoiceId,
+  HttpErrorCode,
   IdPrefix,
   nullsToUndefined,
 } from '@teable/core';
 import type { PrismaService } from '@teable/db-main-prisma';
 import { isObject, keyBy, map } from 'lodash';
 import { fromZodError } from 'zod-validation-error';
+import { CustomHttpException } from '../../custom.exception';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { DataLoaderService } from '../data-loader/data-loader.service';
@@ -78,7 +81,7 @@ const convertUser = (input: unknown): string | undefined => {
  */
 export class TypeCastAndValidate {
   private readonly services: IServices;
-  private readonly field: IFieldInstance;
+  private readonly field: FieldCore;
   private readonly tableId: string;
   private readonly typecast?: boolean;
   private cache: Record<string, unknown> = {};
@@ -90,7 +93,7 @@ export class TypeCastAndValidate {
     tableId,
   }: {
     services: IServices;
-    field: IFieldInstance;
+    field: FieldCore;
     typecast?: boolean;
     tableId: string;
   }) {
@@ -128,7 +131,7 @@ export class TypeCastAndValidate {
       case FieldType.Attachment:
         return await this.castToAttachment(cellValues);
       case FieldType.Date:
-        return await this.castToDate(cellValues);
+        return this.castToDate(cellValues);
       default:
         return this.defaultCastTo(cellValues);
     }
@@ -153,11 +156,20 @@ export class TypeCastAndValidate {
         return;
       }
       const validate = this.field.validateCellValue(cellValue);
+      if (!validate) return;
       if (!validate.success) {
         if (this.typecast) {
           return callBack(cellValue);
-        } else {
-          throw new BadRequestException(fromZodError(validate.error).message);
+        } else if (validate?.error) {
+          throw new CustomHttpException(
+            `Cell value ${cellValue} typecast field ${this.field.name}[${this.field.id}] validation failed: ${fromZodError(validate.error).message}`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.typecast.cellValueValidationFailed',
+              },
+            }
+          );
         }
       }
       if (this.field.type === FieldType.SingleLineText || this.field.type === FieldType.LongText) {
@@ -254,12 +266,13 @@ export class TypeCastAndValidate {
     return newCellValues;
   }
 
-  private async castToDate(cellValues: unknown[]): Promise<unknown[]> {
+  private castToDate(cellValues: unknown[]): unknown[] {
     return cellValues.map((cellValue) => {
       if (cellValue === undefined) {
         return;
       }
       const validate = this.field.validateCellValue(cellValue);
+      if (!validate) return;
       if (!validate.success) {
         return this.field.repair(cellValue);
       }
@@ -357,8 +370,14 @@ export class TypeCastAndValidate {
         if (this.field.isMultipleCellValue) {
           const notInUserMap = (validatedCellValue as IUserCellValue[]).find((v) => !userMap[v.id]);
           if (notInUserMap) {
-            throw new BadRequestException(
-              `User(${notInUserMap.id}) not selected in table(${this.tableId})`
+            throw new CustomHttpException(
+              `User(${notInUserMap.id}) not found in table(${this.tableId})`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.user.notFound',
+                },
+              }
             );
           }
           return (validatedCellValue as IUserCellValue[]).map((v) => {
@@ -372,8 +391,14 @@ export class TypeCastAndValidate {
         }
         const user = userMap[(validatedCellValue as IUserCellValue).id];
         if (!user) {
-          throw new BadRequestException(
-            `User(${(validatedCellValue as IUserCellValue).id}) not selected in table(${this.tableId})`
+          throw new CustomHttpException(
+            `User(${(validatedCellValue as IUserCellValue).id}) not found in table(${this.tableId})`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.user.notFound',
+              },
+            }
           );
         }
         return UserFieldDto.fullAvatarUrl({
@@ -441,7 +466,15 @@ export class TypeCastAndValidate {
         const attachmentCellValue = validatedCellValue as IAttachmentCellValue;
         const notInAttachmentMap = attachmentCellValue.find((v) => !attachmentCvMap[v.token]);
         if (notInAttachmentMap) {
-          throw new BadRequestException(`Attachment(${notInAttachmentMap.token}) not found`);
+          throw new CustomHttpException(
+            `Attachment(${notInAttachmentMap.token}) not found`,
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.attachment.notFound',
+              },
+            }
+          );
         }
         return attachmentCellValue.map((v) => {
           return {

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import {
   BadRequestException,
@@ -7,6 +8,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type {
+  CreatedByFieldCore,
+  FieldCore,
   IAttachmentCellValue,
   IColumnMeta,
   IExtraResult,
@@ -38,6 +41,7 @@ import {
   parseGroup,
   Relationship,
   StatisticsFunc,
+  TableDomain,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -78,11 +82,11 @@ import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
+import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
 import { TableIndexService } from '../table/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 import { RecordPermissionService } from './record-permission.service';
-import { IFieldRaws } from './type';
 
 type IUserFields = { id: string; dbFieldName: string }[];
 
@@ -194,7 +198,11 @@ export class RecordService {
         select: { dbTableName: true },
       })
       .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
+        throw new CustomHttpException('Table not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        });
       });
     return tableMeta.dbTableName;
   }
@@ -241,7 +249,11 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
     const field = createFieldInstanceByRaw(fieldRaw);
     if (!field.isMultipleCellValue) {
@@ -292,17 +304,37 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     const field = createFieldInstanceByRaw(fieldRaw);
 
     if (field.type !== FieldType.Link) {
-      throw new BadRequestException('You can only filter by link field');
+      throw new CustomHttpException(
+        'You can only filter by link field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.onlyLinkFieldCanBeFiltered',
+          },
+        }
+      );
     }
     const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName } = field.options;
     if (foreignTableId !== tableId) {
-      throw new BadRequestException('Field is not linked to current table');
+      throw new CustomHttpException(
+        'Field is not linked to current table',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notLinkedToCurrentTable',
+          },
+        }
+      );
     }
 
     if (fkHostTableName !== dbTableName) {
@@ -345,18 +377,38 @@ export class RecordService {
         where: { id: fieldId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`Field ${fieldId} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       });
 
     const field = createFieldInstanceByRaw(fieldRaw);
 
     if (field.type !== FieldType.Link) {
-      throw new BadRequestException('You can only filter by link field');
+      throw new CustomHttpException(
+        'You can only filter by link field',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.onlyLinkFieldCanBeFiltered',
+          },
+        }
+      );
     }
     const { foreignTableId, fkHostTableName, selfKeyName, foreignKeyName, relationship } =
       field.options;
     if (foreignTableId !== tableId) {
-      throw new BadRequestException('Field is not linked to current table');
+      throw new CustomHttpException(
+        'Field is not linked to current table',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.field.notLinkedToCurrentTable',
+          },
+        }
+      );
     }
     if (relationship === Relationship.OneMany) {
       if (this.isJunctionTable(fkHostTableName)) {
@@ -489,7 +541,11 @@ export class RecordService {
         where: { tableId, id: viewId, deletedTime: null },
       })
       .catch(() => {
-        throw new NotFoundException(`View ${viewId} not found`);
+        throw new CustomHttpException(`View ${viewId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        });
       });
   }
 
@@ -500,7 +556,15 @@ export class RecordService {
     const [searchValue, fieldId, hideNotMatchRow] = search;
 
     if (!fieldMap) {
-      throw new Error('fieldMap is required when search is set');
+      throw new CustomHttpException(
+        'fieldMap is required when search is set',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.fieldMapRequired',
+          },
+        }
+      );
     }
 
     if (!fieldId) {
@@ -512,7 +576,11 @@ export class RecordService {
     fieldIds.forEach((id) => {
       const field = fieldMap[id];
       if (!field) {
-        throw new NotFoundException(`Field ${id} not found`);
+        throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.field.notFound',
+          },
+        });
       }
     });
 
@@ -675,8 +743,14 @@ export class RecordService {
     );
 
     if (query.filterLinkCellSelected && query.filterLinkCellCandidate) {
-      throw new BadRequestException(
-        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time'
+      throw new CustomHttpException(
+        'filterLinkCellSelected and filterLinkCellCandidate can not be set at the same time',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.filterLinkCellQueryConflict',
+          },
+        }
       );
     }
 
@@ -770,7 +844,11 @@ export class RecordService {
     ](tableId, recordIds, undefined, FieldKeyType.Id, undefined, true);
 
     if (!recordSnapshot.length) {
-      throw new NotFoundException('Can not get records');
+      throw new CustomHttpException('Can not get record', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
 
     return {
@@ -895,7 +973,11 @@ export class RecordService {
     );
 
     if (!recordSnapshot.length) {
-      throw new NotFoundException('Can not get record');
+      throw new CustomHttpException('Can not get record', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.record.notFound',
+        },
+      });
     }
 
     return recordSnapshot[0].data;
@@ -931,7 +1013,18 @@ export class RecordService {
       .$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
     if (recordIds.length !== recordRaw.length) {
-      throw new BadRequestException('delete record not found');
+      throw new CustomHttpException(
+        `Some records to be deleted cannot be found, ids: ${difference(
+          recordIds,
+          recordRaw.map((r) => r.id)
+        ).join(',')}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.record.deletedIdsNotFound',
+          },
+        }
+      );
     }
 
     const recordRawMap = keyBy(recordRaw, 'id');
@@ -956,12 +1049,13 @@ export class RecordService {
       .map((column) => column.name);
   }
 
+  @Timing()
   async getRecordIndexes(
-    tableId: string,
+    table: TableDomain,
     recordIds: string[],
     viewId?: string
   ): Promise<Record<string, number>[] | undefined> {
-    const dbTableName = await this.getDbTableName(tableId);
+    const dbTableName = table.dbTableName;
     const allViewIndexColumns = await this.getViewIndexColumns(dbTableName);
     const viewIndexColumns = viewId
       ? (() => {
@@ -1044,32 +1138,43 @@ export class RecordService {
 
   @Timing()
   async batchCreateRecords(
-    tableId: string,
+    table: TableDomain,
     records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fields: readonly FieldCore[]
   ) {
-    const snapshots = await this.createBatch(tableId, records, fieldKeyType, fieldRaws);
+    const snapshots = await this.createBatch(table, records, fieldKeyType, fields);
 
     const dataList = snapshots.map((snapshot) => ({
       docId: snapshot.__id,
       version: snapshot.__version == null ? 0 : snapshot.__version - 1,
     }));
 
-    await this.batchService.saveRawOps(tableId, RawOpType.Create, IdPrefix.Record, dataList);
+    this.batchService.saveRawOps(table.id, RawOpType.Create, IdPrefix.Record, dataList);
   }
 
   @Timing()
   async createRecordsOnlySql(
-    tableId: string,
+    table: TableDomain,
     records: {
       fields: Record<string, unknown>;
     }[]
   ) {
-    const userId = this.cls.get('user.id');
-    await this.creditCheck(tableId);
-    const dbTableName = await this.getDbTableName(tableId);
-    const fields = await this.getFieldsByProjection(tableId);
+    const user = this.cls.get('user');
+    const userId = user.id;
+    await this.creditCheck(table.id);
+    const dbTableName = table.dbTableName;
+    const fields = await this.getFieldsByProjection(table.id);
+    const auditUserValue =
+      user &&
+      UserFieldDto.fullAvatarUrl({
+        id: user.id,
+        title: user.name,
+        email: user.email,
+      });
+    const createdByFields = fields.filter(
+      (f) => f.type === FieldType.CreatedBy && f.shouldPersistAuditValue?.()
+    ) as IFieldInstance[];
     const fieldInstanceMap = fields.reduce(
       (map, curField) => {
         map[curField.id] = curField;
@@ -1084,6 +1189,13 @@ export class RecordService {
         const fieldInstance = fieldInstanceMap[fieldId];
         fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
       });
+      if (auditUserValue && createdByFields.length) {
+        createdByFields.forEach((field) => {
+          fieldsValues[field.dbFieldName] = field.convertCellValue2DBValue({
+            ...auditUserValue,
+          });
+        });
+      }
       return {
         __id: generateRecordId(),
         __created_by: userId,
@@ -1114,8 +1226,17 @@ export class RecordService {
 
     if (rowCount >= maxRowCount) {
       this.logger.log(`Exceed row count: ${maxRowCount}`, 'creditCheck');
-      throw new BadRequestException(
-        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`
+      throw new CustomHttpException(
+        `Exceed max row limit: ${maxRowCount}, please contact us to increase the limit`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.billing.exceedMaxRowLimit',
+            context: {
+              maxRowCount,
+            },
+          },
+        }
       );
     }
   }
@@ -1134,37 +1255,49 @@ export class RecordService {
   }
 
   private async createBatch(
-    tableId: string,
+    table: TableDomain,
     records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fieldRaws: IFieldRaws
+    fields: readonly FieldCore[]
   ) {
     const userId = this.cls.get('user.id');
-    await this.creditCheck(tableId);
+    await this.creditCheck(table.id);
 
-    const { dbTableName, name: tableName } = await this.prismaService
-      .txClient()
-      .tableMeta.findUniqueOrThrow({
-        where: { id: tableId },
-        select: { dbTableName: true, name: true },
-      })
-      .catch(() => {
-        throw new NotFoundException(`Table ${tableId} not found`);
-      });
-
+    const { dbTableName, name: tableName } = table;
     const maxRecordOrder = await this.getMaxRecordOrder(dbTableName);
 
     const views = await this.prismaService.txClient().view.findMany({
-      where: { tableId, deletedTime: null },
+      where: { tableId: table.id, deletedTime: null },
       select: { id: true },
     });
 
     const allViewIndexes = await this.getAllViewIndexesField(dbTableName);
 
-    const validationFields = fieldRaws
+    const validationFields = fields
       .filter((f) => !f.isComputed)
       .filter((f) => f.type !== FieldType.Link)
       .filter((field) => field.notNull || field.unique);
+
+    const user = this.cls.get('user');
+    const auditUserValue =
+      user &&
+      UserFieldDto.fullAvatarUrl({
+        id: user.id,
+        title: user.name,
+        email: user.email,
+      });
+    const createdByFields = fields.filter(
+      (f) => f.type === FieldType.CreatedBy && (f as CreatedByFieldCore).shouldPersistAuditValue?.()
+    );
+    const cloneAuditUserValue = () => (auditUserValue ? { ...auditUserValue } : null);
+    const sanitizeAuditUserValue = () => {
+      const cloned = cloneAuditUserValue();
+      if (cloned && typeof cloned === 'object' && 'avatarUrl' in cloned) {
+        // Avatar URLs are derived; strip before persistence to keep storage lean
+        delete (cloned as { avatarUrl?: string }).avatarUrl;
+      }
+      return cloned;
+    };
 
     const snapshots = records
       .map((record, i) =>
@@ -1197,6 +1330,13 @@ export class RecordService {
           },
           {} as Record<string, unknown>
         );
+        const auditFieldValues: Record<string, unknown> = {};
+
+        if (auditUserValue && createdByFields.length) {
+          createdByFields.forEach((field) => {
+            auditFieldValues[field.dbFieldName] = sanitizeAuditUserValue();
+          });
+        }
 
         return removeUndefined({
           __id: snapshot.id,
@@ -1208,6 +1348,7 @@ export class RecordService {
           __version: 1,
           ...order,
           ...dbFieldValueMap,
+          ...auditFieldValues,
         });
       });
 
@@ -1499,7 +1640,11 @@ export class RecordService {
 
     recordIds.forEach((recordId) => {
       if (!(recordId in recordIdsMap)) {
-        throw new NotFoundException(`Record ${recordId} not found`);
+        throw new CustomHttpException(`Record ${recordId} not found`, HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.record.notFound',
+          },
+        });
       }
     });
 
@@ -1594,11 +1739,27 @@ export class RecordService {
     const { skip, take = 100, ignoreViewQuery } = query;
 
     if (identify(tableId) !== IdPrefix.Table) {
-      throw new InternalServerErrorException('query collection must be table id');
+      throw new CustomHttpException(
+        'Query collection must be table ID',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.queryCollectionMustBeTableId',
+          },
+        }
+      );
     }
 
     if (take > 1000) {
-      throw new BadRequestException(`limit can't be greater than ${take}`);
+      throw new CustomHttpException(
+        `The maximum search index result is 1000`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.maxSearchIndexResult',
+          },
+        }
+      );
     }
 
     const viewId = ignoreViewQuery ? undefined : query.viewId;
@@ -1846,7 +2007,15 @@ export class RecordService {
     useQueryModel = true
   ): Promise<Pick<IRecord, 'id' | 'fields'>[]> {
     if (identify(tableId) !== IdPrefix.Table) {
-      throw new InternalServerErrorException('query collection must be table id');
+      throw new CustomHttpException(
+        'Query collection must be table ID',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.aggregation.queryCollectionMustBeTableId',
+          },
+        }
+      );
     }
 
     const {
@@ -1913,7 +2082,15 @@ export class RecordService {
       isPrimary: [true],
     });
     if (!field.length) {
-      throw new BadRequestException(`Could not find primary index ${tableId}`);
+      throw new CustomHttpException(
+        `Could not find primary field in table ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFoundPrimaryField',
+          },
+        }
+      );
     }
     return createFieldInstanceByRaw(field[0]);
   }

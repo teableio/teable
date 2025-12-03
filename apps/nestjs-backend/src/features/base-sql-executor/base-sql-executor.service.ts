@@ -1,10 +1,11 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { IDsn } from '@teable/core';
-import { DriverClient, parseDsn } from '@teable/core';
+import { DriverClient, HttpErrorCode, parseDsn } from '@teable/core';
 import { Prisma, PrismaService, PrismaClient } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../custom.exception';
 import { BASE_READ_ONLY_ROLE_PREFIX, BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME } from './const';
 import { checkTableAccess, validateRoleOperations } from './utils';
 
@@ -63,10 +64,12 @@ export class BaseSqlExecutorService {
         } catch (error) {
           if (
             error instanceof Prisma.PrismaClientKnownRequestError &&
-            (error?.meta?.code === '42710' || error?.meta?.code === '23505')
+            (error?.meta?.code === '42710' ||
+              error?.meta?.code === '23505' ||
+              error?.meta?.code === 'XX000')
           ) {
             this.logger.warn(
-              `read only role ${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME} already exists, error code: ${error?.meta?.code}`
+              `read only role ${BASE_SCHEMA_TABLE_READ_ONLY_ROLE_NAME} already exists or concurrent update detected, error code: ${error?.meta?.code}`
             );
             return;
           }
@@ -126,7 +129,18 @@ export class BaseSqlExecutorService {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       await connection.$disconnect();
-      throw new Error(`database connection failed: ${error.message}`);
+      throw new CustomHttpException(
+        `database connection failed: ${error.message}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.baseSqlExecutor.databaseConnectionFailed',
+            context: {
+              message: error.message,
+            },
+          },
+        }
+      );
     }
   }
 
@@ -304,7 +318,18 @@ export class BaseSqlExecutorService {
         return await prisma.$queryRawUnsafe<T>(sql);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (error: any) {
-        throw new BadRequestException(error?.meta?.message || error?.message);
+        throw new CustomHttpException(
+          `execute query sql failed: ${error?.meta?.message || error?.message}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.baseSqlExecutor.executeQuerySqlFailed',
+              context: {
+                message: error?.meta?.message || error?.message,
+              },
+            },
+          }
+        );
       } finally {
         await this.resetRole(prisma).catch((error) => {
           console.log('resetRole error', error);

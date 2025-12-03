@@ -157,13 +157,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$.title ? (@ like_regex $value flag "i")', escapedValue]
+        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     } else {
       builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$[*] ? (@ like_regex $value flag "i")', escapedValue]
+        `jsonb_path_exists(${this.tableColumnRef}::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     }
     return builderClient;
@@ -179,13 +177,11 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (type === FieldType.Link) {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$.title ? (@ like_regex $value flag "i")', escapedValue]
+        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, '$.title \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     } else {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$[*] ? (@ like_regex $value flag "i")', escapedValue]
+        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'::jsonpath)`
       );
     }
     return builderClient;

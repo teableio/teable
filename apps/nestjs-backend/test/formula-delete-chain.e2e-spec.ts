@@ -1,3 +1,4 @@
+/* eslint-disable regexp/no-super-linear-backtracking */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
 import type { IFieldVo } from '@teable/core';
@@ -79,10 +80,29 @@ describe('Formula delete dependency chain (e2e)', () => {
     // 5) Delete A
     await deleteField(table.id, fieldA.id);
 
-    // 6) Expect generated columns for B and C are dropped at DB level
+    // 6) With generated columns disabled, columns remain but values should be cleared
     const afterDeleteCols = await listColumns();
-    expect(afterDeleteCols).not.toContain(fieldB.dbFieldName);
-    expect(afterDeleteCols).not.toContain(fieldC.dbFieldName);
+    expect(afterDeleteCols).toContain(fieldB.dbFieldName);
+    expect(afterDeleteCols).toContain(fieldC.dbFieldName);
+
+    const parseSchemaAndTable = (dbTableName: string): [string, string] => {
+      const match = dbTableName.match(/^"?(.*?)"?\."?(.*?)"?$/);
+      if (match) {
+        return [match[1], match[2]];
+      }
+      const parts = dbTableName.split('.');
+      return [parts[0] ?? dbTableName, parts[1] ?? dbTableName];
+    };
+    const [schema, tableName] = parseSchemaAndTable(tableMeta.dbTableName);
+    const row = (
+      await prisma
+        .txClient()
+        .$queryRawUnsafe<
+          Record<string, unknown>[]
+        >(`SELECT * FROM "${schema}"."${tableName}" LIMIT 1`)
+    )[0];
+    expect(row?.[fieldB.dbFieldName]).toBeNull();
+    expect(row?.[fieldC.dbFieldName]).toBeNull();
 
     // 7) Expect both B and C have hasError = true
     const bVo = await getField(table.id, fieldB.id);

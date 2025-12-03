@@ -13,8 +13,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Switch,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { useDuplicateBaseStore } from '../../base/duplicate/useDuplicateBaseStore';
@@ -58,8 +58,6 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       exportBase(baseId, { includeData }),
   });
 
-  const { toast } = useToast();
-
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
@@ -71,8 +69,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseList(spaceId!) });
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.baseAll() });
       const newSpace = spaceList?.find((space) => space.id === spaceId)?.name;
-      toast({
-        title: t('space:tip.moveBaseSuccessTitle'),
+      toast.success(t('space:tip.moveBaseSuccessTitle'), {
         description: t('space:tip.moveBaseSuccessDescription', {
           baseName: base.name,
           spaceName: newSpace,

@@ -6,7 +6,8 @@
     "invite": "Invite"
   },
   "allSpaces": "All spaces",
-  "spaceIsEmpty": "This space is empty",
+  "emptySpaceTitle": "No databases in this space",
+  "spaceIsEmpty": "Create one database now to start your efficient data management journey",
   "baseModal": {
     "copy": "Copy",
     "duplicate": "Duplicate \"{{baseName}}\"",
@@ -32,12 +33,12 @@
     "collaborators": "Collaborators",
     "generalDescription": "Change the settings for your current space here",
     "collaboratorDescription": "Manage collaborators of your space and set their access permission",
-    "spaceName": "Space Name",
+    "spaceName": "Space name",
     "spaceId": "Space ID",
     "importBase": "Import"
   },
   "collaborators": "Collaborators",
-  "more": "more",
+  "more": "More",
   "pin": {
     "add": "Add to pin",
     "remove": "Remove from pin",
@@ -56,7 +57,7 @@
     "moveBaseSuccessDescription": "{{baseName}} has been moved to {{spaceName}}"
   },
   "deleteSpaceModal": {
-    "title": "Delete Space",
+    "title": "Delete space",
     "blockedTitle": "Cannot delete this space",
     "blockedDesc": "This space has an active subscription. Please cancel the subscription before deleting the space.",
     "permanentDeleteWarning": "This action will permanently delete all resources and data under the current space. Please proceed with caution!",
@@ -91,7 +92,7 @@
     "description": "Create a new base from a template quickly"
   },
   "recentlyBase": {
-    "title": "Recently Visited"
+    "title": "Recently visited"
   },
   "noBases": {
     "title": "Hi {{userName}}!",

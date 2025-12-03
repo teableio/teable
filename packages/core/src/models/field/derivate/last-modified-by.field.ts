@@ -18,6 +18,14 @@ export class LastModifiedByFieldCore extends UserAbstractCore {
     return null;
   }
 
+  getIsPersistedAsGeneratedColumn(): boolean {
+    return this.meta?.persistedAsGeneratedColumn === true;
+  }
+
+  shouldPersistAuditValue(): boolean {
+    return !this.isLookup && !this.getIsPersistedAsGeneratedColumn();
+  }
+
   repair(_value: unknown) {
     return null;
   }

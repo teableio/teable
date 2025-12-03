@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DbProvider } from '../../../db-provider/db.provider';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CollaboratorModule } from '../../collaborator/collaborator.module';
+import { ComputedModule } from '../../record/computed/computed.module';
 import { TableIndexService } from '../../table/table-index.service';
 import { TableDomainQueryModule } from '../../table-domain';
 import { ViewModule } from '../../view/view.module';
@@ -16,7 +17,14 @@ import { FormulaFieldService } from './formula-field.service';
 import { LinkFieldQueryService } from './link-field-query.service';
 
 @Module({
-  imports: [FieldModule, CalculationModule, ViewModule, CollaboratorModule, TableDomainQueryModule],
+  imports: [
+    FieldModule,
+    CalculationModule,
+    ViewModule,
+    CollaboratorModule,
+    TableDomainQueryModule,
+    ComputedModule,
+  ],
   providers: [
     DbProvider,
     FieldDeletingService,

@@ -26,4 +26,5 @@ export interface IDataLoaderCache {
   fieldData?: IFieldLoaderData;
   viewData?: IViewLoaderData;
   cacheKeys?: ('table' | 'field' | 'view')[];
+  disabled?: boolean;
 }

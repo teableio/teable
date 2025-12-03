@@ -1,5 +1,6 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { CellValueType } from '@teable/core';
+import { CellValueType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { TableIndex } from '@teable/openapi';
 import type { IGetAbnormalVo, ITableIndexType, IToggleIndexRo } from '@teable/openapi';
@@ -7,6 +8,7 @@ import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -26,6 +28,25 @@ export class TableIndexService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
+
+  async getSearchIndexFields(tableId: string): Promise<IFieldInstance[]> {
+    const fieldsRaw = await this.prismaService.field.findMany({
+      where: {
+        tableId,
+        deletedTime: null,
+      },
+    });
+    return fieldsRaw
+      .filter(
+        ({ cellValueType, type }) =>
+          cellValueType !== CellValueType.DateTime && type !== FieldType.Button
+      )
+      .map((field) => createFieldInstanceByRaw(field))
+      .map((field) => ({
+        ...field,
+        isStructuredCellValue: field.isStructuredCellValue,
+      })) as IFieldInstance[];
+  }
 
   async getActivatedTableIndexes(
     tableId: string,
@@ -56,29 +77,35 @@ export class TableIndexService {
 
       return result;
     } else {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
   }
 
   async toggleIndex(tableId: string, enableRo: IToggleIndexRo) {
     const { type } = enableRo;
     if (type !== TableIndex.search) {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
 
     const index = await this.getActivatedTableIndexes(tableId);
 
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
-
-    const fields = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({ ...field, isStructuredCellValue: field.isStructuredCellValue }))
-      .filter(({ cellValueType }) => cellValueType !== CellValueType.Boolean) as IFieldInstance[];
+    const fields = await this.getSearchIndexFields(tableId);
 
     const { dbTableName } = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
@@ -103,7 +130,15 @@ export class TableIndexService {
               await prisma.$executeRawUnsafe(sql);
             } catch (error) {
               console.error('toggleSearchIndex:create:error', sql);
-              throw error;
+              throw new CustomHttpException(
+                `Create table index error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                HttpErrorCode.VALIDATION_ERROR,
+                {
+                  localization: {
+                    i18nKey: 'httpErrors.table.createTableIndexError',
+                  },
+                }
+              );
             }
           }
         },
@@ -116,7 +151,15 @@ export class TableIndexService {
       return await this.prismaService.$executeRawUnsafe(sql);
     } catch (error) {
       console.error('toggleSearchIndex:drop:error', sql);
-      throw error;
+      throw new CustomHttpException(
+        `Drop table index error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.dropTableIndexError',
+          },
+        }
+      );
     }
   }
 
@@ -135,6 +178,12 @@ export class TableIndexService {
   }
 
   async createSearchFieldSingleIndex(tableId: string, fieldInstance: IFieldInstance) {
+    if (
+      fieldInstance.cellValueType === CellValueType.DateTime ||
+      fieldInstance.type === FieldType.Button
+    ) {
+      return;
+    }
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
@@ -182,12 +231,6 @@ export class TableIndexService {
     if (!index.includes(type)) {
       return [] as IGetAbnormalVo;
     }
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
 
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
       where: {
@@ -197,12 +240,7 @@ export class TableIndexService {
 
     const { dbTableName } = tableRaw;
 
-    const fieldInstances = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      })) as IFieldInstance[];
+    const fieldInstances = await this.getSearchIndexFields(tableId);
 
     const indexInfo = await this.getIndexInfo(tableId);
 
@@ -213,7 +251,15 @@ export class TableIndexService {
 
   async repairIndex(tableId: string, type: TableIndex) {
     if (type !== TableIndex.search) {
-      throw new BadRequestException(unSupportTableIndex);
+      throw new CustomHttpException(
+        'Table index type not supported',
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notSupportTableIndex',
+          },
+        }
+      );
     }
 
     const tableRaw = await this.prismaService.tableMeta.findFirstOrThrow({
@@ -226,20 +272,9 @@ export class TableIndexService {
       },
     });
 
-    const fieldsRaw = await this.prismaService.field.findMany({
-      where: {
-        tableId,
-        deletedTime: null,
-      },
-    });
     const { dbTableName } = tableRaw;
     const dropSql = this.dbProvider.searchIndex().getDropIndexSql(dbTableName);
-    const fieldInstances = fieldsRaw
-      .map((field) => createFieldInstanceByRaw(field))
-      .map((field) => ({
-        ...field,
-        isStructuredCellValue: field.isStructuredCellValue,
-      })) as IFieldInstance[];
+    const fieldInstances = await this.getSearchIndexFields(tableId);
     const createSqls = this.dbProvider.searchIndex().getCreateIndexSql(dbTableName, fieldInstances);
     await this.prismaService.$tx(
       async (prisma) => {

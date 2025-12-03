@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { IAttachmentCellValue, IFieldVo } from '@teable/core';
+import type { IAttachmentCellValue, IFieldVo, IGridViewOptions } from '@teable/core';
 import {
   FieldKeyType,
   FieldType,
@@ -79,14 +79,15 @@ import {
   useButtonClickStatus,
   useFieldOperations,
 } from '@teable/sdk/hooks';
-import { ConfirmDialog, useConfirm, useToast } from '@teable/ui-lib';
-import { toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { ConfirmDialog, useConfirm } from '@teable/ui-lib';
+import { toast, toast as sonnerToast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { isEqual, keyBy, uniqueId, groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { usePrevious, useClickAway } from 'react-use';
+import { computeFrozenColumnCount } from '@/features/app/blocks/view/grid/utils/computeFrozenFields';
 import { ExpandRecordContainer } from '@/features/app/components/expand-record-container';
 import type { IExpandRecordContainerRef } from '@/features/app/components/expand-record-container/types';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
@@ -94,6 +95,7 @@ import { uploadFiles } from '@/features/app/utils/uploadFile';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
+import { useContextMenu } from '../hooks/useContextMenu';
 import { AiGenerateButton, PrefillingRowContainer, PresortRowContainer } from './components';
 import type { IConfirmNewRecordsRef } from './components/ConfirmNewRecords';
 import { ConfirmNewRecords } from './components/ConfirmNewRecords';
@@ -154,13 +156,22 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const sort = view?.sort;
   const group = view?.group;
   const isAutoSort = sort && !sort?.manualSort;
-  const frozenColumnCount = isTouchDevice ? 0 : view?.options?.frozenColumnCount ?? 1;
+  const { frozenFieldId, frozenColumnCount: frozenColumnCountOption } = (view?.options ??
+    {}) as IGridViewOptions;
+  const frozenColumnCount = useMemo(() => {
+    return computeFrozenColumnCount({
+      isTouchDevice,
+      frozenFieldId,
+      frozenColumnCount: frozenColumnCountOption,
+      visibleColumns: columns,
+      allFields,
+    });
+  }, [isTouchDevice, frozenFieldId, columns, allFields, frozenColumnCountOption]);
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
   const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
   const permission = useTablePermission();
-  const { toast } = useToast();
   const realRowCount = rowCount ?? ssrRecords?.length ?? 0;
   const fieldEditable = permission['field|update'];
   const { undo, redo } = useUndoRedo();
@@ -214,6 +225,8 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
       ? Array.from(viewQuery?.collapsedGroupIds)
       : undefined,
   });
+
+  const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
   const {
     activeCell,
@@ -481,6 +494,15 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
             deleteRecords(selection);
             gridRef.current?.setSelection(emptySelection);
           },
+          copyRecordUrl: async () => {
+            await copyRecordUrl(record?.id);
+          },
+          viewRecordHistory: async () => {
+            await viewRecordHistory(record?.id);
+          },
+          addRecordComment: async () => {
+            await addRecordComment(record?.id);
+          },
           isMultipleSelected: false,
         });
       }
@@ -562,9 +584,11 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onColumnFreeze = useCallback(
     (count: number) => {
-      view?.updateOption({ frozenColumnCount: count });
+      const anchorId = columns[Math.max(0, count - 1)]?.id;
+      if (!view || !anchorId) return;
+      view.updateOption({ frozenFieldId: anchorId });
     },
-    [view]
+    [view, columns]
   );
 
   const generateRecord = async (
@@ -708,14 +732,14 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
 
   const onPaste = async (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update']) {
-      return toast({ title: 'Unable to paste' });
+      return toast.warning('Unable to paste');
     }
     await paste(e, selection, recordMap);
   };
 
   const onPasteForPrefilling = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!permission['record|update'] || localRecord == null) {
-      return toast({ title: 'Unable to paste' });
+      return toast.warning('Unable to paste');
     }
     paste(e, selection, { 0: localRecord }, (records) => {
       if (records.length > 1) {
@@ -730,7 +754,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const onPasteForPresort = (selection: CombinedSelection, e: React.ClipboardEvent) => {
     if (!presortRecord) return;
     if (!permission['record|update']) {
-      return toast({ title: 'Unable to paste' });
+      return toast.warning('Unable to paste');
     }
     paste(e, selection, { 0: presortRecord }, (records) => {
       updateRecord({
@@ -1086,13 +1110,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     prefillingGridRef.current?.scrollTo(scrollState.scrollLeft, undefined);
   }, [inPrefilling, inPresorting]);
 
-  useClickAway(
-    containerRef,
-    () => {
-      gridRef.current?.resetState();
-    },
-    ['pointerdown', 'mousedown', 'touchstart']
-  );
+  useClickAway(containerRef, () => {
+    gridRef.current?.resetState();
+  });
 
   useScrollFrameRate(gridRef.current?.scrollBy);
 

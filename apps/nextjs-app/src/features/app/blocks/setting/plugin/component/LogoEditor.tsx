@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { UploadType } from '@teable/openapi';
 import { FileZone } from '@teable/sdk/components/FileZone';
-import { Button, useToast } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
@@ -17,7 +18,6 @@ export const LogoEditor = (props: {
   const previewUrl = usePreviewUrl();
   const [uploadedPath, setUploadedPath] = useState<string | null>(null);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
-  const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
   const { mutateAsync: uploadLogo, isLoading: uploadLogoLoading } = useMutation({
     mutationFn: (files: File[]) => uploadFiles(files, UploadType.Plugin),
@@ -33,11 +33,11 @@ export const LogoEditor = (props: {
   const logoChange = (files: File[]) => {
     if (files.length === 0) return;
     if (files.length > 1) {
-      toast({ title: t('plugin:form.logo.lengthError') });
+      toast.warning(t('plugin:form.logo.lengthError'));
       return;
     }
     if (files[0].type.indexOf('image') === -1) {
-      toast({ title: t('plugin:form.logo.typeError') });
+      toast.warning(t('plugin:form.logo.typeError'));
       return;
     }
     uploadLogo(files);

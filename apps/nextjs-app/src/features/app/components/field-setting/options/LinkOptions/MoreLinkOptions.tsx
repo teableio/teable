@@ -75,22 +75,6 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
 
   const context = useFieldFilterLinkContext(currentTableId, fieldId, !fieldId);
 
-  const { data: selfFieldVos = [] } = useQuery({
-    queryKey: ReactQueryKeys.fieldList(currentTableId),
-    queryFn: () => getFields(currentTableId).then((res) => res.data),
-    enabled: !!currentTableId,
-  });
-
-  const selfFieldInstances = useMemo(
-    () => selfFieldVos.map((field) => createFieldInstance(field) as IFieldInstance),
-    [selfFieldVos]
-  );
-
-  const referenceSource = useMemo(
-    () => ({ fields: selfFieldInstances, tableId: currentTableId }),
-    [selfFieldInstances, currentTableId]
-  );
-
   const viewFieldInstances = useMemo(
     () =>
       (withViewFields ?? totalFields).map((field) => createFieldInstance(field) as IFieldInstance),
@@ -159,7 +143,6 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
                 fields={foreignFieldInstances}
                 value={filter ?? null}
                 context={context}
-                referenceSource={referenceSource}
                 onChange={(value) => onChange?.({ filter: value })}
               />
             </DialogContent>
@@ -169,7 +152,6 @@ export const MoreLinkOptions = (props: IMoreOptionsProps) => {
           fields={foreignFieldInstances}
           value={filter ?? null}
           context={context}
-          referenceSource={referenceSource}
           onChange={(value) => onChange?.({ filter: value })}
         />
       </div>

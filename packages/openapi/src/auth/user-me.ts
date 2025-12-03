@@ -15,6 +15,7 @@ export const userMeVoSchema = z.object({
   notifyMeta: userNotifyMetaSchema,
   hasPassword: z.boolean(),
   isAdmin: z.boolean().nullable().optional(),
+  lang: z.string().nullable().optional(),
   organization: z
     .object({
       id: z.string(),

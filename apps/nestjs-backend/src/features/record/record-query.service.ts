@@ -1,13 +1,13 @@
 // TODO: move record service read related to record-query.service.ts
 
 import { Injectable, Logger } from '@nestjs/common';
-import { type IRecord } from '@teable/core';
+import { TableDomain, type IRecord } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
-import { createFieldInstanceByRaw } from '../field/model/factory';
+import { createFieldInstanceByRaw, fieldCore2FieldInstance } from '../field/model/factory';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
 
 /**
@@ -37,7 +37,7 @@ export class RecordQueryService {
    */
   @Timing()
   async getSnapshotBulk(
-    tableId: string,
+    table: TableDomain,
     recordIds: string[]
   ): Promise<{ id: string; data: IRecord }[]> {
     if (recordIds.length === 0) {
@@ -46,15 +46,11 @@ export class RecordQueryService {
 
     try {
       // Get table info
-      const table = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-        where: { id: tableId },
-        select: { id: true, name: true, dbTableName: true },
-      });
 
       const { qb: queryBuilder } = await this.recordQueryBuilder.createRecordQueryBuilder(
         table.dbTableName,
         {
-          tableId,
+          tableId: table.id,
           viewId: undefined,
           useQueryModel: true,
           restrictRecordIds: recordIds,
@@ -70,12 +66,7 @@ export class RecordQueryService {
         .txClient()
         .$queryRawUnsafe<{ [key: string]: unknown }[]>(sql);
 
-      // Get field info for conversion
-      const fieldRaws = await this.prismaService.txClient().field.findMany({
-        where: { tableId, deletedTime: null },
-      });
-
-      const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+      const fields = table.fieldList.map((f) => fieldCore2FieldInstance(f));
 
       // Convert raw records to IRecord format
       const snapshots: { id: string; data: IRecord }[] = [];
@@ -111,7 +102,7 @@ export class RecordQueryService {
 
       return snapshots;
     } catch (error) {
-      this.logger.error(`Failed to get snapshots for table ${tableId}: ${error}`);
+      this.logger.error(`Failed to get snapshots for table ${table.id}: ${error}`);
       throw error;
     }
   }

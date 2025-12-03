@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable, Logger } from '@nestjs/common';
-import type { ILinkCellValue, ILinkFieldOptions, IRecord } from '@teable/core';
+import type { ILinkCellValue, ILinkFieldOptions, IRecord, TableDomain } from '@teable/core';
 import { FieldType, HttpErrorCode, Relationship } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -9,6 +9,7 @@ import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
+import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
@@ -72,7 +73,7 @@ export class LinkService {
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
-              i18nKey: 'httpErrors.custom.linkCellRecordIdAlreadyExists',
+              i18nKey: 'httpErrors.field.linkCellRecordIdAlreadyExists',
               context: { recordId: v.id },
             },
           }
@@ -96,6 +97,48 @@ export class LinkService {
         this.validateLinkCell(ctx);
         return { ...ctx, oldValue: isLinkCellValue(ctx.oldValue) ? ctx.oldValue : undefined };
       });
+  }
+
+  private buildFieldMapFromTables(
+    fieldIds: string[],
+    tables?: Map<string, TableDomain>
+  ): IFieldMapByTableId | undefined {
+    if (!tables?.size) {
+      return undefined;
+    }
+
+    const fieldMapByTableId: IFieldMapByTableId = {};
+
+    for (const [tableId, domain] of tables) {
+      for (const field of domain.fieldList) {
+        (fieldMapByTableId[tableId] ||= {})[field.id] = field as unknown as IFieldInstance;
+      }
+    }
+
+    const hasAllRequestedFields = fieldIds.every((fieldId) =>
+      Object.values(fieldMapByTableId).some((fields) => Boolean(fields?.[fieldId]))
+    );
+
+    return hasAllRequestedFields ? fieldMapByTableId : undefined;
+  }
+
+  private buildTableId2DbTableNameFromTables(
+    tableIds: string[],
+    tables?: Map<string, TableDomain>
+  ) {
+    if (!tables?.size) {
+      return undefined;
+    }
+
+    const result: { [tableId: string]: string } = {};
+    for (const tableId of tableIds) {
+      const domain = tables.get(tableId);
+      if (domain) {
+        result[tableId] = domain.dbTableName;
+      }
+    }
+
+    return Object.keys(result).length === tableIds.length ? result : undefined;
   }
 
   private async getRelatedFieldMap(fieldIds: string[]): Promise<IFieldMapByTableId> {
@@ -142,9 +185,27 @@ export class LinkService {
     );
   }
 
-  private extractLinkTitle(value: unknown): string | undefined {
+  private formatTitleWithField(field: IFieldInstance, value: unknown): string | undefined {
+    try {
+      const formatted = field.cellValue2String(value);
+      if (typeof formatted === 'string' && formatted.trim().length > 0) {
+        return formatted;
+      }
+    } catch {
+      // Swallow formatting issues and fall back to generic extraction logic
+    }
+    return undefined;
+  }
+
+  private extractLinkTitle(value: unknown, field?: IFieldInstance): string | undefined {
     if (value == null) {
       return undefined;
+    }
+    if (field) {
+      const formatted = this.formatTitleWithField(field, value);
+      if (formatted) {
+        return formatted;
+      }
     }
     if (typeof value === 'string') {
       return value;
@@ -154,7 +215,7 @@ export class LinkService {
     }
     if (Array.isArray(value)) {
       const titles = value
-        .map((item) => this.extractLinkTitle(item))
+        .map((item) => this.extractLinkTitle(item, field))
         .filter((item): item is string => typeof item === 'string' && item.trim().length > 0);
       return titles.length ? titles.join(', ') : undefined;
     }
@@ -183,6 +244,7 @@ export class LinkService {
     sourceLookedFieldId: string;
     sourceRecordMap: IRecordMapByTableId['tableId'];
     foreignRecordMap: IRecordMapByTableId['tableId'];
+    sourceLookupField?: IFieldInstance;
   }) {
     const {
       fkItem,
@@ -191,6 +253,7 @@ export class LinkService {
       sourceLookedFieldId,
       foreignRecordMap,
       sourceRecordMap,
+      sourceLookupField,
     } = params;
     const oldKey = (fkItem.oldKey || []) as string[];
     const newKey = (fkItem.newKey || []) as string[];
@@ -219,9 +282,11 @@ export class LinkService {
 
     if (toAdd.length) {
       toAdd.forEach((foreignRecordId) => {
-        const sourceRecordTitle = this.extractLinkTitle(
-          sourceRecordMap[recordId][sourceLookedFieldId]
-        );
+        const lookupValue =
+          sourceLookedFieldId != null
+            ? sourceRecordMap[recordId]?.[sourceLookedFieldId]
+            : undefined;
+        const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
         const newForeignRecord = foreignRecordMap[foreignRecordId];
         if (!newForeignRecord) {
           throw new CustomHttpException(
@@ -229,7 +294,7 @@ export class LinkService {
             HttpErrorCode.VALIDATION_ERROR,
             {
               localization: {
-                i18nKey: 'httpErrors.custom.linkConsistencyError',
+                i18nKey: 'httpErrors.field.linkConsistencyError',
                 context: { recordId: foreignRecordId },
               },
             }
@@ -259,6 +324,7 @@ export class LinkService {
     sourceLookedFieldId: string;
     sourceRecordMap: IRecordMapByTableId['tableId'];
     foreignRecordMap: IRecordMapByTableId['tableId'];
+    sourceLookupField?: IFieldInstance;
   }) {
     const {
       fkItem,
@@ -267,6 +333,7 @@ export class LinkService {
       sourceLookedFieldId,
       foreignRecordMap,
       sourceRecordMap,
+      sourceLookupField,
     } = params;
     const oldKey = (fkItem.oldKey || []) as string[];
     const newKey = fkItem.newKey as string | null;
@@ -294,9 +361,9 @@ export class LinkService {
     }
 
     if (newKey) {
-      const sourceRecordTitle = this.extractLinkTitle(
-        sourceRecordMap[recordId][sourceLookedFieldId]
-      );
+      const lookupValue =
+        sourceLookedFieldId != null ? sourceRecordMap[recordId]?.[sourceLookedFieldId] : undefined;
+      const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
       const newForeignRecord = foreignRecordMap[newKey];
       if (!newForeignRecord) {
         throw new CustomHttpException(
@@ -304,7 +371,7 @@ export class LinkService {
           HttpErrorCode.VALIDATION_ERROR,
           {
             localization: {
-              i18nKey: 'httpErrors.custom.linkConsistencyError',
+              i18nKey: 'httpErrors.field.linkConsistencyError',
               context: { recordId: newKey },
             },
           }
@@ -333,6 +400,7 @@ export class LinkService {
     sourceLookedFieldId: string;
     sourceRecordMap: IRecordMapByTableId['tableId'];
     foreignRecordMap: IRecordMapByTableId['tableId'];
+    sourceLookupField?: IFieldInstance;
   }) {
     const {
       fkItem,
@@ -341,6 +409,7 @@ export class LinkService {
       sourceLookedFieldId,
       foreignRecordMap,
       sourceRecordMap,
+      sourceLookupField,
     } = params;
 
     const oldKey = (fkItem.oldKey || []) as string[];
@@ -356,9 +425,9 @@ export class LinkService {
     }
 
     if (toAdd.length) {
-      const sourceRecordTitle = this.extractLinkTitle(
-        sourceRecordMap[recordId][sourceLookedFieldId]
-      );
+      const lookupValue =
+        sourceLookedFieldId != null ? sourceRecordMap[recordId]?.[sourceLookedFieldId] : undefined;
+      const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
 
       toAdd.forEach((foreignRecordId) => {
         foreignRecordMap[foreignRecordId][symmetricFieldId] = {
@@ -376,6 +445,7 @@ export class LinkService {
     sourceLookedFieldId: string;
     sourceRecordMap: IRecordMapByTableId['tableId'];
     foreignRecordMap: IRecordMapByTableId['tableId'];
+    sourceLookupField?: IFieldInstance;
   }) {
     const {
       fkItem,
@@ -384,6 +454,7 @@ export class LinkService {
       sourceLookedFieldId,
       foreignRecordMap,
       sourceRecordMap,
+      sourceLookupField,
     } = params;
 
     const oldKey = (fkItem.oldKey || []) as string[];
@@ -396,9 +467,9 @@ export class LinkService {
     }
 
     if (newKey) {
-      const sourceRecordTitle = this.extractLinkTitle(
-        sourceRecordMap[recordId][sourceLookedFieldId]
-      );
+      const lookupValue =
+        sourceLookedFieldId != null ? sourceRecordMap[recordId]?.[sourceLookedFieldId] : undefined;
+      const sourceRecordTitle = this.extractLinkTitle(lookupValue, sourceLookupField);
 
       foreignRecordMap[newKey][symmetricFieldId] = {
         id: recordId,
@@ -415,6 +486,7 @@ export class LinkService {
     foreignLookedFieldId: string;
     sourceRecordMap: IRecordMapByTableId['tableId'];
     foreignRecordMap: IRecordMapByTableId['tableId'];
+    foreignLookupField?: IFieldInstance;
   }) {
     const {
       newKey,
@@ -423,6 +495,7 @@ export class LinkService {
       foreignLookedFieldId,
       foreignRecordMap,
       sourceRecordMap,
+      foreignLookupField,
     } = params;
 
     if (!newKey) {
@@ -432,14 +505,17 @@ export class LinkService {
     if (Array.isArray(newKey)) {
       sourceRecordMap[recordId][linkFieldId] = newKey.map((key) => ({
         id: key,
-        title: this.extractLinkTitle(foreignRecordMap[key][foreignLookedFieldId]),
+        title: this.extractLinkTitle(
+          foreignLookedFieldId != null ? foreignRecordMap[key]?.[foreignLookedFieldId] : undefined,
+          foreignLookupField
+        ),
       }));
       return;
     }
 
-    const foreignRecordTitle = this.extractLinkTitle(
-      foreignRecordMap[newKey][foreignLookedFieldId]
-    );
+    const lookupValue =
+      foreignLookedFieldId != null ? foreignRecordMap[newKey]?.[foreignLookedFieldId] : undefined;
+    const foreignRecordTitle = this.extractLinkTitle(lookupValue, foreignLookupField);
     sourceRecordMap[recordId][linkFieldId] = { id: newKey, title: foreignRecordTitle };
   }
 
@@ -457,6 +533,10 @@ export class LinkService {
       const relationship = linkField.options.relationship;
       const foreignTableId = linkField.options.foreignTableId;
       const foreignLookedFieldId = linkField.options.lookupFieldId;
+      const foreignLookupField =
+        foreignLookedFieldId != null
+          ? fieldMapByTableId[foreignTableId]?.[foreignLookedFieldId]
+          : undefined;
 
       const sourceRecordMap = recordMapByTableId[tableId];
       const foreignRecordMap = recordMapByTableId[foreignTableId];
@@ -472,6 +552,7 @@ export class LinkService {
           foreignLookedFieldId,
           sourceRecordMap,
           foreignRecordMap,
+          foreignLookupField,
         });
 
         if (!symmetricFieldId) {
@@ -479,6 +560,10 @@ export class LinkService {
         }
         const symmetricField = fieldMapByTableId[foreignTableId][symmetricFieldId] as LinkFieldDto;
         const sourceLookedFieldId = symmetricField.options.lookupFieldId;
+        const sourceLookupField =
+          sourceLookedFieldId != null
+            ? fieldMapByTableId[tableId]?.[sourceLookedFieldId]
+            : undefined;
         const params = {
           fkItem,
           recordId,
@@ -486,6 +571,7 @@ export class LinkService {
           sourceLookedFieldId,
           sourceRecordMap,
           foreignRecordMap,
+          sourceLookupField,
         };
         if (relationship === Relationship.ManyMany) {
           this.updateForeignCellForManyMany(params);
@@ -651,8 +737,8 @@ export class LinkService {
               localization: {
                 i18nKey:
                   relationship === Relationship.OneOne
-                    ? 'httpErrors.custom.oneOneLinkCellValueCannotBeArray'
-                    : 'httpErrors.custom.manyOneLinkCellValueCannotBeArray',
+                    ? 'httpErrors.field.oneOneLinkCellValueCannotBeArray'
+                    : 'httpErrors.field.manyOneLinkCellValueCannotBeArray',
               },
             }
           );
@@ -661,7 +747,7 @@ export class LinkService {
         if ((foreignKeys?.length ?? 0) > 1) {
           throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
             localization: {
-              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+              i18nKey: 'httpErrors.field.foreignKeyDuplicate',
             },
           });
         }
@@ -699,8 +785,8 @@ export class LinkService {
               localization: {
                 i18nKey:
                   relationship === Relationship.OneMany
-                    ? 'httpErrors.custom.oneManyLinkCellValueShouldBeArray'
-                    : 'httpErrors.custom.manyManyLinkCellValueShouldBeArray',
+                    ? 'httpErrors.field.oneManyLinkCellValueShouldBeArray'
+                    : 'httpErrors.field.manyManyLinkCellValueShouldBeArray',
               },
             }
           );
@@ -754,8 +840,7 @@ export class LinkService {
       if (!field) {
         throw new CustomHttpException(`Field ${fieldId} not found`, HttpErrorCode.NOT_FOUND, {
           localization: {
-            i18nKey: 'httpErrors.field.fieldNotFound',
-            context: { fieldId },
+            i18nKey: 'httpErrors.field.notFound',
           },
         });
       }
@@ -766,8 +851,7 @@ export class LinkService {
           HttpErrorCode.NOT_FOUND,
           {
             localization: {
-              i18nKey: 'httpErrors.field.fieldNotFound',
-              context: { fieldId },
+              i18nKey: 'httpErrors.field.notFound',
             },
           }
         );
@@ -835,12 +919,46 @@ export class LinkService {
     return recordMapByTableId;
   }
 
+  private mergeProjectionByTable(
+    recordMapByTableId: IRecordMapByTableId,
+    fieldMapByTableId: { [tableId: string]: IFieldMap },
+    projectionByTable?: Record<string, string[]>
+  ): Record<string, string[]> | undefined {
+    const result: Record<string, Set<string>> = {};
+
+    for (const tableId in recordMapByTableId) {
+      const recordLookupFieldsMap = recordMapByTableId[tableId];
+      const fromCaller = projectionByTable?.[tableId] ?? [];
+      result[tableId] = new Set(fromCaller);
+
+      Object.values(recordLookupFieldsMap).forEach((lookupFieldMap) => {
+        if (!lookupFieldMap) return;
+        Object.keys(lookupFieldMap).forEach((fieldId) => {
+          if (fieldMapByTableId[tableId]?.[fieldId]) {
+            result[tableId]!.add(fieldId);
+          }
+        });
+      });
+    }
+
+    const finalized = Object.entries(result).reduce<Record<string, string[]>>((acc, [id, set]) => {
+      if (set.size) {
+        acc[id] = Array.from(set);
+      }
+      return acc;
+    }, {});
+
+    return Object.keys(finalized).length ? finalized : undefined;
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
+  @Timing()
   private async fetchRecordMap(
     tableId2DbTableName: { [tableId: string]: string },
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     recordMapByTableId: IRecordMapByTableId,
     cellContexts: ICellContext[],
+    projectionByTable: Record<string, string[]> | undefined,
     fromReset?: boolean,
     useQueryModel = false
   ): Promise<IRecordMapByTableId> {
@@ -849,12 +967,26 @@ export class LinkService {
       const recordLookupFieldsMap = recordMapByTableId[tableId];
       const recordIds = Object.keys(recordLookupFieldsMap);
       const dbFieldName2FieldId: { [dbFieldName: string]: string } = {};
+      const tableProjection = projectionByTable?.[tableId];
+
+      for (const recordId of recordIds) {
+        const lookupFieldMap = recordLookupFieldsMap[recordId];
+        if (!lookupFieldMap) continue;
+        for (const fieldId of Object.keys(lookupFieldMap)) {
+          const field = fieldMapByTableId[tableId]?.[fieldId];
+          if (!field) continue;
+          for (const dbFieldName of field.dbFieldNames) {
+            dbFieldName2FieldId[dbFieldName] = fieldId;
+          }
+        }
+      }
 
       const { qb } = await this.recordQueryBuilder.createRecordQueryBuilder(
         tableId2DbTableName[tableId],
         {
           tableId,
           viewId: undefined,
+          projection: tableProjection,
           rawProjection: true,
           preferRawFieldReferences: true,
           useQueryModel,
@@ -963,6 +1095,7 @@ export class LinkService {
     fieldMapByTableId: { [tableId: string]: IFieldMap },
     linkContexts: ILinkCellContext[],
     cellContexts: ICellContext[],
+    projectionByTable?: Record<string, string[]>,
     fromReset?: boolean,
     persistFk: boolean = true
   ): Promise<{
@@ -971,6 +1104,11 @@ export class LinkService {
   }> {
     const fieldMap = fieldMapByTableId[tableId];
     const recordMapStruct = this.getRecordMapStruct(tableId, fieldMapByTableId, linkContexts);
+    const mergedProjectionByTable = this.mergeProjectionByTable(
+      recordMapStruct,
+      fieldMapByTableId,
+      projectionByTable
+    );
 
     const fkRecordMap = await this.getFkRecordMap(fieldMap, linkContexts);
 
@@ -979,6 +1117,7 @@ export class LinkService {
       fieldMapByTableId,
       recordMapStruct,
       cellContexts,
+      mergedProjectionByTable,
       fromReset,
       true
     );
@@ -997,6 +1136,7 @@ export class LinkService {
         fieldMapByTableId,
         refreshedRecordMapStruct,
         cellContexts,
+        mergedProjectionByTable,
         fromReset,
         true
       );
@@ -1515,7 +1655,12 @@ export class LinkService {
    * 3. check and generate op to update main table by cached recordIds
    * 4. check and generate op to update foreign table by cached recordIds
    */
-  async getDerivateByLink(tableId: string, cellContexts: ICellContext[], fromReset?: boolean) {
+  async getDerivateByLink(
+    tableId: string,
+    cellContexts: ICellContext[],
+    fromReset?: boolean,
+    projectionByTable?: Record<string, string[]>
+  ) {
     const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkLikeContexts.length) {
       return;
@@ -1541,6 +1686,7 @@ export class LinkService {
       fieldMapByTableId,
       linkContexts,
       cellContexts,
+      projectionByTable,
       fromReset,
       true
     );
@@ -1552,17 +1698,21 @@ export class LinkService {
    * call saveForeignKeyToDb. Useful when consumers need to capture old values
    * for computed events before the FK writes are visible in the same tx.
    */
+  @Timing()
   async planDerivateByLink(
     tableId: string,
     cellContexts: ICellContext[],
-    fromReset?: boolean
+    fromReset?: boolean,
+    tables?: Map<string, TableDomain>,
+    projectionByTable?: Record<string, string[]>
   ): Promise<{ cellChanges: ICellChange[]; fkRecordMap: IFkRecordMap } | undefined> {
     const linkLikeContexts = this.filterLinkContext(cellContexts as ILinkCellContext[]);
     if (!linkLikeContexts.length) {
       return undefined;
     }
     const fieldIds = linkLikeContexts.map((ctx) => ctx.fieldId);
-    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMapByTableId =
+      this.buildFieldMapFromTables(fieldIds, tables) ?? (await this.getRelatedFieldMap(fieldIds));
     const fieldMap = fieldMapByTableId[tableId];
     const linkContexts = linkLikeContexts.filter((ctx) => {
       if (!fieldMap[ctx.fieldId]) {
@@ -1574,7 +1724,9 @@ export class LinkService {
       return true;
     });
 
-    const tableId2DbTableName = await this.getTableId2DbTableName(Object.keys(fieldMapByTableId));
+    const tableId2DbTableName =
+      this.buildTableId2DbTableNameFromTables(Object.keys(fieldMapByTableId), tables) ??
+      (await this.getTableId2DbTableName(Object.keys(fieldMapByTableId)));
 
     const derivate = await this.getDerivateByCellContexts(
       tableId,
@@ -1582,6 +1734,7 @@ export class LinkService {
       fieldMapByTableId,
       linkContexts,
       cellContexts,
+      projectionByTable,
       fromReset,
       false
     );
@@ -1593,10 +1746,15 @@ export class LinkService {
    * Persist foreign key changes previously planned via planDerivateByLink.
    * Rebuilds the necessary field map and writes junction table updates.
    */
-  async commitForeignKeyChanges(tableId: string, fkRecordMap?: IFkRecordMap): Promise<void> {
+  async commitForeignKeyChanges(
+    tableId: string,
+    fkRecordMap?: IFkRecordMap,
+    tables?: Map<string, TableDomain>
+  ): Promise<void> {
     if (!fkRecordMap || !Object.keys(fkRecordMap).length) return;
     const fieldIds = Object.keys(fkRecordMap);
-    const fieldMapByTableId = await this.getRelatedFieldMap(fieldIds);
+    const fieldMapByTableId =
+      this.buildFieldMapFromTables(fieldIds, tables) ?? (await this.getRelatedFieldMap(fieldIds));
     const fieldMap = fieldMapByTableId[tableId];
     await this.saveForeignKeyToDb(fieldMap, fkRecordMap);
   }
@@ -1620,7 +1778,7 @@ export class LinkService {
         if ((foreignKeys?.length ?? 0) > 1) {
           throw new CustomHttpException(`Foreign key duplicate`, HttpErrorCode.VALIDATION_ERROR, {
             localization: {
-              i18nKey: 'httpErrors.custom.foreignKeyDuplicate',
+              i18nKey: 'httpErrors.field.foreignKeyDuplicate',
             },
           });
         }

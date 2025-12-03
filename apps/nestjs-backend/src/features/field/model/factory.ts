@@ -3,6 +3,7 @@ import type {
   DbFieldType,
   CellValueType,
   ISetFieldPropertyOpContext,
+  FieldCore,
 } from '@teable/core';
 import { assertNever, FieldType, applyFieldPropertyOps } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
@@ -53,6 +54,35 @@ export function rawField2FieldObj(fieldRaw: Field): IFieldVo {
     isMultipleCellValue: fieldRaw.isMultipleCellValue || undefined,
     dbFieldType: fieldRaw.dbFieldType as DbFieldType,
   };
+}
+
+export function fieldCore2FieldInstance(field: FieldCore): IFieldInstance {
+  const plain: IFieldVo = {
+    id: field.id,
+    dbFieldName: field.dbFieldName,
+    name: field.name,
+    type: field.type,
+    description: field.description,
+    options: { ...(field.options as object) },
+    meta: field.meta ? { ...field.meta } : undefined,
+    aiConfig: field.aiConfig ? { ...field.aiConfig } : undefined,
+    notNull: field.notNull,
+    unique: field.unique,
+    isComputed: field.isComputed,
+    isPrimary: field.isPrimary,
+    isPending: field.isPending,
+    isLookup: field.isLookup,
+    isConditionalLookup: field.isConditionalLookup,
+    hasError: field.hasError,
+    lookupOptions: field.lookupOptions ? { ...field.lookupOptions } : undefined,
+    cellValueType: field.cellValueType,
+    isMultipleCellValue: field.isMultipleCellValue,
+    dbFieldType: field.dbFieldType,
+    recordRead: field.recordRead,
+    recordCreate: field.recordCreate,
+  };
+
+  return createFieldInstanceByVo(plain);
 }
 
 export function createFieldInstanceByRaw(fieldRaw: Field) {

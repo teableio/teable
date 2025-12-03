@@ -20,6 +20,7 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
     { literal: 'mins', unit: 'minutes', factor: 1 },
     { literal: 'hour', unit: 'hours', factor: 1 },
     { literal: 'hours', unit: 'hours', factor: 1 },
+    { literal: 'h', unit: 'hours', factor: 1 },
     { literal: 'hr', unit: 'hours', factor: 1 },
     { literal: 'hrs', unit: 'hours', factor: 1 },
     { literal: 'day', unit: 'days', factor: 1 },
@@ -55,6 +56,10 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
     {
       literal: 'ms',
       expected: '((JULIANDAY(date_start) - JULIANDAY(date_end))) * 24.0 * 60 * 60 * 1000',
+    },
+    {
+      literal: 's',
+      expected: '((JULIANDAY(date_start) - JULIANDAY(date_end))) * 24.0 * 60 * 60',
     },
     {
       literal: 'second',
@@ -97,6 +102,10 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
       expected: '((JULIANDAY(date_start) - JULIANDAY(date_end))) * 24.0',
     },
     {
+      literal: 'h',
+      expected: '((JULIANDAY(date_start) - JULIANDAY(date_end))) * 24.0',
+    },
+    {
       literal: 'hr',
       expected: '((JULIANDAY(date_start) - JULIANDAY(date_end))) * 24.0',
     },
@@ -125,6 +134,7 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
     { literal: 'millisecond', format: '%Y-%m-%d %H:%M:%S' },
     { literal: 'milliseconds', format: '%Y-%m-%d %H:%M:%S' },
     { literal: 'ms', format: '%Y-%m-%d %H:%M:%S' },
+    { literal: 's', format: '%Y-%m-%d %H:%M:%S' },
     { literal: 'second', format: '%Y-%m-%d %H:%M:%S' },
     { literal: 'seconds', format: '%Y-%m-%d %H:%M:%S' },
     { literal: 'sec', format: '%Y-%m-%d %H:%M:%S' },
@@ -135,6 +145,7 @@ describe('SelectQuerySqlite unit-aware date helpers', () => {
     { literal: 'mins', format: '%Y-%m-%d %H:%M' },
     { literal: 'hour', format: '%Y-%m-%d %H' },
     { literal: 'hours', format: '%Y-%m-%d %H' },
+    { literal: 'h', format: '%Y-%m-%d %H' },
     { literal: 'hr', format: '%Y-%m-%d %H' },
     { literal: 'hrs', format: '%Y-%m-%d %H' },
     { literal: 'day', format: '%Y-%m-%d' },

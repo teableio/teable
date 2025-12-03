@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { Plus } from '@teable/icons';
 import { uploadLogo } from '@teable/openapi';
 import { Spin } from '@teable/ui-lib/base';
-import { useToast } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
@@ -14,7 +14,6 @@ export const BrandingLogo = (props: { value?: string }) => {
   const { value } = props;
   const [logoUrl, setLogoUrl] = useState(value);
   const { t } = useTranslation(settingPluginConfig.i18nNamespaces);
-  const { toast } = useToast();
   const fileInput = useRef<HTMLInputElement>(null);
 
   const { mutate: uploadLogoMutation, isLoading } = useMutation({
@@ -37,7 +36,7 @@ export const BrandingLogo = (props: { value?: string }) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-      toast({ title: t('common:noun.unknownError') });
+      toast.warning(t('common:noun.unknownError'));
       return;
     }
     uploadLogoMutation(file);

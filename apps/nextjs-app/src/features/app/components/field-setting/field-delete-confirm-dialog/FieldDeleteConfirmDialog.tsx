@@ -55,14 +55,22 @@ const FieldGraphListPanel = (props: { tableId: string; fieldIds: string[] }) => 
 export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) => {
   const { tableId, fieldIds, open, onClose } = props;
   const { t } = useTranslation(['common', 'table']);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const close = () => {
+    setIsDeleting(false);
     onClose?.();
   };
 
   const actionDelete = async () => {
-    await deleteFields(tableId, fieldIds);
-    close();
+    if (isDeleting) return;
+    try {
+      setIsDeleting(true);
+      await deleteFields(tableId, fieldIds);
+      close();
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -72,7 +80,7 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
       open={open}
       onOpenChange={(open) => {
         if (!open) {
-          onClose?.();
+          close();
         }
       }}
       content={
@@ -82,6 +90,8 @@ export const FieldDeleteConfirmDialog = (props: FieldDeleteConfirmDialogProps) =
       }
       cancelText={t('common:actions.cancel')}
       confirmText={t('common:actions.confirm')}
+      confirmLoading={isDeleting}
+      confirmDisabled={isDeleting}
       onCancel={close}
       onConfirm={actionDelete}
     />

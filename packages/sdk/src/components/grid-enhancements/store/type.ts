@@ -19,6 +19,9 @@ export interface IRecordMenu {
   deleteRecords?: () => Promise<void>;
   insertRecord?: (anchorId: string, position: 'before' | 'after', num: number) => void;
   duplicateRecord?: () => Promise<void>;
+  copyRecordUrl?: () => Promise<void>;
+  viewRecordHistory?: () => Promise<void>;
+  addRecordComment?: () => Promise<void>;
 }
 
 export interface IStatisticMenu {

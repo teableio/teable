@@ -1,8 +1,9 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { type Action } from '@teable/core';
+import { HttpErrorCode, type Action } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
@@ -72,7 +73,15 @@ export class PermissionGuard {
 
   protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
-      throw new ForbiddenException('permission check ID does not exist');
+      throw new CustomHttpException(
+        `Permission check ID does not exist`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.checkIdNotExist',
+          },
+        }
+      );
     }
     const accessTokenId = this.cls.get('accessTokenId');
     const ownPermissions = await this.permissionService.validPermissions(
@@ -88,7 +97,11 @@ export class PermissionGuard {
     const isAdmin = this.cls.get('user.isAdmin');
 
     if (!isAdmin) {
-      throw new ForbiddenException('User is not an admin');
+      throw new CustomHttpException(`User is not an admin`, HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.permission.userNotAdmin',
+        },
+      });
     }
 
     const accessTokenId = this.cls.get('accessTokenId');
@@ -96,7 +109,15 @@ export class PermissionGuard {
       const { scopes } = await this.permissionService.getAccessToken(accessTokenId);
       const allowConfig = scopes.includes(action);
       if (!allowConfig) {
-        throw new ForbiddenException(`Access token does not have ${action} permission`);
+        throw new CustomHttpException(
+          `Access token does not have ${action} permission`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.accessTokenNoPermission',
+            },
+          }
+        );
       }
     }
     return true;

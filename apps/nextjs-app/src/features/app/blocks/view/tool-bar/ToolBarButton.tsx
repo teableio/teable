@@ -23,7 +23,11 @@ const ToolBarButton = forwardRef<HTMLButtonElement, IToolBarButton>(
         {...restProps}
       >
         {children}
-        {text && <span className={cn('hidden truncate', textClassName)}>{text}</span>}
+        {text && (
+          <span suppressHydrationWarning className={cn('hidden truncate', textClassName)}>
+            {text}
+          </span>
+        )}
       </Button>
     );
   }

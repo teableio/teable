@@ -57,6 +57,7 @@ export enum Events {
   // USER_PASSWORD_RESET = 'user.password.reset',
   USER_PASSWORD_CHANGE = 'user.password.change',
   // USER_PASSWORD_FORGOT = 'user.password.forgot'
+  USER_EMAIL_CHANGE = 'user.email.change',
 
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
@@ -78,6 +79,8 @@ export enum Events {
   AUDIT_LOG_SAVED = 'audit-log.saved',
 
   IMPORT_TABLE_COMPLETE = 'import.table.complete',
+
+  BASE_IMPORT_COMPLETE = 'base.import.complete',
 
   NOTIFY_MAIL_MERGE = 'notify.mail.merge',
 }

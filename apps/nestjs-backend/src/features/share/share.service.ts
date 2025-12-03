@@ -1,13 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IFilter, IFieldVo, IViewVo, ILinkFieldOptions, StatisticsFunc } from '@teable/core';
-import { CellFormat, FieldKeyType, FieldType, ViewType } from '@teable/core';
+import { CellFormat, FieldKeyType, FieldType, HttpErrorCode, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ShareViewLinkRecordsType, PluginPosition } from '@teable/openapi';
 import type {
@@ -31,6 +25,7 @@ import { Knex } from 'knex';
 import { isEmpty } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
@@ -120,7 +115,11 @@ export class ShareService {
         },
       });
       if (!pluginInstall) {
-        throw new NotFoundException(`Plugin install not found`);
+        throw new CustomHttpException('Plugin install not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.pluginInstall.notFound',
+          },
+        });
       }
       const plugin = {
         pluginId: pluginInstall.pluginId,
@@ -216,10 +215,18 @@ export class ShareService {
     const { tableId, view, shareMeta } = shareInfo;
     const { fields, typecast } = shareViewFormSubmitRo;
     if (!shareMeta?.submit?.allow) {
-      throw new ForbiddenException('not allowed to submit');
+      throw new CustomHttpException('not allowed to submit', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.notAllowedToSubmit',
+        },
+      });
     }
     if (!view) {
-      throw new ForbiddenException('view is required');
+      throw new CustomHttpException('view is required', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.viewRequired',
+        },
+      });
     }
 
     const viewId = view.id;
@@ -236,7 +243,15 @@ export class ShareService {
       (!visibleFields.length && !isEmpty(fields)) ||
       Object.keys(fields).some((fieldId) => !visibleFieldIdSet.has(fieldId))
     ) {
-      throw new ForbiddenException('The form contains hidden fields, submission not allowed.');
+      throw new CustomHttpException(
+        'The form contains hidden fields, submission not allowed.',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.hiddenFieldsSubmissionNotAllowed',
+          },
+        }
+      );
     }
 
     const { records } = await this.prismaService.$tx(async () => {
@@ -248,14 +263,26 @@ export class ShareService {
       });
     });
     if (records.length === 0) {
-      throw new InternalServerErrorException('The number of successful submit records is 0');
+      throw new CustomHttpException(
+        'The number of successful submit records is 0',
+        HttpErrorCode.INTERNAL_SERVER_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.submitRecordsError',
+          },
+        }
+      );
     }
     return records[0];
   }
 
   async copy(shareInfo: IShareViewInfo, shareViewCopyRo: IRangesRo) {
     if (!shareInfo.shareMeta?.allowCopy) {
-      throw new ForbiddenException('not allowed to copy');
+      throw new CustomHttpException('not allowed to copy', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.notAllowedToCopy',
+        },
+      });
     }
 
     return this.selectionService.copy(shareInfo.tableId, {
@@ -267,7 +294,15 @@ export class ShareService {
   private preCheckFieldHidden(view: IViewVo, fieldId: string) {
     // hidden check
     if (!view.shareMeta?.includeHiddenField && !isNotHiddenField(fieldId, view)) {
-      throw new ForbiddenException('field is hidden, not allowed');
+      throw new CustomHttpException(
+        'field is hidden, not allowed',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldHiddenNotAllowed',
+          },
+        }
+      );
     }
   }
 
@@ -275,7 +310,11 @@ export class ShareService {
     const { tableId, view } = shareInfo;
     const { fieldId } = query;
     if (!view) {
-      throw new ForbiddenException('view is required');
+      throw new CustomHttpException('view is required', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.share.viewRequired',
+        },
+      });
     }
 
     this.preCheckFieldHidden(view as IViewVo, fieldId);
@@ -283,7 +322,15 @@ export class ShareService {
     // link field check
     const field = await this.fieldService.getField(tableId, fieldId);
     if (field.type !== FieldType.Link) {
-      throw new ForbiddenException('field type is not link field');
+      throw new CustomHttpException(
+        'Field type is not link field',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldTypeNotLinkField',
+          },
+        }
+      );
     }
 
     let recordsVo: IRecordsVo;
@@ -381,7 +428,11 @@ export class ShareService {
     }
 
     if (!fieldId) {
-      throw new BadRequestException('fieldId is required');
+      throw new CustomHttpException('fieldId is required', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.share.fieldIdRequired',
+        },
+      });
     }
 
     await this.preCheckFieldHidden(view as IViewVo, fieldId);
@@ -390,7 +441,15 @@ export class ShareService {
     const field = await this.fieldService.getField(tableId, fieldId);
     // All user field, contains lastModifiedBy, createdBy
     if (![FieldType.User, FieldType.LastModifiedBy, FieldType.CreatedBy].includes(field.type)) {
-      throw new ForbiddenException('field type is not user-related field');
+      throw new CustomHttpException(
+        'field type is not user-related field',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldNotUserRelatedField',
+          },
+        }
+      );
     }
 
     return this.getViewFilterCollaborators(shareInfo, field, query);
@@ -438,7 +497,11 @@ export class ShareService {
   ) {
     const { tableId, view } = shareInfo;
     if (!view) {
-      throw new ForbiddenException('view is required');
+      throw new CustomHttpException('view is required', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.viewRequired',
+        },
+      });
     }
 
     const fields = await this.fieldService.getFieldsByQuery(tableId, {
@@ -482,7 +545,11 @@ export class ShareService {
     const { tableId, view } = shareInfo;
 
     if (view && ![ViewType.Form, ViewType.Kanban, ViewType.Plugin].includes(view.type)) {
-      throw new ForbiddenException('view type is not allowed');
+      throw new CustomHttpException('view type is not allowed', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.share.viewTypeNotAllowed',
+        },
+      });
     }
 
     const fields = await this.fieldService.getFieldsByQuery(tableId, {

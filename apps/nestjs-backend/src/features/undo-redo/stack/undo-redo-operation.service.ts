@@ -10,6 +10,7 @@ import { Events, IEventRawContext } from '../../../event-emitter/events';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import { RecordService } from '../../record/record.service';
+import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { ConvertFieldOperation, IConvertFieldPayload } from '../operations/convert-field.operation';
@@ -61,9 +62,14 @@ export class UndoRedoOperationService {
     private readonly recordService: RecordService,
     private readonly viewService: ViewService,
     private readonly prismaService: PrismaService,
+    private readonly tableDomainQueryService: TableDomainQueryService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {
-    this.createRecords = new CreateRecordsOperation(this.recordOpenApiService, this.recordService);
+    this.createRecords = new CreateRecordsOperation(
+      this.recordOpenApiService,
+      this.recordService,
+      this.tableDomainQueryService
+    );
     this.deleteRecords = new DeleteRecordsOperation(
       this.recordOpenApiService,
       this.prismaService,
@@ -80,7 +86,11 @@ export class UndoRedoOperationService {
       this.recordOpenApiService,
       this.prismaService
     );
-    this.convertField = new ConvertFieldOperation(this.fieldOpenApiService);
+    this.convertField = new ConvertFieldOperation(
+      this.fieldOpenApiService,
+      this.prismaService,
+      this.thresholdConfig
+    );
     this.pasteSelection = new PasteSelectionOperation(
       this.recordOpenApiService,
       this.fieldOpenApiService

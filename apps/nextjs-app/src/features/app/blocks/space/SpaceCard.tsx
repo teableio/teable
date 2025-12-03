@@ -15,7 +15,7 @@ import { useTranslation } from 'next-i18next';
 import { type FC, useEffect, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { LevelWithUpgrade } from '../../components/billing/LevelWithUpgrade';
-import { SpaceCollaboratorModalTrigger } from '../../components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
+import { InviteSpacePopover } from '../../components/collaborator/space/InviteSpacePopover';
 import { CollaboratorAvatars } from '../../components/space/CollaboratorAvatars';
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
@@ -148,11 +148,11 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
         )}
 
         {collaborators.length > 0 && (
-          <SpaceCollaboratorModalTrigger space={space}>
+          <InviteSpacePopover space={space}>
             <div className="cursor-pointer">
               <CollaboratorAvatars collaborators={collaborators} maxDisplay={15} />
             </div>
-          </SpaceCollaboratorModalTrigger>
+          </InviteSpacePopover>
         )}
       </CardContent>
     </Card>

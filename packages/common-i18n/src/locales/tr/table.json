@@ -34,12 +34,24 @@
         "label": "API",
         "restfulApi": "Restful API",
         "databaseConnection": "Veritabanı Bağlantısı"
+      },
+      "personalView": {
+        "personal": "Kişisel",
+        "tip": "Etkinleştirildiğinde, görünüm ayarları yalnızca size uygulanacaktır",
+        "collaborative": "İş Birlikçi",
+        "dialog": {
+          "title": "Kişisel moddan çık",
+          "description": "Kişisel görünüm yapılandırması, gerçek zamanlı iş birliği durumuna geri yüklenecek. Ayrıca kişisel görünüm ayarlarını kaydedip herkese senkronize edebilirsiniz.",
+          "cancelText": "Çık ve senkronize et",
+          "confirmText": "Çıkışı onayla"
+        }
       }
     }
   },
   "welcome": {
     "title": "Hoş Geldiniz",
-    "description": "Tablo oluşturmak için sol kenar çubuğundaki + işaretine tıklayın.",
+    "emptyTitle": "Veritabanınızı Oluşturmaya Başlayın",
+    "description": "Kaynak eklemek için kenar çubuğundaki \"+\" düğmesine tıklayın ve verilerinizi verimli bir şekilde yönetmeye başlayın",
     "help": "Daha fazla bilgi için <HelpCenter /> adresini ziyaret edin.",
     "helpCenter": "Yardım Merkezi"
   },
@@ -349,6 +361,13 @@
       "autoFillFieldDialog": {
         "title": "Tüm kayıtları güncelle",
         "description": "Mevcut görünümdeki tüm kayıtlar güncellenecektir, mevcut alanın oluşturduğu tüm ilgili verileri içerecektir"
+      },
+      "autoFillConfirm": {
+        "title": "Tüm sütunu oluşturulsun mu?",
+        "description": "Tüm sütunu oluşturmak {{rowCount}} satırı güncelleyecektir. Bu işlem çok sayıda yapay zeka kaynağı tüketebilir.",
+        "saveConfigOnly": "Yalnızca yapılandırmayı kaydet",
+        "generate": "Oluştur",
+        "generateFailed": "Oluşturma başarısız oldu"
       },
       "action": {
         "addAttachment": "Ek alan ekle"

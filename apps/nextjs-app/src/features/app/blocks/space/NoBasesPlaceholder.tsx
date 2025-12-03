@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import { createBase } from '@teable/openapi';
 import type { IGetSpaceVo } from '@teable/openapi';
 import { useSession } from '@teable/sdk/hooks';
@@ -18,6 +19,10 @@ interface INoBasesPlaceholderProps {
 
 export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
+
   const { user } = useSession();
   const router = useRouter();
   const allBases = useBaseList();
@@ -41,13 +46,20 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
   const canCreateBase = hasPermission(space.role, 'base|create');
 
   return (
-    <div className="flex min-h-[60vh] flex-col items-center justify-center px-8">
+    <div className="flex min-h-[60vh] h-full flex-col items-center justify-center px-8">
+      <Image
+        src={isDark ? '/images/layout/welcome-dark.png' : '/images/layout/welcome-light.png'}
+        alt="no bases"
+        width={240}
+        height={240}
+      />
+
       <div className="flex max-w-md flex-col items-center text-center">
-        <h3 className="mb-2 text-2xl font-semibold">
+        <h3 className="mb-2 mt-6 text-2xl font-semibold">
           {t('space:noBases.title', { userName: user.name })}
         </h3>
 
-        <p className="mb-8 leading-relaxed text-muted-foreground">
+        <p className="mb-6 leading-relaxed text-muted-foreground">
           {t('space:noBases.description')}
         </p>
 
@@ -56,21 +68,11 @@ export const NoBasesPlaceholder: FC<INoBasesPlaceholderProps> = ({ space }) => {
             onClick={handleCreateBase}
             disabled={createBaseLoading}
             size="lg"
-            className="mb-8 px-8"
+            className="px-8"
           >
             {createBaseLoading && <Spin />} {t('space:action.createBase')}
           </Button>
         )}
-
-        <div className="relative">
-          <Image
-            src="/images/layout/pointer.png"
-            alt="no bases"
-            width={120}
-            height={120}
-            className="opacity-80 dark:invert"
-          />
-        </div>
       </div>
     </div>
   );

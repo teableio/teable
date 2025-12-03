@@ -33,6 +33,10 @@ export class DateFieldCore extends FieldCore {
     };
   }
 
+  getDatetimeFormatting() {
+    return this.options?.formatting ?? defaultDatetimeFormatting;
+  }
+
   cellValue2String(cellValue?: unknown) {
     if (cellValue == null) return '';
     if (this.isMultipleCellValue && Array.isArray(cellValue)) {

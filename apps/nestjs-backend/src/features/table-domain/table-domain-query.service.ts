@@ -1,8 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { TableDomain, Tables } from '@teable/core';
+/* eslint-disable sonarjs/cognitive-complexity */
+import { Injectable } from '@nestjs/common';
+import { HttpErrorCode, TableDomain, Tables } from '@teable/core';
 import type { FieldCore } from '@teable/core';
 import type { Field, TableMeta } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
+import type { IClsStore } from '../../types/cls';
+import { Timing } from '../../utils/timing';
+import { DataLoaderService } from '../data-loader/data-loader.service';
 import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/factory';
 
 /**
@@ -12,7 +18,11 @@ import { rawField2FieldObj, createFieldInstanceByVo } from '../field/model/facto
  */
 @Injectable()
 export class TableDomainQueryService {
-  constructor(private readonly prismaService: PrismaService) {}
+  constructor(
+    private readonly dataLoaderService: DataLoaderService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService
+  ) {}
 
   /**
    * Get a complete table domain object by table ID
@@ -24,9 +34,35 @@ export class TableDomainQueryService {
    * @throws NotFoundException - If table is not found or has been deleted
    */
   async getTableDomainById(tableId: string): Promise<TableDomain> {
+    this.enableTableDomainDataLoader();
     const tableMeta = await this.getTableMetaById(tableId);
     const fieldRaws = await this.getTableFields(tableMeta.id);
     return this.buildTableDomain(tableMeta, fieldRaws);
+  }
+
+  async getTableDomainsByIds(tableIds: string[]): Promise<Map<string, TableDomain>> {
+    const uniqueIds = Array.from(new Set(tableIds.filter(Boolean)));
+    if (!uniqueIds.length) {
+      return new Map();
+    }
+
+    const tableMetas = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: uniqueIds }, deletedTime: null },
+      include: {
+        fields: {
+          where: { deletedTime: null },
+        },
+      },
+    });
+
+    const domainMap = new Map<string, TableDomain>();
+    for (const tableMeta of tableMetas) {
+      const sortedFields = this.sortFieldRaws(tableMeta.fields as Field[]);
+      const domain = this.buildTableDomain(tableMeta, sortedFields);
+      domainMap.set(tableMeta.id, domain);
+    }
+
+    return domainMap;
   }
 
   /**
@@ -34,43 +70,56 @@ export class TableDomainQueryService {
    * @private
    */
   private async getTableMetaById(tableId: string) {
-    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { id: tableId, deletedTime: null },
-    });
+    const [tableMeta] = (await this.dataLoaderService.table.loadByIds([tableId])) as TableMeta[];
 
     if (!tableMeta) {
-      throw new NotFoundException(`Table with ID ${tableId} not found`);
-    }
-
-    return tableMeta;
-  }
-
-  private async getTableMetaByDbTableName(dbTableName: string) {
-    const tableMeta = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { dbTableName, deletedTime: null },
-    });
-
-    if (!tableMeta) {
-      throw new NotFoundException(`Table with dbTableName ${dbTableName} not found`);
+      throw new CustomHttpException(
+        `Table not found with id: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        }
+      );
     }
 
     return tableMeta;
   }
 
   private async getTableFields(tableId: string) {
-    return this.prismaService.txClient().field.findMany({
-      where: { tableId, deletedTime: null },
-      orderBy: [
-        {
-          isPrimary: {
-            sort: 'asc',
-            nulls: 'last',
-          },
-        },
-        { order: 'asc' },
-        { createdTime: 'asc' },
-      ],
+    const fields = await this.dataLoaderService.field.load(tableId);
+    return this.sortFieldRaws(fields as Field[]);
+  }
+
+  private sortFieldRaws(fieldRaws: Field[]): Field[] {
+    return [...fieldRaws].sort((a, b) => {
+      const primaryDiff = this.comparePrimaryRank(a.isPrimary, b.isPrimary);
+      if (primaryDiff !== 0) {
+        return primaryDiff;
+      }
+
+      const orderDiff = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER);
+      if (orderDiff !== 0) {
+        return orderDiff;
+      }
+
+      return a.createdTime.getTime() - b.createdTime.getTime();
     });
+  }
+
+  private comparePrimaryRank(valueA?: boolean | null, valueB?: boolean | null) {
+    const rank = (value?: boolean | null) => {
+      if (value === true) {
+        return 0;
+      }
+      if (value === false) {
+        return 1;
+      }
+      return 2;
+    };
+
+    return rank(valueA) - rank(valueB);
   }
 
   private buildTableDomain(tableMeta: TableMeta, fieldRaws: Field[]): TableDomain {
@@ -102,44 +151,87 @@ export class TableDomainQueryService {
    * @param fieldIds - Optional projection of field IDs to limit foreign table traversal on the entry table
    * @returns Promise<Tables> - Tables domain object containing all related table domains
    */
+  @Timing()
   async getAllRelatedTableDomains(tableId: string, fieldIds?: string[]) {
-    return this.#getAllRelatedTableDomains(tableId, undefined, undefined, fieldIds);
+    this.enableTableDomainDataLoader();
+    return this.#getAllRelatedTableDomains(tableId, fieldIds);
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   async #getAllRelatedTableDomains(
     tableId: string,
-    tables: Tables = new Tables(tableId),
-    level = 1,
     projectionFieldIds?: string[]
   ): Promise<Tables> {
-    // Prevent infinite recursion
-    if (tables.isVisited(tableId)) {
-      return tables;
-    }
+    const tables = new Tables(tableId);
+    const queue: Array<{ tableId: string; projection?: string[] }> = [
+      { tableId, projection: projectionFieldIds },
+    ];
 
-    const currentTableDomain = await this.getTableDomainById(tableId);
-    tables.addTable(tableId, currentTableDomain);
-    // Mark as visited
-    tables.markVisited(tableId);
+    while (queue.length) {
+      const batch = queue.splice(0);
+      const idsToFetch = Array.from(
+        new Set(batch.map((item) => item.tableId).filter((id) => !tables.isVisited(id)))
+      );
 
-    const projection =
-      level === 1 && projectionFieldIds && projectionFieldIds.length
-        ? projectionFieldIds
-        : undefined;
-    const foreignTableIds = currentTableDomain.getAllForeignTableIds(projection);
-    for (const foreignTableId of foreignTableIds) {
-      try {
-        await this.#getAllRelatedTableDomains(foreignTableId, tables, level + 1);
-      } catch (e) {
-        // If the related table was deleted or not found, skip it gracefully
-        if (e?.constructor?.name === 'NotFoundException') {
+      if (idsToFetch.length) {
+        const domainMap = await this.getTableDomainsByIds(idsToFetch);
+
+        if (!tables.hasTable(tableId) && !domainMap.has(tableId)) {
+          throw new CustomHttpException(
+            `Table not found with id: ${tableId}`,
+            HttpErrorCode.NOT_FOUND,
+            {
+              localization: {
+                i18nKey: 'httpErrors.table.notFound',
+              },
+            }
+          );
+        }
+
+        for (const id of idsToFetch) {
+          const domain = domainMap.get(id);
+          if (!domain) {
+            // Related table was deleted or not found; skip gracefully
+            continue;
+          }
+
+          tables.addTable(id, domain);
+          tables.markVisited(id);
+        }
+      }
+
+      for (const { tableId: currentId, projection } of batch) {
+        const domain = tables.getTable(currentId);
+        if (!domain) {
           continue;
         }
-        throw e;
+
+        const fieldProjection =
+          currentId === tableId && projection && projection.length ? projection : undefined;
+
+        const foreignTableIds = domain.getAllForeignTableIds(fieldProjection);
+        for (const foreignTableId of foreignTableIds) {
+          if (!tables.isVisited(foreignTableId)) {
+            queue.push({ tableId: foreignTableId });
+          }
+        }
       }
     }
 
     return tables;
+  }
+
+  private enableTableDomainDataLoader() {
+    if (!this.cls.isActive()) {
+      return;
+    }
+    if (this.cls.get('dataLoaderCache.disabled')) {
+      return;
+    }
+    const cacheKeys = this.cls.get('dataLoaderCache.cacheKeys') ?? [];
+    const requiredKeys: ('table' | 'field')[] = ['table', 'field'];
+    const missingKeys = requiredKeys.filter((key) => !cacheKeys.includes(key));
+    if (missingKeys.length) {
+      this.cls.set('dataLoaderCache.cacheKeys', [...cacheKeys, ...missingKeys]);
+    }
   }
 }

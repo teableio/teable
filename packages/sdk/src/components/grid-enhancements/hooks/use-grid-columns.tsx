@@ -11,6 +11,7 @@ import {
   ColorUtils,
   FieldType,
   checkButtonClickable,
+  TimeFormatting,
 } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { keyBy } from 'lodash';
@@ -271,7 +272,10 @@ export const useCreateCellValue2GridDisplay = (
           case FieldType.CreatedTime:
           case FieldType.LastModifiedTime: {
             let displayData = '';
-            const { date, time, timeZone } = field.options.formatting;
+            const formatting = field.getDatetimeFormatting();
+            const date = formatting.date;
+            const time = formatting.time;
+            const timeZone = formatting.timeZone;
             const cacheKey = `${fieldId}-${cellValue}-${date}-${time}-${timeZone}`;
 
             if (cellValueStringCache.has(cacheKey)) {

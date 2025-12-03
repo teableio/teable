@@ -32,6 +32,10 @@ export class CreatedTimeFieldCore extends FormulaAbstractCore {
     };
   }
 
+  getDatetimeFormatting() {
+    return this.options?.formatting ?? defaultDatetimeFormatting;
+  }
+
   validateOptions() {
     return createdTimeFieldOptionsRoSchema.safeParse(this.options);
   }

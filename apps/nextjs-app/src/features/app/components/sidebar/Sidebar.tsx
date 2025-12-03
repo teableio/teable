@@ -43,9 +43,12 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
       {isMobile ? (
         <SheetWrapper>
           <div
-            className={cn('group/sidebar flex size-full flex-col overflow-hidden bg-popover p-5', {
-              'rounded-l': building,
-            })}
+            className={cn(
+              'group/sidebar flex size-full flex-col overflow-hidden bg-background p-5',
+              {
+                'rounded-l': building,
+              }
+            )}
           >
             <SidebarHeader headerLeft={headerLeft} />
             {children}
@@ -62,7 +65,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
         >
           <div
             className={cn(
-              'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+              'group/sidebar flex size-full flex-col overflow-hidden bg-background',
               {
                 'rounded-l': building,
               },
@@ -94,7 +97,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
           <HoverWrapper.content>
             <div
               className={cn(
-                'group/sidebar flex size-full flex-col overflow-hidden bg-popover',
+                'group/sidebar flex size-full flex-col overflow-hidden bg-background',
                 {
                   'rounded-l': building,
                 },

@@ -1,5 +1,17 @@
+/* eslint-disable sonarjs/cognitive-complexity */
+/* eslint-disable regexp/no-unused-capturing-group */
 /* eslint-disable no-useless-escape */
 import { DbFieldType } from '@teable/core';
+import { normalizeAirtableDatetimeFormatExpression } from '../../utils/datetime-format.util';
+import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
+import {
+  isBooleanLikeParam,
+  isDatetimeLikeParam,
+  isJsonLikeParam,
+  isTextLikeParam,
+  isTrustedNumeric,
+  resolveFormulaParamInfo,
+} from '../../utils/formula-param-metadata.util';
 import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract';
 
 /**
@@ -10,6 +22,25 @@ import { GeneratedColumnQueryAbstract } from '../generated-column-query.abstract
 export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   private isEmptyStringLiteral(value: string): boolean {
     return value.trim() === "''";
+  }
+
+  private isNullLiteral(value: string): boolean {
+    return this.stripOuterParentheses(value).toUpperCase() === 'NULL';
+  }
+
+  private shouldCoalesceNumericComparison(value: string, metadataIndex?: number): boolean {
+    if (this.isNumericLiteral(value)) {
+      return true;
+    }
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    return paramInfo ? isTrustedNumeric(paramInfo) || paramInfo.type === 'number' : false;
+  }
+
+  private normalizeNumericComparisonOperand(value: string, metadataIndex?: number): string {
+    if (!this.shouldCoalesceNumericComparison(value, metadataIndex)) {
+      return value;
+    }
+    return this.collapseNumeric(value, metadataIndex);
   }
 
   private hasWrappingParentheses(expr: string): boolean {
@@ -42,23 +73,131 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return trimmed;
   }
 
-  private isNumericLiteral(expr: string): boolean {
-    const trimmed = this.stripOuterParentheses(expr);
-    // eslint-disable-next-line regexp/no-unused-capturing-group
-    return /^[-+]?\d+(\.\d+)?$/.test(trimmed);
+  private getParamInfo(index?: number) {
+    return resolveFormulaParamInfo(this.currentCallMetadata, index);
   }
 
-  private toNumericSafe(expr: string): string {
+  private isNumericLiteral(expr: string): boolean {
+    let trimmed = this.stripOuterParentheses(expr);
+
+    // Peel leading signs while trimming redundant outer parens
+    while (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+      trimmed = trimmed.slice(1).trim();
+      trimmed = this.stripOuterParentheses(trimmed);
+    }
+
+    // Match plain numeric literal, with optional cast to a numeric type
+    const numericWithOptionalCast =
+      /^\(?\d+(\.\d+)?\)?(::(double precision|numeric|real|integer|bigint|smallint))?$/i;
+    if (numericWithOptionalCast.test(trimmed)) {
+      return true;
+    }
+
+    // Handle wrapped casts like ((7)::double precision)
+    const wrappedCastMatch = trimmed.match(/^\((.+)\)$/);
+    if (wrappedCastMatch) {
+      return this.isNumericLiteral(wrappedCastMatch[1]);
+    }
+
+    return false;
+  }
+
+  private toNumericSafe(expr: string, metadataIndex?: number): string {
     if (this.isNumericLiteral(expr)) {
       return `(${expr})::double precision`;
     }
-    const textExpr = `((${expr})::text)`;
-    const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
-    return `NULLIF(${sanitized}, '')::double precision`;
+    const paramInfo = this.getParamInfo(metadataIndex);
+    const expressionFieldType = this.getExpressionFieldType(expr);
+    if (isBooleanLikeParam(paramInfo)) {
+      const normalizedBoolean = this.normalizeBooleanCondition(expr, metadataIndex ?? 0);
+      return `(CASE WHEN ${normalizedBoolean} THEN 1 ELSE 0 END)::double precision`;
+    }
+    if (
+      paramInfo?.hasMetadata &&
+      isTextLikeParam(paramInfo) &&
+      !paramInfo.isJsonField &&
+      !paramInfo.isMultiValueField
+    ) {
+      return this.looseNumericCoercion(expr);
+    }
+    if (expressionFieldType === DbFieldType.Text) {
+      return this.looseNumericCoercion(expr);
+    }
+    if (paramInfo?.isJsonField || paramInfo?.isMultiValueField) {
+      return this.numericFromJson(expr);
+    }
+    if (expressionFieldType === DbFieldType.Json) {
+      return this.numericFromJson(expr);
+    }
+    if (isTrustedNumeric(paramInfo)) {
+      return `(${expr})::double precision`;
+    }
+    if (
+      !paramInfo?.hasMetadata &&
+      (expressionFieldType === DbFieldType.Real || expressionFieldType === DbFieldType.Integer)
+    ) {
+      return `(${expr})::double precision`;
+    }
+
+    if (!paramInfo && expressionFieldType === undefined) {
+      return `(${expr})::double precision`;
+    }
+
+    return this.looseNumericCoercion(expr);
   }
 
-  private normalizeBlankComparable(value: string): string {
-    const comparable = this.coerceToTextComparable(value);
+  private looseNumericCoercion(expr: string): string {
+    if (this.isNumericLiteral(expr)) {
+      return `(${expr})::double precision`;
+    }
+    const textExpr = `((${expr})::text) COLLATE "C"`;
+    const dateLikePattern = `'^[0-9]{1,4}[-/][0-9]{1,2}[-/][0-9]{1,4}( .*){0,1}$'`;
+    const collatedDatePattern = `${dateLikePattern} COLLATE "C"`;
+    const sanitized = `REGEXP_REPLACE(${textExpr}, '[^0-9.+-]', '', 'g')`;
+    const cleaned = `NULLIF(${sanitized}, '')`;
+    const collatedClean = `${cleaned} COLLATE "C"`;
+    // Avoid "?" in the regex so knex.raw doesn't misinterpret it as a binding placeholder.
+    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const collatedPattern = `${numericPattern} COLLATE "C"`;
+    return `(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN ${textExpr} ~ ${collatedDatePattern} THEN NULL
+      WHEN ${cleaned} IS NULL THEN NULL
+      WHEN ${collatedClean} ~ ${collatedPattern} THEN ${cleaned}::double precision
+      ELSE NULL
+    END)`;
+  }
+
+  private numericFromJson(expr: string): string {
+    const jsonExpr = `to_jsonb(${expr})`;
+    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const collatedPattern = `${numericPattern} COLLATE "C"`;
+    const arraySum = `(SELECT SUM(CASE WHEN (elem.value COLLATE "C") ~ ${collatedPattern} THEN elem.value::double precision ELSE NULL END) FROM jsonb_array_elements_text(${jsonExpr}) AS elem(value))`;
+    return `(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN jsonb_typeof(${jsonExpr}) = 'array' THEN ${arraySum}
+      ELSE ${this.looseNumericCoercion(expr)}
+    END)`;
+  }
+
+  private numericFromText(expr: string): string {
+    const textExpr = `((${expr})::text) COLLATE "C"`;
+    const numericPattern = `'^[+-]{0,1}(\\d+(\\.\\d+){0,1}|\\.\\d+)$'`;
+    const collatedPattern = `${numericPattern} COLLATE "C"`;
+    return `(CASE
+      WHEN ${expr} IS NULL THEN NULL
+      WHEN ${textExpr} ~ ${collatedPattern} THEN ${textExpr}::double precision
+      ELSE NULL
+    END)`;
+  }
+
+  private collapseNumeric(expr: string, metadataIndex?: number): string {
+    const numericValue = this.toNumericSafe(expr, metadataIndex);
+    return `COALESCE(${numericValue}, 0)`;
+  }
+
+  private normalizeBlankComparable(value: string, metadataIndex?: number): string {
+    const comparable = this.coerceToTextComparable(value, metadataIndex);
     return `COALESCE(NULLIF(${comparable}, ''), '')`;
   }
 
@@ -66,45 +205,67 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `(${expr})::text`;
   }
 
-  private buildBlankAwareComparison(operator: '=' | '<>', left: string, right: string): string {
-    const shouldNormalize = this.isEmptyStringLiteral(left) || this.isEmptyStringLiteral(right);
-    if (!shouldNormalize) {
-      const leftIsText = this.isTextLikeExpression(left);
-      const rightIsText = this.isTextLikeExpression(right);
+  private buildBlankAwareComparison(
+    operator: '=' | '<>',
+    left: string,
+    right: string,
+    metadataIndexes?: { left?: number; right?: number }
+  ): string {
+    const leftIndex = metadataIndexes?.left;
+    const rightIndex = metadataIndexes?.right;
+    const leftIsEmptyLiteral = this.isEmptyStringLiteral(left);
+    const rightIsEmptyLiteral = this.isEmptyStringLiteral(right);
+    const leftIsText = this.isTextLikeExpression(left, leftIndex);
+    const rightIsText = this.isTextLikeExpression(right, rightIndex);
+    const normalizeText = leftIsEmptyLiteral || rightIsEmptyLiteral || leftIsText || rightIsText;
 
-      let normalizedLeft = left;
-      let normalizedRight = right;
+    const leftIsNumericComparable = this.shouldCoalesceNumericComparison(left, leftIndex);
+    const rightIsNumericComparable = this.shouldCoalesceNumericComparison(right, rightIndex);
 
-      if (leftIsText) {
-        normalizedLeft = this.ensureTextCollation(left);
-      }
-      if (rightIsText) {
-        normalizedRight = this.ensureTextCollation(right);
-      }
-
-      if (leftIsText && !rightIsText) {
-        normalizedRight = this.coerceToTextComparable(right);
-      } else if (!leftIsText && rightIsText) {
-        normalizedLeft = this.coerceToTextComparable(left);
-      }
-
+    if (!normalizeText && (leftIsNumericComparable || rightIsNumericComparable)) {
+      const normalizedLeft = leftIsNumericComparable
+        ? this.normalizeNumericComparisonOperand(left, leftIndex)
+        : left;
+      const normalizedRight = rightIsNumericComparable
+        ? this.normalizeNumericComparisonOperand(right, rightIndex)
+        : right;
       return `(${normalizedLeft} ${operator} ${normalizedRight})`;
     }
 
-    const normalizedLeft = this.isEmptyStringLiteral(left)
-      ? "''"
-      : this.normalizeBlankComparable(left);
-    const normalizedRight = this.isEmptyStringLiteral(right)
-      ? "''"
-      : this.normalizeBlankComparable(right);
+    if (!normalizeText) {
+      return `(${left} ${operator} ${right})`;
+    }
+
+    const normalizeOperand = (value: string, isEmptyLiteral: boolean, metadataIndex?: number) =>
+      isEmptyLiteral ? "''" : this.normalizeBlankComparable(value, metadataIndex);
+
+    const normalizedLeft = normalizeOperand(left, leftIsEmptyLiteral, leftIndex);
+    const normalizedRight = normalizeOperand(right, rightIsEmptyLiteral, rightIndex);
 
     return `(${normalizedLeft} ${operator} ${normalizedRight})`;
   }
 
-  private isTextLikeExpression(value: string): boolean {
+  private isTextLikeExpression(value: string, metadataIndex?: number): boolean {
     const trimmed = this.stripOuterParentheses(value);
+    if (this.isEmptyStringLiteral(trimmed)) {
+      return false;
+    }
     if (/^'.*'$/.test(trimmed)) {
       return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata) {
+      if (
+        paramInfo.fieldDbType === DbFieldType.Real ||
+        paramInfo.fieldDbType === DbFieldType.Integer ||
+        paramInfo.fieldCellValueType === 'number'
+      ) {
+        return false;
+      }
+      if (isTextLikeParam(paramInfo)) {
+        return true;
+      }
     }
 
     return this.getExpressionFieldType(value) === DbFieldType.Text;
@@ -126,13 +287,28 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   private buildJsonScalarCoercion(jsonExpr: string): string {
+    const elementScalar = `CASE
+      WHEN jsonb_typeof(elem.value) = 'object' THEN COALESCE(
+        elem.value->>'title',
+        elem.value->>'name',
+        elem.value #>> '{}'
+      )
+      WHEN jsonb_typeof(elem.value) = 'array' THEN NULL
+      ELSE elem.value #>> '{}'
+    END`;
+
     return `CASE jsonb_typeof(${jsonExpr})
-          WHEN 'string' THEN (${jsonExpr}) #>> '{}'
-          WHEN 'number' THEN (${jsonExpr}) #>> '{}'
-          WHEN 'boolean' THEN (${jsonExpr}) #>> '{}'
-          WHEN 'null' THEN NULL
-          ELSE (${jsonExpr})::text
-        END`;
+      WHEN 'string' THEN (${jsonExpr}) #>> '{}'
+      WHEN 'number' THEN (${jsonExpr}) #>> '{}'
+      WHEN 'boolean' THEN (${jsonExpr}) #>> '{}'
+      WHEN 'null' THEN NULL
+      WHEN 'array' THEN COALESCE((
+        SELECT STRING_AGG(${elementScalar}, ', ' ORDER BY elem.ordinality)
+        FROM jsonb_array_elements(${jsonExpr}) WITH ORDINALITY AS elem(value, ordinality)
+      ), '')
+      WHEN 'object' THEN COALESCE(${jsonExpr}->>'title', ${jsonExpr}->>'name', ${jsonExpr} #>> '{}')
+      ELSE (${jsonExpr})::text
+    END`;
   }
 
   private coerceJsonExpressionToText(wrapped: string): string {
@@ -160,7 +336,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     END)`;
   }
 
-  private coerceToTextComparable(value: string): string {
+  private coerceToTextComparable(value: string, metadataIndex?: number): string {
     const trimmed = this.stripOuterParentheses(value);
     if (!trimmed) {
       return this.ensureTextCollation(value);
@@ -173,16 +349,102 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
 
     const wrapped = `(${value})`;
-    const coerced =
-      this.getExpressionFieldType(value) === DbFieldType.Json
-        ? this.coerceJsonExpressionToText(wrapped)
-        : this.coerceNonJsonExpressionToText(wrapped);
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    const expressionFieldType = this.getExpressionFieldType(value);
+    const numericField =
+      paramInfo?.fieldDbType === DbFieldType.Real ||
+      paramInfo?.fieldDbType === DbFieldType.Integer ||
+      paramInfo?.fieldCellValueType === 'number' ||
+      expressionFieldType === DbFieldType.Real ||
+      expressionFieldType === DbFieldType.Integer;
+    if (numericField && !paramInfo?.isJsonField && !paramInfo?.isMultiValueField) {
+      return wrapped;
+    }
+    const isJsonParam = paramInfo?.hasMetadata && isJsonLikeParam(paramInfo);
+    const shouldUseSimpleCast =
+      this.isGeneratedColumnContext &&
+      !isJsonParam &&
+      !paramInfo?.isMultiValueField &&
+      expressionFieldType !== DbFieldType.Json;
+
+    if (paramInfo?.hasMetadata) {
+      if (isJsonParam) {
+        if (shouldUseSimpleCast) {
+          return this.ensureTextCollation(`${wrapped}::text`);
+        }
+        const coercedJson = this.coerceJsonExpressionToText(wrapped);
+        return this.ensureTextCollation(coercedJson);
+      }
+
+      if (isTextLikeParam(paramInfo)) {
+        return this.ensureTextCollation(value);
+      }
+
+      if (paramInfo.type && paramInfo.type !== 'unknown') {
+        return this.ensureTextCollation(`${wrapped}::text`);
+      }
+    }
+
+    if (expressionFieldType === DbFieldType.Json) {
+      if (shouldUseSimpleCast) {
+        return this.ensureTextCollation(`${wrapped}::text`);
+      }
+      const coercedJson = this.coerceJsonExpressionToText(wrapped);
+      return this.ensureTextCollation(coercedJson);
+    }
+
+    if (expressionFieldType === DbFieldType.Text) {
+      return this.ensureTextCollation(value);
+    }
+
+    if (shouldUseSimpleCast) {
+      return this.ensureTextCollation(`${wrapped}::text`);
+    }
+
+    const coerced = this.coerceNonJsonExpressionToText(wrapped);
     return this.ensureTextCollation(coerced);
   }
 
-  private countANonNullExpression(value: string): string {
-    if (this.isTextLikeExpression(value)) {
-      const normalizedComparable = this.normalizeBlankComparable(value);
+  private isHardTextExpression(value: string): boolean {
+    const trimmed = this.stripOuterParentheses(value);
+    if (this.isEmptyStringLiteral(trimmed)) {
+      return false;
+    }
+    if (/^'.+'$/.test(trimmed)) {
+      return true;
+    }
+    return this.getExpressionFieldType(value) === DbFieldType.Text;
+  }
+
+  private isDateLikeOperand(metadataIndex?: number): boolean {
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (!paramInfo?.hasMetadata) {
+      return false;
+    }
+    if (paramInfo.type === 'number') {
+      return false;
+    }
+    const hasFieldDateMetadata =
+      paramInfo.fieldDbType === DbFieldType.DateTime || paramInfo.fieldCellValueType === 'datetime';
+    const typeSaysDatetime =
+      isDatetimeLikeParam(paramInfo) && !paramInfo.fieldDbType && !paramInfo.fieldCellValueType;
+    const looksDatetime = hasFieldDateMetadata || typeSaysDatetime;
+
+    if (!looksDatetime) {
+      return false;
+    }
+
+    return !paramInfo.isJsonField && !paramInfo.isMultiValueField;
+  }
+
+  private buildDayInterval(expr: string, metadataIndex?: number): string {
+    const numeric = this.collapseNumeric(expr, metadataIndex);
+    return `(${numeric}) * INTERVAL '1 day'`;
+  }
+
+  private countANonNullExpression(value: string, metadataIndex?: number): string {
+    if (this.isTextLikeExpression(value, metadataIndex)) {
+      const normalizedComparable = this.normalizeBlankComparable(value, metadataIndex);
       return `CASE WHEN ${value} IS NULL OR ${normalizedComparable} = '' THEN 0 ELSE 1 END`;
     }
 
@@ -190,42 +452,91 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   override add(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const leftIsDate = this.isDateLikeOperand(0);
+    const rightIsDate = this.isDateLikeOperand(1);
+
+    if (leftIsDate && !rightIsDate) {
+      return `(${this.castToTimestamp(left, 0)} + ${this.buildDayInterval(right, 1)})`;
+    }
+
+    if (!leftIsDate && rightIsDate) {
+      return `(${this.castToTimestamp(right, 1)} + ${this.buildDayInterval(left, 0)})`;
+    }
+
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) + (${r}))`;
   }
 
   override subtract(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const leftIsDate = this.isDateLikeOperand(0);
+    const rightIsDate = this.isDateLikeOperand(1);
+
+    if (leftIsDate && !rightIsDate) {
+      return `(${this.castToTimestamp(left, 0)} - ${this.buildDayInterval(right, 1)})`;
+    }
+
+    if (leftIsDate && rightIsDate) {
+      return `(EXTRACT(EPOCH FROM ${this.castToTimestamp(left, 0)} - ${this.castToTimestamp(
+        right,
+        1
+      )}) / 86400)`;
+    }
+
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) - (${r}))`;
   }
 
   override multiply(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
+    const l = this.collapseNumeric(left, 0);
+    const r = this.collapseNumeric(right, 1);
     return `((${l}) * (${r}))`;
   }
 
   override unaryMinus(value: string): string {
-    const numericValue = this.toNumericSafe(value);
+    const numericValue = this.toNumericSafe(value, 0);
     return `(-(${numericValue}))`;
   }
 
   override divide(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE (${l} / ${r}) END)`;
+    const numerator = this.collapseNumeric(left, 0);
+    const denominator = this.toNumericSafe(right, 1);
+    return `(CASE WHEN (${denominator}) IS NULL OR (${denominator}) = 0 THEN NULL ELSE (${numerator} / ${denominator}) END)`;
   }
 
   override modulo(left: string, right: string): string {
-    const l = this.toNumericSafe(left);
-    const r = this.toNumericSafe(right);
-    return `(CASE WHEN (${r}) IS NULL OR (${r}) = 0 THEN NULL ELSE MOD((${l})::numeric, (${r})::numeric)::double precision END)`;
+    const dividend = this.collapseNumeric(left, 0);
+    const divisor = this.toNumericSafe(right, 1);
+    return `(CASE WHEN (${divisor}) IS NULL OR (${divisor}) = 0 THEN NULL ELSE MOD((${dividend})::numeric, (${divisor})::numeric)::double precision END)`;
   }
 
-  private normalizeBooleanCondition(condition: string): string {
+  private isBooleanLikeExpression(value: string, metadataIndex?: number): boolean {
+    const trimmed = this.stripOuterParentheses(value);
+    if (/^(true|false)$/i.test(trimmed)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && isBooleanLikeParam(paramInfo)) {
+      return true;
+    }
+
+    return this.getExpressionFieldType(value) === DbFieldType.Boolean;
+  }
+
+  private normalizeBooleanCondition(condition: string, metadataIndex = 0): string {
     const wrapped = `(${condition})`;
+    if (this.isBooleanLikeExpression(condition, metadataIndex)) {
+      return `COALESCE(${wrapped}::boolean, FALSE)`;
+    }
+
+    const paramInfo = this.getParamInfo(metadataIndex);
+    if (isTrustedNumeric(paramInfo)) {
+      const numericExpr = this.toNumericSafe(condition, metadataIndex);
+      return `(COALESCE(${numericExpr}, 0) <> 0)`;
+    }
+
     const conditionType = `pg_typeof${wrapped}::text`;
     const numericTypes = "('smallint','integer','bigint','numeric','double precision','real')";
     const stringTypes = "('text','character varying','character','varchar','unknown')";
@@ -250,13 +561,13 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   // Numeric Functions
   sum(params: string[]): string {
     // Use addition instead of SUM() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.toNumericSafe(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')})`;
   }
 
   average(params: string[]): string {
     // Use addition and division instead of AVG() aggregation function for generated columns
-    const numericParams = params.map((param) => `(${this.toNumericSafe(param)})`);
+    const numericParams = params.map((param, index) => `(${this.collapseNumeric(param, index)})`);
     return `(${numericParams.join(' + ')}) / ${params.length}`;
   }
 
@@ -269,75 +580,94 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   round(value: string, precision?: string): string {
-    if (precision) {
-      return `ROUND(${value}::numeric, ${precision}::integer)`;
+    const numericValue = this.toNumericSafe(value, 0);
+    if (precision !== undefined) {
+      const numericPrecision = this.toNumericSafe(precision, 1);
+      return `ROUND(${numericValue}::numeric, ${numericPrecision}::integer)`;
     }
-    return `ROUND(${value}::numeric)`;
+    return `ROUND(${numericValue})`;
   }
 
   roundUp(value: string, precision?: string): string {
-    if (precision) {
-      return `CEIL(${value}::numeric * POWER(10, ${precision}::integer)) / POWER(10, ${precision}::integer)`;
+    const numericValue = this.toNumericSafe(value, 0);
+    if (precision !== undefined) {
+      const numericPrecision = this.toNumericSafe(precision, 1);
+      const factor = `POWER(10, ${numericPrecision}::integer)`;
+      return `CEIL(${numericValue} * ${factor}) / ${factor}`;
     }
-    return `CEIL(${value}::numeric)`;
+    return `CEIL(${numericValue})`;
   }
 
   roundDown(value: string, precision?: string): string {
-    if (precision) {
-      return `FLOOR(${value}::numeric * POWER(10, ${precision}::integer)) / POWER(10, ${precision}::integer)`;
+    const numericValue = this.toNumericSafe(value, 0);
+    if (precision !== undefined) {
+      const numericPrecision = this.toNumericSafe(precision, 1);
+      const factor = `POWER(10, ${numericPrecision}::integer)`;
+      return `FLOOR(${numericValue} * ${factor}) / ${factor}`;
     }
-    return `FLOOR(${value}::numeric)`;
+    return `FLOOR(${numericValue})`;
   }
 
   ceiling(value: string): string {
-    return `CEIL(${value}::numeric)`;
+    return `CEIL(${this.toNumericSafe(value, 0)})`;
   }
 
   floor(value: string): string {
-    return `FLOOR(${value}::numeric)`;
+    return `FLOOR(${this.toNumericSafe(value, 0)})`;
   }
 
   even(value: string): string {
-    return `CASE WHEN ${value}::integer % 2 = 0 THEN ${value}::integer ELSE ${value}::integer + 1 END`;
+    const numericValue = this.toNumericSafe(value, 0);
+    const intValue = `FLOOR(${numericValue})::integer`;
+    return `CASE WHEN ${numericValue} IS NULL THEN NULL WHEN ${intValue} % 2 = 0 THEN ${intValue} ELSE ${intValue} + 1 END`;
   }
 
   odd(value: string): string {
-    return `CASE WHEN ${value}::integer % 2 = 1 THEN ${value}::integer ELSE ${value}::integer + 1 END`;
+    const numericValue = this.toNumericSafe(value, 0);
+    const intValue = `FLOOR(${numericValue})::integer`;
+    return `CASE WHEN ${numericValue} IS NULL THEN NULL WHEN ${intValue} % 2 = 1 THEN ${intValue} ELSE ${intValue} + 1 END`;
   }
 
   int(value: string): string {
-    return `FLOOR(${value}::numeric)`;
+    return `FLOOR(${this.toNumericSafe(value, 0)})`;
   }
 
   abs(value: string): string {
-    return `ABS(${value}::numeric)`;
+    return `ABS(${this.toNumericSafe(value, 0)})`;
   }
 
   sqrt(value: string): string {
-    return `SQRT(${value}::numeric)`;
+    return `SQRT(${this.toNumericSafe(value, 0)})`;
   }
 
   power(base: string, exponent: string): string {
-    return `POWER(${base}::numeric, ${exponent}::numeric)`;
+    const baseValue = this.toNumericSafe(base, 0);
+    const exponentValue = this.toNumericSafe(exponent, 1);
+    return `POWER(${baseValue}, ${exponentValue})`;
   }
 
   exp(value: string): string {
-    return `EXP(${value}::numeric)`;
+    return `EXP(${this.toNumericSafe(value, 0)})`;
   }
 
   log(value: string, base?: string): string {
-    if (base) {
-      return `LOG(${base}::numeric, ${value}::numeric)`;
+    const numericValue = this.toNumericSafe(value, 0);
+    if (base !== undefined) {
+      const numericBase = this.toNumericSafe(base, 1);
+      const baseLog = `LN(${numericBase})`;
+      return `(LN(${numericValue}) / NULLIF(${baseLog}, 0))`;
     }
-    return `LN(${value}::numeric)`;
+    return `LN(${numericValue})`;
   }
 
   mod(dividend: string, divisor: string): string {
-    return `MOD(${dividend}::numeric, ${divisor}::numeric)`;
+    const safeDividend = this.toNumericSafe(dividend, 0);
+    const safeDivisor = this.toNumericSafe(divisor, 1);
+    return `(CASE WHEN (${safeDivisor}) IS NULL OR (${safeDivisor}) = 0 THEN NULL ELSE MOD((${safeDividend})::numeric, (${safeDivisor})::numeric)::double precision END)`;
   }
 
   value(text: string): string {
-    return this.toNumericSafe(text);
+    return this.toNumericSafe(text, 0);
   }
 
   // Text Functions
@@ -356,11 +686,35 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   equal(left: string, right: string): string {
-    return this.buildBlankAwareComparison('=', left, right);
+    return this.buildBlankAwareComparison('=', left, right, { left: 0, right: 1 });
   }
 
   notEqual(left: string, right: string): string {
-    return this.buildBlankAwareComparison('<>', left, right);
+    return this.buildBlankAwareComparison('<>', left, right, { left: 0, right: 1 });
+  }
+
+  greaterThan(left: string, right: string): string {
+    const normalizedLeft = this.normalizeNumericComparisonOperand(left, 0);
+    const normalizedRight = this.normalizeNumericComparisonOperand(right, 1);
+    return `(${normalizedLeft} > ${normalizedRight})`;
+  }
+
+  lessThan(left: string, right: string): string {
+    const normalizedLeft = this.normalizeNumericComparisonOperand(left, 0);
+    const normalizedRight = this.normalizeNumericComparisonOperand(right, 1);
+    return `(${normalizedLeft} < ${normalizedRight})`;
+  }
+
+  greaterThanOrEqual(left: string, right: string): string {
+    const normalizedLeft = this.normalizeNumericComparisonOperand(left, 0);
+    const normalizedRight = this.normalizeNumericComparisonOperand(right, 1);
+    return `(${normalizedLeft} >= ${normalizedRight})`;
+  }
+
+  lessThanOrEqual(left: string, right: string): string {
+    const normalizedLeft = this.normalizeNumericComparisonOperand(left, 0);
+    const normalizedRight = this.normalizeNumericComparisonOperand(right, 1);
+    return `(${normalizedLeft} <= ${normalizedRight})`;
   }
 
   // Override bitwiseAnd to handle PostgreSQL-specific type conversion
@@ -433,23 +787,29 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   lower(text: string): string {
-    return `LOWER(${text})`;
+    const operand = this.coerceToTextComparable(text, 0);
+    return `LOWER(${operand})`;
   }
 
   upper(text: string): string {
-    return `UPPER(${text})`;
+    const operand = this.coerceToTextComparable(text, 0);
+    return `UPPER(${operand})`;
   }
 
   rept(text: string, numTimes: string): string {
-    return `REPEAT(${text}, ${numTimes}::integer)`;
+    const operand = this.coerceToTextComparable(text, 0);
+    return `REPEAT(${operand}, ${numTimes}::integer)`;
   }
 
   trim(text: string): string {
-    return `TRIM(${text})`;
+    const operand = this.coerceToTextComparable(text, 0);
+    return `TRIM(${operand})`;
   }
 
   len(text: string): string {
-    return `LENGTH(${text})`;
+    // Force text to prevent LENGTH() from receiving numeric/JSON operands (e.g., auto-number)
+    const operand = this.ensureTextCollation(this.coerceToTextComparable(text, 0));
+    return `LENGTH(${operand})`;
   }
 
   t(value: string): string {
@@ -504,6 +864,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return { unit: 'millisecond', factor: 1 };
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return { unit: 'second', factor: 1 };
@@ -514,6 +875,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return { unit: 'minute', factor: 1 };
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return { unit: 'hour', factor: 1 };
@@ -541,7 +903,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   private normalizeDiffUnit(
     unitLiteral: string
-  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' {
+  ): 'millisecond' | 'second' | 'minute' | 'hour' | 'day' | 'week' | 'month' | 'quarter' | 'year' {
     const normalized = unitLiteral.trim().toLowerCase();
     switch (normalized) {
       case 'millisecond':
@@ -550,6 +912,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return 'millisecond';
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return 'second';
@@ -560,12 +923,22 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return 'minute';
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return 'hour';
       case 'week':
       case 'weeks':
         return 'week';
+      case 'month':
+      case 'months':
+        return 'month';
+      case 'quarter':
+      case 'quarters':
+        return 'quarter';
+      case 'year':
+      case 'years':
+        return 'year';
       default:
         return 'day';
     }
@@ -582,6 +955,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return 'millisecond';
       case 'second':
       case 'seconds':
+      case 's':
       case 'sec':
       case 'secs':
         return 'second';
@@ -592,6 +966,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return 'minute';
       case 'hour':
       case 'hours':
+      case 'h':
       case 'hr':
       case 'hrs':
         return 'hour';
@@ -616,20 +991,43 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   dateAdd(date: string, count: string, unit: string): string {
     const { unit: cleanUnit, factor } = this.normalizeIntervalUnit(unit.replace(/^'|'$/g, ''));
-    const scaledCount = factor === 1 ? `(${count})` : `(${count}) * ${factor}`;
+    const numericCount = this.toNumericSafe(count, 1);
+    const scaledCount = factor === 1 ? `(${numericCount})` : `(${numericCount}) * ${factor}`;
+    const timestampExpr = this.castToTimestamp(date, 0);
     if (cleanUnit === 'quarter') {
-      return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 month'`;
+      return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 month'`;
     }
-    return `${date}::timestamp + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
+    return `${timestampExpr} + (${scaledCount}) * INTERVAL '1 ${cleanUnit}'`;
   }
 
   datestr(date: string): string {
-    return `${date}::date::text`;
+    return `${this.castToTimestamp(date, 0)}::date::text`;
+  }
+
+  private buildMonthDiff(startDate: string, endDate: string): string {
+    const startExpr = this.castToTimestamp(startDate, 0);
+    const endExpr = this.castToTimestamp(endDate, 1);
+    const startYear = `EXTRACT(YEAR FROM ${startExpr})`;
+    const endYear = `EXTRACT(YEAR FROM ${endExpr})`;
+    const startMonth = `EXTRACT(MONTH FROM ${startExpr})`;
+    const endMonth = `EXTRACT(MONTH FROM ${endExpr})`;
+    const startDay = `EXTRACT(DAY FROM ${startExpr})`;
+    const endDay = `EXTRACT(DAY FROM ${endExpr})`;
+    const startLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${startExpr}) + INTERVAL '1 month - 1 day'))`;
+    const endLastDay = `EXTRACT(DAY FROM (DATE_TRUNC('month', ${endExpr}) + INTERVAL '1 month - 1 day'))`;
+
+    const baseMonths = `((${startYear} - ${endYear}) * 12 + (${startMonth} - ${endMonth}))`;
+    const adjustDown = `(CASE WHEN ${baseMonths} > 0 AND ${startDay} < ${endDay} AND ${startDay} < ${startLastDay} THEN 1 ELSE 0 END)`;
+    const adjustUp = `(CASE WHEN ${baseMonths} < 0 AND ${startDay} > ${endDay} AND ${endDay} < ${endLastDay} THEN 1 ELSE 0 END)`;
+
+    return `(${baseMonths} - ${adjustDown} + ${adjustUp})`;
   }
 
   datetimeDiff(startDate: string, endDate: string, unit: string): string {
     const diffUnit = this.normalizeDiffUnit(unit.replace(/^'|'$/g, ''));
-    const diffSeconds = `EXTRACT(EPOCH FROM ${startDate}::timestamp - ${endDate}::timestamp)`;
+    const startExpr = this.castToTimestamp(startDate, 0);
+    const endExpr = this.castToTimestamp(endDate, 1);
+    const diffSeconds = `EXTRACT(EPOCH FROM ${startExpr} - ${endExpr})`;
     switch (diffUnit) {
       case 'millisecond':
         return `(${diffSeconds}) * 1000`;
@@ -641,6 +1039,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         return `(${diffSeconds}) / 3600`;
       case 'week':
         return `(${diffSeconds}) / (86400 * 7)`;
+      case 'month':
+        return this.buildMonthDiff(startDate, endDate);
+      case 'quarter':
+        return `${this.buildMonthDiff(startDate, endDate)} / 3.0`;
+      case 'year': {
+        const monthDiff = this.buildMonthDiff(startDate, endDate);
+        return `CAST((${monthDiff}) / 12.0 AS INTEGER)`;
+      }
       case 'day':
       default:
         return `(${diffSeconds}) / 86400`;
@@ -648,20 +1054,27 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   datetimeFormat(date: string, format: string): string {
-    return `TO_CHAR(${date}::timestamp, ${format})`;
+    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(format);
+    return `TO_CHAR(${this.castToTimestamp(date, 0)}, ${normalizedFormat})`;
   }
 
   datetimeParse(dateString: string, format?: string): string {
-    if (format == null) {
-      return dateString;
-    }
-    const normalized = format.trim();
-    if (!normalized || normalized === 'undefined' || normalized.toLowerCase() === 'null') {
-      return dateString;
-    }
     const valueExpr = `(${dateString})`;
-    const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${format})`;
-    const guardPattern = this.buildDatetimeParseGuardRegex(normalized);
+    const trustedDatetimeInput = this.hasTrustedDatetimeInput(0);
+
+    if (format == null) {
+      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+    }
+    const trimmedFormat = format.trim();
+    if (!trimmedFormat || trimmedFormat === 'undefined' || trimmedFormat.toLowerCase() === 'null') {
+      return trustedDatetimeInput ? valueExpr : this.guardDefaultDatetimeParse(valueExpr);
+    }
+    if (trustedDatetimeInput) {
+      return valueExpr;
+    }
+    const normalizedFormat = normalizeAirtableDatetimeFormatExpression(trimmedFormat);
+    const toTimestampExpr = `TO_TIMESTAMP(${valueExpr}::text, ${normalizedFormat})`;
+    const guardPattern = this.buildDatetimeParseGuardRegex(normalizedFormat);
     if (!guardPattern) {
       return toTimestampExpr;
     }
@@ -671,28 +1084,31 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   day(date: string): string {
-    return `EXTRACT(DAY FROM ${date}::timestamp)`;
+    return `EXTRACT(DAY FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   fromNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${date}::timestamp)`;
+      return `EXTRACT(EPOCH FROM '${currentTimestamp}'::timestamp - ${this.castToTimestamp(
+        date,
+        0
+      )})`;
     }
-    return `EXTRACT(EPOCH FROM NOW() - ${date}::timestamp)`;
+    return `EXTRACT(EPOCH FROM NOW() - ${this.castToTimestamp(date, 0)})`;
   }
 
   hour(date: string): string {
-    return `EXTRACT(HOUR FROM ${date}::timestamp)`;
+    return `EXTRACT(HOUR FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   isAfter(date1: string, date2: string): string {
-    return `${date1}::timestamp > ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1, 0)} > ${this.castToTimestamp(date2, 1)}`;
   }
 
   isBefore(date1: string, date2: string): string {
-    return `${date1}::timestamp < ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1, 0)} < ${this.castToTimestamp(date2, 1)}`;
   }
 
   isSame(date1: string, date2: string, unit?: string): string {
@@ -702,11 +1118,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
         const literal = trimmed.slice(1, -1);
         const normalized = this.normalizeTruncateUnit(literal);
         const safeUnit = normalized.replace(/'/g, "''");
-        return `DATE_TRUNC('${safeUnit}', ${date1}::timestamp) = DATE_TRUNC('${safeUnit}', ${date2}::timestamp)`;
+        return `DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(
+          date1,
+          0
+        )}) = DATE_TRUNC('${safeUnit}', ${this.castToTimestamp(date2, 1)})`;
       }
-      return `DATE_TRUNC(${unit}, ${date1}::timestamp) = DATE_TRUNC(${unit}, ${date2}::timestamp)`;
+      return `DATE_TRUNC(${unit}, ${this.castToTimestamp(date1, 0)}) = DATE_TRUNC(${unit}, ${this.castToTimestamp(date2, 1)})`;
     }
-    return `${date1}::timestamp = ${date2}::timestamp`;
+    return `${this.castToTimestamp(date1, 0)} = ${this.castToTimestamp(date2, 1)}`;
   }
 
   lastModifiedTime(): string {
@@ -715,50 +1134,56 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
   }
 
   minute(date: string): string {
-    return `EXTRACT(MINUTE FROM ${date}::timestamp)`;
+    return `EXTRACT(MINUTE FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   month(date: string): string {
-    return `EXTRACT(MONTH FROM ${date}::timestamp)`;
+    return `EXTRACT(MONTH FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   second(date: string): string {
-    return `EXTRACT(SECOND FROM ${date}::timestamp)`;
+    return `EXTRACT(SECOND FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   timestr(date: string): string {
-    return `${date}::time::text`;
+    return `(${this.castToTimestamp(date, 0)})::time::text`;
   }
 
   toNow(date: string): string {
     // For generated columns, use the current timestamp at field creation time
     if (this.isGeneratedColumnContext) {
       const currentTimestamp = new Date().toISOString().replace('T', ' ').replace('Z', '');
-      return `EXTRACT(EPOCH FROM ${date}::timestamp - '${currentTimestamp}'::timestamp)`;
+      return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date, 0)} - '${currentTimestamp}'::timestamp)`;
     }
-    return `EXTRACT(EPOCH FROM ${date}::timestamp - NOW())`;
+    return `EXTRACT(EPOCH FROM ${this.castToTimestamp(date, 0)} - NOW())`;
   }
 
   weekNum(date: string): string {
-    return `EXTRACT(WEEK FROM ${date}::timestamp)`;
+    return `EXTRACT(WEEK FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   weekday(date: string): string {
-    return `EXTRACT(DOW FROM ${date}::timestamp)`;
+    return `EXTRACT(DOW FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   workday(startDate: string, days: string): string {
+    if (!this.isDateLikeOperand(0)) {
+      return 'NULL';
+    }
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${startDate}::date + INTERVAL '1 day' * ${days}::integer`;
+    return `${this.castToTimestamp(startDate, 0)}::date + INTERVAL '1 day' * ${days}::integer`;
   }
 
   workdayDiff(startDate: string, endDate: string): string {
+    if (!this.isDateLikeOperand(0) || !this.isDateLikeOperand(1)) {
+      return 'NULL';
+    }
     // Simplified implementation - doesn't account for weekends/holidays
-    return `${endDate}::date - ${startDate}::date`;
+    return `${this.castToTimestamp(endDate, 1)}::date - ${this.castToTimestamp(startDate, 0)}::date`;
   }
 
   year(date: string): string {
-    return `EXTRACT(YEAR FROM ${date}::timestamp)`;
+    return `EXTRACT(YEAR FROM ${this.castToTimestamp(date, 0)})`;
   }
 
   createdTime(): string {
@@ -768,8 +1193,43 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   // Logical Functions
   if(condition: string, valueIfTrue: string, valueIfFalse: string): string {
-    const booleanCondition = this.normalizeBooleanCondition(condition);
-    return `CASE WHEN (${booleanCondition}) THEN ${valueIfTrue} ELSE ${valueIfFalse} END`;
+    const booleanCondition = this.normalizeBooleanCondition(condition, 0);
+    const trueIsBlank = this.isEmptyStringLiteral(valueIfTrue) || this.isNullLiteral(valueIfTrue);
+    const falseIsBlank =
+      this.isEmptyStringLiteral(valueIfFalse) || this.isNullLiteral(valueIfFalse);
+    const resultIsDatetime = this.isDateLikeOperand(1) || this.isDateLikeOperand(2);
+    if (resultIsDatetime) {
+      const trueBranch = trueIsBlank ? 'NULL' : this.castToTimestamp(valueIfTrue, 1);
+      const falseBranch = falseIsBlank ? 'NULL' : this.castToTimestamp(valueIfFalse, 2);
+      return `CASE WHEN (${booleanCondition}) THEN ${trueBranch} ELSE ${falseBranch} END`;
+    }
+    const trueIsText = this.isTextLikeExpression(valueIfTrue, 1);
+    const falseIsText = this.isTextLikeExpression(valueIfFalse, 2);
+    const trueIsHardText = this.isHardTextExpression(valueIfTrue);
+    const falseIsHardText = this.isHardTextExpression(valueIfFalse);
+    const numericWithBlank =
+      (trueIsBlank && !falseIsHardText && !falseIsText) ||
+      (falseIsBlank && !trueIsHardText && !trueIsText);
+    if (numericWithBlank) {
+      const trueBranchNumeric = trueIsBlank ? 'NULL' : this.toNumericSafe(valueIfTrue, 1);
+      const falseBranchNumeric = falseIsBlank ? 'NULL' : this.toNumericSafe(valueIfFalse, 2);
+      return `CASE WHEN (${booleanCondition}) THEN ${trueBranchNumeric} ELSE ${falseBranchNumeric} END`;
+    }
+    const hasTextBranch = (trueIsText && !trueIsBlank) || (falseIsText && !falseIsBlank);
+    const blankPresent = trueIsBlank || falseIsBlank;
+    const hasTextAfterBlank = blankPresent ? false : hasTextBranch;
+    const normalizeBlankAsNull = !hasTextAfterBlank && blankPresent;
+    const trueBranch = hasTextAfterBlank
+      ? this.coerceToTextComparable(valueIfTrue, 1)
+      : trueIsBlank && normalizeBlankAsNull
+        ? 'NULL'
+        : valueIfTrue;
+    const falseBranch = hasTextAfterBlank
+      ? this.coerceToTextComparable(valueIfFalse, 2)
+      : falseIsBlank && normalizeBlankAsNull
+        ? 'NULL'
+        : valueIfFalse;
+    return `CASE WHEN (${booleanCondition}) THEN ${trueBranch} ELSE ${falseBranch} END`;
   }
 
   and(params: string[]): string {
@@ -818,14 +1278,28 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     cases: Array<{ case: string; result: string }>,
     defaultResult?: string
   ): string {
-    let caseStatement = 'CASE';
+    const hasTextResult =
+      cases.some((c) => this.isTextLikeExpression(c.result)) ||
+      (defaultResult ? this.isTextLikeExpression(defaultResult) : false);
+
+    const normalizeResult = (value: string) =>
+      hasTextResult ? this.coerceToTextComparable(value) : value;
+
+    const normalizeCaseValue = (value: string) =>
+      hasTextResult ? this.coerceToTextComparable(value) : value;
+
+    const baseExpr = hasTextResult ? this.coerceToTextComparable(expression, 0) : expression;
+
+    let caseStatement = `CASE ${baseExpr}`;
 
     for (const caseItem of cases) {
-      caseStatement += ` WHEN ${expression} = ${caseItem.case} THEN ${caseItem.result}`;
+      caseStatement += ` WHEN ${normalizeCaseValue(caseItem.case)} THEN ${normalizeResult(
+        caseItem.result
+      )}`;
     }
 
     if (defaultResult) {
-      caseStatement += ` ELSE ${defaultResult}`;
+      caseStatement += ` ELSE ${normalizeResult(defaultResult)}`;
     }
 
     caseStatement += ' END';
@@ -840,7 +1314,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
 
   countA(params: string[]): string {
     // Count non-empty values (including zeros)
-    const blankAwareChecks = params.map((p) => this.countANonNullExpression(p));
+    const blankAwareChecks = params.map((p, index) => this.countANonNullExpression(p, index));
     return `(${blankAwareChecks.join(' + ')})`;
   }
 
@@ -850,24 +1324,65 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `CASE WHEN ${value} IS NULL THEN 0 ELSE 1 END`;
   }
 
+  private normalizeJsonbArray(array: string): string {
+    return `(CASE
+      WHEN ${array} IS NULL THEN '[]'::jsonb
+      WHEN jsonb_typeof(to_jsonb(${array})) = 'array' THEN to_jsonb(${array})
+      ELSE jsonb_build_array(to_jsonb(${array}))
+    END)`;
+  }
+
+  private buildJsonArrayUnion(
+    arrays: string[],
+    opts?: { filterNulls?: boolean; withOrdinal?: boolean }
+  ): string {
+    const selects = arrays.map((array, index) => {
+      const normalizedArray = this.normalizeJsonbArray(array);
+      const whereClause = opts?.filterNulls
+        ? " WHERE elem.value IS NOT NULL AND elem.value != 'null' AND elem.value != ''"
+        : '';
+      const ordinality = opts?.withOrdinal ? ', ord' : '';
+      return `SELECT elem.value, ${index} AS arg_index${ordinality}
+        FROM jsonb_array_elements_text(${normalizedArray}) WITH ORDINALITY AS elem(value, ord)${whereClause}`;
+    });
+
+    if (selects.length === 0) {
+      return 'SELECT NULL::text AS value, 0 AS arg_index, 0 AS ord WHERE FALSE';
+    }
+
+    return selects.join(' UNION ALL ');
+  }
+
   arrayJoin(array: string, separator?: string): string {
     const sep = separator || "', '";
     return `ARRAY_TO_STRING(${array}, ${sep})`;
   }
 
-  arrayUnique(array: string): string {
-    // PostgreSQL has array_unique in some versions
-    return `ARRAY(SELECT DISTINCT UNNEST(${array}))`;
+  arrayUnique(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, { withOrdinal: true });
+    return `ARRAY(
+      SELECT DISTINCT ON (value) value
+      FROM (${unionQuery}) AS combined(value, arg_index, ord)
+      ORDER BY value, arg_index, ord
+    )`;
   }
 
-  arrayFlatten(array: string): string {
-    // Flatten nested arrays
-    return `ARRAY(SELECT UNNEST(${array}))`;
+  arrayFlatten(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, { withOrdinal: true });
+    return `ARRAY(
+      SELECT value
+      FROM (${unionQuery}) AS combined(value, arg_index, ord)
+      ORDER BY arg_index, ord
+    )`;
   }
 
-  arrayCompact(array: string): string {
-    // Remove null values from array
-    return `ARRAY(SELECT x FROM UNNEST(${array}) AS x WHERE x IS NOT NULL)`;
+  arrayCompact(arrays: string[]): string {
+    const unionQuery = this.buildJsonArrayUnion(arrays, { filterNulls: true, withOrdinal: true });
+    return `ARRAY(
+      SELECT value
+      FROM (${unionQuery}) AS combined(value, arg_index, ord)
+      ORDER BY arg_index, ord
+    )`;
   }
 
   // System Functions
@@ -914,6 +1429,14 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     return `"${identifier.replace(/"/g, '""')}"`;
   }
 
+  private guardDefaultDatetimeParse(valueExpr: string): string {
+    const textExpr = `${valueExpr}::text`;
+    const trimmedExpr = `NULLIF(BTRIM(${textExpr}), '')`;
+    const sanitizedExpr = `CASE WHEN ${trimmedExpr} IS NULL THEN NULL WHEN LOWER(${trimmedExpr}) IN ('null', 'undefined') THEN NULL ELSE ${trimmedExpr} END`;
+    const pattern = getDefaultDatetimeParsePattern();
+    return `(CASE WHEN ${valueExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} IS NULL THEN NULL WHEN ${sanitizedExpr} ~ '${pattern}' THEN ${valueExpr} ELSE NULL END)`;
+  }
+
   private buildDatetimeParseGuardRegex(formatLiteral: string): string | null {
     if (!formatLiteral.startsWith("'") || !formatLiteral.endsWith("'")) {
       return null;
@@ -923,6 +1446,7 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
       ['HH24', '\\d{2}'],
       ['HH12', '\\d{2}'],
       ['HH', '\\d{2}'],
+      ['AM', '[AaPp][Mm]'],
       ['MI', '\\d{2}'],
       ['SS', '\\d{2}'],
       ['MS', '\\d{1,3}'],
@@ -965,5 +1489,56 @@ export class GeneratedColumnQueryPostgres extends GeneratedColumnQueryAbstract {
     }
     pattern += '$';
     return pattern;
+  }
+  private castToTimestamp(date: string, metadataIndex?: number): string {
+    const isTimestampish = (expr: string): boolean => {
+      const trimmed = this.stripOuterParentheses(expr);
+      return (
+        /::timestamp(tz)?\b/i.test(trimmed) ||
+        /\bAT\s+TIME\s+ZONE\b/i.test(trimmed) ||
+        /^NOW\(\)/i.test(trimmed) ||
+        /^CURRENT_TIMESTAMP/i.test(trimmed)
+      );
+    };
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata && paramInfo.type === 'number') {
+      return 'NULL::timestamp';
+    }
+    const looksDatetime =
+      paramInfo?.hasMetadata &&
+      (isDatetimeLikeParam(paramInfo) ||
+        paramInfo.fieldDbType === DbFieldType.DateTime ||
+        paramInfo.fieldCellValueType === 'datetime');
+
+    if (!looksDatetime && !isTimestampish(date)) {
+      return 'NULL::timestamp';
+    }
+
+    const valueExpr = `(${date})`;
+    const trustedInput =
+      (metadataIndex != null && this.hasTrustedDatetimeInput(metadataIndex)) ||
+      this.getExpressionFieldType(date) === DbFieldType.DateTime;
+
+    if (trustedInput) {
+      return `${valueExpr}::timestamp`;
+    }
+
+    const guarded = this.guardDefaultDatetimeParse(valueExpr);
+    return `${guarded}::timestamp`;
+  }
+
+  private hasTrustedDatetimeInput(index: number): boolean {
+    const paramInfo = this.getParamInfo(index);
+    if (!paramInfo.hasMetadata) {
+      return false;
+    }
+    if (!isDatetimeLikeParam(paramInfo)) {
+      return false;
+    }
+    if (paramInfo.isJsonField || paramInfo.isMultiValueField) {
+      return false;
+    }
+    return true;
   }
 }

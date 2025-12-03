@@ -6,6 +6,8 @@ import type {
   ISelectFieldChoice,
   IConvertFieldRo,
   ILinkFieldOptions,
+  FieldCore,
+  LinkFieldCore,
 } from '@teable/core';
 import {
   CellValueType,
@@ -41,6 +43,7 @@ import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { isLinkCellValue } from '../../calculation/utils/detect-link';
 import { CollaboratorService } from '../../collaborator/collaborator.service';
+import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
 import { TableIndexService } from '../../table/table-index.service';
 import { FieldService } from '../field.service';
 import type { IFieldInstance, IFieldMap } from '../model/factory';
@@ -71,6 +74,7 @@ export class FieldConvertingService {
     private readonly fieldCalculationService: FieldCalculationService,
     private readonly collaboratorService: CollaboratorService,
     private readonly tableIndexService: TableIndexService,
+    private readonly computedOrchestrator: ComputedOrchestratorService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -407,7 +411,7 @@ export class FieldConvertingService {
     return optionsChanges;
   }
 
-  private infectPropertyChanged(newField: IFieldInstance, oldField: IFieldInstance) {
+  private infectPropertyChanged(newField: IFieldInstance, oldField: FieldCore) {
     // those key will infect the reference field
     const infectProperties = ['type', 'cellValueType', 'isMultipleCellValue'] as const;
     const changedProperties = infectProperties.filter(
@@ -432,28 +436,29 @@ export class FieldConvertingService {
   // And they don't belong in the referenceField
   private async updateLookupRollupRef(
     newField: IFieldInstance,
-    oldField: IFieldInstance
+    oldField: FieldCore
   ): Promise<IOpsMap | undefined> {
     if (newField.type !== FieldType.Link || oldField.type !== FieldType.Link) {
       return;
     }
 
+    const oldFieldOptions = oldField.options as ILinkFieldOptions;
     // ignore foreignTableId change
-    if (newField.options.foreignTableId !== oldField.options.foreignTableId) {
+    if (newField.options.foreignTableId !== oldFieldOptions.foreignTableId) {
       return;
     }
 
     const { relationship, fkHostTableName, foreignKeyName, selfKeyName } = newField.options;
     if (
-      relationship === oldField.options.relationship &&
-      fkHostTableName === oldField.options.fkHostTableName &&
-      foreignKeyName === oldField.options.foreignKeyName &&
-      selfKeyName === oldField.options.selfKeyName
+      relationship === oldFieldOptions.relationship &&
+      fkHostTableName === oldFieldOptions.fkHostTableName &&
+      foreignKeyName === oldFieldOptions.foreignKeyName &&
+      selfKeyName === oldFieldOptions.selfKeyName
     ) {
       return;
     }
 
-    const relatedFieldsRaw = await this.prismaService.field.findMany({
+    const relatedFieldsRaw = await this.prismaService.txClient().field.findMany({
       where: {
         lookupLinkedFieldId: newField.id,
         deletedTime: null,
@@ -462,7 +467,7 @@ export class FieldConvertingService {
 
     const relatedFields = relatedFieldsRaw.map(createFieldInstanceByRaw);
 
-    const lookupToFields = await this.prismaService.field.findMany({
+    const lookupToFields = await this.prismaService.txClient().field.findMany({
       where: {
         id: {
           in: relatedFields.map((field) => field.lookupOptions?.lookupFieldId as string),
@@ -533,7 +538,7 @@ export class FieldConvertingService {
    * 3. options change will cause the lookup field options change
    * 4. options in link field change may cause all lookup field run in to error, should mark them as error
    */
-  private async updateReferencedFields(newField: IFieldInstance, oldField: IFieldInstance) {
+  private async updateReferencedFields(newField: IFieldInstance, oldField: FieldCore) {
     if (!this.infectPropertyChanged(newField, oldField)) {
       return;
     }
@@ -898,11 +903,11 @@ export class FieldConvertingService {
     }
   }
 
-  private getOriginFieldKeys(newField: IFieldInstance, oldField: IFieldInstance) {
+  private getOriginFieldKeys(newField: IFieldInstance, oldField: FieldCore) {
     return FIELD_VO_PROPERTIES.filter((key) => !isEqual(newField[key], oldField[key]));
   }
 
-  private getOriginFieldOps(newField: IFieldInstance, oldField: IFieldInstance) {
+  private getOriginFieldOps(newField: IFieldInstance, oldField: FieldCore) {
     return this.getOriginFieldKeys(newField, oldField).map((key) =>
       FieldOpBuilder.editor.setFieldProperty.build({
         key,
@@ -955,6 +960,37 @@ export class FieldConvertingService {
     };
   }
 
+  private buildCellContextsFromOps(opsMap: IOpsMap[string] | undefined) {
+    const contexts: ICellContext[] = [];
+    if (!opsMap) {
+      return contexts;
+    }
+    for (const [recordId, ops] of Object.entries(opsMap)) {
+      for (const op of ops) {
+        const context = RecordOpBuilder.editor.setRecord.detect(op);
+        if (!context) {
+          continue;
+        }
+        contexts.push({
+          recordId,
+          fieldId: context.fieldId,
+          oldValue: context.oldCellValue,
+          newValue: context.newCellValue,
+        });
+      }
+    }
+    return contexts;
+  }
+
+  private buildComputedSources(recordOpsMap: IOpsMap) {
+    return Object.entries(recordOpsMap)
+      .map(([tableId, ops]) => ({
+        tableId,
+        cellContexts: this.buildCellContextsFromOps(ops),
+      }))
+      .filter((source) => source.cellContexts.length);
+  }
+
   // eslint-disable-next-line sonarjs/cognitive-complexity
   private async calculateAndSaveRecords(
     tableId: string,
@@ -985,7 +1021,17 @@ export class FieldConvertingService {
       }
     }
 
-    await this.batchService.updateRecords(recordOpsMap);
+    const computedSources = this.buildComputedSources(recordOpsMap);
+    if (computedSources.length) {
+      await this.computedOrchestrator.computeCellChangesForRecordsMulti(
+        computedSources,
+        async (tables) => {
+          await this.batchService.updateRecords(recordOpsMap!, undefined, undefined, tables);
+        }
+      );
+    } else {
+      await this.batchService.updateRecords(recordOpsMap);
+    }
   }
 
   private async getExistRecords(tableId: string, newField: IFieldInstance) {
@@ -1219,7 +1265,7 @@ export class FieldConvertingService {
     return this.basalConvert(tableId, newField, oldField);
   }
 
-  async updateReference(newField: IFieldInstance, oldField: IFieldInstance) {
+  async updateReference(newField: IFieldInstance, oldField: FieldCore) {
     if (!this.shouldUpdateReference(newField, oldField)) {
       return;
     }
@@ -1231,7 +1277,7 @@ export class FieldConvertingService {
     await this.fieldSupplementService.createReference(newField);
   }
 
-  private shouldUpdateReference(newField: IFieldInstance, oldField: IFieldInstance) {
+  private shouldUpdateReference(newField: IFieldInstance, oldField: FieldCore) {
     const keys = this.getOriginFieldKeys(newField, oldField);
     if (newField.type === FieldType.Link && !newField.isLookup) {
       if (
@@ -1290,12 +1336,40 @@ export class FieldConvertingService {
     }
   }
 
-  needCalculate(newField: IFieldInstance, oldField: IFieldInstance) {
+  needCalculate(newField: IFieldInstance, oldField: FieldCore) {
     if (!newField.isComputed) {
       return false;
     }
 
-    return majorFieldKeysChanged(oldField, newField);
+    if (majorFieldKeysChanged(oldField, newField)) {
+      return true;
+    }
+
+    if (this.hasConditionalLookupDiff(newField, oldField)) {
+      return true;
+    }
+
+    if (this.hasConditionalRollupDiff(newField, oldField)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private hasConditionalLookupDiff(newField: IFieldInstance, oldField: FieldCore) {
+    if (!newField.isConditionalLookup) {
+      return false;
+    }
+
+    return !isEqual(newField.lookupOptions, oldField.lookupOptions);
+  }
+
+  private hasConditionalRollupDiff(newField: IFieldInstance, oldField: FieldCore) {
+    if (newField.type !== FieldType.ConditionalRollup) {
+      return false;
+    }
+
+    return !isEqual(newField.options, oldField.options);
   }
 
   private async calculateField(
@@ -1307,7 +1381,11 @@ export class FieldConvertingService {
       return;
     }
 
-    if (!majorFieldKeysChanged(oldField, newField)) {
+    const hasMajorChange = majorFieldKeysChanged(oldField, newField);
+    const conditionalLookupDiff = this.hasConditionalLookupDiff(newField, oldField);
+    const conditionalRollupDiff = this.hasConditionalRollupDiff(newField, oldField);
+
+    if (!hasMajorChange && !conditionalLookupDiff && !conditionalRollupDiff) {
       return;
     }
 
@@ -1486,17 +1564,13 @@ export class FieldConvertingService {
     };
   }
 
-  async updateAiConfigReference(
-    tableId: string,
-    newField: IFieldInstance,
-    oldField: IFieldInstance
-  ) {
+  async updateAiConfigReference(tableId: string, newField: IFieldInstance, oldField: FieldCore) {
     if (JSON.stringify(newField.aiConfig) === JSON.stringify(oldField.aiConfig)) return;
 
     await this.fieldSupplementService.createFieldTaskReference(tableId, newField);
   }
 
-  async stageAlter(tableId: string, newField: IFieldInstance, oldField: IFieldInstance) {
+  async stageAlter(tableId: string, newField: IFieldInstance, oldField: FieldCore) {
     const ops = this.getOriginFieldOps(newField, oldField);
 
     if (this.needCalculate(newField, oldField)) {

@@ -64,6 +64,9 @@ export class OfficialPluginInitService implements OnModuleInit {
   }
 
   async uploadStatic(id: string, filePath: string, type: UploadType) {
+    if (process.env.NODE_ENV === 'test') {
+      return `/${join(StorageAdapter.getDir(type), id)}`;
+    }
     const fileStream = createReadStream(resolve(process.cwd(), filePath));
     const metaReader = sharp();
     const sharpReader = fileStream.pipe(metaReader);

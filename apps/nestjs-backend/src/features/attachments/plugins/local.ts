@@ -1,9 +1,10 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createReadStream, createWriteStream, unlinkSync, existsSync, rmSync } from 'fs';
 import { type Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
-import { getRandomString } from '@teable/core';
+import { Injectable, Logger } from '@nestjs/common';
+import { getRandomString, HttpErrorCode } from '@teable/core';
 import { READ_PATH } from '@teable/openapi';
 import type { Request } from 'express';
 import * as fse from 'fs-extra';
@@ -12,6 +13,7 @@ import sharp from 'sharp';
 import { CacheService } from '../../../cache/cache.service';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { FileUtils } from '../../../utils';
 import { Encryptor } from '../../../utils/encryptor';
@@ -107,19 +109,42 @@ export class LocalStorage implements StorageAdapter {
   async validateToken(token: string, file: ILocalFileUpload) {
     const validateMeta = await this.cacheService.get(`attachment:local-signature:${token}`);
     if (!validateMeta) {
-      throw new BadRequestException('Invalid token');
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
     }
     const { expiresDate, contentLength, contentType } = validateMeta;
 
     const { size, mimetype } = file;
     if (Math.floor(Date.now() / 1000) > expiresDate) {
-      throw new BadRequestException('Token has expired');
+      throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.tokenExpired',
+        },
+      });
     }
     if (contentLength && contentLength !== size) {
-      throw new BadRequestException('Size mismatch');
+      throw new CustomHttpException('Size mismatch', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.sizeMismatch',
+        },
+      });
     }
     if (mimetype && mimetype !== contentType) {
-      throw new BadRequestException(`Not allow upload ${mimetype} file`);
+      throw new CustomHttpException(
+        `Not allow upload ${mimetype} file`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.notAllowUploadFileType',
+            context: {
+              mimetype,
+            },
+          },
+        }
+      );
     }
   }
 
@@ -199,7 +224,11 @@ export class LocalStorage implements StorageAdapter {
   async getObjectMeta(bucket: string, path: string, token: string): Promise<IObjectMeta> {
     const uploadCache = await this.cacheService.get(`attachment:upload:${token}`);
     if (!uploadCache) {
-      throw new BadRequestException(`Invalid token: ${token}`);
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
     }
     const { mimetype, hash, size } = uploadCache;
 
@@ -245,16 +274,27 @@ export class LocalStorage implements StorageAdapter {
     const prefix = origin?.byApi ? this.baseConfig.storagePrefix : '';
     return prefix + join('/', url);
   }
+
   verifyReadToken(token: string) {
+    let payload: ITokenEncryptor;
     try {
-      const { expiresDate, respHeaders } = this.expireTokenEncryptor.decrypt(token);
-      if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
-        throw new BadRequestException('Token has expired');
-      }
-      return { respHeaders };
+      payload = this.expireTokenEncryptor.decrypt(token);
     } catch (error) {
-      throw new BadRequestException('Invalid token');
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
     }
+    const { expiresDate, respHeaders } = payload;
+    if (expiresDate > 0 && Math.floor(Date.now() / 1000) > expiresDate) {
+      throw new CustomHttpException('Token has expired', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.tokenExpired',
+        },
+      });
+    }
+    return { respHeaders };
   }
 
   async uploadFileWidthPath(
@@ -327,7 +367,11 @@ export class LocalStorage implements StorageAdapter {
     const image = sharp(imagePath, { failOn: 'none', unlimited: true });
     const metadata = await image.metadata();
     if (!metadata.width || !metadata.height) {
-      throw new BadRequestException('Invalid image');
+      throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImage',
+        },
+      });
     }
     const resizedImage = image.resize(width, height);
     await resizedImage.toFile(resizedImagePath);

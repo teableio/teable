@@ -14,8 +14,8 @@ import {
   DialogTrigger,
   Input,
   Label,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 
@@ -25,13 +25,12 @@ export const AddPassword = () => {
   const { t } = useTranslation('common');
   const [error, setError] = useState('');
   const [open, setOpen] = useState(false);
-  const { toast } = useToast();
   const { refresh } = useSession();
 
   const { mutateAsync: addPasswordMutate, isLoading } = useMutation({
     mutationFn: addPassword,
     onSuccess: () => {
-      toast({ title: t('settings.account.addPasswordSuccess.title') });
+      toast.success(t('settings.account.addPasswordSuccess.title'));
       setOpen(false);
       refresh();
     },

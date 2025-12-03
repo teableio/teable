@@ -15,8 +15,8 @@ import {
   DialogTrigger,
   Input,
   Label,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
@@ -29,7 +29,6 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
   const { t } = useTranslation('common');
   const router = useRouter();
   const { user } = useSession();
-  const { toast } = useToast();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
@@ -41,8 +40,7 @@ export const ChangePasswordDialog = (props: IChangePasswordDialogProps) => {
     isSuccess,
   } = useMutation(changePassword, {
     onSuccess: () => {
-      toast({
-        title: t('settings.account.changePasswordSuccess.title'),
+      toast.success(t('settings.account.changePasswordSuccess.title'), {
         description: t('settings.account.changePasswordSuccess.desc'),
       });
       setTimeout(() => {

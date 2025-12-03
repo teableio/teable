@@ -1,8 +1,10 @@
 import type { Readable as ReadableStream } from 'node:stream';
 import { resolve } from 'path';
 import { BadRequestException } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import { storageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IObjectMeta, IPresignParams, IPresignRes } from './types';
 
 export default abstract class StorageAdapter {
@@ -27,7 +29,11 @@ export default abstract class StorageAdapter {
       case UploadType.ChatDataVisualizationCode:
         return storageConfig().publicBucket;
       default:
-        throw new BadRequestException('Invalid upload type');
+        throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidUploadType',
+          },
+        });
     }
   };
 
@@ -62,7 +68,11 @@ export default abstract class StorageAdapter {
       case UploadType.Automation:
         return 'automation';
       default:
-        throw new BadRequestException('Invalid upload type');
+        throw new CustomHttpException('Invalid upload type', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidUploadType',
+          },
+        });
     }
   };
 

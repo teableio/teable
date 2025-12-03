@@ -19,6 +19,9 @@ export class UserInitService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
     await this.uploadStatic(
       AUTOMATION_ROBOT_ID,
       'static/system/automation-robot.png',

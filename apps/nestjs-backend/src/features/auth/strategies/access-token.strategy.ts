@@ -1,10 +1,12 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
+import { HttpErrorCode } from '@teable/core';
 import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import type { authConfig } from '../../../configs/auth.config';
 import { AuthConfig } from '../../../configs/auth.config';
+import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AccessTokenService } from '../../access-token/access-token.service';
 import { UserService } from '../../user/user.service';
@@ -29,10 +31,22 @@ export class AccessTokenStrategy extends PassportStrategy(PassportAccessTokenStr
     const { userId, accessTokenId } = await this.accessTokenService.validate(payload);
     const user = await this.userService.getUserById(userId);
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new CustomHttpException(`User not found`, HttpErrorCode.UNAUTHORIZED, {
+        localization: {
+          i18nKey: 'httpErrors.user.notFound',
+        },
+      });
     }
     if (user.deactivatedTime) {
-      throw new UnauthorizedException('Your account has been deactivated by the administrator');
+      throw new CustomHttpException(
+        `Your account has been deactivated by the administrator`,
+        HttpErrorCode.UNAUTHORIZED,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.accountDeactivated',
+          },
+        }
+      );
     }
 
     this.cls.set('user.id', user.id);

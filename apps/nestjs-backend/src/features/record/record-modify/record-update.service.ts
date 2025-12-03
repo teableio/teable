@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import type { TableDomain } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IUpdateRecordsRo, IRecordInsertOrderRo } from '@teable/openapi';
+import type { IRecordInsertOrderRo } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
@@ -11,9 +12,11 @@ import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
+import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
 import { RecordService } from '../record.service';
+import { IUpdateRecordsInternalRo } from '../type';
 import { RecordModifySharedService } from './record-modify.shared.service';
 
 @Injectable()
@@ -28,26 +31,30 @@ export class RecordUpdateService {
     private readonly computedOrchestrator: ComputedOrchestratorService,
     private readonly shared: RecordModifySharedService,
     private readonly eventEmitterService: EventEmitterService,
+    private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
   @retryOnDeadlock()
   async updateRecords(
     tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    },
+    updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
-    const { records, order, fieldKeyType = FieldKeyType.Name, typecast } = updateRecordsRo;
+    const {
+      records,
+      order,
+      fieldKeyType = FieldKeyType.Name,
+      typecast,
+      fieldIds,
+    } = updateRecordsRo;
+
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
+    const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const orderIndexesBefore =
       order != null && windowId
         ? await this.recordService.getRecordIndexes(
-            tableId,
+            table,
             records.map((r) => r.id),
             (order as IRecordInsertOrderRo).viewId
           )
@@ -56,7 +63,7 @@ export class RecordUpdateService {
     const cellContexts = await this.prismaService.$tx(async () => {
       if (order != null) {
         const { viewId, anchorId, position } = order as IRecordInsertOrderRo;
-        await this.viewOpenApiService.updateRecordOrders(tableId, viewId, {
+        await this.viewOpenApiService.updateRecordOrders(table, viewId, {
           anchorId,
           position,
           recordIds: records.map((r) => r.id),
@@ -64,46 +71,69 @@ export class RecordUpdateService {
       }
 
       const typecastRecords = await this.shared.validateFieldsAndTypecast(
-        tableId,
-        records,
+        table,
+        scopedRecords,
         fieldKeyType,
         typecast
       );
 
       const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
-        tableId,
+        table,
         fieldKeyType,
         typecastRecords
       );
 
-      const ctxs = await this.shared.generateCellContexts(tableId, fieldKeyType, preparedRecords);
-      const linkDerivate = await this.linkService.planDerivateByLink(tableId, ctxs);
-      const changes = await this.shared.compressAndFilterChanges(tableId, ctxs);
-      const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
-      const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
-        ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
-        : undefined;
-      // Compose base ops with link-derived ops so symmetric link updates are also published
-      const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
+      const projectionFields = this.collectProjectionFields(preparedRecords);
+      const projectionByTable = this.toProjectionByTable(table, fieldKeyType, projectionFields);
+      const ctxs = await this.shared.generateCellContexts(
+        table,
+        fieldKeyType,
+        preparedRecords,
+        false,
+        projectionFields
+      );
       // Publish computed/link/lookup changes with old/new by wrapping the base update
-      await this.computedOrchestrator.computeCellChangesForRecords(tableId, ctxs, async () => {
-        await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
-        await this.batchService.updateRecords(composedOpsMap);
-      });
+      await this.computedOrchestrator.computeCellChangesForRecords(
+        tableId,
+        ctxs,
+        async (tables) => {
+          const linkDerivate = await this.linkService.planDerivateByLink(
+            tableId,
+            ctxs,
+            undefined,
+            tables,
+            projectionByTable
+          );
+          const changes = this.shared.compressAndFilterChanges(table, ctxs);
+          const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
+          const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
+            ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
+            : undefined;
+          // Compose base ops with link-derived ops so symmetric link updates are also published
+          const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
+
+          await this.linkService.commitForeignKeyChanges(
+            tableId,
+            linkDerivate?.fkRecordMap,
+            tables
+          );
+          await this.batchService.updateRecords(composedOpsMap, undefined, undefined, tables);
+        }
+      );
       return ctxs;
     });
 
     const recordIds = records.map((r) => r.id);
     if (windowId) {
       const orderIndexesAfter =
-        order && (await this.recordService.getRecordIndexes(tableId, recordIds, order.viewId));
+        order && (await this.recordService.getRecordIndexes(table, recordIds, order.viewId));
 
       this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_UPDATE, {
         tableId,
         windowId,
         userId: this.cls.get('user.id'),
         recordIds,
-        fieldIds: Object.keys(records[0]?.fields || {}),
+        fieldIds: fieldIds?.length ? fieldIds : Object.keys(scopedRecords[0]?.fields || {}),
         cellContexts,
         orderIndexesBefore,
         orderIndexesAfter,
@@ -124,43 +154,102 @@ export class RecordUpdateService {
     };
   }
 
-  async simpleUpdateRecords(
-    tableId: string,
-    updateRecordsRo: IUpdateRecordsRo & {
-      records: {
-        id: string;
-        fields: Record<string, unknown>;
-        order?: Record<string, number>;
-      }[];
-    }
-  ) {
-    const { fieldKeyType = FieldKeyType.Name, records } = updateRecordsRo;
+  async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsInternalRo) {
+    const table = await this.tableDomainQueryService.getTableDomainById(tableId);
+
+    const { fieldKeyType = FieldKeyType.Name, records, fieldIds } = updateRecordsRo;
+    const scopedRecords = this.filterRecordsByFieldKeys(records, fieldIds);
     const preparedRecords = await this.systemFieldService.getModifiedSystemOpsMap(
-      tableId,
+      table,
       fieldKeyType,
-      records
+      scopedRecords
     );
 
+    const projectionFields = this.collectProjectionFields(preparedRecords);
+    const projectionByTable = this.toProjectionByTable(table, fieldKeyType, projectionFields);
     const cellContexts = await this.shared.generateCellContexts(
-      tableId,
+      table,
       fieldKeyType,
-      preparedRecords
+      preparedRecords,
+      false,
+      projectionFields
     );
-    const linkDerivate = await this.linkService.planDerivateByLink(tableId, cellContexts);
-    const changes = await this.shared.compressAndFilterChanges(tableId, cellContexts);
-    const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
-    const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
-      ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
-      : undefined;
-    const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
     await this.computedOrchestrator.computeCellChangesForRecords(
       tableId,
       cellContexts,
-      async () => {
-        await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap);
-        await this.batchService.updateRecords(composedOpsMap);
+      async (tables) => {
+        const linkDerivate = await this.linkService.planDerivateByLink(
+          tableId,
+          cellContexts,
+          undefined,
+          tables,
+          projectionByTable
+        );
+        const changes = this.shared.compressAndFilterChanges(table, cellContexts);
+        const opsMap: IOpsMap = this.shared.formatChangesToOps(changes);
+        const linkOpsMap: IOpsMap | undefined = linkDerivate?.cellChanges?.length
+          ? this.shared.formatChangesToOps(linkDerivate.cellChanges)
+          : undefined;
+        const composedOpsMap: IOpsMap = composeOpMaps([opsMap, linkOpsMap]);
+
+        await this.linkService.commitForeignKeyChanges(tableId, linkDerivate?.fkRecordMap, tables);
+        await this.batchService.updateRecords(composedOpsMap, undefined, undefined, tables);
       }
     );
     return cellContexts;
+  }
+
+  private filterRecordsByFieldKeys<
+    T extends { fields: Record<string, unknown> } & Record<string, unknown>,
+  >(records: T[], fieldKeys?: string[]): T[] {
+    if (!fieldKeys?.length) {
+      return records;
+    }
+    const keySet = new Set(fieldKeys);
+    return records.map((record) => {
+      const filteredFields: Record<string, unknown> = {};
+      let same = true;
+      for (const [key, value] of Object.entries(record.fields)) {
+        if (keySet.has(key)) {
+          filteredFields[key] = value;
+        } else {
+          same = false;
+        }
+      }
+      if (same) {
+        return record;
+      }
+      return {
+        ...record,
+        fields: filteredFields,
+      } as T;
+    });
+  }
+
+  private collectProjectionFields(records: { fields: Record<string, unknown> }[]): string[] {
+    const projection = new Set<string>();
+    records.forEach((record) => {
+      Object.keys(record.fields).forEach((fieldKey) => projection.add(fieldKey));
+    });
+    return Array.from(projection);
+  }
+
+  private toProjectionByTable(
+    table: TableDomain,
+    fieldKeyType: FieldKeyType,
+    projectionFields: string[]
+  ): Record<string, string[]> | undefined {
+    if (!projectionFields.length) {
+      return undefined;
+    }
+    const fieldsMap = table.getFieldsMap(fieldKeyType);
+    const ids = projectionFields.reduce<Set<string>>((acc, key) => {
+      const field = fieldsMap.get(key);
+      if (field) {
+        acc.add(field.id);
+      }
+      return acc;
+    }, new Set<string>());
+    return ids.size ? { [table.id]: Array.from(ids) } : undefined;
   }
 }

@@ -8,6 +8,7 @@ import {
   FieldKeyType,
   FieldType,
   Relationship,
+  contains,
   is,
   isGreaterEqual,
   SortFunc,
@@ -182,6 +183,65 @@ describe('OpenAPI AggregationController (e2e)', () => {
       });
 
       expect(response.data.rowCount).toEqual(selectedIds.length);
+    });
+
+    describe('row count contains filter with jsonpath literals', () => {
+      const specialName = 'Person "Quote" \\ Slash';
+      let tasksTable: ITableFullVo;
+      let peopleTable: ITableFullVo;
+      let linkFieldId: string;
+
+      beforeAll(async () => {
+        peopleTable = await createTable(baseId, {
+          name: 'agg_row_count_people',
+          fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+          records: [{ fields: { Name: specialName } }, { fields: { Name: 'Plain Person' } }],
+        });
+
+        tasksTable = await createTable(baseId, {
+          name: 'agg_row_count_tasks',
+          fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+          records: [{ fields: { Title: 'Escaped Match' } }, { fields: { Title: 'Other Task' } }],
+        });
+
+        const linkField = (await createField(tasksTable.id, {
+          name: 'Assignee',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: peopleTable.id,
+          },
+        })) as IFieldVo;
+        linkFieldId = linkField.id;
+
+        await updateRecordByApi(tasksTable.id, tasksTable.records[0].id, linkFieldId, {
+          id: peopleTable.records[0].id,
+        });
+        await updateRecordByApi(tasksTable.id, tasksTable.records[1].id, linkFieldId, {
+          id: peopleTable.records[1].id,
+        });
+      });
+
+      afterAll(async () => {
+        await permanentDeleteTable(baseId, tasksTable.id);
+        await permanentDeleteTable(baseId, peopleTable.id);
+      });
+
+      it('should honor contains filter with escaped value', async () => {
+        const filter: IFilter = {
+          conjunction: 'and',
+          filterSet: [
+            {
+              fieldId: linkFieldId,
+              operator: contains.value,
+              value: specialName,
+            },
+          ],
+        };
+
+        const { rowCount } = (await getRowCount(tasksTable.id, { filter })).data;
+        expect(rowCount).toEqual(1);
+      });
     });
 
     describe('simple aggregation text field record', () => {
@@ -782,6 +842,103 @@ describe('OpenAPI AggregationController (e2e)', () => {
         (item) => item.fieldId === amountField.id
       );
       expect(aggregation?.total?.value).toBe(10);
+    });
+  });
+
+  describe('single select lookup grouping order', () => {
+    let campusTable: ITableFullVo;
+    let assignmentTable: ITableFullVo;
+    let linkField: IFieldVo;
+    let lookupField: IFieldVo;
+    let categoryFieldId: string;
+
+    const categoryFieldDef = {
+      name: 'Category',
+      type: FieldType.SingleSelect,
+      options: {
+        choices: [
+          { id: 'beta', name: 'Beta', color: Colors.BlueBright },
+          { id: 'alpha', name: 'Alpha', color: Colors.CyanBright },
+        ],
+      },
+    } as IFieldRo;
+
+    beforeAll(async () => {
+      campusTable = await createTable(baseId, {
+        name: 'agg_lookup_single_select_source',
+        fields: [{ name: 'Campus', type: FieldType.SingleLineText } as IFieldRo, categoryFieldDef],
+        records: [
+          { fields: { Campus: 'North Campus', [categoryFieldDef.name!]: 'Alpha' } },
+          { fields: { Campus: 'South Campus', [categoryFieldDef.name!]: 'Beta' } },
+        ],
+      });
+      categoryFieldId = campusTable.fields.find(
+        (field) => field.name === categoryFieldDef.name
+      )!.id;
+
+      assignmentTable = await createTable(baseId, {
+        name: 'agg_lookup_single_select_target',
+        fields: [{ name: 'Task', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Task: 'Onboard' } }, { fields: { Task: 'Closeout' } }],
+      });
+
+      linkField = (await createField(assignmentTable.id, {
+        name: 'Campus Link',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: campusTable.id,
+        },
+      })) as IFieldVo;
+
+      lookupField = (await createField(assignmentTable.id, {
+        name: 'Campus Category',
+        type: FieldType.SingleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: campusTable.id,
+          linkFieldId: linkField.id,
+          lookupFieldId: categoryFieldId,
+        },
+      })) as IFieldVo;
+
+      const [northCampus, southCampus] = campusTable.records;
+      const [firstAssignment, secondAssignment] = assignmentTable.records;
+
+      await updateRecordByApi(assignmentTable.id, firstAssignment.id, linkField.id, [
+        { id: northCampus.id },
+      ]);
+      await updateRecordByApi(assignmentTable.id, secondAssignment.id, linkField.id, [
+        { id: southCampus.id },
+      ]);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, assignmentTable.id);
+      await permanentDeleteTable(baseId, campusTable.id);
+    });
+
+    it('orders lookup group headers according to single select choice order', async () => {
+      const groupPoints = (
+        await getGroupPoints(assignmentTable.id, {
+          groupBy: [{ fieldId: lookupField.id, order: SortFunc.Asc }],
+        })
+      ).data!;
+
+      const headerValues = groupPoints
+        .filter(
+          (point): point is IGroupHeaderPoint =>
+            point.type === GroupPointType.Header && point.depth === 0
+        )
+        .map((point) => {
+          const { value } = point;
+          if (Array.isArray(value)) {
+            return (value[0] ?? null) as string | null;
+          }
+          return (value ?? null) as string | null;
+        });
+
+      expect(headerValues).toEqual(['Beta', 'Alpha']);
     });
   });
 

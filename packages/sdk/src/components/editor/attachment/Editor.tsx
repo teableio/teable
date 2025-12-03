@@ -28,7 +28,7 @@ export const AttachmentEditor = (props: IAttachmentEditor) => {
         <Popover modal>
           <PopoverTrigger>
             <Button variant="outline" size={'sm'} className="w-full" disabled={readonly}>
-              <Plus />
+              <Plus fontSize={16} />
               {t('editor.attachment.upload')}
             </Button>
           </PopoverTrigger>

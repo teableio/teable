@@ -1,9 +1,11 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+/* eslint-disable sonarjs/no-duplicate-string */
+import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
   generateTableId,
   getRandomString,
   getUniqName,
+  HttpErrorCode,
   IdPrefix,
   nullsToUndefined,
 } from '@teable/core';
@@ -13,6 +15,7 @@ import type { ICreateTableRo, ITableVo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IReadonlyAdapterService } from '../../share-db/interface';
@@ -64,7 +67,15 @@ export class TableService implements IReadonlyAdapterService {
 
     if (existTable) {
       if (tableRo.dbTableName) {
-        throw new BadRequestException(`dbTableName ${tableRo.dbTableName} is already used`);
+        throw new CustomHttpException(
+          `dbTableName ${tableRo.dbTableName} already exists`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.table.dbTableNameAlreadyExists',
+            },
+          }
+        );
       } else {
         // add uniqId ensure no conflict
         dbTableName += getRandomString(10);
@@ -146,12 +157,24 @@ export class TableService implements IReadonlyAdapterService {
     });
 
     if (!tableMeta) {
-      throw new NotFoundException();
+      throw new CustomHttpException(
+        `Table not found with id: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        }
+      );
     }
 
     const tableDefaultViewIds = await this.getTableDefaultViewId([tableId]);
     if (!tableDefaultViewIds[0]) {
-      throw new Error('defaultViewId is not found');
+      throw new CustomHttpException('defaultViewId not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.view.defaultViewNotFound',
+        },
+      });
     }
 
     return {
@@ -171,7 +194,15 @@ export class TableService implements IReadonlyAdapterService {
       orderBy: { order: 'asc' },
     });
     if (!viewRaw) {
-      throw new NotFoundException('Table No found');
+      throw new CustomHttpException(
+        `View not found with tableId: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.view.notFound',
+          },
+        }
+      );
     }
     return viewRaw;
   }
@@ -201,7 +232,15 @@ export class TableService implements IReadonlyAdapterService {
     });
 
     if (!result) {
-      throw new NotFoundException('Table not found');
+      throw new CustomHttpException(
+        `Table not found with id: ${tableId}`,
+        HttpErrorCode.NOT_FOUND,
+        {
+          localization: {
+            i18nKey: 'httpErrors.table.notFound',
+          },
+        }
+      );
     }
 
     const { version } = result;
@@ -223,7 +262,11 @@ export class TableService implements IReadonlyAdapterService {
     });
 
     if (!result) {
-      throw new NotFoundException(`Table ${tableId} not found`);
+      throw new CustomHttpException(`Table ${tableId} not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.table.notFound',
+        },
+      });
     }
 
     const { version } = result;
@@ -272,7 +315,15 @@ export class TableService implements IReadonlyAdapterService {
         },
       })
       .catch(() => {
-        throw new NotFoundException('Table not found');
+        throw new CustomHttpException(
+          `Table not found with id: ${tableId}`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.table.notFound',
+            },
+          }
+        );
       });
 
     const updateInput: Prisma.TableMetaUpdateInput = {

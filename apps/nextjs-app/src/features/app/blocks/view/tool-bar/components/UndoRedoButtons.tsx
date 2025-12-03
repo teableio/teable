@@ -24,7 +24,7 @@ export const UndoRedoButtons = () => {
         <Tooltip delayDuration={200}>
           <TooltipTrigger asChild>
             <Button
-              className="size-6 shrink-0 p-0"
+              className="size-7 shrink-0 p-0"
               size={'xs'}
               variant={'ghost'}
               disabled={!permission['record|update']}
@@ -44,7 +44,7 @@ export const UndoRedoButtons = () => {
         <Tooltip delayDuration={200}>
           <TooltipTrigger asChild>
             <Button
-              className="size-6 shrink-0 p-0"
+              className="size-7 shrink-0 p-0"
               size={'xs'}
               variant={'ghost'}
               disabled={!permission['record|update']}

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-identical-functions */
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
@@ -8,16 +9,25 @@ import type {
   ILinkFieldOptions,
   IConditionalRollupFieldOptions,
   IConditionalLookupOptions,
+  ILookupLinkOptionsVo,
   FieldCore,
+  TableDomain,
 } from '@teable/core';
-import { DbFieldType, FieldType, isFieldReferenceValue } from '@teable/core';
+import { DbFieldType, DriverClient, FieldType, isFieldReferenceValue } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
+import { Timing } from '../../../../utils/timing';
 import type { ICellContext } from '../../../calculation/utils/changes';
-import { createFieldInstanceByRaw } from '../../../field/model/factory';
+import { TableDomainQueryService } from '../../../table-domain/table-domain-query.service';
+import {
+  LinkCascadeResolver,
+  type IAllTableLinkSeed,
+  type IExplicitLinkSeed,
+  type ILinkEdge,
+} from './link-cascade-resolver';
 
 export interface ICellBasicContext {
   recordId: string;
@@ -34,6 +44,11 @@ export interface IComputedImpactByTable {
   [tableId: string]: IComputedImpactGroup;
 }
 
+export interface IComputedCollectResult {
+  impact: IComputedImpactByTable;
+  tableDomains: Map<string, TableDomain>;
+}
+
 export interface IFieldChangeSource {
   tableId: string;
   fieldIds: string[];
@@ -46,6 +61,10 @@ interface IConditionalRollupAdjacencyEdge {
   filter?: IFilter | null;
 }
 
+interface ICollectorExecutionContext {
+  getTableDomain(tableId: string): Promise<TableDomain>;
+}
+
 const ALL_RECORDS = Symbol('ALL_RECORDS');
 const MAX_CONDITIONAL_ROLLUP_SAMPLE = 10_000;
 
@@ -54,20 +73,79 @@ export class ComputedDependencyCollectorService {
   private logger = new Logger(ComputedDependencyCollectorService.name);
   constructor(
     private readonly prismaService: PrismaService,
+    private readonly tableDomainQueryService: TableDomainQueryService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly linkCascadeResolver: LinkCascadeResolver
   ) {}
 
-  private async getDbTableName(tableId: string): Promise<string> {
-    const { dbTableName } = await this.prismaService.txClient().tableMeta.findUniqueOrThrow({
-      where: { id: tableId },
-      select: { dbTableName: true },
-    });
-    return dbTableName;
+  private createExecutionContext(
+    seed?: ReadonlyMap<string, TableDomain>
+  ): ICollectorExecutionContext {
+    const cache = new Map<string, Promise<TableDomain>>();
+    if (seed) {
+      for (const [tableId, domain] of seed) {
+        cache.set(tableId, Promise.resolve(domain));
+      }
+    }
+    return {
+      getTableDomain: (tableId: string) => {
+        let promise = cache.get(tableId);
+        if (!promise) {
+          promise = this.tableDomainQueryService.getTableDomainById(tableId);
+          cache.set(tableId, promise);
+        }
+        return promise;
+      },
+    };
   }
 
-  private async getAllRecordIds(tableId: string): Promise<string[]> {
-    const dbTable = await this.getDbTableName(tableId);
+  private async getTableDomain(
+    tableId: string,
+    ctx?: ICollectorExecutionContext
+  ): Promise<TableDomain> {
+    if (ctx) {
+      return ctx.getTableDomain(tableId);
+    }
+    return this.tableDomainQueryService.getTableDomainById(tableId);
+  }
+
+  private buildSortFieldAccessor(column: string): Knex.Raw {
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      return this.knex.raw(`??::json->'sort'->>'fieldId'`, [column]);
+    }
+    return this.knex.raw(`json_extract(??, '$.sort.fieldId')`, [column]);
+  }
+
+  private buildLookupOptionsAccessor(key: keyof ILookupLinkOptionsVo): Knex.Raw {
+    if (this.dbProvider.driver === DriverClient.Pg) {
+      return this.knex.raw(`lookup_options::json->>?`, [key]);
+    }
+    return this.knex.raw(`json_extract(lookup_options, '$."${key}"')`);
+  }
+
+  private applySortFieldFilter(
+    qb: Knex.QueryBuilder,
+    column: string,
+    values: readonly string[]
+  ): void {
+    if (!values.length) return;
+    const accessor = this.buildSortFieldAccessor(column);
+    const { sql, bindings } = accessor.toSQL();
+    const placeholders = values.map(() => '?').join(', ');
+    qb.whereRaw(`${sql} in (${placeholders})`, [...bindings, ...values]);
+  }
+
+  private async getDbTableName(tableId: string, ctx?: ICollectorExecutionContext): Promise<string> {
+    const tableDomain = await this.getTableDomain(tableId, ctx);
+    return tableDomain.dbTableName;
+  }
+
+  private async getAllRecordIds(
+    tableId: string,
+    ctx?: ICollectorExecutionContext
+  ): Promise<string[]> {
+    const dbTable = await this.getDbTableName(tableId, ctx);
     const { schema, table } = this.splitDbTableName(dbTable);
     const qb = (schema ? this.knex.withSchema(schema) : this.knex).select('__id').from(table);
     const rows = await this.prismaService
@@ -136,6 +214,246 @@ export class ComputedDependencyCollectorService {
     return null;
   }
 
+  private async materializeAllRecordIds(
+    tableId: string,
+    cache: Map<string, string[]>,
+    ctx?: ICollectorExecutionContext
+  ): Promise<string[]> {
+    let ids = cache.get(tableId);
+    if (ids) {
+      return ids;
+    }
+    ids = await this.getAllRecordIds(tableId, ctx);
+    cache.set(tableId, ids);
+    return ids;
+  }
+
+  @Timing()
+  private buildLinkEdgesForTables(
+    tables: Iterable<string>,
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    impact?: IComputedImpactByTable
+  ): ILinkEdge[] {
+    const edges: ILinkEdge[] = [];
+    const visited = new Set<string>();
+    for (const tableId of tables) {
+      if (!tableId || visited.has(tableId)) {
+        continue;
+      }
+      visited.add(tableId);
+      const tableDomain = this.getRequiredTableDomain(tableId, tableDomains);
+      const projection = impact?.[tableId]?.fieldIds;
+      if (!projection) continue;
+      const linkFields = tableDomain.getLinkFieldsByProjection(projection);
+      for (const field of linkFields) {
+        if (field.type !== FieldType.Link || field.isLookup) continue;
+        const opts = this.parseLinkOptions(field.options);
+        if (!opts) continue;
+        edges.push({
+          foreignTableId: opts.foreignTableId,
+          hostTableId: tableId,
+          fkTableName: opts.fkHostTableName,
+          selfKeyName: opts.selfKeyName,
+          foreignKeyName: opts.foreignKeyName,
+        });
+      }
+    }
+    return edges;
+  }
+
+  private async loadTableDomains(
+    tableIds: Iterable<string>,
+    ctx: ICollectorExecutionContext
+  ): Promise<Map<string, TableDomain>> {
+    const ids = Array.from(new Set(Array.from(tableIds).filter(Boolean)));
+    if (!ids.length) return new Map();
+
+    const domains = await this.tableDomainQueryService.getTableDomainsByIds(ids);
+    if (domains.size !== ids.length) {
+      const missing = ids.filter((id) => !domains.has(id));
+      if (missing.length) {
+        throw new Error(`TableDomain not found for tableIds: ${missing.join(',')}`);
+      }
+    }
+
+    return new Map(domains);
+  }
+
+  private getRequiredTableDomain(
+    tableId: string,
+    tableDomains: ReadonlyMap<string, TableDomain>
+  ): TableDomain {
+    const domain = tableDomains.get(tableId);
+    if (!domain) {
+      throw new Error(`TableDomain not found for tableId: ${tableId}`);
+    }
+    return domain;
+  }
+
+  private addExplicitSeed(
+    seedMap: Map<string, Set<string>>,
+    tableId: string,
+    ids: Iterable<string>
+  ): boolean {
+    const normalized = Array.from(ids).filter(Boolean);
+    if (!normalized.length) {
+      return false;
+    }
+    let set = seedMap.get(tableId);
+    if (!set) {
+      set = new Set<string>();
+      seedMap.set(tableId, set);
+    }
+    let added = false;
+    for (const id of normalized) {
+      if (!set.has(id)) {
+        set.add(id);
+        added = true;
+      }
+    }
+    return added;
+  }
+
+  private markAllSeed(target: Set<string>, tableId: string): boolean {
+    if (target.has(tableId)) {
+      return false;
+    }
+    target.add(tableId);
+    return true;
+  }
+
+  private findRecordSetGrowth(
+    previous: Record<string, Set<string> | typeof ALL_RECORDS | undefined>,
+    next: Record<string, Set<string> | typeof ALL_RECORDS>
+  ): string[] {
+    const changed: string[] = [];
+    const tableIds = new Set([...Object.keys(previous), ...Object.keys(next)]);
+    for (const tableId of tableIds) {
+      const prevSet = previous[tableId];
+      const nextSet = next[tableId];
+      if (!nextSet) continue;
+      if (!prevSet) {
+        changed.push(tableId);
+        continue;
+      }
+      if (prevSet === ALL_RECORDS && nextSet === ALL_RECORDS) {
+        continue;
+      }
+      if (prevSet !== ALL_RECORDS && nextSet === ALL_RECORDS) {
+        changed.push(tableId);
+        continue;
+      }
+      if (prevSet === ALL_RECORDS && nextSet !== ALL_RECORDS) {
+        // This should not happen; treat as unchanged.
+        continue;
+      }
+      if (prevSet instanceof Set && nextSet instanceof Set) {
+        if (nextSet.size > prevSet.size) {
+          changed.push(tableId);
+          continue;
+        }
+        let hasNew = false;
+        for (const id of nextSet) {
+          if (!prevSet.has(id)) {
+            hasNew = true;
+            break;
+          }
+        }
+        if (hasNew) {
+          changed.push(tableId);
+        }
+      }
+    }
+    return changed;
+  }
+
+  @Timing()
+  private async computeLinkClosure(params: {
+    impactedTables: ReadonlySet<string>;
+    explicitSeeds: ReadonlyMap<string, Set<string>>;
+    tablesWithAllRecords: ReadonlySet<string>;
+    linkEdges: ILinkEdge[];
+    tableDomains?: ReadonlyMap<string, TableDomain>;
+    ctx?: ICollectorExecutionContext;
+  }): Promise<Record<string, Set<string> | typeof ALL_RECORDS>> {
+    const { impactedTables, explicitSeeds, tablesWithAllRecords, linkEdges, tableDomains, ctx } =
+      params;
+
+    const explicitSeedList: IExplicitLinkSeed[] = [];
+    for (const [tableId, ids] of explicitSeeds) {
+      if (!ids.size) continue;
+      explicitSeedList.push({ tableId, recordIds: Array.from(ids) });
+    }
+
+    const allSeedList: IAllTableLinkSeed[] = [];
+    for (const tableId of tablesWithAllRecords) {
+      const domain = tableDomains?.get(tableId) ?? (await this.getTableDomain(tableId, ctx));
+      if (!domain) continue;
+      allSeedList.push({ tableId, dbTableName: domain.dbTableName });
+    }
+
+    if (!explicitSeedList.length && !allSeedList.length) {
+      return {};
+    }
+
+    if (!linkEdges.length) {
+      const fallback: Record<string, Set<string> | typeof ALL_RECORDS> = {};
+      for (const [tableId, ids] of explicitSeeds) {
+        if (!ids.size || !impactedTables.has(tableId)) continue;
+        fallback[tableId] = new Set(ids);
+      }
+      for (const tableId of tablesWithAllRecords) {
+        if (!impactedTables.has(tableId)) continue;
+        fallback[tableId] = ALL_RECORDS;
+      }
+      return fallback;
+    }
+
+    const rows = await this.linkCascadeResolver.resolve({
+      explicitSeeds: explicitSeedList,
+      allTableSeeds: allSeedList,
+      edges: linkEdges,
+    });
+
+    const aggregated = new Map<string, Set<string>>();
+    for (const row of rows) {
+      if (!impactedTables.has(row.tableId)) {
+        continue;
+      }
+      let set = aggregated.get(row.tableId);
+      if (!set) {
+        set = new Set<string>();
+        aggregated.set(row.tableId, set);
+      }
+      set.add(row.recordId);
+    }
+
+    const closure: Record<string, Set<string> | typeof ALL_RECORDS> = {};
+    for (const [tableId, set] of aggregated) {
+      closure[tableId] = set;
+    }
+
+    for (const [tableId, ids] of explicitSeeds) {
+      if (!ids.size || !impactedTables.has(tableId)) continue;
+      const existing = closure[tableId];
+      if (!existing) {
+        closure[tableId] = new Set(ids);
+        continue;
+      }
+      if (existing === ALL_RECORDS) {
+        continue;
+      }
+      ids.forEach((id) => existing.add(id));
+    }
+
+    for (const tableId of tablesWithAllRecords) {
+      if (!impactedTables.has(tableId)) continue;
+      closure[tableId] = ALL_RECORDS;
+    }
+
+    return closure;
+  }
+
   private collectFilterFieldReferences(filter?: IFilter | null): {
     hostFieldRefs: Array<{ fieldId: string; tableId?: string }>;
     foreignFieldIds: Set<string>;
@@ -176,21 +494,21 @@ export class ComputedDependencyCollectorService {
 
   private async loadFieldInstances(
     tableId: string,
-    fieldIds: Iterable<string>
+    fieldIds: Iterable<string>,
+    ctx?: ICollectorExecutionContext
   ): Promise<Map<string, FieldCore>> {
     const ids = Array.from(new Set(Array.from(fieldIds).filter(Boolean)));
     if (!ids.length) {
       return new Map();
     }
 
-    const rows = await this.prismaService.txClient().field.findMany({
-      where: { tableId, id: { in: ids }, deletedTime: null },
-    });
-
+    const tableDomain = await this.getTableDomain(tableId, ctx);
     const map = new Map<string, FieldCore>();
-    for (const row of rows) {
-      const instance = createFieldInstanceByRaw(row) as unknown as FieldCore;
-      map.set(instance.id, instance);
+    for (const id of ids) {
+      const field = tableDomain.getField(id);
+      if (field) {
+        map.set(field.id, field);
+      }
     }
     return map;
   }
@@ -201,33 +519,43 @@ export class ComputedDependencyCollectorService {
     if (!sortFieldIds.length) return [];
 
     const prisma = this.prismaService.txClient();
-    const sortIdSet = new Set(sortFieldIds);
-    const results: Array<{ tableId: string; fieldId: string; sortFieldId: string }> = [];
+    const conditionalQuery = this.knex('field')
+      .select({
+        tableId: 'table_id',
+        fieldId: 'id',
+        sortFieldId: this.buildSortFieldAccessor('options'),
+      })
+      .whereNull('deleted_time')
+      .where('type', FieldType.ConditionalRollup)
+      .modify((qb) => this.applySortFieldFilter(qb, 'options', sortFieldIds));
+    const lookupQuery = this.knex('field')
+      .select({
+        tableId: 'table_id',
+        fieldId: 'id',
+        sortFieldId: this.buildSortFieldAccessor('lookup_options'),
+      })
+      .whereNull('deleted_time')
+      .where('is_conditional_lookup', true)
+      .modify((qb) => this.applySortFieldFilter(qb, 'lookup_options', sortFieldIds));
 
     const [conditionalRollups, conditionalLookups] = await Promise.all([
-      prisma.field.findMany({
-        where: { deletedTime: null, type: FieldType.ConditionalRollup },
-        select: { id: true, tableId: true, options: true },
-      }),
-      prisma.field.findMany({
-        where: { deletedTime: null, isConditionalLookup: true },
-        select: { id: true, tableId: true, lookupOptions: true },
-      }),
+      prisma.$queryRawUnsafe<Array<{ tableId: string; fieldId: string; sortFieldId: string }>>(
+        conditionalQuery.toQuery()
+      ),
+      prisma.$queryRawUnsafe<Array<{ tableId: string; fieldId: string; sortFieldId: string }>>(
+        lookupQuery.toQuery()
+      ),
     ]);
 
+    const results: Array<{ tableId: string; fieldId: string; sortFieldId: string }> = [];
     for (const row of conditionalRollups) {
-      const options = this.parseOptionsLoose<IConditionalRollupFieldOptions>(row.options);
-      const sortFieldId = options?.sort?.fieldId;
-      if (sortFieldId && sortIdSet.has(sortFieldId)) {
-        results.push({ tableId: row.tableId, fieldId: row.id, sortFieldId });
+      if (row.sortFieldId) {
+        results.push(row);
       }
     }
-
     for (const row of conditionalLookups) {
-      const options = this.parseOptionsLoose<IConditionalLookupOptions>(row.lookupOptions);
-      const sortFieldId = options?.sort?.fieldId;
-      if (sortFieldId && sortIdSet.has(sortFieldId)) {
-        results.push({ tableId: row.tableId, fieldId: row.id, sortFieldId });
+      if (row.sortFieldId) {
+        results.push(row);
       }
     }
 
@@ -243,17 +571,35 @@ export class ComputedDependencyCollectorService {
   /**
    * Resolve link field IDs among the provided field IDs and include their symmetric counterparts.
    */
-  private async resolveRelatedLinkFieldIds(fieldIds: string[]): Promise<string[]> {
+  @Timing()
+  private async resolveRelatedLinkFieldIds(
+    fieldIds: string[],
+    fieldToTableMap?: Map<string, string>,
+    ctx?: ICollectorExecutionContext
+  ): Promise<string[]> {
     if (!fieldIds.length) return [];
-    const rows = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: fieldIds }, type: FieldType.Link, isLookup: null, deletedTime: null },
-      select: { id: true, options: true },
-    });
+    const groupedByTable = new Map<string, string[]>();
+    for (const fieldId of fieldIds) {
+      const tableId = fieldToTableMap?.get(fieldId);
+      if (!tableId) continue;
+      const bucket = groupedByTable.get(tableId);
+      if (bucket) {
+        bucket.push(fieldId);
+      } else {
+        groupedByTable.set(tableId, [fieldId]);
+      }
+    }
+
     const result = new Set<string>();
-    for (const r of rows) {
-      result.add(r.id);
-      const opts = this.parseOptionsLoose<{ symmetricFieldId?: string }>(r.options);
-      if (opts?.symmetricFieldId) result.add(opts.symmetricFieldId);
+    for (const [tableId, ids] of groupedByTable) {
+      const tableDomain = await this.getTableDomain(tableId, ctx);
+      for (const id of ids) {
+        const field = tableDomain.getField(id);
+        if (!field || field.type !== FieldType.Link || field.isLookup) continue;
+        result.add(field.id);
+        const opts = this.parseOptionsLoose<{ symmetricFieldId?: string }>(field.options);
+        if (opts?.symmetricFieldId) result.add(opts.symmetricFieldId);
+      }
     }
     return Array.from(result);
   }
@@ -262,18 +608,26 @@ export class ComputedDependencyCollectorService {
    * Find lookup/rollup fields whose lookupOptions.linkFieldId equals any of the provided link IDs.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async findLookupsByLinkIds(linkFieldIds: string[]): Promise<Record<string, Set<string>>> {
     const acc: Record<string, Set<string>> = {};
-    if (!linkFieldIds.length) return acc;
-    for (const linkId of linkFieldIds) {
-      const sql = this.dbProvider.lookupOptionsQuery('linkFieldId', linkId);
-      const rows = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(sql);
-      for (const r of rows) {
-        if (!r.tableId || !r.id) continue;
-        (acc[r.tableId] ||= new Set<string>()).add(r.id);
-      }
+    const ids = Array.from(new Set(linkFieldIds.filter(Boolean)));
+    if (!ids.length) return acc;
+
+    const accessor = this.buildLookupOptionsAccessor('linkFieldId');
+    const { sql, bindings } = accessor.toSQL();
+    const placeholders = ids.map(() => '?').join(', ');
+    const query = this.knex('field')
+      .select({ tableId: 'table_id', id: 'id' })
+      .whereNull('deleted_time')
+      .whereRaw(`${sql} in (${placeholders})`, [...bindings, ...ids]);
+
+    const rows = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Array<{ tableId: string; id: string }>>(query.toQuery());
+    for (const r of rows) {
+      if (!r.tableId || !r.id) continue;
+      (acc[r.tableId] ||= new Set<string>()).add(r.id);
     }
     return acc;
   }
@@ -282,6 +636,7 @@ export class ComputedDependencyCollectorService {
    * Same as collectDependentFieldIds but groups by table id directly in SQL.
    * Returns a map: tableId -> Set<fieldId>
    */
+  @Timing()
   private async collectDependentFieldsByTable(
     startFieldIds: string[],
     excludeFieldIds?: string[]
@@ -348,55 +703,11 @@ export class ComputedDependencyCollectorService {
     return result;
   }
 
-  /**
-   * Given a table (targetTableId) and the changed table (changedTableId),
-   * return recordIds in targetTableId that link to any of changedRecordIds via any link field.
-   */
-  private async getLinkedRecordIds(
-    targetTableId: string,
-    changedTableId: string,
-    changedRecordIds: string[]
-  ): Promise<string[]> {
-    if (!changedRecordIds.length) return [];
-
-    // Fetch link fields on targetTableId that point to changedTableId
-    const linkFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId: targetTableId,
-        type: FieldType.Link,
-        isLookup: null,
-        deletedTime: null,
-      },
-      select: { id: true, options: true },
-    });
-    // Build a UNION query across all matching link junction tables
-    const selects = [] as Knex.QueryBuilder[];
-    for (const lf of linkFields) {
-      const opts = this.parseLinkOptions(lf.options);
-      if (!opts || opts.foreignTableId !== changedTableId) continue;
-      const { fkHostTableName, selfKeyName, foreignKeyName } = opts;
-      selects.push(
-        this.knex(fkHostTableName)
-          .select({ id: selfKeyName })
-          .whereIn(foreignKeyName, changedRecordIds)
-          .whereNotNull(selfKeyName)
-          .whereNotNull(foreignKeyName)
-      );
-    }
-
-    if (!selects.length) return [];
-
-    const unionQuery = this.knex.queryBuilder().union(selects);
-    const finalQuery = this.knex.select('id').from(unionQuery.as('u')).distinct('id').toQuery();
-    this.logger.debug(`Linked Record IDs SQL: ${finalQuery}`);
-    const rows = await this.prismaService.txClient().$queryRawUnsafe<{ id: string }[]>(finalQuery);
-    return rows.map((r) => r.id).filter(Boolean);
-  }
-
   private async getConditionalRollupImpactedRecordIds(
     edge: IConditionalRollupAdjacencyEdge,
     foreignRecordIds: string[],
-    changeContextMap?: Map<string, ICellContext[]>
+    changeContextMap?: Map<string, ICellContext[]>,
+    ctx?: ICollectorExecutionContext
   ): Promise<string[] | typeof ALL_RECORDS> {
     if (!foreignRecordIds.length) {
       return [];
@@ -428,12 +739,16 @@ export class ComputedDependencyCollectorService {
     }
 
     const uniqueHostFieldIds = Array.from(new Set(hostFieldRefs.map((ref) => ref.fieldId)));
-    const hostFieldMap = await this.loadFieldInstances(edge.tableId, uniqueHostFieldIds);
+    const hostFieldMap = await this.loadFieldInstances(edge.tableId, uniqueHostFieldIds, ctx);
     if (hostFieldMap.size !== uniqueHostFieldIds.length) {
       return ALL_RECORDS;
     }
 
-    const foreignFieldMap = await this.loadFieldInstances(edge.foreignTableId, foreignFieldIds);
+    const foreignFieldMap = await this.loadFieldInstances(
+      edge.foreignTableId,
+      foreignFieldIds,
+      ctx
+    );
     if (foreignFieldMap.size !== foreignFieldIds.size) {
       return ALL_RECORDS;
     }
@@ -459,8 +774,8 @@ export class ComputedDependencyCollectorService {
       return ALL_RECORDS;
     }
 
-    const hostTableName = await this.getDbTableName(edge.tableId);
-    const foreignTableName = await this.getDbTableName(edge.foreignTableId);
+    const hostTableName = await this.getDbTableName(edge.tableId, ctx);
+    const foreignTableName = await this.getDbTableName(edge.foreignTableId, ctx);
 
     const hostAlias = '__host';
     const foreignAlias = '__foreign';
@@ -706,79 +1021,58 @@ export class ComputedDependencyCollectorService {
   /**
    * Build adjacency maps for link and conditional rollup relationships among the supplied tables.
    */
-  private async getAdjacencyMaps(tables: string[]): Promise<{
+  @Timing()
+  private getAdjacencyMaps(
+    tableDomains: ReadonlyMap<string, TableDomain>,
+    projection?: IComputedImpactByTable
+  ): {
     link: Record<string, Set<string>>;
     conditionalRollup: Record<string, IConditionalRollupAdjacencyEdge[]>;
-  }> {
+  } {
     const linkAdj: Record<string, Set<string>> = {};
     const conditionalRollupAdj: Record<string, IConditionalRollupAdjacencyEdge[]> = {};
 
-    if (!tables.length) {
+    if (!tableDomains.size) {
       return { link: linkAdj, conditionalRollup: conditionalRollupAdj };
     }
 
-    const linkFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId: { in: tables },
-        type: FieldType.Link,
-        isLookup: null,
-        deletedTime: null,
-      },
-      select: { id: true, tableId: true, options: true },
-    });
+    for (const [tableId, tableDomain] of tableDomains) {
+      const projected = projection?.[tableId]?.fieldIds;
+      for (const field of tableDomain.fieldList) {
+        if (projected && !projected.has(field.id)) continue;
+        if (field.type === FieldType.Link && !field.isLookup) {
+          const opts = this.parseLinkOptions(field.options);
+          const from = opts?.foreignTableId;
+          if (from) {
+            (linkAdj[from] ||= new Set<string>()).add(tableId);
+          }
+          continue;
+        }
 
-    for (const lf of linkFields) {
-      const opts = this.parseLinkOptions(lf.options);
-      if (!opts) continue;
-      const from = opts.foreignTableId;
-      const to = lf.tableId;
-      if (!from || !to) continue;
-      (linkAdj[from] ||= new Set<string>()).add(to);
-    }
+        if (field.type === FieldType.ConditionalRollup) {
+          const opts = this.parseOptionsLoose<IConditionalRollupFieldOptions>(field.options);
+          const foreignTableId = opts?.foreignTableId;
+          if (!foreignTableId) continue;
+          (conditionalRollupAdj[foreignTableId] ||= []).push({
+            tableId,
+            fieldId: field.id,
+            foreignTableId,
+            filter: opts?.filter ?? undefined,
+          });
+          continue;
+        }
 
-    const conditionalReferenceFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId: { in: tables },
-        deletedTime: null,
-        OR: [
-          { type: FieldType.ConditionalRollup },
-          { AND: [{ isLookup: true }, { isConditionalLookup: true }] },
-        ],
-      },
-      select: {
-        id: true,
-        tableId: true,
-        options: true,
-        lookupOptions: true,
-        type: true,
-        isConditionalLookup: true,
-      },
-    });
-
-    for (const field of conditionalReferenceFields) {
-      if (field.type === FieldType.ConditionalRollup) {
-        const opts = this.parseOptionsLoose<IConditionalRollupFieldOptions>(field.options);
-        const foreignTableId = opts?.foreignTableId;
-        if (!foreignTableId) continue;
-        (conditionalRollupAdj[foreignTableId] ||= []).push({
-          tableId: field.tableId,
-          fieldId: field.id,
-          foreignTableId,
-          filter: opts?.filter ?? undefined,
-        });
-        continue;
-      }
-
-      if (field.isConditionalLookup) {
-        const opts = this.parseOptionsLoose<IConditionalLookupOptions>(field.lookupOptions);
-        const foreignTableId = opts?.foreignTableId;
-        if (!foreignTableId) continue;
-        (conditionalRollupAdj[foreignTableId] ||= []).push({
-          tableId: field.tableId,
-          fieldId: field.id,
-          foreignTableId,
-          filter: opts?.filter ?? undefined,
-        });
+        if (field.isConditionalLookup) {
+          const opts = this.parseOptionsLoose<IConditionalLookupOptions>(field.lookupOptions);
+          const foreignTableId = opts?.foreignTableId;
+          if (!foreignTableId) continue;
+          (conditionalRollupAdj[foreignTableId] ||= []).push({
+            tableId,
+            fieldId: field.id,
+            foreignTableId,
+            filter: opts?.filter ?? undefined,
+          });
+        }
       }
     }
 
@@ -793,18 +1087,38 @@ export class ComputedDependencyCollectorService {
    * - Propagates recordIds across link relationships via junction tables.
    */
   async collectForFieldChanges(sources: IFieldChangeSource[]): Promise<IComputedImpactByTable> {
+    const execCtx = this.createExecutionContext();
     const startFieldIds = Array.from(new Set(sources.flatMap((s) => s.fieldIds || [])));
     if (!startFieldIds.length) return {};
 
     // Group starting fields by table and fetch minimal metadata
-    const startFields = await this.prismaService.txClient().field.findMany({
-      where: { id: { in: startFieldIds }, deletedTime: null },
-      select: { id: true, tableId: true, isComputed: true, isLookup: true, type: true },
-    });
-    const byTable = startFields.reduce<Record<string, string[]>>((acc, f) => {
-      (acc[f.tableId] ||= []).push(f.id);
-      return acc;
-    }, {});
+    const fieldToTableMap = new Map<string, string>();
+    const byTable: Record<string, string[]> = {};
+    const startFields: Array<{
+      id: string;
+      tableId: string;
+      isComputed?: boolean;
+      isLookup?: boolean;
+      type: FieldType;
+    }> = [];
+
+    for (const source of sources) {
+      if (!source.fieldIds?.length) continue;
+      const tableDomain = await this.getTableDomain(source.tableId, execCtx);
+      for (const fieldId of source.fieldIds) {
+        const field = tableDomain.getField(fieldId);
+        if (!field) continue;
+        startFields.push({
+          id: field.id,
+          tableId: source.tableId,
+          isComputed: field.isComputed,
+          isLookup: field.isLookup,
+          type: field.type,
+        });
+        fieldToTableMap.set(field.id, source.tableId);
+        (byTable[source.tableId] ||= []).push(field.id);
+      }
+    }
 
     // 1) Dependent fields grouped by table
     const depByTable = await this.collectDependentFieldsByTable(startFieldIds);
@@ -833,7 +1147,11 @@ export class ComputedDependencyCollectorService {
       }).fieldIds.add(fieldId);
     }
 
-    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(startFieldIds);
+    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(
+      startFieldIds,
+      fieldToTableMap,
+      execCtx
+    );
     const fallbackLookupIds = new Set<string>();
     if (relatedLinkIds.length) {
       const byTable = await this.findLookupsByLinkIds(relatedLinkIds);
@@ -867,148 +1185,189 @@ export class ComputedDependencyCollectorService {
 
     if (!Object.keys(impact).length) return {};
 
-    // 2) Seed recordIds for origin tables with ALL record ids
     const originTableIds = Object.keys(byTable);
-    const recordSets: Record<string, Set<string> | typeof ALL_RECORDS> = {};
+    const impactedTables = new Set([...Object.keys(impact), ...originTableIds]);
+    if (!impactedTables.size) {
+      return {};
+    }
+
     for (const tid of originTableIds) {
-      recordSets[tid] = ALL_RECORDS;
       const group = impact[tid];
       if (group) group.preferAutoNumberPaging = true;
     }
 
-    // 3) Build adjacency among impacted + origin tables and propagate via links
-    const tablesForAdjacency = Array.from(new Set([...Object.keys(impact), ...originTableIds]));
-    const { link: linkAdj, conditionalRollup: referenceAdj } =
-      await this.getAdjacencyMaps(tablesForAdjacency);
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
+    const explicitSeeds = new Map<string, Set<string>>();
+    const tablesWithAllRecords = new Set<string>(originTableIds);
 
-    const queue: string[] = [...originTableIds];
-    const expandedAllRecords = new Set<string>();
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
+    );
+
+    let recordSets = await this.computeLinkClosure({
+      impactedTables,
+      explicitSeeds,
+      tablesWithAllRecords,
+      linkEdges,
+      ctx: execCtx,
+    });
+
+    const queue: string[] = [];
+    const queued = new Set<string>();
+    const enqueueConditional = (tableId: string) => {
+      if (!tableId || queued.has(tableId)) {
+        return;
+      }
+      queued.add(tableId);
+      queue.push(tableId);
+    };
+    const enqueueLinkDependents = (tableId: string) => {
+      const targets = linkAdj[tableId];
+      if (!targets) return;
+      targets.forEach((tid) => enqueueConditional(tid));
+    };
+
+    const initialGrowth = this.findRecordSetGrowth({}, recordSets);
+    initialGrowth.forEach((tid) => {
+      enqueueConditional(tid);
+      enqueueLinkDependents(tid);
+    });
+    const materializedAllRecords = new Map<string, string[]>();
+
     while (queue.length) {
       const src = queue.shift()!;
-      const rawSet = recordSets[src];
-      const startedWithAllRecords = rawSet === ALL_RECORDS;
-      if (startedWithAllRecords && expandedAllRecords.has(src)) {
-        continue;
-      }
-      const linkTargets = Array.from(linkAdj[src] || []).filter((dst) => !!impact[dst]);
+      queued.delete(src);
+
       const referenceEdges = (referenceAdj[src] || []).filter((edge) => {
         const targetGroup = impact[edge.tableId];
         return !!targetGroup && targetGroup.fieldIds.has(edge.fieldId);
       });
-      const hasRelevantOutgoing = linkTargets.length > 0 || referenceEdges.length > 0;
+      if (!referenceEdges.length) {
+        continue;
+      }
+
+      const rawSet = recordSets[src];
+      if (!rawSet) {
+        continue;
+      }
 
       let currentIds: string[] = [];
       let shouldMaterializeAllRecords = false;
       if (rawSet === ALL_RECORDS) {
-        if (!hasRelevantOutgoing) {
-          expandedAllRecords.add(src);
-          continue;
-        }
-        const edgesRequiringIds = referenceEdges.filter((edge) => {
+        const needsMaterialization = referenceEdges.some((edge) => {
           const targetSet = recordSets[edge.tableId];
           return targetSet !== ALL_RECORDS && edge.tableId !== src;
         });
-        shouldMaterializeAllRecords = linkTargets.length > 0 || edgesRequiringIds.length > 0;
+        shouldMaterializeAllRecords = needsMaterialization;
         if (shouldMaterializeAllRecords) {
-          const ids = await this.getAllRecordIds(src);
-          currentIds = ids;
-          recordSets[src] = new Set(ids);
+          currentIds = await this.materializeAllRecordIds(src, materializedAllRecords, execCtx);
         }
-      } else if (rawSet) {
+      } else {
         currentIds = Array.from(rawSet);
       }
-      if (!currentIds.length && shouldMaterializeAllRecords) continue;
-
-      for (const dst of linkTargets) {
-        const linked = await this.getLinkedRecordIds(dst, src, currentIds);
-        if (!linked.length) continue;
-        const existingDst = recordSets[dst];
-        if (existingDst === ALL_RECORDS) {
-          continue;
-        }
-        let set = existingDst;
-        if (!set) {
-          set = new Set<string>();
-          recordSets[dst] = set;
-        }
-        let added = false;
-        for (const id of linked) {
-          if (!set.has(id)) {
-            set.add(id);
-            added = true;
-          }
-        }
-        if (added) queue.push(dst);
+      if (!currentIds.length && shouldMaterializeAllRecords) {
+        continue;
       }
 
+      const eagerReferenceMatches: Array<{
+        edge: IConditionalRollupAdjacencyEdge;
+        matched: typeof ALL_RECORDS;
+      }> = [];
+      const referencePromises: Array<
+        Promise<{ edge: IConditionalRollupAdjacencyEdge; matched: string[] | typeof ALL_RECORDS }>
+      > = [];
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        let matched: string[] | typeof ALL_RECORDS;
         if (
           rawSet === ALL_RECORDS &&
           (!shouldMaterializeAllRecords ||
             recordSets[edge.tableId] === ALL_RECORDS ||
             edge.tableId === src)
         ) {
-          matched = ALL_RECORDS;
-        } else {
-          if (!currentIds.length) continue;
-          matched = await this.getConditionalRollupImpactedRecordIds(edge, currentIds);
+          eagerReferenceMatches.push({ edge, matched: ALL_RECORDS });
+          continue;
         }
+        if (!currentIds.length) continue;
+        referencePromises.push(
+          this.getConditionalRollupImpactedRecordIds(edge, currentIds, undefined, execCtx).then(
+            (matched) => ({
+              edge,
+              matched,
+            })
+          )
+        );
+      }
+
+      const referenceResults = [
+        ...eagerReferenceMatches,
+        ...(await Promise.all(referencePromises)),
+      ];
+
+      let dirty = false;
+      for (const { edge, matched } of referenceResults) {
+        const targetGroup = impact[edge.tableId];
+        if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
         if (matched === ALL_RECORDS) {
-          targetGroup.preferAutoNumberPaging = true;
-          if (recordSets[edge.tableId] !== ALL_RECORDS) {
-            recordSets[edge.tableId] = ALL_RECORDS;
-          }
-          if (!expandedAllRecords.has(edge.tableId)) {
-            queue.push(edge.tableId);
+          const updated = this.markAllSeed(tablesWithAllRecords, edge.tableId);
+          if (updated) {
+            targetGroup.preferAutoNumberPaging = true;
+            dirty = true;
+            enqueueConditional(edge.tableId);
+            enqueueLinkDependents(edge.tableId);
           }
           continue;
         }
         if (!matched.length) continue;
-        const currentTargetSet = recordSets[edge.tableId];
-        if (currentTargetSet === ALL_RECORDS) {
-          continue;
+        const updated = this.addExplicitSeed(explicitSeeds, edge.tableId, matched);
+        if (updated) {
+          dirty = true;
+          enqueueConditional(edge.tableId);
+          enqueueLinkDependents(edge.tableId);
         }
-        let set = currentTargetSet;
-        if (!set) {
-          set = new Set<string>();
-          recordSets[edge.tableId] = set;
-        }
-        let added = false;
-        for (const id of matched) {
-          if (!set.has(id)) {
-            set.add(id);
-            added = true;
-          }
-        }
-        if (added) queue.push(edge.tableId);
       }
-      if (startedWithAllRecords) {
-        expandedAllRecords.add(src);
+
+      if (dirty) {
+        const nextRecordSets = await this.computeLinkClosure({
+          impactedTables,
+          explicitSeeds,
+          tablesWithAllRecords,
+          linkEdges,
+          ctx: execCtx,
+        });
+        const growth = this.findRecordSetGrowth(recordSets, nextRecordSets);
+        growth.forEach((tid) => {
+          enqueueConditional(tid);
+          enqueueLinkDependents(tid);
+        });
+        recordSets = nextRecordSets;
       }
     }
 
-    // 4) Assign recordIds into impact
     for (const [tid, group] of Object.entries(impact)) {
       const raw = recordSets[tid];
       if (raw === ALL_RECORDS) {
         group.preferAutoNumberPaging = true;
         continue;
       }
-      if (raw && raw.size) raw.forEach((id) => group.recordIds.add(id));
+      if (raw && raw.size) {
+        raw.forEach((id) => group.recordIds.add(id));
+      }
     }
 
-    // Remove tables with no records or fields after filtering
     for (const tid of Object.keys(impact)) {
       const g = impact[tid];
-      if (!g.fieldIds.size || (!g.recordIds.size && !g.preferAutoNumberPaging)) delete impact[tid];
+      if (!g.fieldIds.size || (!g.recordIds.size && !g.preferAutoNumberPaging)) {
+        delete impact[tid];
+      }
     }
 
     return impact;
   }
 
+  @Timing()
   private async getFormulaFieldsWithoutDependencies(
     tableId: string,
     excludeFieldIds?: string[]
@@ -1058,15 +1417,25 @@ export class ComputedDependencyCollectorService {
    *   the changed records through any link field on the target table that points to the changed table.
    */
   // eslint-disable-next-line sonarjs/cognitive-complexity
+  @Timing()
   async collect(
     tableId: string,
     ctxs: ICellContext[],
     excludeFieldIds?: string[]
-  ): Promise<IComputedImpactByTable> {
-    if (!ctxs.length) return {};
+  ): Promise<IComputedCollectResult> {
+    if (!ctxs.length) {
+      return { impact: {}, tableDomains: new Map<string, TableDomain>() };
+    }
 
     const changedFieldIds = Array.from(new Set(ctxs.map((c) => c.fieldId)));
     const changedRecordIds = Array.from(new Set(ctxs.map((c) => c.recordId)));
+    const fieldToTableMap = new Map<string, string>();
+    changedFieldIds.forEach((fid) => fieldToTableMap.set(fid, tableId));
+    const relatedTables = await this.tableDomainQueryService.getAllRelatedTableDomains(
+      tableId,
+      changedFieldIds
+    );
+    const execCtx = this.createExecutionContext(relatedTables.tableDomains);
 
     // 1) Transitive dependents grouped by table (SQL CTE + join field)
     const contextByRecord = ctxs.reduce<Map<string, ICellContext[]>>((map, ctx) => {
@@ -1079,7 +1448,11 @@ export class ComputedDependencyCollectorService {
       return map;
     }, new Map());
 
-    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(changedFieldIds);
+    const relatedLinkIds = await this.resolveRelatedLinkFieldIds(
+      changedFieldIds,
+      fieldToTableMap,
+      execCtx
+    );
     const traversalFieldIds = Array.from(new Set([...changedFieldIds, ...relatedLinkIds]));
 
     const depByTable = await this.collectDependentFieldsByTable(traversalFieldIds, excludeFieldIds);
@@ -1126,15 +1499,11 @@ export class ComputedDependencyCollectorService {
     // Include symmetric link fields (if any) on the foreign table so their values
     // are refreshed as well. The link fields themselves are already included by
     // SQL union in collectDependentFieldsByTable.
-    const linkFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        id: { in: changedFieldIds },
-        type: FieldType.Link,
-        isLookup: null,
-        deletedTime: null,
-      },
-      select: { id: true, tableId: true, options: true },
-    });
+    const changedFieldIdSet = new Set(changedFieldIds);
+    const currentTableDomain = await this.getTableDomain(tableId, execCtx);
+    const linkFields = currentTableDomain.fieldList.filter(
+      (field) => changedFieldIdSet.has(field.id) && field.type === FieldType.Link && !field.isLookup
+    );
 
     // Record planned foreign recordIds per foreign table based on incoming link cell new/old values
     const plannedForeignRecordIds: Record<string, Set<string>> = {};
@@ -1180,147 +1549,175 @@ export class ComputedDependencyCollectorService {
     );
     this.addContextFreeFormulasToImpact(impact, tableId, contextFreeFormulaIds);
 
-    if (!Object.keys(impact).length) return {};
+    if (!Object.keys(impact).length) {
+      return { impact: {}, tableDomains: new Map(relatedTables.tableDomains) };
+    }
 
-    // 3) Compute impacted recordIds per table with multi-hop propagation
-    // Seed with origin changed records
-    const recordSets: Record<string, Set<string> | typeof ALL_RECORDS> = {
-      [tableId]: new Set(changedRecordIds),
-    };
-    // Seed foreign tables with planned link targets so impact includes them even before DB write
+    const impactedTables = new Set([...Object.keys(impact), tableId]);
+    for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
+      if (!impactedTables.has(tid)) {
+        impactedTables.add(tid);
+      }
+    }
+
+    const tableDomains = await this.loadTableDomains(impactedTables, execCtx);
+    const linkEdges = this.buildLinkEdgesForTables(impactedTables, tableDomains, impact);
+    const explicitSeeds = new Map<string, Set<string>>();
+    explicitSeeds.set(tableId, new Set(changedRecordIds));
     for (const [tid, ids] of Object.entries(plannedForeignRecordIds)) {
       if (!ids.size) continue;
-      const currentSet = recordSets[tid];
-      if (currentSet === ALL_RECORDS) {
-        continue;
-      }
-      let set = currentSet;
-      if (!set) {
-        set = new Set<string>();
-        recordSets[tid] = set;
-      }
-      ids.forEach((id) => set.add(id));
+      explicitSeeds.set(tid, new Set(ids));
     }
-    // Build adjacency restricted to impacted tables + origin
-    const impactedTables = Array.from(new Set([...Object.keys(impact), tableId]));
-    const { link: linkAdj, conditionalRollup: referenceAdj } =
-      await this.getAdjacencyMaps(impactedTables);
+    const tablesWithAllRecords = new Set<string>();
 
-    // BFS-like propagation over table graph
-    const queue: string[] = [tableId];
-    const expandedAllRecords = new Set<string>();
+    const { link: linkAdj, conditionalRollup: referenceAdj } = this.getAdjacencyMaps(
+      tableDomains,
+      impact
+    );
+
+    let recordSets = await this.computeLinkClosure({
+      impactedTables,
+      explicitSeeds,
+      tablesWithAllRecords,
+      linkEdges,
+      tableDomains,
+      ctx: execCtx,
+    });
+
+    const queue: string[] = [];
+    const queued = new Set<string>();
+    const enqueueConditional = (tableId: string) => {
+      if (!tableId || queued.has(tableId)) {
+        return;
+      }
+      queued.add(tableId);
+      queue.push(tableId);
+    };
+    const enqueueLinkDependents = (tableId: string) => {
+      const targets = linkAdj[tableId];
+      if (!targets) return;
+      targets.forEach((tid) => enqueueConditional(tid));
+    };
+
+    const initialGrowth = this.findRecordSetGrowth({}, recordSets);
+    initialGrowth.forEach((tid) => {
+      enqueueConditional(tid);
+      enqueueLinkDependents(tid);
+    });
+    const materializedAllRecords = new Map<string, string[]>();
+
     while (queue.length) {
       const src = queue.shift()!;
-      const rawSet = recordSets[src];
-      const startedWithAllRecords = rawSet === ALL_RECORDS;
-      if (startedWithAllRecords && expandedAllRecords.has(src)) {
-        continue;
-      }
-      const linkTargets = Array.from(linkAdj[src] || []).filter((dst) => !!impact[dst]);
+      queued.delete(src);
+
       const referenceEdges = (referenceAdj[src] || []).filter((edge) => {
         const targetGroup = impact[edge.tableId];
         return !!targetGroup && targetGroup.fieldIds.has(edge.fieldId);
       });
-      const hasRelevantOutgoing = linkTargets.length > 0 || referenceEdges.length > 0;
+      if (!referenceEdges.length) {
+        continue;
+      }
+
+      const rawSet = recordSets[src];
+      if (!rawSet) {
+        continue;
+      }
 
       let currentIds: string[] = [];
       let shouldMaterializeAllRecords = false;
       if (rawSet === ALL_RECORDS) {
-        if (!hasRelevantOutgoing) {
-          expandedAllRecords.add(src);
-          continue;
-        }
-        const edgesRequiringIds = referenceEdges.filter((edge) => {
+        const needsMaterialization = referenceEdges.some((edge) => {
           const targetSet = recordSets[edge.tableId];
           return targetSet !== ALL_RECORDS && edge.tableId !== src;
         });
-        shouldMaterializeAllRecords = linkTargets.length > 0 || edgesRequiringIds.length > 0;
+        shouldMaterializeAllRecords = needsMaterialization;
         if (shouldMaterializeAllRecords) {
-          const ids = await this.getAllRecordIds(src);
-          currentIds = ids;
-          recordSets[src] = new Set(ids);
+          currentIds = await this.materializeAllRecordIds(src, materializedAllRecords, execCtx);
         }
-      } else if (rawSet) {
+      } else {
         currentIds = Array.from(rawSet);
       }
-      if (!currentIds.length && shouldMaterializeAllRecords) continue;
-
-      for (const dst of linkTargets) {
-        const linked = await this.getLinkedRecordIds(dst, src, currentIds);
-        if (!linked.length) continue;
-        const existingDst = recordSets[dst];
-        if (existingDst === ALL_RECORDS) {
-          continue;
-        }
-        let set = existingDst;
-        if (!set) {
-          set = new Set<string>();
-          recordSets[dst] = set;
-        }
-        let added = false;
-        for (const id of linked) {
-          if (!set.has(id)) {
-            set.add(id);
-            added = true;
-          }
-        }
-        if (added) queue.push(dst);
+      if (!currentIds.length && shouldMaterializeAllRecords) {
+        continue;
       }
 
+      const eagerReferenceMatches: Array<{
+        edge: IConditionalRollupAdjacencyEdge;
+        matched: typeof ALL_RECORDS;
+      }> = [];
+      const referencePromises: Array<
+        Promise<{ edge: IConditionalRollupAdjacencyEdge; matched: string[] | typeof ALL_RECORDS }>
+      > = [];
       for (const edge of referenceEdges) {
         const targetGroup = impact[edge.tableId];
         if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
-        let matched: string[] | typeof ALL_RECORDS;
         if (
           rawSet === ALL_RECORDS &&
           (!shouldMaterializeAllRecords ||
             recordSets[edge.tableId] === ALL_RECORDS ||
             edge.tableId === src)
         ) {
-          matched = ALL_RECORDS;
-        } else {
-          if (!currentIds.length) continue;
-          matched = await this.getConditionalRollupImpactedRecordIds(
-            edge,
-            currentIds,
-            src === tableId ? contextByRecord : undefined
-          );
+          eagerReferenceMatches.push({ edge, matched: ALL_RECORDS });
+          continue;
         }
+        if (!currentIds.length) continue;
+        const context = src === tableId ? contextByRecord : undefined;
+        referencePromises.push(
+          this.getConditionalRollupImpactedRecordIds(edge, currentIds, context, execCtx).then(
+            (matched) => ({
+              edge,
+              matched,
+            })
+          )
+        );
+      }
+
+      const referenceResults = [
+        ...eagerReferenceMatches,
+        ...(await Promise.all(referencePromises)),
+      ];
+
+      let dirty = false;
+      for (const { edge, matched } of referenceResults) {
+        const targetGroup = impact[edge.tableId];
+        if (!targetGroup || !targetGroup.fieldIds.has(edge.fieldId)) continue;
         if (matched === ALL_RECORDS) {
-          targetGroup.preferAutoNumberPaging = true;
-          if (recordSets[edge.tableId] !== ALL_RECORDS) {
-            recordSets[edge.tableId] = ALL_RECORDS;
-          }
-          if (!expandedAllRecords.has(edge.tableId)) {
-            queue.push(edge.tableId);
+          const updated = this.markAllSeed(tablesWithAllRecords, edge.tableId);
+          if (updated) {
+            targetGroup.preferAutoNumberPaging = true;
+            dirty = true;
+            enqueueConditional(edge.tableId);
+            enqueueLinkDependents(edge.tableId);
           }
           continue;
         }
         if (!matched.length) continue;
-        const currentTargetSet = recordSets[edge.tableId];
-        if (currentTargetSet === ALL_RECORDS) {
-          continue;
+        const updated = this.addExplicitSeed(explicitSeeds, edge.tableId, matched);
+        if (updated) {
+          dirty = true;
+          enqueueConditional(edge.tableId);
+          enqueueLinkDependents(edge.tableId);
         }
-        let set = currentTargetSet;
-        if (!set) {
-          set = new Set<string>();
-          recordSets[edge.tableId] = set;
-        }
-        let added = false;
-        for (const id of matched) {
-          if (!set.has(id)) {
-            set.add(id);
-            added = true;
-          }
-        }
-        if (added) queue.push(edge.tableId);
       }
-      if (startedWithAllRecords) {
-        expandedAllRecords.add(src);
+
+      if (dirty) {
+        const nextRecordSets = await this.computeLinkClosure({
+          impactedTables,
+          explicitSeeds,
+          tablesWithAllRecords,
+          linkEdges,
+          tableDomains: relatedTables.tableDomains,
+          ctx: execCtx,
+        });
+        const growth = this.findRecordSetGrowth(recordSets, nextRecordSets);
+        growth.forEach((tid) => {
+          enqueueConditional(tid);
+          enqueueLinkDependents(tid);
+        });
+        recordSets = nextRecordSets;
       }
     }
 
-    // Assign results into impact
     for (const [tid, group] of Object.entries(impact)) {
       const raw = recordSets[tid];
       if (raw === ALL_RECORDS) {
@@ -1332,6 +1729,6 @@ export class ComputedDependencyCollectorService {
       }
     }
 
-    return impact;
+    return { impact, tableDomains: new Map(relatedTables.tableDomains) };
   }
 }

@@ -1,9 +1,25 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { INestApplication } from '@nestjs/common';
-import { DriverClient } from '@teable/core';
+import type { IFieldRo, IFieldVo, ILookupOptionsRo } from '@teable/core';
+import { DriverClient, FieldType, Relationship } from '@teable/core';
 import { Prisma, PrismaService } from '@teable/db-main-prisma';
+import type { ITableFullVo } from '@teable/openapi';
 import { retryOnDeadlock } from '../src/utils/retry-decorator';
-import { initApp } from './utils/init-app';
+import {
+  createBase,
+  createField,
+  createRecords,
+  createSpace,
+  createTable,
+  deleteBase,
+  deleteSpace,
+  getField,
+  initApp,
+  permanentDeleteBase,
+  permanentDeleteSpace,
+  permanentDeleteTable,
+  updateRecordByApi,
+} from './utils/init-app';
 
 const deadLockTableA = 'dead_lock_a';
 const deadLockTableB = 'dead_lock_b';
@@ -125,5 +141,110 @@ describe.skipIf(globalThis.testConfig.driver !== DriverClient.Pg)('DeadLock', ()
 
   it('should retry when dead lock', async () => {
     await deadLockService.createDeadlockWithRetry(prismaService);
+  });
+
+  describe('record updates via API', () => {
+    let spaceId: string;
+    let baseId: string;
+    let tableA: ITableFullVo;
+    let tableB: ITableFullVo;
+
+    beforeEach(async () => {
+      const space = await createSpace({ name: `deadlock-space-${Date.now()}` });
+      spaceId = space.id;
+      const base = await createBase({ name: `deadlock-base-${Date.now()}`, spaceId });
+      baseId = base.id;
+      tableA = await createTable(baseId, { name: 'deadlock-table-a' });
+      tableB = await createTable(baseId, { name: 'deadlock-table-b' });
+    });
+
+    afterEach(async () => {
+      if (baseId && tableA) {
+        await permanentDeleteTable(baseId, tableA.id);
+      }
+      if (baseId && tableB) {
+        await permanentDeleteTable(baseId, tableB.id);
+      }
+      if (baseId) {
+        await deleteBase(baseId);
+        await permanentDeleteBase(baseId);
+      }
+      if (spaceId) {
+        await deleteSpace(spaceId);
+        await permanentDeleteSpace(spaceId);
+      }
+    });
+
+    it('should avoid deadlock when cross-table lookups recompute concurrently', async () => {
+      const alphaTextField = await createField(tableA.id, {
+        name: 'alpha-text',
+        type: FieldType.SingleLineText,
+      });
+      const betaTextField = await createField(tableB.id, {
+        name: 'beta-text',
+        type: FieldType.SingleLineText,
+      });
+
+      const linkFieldRo: IFieldRo = {
+        name: 'alpha-to-beta',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: tableB.id,
+        },
+      };
+      const linkFieldA = await createField(tableA.id, linkFieldRo);
+      const symmetricFieldId = (linkFieldA.options as { symmetricFieldId?: string })
+        .symmetricFieldId;
+      expect(symmetricFieldId).toBeTruthy();
+      const linkFieldB = await getField(tableB.id, symmetricFieldId as string);
+
+      const lookupOnA = await createField(tableA.id, {
+        name: 'beta-lookup',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: tableB.id,
+          linkFieldId: linkFieldA.id,
+          lookupFieldId: betaTextField.id,
+        } as ILookupOptionsRo,
+      });
+      expect(lookupOnA).toBeDefined();
+
+      const lookupOnB = await createField(tableB.id, {
+        name: 'alpha-lookup',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: tableA.id,
+          linkFieldId: linkFieldB.id,
+          lookupFieldId: alphaTextField.id,
+        } as ILookupOptionsRo,
+      });
+      expect(lookupOnB).toBeDefined();
+
+      const alphaRecords = await createRecords(tableA.id, {
+        records: [{ fields: { [alphaTextField.id]: 'Alpha initial' } }],
+      });
+      const betaRecords = await createRecords(tableB.id, {
+        records: [{ fields: { [betaTextField.id]: 'Beta initial' } }],
+      });
+      const alphaRecordId = alphaRecords.records[0].id;
+      const betaRecordId = betaRecords.records[0].id;
+
+      await updateRecordByApi(tableA.id, alphaRecordId, linkFieldA.id, [{ id: betaRecordId }]);
+
+      const iterations = 5;
+      for (let i = 0; i < iterations; i++) {
+        const alphaValue = `alpha-updated-${i}-${Date.now()}`;
+        const betaValue = `beta-updated-${i}-${Date.now()}`;
+        const results = await Promise.allSettled([
+          updateRecordByApi(tableA.id, alphaRecordId, alphaTextField.id, alphaValue),
+          updateRecordByApi(tableB.id, betaRecordId, betaTextField.id, betaValue),
+        ]);
+        const rejected = results.filter((r): r is PromiseRejectedResult => r.status === 'rejected');
+        expect(rejected).toHaveLength(0);
+      }
+    }, 20000);
   });
 });

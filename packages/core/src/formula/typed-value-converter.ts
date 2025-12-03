@@ -27,6 +27,9 @@ export class TypedValueConverter {
     }
 
     const firstAcceptValueType = func.acceptValueType.values().next().value;
+    if (!firstAcceptValueType) {
+      throw new TypeError(`function ${func.name} has no acceptable value types`);
+    }
 
     const converted = typedValue.isMultiple
       ? (typedValue.value as unknown[])?.map((v) =>

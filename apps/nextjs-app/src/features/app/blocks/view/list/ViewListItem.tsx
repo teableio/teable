@@ -151,9 +151,9 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
       role="button"
       tabIndex={0}
       className={cn(
-        'flex h-7 max-w-52 items-center overflow-hidden rounded-md bg-popover p-1 text-sm hover:bg-secondary',
+        'flex h-7 max-w-52 items-center overflow-hidden rounded-md p-1 text-sm hover:bg-accent',
         {
-          'bg-secondary': isActive,
+          'bg-accent': isActive,
         }
       )}
       onDoubleClick={() => {
@@ -182,9 +182,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
         <Button
           variant="ghost"
           size="xs"
-          className={cn('m-0 flex w-full rounded-sm p-0', {
-            'bg-secondary': isActive,
-          })}
+          className={cn('m-0 flex w-full rounded-sm hover:bg-transparent p-0')}
         >
           {isActive && showViewMenu ? (
             <PopoverTrigger asChild>{commonPart}</PopoverTrigger>

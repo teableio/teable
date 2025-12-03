@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Yüklemek için bırakın",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Yapıştırın veya buraya sürükleyip bırakın",
       "upload": "yükle"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "bugün",
@@ -202,6 +208,15 @@
         "daysFromNow": "gün sonra",
         "exactDate": "tam tarih",
         "exactFormatDate": "tam tarih (biçimlendirildi)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "geçen hafta",
         "pastMonth": "geçen ay",
         "pastYear": "geçen yıl",
@@ -247,6 +262,8 @@
     "duplicateRecord": "Kaydı çoğalt",
     "copyRecordUrl": "Kayıt URL'sini kopyala",
     "deleteRecord": "Kaydı sil",
+    "addRecordComment": "Yorum ekle",
+    "viewRecordHistory": "Kayıt geçmişini görüntüle",
     "recordHistory": {
       "hiddenRecordHistory": "Kayıt geçmişini gizle",
       "showRecordHistory": "Kayıt geçmişini göster",
@@ -342,6 +359,7 @@
       "baseCreate": "Veritabanı oluştur",
       "baseDelete": "Veritabanı sil",
       "baseRead": "Veritabanı oku",
+      "baseReadAll": "Read all bases",
       "baseUpdate": "Veritabanı güncelle",
       "baseInviteEmail": "Veritabanında e-posta ile davet et",
       "baseInviteLink": "Veritabanında bağlantı ile davet et",
@@ -354,6 +372,9 @@
       "tableUpdate": "Tablo güncelle",
       "tableImport": "Tabloya veri aktar",
       "tableExport": "Tablodan veri dışa aktar",
+      "tableTrashRead": "Read table trash",
+      "tableTrashUpdate": "Update table trash",
+      "tableTrashReset": "Reset table trash",
       "viewCreate": "Görünüm oluştur",
       "viewDelete": "Görünüm sil",
       "viewRead": "Görünüm oku",
@@ -368,15 +389,19 @@
       "recordDelete": "Kayıt sil",
       "recordRead": "Kayıt oku",
       "recordUpdate": "Kayıt güncelle",
+      "recordCopy": "Copy record",
       "automationCreate": "Otomasyon oluştur",
       "automationDelete": "Otomasyon sil",
       "automationRead": "Otomasyon oku",
       "automationUpdate": "Otomasyon güncelle",
+      "userProfileRead": "Read current user profile",
       "userEmailRead": "Kullanıcı e-postası oku",
       "recordHistoryRead": "Kayıt geçmişi oku",
       "baseQuery": "Veritabanı sorgula",
       "instanceRead": "Örnek oku",
-      "instanceUpdate": "Örnek güncelle"
+      "instanceUpdate": "Örnek güncelle",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -390,7 +415,8 @@
     "user": "Kullanıcı",
     "recordHistory": "Kayıt Geçmişi",
     "you": "Sen",
-    "instance": "Örnek"
+    "instance": "Örnek",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -667,7 +693,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Tablodaki hesaplanmayan bir alanda bir kullanıcı tarafından yapılan en son değişikliğin tarih ve saatini döndürür.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Metin ve boşluklar dahil tüm öğelerin sayısını döndürür.",
@@ -821,6 +847,15 @@
       "enterUrl": "URL Girin"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "Doğrulama Hatası",
     "invalidCaptcha": "Geçersiz Captcha",
@@ -838,7 +873,6 @@
     "databaseConnectionUnavailable": "Veritabanı Bağlantısı Mevcut Değil",
     "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
     "unknownErrorCode": "Bilinmeyen Hata Kodu",
-    "viewNotFound": "Görünüm Bulunamadı",
     "requestTimeout": "İstek Zaman Aşımı",
     "failedDependency": "Bağımlılık Hatası",
     "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",
@@ -850,31 +884,213 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" alanı aynı kayıtla tekrarlayan değerlere izin vermiyor.",
       "requestTimeout": "İşlem kapsamı çok büyük, lütfen kapsamı daraltıp tekrar deneyin.",
       "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
-      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin"
+      "dependencyNodeRequire": "Bağımlı düğüm test edilmedi, lütfen önceki düğümleri test edin",
+      "invalidOperation": "Geçersiz işlem tespit edildi, lütfen işlem parametrelerini kontrol edin"
+    },
+    "comment": {
+      "listCountExceeded": "İstenen yorum sayısı 1000 maksimum sınırını aşıyor",
+      "invalidContentType": "Geçersiz yorum içerik türü"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "Token süresinin 7 günden az olması gerekir",
+      "s3RegionRequired": "S3 bölgesi gerekli",
+      "s3EndpointRequired": "S3 uç noktası gerekli",
+      "s3AccessKeyRequired": "S3 erişim anahtarı gerekli",
+      "s3SecretKeyRequired": "S3 gizli anahtarı gerekli",
+      "s3UploadMethodMustBePut": "S3 yükleme yöntemi PUT olmalıdır",
+      "presignedError": "Önceden imzalanmış URL oluşturulamadı",
+      "invalidObjectMeta": "Geçersiz nesne meta verisi",
+      "invalidImageStream": "Geçersiz görüntü akışı",
+      "calculateImageSizeFailed": "Görüntü boyutu hesaplanamadı",
+      "uploadFailed": "Yükleme başarısız",
+      "invalidImage": "Geçersiz görüntü",
+      "cantGetImageStream": "Görüntü akışı alınamıyor",
+      "invalidProvider": "Geçersiz depolama sağlayıcısı",
+      "failedToDeleteDirectory": "Dizin silinemedi",
+      "invalidToken": "Geçersiz token",
+      "tokenExpired": "Token süresi doldu",
+      "sizeMismatch": "Dosya boyutu uyuşmuyor",
+      "notAllowUploadFileType": "{{mimetype}} dosya türü yüklemeye izin verilmiyor",
+      "notFound": "Ek bulunamadı",
+      "invalidPath": "Geçersiz ek yolu",
+      "fileSizeExceedsMaximumLimit": "Dosya boyutu maksimum sınır {{maxSize}} aşıyor",
+      "invalidUploadType": "Geçersiz yükleme türü",
+      "urlReject": "URL reddedildi veya erişilemiyor"
     },
     "email": {
       "testEmailError": "Posta yapılandırma hatası {{message}}"
     },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Bu buton alanı zaten {{name}}[{{id}}] otomasyon işlemine bağlı, lütfen başka bir buton alanı seçin",
-      "triggerNotFound": "Tetikleyici bulunamadı",
+      "triggerNotFound": "Otomasyon bir tetikleyici düğümüne sahip olmalı",
       "nodeNotFound": "{{nodeId}} düğümü bulunamadı",
-      "workflowNotFound": "{{workflowId}} iş akışı bulunamadı",
       "triggerTestFailed": "Tetikleyici testi başarısız, lütfen tetikleyici yapılandırmasını kontrol edin",
-      "workflowTestFailed": "İş akışı testi başarısız, lütfen iş akışı yapılandırmasını kontrol edin",
+      "testFailed": "Otomasyon testi başarısız, otomasyon yapılandırmasını kontrol edin",
       "nodeParseError": "{{name}} düğüm yapılandırması eksik veya hatalı, lütfen düğüm yapılandırmasını kontrol edin",
       "nodeNeedTest": "{{name}} düğümün test edilmesi gerekiyor",
-      "nodeTestOutdated": "{{name}} düğüm testi güncel değil"
+      "nodeTestOutdated": "{{name}} düğüm testi güncel değil",
+      "notFound": "Otomasyon bulunamadı",
+      "currentSnapshotEmpty": "Otomasyonun mevcut anlık görüntüsü boş",
+      "runNotFound": "Otomasyon çalıştırması bulunamadı",
+      "anchorNotFound": "Bağlantı otomasyonu bulunamadı",
+      "validationError": "Otomasyon yapılandırması doğrulama hatası",
+      "tableNotInBase": "Yalnızca veritabanınızdaki bir tabloya abone olabilirsiniz",
+      "alreadyActiveAndNotDraft": "Otomasyon zaten aktif ve taslak değil",
+      "noActiveSnapshot": "Otomasyonun aktif anlık görüntüsü yok",
+      "triggerNodeAlreadyExists": "Bu otomasyonun zaten bir tetikleyici düğümü var",
+      "generateLogicError": "Mantık düğümü oluşturma hatası",
+      "logicNotFound": "Otomasyon mantık düğümü bulunamadı",
+      "actionNotFound": "Otomasyon eylem düğümü bulunamadı",
+      "unSupportDuplicateWorkflowNodeType": "Bu otomasyon düğüm türünün çoğaltılması desteklenmiyor",
+      "unSupportLogicType": "Desteklenmeyen mantık türü",
+      "groupEndNotFound": "Mantık için GroupEnd bulunamadı",
+      "insertNodeError": "Düğüm ekleme hatası",
+      "controlNodeNotBeTested": "Kontrol düğümü test edilmemeli",
+      "invalidNodeType": "Geçersiz düğüm türü",
+      "unsupportedCategory": "Desteklenmeyen kategori"
+    },
+    "space": {
+      "notFound": "Alan bulunamadı",
+      "noPermission": "Bu alana erişim izniniz yok",
+      "disallowSpaceCreation": "Alan oluşturma yönetici tarafından devre dışı bırakıldı",
+      "cannotChangeOnlyOwnerRole": "Alanın tek sahibinin rolü değiştirilemez",
+      "cannotDeleteOnlyOwner": "Alanın tek sahibi silinemez",
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Bir alan üzerinde işlem yapılamıyor, alanda organizasyon üyelerinin bulunduğunu ve sahip olduklarını doğrulayın",
+      "notBelongToOrg": "Bu alan organizasyona ait değil",
+      "invalidSpaceIds": "Alan kimlikleri geçersiz: {{spaceIds}}"
+    },
+    "base": {
+      "notFound": "Base bulunamadı",
+      "cannotAccess": "Base {{baseId}} erişim izniniz yok",
+      "anchorNotFound": "Bağlantı base'i {{anchorId}} bulunamadı",
+      "baseAndSpaceMismatch": "Base {{baseId}} ve alan {{spaceId}} eşleşmiyor",
+      "templateNotFound": "Şablon {{templateId}} bulunamadı"
+    },
+    "dashboard": {
+      "notFound": "Gösterge paneli bulunamadı"
+    },
+    "plugin": {
+      "notFound": "Eklenti bulunamadı",
+      "notSupportInstallInView": "Eklenti görünümde yüklemeyi desteklemiyor",
+      "userNotFound": "Eklenti kullanıcısı bulunamadı",
+      "invalidSecret": "Geçersiz gizli anahtar",
+      "invalidRefreshToken": "Geçersiz yenileme belirteci",
+      "anomalousToken": "Anormal belirteç"
+    },
+    "pluginPanel": {
+      "notFound": "Eklenti paneli bulunamadı"
+    },
+    "pluginInstall": {
+      "notFound": "Eklenti yüklenmemiş"
+    },
+    "share": {
+      "incorrectPassword": "Yanlış şifre",
+      "notAllowedToSubmit": "Form gönderimi izin verilmiyor",
+      "viewRequired": "Bu işlem için görünüm gereklidir",
+      "hiddenFieldsSubmissionNotAllowed": "Gizli alanlar dahil edildiğinde form gönderimi izin verilmiyor",
+      "submitRecordsError": "Kayıt gönderimi başarısız oldu",
+      "notAllowedToCopy": "Kopyalama işlemi izin verilmiyor",
+      "fieldHiddenNotAllowed": "Alan gizli ve erişilemez",
+      "fieldTypeNotLinkField": "Alan bir bağlantı alanı değil",
+      "fieldIdRequired": "Alan kimliği gereklidir",
+      "fieldNotUserRelatedField": "Alan kullanıcıyla ilgili bir alan değil",
+      "viewTypeNotAllowed": "Bu görünüm türü bu işlem için izin verilmiyor"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Bu paylaşılan görünüm için şifre kısıtlaması etkin değil",
+      "shareViewNotFound": "Paylaşılan görünüm bulunamadı veya paylaşım devre dışı",
+      "linkFieldNotFound": "Bağlantı alanı bulunamadı"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "Bu görünüme erişim izniniz yok",
+      "fieldPermissionNotAllowed": "Bu alanlara erişim izniniz yok",
+      "recordPermissionNotAllowed": "Bu kayıtlara erişim izniniz yok"
+    },
+    "pluginContextMenu": {
+      "notFound": "Eklenti bağlam menüsü bulunamadı",
+      "anchorNotFound": "Eklenti bağlam menüsü bağlantısı bulunamadı"
+    },
+    "pluginChart": {
+      "queryNotFound": "Eklenti grafik sorgusu bulunamadı"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Desteklenmeyen veritabanı sürücüsü: {{driver}}",
+      "onlyOwnerCanRemove": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısını kaldırabilir",
+      "onlyOwnerCanCreate": "Yalnızca base sahibi, base {{baseId}} için veritabanı bağlantısı oluşturabilir",
+      "roleNotExist": "Veritabanı rolü {{role}} mevcut değil"
+    },
+    "baseQuery": {
+      "queryFailed": "Sorgu başarısız: {{message}}",
+      "invalidJoinType": "Geçersiz birleştirme türü: {{joinType}}",
+      "tableNotFound": "Tablo {{tableId}}, base {{baseId}} içinde bulunamadı"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "{{keyword}} anahtar kelimesiyle SQL çalıştırılmasına izin verilmiyor",
+      "whiteListCheckError": "Tablo erişimi kontrol edilirken bir hata oluştu: {{message}}",
+      "databaseConnectionFailed": "Veritabanı bağlantısı başarısız oldu: {{message}}",
+      "executeQuerySqlFailed": "Sorgu SQL'i çalıştırılamadı: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "Alanları({{fields}}) olan kayıtlar oluşturma izniniz yok",
       "deleteRecords": "Kayıtları({{recordIds}}) silme izniniz yok",
       "readRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) okuma izniniz yok",
-      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok"
+      "updateRecordWithDeniedFields": "Kayıt({{recordId}}) içindeki alanları({{fields}}) güncelleme izniniz yok",
+      "checkIdNotExist": "İzin kontrol kimliği mevcut değil",
+      "userNotAdmin": "Kullanıcı yönetici değil",
+      "accessTokenNoPermission": "Erişim jetonu gerekli izne sahip değil",
+      "invalidResource": "Kaynak geçerli değil",
+      "notAllowedSpace": "Bu alana erişim izniniz yok",
+      "notAllowedBase": "Bu tabana erişim izniniz yok",
+      "notAllowedTables": "Bu tablolar({{tableIds}}) erişim izniniz yok",
+      "notAllowedOperationTable": "Bu tablo üzerinde işlem yapma izniniz yok",
+      "notAllowedOperationRecord": "Bu kayıt üzerinde işlem yapma izniniz yok",
+      "notAllowedRecordUpdate": "Bu kaydı güncelleme izniniz yok",
+      "notAllowedOperationView": "Bu görünüm üzerinde işlem yapma izniniz yok",
+      "deniedByEnabledAuthorityMatrix": "Etkin yetki matrisi tarafından reddedildi",
+      "invalidRequestPath": "İstek yolu geçerli değil",
+      "notAllowedOperation": "Bu işlemi gerçekleştirme izniniz yok",
+      "notAllowedDepartment": "Bu departmana erişiminiz yok"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Varsayılan rol bulunamadı",
+      "alreadyDisabled": "Yetki matrisi zaten devre dışı",
+      "alreadyEnabled": "Yetki matrisi zaten etkin",
+      "notFound": "Yetki matrisi bulunamadı",
+      "primaryFieldCannotBeDisabledForRead": "Birincil alan okuma erişimi için devre dışı bırakılamaz",
+      "fieldDuplicated": "Alan izin yapılandırmasında yineleniyor",
+      "cannotSetRecordPermissionGroup": "Bu kayıt izinleri kombinasyonu({{actions}}) ayarlanamıyor",
+      "notFoundBaseAndTable": "Taban kimliği ve tablo kimliği bulunamadı",
+      "roleTablesShouldNotBeEmpty": "Yetki matrisi rol tabloları boş olmamalı"
+    },
+    "selection": {
+      "invalidReturnType": "Geçersiz dönüş türü",
+      "exceedMaxReadRows": "Maksimum okuma satırı sınırı aşıldı",
+      "invalidCellValueType": "Geçersiz hücre değeri türü",
+      "exceedMaxCopyCells": "Maksimum kopyalama hücresi sınırı aşıldı",
+      "exceedMaxPasteCells": "Maksimum yapıştırma hücresi sınırı aşıldı"
     },
     "field": {
       "unsupportedFieldType": "Desteklenmeyen alan türü {{type}}",
       "unsupportedPrimaryFieldType": "Birincil alan olarak desteklenmeyen alan türü {{type}}",
+      "primaryFieldNotSupported": "Alan türü birincil alan olarak desteklenmiyor",
       "calculateRecordNotFound": "Kayıt bulunamadı: {{value}}, fieldId: {{fieldId}}, {{recordId}} hesaplanırken",
       "toRecordIdsOrFromRecordIdsRequired": "Normal hesaplanan alan için toRecordIds veya fromRecordIds gereklidir",
       "recordFieldsRequired": "Kayıt alanları tanımsız",
@@ -883,8 +1099,9 @@
       "dbFieldNameAlreadyExists": "Veritabanı alan adı {{dbFieldName}} zaten mevcut",
       "fieldValidationError": "Alan {{name}}[{{fieldId}}] alan doğrulama hatası",
       "fieldNameAlreadyExists": "Alan adı {{name}} zaten mevcut",
-      "fieldNotFound": "Alan {{fieldId}} bulunamadı",
-      "fieldNotFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
+      "notFound": "Alan bulunamadı",
+      "fieldKeyTypeNotFound": "Alan \"{{fieldKeyType}}: {{missedFields}}\" bulunamadı",
+      "notFoundInTable": "Alan {{fieldId}} tablo {{tableId}} içinde bulunamadı",
       "deleteFieldsNotFound": "Silinecek alanlar {{fieldIds}} tablo {{tableId}} içinde bulunamadı",
       "lookupValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda lookupValues dizi olmalıdır",
       "linkCellValuesShouldBeArray": "Bağlantı alanı birden fazla hücre değerine sahip olduğunda linkCellValues dizi olmalıdır",
@@ -907,18 +1124,189 @@
       "lookupFieldTypeNotEqual": "Mevcut alan türü {{fieldType}} arama alanı türü {{lookupFieldType}} ile eşit değil",
       "recordNotFound": "Kayıt {{recordId}} {{tableId}} içinde bulunamadı",
       "linkCellRecordIdAlreadyExists": "Aynı hücrede yinelenen recordId ayarlanamaz: {{recordId}}",
-      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneOneLinkCellValueCannotBeArray": "Bire-bir bağlantı alanı değerleri dizi olamaz",
       "manyOneLinkCellValueCannotBeArray": "Çoka-bir bağlantı alanı değerleri dizi olamaz",
+      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor",
+      "linkConsistencyError": "Tutarlılık hatası, recordId {{recordId}} mevcut değil",
       "oneManyLinkCellValueShouldBeArray": "Bire-çok bağlantı alanı değerleri dizi olmalıdır",
       "manyManyLinkCellValueShouldBeArray": "Çoka-çok bağlantı alanı değerleri dizi olmalıdır",
-      "foreignKeyDuplicate": "Yabancı anahtar yineleniyor"
+      "onlyLinkFieldCanBeFiltered": "Yalnızca bağlantı alanları filtreleme için kullanılabilir",
+      "notLinkedToCurrentTable": "Alan mevcut tabloya bağlı değil",
+      "notAttachment": "Alan bir ek alanı değil",
+      "isComputed": "Alan hesaplanmış ve değiştirilemez",
+      "notFoundAICofig": "Alan AI yapılandırmasına sahip değil",
+      "button": {
+        "clickCountReachedMaxCount": "Düğme tıklama sayısı maksimum sınıra ulaştı",
+        "notSupportReset": "Düğme sıfırlamayı desteklemiyor"
+      }
     },
     "view": {
-      "viewNotFound": "Görünüm {{viewId}} bulunamadı"
+      "notFound": "Görünüm bulunamadı",
+      "defaultViewNotFound": "Varsayılan görünüm bulunamadı",
+      "propertyParseError": "Görünüm özelliği ayrıştırılamadı",
+      "primaryFieldCannotBeHidden": "Birincil alan gizlenemez",
+      "filterUnsupportedFieldType": "Filtre desteklenmeyen alan türü",
+      "sortUnsupportedFieldType": "Sıralama desteklenmeyen alan türü",
+      "groupUnsupportedFieldType": "Gruplama desteklenmeyen alan türü",
+      "anchorNotFound": "Bağlantı görünümü bulunamadı",
+      "notEnoughGapToShuffleRow": "Satırı karıştırmak için yeterli boşluk yok",
+      "shareNotEnabled": "Görünüm paylaşımı etkinleştirilmedi",
+      "shareAlreadyEnabled": "Görünüm paylaşımı zaten etkinleştirildi",
+      "shareAlreadyDisabled": "Görünüm paylaşımı zaten devre dışı bırakıldı"
     },
     "billing": {
-      "insufficientCredit": "Yetersiz kredi"
+      "insufficientCredit": "Yetersiz kredi",
+      "exceedMaxRowLimit": "Maksimum satır sınırı {{maxRowCount}} aşıldı"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Arama sorgusu gereklidir",
+      "maxSearchIndexResult": "Maksimum arama indeksi sonucu 1000'dir",
+      "queryCollectionMustBeTableId": "Sorgu koleksiyonu tablo kimliği olmalıdır",
+      "searchTimeOut": "Arama tamamlandı, arama kapsamını azaltarak tekrar deneyin.",
+      "indexNotFound": "İndeks bulunamadı",
+      "invalidStartDateFieldId": "Geçersiz başlangıç tarihi alan kimliği",
+      "invalidEndDateFieldId": "Geçersiz bitiş tarihi alan kimliği",
+      "fieldMapRequired": "Arama ayarlandığında alan haritası gereklidir",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected ve filterLinkCellCandidate aynı anda ayarlanamaz"
+    },
+    "ai": {
+      "chatModelLgNotSet": "AI sohbet modeli lg ayarlanmamış",
+      "chatModelLgProviderNotSet": "AI sohbet modeli lg sağlayıcısı ayarlanmamış",
+      "chatModelSmNotSet": "AI sohbet modeli sm ayarlanmamış",
+      "chatModelMdNotSet": "AI sohbet modeli md ayarlanmamış",
+      "configurationNotSet": "AI yapılandırması ayarlanmamış",
+      "unsupportedProvider": "Desteklenmeyen AI sağlayıcısı {{type}}",
+      "providerConfigurationNotSet": "AI sağlayıcı yapılandırması ayarlanmamış",
+      "testLLMFailed": "LLM bağlantı testi başarısız oldu",
+      "audioNotSupported": "Bu model {{model}} ses girişini desteklemiyor",
+      "imageNotSupported": "Bu model {{model}} görüntü girişini desteklemiyor",
+      "modelNotSet": "AI modeli ayarlanmamış",
+      "unsupportedFileType": "Desteklenmeyen dosya türü {{mimetype}}",
+      "unsupportedModelType": "Desteklenmeyen model türü",
+      "embeddingModelNotSet": "Gömme modeli ayarlanmamış",
+      "validateActionFailed": "Alan AI eyleminin doğrulanması başarısız oldu",
+      "generateFailed": "AI üretimi başarısız oldu",
+      "unsupportedActionType": "Desteklenmeyen AI eylem türü"
+    },
+    "role": {
+      "notFound": "Rol bulunamadı"
+    },
+    "collaborator": {
+      "alreadyExisted": "İşbirlikçi zaten mevcut",
+      "notFound": "İşbirlikçi bulunamadı",
+      "userNotFoundInCollaborator": "İşbirlikçiler arasında kullanıcı bulunamadı",
+      "noPermissionToDelete": "Bu işbirlikçiyi silme izniniz yok",
+      "noPermissionToUpdate": "Bu işbirlikçiyi güncelleme izniniz yok",
+      "noPermissionToOperateRole": "Bu rolü yönetme izniniz yok",
+      "alreadyExistedInBase": "İşbirlikçi zaten veritabanında mevcut",
+      "userNotFound": "Kullanıcı bulunamadı: {{userIds}}",
+      "baseNotFound": "Veritabanı bulunamadı",
+      "noPermissionToAddRole": "Bu rolle işbirlikçi ekleme izniniz yok",
+      "departmentNotFound": "Departman bulunamadı"
+    },
+    "table": {
+      "notFound": "Tablo bulunamadı",
+      "dbTableNameAlreadyExists": "Veritabanı tablo adı zaten mevcut",
+      "anchorNotFound": "Bağlantı tablosu bulunamadı",
+      "notInTrash": "Tablo çöp kutusunda değil",
+      "notSupportTableIndex": "Tablo dizin türü desteklenmiyor",
+      "createTableIndexError": "Tablo dizini oluşturulamadı",
+      "dropTableIndexError": "Tablo dizini silinemedi",
+      "notFoundPrimaryField": "Tabloda birincil alan bulunamadı"
+    },
+    "export": {
+      "notSupportViewType": "{{viewType}} görünüm türü dışa aktarma için desteklenmiyor"
+    },
+    "import": {
+      "notSupportedFileFormat": "Dosya biçimi desteklenmiyor, yalnızca {{supportType}} destekleniyor, dosyanızın içerik türü {{fileFormat}}",
+      "notSupportedFileType": "İçe aktarma dosya türü desteklenmiyor",
+      "exceedMaxFieldsLength": "Tablodaki alan sayısı {{maxFieldsLength}} değerini aşamaz, mevcut değer {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Mevcut örnek, yönetici tarafından alan davetine izin vermiyor",
+      "invalidCode": "Geçersiz davet kodu",
+      "linkNotFound": "Davet bağlantısı bulunamadı",
+      "linkExpired": "Davet bağlantısının süresi doldu",
+      "limitExceeded": "Saatte maksimum davet sayısına ulaştınız"
+    },
+    "pin": {
+      "alreadyExists": "Favori zaten mevcut",
+      "notFound": "Favori bulunamadı",
+      "anchorNotFound": "Favori bağlantı noktası bulunamadı"
+    },
+    "trash": {
+      "invalidResourceType": "Geçersiz kaynak türü",
+      "notFound": "Çöp kutusu öğesi bulunamadı",
+      "parentSpaceTrashed": "Üst alan da çöp kutusunda olduğu için bu taban geri yüklenemiyor",
+      "parentBaseOrSpaceTrashed": "Üst taban veya alan da çöp kutusunda olduğu için bu tablo geri yüklenemiyor",
+      "tableNotFound": "Tablo çöp kutusu öğesi bulunamadı"
+    },
+    "license": {
+      "invalid": "Lisans geçersiz",
+      "instanceIdMismatch": "Gelen örnek ID'si mevcut örneğin örnek ID'si ile eşleşmiyor",
+      "expired": "Lisansın süresi doldu",
+      "userLimitExceeded": "Mevcut örnekteki kullanıcı sayısı lisansın koltuk sınırını aşıyor. Lütfen bazı kullanıcıları devre dışı bırakın veya lisansı yükseltin"
+    },
+    "organization": {
+      "notFound": "Organizasyon bulunamadı",
+      "emailNotSpaceUser": "E-posta alan kullanıcısı değil",
+      "authenticationNotFound": "Kimlik doğrulama bulunamadı",
+      "spaceShouldExist": "Organizasyon alanı mevcut olmalı",
+      "emailsNotInOrgDomain": "Bu e-postalar {{emails}} organizasyon etki alanında değil"
+    },
+    "user": {
+      "disallowSignUp": "Mevcut örnek, yönetici tarafından kayıt olmaya izin vermiyor",
+      "waitlistInviteCodeRequired": "Bekleme listesi etkin, davetiye kodu gerekli",
+      "waitlistInviteCodeInvalid": "Bekleme listesi etkin, davetiye kodu geçersiz",
+      "systemUser": "Kullanıcı bir sistem kullanıcısıdır",
+      "collaboratorsInSpaces": "Kullanıcının alanlarda işbirlikçileri var (veya çöp kutusunda silinmiş alanlar)",
+      "notFound": "Kullanıcı bulunamadı",
+      "cannotDeleteAdmin": "Yönetici kullanıcı silinemez",
+      "cannotDeactivateAdmin": "Yönetici kullanıcı devre dışı bırakılamaz",
+      "cannotRemoveLastAdmin": "Son aktif yönetici kullanıcıdan yönetici ayrıcalığı kaldırılamaz",
+      "permanentDeleted": "Kullanıcı kalıcı olarak silindi",
+      "cannotDeleteSelf": "Kendinizi silemezsiniz",
+      "alreadyInDepartment": "Kullanıcı {{userId}} zaten hedef departmanda",
+      "emailsNotFound": "E-postalar {{emails}} bulunamadı",
+      "deleted": "Kullanıcı {{userId}} silindi",
+      "alreadyInOrg": "Kullanıcı {{userId}} zaten organizasyonda",
+      "notInOrg": "Kullanıcı {{userId}} organizasyonda değil"
+    },
+    "record": {
+      "notFound": "Kayıt bulunamadı",
+      "deletedIdsNotFound": "Silinecek bazı kayıtlar bulunamadı",
+      "updateFailed": "Kayıt güncelleme başarısız",
+      "noFileOrUrlProvided": "Dosya veya URL sağlanmadı",
+      "createRecordsEmpty": "Kayıt oluşturma boş olamaz",
+      "duplicateFailed": "Kayıt çoğaltma başarısız"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Hücre değeri doğrulama başarısız"
+    },
+    "workflow": {
+      "notActive": "Otomasyon açık değil"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Geçersiz kaynak türü"
+    },
+    "template": {
+      "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
+      "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
+      "noMinOrderFound": "Minimum sıra bulunamadı"
+    },
+    "domainVerification": {
+      "notFound": "Domain doğrulama kodu bulunamadı",
+      "invalidCode": "Geçersiz doğrulama kodu",
+      "resendCooldown": "Yeni bir kod istemeden önce lütfen 1 dakika bekleyin"
+    },
+    "mail": {
+      "failedToSendEmail": "E-posta gönderimi başarısız"
+    },
+    "department": {
+      "parentNotFound": "Üst departman bulunamadı",
+      "notFound": "Departman bulunamadı",
+      "cannotMoveToItself": "Departman kendisine taşınamaz",
+      "cannotMoveToSub": "Departman alt departmanına taşınamaz"
     }
   }
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Role } from '@teable/core';
+import { useTheme } from '@teable/next-themes';
 import {
   PinType,
   deleteSpace,
@@ -10,6 +11,7 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { ScrollArea } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -31,6 +33,9 @@ export const SpaceInnerPage: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+
+  const { resolvedTheme } = useTheme();
+  const isDark = resolvedTheme === 'dark';
 
   const [renaming, setRenaming] = useState<boolean>(false);
   const [spaceName, setSpaceName] = useState<string>();
@@ -149,8 +154,23 @@ export const SpaceInnerPage: React.FC = () => {
               <DraggableBaseGrid bases={basesInSpace} className="pb-8 sm:pr-8" />
             </ScrollArea>
           ) : (
-            <div className="flex items-center justify-center">
-              <h1>{t('space:spaceIsEmpty')}</h1>
+            <div className="flex h-full flex-col items-center justify-center gap-2">
+              <Image
+                src={
+                  isDark
+                    ? '/images/layout/empty-base-dark.png'
+                    : '/images/layout/empty-base-light.png'
+                }
+                alt="No roles available"
+                width={240}
+                height={240}
+              />
+              <div className="flex flex-col items-center justify-center gap-2">
+                <p className="text-base font-semibold text-foreground">
+                  {t('space:emptySpaceTitle')}
+                </p>
+                <p className="text-sm text-muted-foreground">{t('space:spaceIsEmpty')}</p>
+              </div>
             </div>
           )}
         </div>

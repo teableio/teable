@@ -55,6 +55,8 @@
   "editor": {
     "attachment": {
       "uploadDragOver": "Отпустите, чтобы загрузить файл",
+      "uploadBaseTextPrefix": "Click to upload ",
+      "uploadBaseText": "or paste or drag and drop here",
       "uploadDragDefault": "Вставьте или перетащите файл для загрузки сюда",
       "upload": "загрузить"
     },
@@ -189,6 +191,10 @@
         "isLessEqual": "≤"
       }
     },
+    "conditionalRollup": {
+      "switchToField": "Use field value",
+      "switchToValue": "Use manual value"
+    },
     "component": {
       "date": {
         "today": "сегодня",
@@ -202,6 +208,15 @@
         "daysFromNow": "дней вперед",
         "exactDate": "точная дата",
         "exactFormatDate": "точная дата (форматированная)",
+        "currentWeek": "current week",
+        "currentMonth": "current month",
+        "currentYear": "current year",
+        "lastWeek": "last week",
+        "lastMonth": "last month",
+        "lastYear": "last year",
+        "nextWeekPeriod": "next week",
+        "nextMonthPeriod": "next month",
+        "nextYearPeriod": "next year",
         "pastWeek": "прошлая неделя",
         "pastMonth": "прошлый месяц",
         "pastYear": "прошлый год",
@@ -244,8 +259,11 @@
   },
   "expandRecord": {
     "copy": "Копировать в буфер обмена",
+    "duplicateRecord": "Duplicate record",
     "copyRecordUrl": "Копировать URL записи",
     "deleteRecord": "Удалить запись",
+    "addRecordComment": "Добавить комментарий",
+    "viewRecordHistory": "Посмотреть историю записи",
     "recordHistory": {
       "hiddenRecordHistory": "Скрыть историю записи",
       "showRecordHistory": "Показать историю записи",
@@ -361,6 +379,7 @@
       "viewDelete": "Удалить вид",
       "viewRead": "Читать вид",
       "viewUpdate": "Обновить вид",
+      "viewShare": "Share view",
       "fieldCreate": "Создать поле",
       "fieldDelete": "Удалить поле",
       "fieldRead": "Читать поле",
@@ -370,6 +389,7 @@
       "recordDelete": "Удалить запись",
       "recordRead": "Читать запись",
       "recordUpdate": "Обновить запись",
+      "recordCopy": "Copy record",
       "automationCreate": "Создать автоматизацию",
       "automationDelete": "Удалить автоматизацию",
       "automationRead": "Читать автоматизацию",
@@ -379,7 +399,9 @@
       "recordHistoryRead": "Читать историю записей",
       "baseQuery": "Запрос базы",
       "instanceRead": "Читать экземпляр",
-      "instanceUpdate": "Обновить экземпляр"
+      "instanceUpdate": "Обновить экземпляр",
+      "enterpriseRead": "Read enterprise configuration",
+      "enterpriseUpdate": "Update enterprise configuration"
     }
   },
   "noun": {
@@ -393,7 +415,8 @@
     "user": "Пользователь",
     "recordHistory": "История записи",
     "you": "Вы",
-    "instance": "Экземпляр"
+    "instance": "Экземпляр",
+    "enterprise": "Enterprise"
   },
   "formula": {
     "SUM": {
@@ -670,7 +693,7 @@
     },
     "LAST_MODIFIED_TIME": {
       "summary": "Возвращает дату и время последнего изменения, сделанного пользователем в невычисляемом поле таблицы.",
-      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\""
+      "example": "LAST_MODIFIED_TIME() => \"2023-09-08 18:00:00\"; LAST_MODIFIED_TIME({Due Date}) => \"2023-09-09 12:00:00\""
     },
     "COUNTALL": {
       "summary": "Возвращает количество всех элементов, включая текст и пустые значения.",
@@ -728,6 +751,7 @@
   },
   "statisticFunc": {
     "none": "Нет",
+    "count": "Count",
     "empty": "Пусто",
     "filled": "Заполнено",
     "unique": "Уникальные",
@@ -823,6 +847,15 @@
       "enterUrl": "Введите URL"
     }
   },
+  "memberSelector": {
+    "title": "Select Members",
+    "memberSelectorSearchPlaceholder": "Search members...",
+    "departmentSelectorSearchPlaceholder": "Search departments...",
+    "selected": "Selected",
+    "noSelected": "No selected",
+    "empty": "No members",
+    "emptyDepartment": "No departments"
+  },
   "httpErrors": {
     "validationError": "Ошибка валидации",
     "invalidCaptcha": "Неверный Captcha",
@@ -840,7 +873,6 @@
     "databaseConnectionUnavailable": "Недоступная база данных",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Неизвестный код ошибки",
-    "viewNotFound": "Не найден вид",
     "requestTimeout": "Таймаут запроса",
     "failedDependency": "Ошибка зависимости",
     "automationNodeParseError": "Ошибка разбора узла автоматизации",
@@ -852,31 +884,213 @@
       "linkFieldValueDuplicate": "\"{{fieldName}}\" поле не допускает дубликаты связей с одним и тем же записью",
       "requestTimeout": "Текущая операция слишком велика, пожалуйста, попробуйте снова с меньшим диапазоном.",
       "searchTimeOut": "Поиск завершился, уменьшите область поиска и повторите.",
-      "dependencyNodeRequire": "Зависимый узел не протестирован, пожалуйста, проверьте, протестированы ли все предыдущие узлы"
+      "dependencyNodeRequire": "Зависимый узел не протестирован, пожалуйста, проверьте, протестированы ли все предыдущие узлы",
+      "invalidOperation": "Обнаружена недопустимая операция, пожалуйста, проверьте параметры операции"
+    },
+    "comment": {
+      "listCountExceeded": "Количество запрошенных комментариев превышает максимальный лимит 1000",
+      "invalidContentType": "Неверный тип содержимого комментария"
+    },
+    "attachment": {
+      "tokenExpireInTooLong": "Срок действия токена должен быть менее 7 дней",
+      "s3RegionRequired": "Регион S3 обязателен",
+      "s3EndpointRequired": "Конечная точка S3 обязательна",
+      "s3AccessKeyRequired": "Ключ доступа S3 обязателен",
+      "s3SecretKeyRequired": "Секретный ключ S3 обязателен",
+      "s3UploadMethodMustBePut": "Метод загрузки S3 должен быть PUT",
+      "presignedError": "Не удалось сгенерировать предварительно подписанный URL",
+      "invalidObjectMeta": "Недопустимые метаданные объекта",
+      "invalidImageStream": "Недопустимый поток изображения",
+      "calculateImageSizeFailed": "Не удалось рассчитать размер изображения",
+      "uploadFailed": "Загрузка не удалась",
+      "invalidImage": "Недопустимое изображение",
+      "cantGetImageStream": "Невозможно получить поток изображения",
+      "invalidProvider": "Недопустимый поставщик хранилища",
+      "failedToDeleteDirectory": "Не удалось удалить каталог",
+      "invalidToken": "Недействительный токен",
+      "tokenExpired": "Срок действия токена истек",
+      "sizeMismatch": "Размер файла не совпадает",
+      "notAllowUploadFileType": "Тип файла {{mimetype}} не разрешен для загрузки",
+      "notFound": "Вложение не найдено",
+      "invalidPath": "Недопустимый путь к вложению",
+      "fileSizeExceedsMaximumLimit": "Размер файла превышает максимальный лимит {{maxSize}}",
+      "invalidUploadType": "Недопустимый тип загрузки",
+      "urlReject": "URL отклонен или недоступен"
     },
     "email": {
       "testEmailError": "Ошибка конфигурации почты {{message}}"
     },
+    "auth": {
+      "invalidConfirm": "Invalid confirmation input",
+      "emailNotRegistered": "This email is not registered",
+      "passwordNotSet": "Password has not been set for this account",
+      "systemUser": "This is a system user account",
+      "alreadyRegistered": "This email is already registered",
+      "passwordIncorrect": "The password is incorrect",
+      "tokenInvalid": "The token is invalid or has expired",
+      "passwordAlreadyExists": "Password has already been set for this account",
+      "verificationCodeInvalid": "The verification code is invalid or has expired",
+      "newEmailSameAsCurrentEmail": "The new email address is the same as the current one",
+      "emailAlreadyRegistered": "This email address is already registered",
+      "waitlistNotEnabled": "The waitlist feature is not enabled",
+      "emailOrPasswordIncorrect": "Email or password is incorrect",
+      "accountDeactivated": "This account has been deactivated by the administrator",
+      "accountLockedOut": "Your account has been locked due to too many failed login attempts. Please try again later."
+    },
     "automation": {
       "buttonClickTriggerDuplicated": "Это поле кнопки уже связано с {{name}}[{{id}}] этот процесс автоматизации, пожалуйста, выберите другое поле кнопки",
-      "triggerNotFound": "Триггер не найден",
+      "triggerNotFound": "Автоматизация должна иметь узел триггера",
       "nodeNotFound": "{{nodeId}} узел не найден",
-      "workflowNotFound": "{{workflowId}} рабочий процесс не найден",
       "triggerTestFailed": "Тест триггера провалился, пожалуйста, проверьте конфигурацию триггера",
-      "workflowTestFailed": "Тест рабочего процесса провалился, пожалуйста, проверьте конфигурацию рабочего процесса",
+      "testFailed": "Тест автоматизации не прошел, проверьте конфигурацию автоматизации",
       "nodeParseError": "{{name}} конфигурация узла неполная или содержит ошибки, пожалуйста, проверьте конфигурацию узла",
       "nodeNeedTest": "{{name}} узел требует тестирования",
-      "nodeTestOutdated": "{{name}} тест узла устарел"
+      "nodeTestOutdated": "{{name}} тест узла устарел",
+      "notFound": "Автоматизация не найдена",
+      "currentSnapshotEmpty": "Текущий снимок автоматизации пуст",
+      "runNotFound": "Выполнение автоматизации не найдено",
+      "anchorNotFound": "Якорная автоматизация не найдена",
+      "validationError": "Ошибка валидации конфигурации автоматизации",
+      "tableNotInBase": "Вы можете подписаться только на таблицу в пределах вашей базы данных",
+      "alreadyActiveAndNotDraft": "Автоматизация уже активна и не является черновиком",
+      "noActiveSnapshot": "У автоматизации нет активного снимка",
+      "triggerNodeAlreadyExists": "У этой автоматизации уже есть узел триггера",
+      "generateLogicError": "Ошибка генерации узла логики",
+      "logicNotFound": "Узел логики автоматизации не найден",
+      "actionNotFound": "Узел действия автоматизации не найден",
+      "unSupportDuplicateWorkflowNodeType": "Дублирование этого типа узла автоматизации не поддерживается",
+      "unSupportLogicType": "Неподдерживаемый тип логики",
+      "groupEndNotFound": "GroupEnd не найден для логики",
+      "insertNodeError": "Ошибка вставки узла",
+      "controlNodeNotBeTested": "Узел управления не должен тестироваться",
+      "invalidNodeType": "Недопустимый тип узла",
+      "unsupportedCategory": "Неподдерживаемая категория"
+    },
+    "space": {
+      "notFound": "Пространство не найдено",
+      "noPermission": "У вас нет разрешения на доступ к этому пространству",
+      "disallowSpaceCreation": "Создание пространств отключено администратором",
+      "cannotChangeOnlyOwnerRole": "Невозможно изменить роль единственного владельца пространства",
+      "cannotDeleteOnlyOwner": "Невозможно удалить единственного владельца пространства",
+      "deleted": "Space has been deleted",
+      "cannotOperate": "Невозможно работать с пространством, убедитесь, что в пространстве есть члены организации и они являются владельцами",
+      "notBelongToOrg": "Это пространство не принадлежит организации",
+      "invalidSpaceIds": "Недопустимые идентификаторы пространства: {{spaceIds}}"
+    },
+    "base": {
+      "notFound": "База не найдена",
+      "cannotAccess": "У вас нет разрешения на доступ к базе {{baseId}}",
+      "anchorNotFound": "Якорная база {{anchorId}} не найдена",
+      "baseAndSpaceMismatch": "База {{baseId}} и пространство {{spaceId}} не совпадают",
+      "templateNotFound": "Шаблон {{templateId}} не найден"
+    },
+    "dashboard": {
+      "notFound": "Панель управления не найдена"
+    },
+    "plugin": {
+      "notFound": "Плагин не найден",
+      "notSupportInstallInView": "Плагин не поддерживает установку в представление",
+      "userNotFound": "Пользователь плагина не найден",
+      "invalidSecret": "Недействительный секрет",
+      "invalidRefreshToken": "Недействительный токен обновления",
+      "anomalousToken": "Аномальный токен"
+    },
+    "pluginPanel": {
+      "notFound": "Панель плагинов не найдена"
+    },
+    "pluginInstall": {
+      "notFound": "Плагин не установлен"
+    },
+    "share": {
+      "incorrectPassword": "Неверный пароль",
+      "notAllowedToSubmit": "Отправка формы не разрешена",
+      "viewRequired": "Для этой операции требуется представление",
+      "hiddenFieldsSubmissionNotAllowed": "Отправка формы не разрешена при наличии скрытых полей",
+      "submitRecordsError": "Ошибка отправки записи",
+      "notAllowedToCopy": "Операция копирования не разрешена",
+      "fieldHiddenNotAllowed": "Поле скрыто и недоступно",
+      "fieldTypeNotLinkField": "Поле не является полем связи",
+      "fieldIdRequired": "Требуется ID поля",
+      "fieldNotUserRelatedField": "Поле не связано с пользователем",
+      "viewTypeNotAllowed": "Этот тип представления не разрешен для данной операции"
+    },
+    "shareAuth": {
+      "passwordRestrictionNotEnabled": "Ограничение паролем не включено для этого общего представления",
+      "shareViewNotFound": "Общее представление не найдено или общий доступ отключен",
+      "linkFieldNotFound": "Поле связи не найдено"
+    },
+    "shareSocket": {
+      "viewPermissionNotAllowed": "У вас нет разрешения на доступ к этому представлению",
+      "fieldPermissionNotAllowed": "У вас нет разрешения на доступ к этим полям",
+      "recordPermissionNotAllowed": "У вас нет разрешения на доступ к этим записям"
+    },
+    "pluginContextMenu": {
+      "notFound": "Контекстное меню плагина не найдено",
+      "anchorNotFound": "Якорь контекстного меню плагина не найден"
+    },
+    "pluginChart": {
+      "queryNotFound": "Запрос диаграммы плагина не найден"
+    },
+    "dbConnection": {
+      "unsupportedDriver": "Неподдерживаемый драйвер базы данных: {{driver}}",
+      "onlyOwnerCanRemove": "Только владелец базы может удалить подключение к базе данных для базы {{baseId}}",
+      "onlyOwnerCanCreate": "Только владелец базы может создать подключение к базе данных для базы {{baseId}}",
+      "roleNotExist": "Роль базы данных {{role}} не существует"
+    },
+    "baseQuery": {
+      "queryFailed": "Запрос не выполнен: {{message}}",
+      "invalidJoinType": "Недопустимый тип соединения: {{joinType}}",
+      "tableNotFound": "Таблица {{tableId}} не найдена в базе {{baseId}}"
+    },
+    "baseSqlExecutor": {
+      "notAllowedToExecuteSqlWithKeyword": "Не разрешено выполнять SQL с ключевым словом {{keyword}}",
+      "whiteListCheckError": "Произошла ошибка при проверке доступа к таблице: {{message}}",
+      "databaseConnectionFailed": "Не удалось подключиться к базе данных: {{message}}",
+      "executeQuerySqlFailed": "Не удалось выполнить запрос SQL: {{message}}"
     },
     "permission": {
       "createRecordWithDeniedFields": "У вас нет разрешения на создание записей с полями({{fields}})",
       "deleteRecords": "У вас нет разрешения на удаление записей({{recordIds}})",
       "readRecordWithDeniedFields": "У вас нет разрешения на чтение полей({{fields}}) в записи({{recordId}})",
-      "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})"
+      "updateRecordWithDeniedFields": "У вас нет разрешения на обновление полей({{fields}}) в записи({{recordId}})",
+      "checkIdNotExist": "ID проверки разрешений не существует",
+      "userNotAdmin": "Пользователь не является администратором",
+      "accessTokenNoPermission": "Токен доступа не имеет необходимого разрешения",
+      "invalidResource": "Ресурс недействителен",
+      "notAllowedSpace": "У вас нет разрешения на доступ к этому пространству",
+      "notAllowedBase": "У вас нет разрешения на доступ к этой базе",
+      "notAllowedTables": "У вас нет разрешения на доступ к таблицам({{tableIds}})",
+      "notAllowedOperationTable": "У вас нет разрешения на операции с этой таблицей",
+      "notAllowedOperationRecord": "У вас нет разрешения на операции с этой записью",
+      "notAllowedRecordUpdate": "У вас нет разрешения на обновление этой записи",
+      "notAllowedOperationView": "У вас нет разрешения на операции с этим представлением",
+      "deniedByEnabledAuthorityMatrix": "Разрешение отклонено активированной матрицей полномочий",
+      "invalidRequestPath": "Путь запроса недействителен",
+      "notAllowedOperation": "У вас нет разрешения на выполнение этой операции",
+      "notAllowedDepartment": "Вам не разрешен доступ к этому отделу"
+    },
+    "authorityMatrix": {
+      "defaultRoleNotFound": "Роль по умолчанию не найдена",
+      "alreadyDisabled": "Матрица полномочий уже отключена",
+      "alreadyEnabled": "Матрица полномочий уже включена",
+      "notFound": "Матрица полномочий не найдена",
+      "primaryFieldCannotBeDisabledForRead": "Основное поле не может быть отключено для чтения",
+      "fieldDuplicated": "Поле дублируется в конфигурации разрешений",
+      "cannotSetRecordPermissionGroup": "Невозможно установить эту комбинацию разрешений записи({{actions}})",
+      "notFoundBaseAndTable": "ID базы и ID таблицы не найдены",
+      "roleTablesShouldNotBeEmpty": "Таблицы ролей матрицы полномочий не должны быть пустыми"
+    },
+    "selection": {
+      "invalidReturnType": "Неверный тип возврата",
+      "exceedMaxReadRows": "Превышен максимальный лимит чтения строк",
+      "invalidCellValueType": "Неверный тип значения ячейки",
+      "exceedMaxCopyCells": "Превышен максимальный лимит копируемых ячеек",
+      "exceedMaxPasteCells": "Превышен максимальный лимит вставляемых ячеек"
     },
     "field": {
       "unsupportedFieldType": "Неподдерживаемый тип поля {{type}}",
       "unsupportedPrimaryFieldType": "Неподдерживаемый тип поля {{type}} в качестве первичного поля",
+      "primaryFieldNotSupported": "Тип поля не поддерживается в качестве первичного поля",
       "calculateRecordNotFound": "Запись не найдена для: {{value}}, fieldId: {{fieldId}}, при вычислении {{recordId}}",
       "toRecordIdsOrFromRecordIdsRequired": "toRecordIds или fromRecordIds требуется для обычного вычисляемого поля",
       "recordFieldsRequired": "Поля записи не определены",
@@ -885,8 +1099,9 @@
       "dbFieldNameAlreadyExists": "Имя поля базы данных {{dbFieldName}} уже существует",
       "fieldValidationError": "Поле {{name}}[{{fieldId}}] ошибка проверки поля",
       "fieldNameAlreadyExists": "Имя поля {{name}} уже существует",
-      "fieldNotFound": "Поле {{fieldId}} не найдено",
-      "fieldNotFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
+      "notFound": "Поле не найдено",
+      "fieldKeyTypeNotFound": "Поле \"{{fieldKeyType}}: {{missedFields}}\" не найдено",
+      "notFoundInTable": "Поле {{fieldId}} не найдено в таблице {{tableId}}",
       "deleteFieldsNotFound": "Поля для удаления {{fieldIds}} не найдены в таблице {{tableId}}",
       "lookupValuesShouldBeArray": "lookupValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
       "linkCellValuesShouldBeArray": "linkCellValues должен быть массивом, когда поле связи имеет несколько значений ячейки",
@@ -909,18 +1124,189 @@
       "lookupFieldTypeNotEqual": "Текущий тип поля {{fieldType}} не равен типу поля поиска {{lookupFieldType}}",
       "recordNotFound": "Запись {{recordId}} не найдена в {{tableId}}",
       "linkCellRecordIdAlreadyExists": "Невозможно установить дублирующий recordId: {{recordId}} в той же ячейке",
-      "linkConsistencyError": "Ошибка согласованности, recordId {{recordId}} не существует",
       "oneOneLinkCellValueCannotBeArray": "Значения поля связи один-к-одному не могут быть массивом",
       "manyOneLinkCellValueCannotBeArray": "Значения поля связи многие-к-одному не могут быть массивом",
+      "foreignKeyDuplicate": "Дубликат внешнего ключа",
+      "linkConsistencyError": "Ошибка согласованности, recordId {{recordId}} не существует",
       "oneManyLinkCellValueShouldBeArray": "Значения поля связи один-ко-многим должны быть массивом",
       "manyManyLinkCellValueShouldBeArray": "Значения поля связи многие-ко-многим должны быть массивом",
-      "foreignKeyDuplicate": "Дубликат внешнего ключа"
+      "onlyLinkFieldCanBeFiltered": "Только поля связи могут использоваться для фильтрации",
+      "notLinkedToCurrentTable": "Поле не связано с текущей таблицей",
+      "notAttachment": "Поле не является полем вложения",
+      "isComputed": "Поле вычисляется и не может быть изменено",
+      "notFoundAICofig": "Поле не имеет конфигурации AI",
+      "button": {
+        "clickCountReachedMaxCount": "Количество нажатий кнопки достигло максимального предела",
+        "notSupportReset": "Кнопка не поддерживает сброс"
+      }
     },
     "view": {
-      "viewNotFound": "Представление {{viewId}} не найдено"
+      "notFound": "Представление не найдено",
+      "defaultViewNotFound": "Представление по умолчанию не найдено",
+      "propertyParseError": "Не удалось разобрать свойство представления",
+      "primaryFieldCannotBeHidden": "Первичное поле не может быть скрыто",
+      "filterUnsupportedFieldType": "Фильтр не поддерживает тип поля",
+      "sortUnsupportedFieldType": "Сортировка не поддерживает тип поля",
+      "groupUnsupportedFieldType": "Группировка не поддерживает тип поля",
+      "anchorNotFound": "Якорное представление не найдено",
+      "notEnoughGapToShuffleRow": "Недостаточно места для перемешивания строки",
+      "shareNotEnabled": "Общий доступ к представлению не включен",
+      "shareAlreadyEnabled": "Общий доступ к представлению уже включен",
+      "shareAlreadyDisabled": "Общий доступ к представлению уже отключен"
     },
     "billing": {
-      "insufficientCredit": "Недостаточно средств"
+      "insufficientCredit": "Недостаточно средств",
+      "exceedMaxRowLimit": "Превышен максимальный лимит строк {{maxRowCount}}"
+    },
+    "aggregation": {
+      "searchQueryRequired": "Требуется поисковой запрос",
+      "maxSearchIndexResult": "Максимальный результат поискового индекса составляет 1000",
+      "queryCollectionMustBeTableId": "Коллекция запросов должна быть идентификатором таблицы",
+      "searchTimeOut": "Поиск завершился, уменьшите область поиска и повторите.",
+      "indexNotFound": "Индекс не найден",
+      "invalidStartDateFieldId": "Недействительный идентификатор поля даты начала",
+      "invalidEndDateFieldId": "Недействительный идентификатор поля даты окончания",
+      "fieldMapRequired": "Карта полей требуется при установке поиска",
+      "filterLinkCellQueryConflict": "filterLinkCellSelected и filterLinkCellCandidate нельзя установить одновременно"
+    },
+    "ai": {
+      "chatModelLgNotSet": "Модель чата ИИ lg не установлена",
+      "chatModelLgProviderNotSet": "Провайдер модели чата ИИ lg не установлен",
+      "chatModelSmNotSet": "Модель чата ИИ sm не установлена",
+      "chatModelMdNotSet": "Модель чата ИИ md не установлена",
+      "configurationNotSet": "Конфигурация ИИ не установлена",
+      "unsupportedProvider": "Неподдерживаемый провайдер ИИ {{type}}",
+      "providerConfigurationNotSet": "Конфигурация провайдера ИИ не установлена",
+      "testLLMFailed": "Тест подключения LLM не прошел",
+      "audioNotSupported": "Аудио ввод не поддерживается этой моделью {{model}}",
+      "imageNotSupported": "Ввод изображения не поддерживается этой моделью {{model}}",
+      "modelNotSet": "Модель ИИ не установлена",
+      "unsupportedFileType": "Неподдерживаемый тип файла {{mimetype}}",
+      "unsupportedModelType": "Неподдерживаемый тип модели",
+      "embeddingModelNotSet": "Модель встраивания не установлена",
+      "validateActionFailed": "Не удалось проверить действие AI поля",
+      "generateFailed": "Не удалось сгенерировать AI",
+      "unsupportedActionType": "Неподдерживаемый тип действия AI"
+    },
+    "role": {
+      "notFound": "Роль не найдена"
+    },
+    "collaborator": {
+      "alreadyExisted": "Соавтор уже существует",
+      "notFound": "Соавтор не найден",
+      "userNotFoundInCollaborator": "Пользователь не найден среди соавторов",
+      "noPermissionToDelete": "У вас нет разрешения на удаление этого соавтора",
+      "noPermissionToUpdate": "У вас нет разрешения на обновление этого соавтора",
+      "noPermissionToOperateRole": "У вас нет разрешения на управление этой ролью",
+      "alreadyExistedInBase": "Соавтор уже существует в базе данных",
+      "userNotFound": "Пользователь не найден: {{userIds}}",
+      "baseNotFound": "База данных не найдена",
+      "noPermissionToAddRole": "У вас нет разрешения на добавление соавтора с этой ролью",
+      "departmentNotFound": "Отдел не найден"
+    },
+    "table": {
+      "notFound": "Таблица не найдена",
+      "dbTableNameAlreadyExists": "Имя таблицы базы данных уже существует",
+      "anchorNotFound": "Якорная таблица не найдена",
+      "notInTrash": "Таблица не находится в корзине",
+      "notSupportTableIndex": "Тип индекса таблицы не поддерживается",
+      "createTableIndexError": "Не удалось создать индекс таблицы",
+      "dropTableIndexError": "Не удалось удалить индекс таблицы",
+      "notFoundPrimaryField": "Первичное поле не найдено в таблице"
+    },
+    "export": {
+      "notSupportViewType": "Тип представления {{viewType}} не поддерживается для экспорта"
+    },
+    "import": {
+      "notSupportedFileFormat": "Формат файла не поддерживается, поддерживаются только {{supportType}}, тип содержимого вашего файла {{fileFormat}}",
+      "notSupportedFileType": "Тип файла импорта не поддерживается",
+      "exceedMaxFieldsLength": "Количество полей в таблице не может превышать {{maxFieldsLength}}, текущее значение {{length}}"
+    },
+    "invitation": {
+      "disallowSpaceInvitation": "Текущий экземпляр запрещает приглашения в пространство администратором",
+      "invalidCode": "Неверный код приглашения",
+      "linkNotFound": "Ссылка приглашения не найдена",
+      "linkExpired": "Срок действия ссылки приглашения истек",
+      "limitExceeded": "Вы достигли максимального количества приглашений в час"
+    },
+    "pin": {
+      "alreadyExists": "Избранное уже существует",
+      "notFound": "Избранное не найдено",
+      "anchorNotFound": "Якорь избранного не найден"
+    },
+    "trash": {
+      "invalidResourceType": "Недопустимый тип ресурса",
+      "notFound": "Элемент корзины не найден",
+      "parentSpaceTrashed": "Невозможно восстановить эту базу, так как её родительское пространство также находится в корзине",
+      "parentBaseOrSpaceTrashed": "Невозможно восстановить эту таблицу, так как её родительская база или пространство также находится в корзине",
+      "tableNotFound": "Элемент корзины таблицы не найден"
+    },
+    "license": {
+      "invalid": "Лицензия недействительна",
+      "instanceIdMismatch": "Входящий ID экземпляра не соответствует ID экземпляра текущего экземпляра",
+      "expired": "Лицензия истекла",
+      "userLimitExceeded": "Количество пользователей в текущем экземпляре превышает лимит мест лицензии. Пожалуйста, отключите некоторых пользователей или обновите лицензию"
+    },
+    "organization": {
+      "notFound": "Организация не найдена",
+      "emailNotSpaceUser": "Email не является пользователем пространства",
+      "authenticationNotFound": "Аутентификация не найдена",
+      "spaceShouldExist": "Пространство организации должно существовать",
+      "emailsNotInOrgDomain": "Эти электронные адреса {{emails}} не находятся в домене организации"
+    },
+    "user": {
+      "disallowSignUp": "Текущий экземпляр запрещает регистрацию администратором",
+      "waitlistInviteCodeRequired": "Список ожидания включен, требуется код приглашения",
+      "waitlistInviteCodeInvalid": "Список ожидания включен, код приглашения недействителен",
+      "systemUser": "Пользователь является системным пользователем",
+      "collaboratorsInSpaces": "У пользователя есть сотрудники в пространствах (или удаленные пространства в корзине)",
+      "notFound": "Пользователь не найден",
+      "cannotDeleteAdmin": "Невозможно удалить пользователя-администратора",
+      "cannotDeactivateAdmin": "Невозможно отключить пользователя-администратора",
+      "cannotRemoveLastAdmin": "Невозможно убрать права администратора у последнего активного пользователя-администратора",
+      "permanentDeleted": "Пользователь навсегда удален",
+      "cannotDeleteSelf": "Вы не можете удалить себя",
+      "alreadyInDepartment": "Пользователь {{userId}} уже находится в целевом отделе",
+      "emailsNotFound": "Электронные адреса {{emails}} не найдены",
+      "deleted": "Пользователь {{userId}} удалены",
+      "alreadyInOrg": "Пользователь {{userId}} уже находится в организации",
+      "notInOrg": "Пользователь {{userId}} не находится в организации"
+    },
+    "record": {
+      "notFound": "Запись не найдена",
+      "deletedIdsNotFound": "Некоторые записи для удаления не найдены",
+      "updateFailed": "Не удалось обновить запись",
+      "noFileOrUrlProvided": "Файл или URL не предоставлен",
+      "createRecordsEmpty": "Создание записей не может быть пустым",
+      "duplicateFailed": "Не удалось дублировать запись"
+    },
+    "typecast": {
+      "cellValueValidationFailed": "Ошибка проверки значения ячейки"
+    },
+    "workflow": {
+      "notActive": "Автоматизация не открыта"
+    },
+    "lastVisit": {
+      "invalidResourceType": "Недопустимый тип ресурса"
+    },
+    "template": {
+      "snapshotRequired": "Этот шаблон не может быть опубликован из-за отсутствия снимка",
+      "sourceTemplateNotFound": "Исходный шаблон не найден",
+      "noMinOrderFound": "Минимальный порядок не найден"
+    },
+    "domainVerification": {
+      "notFound": "Код подтверждения домена не найден",
+      "invalidCode": "Неверный код подтверждения",
+      "resendCooldown": "Пожалуйста, подождите 1 минуту перед запросом нового кода"
+    },
+    "mail": {
+      "failedToSendEmail": "Не удалось отправить электронное письмо"
+    },
+    "department": {
+      "parentNotFound": "Родительский отдел не найден",
+      "notFound": "Отдел не найден",
+      "cannotMoveToItself": "Невозможно переместить отдел в самого себя",
+      "cannotMoveToSub": "Невозможно переместить отдел в его подотдел"
     }
   }
 }

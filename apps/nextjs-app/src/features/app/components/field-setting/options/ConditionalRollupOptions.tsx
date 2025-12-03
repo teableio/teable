@@ -206,6 +206,7 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
           onLimitChange={(limitValue) => onOptionsChange({ limit: limitValue })}
           defaultLimit={CONDITIONAL_QUERY_DEFAULT_LIMIT}
           toggleTestId="conditional-rollup-sort-limit-toggle"
+          onDisable={() => onOptionsChange({ sort: undefined, limit: undefined })}
         />
       ) : null}
     </div>

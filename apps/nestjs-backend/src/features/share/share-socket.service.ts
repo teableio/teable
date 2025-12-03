@@ -1,9 +1,10 @@
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
-import type { IGetFieldsQuery } from '@teable/core';
+import { HttpErrorCode, type IGetFieldsQuery } from '@teable/core';
 import type { IGetRecordsRo } from '@teable/openapi';
 import { Knex } from 'knex';
 import { difference } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { CustomHttpException } from '../../custom.exception';
 import { FieldService } from '../field/field.service';
 import { RecordService } from '../record/record.service';
 import { ViewService } from '../view/view.service';
@@ -21,7 +22,11 @@ export class ShareSocketService {
   getViewDocIdsByQuery(shareInfo: IShareViewInfo) {
     const { tableId, view } = shareInfo;
     if (!view) {
-      throw new BadRequestException('view id is required');
+      throw new CustomHttpException('View not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.view.notFound',
+        },
+      });
     }
     return this.viewService.getDocIdsByQuery(tableId, {
       includeIds: [view.id],
@@ -31,11 +36,23 @@ export class ShareSocketService {
   getViewSnapshotBulk(shareInfo: IShareViewInfo, ids: string[]) {
     const { tableId, view } = shareInfo;
     if (!view) {
-      throw new BadRequestException('view id is required');
+      throw new CustomHttpException('View not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.view.notFound',
+        },
+      });
     }
 
     if (ids.length > 1 || ids[0] !== view.id) {
-      throw new ForbiddenException('View permission not allowed: read');
+      throw new CustomHttpException(
+        'View permission not allowed: read',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.shareSocket.viewPermissionNotAllowed',
+          },
+        }
+      );
     }
     return this.viewService.getSnapshotBulk(tableId, [view.id]);
   }
@@ -74,8 +91,14 @@ export class ShareSocketService {
     const { ids: fieldIds } = await this.getFieldDocIdsByQuery(shareInfo);
     const unPermissionIds = difference(ids, fieldIds);
     if (unPermissionIds.length) {
-      throw new ForbiddenException(
-        `Field(${unPermissionIds.join(',')}) permission not allowed: read`
+      throw new CustomHttpException(
+        `Field(${unPermissionIds.join(',')}) permission not allowed: read`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.shareSocket.fieldPermissionNotAllowed',
+          },
+        }
       );
     }
   }
@@ -126,11 +149,27 @@ export class ShareSocketService {
   async validRecordSnapshotPermission(shareInfo: IShareViewInfo, ids: string[]) {
     const { tableId, shareMeta, view } = shareInfo;
     if (!shareMeta?.includeRecords) {
-      throw new ForbiddenException(`Record(${ids.join(',')}) permission not allowed: read`);
+      throw new CustomHttpException(
+        `Record(${ids.join(',')}) permission not allowed: read`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.shareSocket.recordPermissionNotAllowed',
+          },
+        }
+      );
     }
     const diff = await this.recordService.getDiffIdsByIdAndFilter(tableId, ids, view?.filter);
     if (diff.length) {
-      throw new ForbiddenException(`Record(${diff.join(',')}) permission not allowed: read`);
+      throw new CustomHttpException(
+        `Record(${diff.join(',')}) permission not allowed: read`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.shareSocket.recordPermissionNotAllowed',
+          },
+        }
+      );
     }
   }
 }

@@ -1,7 +1,7 @@
 import type { IRecord } from '@teable/core';
 import { deleteRecord } from '@teable/openapi';
 import { sonner } from '@teable/ui-lib';
-import { useEffect, type FC, type PropsWithChildren } from 'react';
+import { useEffect, useState, type FC, type PropsWithChildren } from 'react';
 import { useLocalStorage } from 'react-use';
 import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { StandaloneViewProvider, ViewProvider } from '../../context';
@@ -39,6 +39,8 @@ interface IExpandRecorderProps {
   onClose?: () => void;
   onUpdateRecordIdCallback?: (recordId: string) => void;
   buttonClickStatusHook?: IButtonClickStatusHook;
+  showHistory?: boolean;
+  showComment?: boolean;
 }
 
 export const ExpandRecorder = (props: IExpandRecorderProps) => {
@@ -53,6 +55,8 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
     commentId,
     viewId,
     buttonClickStatusHook,
+    showHistory,
+    showComment,
   } = props;
   const { t } = useTranslation();
   const permission = useTablePermission();
@@ -60,19 +64,37 @@ export const ExpandRecorder = (props: IExpandRecorderProps) => {
   const editable = Boolean(permission['record|update']);
   const canRead = Boolean(permission['record|read']);
   const canDelete = Boolean(permission['record|delete']);
-  const [recordHistoryVisible, setRecordHistoryVisible] = useLocalStorage<boolean>(
-    LocalStorageKeys.RecordHistoryVisible,
-    false
-  );
+  const [recordHistoryVisible, setRecordHistoryVisible] = useState<boolean>(Boolean(showHistory));
 
   const [commentVisible, setCommentVisible] = useLocalStorage<boolean>(
     LocalStorageKeys.CommentVisible,
-    !!commentId || false
+    !!commentId || Boolean(showComment)
   );
 
   useEffect(() => {
-    commentId && setCommentVisible(true);
-  }, [commentId, setCommentVisible]);
+    if (showHistory !== undefined) {
+      setCommentVisible(false);
+      setRecordHistoryVisible(showHistory);
+    }
+  }, [showHistory, setCommentVisible, setRecordHistoryVisible]);
+
+  useEffect(() => {
+    if (commentId) {
+      setRecordHistoryVisible(false);
+      setCommentVisible(true);
+      return;
+    }
+    if (showComment !== undefined) {
+      setRecordHistoryVisible(false);
+      setCommentVisible(showComment);
+    }
+  }, [showComment, commentId, setCommentVisible, setRecordHistoryVisible]);
+
+  useEffect(() => {
+    if (!recordId) {
+      setRecordHistoryVisible(false);
+    }
+  }, [recordId, setRecordHistoryVisible]);
 
   if (!recordId) {
     return <></>;

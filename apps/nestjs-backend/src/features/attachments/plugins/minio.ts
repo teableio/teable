@@ -2,11 +2,12 @@
 import type { Readable as ReadableStream } from 'node:stream';
 import { join, resolve } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { getRandomString } from '@teable/core';
+import { getRandomString, HttpErrorCode } from '@teable/core';
 import * as fse from 'fs-extra';
 import * as minio from 'minio';
 import sharp from 'sharp';
 import { IStorageConfig, StorageConfig } from '../../../configs/storage';
+import { CustomHttpException } from '../../../custom.exception';
 import { second } from '../../../utils/second';
 import StorageAdapter from './adapter';
 import type { IPresignParams, IPresignRes, IRespHeaders } from './types';
@@ -73,7 +74,15 @@ export class MinioStorage implements StorageAdapter {
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (e: any) {
-      throw new BadRequestException(`Minio presigned error${e?.message ? `: ${e.message}` : ''}`);
+      throw new CustomHttpException(
+        `Minio presigned error${e?.message ? `: ${e.message}` : ''}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.presignedError',
+          },
+        }
+      );
     }
   }
 
@@ -216,7 +225,11 @@ export class MinioStorage implements StorageAdapter {
     const { metaData } = await this.minioClientPrivateNetwork.statObject(bucket, objectName);
     const mimetype = metaData['content-type'] as string;
     if (!mimetype?.startsWith('image/')) {
-      throw new BadRequestException('Invalid image');
+      throw new CustomHttpException('Invalid image', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidImage',
+        },
+      });
     }
     const sourceFilePath = resolve(StorageAdapter.TEMPORARY_DIR, encodeURIComponent(path));
     // stream save in sourceFilePath
@@ -287,8 +300,14 @@ export class MinioStorage implements StorageAdapter {
       if (!throwError) {
         return;
       }
-      throw new BadRequestException(
-        `Failed to delete directory "${path}" in bucket "${bucket}": ${error instanceof Error ? error.message : 'Unknown error'}`
+      throw new CustomHttpException(
+        `Failed to delete directory "${path}" in bucket "${bucket}": ${error instanceof Error ? error.message : 'Unknown error'}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.failedToDeleteDirectory',
+          },
+        }
       );
     }
   }

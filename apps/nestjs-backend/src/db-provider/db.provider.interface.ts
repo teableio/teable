@@ -159,7 +159,14 @@ export interface IDbProvider {
     subQuery: Knex.QueryBuilder;
     dbFieldNames: string[];
     returningDbFieldNames?: string[];
+    restrictRecordIds?: string[];
   }): string;
+
+  lockRecordsSql?(params: {
+    dbTableName: string;
+    idFieldName: string;
+    recordIds: string[];
+  }): string | undefined;
 
   aggregationQuery(
     originQueryBuilder: Knex.QueryBuilder,

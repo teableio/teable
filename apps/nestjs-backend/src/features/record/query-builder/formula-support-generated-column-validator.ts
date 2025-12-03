@@ -62,7 +62,15 @@ export class FormulaSupportGeneratedColumnValidator {
         return false;
       }
 
+      if (this.hasDatetimeTextSlicing(tree)) {
+        return false;
+      }
+
       if (this.hasLogicalNonBooleanArgs(tree)) {
+        return false;
+      }
+
+      if (this.hasNumericFunctionWithNonNumericArgs(tree)) {
         return false;
       }
 
@@ -346,9 +354,9 @@ export class FormulaSupportGeneratedColumnValidator {
       .with('ARRAY_JOIN', () =>
         this.supportValidator.arrayJoin(dummyParam, paramCount > 1 ? dummyParam : undefined)
       )
-      .with('ARRAY_UNIQUE', () => this.supportValidator.arrayUnique(dummyParam))
-      .with('ARRAY_FLATTEN', () => this.supportValidator.arrayFlatten(dummyParam))
-      .with('ARRAY_COMPACT', () => this.supportValidator.arrayCompact(dummyParam))
+      .with('ARRAY_UNIQUE', () => this.supportValidator.arrayUnique(dummyParams))
+      .with('ARRAY_FLATTEN', () => this.supportValidator.arrayFlatten(dummyParams))
+      .with('ARRAY_COMPACT', () => this.supportValidator.arrayCompact(dummyParams))
       .otherwise(() => false);
   }
 
@@ -485,6 +493,7 @@ export class FormulaSupportGeneratedColumnValidator {
           if (arithmetic.includes(operator)) {
             // Arithmetic requires numeric operands. If any side is definitively string -> invalid
             if (leftType === 'string' || rightType === 'string') return 'unknown';
+            if (leftType === 'datetime' || rightType === 'datetime') return 'datetime';
             return 'number';
           }
 
@@ -542,8 +551,13 @@ export class FormulaSupportGeneratedColumnValidator {
           if (arithmetic.includes(operator)) {
             const leftType = ctx.expr(0).accept(this.infer);
             const rightType = ctx.expr(1).accept(this.infer);
-            // If we can prove any operand is a string, this arithmetic is unsafe
-            if (leftType === 'string' || rightType === 'string') {
+            // If we can prove any operand is a string or datetime, this arithmetic is unsafe
+            if (
+              leftType === 'string' ||
+              rightType === 'string' ||
+              leftType === 'datetime' ||
+              rightType === 'datetime'
+            ) {
               return true;
             }
           }
@@ -597,9 +611,68 @@ export class FormulaSupportGeneratedColumnValidator {
         }
         return this.visitChildren(ctx);
       }
+
+      visitFunctionCall(ctx: FunctionCallContext): boolean {
+        const rawName = ctx.func_name().text.toUpperCase();
+        const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
+        if (fnName === FunctionName.Concatenate) {
+          const hasDatetimeArg = ctx.expr().some((exprCtx) => {
+            return self.inferBasicType(exprCtx) === 'datetime';
+          });
+          if (hasDatetimeArg) {
+            return true;
+          }
+        }
+
+        return this.visitChildren(ctx);
+      }
     }
 
     return tree.accept(new DatetimeConcatDetector()) ?? false;
+  }
+
+  private hasDatetimeTextSlicing(tree: ExprContext): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    class DatetimeTextSliceDetector extends AbstractParseTreeVisitor<boolean> {
+      protected defaultResult(): boolean {
+        return false;
+      }
+
+      visitChildren(node: RuleNode): boolean {
+        const n = node.childCount;
+        for (let i = 0; i < n; i++) {
+          const child = node.getChild(i);
+          if (child && child.accept(this)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      visitFunctionCall(ctx: FunctionCallContext): boolean {
+        const rawName = ctx.func_name().text.toUpperCase();
+        const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
+        const exprs = ctx.expr();
+        const hasDatetimeArg = exprs.some((exprCtx) => self.inferBasicType(exprCtx) === 'datetime');
+
+        if (hasDatetimeArg) {
+          switch (fnName) {
+            case FunctionName.Left:
+            case FunctionName.Right:
+            case FunctionName.Mid:
+            case FunctionName.Replace:
+              return true;
+            default:
+              break;
+          }
+        }
+
+        return this.visitChildren(ctx);
+      }
+    }
+
+    return tree.accept(new DatetimeTextSliceDetector()) ?? false;
   }
 
   private hasLogicalNonBooleanArgs(tree: ExprContext): boolean {
@@ -645,6 +718,65 @@ export class FormulaSupportGeneratedColumnValidator {
     }
 
     return tree.accept(new LogicalArgumentDetector()) ?? false;
+  }
+
+  private hasNumericFunctionWithNonNumericArgs(tree: ExprContext): boolean {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    const numericFunctions = new Set<FunctionName>([
+      FunctionName.Sum,
+      FunctionName.Average,
+      FunctionName.Round,
+      FunctionName.RoundUp,
+      FunctionName.RoundDown,
+      FunctionName.Ceiling,
+      FunctionName.Floor,
+      FunctionName.Even,
+      FunctionName.Odd,
+      FunctionName.Int,
+      FunctionName.Abs,
+      FunctionName.Sqrt,
+      FunctionName.Power,
+      FunctionName.Exp,
+      FunctionName.Log,
+      FunctionName.Mod,
+      FunctionName.Value,
+    ]);
+
+    class NumericFunctionArgDetector extends AbstractParseTreeVisitor<boolean> {
+      protected defaultResult(): boolean {
+        return false;
+      }
+
+      visitChildren(node: RuleNode): boolean {
+        const n = node.childCount;
+        for (let i = 0; i < n; i++) {
+          const child = node.getChild(i);
+          if (child && child.accept(this)) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      visitFunctionCall(ctx: FunctionCallContext): boolean {
+        const rawName = ctx.func_name().text.toUpperCase();
+        const fnName = normalizeFunctionNameAlias(rawName) as FunctionName;
+        if (numericFunctions.has(fnName)) {
+          const exprs = ctx.expr();
+          for (const exprCtx of exprs) {
+            const argType = self.inferBasicType(exprCtx);
+            if (argType === 'string' || argType === 'datetime') {
+              return true;
+            }
+          }
+        }
+
+        return this.visitChildren(ctx);
+      }
+    }
+
+    return tree.accept(new NumericFunctionArgDetector()) ?? false;
   }
 
   private containsLogicalFunctions(tree: ExprContext): boolean {

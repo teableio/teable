@@ -15,6 +15,7 @@ export const getBaseItemSchema = z.object({
   role: roleSchema,
   collaboratorType: z.nativeEnum(CollaboratorType).optional(),
   restrictedAuthority: z.boolean().optional(),
+  enabledAuthority: z.boolean().optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;

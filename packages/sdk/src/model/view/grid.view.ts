@@ -5,9 +5,9 @@ import { requestWrap } from '../../utils/requestWrap';
 import { View } from './view';
 
 export class GridView extends Mixin(GridViewCore, View) {
-  async updateOption({ rowHeight, frozenColumnCount, fieldNameDisplayLines }: GridView['options']) {
+  async updateOption(options: Partial<GridView['options']>) {
     return await requestWrap(updateViewOptions)(this.tableId, this.id, {
-      options: { rowHeight, frozenColumnCount, fieldNameDisplayLines },
+      options,
     });
   }
 }

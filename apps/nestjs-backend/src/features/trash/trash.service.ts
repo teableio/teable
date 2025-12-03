@@ -1,12 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  BadRequestException,
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { FieldType, IFieldVo } from '@teable/core';
-import { FieldKeyType, IdPrefix, Role } from '@teable/core';
+import { FieldKeyType, HttpErrorCode, IdPrefix, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IResetTrashItemsRo,
@@ -21,6 +16,7 @@ import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import type { ICreateFieldsOperation } from '../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
@@ -102,7 +98,15 @@ export class TrashService {
       case ResourceType.Base:
         return await this.getBaseTrash();
       default:
-        throw new BadRequestException('Invalid resource type');
+        throw new CustomHttpException(
+          `Invalid resource type ${resourceType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.invalidResourceType',
+            },
+          }
+        );
     }
   }
 
@@ -213,7 +217,15 @@ export class TrashService {
       case ResourceType.Table:
         return await this.getTableTrashItems(trashItemsRo);
       default:
-        throw new BadRequestException('Invalid resource type');
+        throw new CustomHttpException(
+          `Invalid resource type ${resourceType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.invalidResourceType',
+            },
+          }
+        );
     }
   }
 
@@ -273,7 +285,15 @@ export class TrashService {
         }, {} as IResourceMapVo);
       }
       default:
-        throw new BadRequestException('Invalid resource type');
+        throw new CustomHttpException(
+          `Invalid resource type ${resourceType}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.invalidResourceType',
+            },
+          }
+        );
     }
   }
 
@@ -435,7 +455,11 @@ export class TrashService {
           },
         })
         .catch(() => {
-          throw new NotFoundException(`The trash ${trashId} not found`);
+          throw new CustomHttpException(`The trash ${trashId} not found`, HttpErrorCode.NOT_FOUND, {
+            localization: {
+              i18nKey: 'httpErrors.trash.notFound',
+            },
+          });
         });
 
       // Restore space
@@ -468,8 +492,14 @@ export class TrashService {
         });
 
         if (trashedSpace != null) {
-          throw new ForbiddenException(
-            'Unable to restore this base because its parent space is also trashed'
+          throw new CustomHttpException(
+            'Unable to restore this base because its parent space is also trashed',
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.trash.parentSpaceTrashed',
+              },
+            }
           );
         }
 
@@ -505,8 +535,14 @@ export class TrashService {
         });
 
         if (trashedParentResources.length) {
-          throw new ForbiddenException(
-            'Unable to restore this table because its parent base or space is also trashed'
+          throw new CustomHttpException(
+            'Unable to restore this table because its parent base or space is also trashed',
+            HttpErrorCode.VALIDATION_ERROR,
+            {
+              localization: {
+                i18nKey: 'httpErrors.trash.parentBaseOrSpaceTrashed',
+              },
+            }
           );
         }
 
@@ -539,7 +575,15 @@ export class TrashService {
         },
       })
       .catch(() => {
-        throw new NotFoundException(`The table trash ${trashId} not found`);
+        throw new CustomHttpException(
+          `The table trash ${trashId} not found`,
+          HttpErrorCode.NOT_FOUND,
+          {
+            localization: {
+              i18nKey: 'httpErrors.trash.tableNotFound',
+            },
+          }
+        );
       });
 
     await this.permissionService.validPermissions(
@@ -598,7 +642,15 @@ export class TrashService {
             break;
           }
           default:
-            throw new BadRequestException('Invalid resource type');
+            throw new CustomHttpException(
+              `Invalid resource type ${resourceType}`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.trash.invalidResourceType',
+                },
+              }
+            );
         }
 
         await prisma.tableTrash.delete({
@@ -623,7 +675,15 @@ export class TrashService {
     const accessTokenId = this.cls.get('accessTokenId');
 
     if (![ResourceType.Base, ResourceType.Table].includes(resourceType)) {
-      throw new BadRequestException('Invalid resource type');
+      throw new CustomHttpException(
+        `Invalid resource type ${resourceType}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.trash.invalidResourceType',
+          },
+        }
+      );
     }
 
     if (resourceType === ResourceType.Base) {

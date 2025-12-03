@@ -89,9 +89,9 @@ describe('RecordQueryBuilder (e2e)', () => {
         "TBL_ALIAS"."__last_modified_time",
         "TBL_ALIAS"."__created_by",
         "TBL_ALIAS"."__last_modified_by",
-        "TBL_ALIAS"."col_c1" AS "col_c1",
-        "TBL_ALIAS"."col_c2" AS "col_c2",
-        "TBL_ALIAS"."col_c3" AS "col_c3"
+        "TBL_ALIAS"."col_c1" as "col_c1",
+        "TBL_ALIAS"."col_c2" as "col_c2",
+        "TBL_ALIAS"."col_c3" as "col_c3"
       from
         "db_table" as "TBL_ALIAS"
       limit
@@ -116,8 +116,8 @@ describe('RecordQueryBuilder (e2e)', () => {
         "TBL_ALIAS"."__last_modified_time",
         "TBL_ALIAS"."__created_by",
         "TBL_ALIAS"."__last_modified_by",
-        "TBL_ALIAS"."col_c1" AS "col_c1",
-        "TBL_ALIAS"."col_c3" AS "col_c3"
+        "TBL_ALIAS"."col_c1" as "col_c1",
+        "TBL_ALIAS"."col_c3" as "col_c3"
       from
         "db_table" as "TBL_ALIAS"
       limit
@@ -142,7 +142,7 @@ describe('RecordQueryBuilder (e2e)', () => {
         "TBL_ALIAS"."__last_modified_time",
         "TBL_ALIAS"."__created_by",
         "TBL_ALIAS"."__last_modified_by",
-        "TBL_ALIAS"."col_c1" AS "col_c1"
+        "TBL_ALIAS"."col_c1" as "col_c1"
       from
         "db_table" as "TBL_ALIAS"
       limit

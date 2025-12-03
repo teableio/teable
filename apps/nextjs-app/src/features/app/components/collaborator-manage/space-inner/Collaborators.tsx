@@ -7,8 +7,8 @@ import { ReactQueryKeys } from '@teable/sdk';
 import { Badge, Button } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
-import { SpaceCollaboratorModalTrigger } from '@/features/app/components/collaborator-manage/space/SpaceCollaboratorModalTrigger';
 import { UserAvatar } from '@/features/app/components/user/UserAvatar';
+import { InviteSpacePopover } from '../../collaborator/space/InviteSpacePopover';
 
 interface SpaceInnerCollaboratorProps {
   spaceId: string;
@@ -69,7 +69,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
       </ul>
       {hasMore && (
         <div className="mt-4 flex">
-          <SpaceCollaboratorModalTrigger space={space}>
+          <InviteSpacePopover space={space}>
             <Button
               variant="link"
               size="sm"
@@ -77,7 +77,7 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
             >
               +{collaborators.length - maxDisplay} {t('more')}
             </Button>
-          </SpaceCollaboratorModalTrigger>
+          </InviteSpacePopover>
         </div>
       )}
     </div>

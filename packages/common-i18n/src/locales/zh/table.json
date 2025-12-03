@@ -37,19 +37,21 @@
       },
       "personalView": {
         "personal": "个人",
+        "tip": "启用后，视图配置仅对你本人生效",
         "collaborative": "协同",
         "dialog": {
-          "title": "切换到视图协同模式",
-          "description": "切换到视图协同模式后，视图的个人配置将同步给所有人，请确认是否同步",
-          "cancelText": "不同步",
-          "confirmText": "同步"
+          "title": "退出个人模式",
+          "description": "个人视图配置将恢复为实时协作状态，您也可以保存个人视图设置并同步给所有人。",
+          "cancelText": "退出并同步",
+          "confirmText": "确认退出"
         }
       }
     }
   },
   "welcome": {
     "title": "开始",
-    "description": "点击左侧 + 号创建或者导入表格。",
+    "emptyTitle": "开始构建您的数据库",
+    "description": "点击侧边栏中的“+”按钮添加资源，开始高效管理您的数据",
     "help": "访问 <HelpCenter /> 获取更多信息。",
     "helpCenter": "帮助中心"
   },
@@ -254,6 +256,12 @@
       "lookupToTable": "从<bold>{{tableName}}</bold>表中选择要进行查找的字段",
       "rollupToTable": "从<bold>{{tableName}}</bold>表中选择要进行汇总的字段",
       "selectField": "选择一个字段...",
+      "lastModifiedScope": "追踪范围",
+      "lastModifiedAll": "所有可编辑字段",
+      "lastModifiedSpecific": "指定字段",
+      "lastModifiedSelect": "选择追踪字段",
+      "lastModifiedSelectAll": "追踪全部字段",
+      "noEditableFields": "暂无可编辑字段",
       "conditionalRollup": {
         "fieldMapping": "字段映射",
         "selectBaseField": "选择当前表字段",
@@ -372,6 +380,13 @@
       "autoFillFieldDialog": {
         "title": "更新整列记录",
         "description": "当前视图的所有记录将会更新，包括该字段生成的所有相关数据"
+      },
+      "autoFillConfirm": {
+        "title": "是否生成整列？",
+        "description": "生成整列将更新 {{rowCount}} 行内容。本次操作可能消耗大量 AI 资源",
+        "saveConfigOnly": "仅保存配置",
+        "generate": "生成",
+        "generateFailed": "生成失败"
       },
       "action": {
         "addAttachment": "添加附件"

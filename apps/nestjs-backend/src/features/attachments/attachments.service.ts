@@ -6,7 +6,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 import { Readable } from 'stream';
 import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
-import type { IAttachmentItem } from '@teable/core';
+import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
@@ -24,6 +24,7 @@ import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../cache/cache.service';
 import { StorageConfig, IStorageConfig } from '../../configs/storage';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { FileUtils } from '../../utils';
 import { second } from '../../utils/second';
@@ -54,7 +55,11 @@ export class AttachmentsService {
     const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
     const localStorage = this.storageAdapter as LocalStorage;
     if (!tokenCache) {
-      throw new BadRequestException(`Invalid token: ${token}`);
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
     }
     const { path, bucket } = tokenCache;
     const file = await localStorage.saveTemporaryFile(req);
@@ -74,7 +79,11 @@ export class AttachmentsService {
     let respHeaders: Record<string, string> = {};
 
     if (!path) {
-      throw new HttpException(`Could not find attachment: ${token}`, HttpStatus.NOT_FOUND);
+      throw new CustomHttpException('Could not find attachment', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.notFound',
+        },
+      });
     }
     const { bucket, token: tokenInPath } = localStorage.parsePath(path);
     if (token && !StorageAdapter.isPublicBucket(bucket)) {
@@ -84,7 +93,11 @@ export class AttachmentsService {
         .txClient()
         .attachments.findUnique({ where: { token: tokenInPath, deletedTime: null } });
       if (!attachment) {
-        throw new BadRequestException(`Invalid path: ${path}`);
+        throw new CustomHttpException('Invalid path', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.attachment.invalidPath',
+          },
+        });
       }
       respHeaders['Content-Type'] = getExtensionPreview(attachment.mimetype);
     }
@@ -100,7 +113,11 @@ export class AttachmentsService {
     const localStorage = this.storageAdapter as LocalStorage;
     const lastModifiedTimestamp = localStorage.getLastModifiedTime(path);
     if (!lastModifiedTimestamp) {
-      throw new BadRequestException(`Could not find attachment: ${path}`);
+      throw new CustomHttpException('Could not find attachment', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidPath',
+        },
+      });
     }
     // Comparison of accuracy in seconds
     if (
@@ -119,8 +136,18 @@ export class AttachmentsService {
     const contentLength = signatureRo.contentLength;
     const MAX_FILE_SIZE = this.thresholdConfig.maxAttachmentUploadSize;
     if (contentLength > MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
+      throw new CustomHttpException(
+        `File size exceeds the maximum limit of ${maxSize} MB`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
+          },
+        }
       );
     }
     const hash = presignedParams.hash;
@@ -141,7 +168,11 @@ export class AttachmentsService {
   async notify(token: string, filename?: string): Promise<INotifyVo> {
     const tokenCache = await this.cacheService.get(`attachment:signature:${token}`);
     if (!tokenCache) {
-      throw new BadRequestException(`Invalid token: ${token}`);
+      throw new CustomHttpException('Invalid token', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.invalidToken',
+        },
+      });
     }
     const userId = this.cls.get('user.id');
     const { path, bucket } = tokenCache;
@@ -211,8 +242,18 @@ export class AttachmentsService {
   async uploadFile(file: Express.Multer.File): Promise<IAttachmentItem> {
     const MAX_FILE_SIZE = this.thresholdConfig.maxOpenapiAttachmentUploadSize;
     if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
+      throw new CustomHttpException(
+        `File size exceeds the maximum limit of ${maxSize} MB`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
+          },
+        }
       );
     }
 
@@ -251,8 +292,18 @@ export class AttachmentsService {
     );
 
     if (contentLength > MAX_FILE_SIZE) {
-      throw new BadRequestException(
-        `File size exceeds the maximum limit of ${(MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)} MB`
+      const maxSize = (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2);
+      throw new CustomHttpException(
+        `File size exceeds the maximum limit of ${maxSize} MB`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+            context: {
+              maxSize: `${maxSize}MB`,
+            },
+          },
+        }
       );
     }
 
@@ -269,7 +320,11 @@ export class AttachmentsService {
       return await this.notifyToAttachmentItem(token, filename);
     } catch (error) {
       console.error('uploadFromUrl:upload', error);
-      throw new BadRequestException('Url reject');
+      throw new CustomHttpException('Url reject', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.attachment.urlReject',
+        },
+      });
     } finally {
       if (tempFilePath) {
         fs.unlinkSync(tempFilePath);
@@ -400,8 +455,17 @@ export class AttachmentsService {
           downloadedBytes += chunk.length;
           if (downloadedBytes > maxSize) {
             cleanup();
-            throw new BadRequestException(
-              `File size exceeds the maximum limit of ${maxSize / (1024 * 1024)} MB`
+            throw new CustomHttpException(
+              `File size exceeds the maximum limit of ${(maxSize / (1024 * 1024)).toFixed(2)} MB`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.attachment.fileSizeExceedsMaximumLimit',
+                  context: {
+                    maxSize: `${(maxSize / (1024 * 1024)).toFixed(2)}MB`,
+                  },
+                },
+              }
             );
           }
         });

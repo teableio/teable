@@ -10,7 +10,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { MailTransporterType, MailType } from '@teable/openapi';
+import { EmailVerifyCodeType, MailTransporterType, MailType } from '@teable/openapi';
 import type { IChangePasswordRo, IInviteWaitlistVo, ISignup } from '@teable/openapi';
 import * as bcrypt from 'bcrypt';
 import { isEmpty } from 'lodash';
@@ -24,7 +24,10 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { CustomHttpException } from '../../../custom.exception';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
-import { UserSignUpEvent } from '../../../event-emitter/events/user/user.event';
+import {
+  UserSignUpEvent,
+  UserEmailChangeEvent,
+} from '../../../event-emitter/events/user/user.event';
 import type { IClsStore } from '../../../types/cls';
 import { second } from '../../../utils/second';
 import { MailSenderService } from '../../mail-sender/mail-sender.service';
@@ -72,7 +75,11 @@ export class LocalAuthService {
   private async getUserByIdOrThrow(userId: string) {
     const user = await this.userService.getUserById(userId);
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new CustomHttpException(`User not found`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.user.notFound',
+        },
+      });
     }
     return user;
   }
@@ -80,15 +87,27 @@ export class LocalAuthService {
   async validateUserByEmail(email: string, pass: string) {
     const user = await this.userService.getUserByEmail(email);
     if (!user || (user.accounts.length === 0 && user.password == null)) {
-      throw new BadRequestException(`${email} not registered`);
+      throw new CustomHttpException(`${email} not registered`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.emailNotRegistered',
+        },
+      });
     }
 
     if (!user.password) {
-      throw new BadRequestException('Password is not set');
+      throw new CustomHttpException(`Password is not set`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.passwordNotSet',
+        },
+      });
     }
 
     if (user.isSystem) {
-      throw new BadRequestException('User is system user');
+      throw new CustomHttpException(`User is system user`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.systemUser',
+        },
+      });
     }
 
     const { password, salt, ...result } = user;
@@ -149,10 +168,26 @@ export class LocalAuthService {
 
   private isRegisteredValidate(user: Awaited<ReturnType<typeof this.userService.getUserByEmail>>) {
     if (user && (user.password !== null || user.accounts.length > 0)) {
-      throw new HttpException(`User ${user.email} is already registered`, HttpStatus.CONFLICT);
+      throw new CustomHttpException(
+        `User ${user.email} is already registered`,
+        HttpErrorCode.CONFLICT,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.alreadyRegistered',
+          },
+        }
+      );
     }
     if (user && user.isSystem) {
-      throw new HttpException(`User ${user.email} is system user`, HttpStatus.BAD_REQUEST);
+      throw new CustomHttpException(
+        `User ${user.email} is system user`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.systemUser',
+          },
+        }
+      );
     }
   }
 
@@ -285,10 +320,6 @@ export class LocalAuthService {
         const code = getRandomString(4, RandomType.Number);
         const token = await this.jwtSignupCode(email, code);
 
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Signup Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
-
         const user = await this.userService.getUserByEmail(email);
         this.isRegisteredValidate(user);
 
@@ -298,8 +329,9 @@ export class LocalAuthService {
         );
 
         const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Signup verification',
-          message: `Your verification code is ${code}, expires in ${this.authConfig.signupVerificationExpiresIn}.`,
+          code,
+          expiresIn: this.authConfig.signupVerificationExpiresIn,
+          type: EmailVerifyCodeType.Signup,
         });
 
         await this.mailSenderService.sendMail(
@@ -329,7 +361,11 @@ export class LocalAuthService {
 
     const { password: currentHashPassword, salt } = user;
     if (!(await this.comparePassword(password, currentHashPassword, salt))) {
-      throw new BadRequestException('Password is incorrect');
+      throw new CustomHttpException(`Password is incorrect`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.passwordIncorrect',
+        },
+      });
     }
     const { salt: newSalt, hashPassword: newHashPassword } = await this.encodePassword(newPassword);
     await this.prismaService.txClient().user.update({
@@ -353,7 +389,11 @@ export class LocalAuthService {
       async () => {
         const user = await this.userService.getUserByEmail(email);
         if (!user || (user.accounts.length === 0 && user.password == null)) {
-          throw new BadRequestException(`${email} not registered`);
+          throw new CustomHttpException(`${email} not registered`, HttpErrorCode.VALIDATION_ERROR, {
+            localization: {
+              i18nKey: 'httpErrors.auth.emailNotRegistered',
+            },
+          });
         }
 
         const resetPasswordCode = getRandomString(30);
@@ -386,7 +426,11 @@ export class LocalAuthService {
   async resetPassword(code: string, newPassword: string) {
     const resetPasswordEmail = await this.cacheService.get(`reset-password-email:${code}`);
     if (!resetPasswordEmail) {
-      throw new BadRequestException('Token is invalid');
+      throw new CustomHttpException(`Token is invalid`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.tokenInvalid',
+        },
+      });
     }
     const { userId } = resetPasswordEmail;
     const { salt, hashPassword } = await this.encodePassword(newPassword);
@@ -407,7 +451,11 @@ export class LocalAuthService {
     const user = await this.getUserByIdOrThrow(userId);
 
     if (user.password) {
-      throw new BadRequestException('Password is already set');
+      throw new CustomHttpException(`Password is already set`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.passwordAlreadyExists',
+        },
+      });
     }
     const { salt, hashPassword } = await this.encodePassword(newPassword);
     await this.prismaService.txClient().user.update({
@@ -436,13 +484,21 @@ export class LocalAuthService {
         );
       });
     if (newEmail !== email || _currentEmail !== currentEmail || _code !== code) {
-      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA);
+      throw new CustomHttpException('Verification code is invalid', HttpErrorCode.INVALID_CAPTCHA, {
+        localization: {
+          i18nKey: 'httpErrors.auth.verificationCodeInvalid',
+        },
+      });
     }
     const user = this.cls.get('user');
     await this.prismaService.txClient().user.update({
       where: { id: user.id, deletedTime: null, deactivatedTime: null },
       data: { email: newEmail },
     });
+    this.eventEmitterService.emitAsync(
+      Events.USER_EMAIL_CHANGE,
+      new UserEmailChangeEvent(user.id, currentEmail, newEmail)
+    );
     // clear session
     await this.sessionStoreService.clearByUserId(user.id);
   }
@@ -452,12 +508,22 @@ export class LocalAuthService {
     if (newEmail === email) {
       throw new CustomHttpException(
         'New email is the same as the current email',
-        HttpErrorCode.CONFLICT
+        HttpErrorCode.CONFLICT,
+        {
+          localization: {
+            i18nKey: 'httpErrors.auth.newEmailSameAsCurrentEmail',
+          },
+        }
       );
     }
     const invalidPasswordError = new CustomHttpException(
       'Password is incorrect',
-      HttpErrorCode.INVALID_CREDENTIALS
+      HttpErrorCode.INVALID_CREDENTIALS,
+      {
+        localization: {
+          i18nKey: 'httpErrors.auth.passwordIncorrect',
+        },
+      }
     );
 
     return await this.mailSenderService.checkSendMailRateLimit(
@@ -475,19 +541,21 @@ export class LocalAuthService {
         }
         const userByNewEmail = await this.userService.getUserByEmail(newEmail);
         if (userByNewEmail) {
-          throw new ConflictException('New email is already registered');
+          throw new CustomHttpException(`New email is already registered`, HttpErrorCode.CONFLICT, {
+            localization: {
+              i18nKey: 'httpErrors.auth.emailAlreadyRegistered',
+            },
+          });
         }
         const code = getRandomString(4, RandomType.Number);
         const token = await this.jwtService.signAsync(
           { email, newEmail, code },
           { expiresIn: this.baseConfig.emailCodeExpiresIn }
         );
-        if (this.baseConfig.enableEmailCodeConsole) {
-          console.info('Change Email Verification code: ', '\x1b[34m' + code + '\x1b[0m');
-        }
         const emailOptions = await this.mailSenderService.sendEmailVerifyCodeEmailOptions({
-          title: 'Change Email verification',
-          message: `Your verification code is ${code}, expires in ${this.baseConfig.emailCodeExpiresIn}.`,
+          code,
+          expiresIn: this.baseConfig.emailCodeExpiresIn,
+          type: EmailVerifyCodeType.ChangeEmail,
         });
         await this.mailSenderService.sendMail(
           {
@@ -507,11 +575,19 @@ export class LocalAuthService {
   async joinWaitlist(email: string) {
     const setting = await this.settingService.getSetting();
     if (!setting?.enableWaitlist) {
-      throw new BadRequestException('Waitlist is not enabled');
+      throw new CustomHttpException(`Waitlist is not enabled`, HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.waitlistNotEnabled',
+        },
+      });
     }
     const user = await this.userService.getUserByEmail(email);
     if (user) {
-      throw new ConflictException('Email already registered');
+      throw new CustomHttpException(`Email already registered`, HttpErrorCode.CONFLICT, {
+        localization: {
+          i18nKey: 'httpErrors.auth.emailAlreadyRegistered',
+        },
+      });
     }
     const find = await this.prismaService.txClient().waitlist.findFirst({
       where: { email },
@@ -550,12 +626,12 @@ export class LocalAuthService {
     for (const item of updateList) {
       const times = 10;
       const code = await this.genWaitlistInviteCode(times);
-      const mailOptions = await this.mailSenderService.commonEmailOptions({
-        to: item.email,
-        title: 'Welcome',
-        message: `You're off the waitlist!, Here is your invite code: ${code}, it can be used ${times} times`,
-        buttonUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
-        buttonText: 'Signup',
+      const mailOptions = await this.mailSenderService.waitlistInviteEmailOptions({
+        email: item.email,
+        code,
+        times,
+        name: 'Guest',
+        waitlistInviteUrl: `${this.mailConfig.origin}/auth/signup?inviteCode=${code}`,
       });
       res.push({
         email: item.email,

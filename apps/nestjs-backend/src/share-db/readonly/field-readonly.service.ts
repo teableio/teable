@@ -3,7 +3,7 @@ import type { IGetFieldsQuery } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
-import { type IShareDbReadonlyAdapterService } from '../interface';
+import type { RawOpType, IShareDbReadonlyAdapterService } from '../interface';
 import { ReadonlyService } from './readonly.service';
 
 @Injectable()
@@ -63,6 +63,30 @@ export class FieldReadonlyServiceAdapter
       })
       .then((res) => {
         return this.formatVersionAndType(res);
+      });
+  }
+
+  getVersionAndTypeMap(tableId: string, fieldIds: string[]) {
+    return this.prismaService.field
+      .findMany({
+        where: {
+          id: { in: fieldIds },
+          tableId,
+        },
+        select: {
+          id: true,
+          version: true,
+          deletedTime: true,
+        },
+      })
+      .then((fields) => {
+        return fields.reduce(
+          (acc, field) => {
+            acc[field.id] = this.formatVersionAndType(field);
+            return acc;
+          },
+          {} as Record<string, { version: number; type: RawOpType }>
+        );
       });
   }
 }

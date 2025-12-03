@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { extractFieldIdsFromFilter, FieldType, SortFunc } from '@teable/core';
-import type { FieldCore, IFilter, ISortItem, TableDomain, Tables } from '@teable/core';
+import { DbFieldType, extractFieldIdsFromFilter, FieldType, SortFunc, Tables } from '@teable/core';
+import type { FieldCore, IFilter, ISortItem, TableDomain } from '@teable/core';
 import { Knex } from 'knex';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
@@ -38,7 +38,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     from: string,
     tableId: string,
     projection?: string[],
-    baseBuilder?: Knex.QueryBuilder
+    baseBuilder?: Knex.QueryBuilder,
+    providedTables?: Tables
   ): Promise<{
     qb: Knex.QueryBuilder;
     alias: string;
@@ -46,10 +47,12 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     table: TableDomain;
     state: IMutableQueryBuilderState;
   }> {
-    const tables = await this.tableDomainQueryService.getAllRelatedTableDomains(
-      tableId,
-      projection
-    );
+    let tables = providedTables;
+    if (!tables || !tables.hasTable(tableId)) {
+      tables = await this.tableDomainQueryService.getAllRelatedTableDomains(tableId, projection);
+    } else if (tables.entryTableId !== tableId) {
+      tables = new Tables(tableId, new Map(tables.tableDomains), new Set(tables.visited));
+    }
     const table = tables.mustGetEntryTable();
     const mainTableAlias = getTableAliasFromTable(table);
     const qbSource = baseBuilder ?? this.knex.queryBuilder();
@@ -119,7 +122,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
           from,
           tableId,
           options.projection,
-          baseBuilder
+          baseBuilder,
+          options.tables
         );
       }
     } else {
@@ -127,7 +131,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
         from,
         tableId,
         options.projection,
-        baseBuilder
+        baseBuilder,
+        options.tables
       );
     }
 
@@ -172,6 +177,8 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       builder: options.builder,
       useQueryModel: options.useQueryModel,
       projection: options.projection,
+      projectionByTable: options.projectionByTable,
+      tables: options.tables,
       limit: options.limit,
       offset: options.offset,
       filter,
@@ -303,17 +310,35 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const selectionExpression =
       typeof selection === 'string' ? selection : selection ? selection.toQuery() : undefined;
 
-    if (field.type === FieldType.SingleSelect) {
+    const orderableSelection = selectionExpression ?? quotedAlias;
+    // Respect choice order for select fields (single & multiple)
+    if (field.type === FieldType.SingleSelect || field.type === FieldType.MultipleSelect) {
       const rawChoices = (field.options as { choices?: { name: string }[] } | undefined)?.choices;
       const choices = Array.isArray(rawChoices) ? rawChoices : [];
       if (choices.length) {
-        const placeholders = choices.map(() => '?').join(', ');
-        const arrayPositionExpr = `ARRAY_POSITION(ARRAY[${placeholders}], ${quotedAlias})`;
-        qb.orderByRaw(
-          `${arrayPositionExpr} ${direction} ${nullOrdering}`,
-          choices.map(({ name }) => name)
-        );
-        return;
+        const arrayLiteral = `ARRAY[${choices
+          .map(({ name }) => this.knex.raw('?', [name]).toQuery())
+          .join(', ')}]`;
+
+        if (field.type === FieldType.MultipleSelect) {
+          const firstIndexExpr = `CASE
+            WHEN ${orderableSelection} IS NULL THEN NULL
+            WHEN jsonb_typeof(${orderableSelection}::jsonb) = 'array'
+              THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${orderableSelection}::jsonb, '$[0]') #>> '{}')
+            ELSE ARRAY_POSITION(${arrayLiteral}, ${orderableSelection}::text)
+          END`;
+          qb.orderByRaw(`${firstIndexExpr} ${direction} ${nullOrdering}`);
+          qb.orderByRaw(`${orderableSelection}::jsonb::text ${direction} ${nullOrdering}`);
+          return;
+        } else {
+          const normalizedExpr = this.normalizeOrderableTextExpression(
+            orderableSelection,
+            field.dbFieldType
+          );
+          const arrayPositionExpr = `ARRAY_POSITION(${arrayLiteral}, ${normalizedExpr})`;
+          qb.orderByRaw(`${arrayPositionExpr} ${direction} ${nullOrdering}`);
+          return;
+        }
       }
     }
 
@@ -335,6 +360,27 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     }
 
     qb.orderByRaw(`${quotedAlias} ${direction} ${nullOrdering}`);
+  }
+
+  private normalizeOrderableTextExpression(expr: string, dbFieldType: DbFieldType): string {
+    if (!expr || dbFieldType !== DbFieldType.Json) {
+      return expr;
+    }
+    const wrappedExpr = `(${expr})`;
+    const jsonbValue = `to_jsonb${wrappedExpr}`;
+    const firstArrayElement = `jsonb_path_query_first(${jsonbValue}, '$[0]')`;
+    return `(CASE
+      WHEN ${wrappedExpr} IS NULL THEN NULL
+      ELSE
+        CASE jsonb_typeof(${jsonbValue})
+          WHEN 'string' THEN ${jsonbValue} #>> '{}'
+          WHEN 'number' THEN ${jsonbValue} #>> '{}'
+          WHEN 'boolean' THEN ${jsonbValue} #>> '{}'
+          WHEN 'null' THEN NULL
+          WHEN 'array' THEN ${firstArrayElement} #>> '{}'
+          ELSE ${jsonbValue}::text
+        END
+    END)`;
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -556,10 +602,9 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
       const result = field.accept(visitor);
       if (!result) continue;
       if (typeof result === 'string') {
-        // Ensure stable keyword casing in formatted SQL snapshots by emitting an explicit
-        // uppercase AS for simple column selectors. Use a raw with identifier binding.
+        // Always alias via raw to avoid Knex placeholder detection on expressions (e.g., regex with '?')
         const aliasBinding = field.dbFieldName;
-        qb.select(this.knex.raw(`${result} AS ??`, [aliasBinding]));
+        qb.select({ [aliasBinding]: this.knex.raw(result) });
       } else {
         qb.select({ [field.dbFieldName]: result });
       }

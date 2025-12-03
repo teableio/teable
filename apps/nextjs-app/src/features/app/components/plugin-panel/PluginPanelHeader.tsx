@@ -17,8 +17,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   Input,
-  useToast,
 } from '@teable/ui-lib/shadcn';
+import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
@@ -39,7 +39,6 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
   const tablePermissions = useTablePermission();
   const canManage = tablePermissions?.['table|update'];
   const activePluginPanelId = useActivePluginPanelId(tableId)!;
-  const { toast } = useToast();
 
   const { data: pluginPanels } = useQuery({
     queryKey: ReactQueryKeys.getPluginPanelList(tableId),
@@ -71,9 +70,7 @@ export const PluginPanelHeader = (props: { tableId: string }) => {
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.getPluginPanelList(tableId));
       setRename(null);
-      toast({
-        title: t('table:table.actionTips.copySuccessful'),
-      });
+      toast.success(t('table:table.actionTips.copySuccessful'));
     },
   });
 

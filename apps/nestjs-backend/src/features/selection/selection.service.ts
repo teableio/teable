@@ -1,4 +1,4 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type {
   IButtonFieldOptions,
   IDateFieldOptions,
@@ -55,6 +55,7 @@ import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByVo } from '../field/model/factory';
 import { RecordOpenApiService } from '../record/open-api/record-open-api.service';
 import { RecordService } from '../record/record.service';
+import type { IUpdateRecordsInternalRo } from '../record/type';
 
 @Injectable()
 export class SelectionService {
@@ -92,7 +93,11 @@ export class SelectionService {
       };
     }
 
-    throw new BadRequestException('Invalid return type');
+    throw new CustomHttpException('Invalid return type', HttpErrorCode.VALIDATION_ERROR, {
+      localization: {
+        i18nKey: 'httpErrors.selection.invalidReturnType',
+      },
+    });
   }
 
   private async columnSelectionToIds(tableId: string, query: IRangesToIdQuery): Promise<string[]> {
@@ -136,7 +141,15 @@ export class SelectionService {
       let recordIds: string[] = [];
       const total = ranges.reduce((acc, range) => acc + range[1] - range[0] + 1, 0);
       if (total > this.thresholdConfig.maxReadRows) {
-        throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+        throw new CustomHttpException(
+          `Exceed max read rows ${this.thresholdConfig.maxReadRows}`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.selection.exceedMaxReadRows',
+            },
+          }
+        );
       }
       for (const [start, end] of ranges) {
         const result = await this.recordService.getDocIdsByQuery(
@@ -159,7 +172,15 @@ export class SelectionService {
     const [start, end] = ranges;
     const total = end[1] - start[1] + 1;
     if (total > this.thresholdConfig.maxReadRows) {
-      throw new BadRequestException(`Exceed max read rows ${this.thresholdConfig.maxReadRows}`);
+      throw new CustomHttpException(
+        `Exceed max read rows ${this.thresholdConfig.maxReadRows}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxReadRows',
+          },
+        }
+      );
     }
     const result = await this.recordService.getDocIdsByQuery(
       tableId,
@@ -186,6 +207,9 @@ export class SelectionService {
       filterHidden: true,
       projection,
     });
+    const filteredFields = ranges.reduce((acc, range) => {
+      return acc.concat(fields.slice(range[0], range[1] + 1));
+    }, [] as IFieldVo[]);
 
     const records = await this.recordService.getRecordsFields(
       tableId,
@@ -194,16 +218,14 @@ export class SelectionService {
         skip: 0,
         take: -1,
         fieldKeyType: FieldKeyType.Id,
-        projection: this.fieldsToProjection(fields, FieldKeyType.Id),
+        projection: this.fieldsToProjection(filteredFields, FieldKeyType.Id),
       },
       true
     );
 
     return {
       records,
-      fields: ranges.reduce((acc, range) => {
-        return acc.concat(fields.slice(range[0], range[1] + 1));
-      }, [] as IFieldVo[]),
+      fields: filteredFields,
     };
   }
 
@@ -353,7 +375,11 @@ export class SelectionService {
         };
       }
       default:
-        throw new BadRequestException('Invalid cellValueType');
+        throw new CustomHttpException('Invalid cellValueType', HttpErrorCode.VALIDATION_ERROR, {
+          localization: {
+            i18nKey: 'httpErrors.selection.invalidCellValueType',
+          },
+        });
     }
   }
 
@@ -560,9 +586,9 @@ export class SelectionService {
     return {
       fieldKeyType: FieldKeyType.Id,
       typecast: true,
-      records: oldRecords.map(({ id, fields }, index) => {
+      records: oldRecords.map(({ id }, index) => {
         const newFields = newRecords?.[index]?.fields;
-        const updateFields = newFields ? { ...fields, ...newFields } : {};
+        const updateFields = newFields ?? {};
         return {
           id,
           fields: updateFields,
@@ -575,7 +601,15 @@ export class SelectionService {
     const { cellCount } = await this.parseRange(tableId, rangesRo);
 
     if (cellCount > this.thresholdConfig.maxCopyCells) {
-      throw new BadRequestException(`Exceed max copy cells ${this.thresholdConfig.maxCopyCells}`);
+      throw new CustomHttpException(
+        `Exceed max copy cells ${this.thresholdConfig.maxCopyCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxCopyCells',
+          },
+        }
+      );
     }
 
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
@@ -658,7 +692,15 @@ export class SelectionService {
     const pasteContent = typeof content === 'string' ? this.parseCopyContent(content) : content;
     const pasteContentSize = pasteContent.length * pasteContent[0].length;
     if (pasteContentSize > this.thresholdConfig.maxPasteCells) {
-      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+      throw new CustomHttpException(
+        `Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxPasteCells',
+          },
+        }
+      );
     }
 
     const fields = await this.fieldService.getFieldInstances(tableId, {
@@ -727,7 +769,15 @@ export class SelectionService {
       cellCount > this.thresholdConfig.maxPasteCells ||
       pasteContentSize > this.thresholdConfig.maxPasteCells
     ) {
-      throw new BadRequestException(`Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`);
+      throw new CustomHttpException(
+        `Exceed max paste cells ${this.thresholdConfig.maxPasteCells}`,
+        HttpErrorCode.VALIDATION_ERROR,
+        {
+          localization: {
+            i18nKey: 'httpErrors.selection.exceedMaxPasteCells',
+          },
+        }
+      );
     }
 
     const { rowCount: rowCountInView } = await this.aggregationService.performRowCount(
@@ -812,9 +862,18 @@ export class SelectionService {
       const filteredUpdateRecordsRo = permissionFilter
         ? await permissionFilter('update', updateRecordsRo, newFields)
         : updateRecordsRo;
+      const updateFieldIds = updateFields.map((field) => field.id);
+      const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
+      const updateRecordsPayload: IUpdateRecordsInternalRo =
+        maybeInternal.fieldIds !== undefined
+          ? maybeInternal
+          : {
+              ...maybeInternal,
+              fieldIds: updateFieldIds,
+            };
       const { cellContexts } = await this.recordOpenApiService.updateRecords(
         tableId,
-        filteredUpdateRecordsRo as IUpdateRecordsRo
+        updateRecordsPayload
       );
       let newRecords: IRecord[] | undefined;
       // create record
@@ -874,15 +933,19 @@ export class SelectionService {
   ) {
     const { fields, records } = await this.getSelectionCtxByRange(tableId, rangesRo);
     const fieldInstances = fields.map(createFieldInstanceByVo);
+    const fieldIds = fields.map((field) => field.id);
     const updateRecords = this.tableDataToRecords({
       tableData: Array.from({ length: records.length }, () => []),
       fields: fieldInstances,
     });
     const updateRecordsRo = this.fillCells(records, updateRecords);
-    const filteredUpdateRecordsRo = permissionFilter
+    const filteredUpdateRecordsRo: IUpdateRecordsRo = permissionFilter
       ? await permissionFilter(updateRecordsRo)
       : updateRecordsRo;
-    await this.recordOpenApiService.updateRecords(tableId, filteredUpdateRecordsRo, windowId);
+    const maybeInternal = filteredUpdateRecordsRo as IUpdateRecordsInternalRo;
+    const payload: IUpdateRecordsInternalRo =
+      maybeInternal.fieldIds !== undefined ? maybeInternal : { ...maybeInternal, fieldIds };
+    await this.recordOpenApiService.updateRecords(tableId, payload, windowId);
   }
 
   async delete(

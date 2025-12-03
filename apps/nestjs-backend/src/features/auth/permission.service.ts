@@ -1,10 +1,11 @@
-import { ForbiddenException, NotFoundException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type { IBaseRole, Action } from '@teable/core';
-import { IdPrefix, getPermissions } from '@teable/core';
+import { HttpErrorCode, IdPrefix, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
+import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { CollaboratorModel } from '../model/collaborator';
@@ -42,10 +43,26 @@ export class PermissionService {
       },
     });
     if (!space) {
-      throw new ForbiddenException(`space ${spaceId} is not found`);
+      throw new CustomHttpException(
+        `space ${spaceId} is not found`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.notFound',
+          },
+        }
+      );
     }
     if (space?.deletedTime && !includeInactiveResource) {
-      throw new ForbiddenException(`space ${spaceId} is deleted`);
+      throw new CustomHttpException(
+        `space ${spaceId} is deleted`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.space.deleted',
+          },
+        }
+      );
     }
     if (!collaborators.length) {
       return null;
@@ -139,7 +156,11 @@ export class PermissionService {
     const baseId = table?.base.id;
     const spaceId = table?.base?.spaceId;
     if (!spaceId || !baseId) {
-      throw new NotFoundException(`Invalid tableId: ${tableId}`);
+      throw new CustomHttpException(`Invalid tableId: ${tableId}`, HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.table.notFound',
+        },
+      });
     }
     return { baseId, spaceId };
   }
@@ -159,7 +180,11 @@ export class PermissionService {
     });
     const spaceId = base?.spaceId;
     if (!spaceId) {
-      throw new NotFoundException(`Invalid baseId: ${baseId}`);
+      throw new CustomHttpException('Base not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.base.notFound',
+        },
+      });
     }
     return { spaceId };
   }
@@ -199,11 +224,27 @@ export class PermissionService {
       !resourceId.startsWith(IdPrefix.Base) &&
       !resourceId.startsWith(IdPrefix.Table)
     ) {
-      throw new ForbiddenException(`${resourceId} is not valid`);
+      throw new CustomHttpException(
+        `Resource ${resourceId} is not valid`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.invalidResource',
+          },
+        }
+      );
     }
 
     if (resourceId.startsWith(IdPrefix.Space) && !spaceIds?.includes(resourceId)) {
-      throw new ForbiddenException(`not allowed to space ${resourceId}`);
+      throw new CustomHttpException(
+        `You are not allowed to access space ${resourceId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedSpace',
+          },
+        }
+      );
     }
 
     if (
@@ -215,7 +256,15 @@ export class PermissionService {
         includeInactiveResource
       ))
     ) {
-      throw new ForbiddenException(`not allowed to base ${resourceId}`);
+      throw new CustomHttpException(
+        `You are not allowed to access base ${resourceId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedBase',
+          },
+        }
+      );
     }
 
     if (
@@ -227,7 +276,18 @@ export class PermissionService {
         includeInactiveResource
       ))
     ) {
-      throw new ForbiddenException(`not allowed to table ${resourceId}`);
+      throw new CustomHttpException(
+        `You are not allowed to access table ${resourceId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedTables',
+            context: {
+              tableIds: resourceId,
+            },
+          },
+        }
+      );
     }
 
     return scopes;
@@ -236,7 +296,15 @@ export class PermissionService {
   private async getPermissionBySpaceId(spaceId: string, includeInactiveResource?: boolean) {
     const role = await this.getRoleBySpaceId(spaceId, includeInactiveResource);
     if (!role) {
-      throw new ForbiddenException(`you have no permission to access this space`);
+      throw new CustomHttpException(
+        `you have no permission to access this space`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedSpace',
+          },
+        }
+      );
     }
     return getPermissions(role);
   }
@@ -252,7 +320,15 @@ export class PermissionService {
       includeInactiveResource
     );
     if (!role && !spaceRole) {
-      throw new ForbiddenException(`you have no permission to access this base`);
+      throw new CustomHttpException(
+        `you have no permission to access this base`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.notAllowedBase',
+          },
+        }
+      );
     }
     const basePermissions = role ? getPermissions(role) : [];
     const spacePermissions = spaceRole ? getPermissions(spaceRole) : [];
@@ -274,7 +350,15 @@ export class PermissionService {
     } else if (resourceId.startsWith(IdPrefix.Table)) {
       return await this.getPermissionByTableId(resourceId, includeInactiveResource);
     } else {
-      throw new ForbiddenException('request path is not valid');
+      throw new CustomHttpException(
+        `Request path is not valid`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.invalidRequestPath',
+          },
+        }
+      );
     }
   }
 
@@ -313,8 +397,14 @@ export class PermissionService {
     if (permissions.every((permission) => ownPermissions.includes(permission))) {
       return ownPermissions;
     }
-    throw new ForbiddenException(
-      `not allowed to operate ${permissions.join(', ')} on ${resourceId}`
+    throw new CustomHttpException(
+      `not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: 'httpErrors.permission.notAllowedOperation',
+        },
+      }
     );
   }
 }

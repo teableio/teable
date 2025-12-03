@@ -23,6 +23,10 @@ export class GeneratedColumnQuerySupportValidatorSqlite
     this.context = context;
   }
 
+  setCallMetadata(): void {
+    // No-op for validator
+  }
+
   // Numeric Functions - Most are supported
   sum(_params: string[]): boolean {
     // Use addition instead of SUM() aggregation function
@@ -193,7 +197,8 @@ export class GeneratedColumnQuerySupportValidatorSqlite
   }
 
   dateAdd(_date: string, _count: string, _unit: string): boolean {
-    return true;
+    // DATE_ADD relies on SQLite datetime helpers that are not immutable-safe for generated columns
+    return false;
   }
 
   datestr(_date: string): boolean {
@@ -359,17 +364,17 @@ export class GeneratedColumnQuerySupportValidatorSqlite
     return false;
   }
 
-  arrayUnique(_array: string): boolean {
+  arrayUnique(_arrays: string[]): boolean {
     // SQLite generated columns don't support complex operations for uniqueness
     return false;
   }
 
-  arrayFlatten(_array: string): boolean {
+  arrayFlatten(_arrays: string[]): boolean {
     // SQLite generated columns don't support complex array flattening
     return false;
   }
 
-  arrayCompact(_array: string): boolean {
+  arrayCompact(_arrays: string[]): boolean {
     // SQLite generated columns don't support complex filtering without subqueries
     return false;
   }

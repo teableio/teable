@@ -22,7 +22,10 @@ export interface IPaginationContext {
   baseQueryBuilder: Knex.QueryBuilder;
   idColumn: string;
   orderColumn: string;
-  updateRecords: (qb: Knex.QueryBuilder) => Promise<IComputedRowResult[]>;
+  updateRecords: (
+    qb: Knex.QueryBuilder,
+    options?: { restrictRecordIds?: string[] }
+  ) => Promise<IComputedRowResult[]>;
 }
 
 export interface IRecordPaginationStrategy {
@@ -44,7 +47,7 @@ export class RecordIdBatchStrategy implements IRecordPaginationStrategy {
       if (!chunk.length) continue;
 
       const batchQb = context.baseQueryBuilder.clone().whereIn(context.idColumn, chunk);
-      const rows = await context.updateRecords(batchQb);
+      const rows = await context.updateRecords(batchQb, { restrictRecordIds: chunk });
       if (!rows.length) continue;
 
       await onBatch(rows);

@@ -23,6 +23,12 @@ export enum MailType {
   AutomationSendEmailAction = 'automationSendEmailAction',
 }
 
+export enum EmailVerifyCodeType {
+  Signup = 'signup',
+  ChangeEmail = 'changeEmail',
+  DomainVerification = 'domainVerification',
+}
+
 export const mailTransportConfigSchema = z.object({
   senderName: z.string().optional(),
   sender: z.string(),

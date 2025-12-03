@@ -1,14 +1,5 @@
-import {
-  BadRequestException,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Post,
-  Query,
-  Req,
-  Res,
-} from '@nestjs/common';
+import { Controller, Delete, Get, HttpCode, Post, Query, Req, Res } from '@nestjs/common';
+import { HttpErrorCode } from '@teable/core';
 import {
   deleteUserSchemaRo,
   IDeleteUserSchema,
@@ -18,6 +9,7 @@ import {
 import { Response } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { AUTH_SESSION_COOKIE_NAME } from '../../const';
+import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -70,7 +62,11 @@ export class AuthController {
     @Query(new ZodValidationPipe(deleteUserSchemaRo)) query: IDeleteUserSchema
   ) {
     if (query.confirm !== 'DELETE') {
-      throw new BadRequestException('Invalid confirm');
+      throw new CustomHttpException('Invalid confirm', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.auth.invalidConfirm',
+        },
+      });
     }
     await this.deleteUserService.deleteUser();
     await this.sessionService.signout(req);

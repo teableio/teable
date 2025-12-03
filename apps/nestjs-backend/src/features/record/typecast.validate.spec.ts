@@ -6,6 +6,7 @@ import type { PrismaService } from '@teable/db-main-prisma';
 import { plainToInstance } from 'class-transformer';
 import { vi } from 'vitest';
 import { mockDeep, mockReset } from 'vitest-mock-extended';
+import { getError } from '../../../test/utils/get-error';
 import type { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import type { DataLoaderService } from '../data-loader/data-loader.service';
@@ -190,7 +191,7 @@ describe('TypeCastAndValidate', () => {
       expect(callback).toBeCalledWith(1);
     });
 
-    it('should throw error when validate fails', () => {
+    it('should throw error when validate fails', async () => {
       const cellValues = [1];
 
       const typeCastAndValidate = new TypeCastAndValidate({
@@ -206,9 +207,11 @@ describe('TypeCastAndValidate', () => {
         error: 'error',
       });
 
-      expect(() => {
-        typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn());
-      }).toThrow('Bad Request');
+      const error = await getError(async () =>
+        typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn())
+      );
+      expect(error).toBeDefined();
+      expect(error?.status).toBe(400);
     });
 
     it('should return null if typecast is false', () => {

@@ -40,11 +40,24 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       if (!user) {
         throw new CustomHttpException(
           'Email or password is incorrect',
-          HttpErrorCode.INVALID_CREDENTIALS
+          HttpErrorCode.INVALID_CREDENTIALS,
+          {
+            localization: {
+              i18nKey: 'httpErrors.auth.emailOrPasswordIncorrect',
+            },
+          }
         );
       }
       if (user.deactivatedTime) {
-        throw new BadRequestException('Your account has been deactivated by the administrator');
+        throw new CustomHttpException(
+          `Your account has been deactivated by the administrator`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.auth.accountDeactivated',
+            },
+          }
+        );
       }
       await this.userService.refreshLastSignTime(user.id);
       return pickUserMe(user);
@@ -54,8 +67,13 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
       const isLockout = await this.cacheService.get(`signin:lockout:${email}`);
       if (!hasLockout) {
         throw new CustomHttpException(
-          'Email or password is incorrect',
-          HttpErrorCode.INVALID_CREDENTIALS
+          `Email or password is incorrect`,
+          HttpErrorCode.INVALID_CREDENTIALS,
+          {
+            localization: {
+              i18nKey: 'httpErrors.auth.emailOrPasswordIncorrect',
+            },
+          }
         );
       }
       const lockError = new CustomHttpException(
@@ -63,6 +81,9 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
         HttpErrorCode.TOO_MANY_REQUESTS,
         {
           minutes: accountLockoutMinutes,
+          localization: {
+            i18nKey: 'httpErrors.auth.accountLockedOut',
+          },
         }
       );
       if (isLockout) {
@@ -81,6 +102,9 @@ export class LocalStrategy extends PassportStrategy(Strategy) {
         HttpErrorCode.INVALID_CREDENTIALS,
         {
           attempts,
+          localization: {
+            i18nKey: 'httpErrors.auth.emailOrPasswordIncorrect',
+          },
         }
       );
     }
