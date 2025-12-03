@@ -316,7 +316,6 @@ export const BaseNodeTree = () => {
         setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
       }
       invalidateMenu();
-      setEditingNodeId(node.id);
     },
     [baseId, router, invalidateMenu, setExpandedItems]
   );
@@ -341,7 +340,6 @@ export const BaseNodeTree = () => {
       }
 
       invalidateMenu();
-      setEditingNodeId(node.id);
     },
     [baseId, router, invalidateMenu]
   );
