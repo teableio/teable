@@ -111,7 +111,7 @@ const ConditionalRollupValue = (props: IConditionalRollupValueProps) => {
     }
 
     const currentKey = `${field.id}:${operator}`;
-    if (value !== null && value !== undefined) {
+    if (value !== undefined) {
       lastDefaultKeyRef.current = currentKey;
       return;
     }
