@@ -1,12 +1,4 @@
-import {
-  HelpCircle,
-  History,
-  MoreHorizontal,
-  Puzzle,
-  Settings,
-  Trash2,
-  UserPlus,
-} from '@teable/icons';
+import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { useBase, useBasePermission, useIsHydrated, useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -36,7 +28,6 @@ import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
 import { ShareBasePopover } from '@/features/app/components/collaborator/share/ShareBasePopover';
 import { tableConfig } from '@/features/i18n/table.config';
-import { usePluginPanelStorage } from '../../../components/plugin-panel/hooks/usePluginPanelStorage';
 import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
 import { ExpandViewList } from '../../view/list/ExpandViewList';
@@ -66,7 +57,6 @@ const RightList = ({
 
   const [isHistoryDialogOpen, setHistoryDialogOpen] = useState(false);
   const [isTrashDialogOpen, setTrashDialogOpen] = useState(false);
-  const { toggleVisible: togglePluginPanel } = usePluginPanelStorage(tableId!);
 
   const onRecordClick = (recordId: string) => {
     router.push(
@@ -120,14 +110,7 @@ const RightList = ({
             <Settings className="size-4" />
           </Link>
         </Button>
-        <Button
-          variant="ghost"
-          size="xs"
-          className={cn('flex', buttonClassName)}
-          onClick={togglePluginPanel}
-        >
-          <Puzzle className="size-4" />
-        </Button>
+
         <Button asChild variant="ghost" size="xs" className={cn('flex', buttonClassName)}>
           <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">
             <HelpCircle className="size-4" />
