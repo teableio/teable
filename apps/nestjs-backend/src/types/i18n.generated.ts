@@ -3514,6 +3514,11 @@ export type I18nTranslations = {
                 "timeCostDescription": string;
                 "creditDescription": string;
                 "tokenDescription": string;
+                "input": string;
+                "output": string;
+                "tokens": string;
+                "totalTimeCost": string;
+                "totalCreditCost": string;
             };
             "tools": {
                 "getTeableApi": string;

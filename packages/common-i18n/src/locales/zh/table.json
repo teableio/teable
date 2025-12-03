@@ -1028,9 +1028,14 @@
     "thought": "深度思考",
     "meta": {
       "timeCostUnit": "秒",
-      "timeCostDescription": "生成耗时{{timeCost}}秒",
-      "creditDescription": "消耗{{credits}}算力",
-      "tokenDescription": "本次消耗：{{tokens}} tokens"
+      "timeCostDescription": "生成耗时 {{timeCost}} 秒",
+      "creditDescription": "消耗 {{credits}} 算力",
+      "tokenDescription": "本次消耗：{{tokens}} tokens",
+      "input": "输入",
+      "output": "输出",
+      "tokens": "Tokens",
+      "totalTimeCost": "总耗时",
+      "totalCreditCost": "总计"
     },
     "dataVisualization": {
       "error": "数据可视化失败"

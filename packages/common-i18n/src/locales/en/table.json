@@ -1027,7 +1027,12 @@
       "timeCostUnit": "s",
       "timeCostDescription": "Generation time: {{timeCost}}s",
       "creditDescription": "{{credits}} credits consumed",
-      "tokenDescription": "Tokens used: {{tokens}}"
+      "tokenDescription": "Tokens used: {{tokens}}",
+      "input": "Input",
+      "output": "Output",
+      "tokens": "Tokens",
+      "totalTimeCost": "Total time cost",
+      "totalCreditCost": "Total credit cost"
     },
     "dataVisualization": {
       "error": "Data visualization failed"
