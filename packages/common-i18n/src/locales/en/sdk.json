@@ -1,6 +1,6 @@
 {
   "common": {
-    "comingSoon": "Coming Soon",
+    "comingSoon": "Coming soon",
     "empty": "Empty",
     "noRecords": "No records available",
     "unnamedRecord": "Unnamed record",
@@ -25,9 +25,9 @@
     "actions": "Actions",
     "remove": "Remove",
     "runStatus": {
-      "success": "{{name}} Success",
-      "failed": "{{name}} Failed",
-      "running": "{{name}} Running"
+      "success": "{{name}} success",
+      "failed": "{{name}} failed",
+      "running": "{{name}} running"
     },
     "resetSuccess": "Reset successfully",
     "click": "Click",
@@ -49,8 +49,8 @@
     "nothingToRedo": "Nothing to redo",
     "undoSucceed": "Undo succeed",
     "redoSucceed": "Redo succeed",
-    "undoing": "undoing...",
-    "redoing": "redoing..."
+    "undoing": "Undoing...",
+    "redoing": "Redoing..."
   },
   "editor": {
     "attachment": {
@@ -65,7 +65,7 @@
       "today": "Today"
     },
     "formula": {
-      "title": "Formula Editor",
+      "title": "Formula editor",
       "guideSyntax": "Syntax",
       "guideExample": "Example",
       "helperExample": "Example: ",
@@ -88,8 +88,8 @@
     "link": {
       "placeholder": "Select records to link",
       "searchPlaceholder": "Search records",
-      "create": "Add Record",
-      "selectRecord": "Select Record",
+      "create": "Add record",
+      "selectRecord": "Select record",
       "unselected": "Unselected",
       "selected": "Selected",
       "expandRecordError": "No permission to view this record.",
@@ -168,9 +168,9 @@
       "isEmpty": "is empty",
       "isNotEmpty": "is not empty",
       "isGreater": "is greater than",
-      "isGreaterEqual": "is greater Equal",
+      "isGreaterEqual": "is greater equal",
       "isLess": "is less than",
-      "isLessEqual": "is less Equal",
+      "isLessEqual": "is less equal",
       "isAnyOf": "is any of",
       "isNoneOf": "is not any of",
       "hasAnyOf": "has any of",
@@ -221,21 +221,21 @@
         "pastMonth": "past month",
         "pastYear": "past year",
         "nextWeek": "next week",
-        "nextMonth": "next Month",
-        "nextYear": "next Year",
+        "nextMonth": "next month",
+        "nextYear": "next year",
         "pastNumberOfDays": "past number of days",
         "nextNumberOfDays": "next number of days"
       }
     }
   },
   "color": {
-    "label": "color"
+    "label": "Color"
   },
   "rowHeight": {
-    "short": "short",
-    "medium": "medium",
-    "tall": "tall",
-    "extraTall": "extraTall",
+    "short": "Short",
+    "medium": "Medium",
+    "tall": "Tall",
+    "extraTall": "Extra tall",
     "title": "Row height configuration"
   },
   "fieldNameConfig": {
@@ -243,19 +243,19 @@
     "displayLines": "{{count}} lines"
   },
   "share": {
-    "title": "share"
+    "title": "Share"
   },
   "extensions": {
-    "title": "extensions"
+    "title": "Extensions"
   },
   "hidden": {
-    "label": "Hidden Fields",
+    "label": "Hidden fields",
     "configLabel_one": "{{count}} hidden field",
     "configLabel_other": "{{count}} hidden fields",
     "configLabel_other_visible": "{{count}} visible fields",
-    "showAll": "Show All",
-    "hideAll": "Hide All",
-    "primaryKey": "Primary field: Identifies records\ncannot be hidden or deleted, visible in linked records."
+    "showAll": "Show all",
+    "hideAll": "Hide all",
+    "primaryKey": "Primary field: Identifies records\nCannot be hidden or deleted, visible in linked records."
   },
   "expandRecord": {
     "copy": "Copy to clipboard",
@@ -291,7 +291,7 @@
     "displayLabel_one": "Group by {{count}} fields",
     "displayLabel_other": "Group by {{count}} fields",
     "setTips": "Group by",
-    "addButton": "Add Subgroup"
+    "addButton": "Add subgroup"
   },
   "field": {
     "title": {
@@ -343,8 +343,8 @@
       "lastModifiedBy": "Show who last modified the record."
     },
     "link": {
-      "oneWay": "One Way",
-      "twoWay": "Two Way"
+      "oneWay": "One way",
+      "twoWay": "Two way"
     }
   },
   "permission": {
@@ -413,7 +413,7 @@
     "record": "Record",
     "automation": "Automation",
     "user": "User",
-    "recordHistory": "Record History",
+    "recordHistory": "Record history",
     "you": "You",
     "instance": "Instance",
     "enterprise": "Enterprise"
@@ -761,16 +761,16 @@
     "average": "Average",
     "checked": "Checked",
     "unChecked": "Unchecked",
-    "percentEmpty": "Percent Empty",
-    "percentFilled": "Percent Filled",
-    "percentUnique": "Percent Unique",
-    "percentChecked": "Percent Checked",
-    "percentUnChecked": "Percent Unchecked",
-    "earliestDate": "Earliest Date",
-    "latestDate": "Latest Date",
-    "dateRangeOfDays": "Date Range (days)",
-    "dateRangeOfMonths": "Date Range (months)",
-    "totalAttachmentSize": "Total Attachment Size"
+    "percentEmpty": "Percent empty",
+    "percentFilled": "Percent filled",
+    "percentUnique": "Percent unique",
+    "percentChecked": "Percent checked",
+    "percentUnChecked": "Percent unchecked",
+    "earliestDate": "Earliest date",
+    "latestDate": "Latest date",
+    "dateRangeOfDays": "Date range (days)",
+    "dateRangeOfMonths": "Date range (months)",
+    "totalAttachmentSize": "Total attachment size"
   },
   "baseQuery": {
     "add": "Add",
@@ -782,8 +782,8 @@
     },
     "from": {
       "title": "From",
-      "fromTable": "Select Table",
-      "fromQuery": "From Query"
+      "fromTable": "Select table",
+      "fromQuery": "From query"
     },
     "select": {
       "title": "Select"
@@ -792,10 +792,10 @@
       "title": "Where"
     },
     "groupBy": {
-      "title": "Group By"
+      "title": "Group by"
     },
     "orderBy": {
-      "title": "Order By",
+      "title": "Order by",
       "asc": "Ascending",
       "desc": "Descending"
     },
@@ -807,11 +807,11 @@
     },
     "join": {
       "title": "Join",
-      "joinType": "Join Type",
-      "leftJoin": "Left Join",
-      "rightJoin": "Right Join",
-      "innerJoin": "Inner Join",
-      "fullJoin": "Full Join",
+      "joinType": "Join type",
+      "leftJoin": "Left join",
+      "rightJoin": "Right join",
+      "innerJoin": "Inner join",
+      "fullJoin": "Full join",
       "data": "From"
     },
     "aggregation": {
@@ -822,7 +822,7 @@
     "title": "Comment",
     "placeholder": "Leave a comment...",
     "emptyComment": "Start a conversation",
-    "deletedComment": "Deleted Comment",
+    "deletedComment": "Deleted comment",
     "imageSizeLimit": "Image size could not be greater than {{size}}",
     "tip": {
       "editing": "Editing...",
@@ -840,15 +840,15 @@
       "image": "Image"
     },
     "floatToolbar": {
-      "editLink": "Edit Link",
+      "editLink": "Edit link",
       "caption": "Caption",
       "delete": "Delete",
-      "linkText": "Link Text",
+      "linkText": "Link text",
       "enterUrl": "Enter URL"
     }
   },
   "memberSelector": {
-    "title": "Select Members",
+    "title": "Select members",
     "memberSelectorSearchPlaceholder": "Search members...",
     "departmentSelectorSearchPlaceholder": "Search departments...",
     "selected": "Selected",
@@ -857,27 +857,27 @@
     "emptyDepartment": "No departments"
   },
   "httpErrors": {
-    "validationError": "Validation Error",
-    "invalidCaptcha": "Invalid Captcha",
-    "invalidCredentials": "Invalid Credentials",
+    "validationError": "Validation error",
+    "invalidCaptcha": "Invalid captcha",
+    "invalidCredentials": "Invalid credentials",
     "unauthorized": "Unauthorized",
-    "unauthorizedShare": "Unauthorized Share",
-    "paymentRequired": "Payment Required",
-    "restrictedResource": "Restricted Resource",
-    "notFound": "Not Found",
+    "unauthorizedShare": "Unauthorized share",
+    "paymentRequired": "Payment required",
+    "restrictedResource": "Restricted resource",
+    "notFound": "Not found",
     "conflict": "Conflict",
-    "unprocessableEntity": "Unprocessable Entity",
-    "userLimitExceeded": "User Limit Exceeded",
-    "tooManyRequests": "Too Many Requests",
-    "internalServerError": "Internal Server Error",
-    "databaseConnectionUnavailable": "Database Connection Unavailable",
-    "gatewayTimeout": "Gateway Timeout",
-    "unknownErrorCode": "Unknown Error Code",
-    "requestTimeout": "Request Timeout",
-    "failedDependency": "Failed Dependency",
-    "automationNodeParseError": "Automation Node Parse Error",
-    "automationNodeNeedTest": "Automation Node Need Test",
-    "automationNodeTestOutdated": "Automation Node Test Outdated",
+    "unprocessableEntity": "Unprocessable entity",
+    "userLimitExceeded": "User limit exceeded",
+    "tooManyRequests": "Too many requests",
+    "internalServerError": "Internal server error",
+    "databaseConnectionUnavailable": "Database connection unavailable",
+    "gatewayTimeout": "Gateway timeout",
+    "unknownErrorCode": "Unknown error code",
+    "requestTimeout": "Request timeout",
+    "failedDependency": "Failed dependency",
+    "automationNodeParseError": "Automation node parse error",
+    "automationNodeNeedTest": "Automation node need test",
+    "automationNodeTestOutdated": "Automation node test outdated",
     "custom": {
       "fieldValueNotNull": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow empty values, please fill in completely before submitting.",
       "fieldValueDuplicate": "\"{{tableName}}\" field \"{{fieldName}}\" does not allow duplicate values, please fill in a unique value before submitting.",
@@ -1180,10 +1180,10 @@
       "testLLMFailed": "LLM connection test failed",
       "audioNotSupported": "Audio input not supported by this model {{model}}",
       "imageNotSupported": "Image input not supported by this model {{model}}",
-      "modelNotSet": "AI Model is not set",
+      "modelNotSet": "AI model is not set",
       "unsupportedFileType": "Unsupported file type {{mimetype}}",
       "unsupportedModelType": "Unsupported model type",
-      "embeddingModelNotSet": "Embedding Model is not set",
+      "embeddingModelNotSet": "Embedding model is not set",
       "validateActionFailed": "Validate field AI action failed",
       "generateFailed": "AI generation failed",
       "unsupportedActionType": "Unsupported AI action type"

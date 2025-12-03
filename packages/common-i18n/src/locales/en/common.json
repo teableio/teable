@@ -3,7 +3,7 @@
     "title": "Actions",
     "add": "Add",
     "save": "Save",
-    "doNotSave": "Don't Save",
+    "doNotSave": "Don't save",
     "submit": "Submit",
     "confirm": "Confirm",
     "continue": "Continue",
@@ -18,16 +18,16 @@
     "zoomOut": "Zoom out",
     "back": "Back",
     "remove": "Remove",
-    "removeConfig": "Remove Config",
-    "saveSucceed": "Save Succeed!",
-    "submitSucceed": "Submit Succeed!",
-    "editSucceed": "Edit Succeed!",
-    "updateSucceed": "Update Succeed!",
-    "deleteSucceed": "Delete Succeed!",
-    "resetSucceed": "Empty trash Succeed!",
-    "restoreSucceed": "Restored Succeed!",
+    "removeConfig": "Remove config",
+    "saveSucceed": "Save succeed!",
+    "submitSucceed": "Submit succeed!",
+    "editSucceed": "Edit succeed!",
+    "updateSucceed": "Update succeed!",
+    "deleteSucceed": "Delete succeed!",
+    "resetSucceed": "Empty trash succeed!",
+    "restoreSucceed": "Restored succeed!",
     "loading": "Loading...",
-    "refreshPage": "Refresh Page",
+    "refreshPage": "Refresh page",
     "yesDelete": "Yes, delete",
     "rename": "Rename",
     "duplicate": "Duplicate",
@@ -37,11 +37,11 @@
     "upgrade": "Upgrade",
     "search": "Search",
     "loadMore": "Load more",
-    "collapseSidebar": "Collapse Sidebar",
+    "collapseSidebar": "Collapse sidebar",
     "restore": "Restore",
-    "permanentDelete": "Permanent Delete",
-    "globalSearch": "Global Search",
-    "fieldSearch": "Search Field",
+    "permanentDelete": "Permanent delete",
+    "globalSearch": "Global search",
+    "fieldSearch": "Search field",
     "tableIndex": "Index",
     "showAllRow": "Display all rows",
     "hideNotMatchRow": "Hide not match row",
@@ -55,7 +55,7 @@
     "previous": "Previous"
   },
   "quickAction": {
-    "title": "Quick Actions...",
+    "title": "Quick actions...",
     "placeHolder": "Type a command or search..."
   },
   "password": {
@@ -68,11 +68,11 @@
     "watchVideo": "Watch video",
     "title": "Template",
     "description": "Create a new base from a template",
-    "browseAll": "Browse All",
+    "browseAll": "Browse all",
     "templateTitle": "Start with template",
-    "loadMore": "Load More",
+    "loadMore": "Load more",
     "allTemplatesLoaded": "All templates loaded",
-    "createTemplate": "Create Template",
+    "createTemplate": "Create template",
     "promptBox": {
       "placeholder": "Build your business app with Teable",
       "start": "Start it",
@@ -115,13 +115,13 @@
         "cover": "Cover",
         "name": "Name",
         "description": "Description",
-        "markdownDescription": "Markdown Description",
+        "markdownDescription": "Markdown description",
         "category": "Category",
         "isSystem": "System",
         "source": "Source",
         "status": "Published",
-        "publishSnapshot": "Publish Snapshot",
-        "snapshotTime": "Snapshot Time",
+        "publishSnapshot": "Publish snapshot",
+        "snapshotTime": "Snapshot time",
         "actions": "Actions"
       },
       "actions": {
@@ -131,9 +131,9 @@
         "duplicate": "Duplicate",
         "preview": "Preview",
         "use": "Use",
-        "pinTop": "Pin Top",
-        "addCategory": "Add Category",
-        "selectCategory": "Select Category"
+        "pinTop": "Pin top",
+        "addCategory": "Add category",
+        "selectCategory": "Select category"
       },
       "baseSelectPanel": {
         "title": "Select template source",
@@ -149,7 +149,7 @@
     "back": "Back to home",
     "account": {
       "title": "My profile",
-      "tab": "My Account",
+      "tab": "My account",
       "updatePhoto": "Update photo",
       "updateNameDesc": "Your name will be displayed on contributions and mentions. You can change it anytime.",
       "securityTitle": "Account security",
@@ -172,7 +172,7 @@
         "title": "🎉 Change password successfully.",
         "desc": "You will be redirected to the login page in 2 seconds."
       },
-      "manageToken": "Access Token",
+      "manageToken": "Access token",
       "addPassword": {
         "title": "Add password",
         "desc": "Set a permanent password to login to your account.",
@@ -206,7 +206,7 @@
         }
       },
       "deleteAccount": {
-        "title": "Delete Account",
+        "title": "Delete account",
         "desc": "This action is irreversible. It will permanently delete your account and all associated data.",
         "error": {
           "title": "Unable to delete account",
@@ -221,12 +221,12 @@
       }
     },
     "notify": {
-      "title": "My Notifications",
+      "title": "My notifications",
       "label": "Activity in your space",
       "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
     },
     "setting": {
-      "title": "My Settings",
+      "title": "My settings",
       "theme": "Theme",
       "themeDesc": "Select the theme for the app.",
       "dark": "Dark",
@@ -234,15 +234,15 @@
       "system": "System",
       "version": "App version",
       "language": "Language",
-      "interactionMode": "Interaction Mode",
-      "mouseMode": "Cursor Mode",
-      "touchMode": "Touch Mode",
-      "systemMode": "Follow System"
+      "interactionMode": "Interaction mode",
+      "mouseMode": "Cursor mode",
+      "touchMode": "Touch mode",
+      "systemMode": "Follow system"
     },
     "nav": {
       "settings": "Settings",
       "logout": "Log out",
-      "contactSupport": "Contact Support"
+      "contactSupport": "Contact support"
     },
     "integration": {
       "title": "Integrations",
@@ -265,24 +265,24 @@
     "record": "Record",
     "dashboard": "Dashboard",
     "automation": "Automation",
-    "authorityMatrix": "Authority Matrix",
+    "authorityMatrix": "Authority matrix",
     "design": "Design",
-    "adminPanel": "Admin Panel",
-    "license": "Self-hosted License",
+    "adminPanel": "Admin panel",
+    "license": "Self-hosted license",
     "instanceId": "Instance ID",
     "beta": "Beta",
     "trash": "Trash",
     "global": "Global",
-    "organizationPanel": "Organization Panel",
+    "organizationPanel": "Organization panel",
     "unknownError": "Unknown error",
     "pluginPanel": "Panel",
-    "pluginContextMenu": "Context Menu",
+    "pluginContextMenu": "Context menu",
     "plugin": "Plugins",
     "copy": "Copy",
     "credits": "Credits",
     "aiChat": "AI Chat",
     "app": "App",
-    "webSearch": "Web Search"
+    "webSearch": "Web search"
   },
   "level": {
     "free": "Free",
@@ -369,7 +369,7 @@
       "joinAt": "Joined at"
     },
     "authority": {
-      "title": "Authority Matrix is enabled",
+      "title": "Authority matrix is enabled",
       "description": "Collaborators’ s effective access permission is affected by the roles assigned to them, Unassigned user using the default role",
       "viewDetail": "View detail"
     }
@@ -389,10 +389,10 @@
     "unavailableInPlanTips": "The current subscription plan does not support this feature",
     "unavailableConnectionTips": "Database connection feature will be removed and only available in Enterprise Plan and self-hosted versions.",
     "levelTips": "This space is currently on the {{level}} plan",
-    "enterpriseFeature": "Enterprise Feature",
+    "enterpriseFeature": "Enterprise feature",
     "automationRequiresUpgrade": "Upgrade to Enterprise Edition (EE) to enable automation",
     "authorityMatrixRequiresUpgrade": "Upgrade to Enterprise Edition (EE) to enable authority matrix",
-    "viewPricing": "View Pricing",
+    "viewPricing": "View pricing",
     "billable": "Billable",
     "licenseExpiredGracePeriod": "Your self-hosted license has expired and will downgrade to the free plan on {{expiredTime}}. Please update your license promptly to retain access to premium features.",
     "spaceSubscriptionModal": {
@@ -403,9 +403,9 @@
       "active": "Active",
       "canceled": "Canceled",
       "incomplete": "Incomplete",
-      "incompleteExpired": "Incomplete Expired",
+      "incompleteExpired": "Incomplete expired",
       "trialing": "Trialing",
-      "pastDue": "Past Due",
+      "pastDue": "Past due",
       "unpaid": "Unpaid",
       "paused": "Paused",
       "seatLimitExceeded": "Seat limit exceeded"
@@ -413,7 +413,7 @@
   },
   "admin": {
     "setting": {
-      "instanceTitle": "Instance Settings",
+      "instanceTitle": "Instance settings",
       "description": "Change the settings for your current instance",
       "allowSignUp": "Allow creating new accounts",
       "allowSignUpDescription": "Disabling this option will prohibit new user registrations, and the register button will no longer appear on the login page.",
@@ -432,7 +432,7 @@
         "description": "Only available in Enterprise Edition",
         "brandName": "Brand name",
         "logo": "Logo",
-        "logoUpload": "Upload Logo",
+        "logoUpload": "Upload logo",
         "logoUploadDescription": "Upload Logo image, supports PNG, JPEG format, recommended size is 100x100px. Maximum upload size is 500KB."
       },
       "ai": {
@@ -474,23 +474,23 @@
         },
         "actions": {
           "aiBasicCapability": {
-            "title": "AI Basic Capability",
+            "title": "AI basic capability",
             "description": "AI Basic Capability, include AI table query tool, execute SQL query tool, generate script tool, table data visualization tool, update database information tool"
           },
           "buildBase": {
-            "title": "Create Base",
+            "title": "Create base",
             "description": "Create Base from scratch"
           },
           "buildApp": {
-            "title": "Create App",
+            "title": "Create app",
             "description": "Create App based on Base"
           },
           "buildAutomation": {
-            "title": "Create Automation",
+            "title": "Create automation",
             "description": "Create Automation from scratch"
           },
           "baseResource": {
-            "title": "Base Resource Operation",
+            "title": "Base resource operation",
             "description": "Create, modify, and delete tables, views, fields, and records through ai"
           },
           "suggestion": {
@@ -502,9 +502,9 @@
           "text": "Test model",
           "description": "Test the ability of the model to handle image, pdf.",
           "notConfigLgModel": "Please configure the lg model first",
-          "confirmTitle": "Test Model Ability",
+          "confirmTitle": "Test model ability",
           "confirmDescription": "Do you want to test the large chat model's capabilities?",
-          "confirm": "Test Model",
+          "confirm": "Test model",
           "cancel": "Cancel",
           "missingCapabilitiesWarning": "This model does not support image or PDF processing, which may cause some features to be unavailable.",
           "enableAITitle": "Enable AI",
@@ -515,8 +515,8 @@
         "chatModelAbility": {
           "image": "Image",
           "pdf": "PDF",
-          "webSearch": "Web Search",
-          "disabledWebSearch": "Disabled Web Search",
+          "webSearch": "Web search",
+          "disabledWebSearch": "Disabled web search",
           "lgModelAbility": "Large model ability"
         },
         "configUpdated": "AI config updated",
@@ -580,12 +580,12 @@
           "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
         },
         "app": {
-          "title": "App Generation",
+          "title": "App generation",
           "description": "You have not configured the v0 API key, the App Generation feature will not be available, <anchor>go to setting</anchor>",
           "errorTips": "You have not configured the v0 API key, the App Generation feature will not be available"
         },
         "webSearch": {
-          "title": "Web Search",
+          "title": "Web search",
           "description": "You have not configured the web search API, the web search feature will not be available, <anchor>go to setting</anchor>",
           "errorTips": "You have not configured the web search API, the web search feature will not be available"
         },
@@ -654,21 +654,21 @@
   "email": {
     "title": "Email",
     "send": "Send",
-    "config": "Email Config",
-    "customConfig": "Custom Email Server",
-    "notify": "Notify Email",
-    "automation": "Automation Email",
-    "customNotifyConfig": "Custom Notify Email Config",
-    "customAutomationConfig": "Custom Automation Email Config",
-    "addConfig": "Add Config",
-    "editConfig": "Edit Config",
+    "config": "Email config",
+    "customConfig": "Custom email server",
+    "notify": "Notify email",
+    "automation": "Automation email",
+    "customNotifyConfig": "Custom notify email config",
+    "customAutomationConfig": "Custom automation email config",
+    "addConfig": "Add config",
+    "editConfig": "Edit config",
     "resetConfig": "Reset",
-    "testEmail": "Test Email",
+    "testEmail": "Test email",
     "testEmailPlaceholder": "Please enter the test email",
     "testEmailError": "Please enter a valid test email address",
     "testEmailSend": "Test email sent successfully, please check your email",
     "configError": "Please enter a valid email config",
-    "host": "Server Address",
+    "host": "Server address",
     "hostDescription": "Please enter the SMTP mail server address, for example: smtp.example.com",
     "port": "Port",
     "secure": "SSL/TLS",
@@ -676,38 +676,38 @@
     "username": "Username",
     "password": "Password",
     "sender": "Sender",
-    "senderName": "Sender Name",
+    "senderName": "Sender name",
     "subscribe": "Subscribe",
     "unsubscribe": "Unsubscribe",
-    "unsubscribeList": "Unsubscribe List",
-    "unsubscribeTime": "Unsubscribe Time",
+    "unsubscribeList": "Unsubscribe list",
+    "unsubscribeTime": "Unsubscribe time",
     "processing": "Processing...",
-    "unsubscribeH1": "Confirm Unsubscribe?",
+    "unsubscribeH1": "Confirm unsubscribe?",
     "unsubscribeH2": "You're about to unsubscribe from future Teable promotions and product updates. Are you sure you want to unsubscribe?",
-    "subscribeH1": "Confirm Subscribe?",
+    "subscribeH1": "Confirm subscribe?",
     "subscribeH2": "You're about to subscribe from future Teable promotions and product updates. Are you sure you want to subscribe?",
     "unsubscribeListTip": "The following users in the current base have unsubscribed, you will no longer be able to send them emails. When importing emails, please place the email addresses in the first column, and name the header \"email\".",
     "templates": {
       "resetPassword": {
         "subject": "Reset Password - {{brandName}}",
-        "title": "Reset Your Password",
+        "title": "Reset your password",
         "message": "If you did not request this change, please ignore this email. Otherwise, click the button below to reset your password.",
-        "buttonText": "Reset Password"
+        "buttonText": "Reset password"
       },
       "emailVerifyCode": {
         "signupVerification": {
           "subject": "Signup Verification - {{brandName}}",
-          "title": "Signup Verification",
+          "title": "Signup verification",
           "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         },
         "domainVerification": {
           "subject": "Domain Verification - {{brandName}}",
-          "title": "Domain Verification",
+          "title": "Domain verification",
           "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         },
         "changeEmailVerification": {
           "subject": "Change Email Verification - {{brandName}}",
-          "title": "Change Email Verification",
+          "title": "Change email verification",
           "message": "Your verification code is {{code}}, please use it within {{expiresIn}} minutes."
         }
       },
@@ -723,9 +723,9 @@
       },
       "invite": {
         "subject": "{{name}} ({{email}}) invited you to their {{resourceAlias}} {{resourceName}} - {{brandName}}",
-        "title": "Invitation to Collaborate",
+        "title": "Invitation to collaborate",
         "message": "<strong>{{name}}</strong> ({{email}}) invited you to their {{resourceAlias}} <strong>{{resourceName}}</strong>.",
-        "buttonText": "Accept Invitation"
+        "buttonText": "Accept invitation"
       },
       "waitlistInvite": {
         "subject": "Welcome - {{brandName}}",
@@ -743,7 +743,7 @@
         "title": "Notify",
         "buttonText": "View",
         "import": {
-          "title": "Import Result Notification",
+          "title": "Import result notification",
           "table": {
             "aborted": {
               "message": "❌ {{tableName}} import aborted: {{errorMessage}} failed row range: [{{range}}]. Please check the data for this range and retry."
@@ -758,11 +758,11 @@
           }
         },
         "recordComment": {
-          "title": "Record Comment Notification",
+          "title": "Record comment notification",
           "message": "{{fromUserName}} made a comment on {{recordName}} in {{tableName}} in {{baseName}}"
         },
         "automation": {
-          "title": "Automation Notification",
+          "title": "Automation notification",
           "failed": {
             "title": "Automation {{name}} failed",
             "message": "Your Automation {{name}} has failed to run. Click the button below to view specific errors from the run history."
@@ -821,7 +821,7 @@
     "deleteTip": "Are you sure you want to delete \"{{name}}\" base?"
   },
   "app": {
-    "title": "App Generation",
+    "title": "App generation",
     "description": "Configure the v0 API Key to enable APP Generation capabilities. Access <a>v0 setting</a> to obtain your API Key",
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"

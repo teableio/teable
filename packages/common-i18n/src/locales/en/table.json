@@ -8,7 +8,7 @@
         "label": "Share",
         "statusLabel": "Sharing",
         "noPermission": "No permission to share view",
-        "shareLink": "Share Link",
+        "shareLink": "Share link",
         "copied": "Copied",
         "genLink": "Generate new link",
         "allowCopy": "Allow viewers to copy data out of this view",
@@ -33,7 +33,7 @@
       "api": {
         "label": "API",
         "restfulApi": "Restful API",
-        "databaseConnection": "Database Connection"
+        "databaseConnection": "Database connection"
       },
       "personalView": {
         "personal": "Personal",
@@ -50,13 +50,13 @@
   },
   "welcome": {
     "title": "Welcome",
-    "emptyTitle": "Start Building Your Database",
+    "emptyTitle": "Start building your database",
     "description": "Click the \"+\" button in the sidebar to add resources, and start managing your data efficiently",
     "help": "Visit the <HelpCenter /> for more information.",
-    "helpCenter": "Help Center"
+    "helpCenter": "Help center"
   },
   "field": {
-    "fieldManagement": "Field Management",
+    "fieldManagement": "Field management",
     "fieldManagementDesc": "Detailed properties for all fields of the current table",
     "advancedProps": "Advanced properties",
     "hide": "hide",
@@ -69,8 +69,8 @@
       },
       "number": {
         "title": "Number",
-        "formatType": "Format Type",
-        "currencySymbol": "Currency Symbol",
+        "formatType": "Format type",
+        "currencySymbol": "Currency symbol",
         "defaultSymbol": "$",
         "precision": "Precision",
         "decimalExample": "Decimal (1.0)",
@@ -80,8 +80,8 @@
       "singleSelect": {
         "title": "Status",
         "options": {
-          "todo": "To Do",
-          "inProgress": "In Progress",
+          "todo": "To do",
+          "inProgress": "In progress",
           "done": "Done"
         }
       },
@@ -96,11 +96,11 @@
       },
       "date": {
         "title": "Date",
-        "dateFormatting": "Date Formatting",
-        "timeFormatting": "Time Formatting",
-        "timeZone": "Time Zone",
-        "yearMonth": "Year/Month",
-        "monthDay": "Month/Day",
+        "dateFormatting": "Date formatting",
+        "timeFormatting": "Time formatting",
+        "timeZone": "Time zone",
+        "yearMonth": "Year/month",
+        "monthDay": "Month/day",
         "year": "Year",
         "month": "Month",
         "day": "Day",
@@ -198,35 +198,35 @@
       }
     },
     "editor": {
-      "addField": "Add Field",
-      "editField": "Edit Field",
-      "insertField": "Insert Field",
+      "addField": "Add field",
+      "editField": "Edit field",
+      "insertField": "Insert field",
       "graph": "Graph",
       "defaultValue": "Default value",
       "reset": "Reset",
       "fieldUpdated": "Field has been updated",
       "fieldCreated": "Field has been created",
-      "previewDependenciesGraph": "Preview Dependencies Graph",
+      "previewDependenciesGraph": "Preview dependencies graph",
       "areYouSurePerformIt": "Are you sure you want to perform it?",
-      "addDescription": "Add Description",
+      "addDescription": "Add description",
       "dbFieldName": "DB field name",
       "description": "Description",
       "descriptionPlaceholder": "Describe this field (optional)",
       "type": "Type",
-      "showAs": "Show As",
+      "showAs": "Show as",
       "color": "Color",
       "number": "Number",
-      "chartBar": "Chart Bar",
-      "chartLine": "Chart Line",
+      "chartBar": "Chart bar",
+      "chartLine": "Chart line",
       "ring": "Ring",
       "bar": "Bar",
       "text": "Text",
       "url": "Url",
       "email": "Email",
       "phone": "Phone",
-      "maxNumber": "Max Number",
-      "showNumber": "Show Number",
-      "autoFillDate": "Auto Fill with current date",
+      "maxNumber": "Max number",
+      "showNumber": "Show number",
+      "autoFillDate": "Auto fill with current date",
       "createSymmetricLink": "Create a back link field in the link table",
       "allowLinkMultipleRecords": "Allow multiple select",
       "allowLinkToDuplicateRecords": "Allows records to be selected more than once",
@@ -320,35 +320,35 @@
       "button": "Trigger a customized action.",
       "lookup": "See values from a field in a linked record."
     },
-    "fieldName": "Field Name",
-    "fieldNameOptional": "Field Name (Optional)",
-    "fieldType": "Field Type",
+    "fieldName": "Field name",
+    "fieldNameOptional": "Field name (Optional)",
+    "fieldType": "Field type",
     "aiConfig": {
-      "title": "AI Config",
+      "title": "AI config",
       "type": {
         "summary": "Summarize",
         "translation": "Translate",
-        "extraction": "Extract Information",
+        "extraction": "Extract information",
         "improvement": "Improve",
-        "tag": "Smart-Tag",
-        "classification": "Smart-Classify",
+        "tag": "Smart-tag",
+        "classification": "Smart-classify",
         "customization": "Customize",
-        "imageGeneration": "Image Generation",
+        "imageGeneration": "Image generation",
         "rating": "Rating"
       },
       "label": {
-        "type": "AI Action Type",
-        "model": "AI Model",
-        "targetLanguage": "Target Language",
-        "sourceField": "Source Field",
+        "type": "AI action type",
+        "model": "AI model",
+        "targetLanguage": "Target language",
+        "sourceField": "Source field",
         "sourceFieldForTag": "Select a field, match it with the created tags",
         "sourceFieldForClassify": "Select a field, match it with the created classifications",
-        "attachPrompt": "Attach Requirements",
-        "prompt": "Customize Prompt",
-        "sourceFieldForAttachment": "Source Field for Attachment",
-        "imageSize": "Image Size",
-        "imageQuality": "Image Quality",
-        "imageCount": "Image Count"
+        "attachPrompt": "Attach requirements",
+        "prompt": "Customize prompt",
+        "sourceFieldForAttachment": "Source field for attachment",
+        "imageSize": "Image size",
+        "imageQuality": "Image quality",
+        "imageCount": "Image count"
       },
       "placeholder": {
         "summarize": "Summary of the content",
@@ -360,7 +360,7 @@
         "attachPromptForClassify": "Classify \"In Progress\" as \"No Risk\"",
         "attachPrompt": "Please enter additional requirements",
         "prompt": "Please enter a custom prompt",
-        "type": "Select AI Action",
+        "type": "Select AI action",
         "targetLanguage": "English, Chinese, French...",
         "imageSize": "Please enter the image size",
         "imageQuality": "Please enter the image quality",
@@ -373,7 +373,7 @@
         "high": "High"
       },
       "autoFill": {
-        "title": "Auto Update",
+        "title": "Auto update",
         "tip": "After enabling, the current field will be updated synchronously with the content changes of the AI configuration"
       },
       "autoFillFieldDialog": {
@@ -400,7 +400,7 @@
     "deleteConfirm": "Are you sure you want to delete \"{{tableName}}\" ?",
     "dbTableName": "Table name in physical database",
     "schemaName": "Schema name in physical database",
-    "baseInfo": "Base Info",
+    "baseInfo": "Base info",
     "typeOfDatabase": "Type of database",
     "descriptionForTable": "Description for this table",
     "nameForTable": "Name for this table",
@@ -456,7 +456,7 @@
       "title": "Integrity check",
       "loading": "Checking integrity...",
       "allGood": "All good!",
-      "fixIssues": "Fix Issues",
+      "fixIssues": "Fix issues",
       "type": "Type",
       "message": "Error message",
       "errorType": {
@@ -492,15 +492,15 @@
     "title": {
       "upload": "Upload",
       "import": "Import",
-      "localFile": "Local Files",
+      "localFile": "Local files",
       "linkUrl": "Link(URL)",
       "linkUrlInputTitle": "Add file from URL",
       "importTitle": "Create a new table",
-      "incrementImportTitle": "Import Into — ",
+      "incrementImportTitle": "Import into — ",
       "optionsTitle": "Import option",
-      "primitiveFields": "Primitive Fields",
-      "importFields": "Import Field",
-      "primaryField": "Primary Field",
+      "primitiveFields": "Primitive fields",
+      "importFields": "Import field",
+      "primaryField": "Primary field",
       "tipsTitle": "Tips",
       "confirm": "Confirm and continue"
     },
@@ -511,7 +511,7 @@
       "cancel": "Cancel",
       "leave": "Leave",
       "downAsCsv": "Download CSV",
-      "importData": "Import Data",
+      "importData": "Import data",
       "duplicate": "Duplicate",
       "includeRecords": "Include records"
     },
@@ -530,7 +530,7 @@
     "options": {
       "autoSelectFieldOptionName": "Auto-select field types",
       "useFirstRowAsHeaderOptionName": "Use first row as header",
-      "importDataOptionName": "Import Data",
+      "importDataOptionName": "Import data",
       "sheetKey": "SheetName: ",
       "excludeFirstRow": "Exclude first row in import"
     },
@@ -561,8 +561,8 @@
   },
   "form": {
     "fieldsManagement": "Fields",
-    "addAll": "Add All",
-    "removeAll": "Remove All",
+    "addAll": "Add all",
+    "removeAll": "Remove all",
     "hideFieldTip": "Hide the field to here",
     "unableAddFieldTip": "Unable to add this type field",
     "removeFromFormTip": "Remove from the form",
@@ -578,13 +578,13 @@
       "chooseStackingField": "Choose a stacking field",
       "chooseStackingFieldDescription": "Which field would you like to use for this kanban view? Your records will be stacked based on this field.",
       "hideEmptyStack": "Hide empty stack",
-      "imageSetting": "Image Setting",
+      "imageSetting": "Image setting",
       "fit": "Fit",
       "noImage": "No image",
       "chooseAttachmentField": "Choose attachment field"
     },
     "stack": {
-      "addStack": "Add Stack",
+      "addStack": "Add stack",
       "noCards": "No cards",
       "uncategorized": "Uncategorized"
     },
@@ -603,7 +603,7 @@
   },
   "calendar": {
     "toolbar": {
-      "config": "Calendar Config",
+      "config": "Calendar config",
       "startDateField": "Start date field",
       "endDateField": "End date field",
       "titleField": "Title field",
@@ -642,14 +642,14 @@
     "sortField": "Sort by this field",
     "groupField": "Group by this field",
     "autoFill": "Update all records",
-    "groupMenuTitle": "Group Menu",
+    "groupMenuTitle": "Group menu",
     "expandGroup": "Expand this group and its sub-groups",
     "collapseGroup": "Collapse this group and its sub-groups",
     "expandAllGroups": "Expand all groups",
     "collapseAllGroups": "Collapse all groups"
   },
   "connection": {
-    "title": "Database Connection",
+    "title": "Database connection",
     "description": "You can access the database directly through the database connection, including all the tables under the current base",
     "noPermission": "You don't have permission to access the database",
     "connectionCountTip": "The maximum number of database connections is <b>{{max}}</b> and the current connections is <b>{{current}}</b>",
@@ -670,17 +670,17 @@
       "enable": "Enable"
     },
     "category": {
-      "table": "Grid View",
-      "form": "Form View",
-      "kanban": "Kanban View",
-      "gallery": "Gallery View",
-      "calendar": "Calendar View"
+      "table": "Grid view",
+      "form": "Form view",
+      "kanban": "Kanban view",
+      "gallery": "Gallery view",
+      "calendar": "Calendar view"
     },
     "crash": {
       "title": "Crash!",
       "description": "This view is broken. If the refresh still fails, please contact us. support@teable.ai"
     },
-    "addPluginView": "Add Plugin View",
+    "addPluginView": "Add plugin view",
     "search": {
       "field_one": "{{name}}",
       "field_other": "fields({{length}})"
@@ -768,12 +768,12 @@
       "deletedRecords": "Deleted records"
     },
     "agentName": {
-      "tableOperatorAgent": "Table Agent",
-      "viewOperatorAgent": "View Agent",
-      "fieldOperatorAgent": "Field Agent",
-      "recordOperatorAgent": "Record Agent",
-      "buildBaseAgent": "Build Base Agent",
-      "buildAutomationAgent": "Build Automation Agent"
+      "tableOperatorAgent": "Table agent",
+      "viewOperatorAgent": "View agent",
+      "fieldOperatorAgent": "Field agent",
+      "recordOperatorAgent": "Record agent",
+      "buildBaseAgent": "Build base agent",
+      "buildAutomationAgent": "Build automation agent"
     },
     "confirm": {
       "toBeConfirmed": "To be confirmed",
@@ -839,8 +839,8 @@
       "preview": "Preview"
     },
     "buildFlow": {
-      "progress": "Build Progress",
-      "completed": "App Build Completed",
+      "progress": "Build progress",
+      "completed": "App build completed",
       "completedDesc": "All steps completed successfully, app is ready for preview",
       "stepStatus": {
         "initializing": "Creating app and initializing environment...",
