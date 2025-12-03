@@ -37,7 +37,7 @@
       },
       "personalView": {
         "personal": "个人",
-        "tip": "启用后，视配置仅对你本人生效",
+        "tip": "启用后，视图配置仅对你本人生效",
         "collaborative": "协同",
         "dialog": {
           "title": "退出个人模式",
