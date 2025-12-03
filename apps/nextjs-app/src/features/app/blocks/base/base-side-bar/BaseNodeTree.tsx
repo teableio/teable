@@ -570,7 +570,7 @@ export const BaseNodeTree = () => {
       ) : (
         <ScrollArea
           viewportRef={viewportRef}
-          className="flex w-full !border-none px-4"
+          className="flex w-full !border-none px-4 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
           scrollBar="none"
         >
           <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
@@ -582,9 +582,9 @@ export const BaseNodeTree = () => {
               const { resourceType, resourceId } = data;
               const name = getNodeName(data);
               return (
-                <TreeItem key={nodeId} item={item}>
-                  <TreeItemLabel>
-                    <div className="flex w-full items-center gap-2">
+                <TreeItem key={nodeId} item={item} className="w-full cursor-pointer">
+                  <TreeItemLabel className="w-full min-w-0">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
                       {editingNodeId === nodeId ? (
                         <Input
                           ref={inputRef}
@@ -594,7 +594,7 @@ export const BaseNodeTree = () => {
                           style={{
                             boxShadow: 'none',
                           }}
-                          className="round-none size-full h-5 cursor-text border-none bg-background outline-none"
+                          className="round-none size-full h-5 cursor-text bg-background outline-none"
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
                               const newVal = e.currentTarget.value;
@@ -616,14 +616,16 @@ export const BaseNodeTree = () => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <p className="grow truncate text-left">{' ' + item.getItemName()}</p>
+                          <p className="min-w-0 grow truncate text-left" title={item.getItemName()}>
+                            {' ' + item.getItemName()}
+                          </p>
                           {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
                               }}
-                              className="flex cursor-pointer items-center gap-2"
+                              className="flex shrink-0 cursor-pointer items-center gap-2"
                             >
                               <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
                                 {canCreateResource && (
