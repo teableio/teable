@@ -2,12 +2,11 @@ import { ViewType, getUniqName } from '@teable/core';
 import { Plus } from '@teable/icons';
 import { useViews } from '@teable/sdk';
 import { useTablePermission } from '@teable/sdk/hooks';
-import { Button, Popover, PopoverContent, PopoverTrigger, Separator } from '@teable/ui-lib/shadcn';
+import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { VIEW_ICON_MAP } from '../../view/constant';
 import { useAddView } from '../../view/list/useAddView';
-import { AddPluginView } from './AddPluginView';
 
 export const AddView: React.FC = () => {
   const addView = useAddView();
@@ -15,10 +14,6 @@ export const AddView: React.FC = () => {
   const permission = useTablePermission();
   const [isOpen, setOpen] = useState(false);
   const { t } = useTranslation('table');
-
-  const closePopover = useCallback(() => {
-    setOpen(false);
-  }, []);
 
   const viewInfoList = [
     {
@@ -84,8 +79,6 @@ export const AddView: React.FC = () => {
             </Button>
           );
         })}
-        <Separator />
-        <AddPluginView onClose={closePopover} />
       </PopoverContent>
     </Popover>
   );
