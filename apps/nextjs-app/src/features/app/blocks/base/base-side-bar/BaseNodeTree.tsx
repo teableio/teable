@@ -1,7 +1,12 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import type { IBaseNodeVo, IDuplicateBaseNodeRo, IUpdateUserLastVisitRo } from '@teable/openapi';
+import type {
+  IBaseNodeVo,
+  IDuplicateBaseNodeRo,
+  IBaseNodeWorkflowResourceMeta,
+  IUpdateUserLastVisitRo,
+} from '@teable/openapi';
 import {
   BaseNodeResourceType,
   updateUserLastVisit as updateUserLastVisitApi,
@@ -431,8 +436,8 @@ export const BaseNodeTree = () => {
   }, [treeItems]);
 
   useEffect(() => {
-    if (Object.keys(treeItems).length === 0) return;
-    const nodes = Object.values(treeItems);
+    if (Object.keys(treeItemsRef.current).length === 0) return;
+    const nodes = Object.values(treeItemsRef.current);
     const { resourceType, resourceId } = parseNodeUrl({ baseId, url: urlPath, urlParams }) ?? {};
     const node = nodes.find(
       (node) => node.resourceType === resourceType && node.resourceId === resourceId
@@ -449,7 +454,7 @@ export const BaseNodeTree = () => {
         parentResourceId: baseId,
       });
     }
-  }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
+  }, [urlPath, urlParams, baseId, updateUserLastVisit]);
 
   useEffect(() => {
     if (!Object.keys(treeItems).length) return;
@@ -577,10 +582,11 @@ export const BaseNodeTree = () => {
             <AssistiveTreeDescription tree={tree} />
             {tree.getItems().map((item) => {
               const nodeId = item.getId();
-              const data = item.getItemData();
-              if (!data) return null;
-              const { resourceType, resourceId } = data;
-              const name = getNodeName(data);
+              const node = item.getItemData();
+              if (!node) return null;
+              const { resourceType, resourceId } = node;
+              const name = getNodeName(node);
+
               return (
                 <TreeItem key={nodeId} item={item} className="w-full cursor-pointer">
                   <TreeItemLabel className="w-full min-w-0">
@@ -616,9 +622,16 @@ export const BaseNodeTree = () => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <p className="min-w-0 grow truncate text-left" title={item.getItemName()}>
-                            {' ' + item.getItemName()}
-                          </p>
+                          <div
+                            className="flex min-w-0 grow items-center gap-1"
+                            title={item.getItemName()}
+                          >
+                            <span className="truncate text-left">{item.getItemName()}</span>
+                            {node.resourceType === BaseNodeResourceType.Workflow &&
+                              (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
+                                <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                              )}
+                          </div>
                           {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
                             <div
