@@ -1,8 +1,6 @@
 import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 import type { OpenAPIObject } from 'openapi3-ts/oas30';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore
 import OpenAPISnippet from './openapi-snippet';
 import { getRoutes } from './utils';
 
