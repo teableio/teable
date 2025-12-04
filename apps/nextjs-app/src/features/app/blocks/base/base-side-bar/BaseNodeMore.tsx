@@ -90,7 +90,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-[160px]"
+          className="min-w-[160px]"
           onClick={(e) => e.stopPropagation()}
         >
           {canRename && (
@@ -272,7 +272,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
         </DropdownMenuTrigger>
         <DropdownMenuContent
           align="start"
-          className="w-[160px]"
+          className="min-w-[160px]"
           onClick={(e) => e.stopPropagation()}
         >
           {menuPermission.updateTable && (

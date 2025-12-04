@@ -668,10 +668,17 @@ export const BaseNodeTree = () => {
                                   className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
                                   onRename={() => setEditingNodeId(nodeId)}
                                   onDelete={async (permanent: boolean, confirm: boolean = true) => {
+                                    const titleMap = {
+                                      [BaseNodeResourceType.Folder]: t('common:noun.folder'),
+                                      [BaseNodeResourceType.Table]: t('common:noun.table'),
+                                      [BaseNodeResourceType.Dashboard]: t('common:noun.dashboard'),
+                                      [BaseNodeResourceType.Workflow]: t('common:noun.automation'),
+                                      [BaseNodeResourceType.App]: t('common:noun.app'),
+                                    };
                                     const result = !confirm
                                       ? true
                                       : await comfirmModal({
-                                          title: t('common:actions.delete'),
+                                          title: `${t('common:actions.delete')} ${titleMap[resourceType] ?? ''}`,
                                           description: t('common:actions.deleteTip', {
                                             name,
                                           }),
