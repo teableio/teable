@@ -264,3 +264,7 @@ export function generateQueryId() {
 export function generateAppId() {
   return IdPrefix.App + getRandomString(16);
 }
+
+export function generateLogId() {
+  return getRandomString(25);
+}

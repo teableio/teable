@@ -56,7 +56,7 @@
     "attachment": {
       "uploadDragOver": "Drop file here to upload",
       "uploadBaseTextPrefix": "Click to upload ",
-      "uploadBaseText": "or paste or drag and drop here",
+      "uploadBaseText": " or paste or drag and drop here",
       "uploadDragDefault": "Paste or drag and drop to upload here",
       "upload": "Upload file"
     },
@@ -1252,7 +1252,8 @@
     "domainVerification": {
       "notFound": "No domain verification code found",
       "invalidCode": "Invalid verification code",
-      "resendCooldown": "Please wait for 1 minute before requesting a new code"
+      "resendCooldown": "Please wait for 1 minute before requesting a new code",
+      "alreadyVerified": "Domain already verified"
     },
     "organization": {
       "notFound": "Organization not found",

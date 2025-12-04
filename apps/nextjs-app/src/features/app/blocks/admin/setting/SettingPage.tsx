@@ -157,7 +157,7 @@ export const SettingPage = (props: ISettingPageProps) => {
   return (
     <div className="flex h-screen flex-1 flex-col overflow-y-auto overflow-x-hidden p-4 sm:p-8">
       <div className="pb-6">
-        <h1 className="text-2xl font-semibold">{t('admin.setting.instanceTitle')}</h1>
+        <h1 className="text-2xl font-semibold">{t('settings.title')}</h1>
         <div className="mt-2 text-sm text-muted-foreground">{t('admin.setting.description')}</div>
       </div>
 

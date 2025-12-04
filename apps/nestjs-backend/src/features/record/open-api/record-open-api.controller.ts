@@ -109,13 +109,15 @@ export class RecordOpenApiController {
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,
     @Body(new ZodValidationPipe(updateRecordRoSchema)) updateRecordRo: IUpdateRecordRo,
-    @Headers('x-window-id') windowId?: string
+    @Headers('x-window-id') windowId?: string,
+    @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord> {
     return await this.recordOpenApiService.updateRecord(
       tableId,
       recordId,
       updateRecordRo,
-      windowId
+      windowId,
+      isAiInternal
     );
   }
 
@@ -143,10 +145,17 @@ export class RecordOpenApiController {
   async updateRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(updateRecordsRoSchema)) updateRecordsRo: IUpdateRecordsRo,
-    @Headers('x-window-id') windowId?: string
+    @Headers('x-window-id') windowId?: string,
+    @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<IRecord[]> {
-    return (await this.recordOpenApiService.updateRecords(tableId, updateRecordsRo, windowId))
-      .records;
+    return (
+      await this.recordOpenApiService.updateRecords(
+        tableId,
+        updateRecordsRo,
+        windowId,
+        isAiInternal
+      )
+    ).records;
   }
 
   @Permissions('record|create')

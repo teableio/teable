@@ -682,7 +682,7 @@ export class CommentOpenApiService {
 
     const message: ILocalization<I18nPath> = {
       i18nKey: 'common.email.templates.notify.recordComment.message',
-      context: { fromUserName, recordName, tableName, baseName },
+      context: { fromUserName, recordName: recordName ?? '', tableName, baseName },
     };
 
     subscribeUsersIds.forEach((userId) => {

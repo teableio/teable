@@ -24,6 +24,20 @@ export class RequestInfoMiddleware implements NestMiddleware {
 
     this.cls.set('origin', origin);
 
+    // Check if this is an internal automation call
+    // Store in CLS to pass through to batch service
+    const isAutomationInternal = req.headers['x-automation-internal'] === 'true';
+    const isAiInternal = req.headers['x-ai-internal'] === 'true';
+
+    // for inner axios call, skip record audit log
+    if (isAutomationInternal || isAiInternal) {
+      this.cls.set('skipRecordAuditLog', true);
+    }
+
+    if (isAiInternal) {
+      this.cls.set('user.id', 'aiRobot');
+    }
+
     next();
   }
 }

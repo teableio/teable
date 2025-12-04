@@ -5,6 +5,7 @@ import {
   FieldType,
   generateBaseId,
   generateDashboardId,
+  generateLogId,
   generatePluginInstallId,
   generatePluginPanelId,
   generateShareId,
@@ -28,7 +29,6 @@ import * as unzipper from 'unzipper';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import StorageAdapter from '../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../attachments/plugins/storage';
@@ -121,7 +121,9 @@ export class BaseImportService {
 
     this.uploadAttachments(importBaseRo.notify.path);
 
-    this.appendTableData(
+    await this.appendTableData(
+      base.id,
+      importBaseRo,
       importBaseRo.notify.path,
       tableIdMap,
       fieldIdMap,
@@ -129,19 +131,6 @@ export class BaseImportService {
       fkMap,
       structure
     );
-
-    // emit base import complete event for audit log
-    const userId = this.cls.get('user.id');
-    const origin = this.cls.get('origin');
-
-    this.logger.log(`Base import structure completed, emitting event for baseId: ${base.id}`);
-    await this.cls.run(async () => {
-      this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
-      await this.eventEmitter.emitAsync(Events.BASE_IMPORT_COMPLETE, {
-        importBaseRo,
-      });
-    });
 
     return {
       base,
@@ -215,29 +204,41 @@ export class BaseImportService {
   }
 
   private async appendTableData(
+    baseId: string,
+    importBaseRo: ImportBaseRo,
     path: string,
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
     viewIdMap: Record<string, string>,
     fkMap: Record<string, string>,
     structure: IBaseJson
-  ) {
+  ): Promise<string> {
     const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+    // Generate a unique logId for upsert to ensure only one audit log
+    const logId = generateLogId();
+
     await this.baseImportCsvQueueProcessor.queue.add(
       'base_import_csv',
       {
+        baseId,
         path,
         userId,
+        origin,
         tableIdMap,
         fieldIdMap,
         viewIdMap,
         fkMap,
         structure,
+        importBaseRo,
+        logId,
       },
       {
         jobId: `import_csv_${path}_${userId}`,
       }
     );
+
+    return logId;
   }
 
   async createBaseStructure(spaceId: string, structure: IBaseJson, baseId?: string) {

@@ -201,7 +201,9 @@ export class EventEmitterService {
           },
         });
 
-        event && this.mergeEventsForUpdate(eventManager, id, event);
+        if (event) {
+          this.mergeEventsForUpdate(eventManager, id, event);
+        }
       }
     }
   }

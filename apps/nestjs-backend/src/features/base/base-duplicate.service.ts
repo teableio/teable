@@ -3,12 +3,21 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { ICreateBaseVo, IDuplicateBaseRo } from '@teable/openapi';
+import {
+  CreateRecordAction,
+  type ICreateBaseFromTemplateRo,
+  type ICreateBaseVo,
+  type IDuplicateBaseRo,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { groupBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
+import type { IClsStore } from '../../types/cls';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { ComputedOrchestratorService } from '../record/computed/services/computed-orchestrator.service';
 import { TableDuplicateService } from '../table/table-duplicate.service';
@@ -26,7 +35,9 @@ export class BaseDuplicateService {
     private readonly baseImportService: BaseImportService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly computedOrchestrator: ComputedOrchestratorService
+    private readonly computedOrchestrator: ComputedOrchestratorService,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   async duplicateBase(duplicateBaseRo: IDuplicateBaseRo, allowCrossBase: boolean = true) {
@@ -51,8 +62,14 @@ export class BaseDuplicateService {
         >)
       : await this.getCrossBaseLinkFieldTableMap(tableIdMap);
 
+    let recordsLength = 0;
     if (withRecords) {
-      await this.duplicateTableData(tableIdMap, fieldIdMap, viewIdMap, crossBaseLinkFieldTableMap);
+      recordsLength = await this.duplicateTableData(
+        tableIdMap,
+        fieldIdMap,
+        viewIdMap,
+        crossBaseLinkFieldTableMap
+      );
       await this.duplicateAttachments(tableIdMap, fieldIdMap);
       await this.duplicateLinkJunction(tableIdMap, fieldIdMap, allowCrossBase);
 
@@ -62,7 +79,7 @@ export class BaseDuplicateService {
       await this.recomputeComputedColumnsForDuplicatedBase(tableIdMap);
     }
 
-    return base as ICreateBaseVo;
+    return { ...base, recordsLength } as ICreateBaseVo & { recordsLength?: number };
   }
 
   private async getCrossBaseLinkFieldTableMap(tableIdMap: Record<string, string>) {
@@ -182,7 +199,7 @@ export class BaseDuplicateService {
       string,
       { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
     >
-  ) {
+  ): Promise<number> {
     const prisma = this.prismaService.txClient();
     const tableId2DbTableNameMap: Record<string, string> = {};
     const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
@@ -207,6 +224,15 @@ export class BaseDuplicateService {
     const oldTableId = Object.keys(tableIdMap);
 
     const dbTableNames = targetTableRaws.map((tableRaw) => tableRaw.dbTableName);
+
+    // Query total records count from all source tables before duplicating
+    let totalRecordsCount = 0;
+    for (const tableId of oldTableId) {
+      const sourceDbTableName = tableId2DbTableNameMap[tableId];
+      const countQuery = this.knex(sourceDbTableName).count('*', { as: 'count' }).toQuery();
+      const countResult = await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(countQuery);
+      totalRecordsCount += Number(countResult[0]?.count || 0);
+    }
 
     const allForeignKeyInfos = [] as {
       constraint_name: string;
@@ -278,6 +304,8 @@ export class BaseDuplicateService {
 
       await prisma.$executeRawUnsafe(addForeignKeyQuerySql);
     }
+
+    return totalRecordsCount;
   }
 
   private async duplicateAttachments(
@@ -345,6 +373,46 @@ export class BaseDuplicateService {
     // No-op update; we only want to evaluate and persist computed values.
     await this.computedOrchestrator.computeCellChangesForFieldsAfterCreate(sources, async () => {
       return;
+    });
+  }
+
+  async emitBaseDuplicateAuditLog(
+    baseId: string,
+    duplicateBaseRo: IDuplicateBaseRo,
+    recordsLength?: number
+  ) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.BaseDuplicate,
+        resourceId: baseId,
+        recordCount: recordsLength,
+        params: duplicateBaseRo,
+      });
+    });
+  }
+
+  async emitBaseTemplateApplyAuditLog(
+    baseId: string,
+    templateApplyRo: ICreateBaseFromTemplateRo,
+    recordsLength?: number
+  ) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.TemplateApply,
+        resourceId: baseId,
+        recordCount: recordsLength,
+        params: templateApplyRo,
+      });
     });
   }
 }

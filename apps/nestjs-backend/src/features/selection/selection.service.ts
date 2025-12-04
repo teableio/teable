@@ -38,7 +38,7 @@ import type {
   ITemporaryPasteVo,
   ICreateRecordsRo,
 } from '@teable/openapi';
-import { IdReturnType, RangeType } from '@teable/openapi';
+import { IdReturnType, RangeType, UpdateRecordAction, CreateRecordAction } from '@teable/openapi';
 import { difference, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.config';
@@ -875,6 +875,15 @@ export class SelectionService {
         tableId,
         updateRecordsPayload
       );
+
+      if (updateRecordsPayload?.records?.length) {
+        await this.emitPasteSelectionAuditLog(
+          UpdateRecordAction.PasteRecord,
+          tableId,
+          updateRecordsPayload?.records?.length
+        );
+      }
+
       let newRecords: IRecord[] | undefined;
       // create record
       if (numRowsToExpand) {
@@ -887,8 +896,9 @@ export class SelectionService {
         const filteredCreateRecordsRo = permissionFilter
           ? await permissionFilter('create', createRecordsRo, newFields)
           : createRecordsRo;
+        this.cls.set('skipRecordAuditLog', true);
         newRecords = (
-          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo)
+          await this.recordOpenApiService.createRecords(tableId, filteredCreateRecordsRo, undefined)
         ).records;
       }
 
@@ -915,6 +925,15 @@ export class SelectionService {
         newFields,
         newRecords,
       });
+    }
+
+    if (newRecords?.length) {
+      // Emit audit log for paste operation
+      await this.emitPasteSelectionAuditLog(
+        CreateRecordAction.RecordPaste,
+        tableId,
+        newRecords?.length
+      );
     }
 
     return updateRange;
@@ -977,5 +996,25 @@ export class SelectionService {
     }
     await this.recordOpenApiService.deleteRecords(tableId, filteredRecordIds, windowId);
     return { ids: filteredRecordIds };
+  }
+
+  private async emitPasteSelectionAuditLog(
+    action: UpdateRecordAction | CreateRecordAction,
+    tableId: string,
+    newRecordLength?: number
+  ) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+    this.cls.set('skipRecordAuditLog', true);
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action,
+        resourceId: tableId,
+        recordCount: newRecordLength ?? 0,
+      });
+    });
   }
 }

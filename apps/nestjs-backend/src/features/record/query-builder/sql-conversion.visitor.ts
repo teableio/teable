@@ -1126,13 +1126,24 @@ abstract class BaseSqlConversionVisitor<
 
   private isMultiValueExpr(exprCtx: ExprContext, paramSql?: string): boolean {
     const fieldInfo = this.getFieldInfoFromExpr(exprCtx);
-    if (this.isMultiValueField(fieldInfo)) {
-      return true;
+    if (fieldInfo) {
+      // When we have metadata for the referenced field, trust it instead of falling back to
+      // string-based heuristics (which misclassify scalar lookups/rollups whose dbFieldName
+      // happens to contain "lookup_").
+      return this.isMultiValueField(fieldInfo);
     }
 
     if (paramSql) {
+      const lookupMatch = paramSql.match(/lookup_(fld[A-Za-z0-9]+)/);
+      if (lookupMatch && this.context?.table) {
+        const referencedField = this.context.table.getField(lookupMatch[1]);
+        if (referencedField) {
+          return this.isMultiValueField(referencedField as FieldCore);
+        }
+      }
+
       const normalized = paramSql.toLowerCase();
-      if (normalized.includes('lookup_') || normalized.includes('link_value')) {
+      if (normalized.includes('link_value')) {
         return true;
       }
     }

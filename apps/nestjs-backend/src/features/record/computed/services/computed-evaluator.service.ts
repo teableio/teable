@@ -229,7 +229,7 @@ export class ComputedEvaluatorService {
       tableId,
       RawOpType.Edit,
       IdPrefix.Record,
-      opDataList.map(({ docId, version, data }) => ({ docId, version, data }))
+      opDataList.map(({ docId, version, data }) => ({ docId, version: version - 1, data }))
     );
 
     return opDataList.reduce((sum, current) => sum + current.count, 0);

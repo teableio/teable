@@ -10,7 +10,7 @@ import {
   getTableImportChannel,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType } from '@teable/openapi';
+import { CreateRecordAction, UploadType } from '@teable/openapi';
 import type { IImportOptionRo, IImportColumn, IInplaceImportOptionRo } from '@teable/openapi';
 import { Job, Queue } from 'bullmq';
 import { toString } from 'lodash';
@@ -48,6 +48,7 @@ interface ITableImportCsvJob {
   lastChunk?: boolean;
   parentJobId: string;
   ro: IImportOptionRo | IInplaceImportOptionRo;
+  logId: string;
 }
 
 export const TABLE_IMPORT_CSV_QUEUE = 'import-table-csv-queue';
@@ -83,6 +84,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
     this.setImportStatus(localPresence, true);
     try {
       await this.handleImportChunkCsv(job);
+      await this.emitImportAuditLog(job);
       if (lastChunk) {
         notification &&
           this.notificationService.sendImportResultNotify({
@@ -99,18 +101,6 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
                   context: { tableName: table.name },
                 },
           });
-
-        // emit event to audit log
-        this.cls.run(async () => {
-          this.cls.set('origin', origin!);
-          this.cls.set('user.id', userId);
-          await this.eventEmitterService.emitAsync(Events.IMPORT_TABLE_COMPLETE, {
-            ro,
-            recordsLength: range?.at(-1),
-            baseId,
-            tableId: table.id,
-          });
-        });
 
         this.setImportStatus(localPresence, false);
         localPresence.destroy();
@@ -160,6 +150,8 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   private async handleImportChunkCsv(job: Job<ITableImportCsvJob>) {
     await this.cls.run(async () => {
       this.cls.set('user.id', job.data.userId);
+      this.cls.set('origin', job.data.origin!);
+      this.cls.set('skipRecordAuditLog', true);
       const { columnInfo, fields, sourceColumnMap, table } = job.data;
       const currentResult = await this.getChunkData(job);
       // fill data
@@ -196,11 +188,15 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
         const createFn = columnInfo
           ? this.recordOpenApiService.createRecordsOnlySql.bind(this.recordOpenApiService)
           : this.recordOpenApiService.multipleCreateRecords.bind(this.recordOpenApiService);
-        await createFn(table.id, {
-          fieldKeyType: FieldKeyType.Id,
-          typecast: true,
-          records,
-        });
+        await createFn(
+          table.id,
+          {
+            fieldKeyType: FieldKeyType.Id,
+            typecast: true,
+            records,
+          },
+          false
+        );
       } catch (e: unknown) {
         this.logger.error(e);
         throw e;
@@ -290,6 +286,29 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
   public getChunkImportJobId(jobId: string, range: [number, number]) {
     const prefix = this.getChunkImportJobIdPrefix(jobId);
     return `${prefix}_[${range[0]},${range[1]}]`;
+  }
+
+  private async emitImportAuditLog(job: Job<ITableImportCsvJob>) {
+    const { table, range, origin, userId, logId } = job.data;
+    const { ro } = job.data;
+
+    const actionType =
+      ro && typeof ro === 'object' && 'worksheets' in ro
+        ? CreateRecordAction.Import
+        : CreateRecordAction.InplaceImport;
+
+    // emit event to audit log
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: actionType,
+        resourceId: table.id,
+        recordCount: range.at(-1) || 0,
+        params: ro,
+        logId,
+      });
+    });
   }
 
   @OnWorkerEvent('active')

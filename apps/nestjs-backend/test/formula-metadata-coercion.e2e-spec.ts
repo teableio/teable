@@ -1,7 +1,14 @@
 /* eslint-disable regexp/no-super-linear-backtracking */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { INestApplication } from '@nestjs/common';
-import { FieldType, FieldKeyType, TableDomain, TimeFormatting } from '@teable/core';
+import {
+  FieldType,
+  FieldKeyType,
+  TableDomain,
+  TimeFormatting,
+  Relationship,
+  DbFieldType,
+} from '@teable/core';
 import type { IFieldRo, IFieldVo } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
@@ -234,6 +241,75 @@ describe('Formula metadata-aware coercion (e2e)', () => {
       } finally {
         await permanentDeleteTable(baseId, table.id);
       }
+    });
+
+    it('does not wrap scalar lookup/rollup references in multi-value guards', () => {
+      const tableAlias = 'main';
+
+      const linkField = createFieldInstanceByVo({
+        id: 'fldLink',
+        name: 'Vehicle',
+        type: FieldType.Link,
+        dbFieldName: 'Vehicles',
+        dbFieldType: DbFieldType.Json,
+        isMultipleCellValue: false,
+        options: { relationship: Relationship.ManyOne },
+      } as unknown as IFieldVo);
+
+      const intervalField = createFieldInstanceByVo({
+        id: 'fldInterval',
+        name: 'Interval (Hrs)',
+        type: FieldType.Number,
+        cellValueType: 'number',
+        dbFieldName: 'Interval_Hrs',
+        dbFieldType: DbFieldType.Real,
+      } as unknown as IFieldVo);
+
+      const lookupRollupField = createFieldInstanceByVo({
+        id: 'fldRoll',
+        name: 'Current Hrs',
+        type: FieldType.Rollup,
+        cellValueType: 'number',
+        dbFieldName: `lookup_fldRoll`,
+        dbFieldType: DbFieldType.Real,
+        isLookup: true,
+        isMultipleCellValue: false,
+        lookupOptions: {
+          linkFieldId: linkField.id,
+          lookupFieldId: 'fldSrc',
+          relationship: Relationship.ManyOne,
+        },
+        options: { expression: 'max({values})' },
+      } as unknown as IFieldVo);
+
+      const tableDomain = new TableDomain({
+        id: 'tblMetaLookup',
+        name: 'meta_lookup_scalar',
+        dbTableName: '"public"."meta_lookup_scalar"',
+        lastModifiedTime: new Date().toISOString(),
+        fields: [intervalField, lookupRollupField, linkField],
+      });
+
+      const selectionEntries: [string, string][] = [
+        [intervalField.id, `"${tableAlias}"."${intervalField.dbFieldName}"`],
+        [lookupRollupField.id, `"${tableAlias}"."${lookupRollupField.dbFieldName}"`],
+      ];
+
+      const context: ISelectFormulaConversionContext = {
+        table: tableDomain,
+        selectionMap: new Map(selectionEntries),
+        tableAlias,
+        timeZone: 'UTC',
+        preferRawFieldReferences: true,
+      };
+
+      const expression = `IF({${intervalField.id}} > 0, {${intervalField.id}} + {${lookupRollupField.id}}, 0)`;
+      const sql = dbProvider.convertFormulaToSelectQuery(expression, context);
+
+      expect(sql).not.toContain('pg_typeof');
+      expect(sql).not.toContain('jsonb_build_array');
+      expect(sql).toContain(`"${tableAlias}"."${lookupRollupField.dbFieldName}"`);
+      expect(sql).toContain('::double precision');
     });
 
     it('treats BLANK() as NULL for select queries with mixed branch types', async () => {

@@ -44,6 +44,7 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  skipRecordAuditLog?: boolean; // skip individual record audit logs for automation
   dataLoaderCache?: IDataLoaderCache;
   clearCacheKeys?: (keyof IPerformanceCacheStore)[];
 }

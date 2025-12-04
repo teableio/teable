@@ -9,6 +9,8 @@ import { Knex } from 'knex';
 import { cloneDeep, keyBy, difference, groupBy, isEqual, set, uniq, uniqBy } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
+import { InjectDbProvider } from '../../db-provider/db.provider';
+import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance, IFieldMap } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
@@ -58,6 +60,7 @@ export class LinkService {
     private readonly prismaService: PrismaService,
     private readonly batchService: BatchService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
@@ -1888,37 +1891,16 @@ export class LinkService {
     // options still point to this table as their foreign target.
     const knownFieldIds = new Set(relatedFieldsByReference.map((field) => field.id));
 
-    const relatedFieldsByForeignTable = (
-      await this.prismaService.txClient().field.findMany({
-        where: {
-          type: FieldType.Link,
-          isLookup: null,
-          deletedTime: null,
-        },
-      })
-    ).filter((field) => {
-      if (knownFieldIds.has(field.id)) {
-        return false;
-      }
-      if (!field.options) {
-        return false;
-      }
-      try {
-        const options = JSON.parse(field.options as string) as ILinkFieldOptions;
-        return options.foreignTableId === tableId;
-      } catch (error) {
-        this.logger.warn(
-          `Failed to parse link field options for ${field.id} while resolving delete context: ${String(
-            error
-          )}`
-        );
-        return false;
-      }
-    });
+    const foreignTableSql = this.dbProvider.optionsQuery(FieldType.Link, 'foreignTableId', tableId);
+    const relatedFieldsByForeignTable = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<Field[]>(foreignTableSql);
 
     const merged = new Map<string, Field>();
     relatedFieldsByReference.forEach((field) => merged.set(field.id, field));
-    relatedFieldsByForeignTable.forEach((field) => merged.set(field.id, field));
+    relatedFieldsByForeignTable
+      .filter((field) => !knownFieldIds.has(field.id))
+      .forEach((field) => merged.set(field.id, field));
 
     return Array.from(merged.values());
   }

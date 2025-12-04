@@ -1,12 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
-import {
-  BadRequestException,
-  Injectable,
-  InternalServerErrorException,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type {
   CreatedByFieldCore,
   FieldCore,
@@ -45,6 +40,7 @@ import {
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
+  CreateRecordAction,
   ICreateRecordsRo,
   IGetRecordQuery,
   IGetRecordsRo,
@@ -54,6 +50,7 @@ import type {
   IGroupPointsVo,
   IRecordStatusVo,
   IRecordsVo,
+  UpdateRecordAction,
 } from '@teable/openapi';
 import { DEFAULT_MAX_SEARCH_FIELD_COUNT, GroupPointType, UploadType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -65,6 +62,7 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { Events } from '../../event-emitter/events';
 import { RawOpType } from '../../share-db/interface';
 import type { IClsStore } from '../../types/cls';
 import { convertValueToStringify, string2Hash } from '../../utils';
@@ -121,7 +119,8 @@ export class RecordService {
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly dataLoaderService: DataLoaderService,
-    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder
+    @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
+    private readonly eventEmitter: EventEmitter2
   ) {}
 
   /**
@@ -2537,5 +2536,17 @@ export class RecordService {
     );
     const isVisible = queryResult.ids.includes(recordId);
     return { isDeleted, isVisible };
+  }
+
+  async emitRecordAuditLogEvent(
+    action: UpdateRecordAction | CreateRecordAction,
+    tableId: string,
+    recordCount: number
+  ) {
+    this.eventEmitter.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
+      action,
+      resourceId: tableId,
+      recordCount,
+    });
   }
 }

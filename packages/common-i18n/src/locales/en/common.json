@@ -88,9 +88,9 @@
     }
   },
   "settings": {
-    "title": "Settings",
+    "title": "Instance settings",
     "templateAdmin": {
-      "title": "Template Admin",
+      "title": "Template admin",
       "noData": "No data",
       "importing": "Importing...",
       "usageCount": "Usage count: {{count}}",

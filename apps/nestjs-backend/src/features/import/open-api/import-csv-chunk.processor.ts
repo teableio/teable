@@ -57,6 +57,7 @@ interface ITableImportChunkJob {
     sourceColumnMap?: Record<string, number | null>;
   };
   ro: IImportOptionRo | IInplaceImportOptionRo;
+  logId: string;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -68,6 +69,10 @@ export const TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY = Math.max(
 @Injectable()
 @Processor(TABLE_IMPORT_CSV_CHUNK_QUEUE, {
   concurrency: TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY,
+  lockDuration: 600000,
+  lockRenewTime: 300000,
+  stalledInterval: 30000,
+  maxStalledCount: 2,
 })
 export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   public static readonly JOB_ID_PREFIX = 'import-table-csv-chunk';
@@ -115,6 +120,9 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     } = job.data;
 
     try {
+      this.logger.log(
+        `start chunk data job concurrency: ${TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY}`
+      );
       await this.resolveDataByWorker(job);
       this.logger.log(`import data to ${table.id} chunk data job completed`);
     } catch (error) {
@@ -154,12 +162,13 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
   private async resolveDataByWorker(job: Job<ITableImportChunkJob>) {
     const jobId = String(job.id);
     const jobData = job.data;
-    const { importerParams, table, options } = jobData;
+    const { importerParams, table, options, baseId, userId, recordsCal } = jobData;
 
     const workerId = `worker_${getRandomString(8)}`;
     const path = getWorkerPath('parse');
 
     const { attachmentUrl, fileType, maxRowCount } = importerParams;
+    const { sourceColumnMap } = recordsCal;
 
     const { skipFirstNLines, sheetKey, notification } = options;
 
@@ -193,6 +202,23 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
             // fill data
             recordCount += records.length;
             if (records.length === 0) {
+              // Even if the chunk is empty, we need to notify the worker
+              // that we've finished processing it to avoid blocking
+              this.notificationService.sendImportResultNotify({
+                baseId,
+                tableId: table.id,
+                toUserId: userId,
+                message: sourceColumnMap
+                  ? {
+                      i18nKey: 'common.email.templates.notify.import.table.success.inplace',
+                      context: { tableName: table.name },
+                    }
+                  : {
+                      i18nKey: 'common.email.templates.notify.import.table.success.message',
+                      context: { tableName: table.name },
+                    },
+              });
+              worker.postMessage({ type: 'done', chunkId });
               return;
             }
             try {
@@ -254,6 +280,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       recordsCal,
       options: { notification },
       ro,
+      logId,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -297,11 +324,12 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         lastChunk,
         parentJobId: jobId,
         ro,
+        logId,
       },
       {
         jobId: chunkJobId,
-        removeOnComplete: true,
-        removeOnFail: true,
+        removeOnComplete: 1000,
+        removeOnFail: 1000,
       }
     );
 
@@ -310,7 +338,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     // In fallback (non-Redis) mode, `importQueueEvents` is undefined and jobs are handled
     // in-process, so there is nothing to wait for.
     if (this.importQueueEvents) {
-      await importJob.waitUntilFinished(this.importQueueEvents);
+      await importJob.waitUntilFinished(this.importQueueEvents, 200000);
     }
   }
 
