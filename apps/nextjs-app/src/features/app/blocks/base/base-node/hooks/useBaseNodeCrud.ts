@@ -17,9 +17,9 @@ import {
 } from '@teable/openapi';
 import { useBaseId } from '@teable/sdk/hooks';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useContext, useMemo } from 'react';
-import { BaseNodeContext } from '../BaseNodeContext';
+import { useCallback, useMemo } from 'react';
 import { cleanParentId, getNodeName } from './helper';
+import { useBaseNodeContext } from './useBaseNodeContext';
 
 interface IUseBaseNodeCrudOptions {
   onCreateSuccess?: (node: IBaseNodeVo) => void;
@@ -33,7 +33,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const baseId = useBaseId() as string;
   const { t } = useTranslation(['table', 'common']);
 
-  const { treeItems } = useContext(BaseNodeContext);
+  const { treeItems } = useBaseNodeContext();
 
   const { mutateAsync: createNodeFn } = useMutation({
     mutationFn: (ro: ICreateBaseNodeRo) => createBaseNode(baseId, ro).then((res) => res.data),

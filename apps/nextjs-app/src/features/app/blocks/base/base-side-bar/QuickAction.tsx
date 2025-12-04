@@ -17,14 +17,14 @@ import {
 import { groupBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useContext, useState } from 'react';
+import { useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { useSettingStore } from '@/features/app/components/setting/useSettingStore';
 import { useModKeyStr } from '@/features/app/utils/get-mod-key-str';
 import { tableConfig } from '@/features/i18n/table.config';
-import { BaseNodeContext } from '../base-node/BaseNodeContext';
 import { BaseNodeResourceIconMap, getNodeIcon, getNodeName, getNodeUrl } from '../base-node/hooks';
+import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 
 export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const baseId = useBaseId() as string;
@@ -46,7 +46,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
 
   const isHydrated = useIsHydrated();
 
-  const { treeItems } = useContext(BaseNodeContext);
+  const { treeItems } = useBaseNodeContext();
   const baseNodeTypeItems = groupBy(
     Object.values(treeItems).filter((item) => item.resourceType !== BaseNodeResourceType.Folder),
     'resourceType'

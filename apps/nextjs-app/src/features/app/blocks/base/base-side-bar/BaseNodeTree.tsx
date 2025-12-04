@@ -32,14 +32,13 @@ import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { useTableHref } from '../../table-list/useTableHref';
-import { BaseNodeContext } from '../base-node/BaseNodeContext';
 import {
   BaseNodeResourceIconMap,
   BaseNodeResourceLastVisitMap,
@@ -51,6 +50,7 @@ import {
   useBaseNodeCrud,
 } from '../base-node/hooks';
 import type { TreeItemData } from '../base-node/hooks';
+import { useBaseNodeContext } from '../base-node/hooks/useBaseNodeContext';
 import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
 import { BaseNodeStarButton } from './BaseNodeStarButton';
@@ -145,7 +145,7 @@ export const BaseNodeTree = () => {
   const canMoveNode = Boolean(permission?.['base|update']);
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu } =
-    useContext(BaseNodeContext);
+    useBaseNodeContext();
   const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
