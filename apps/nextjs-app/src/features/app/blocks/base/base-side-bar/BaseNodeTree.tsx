@@ -32,7 +32,7 @@ import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
@@ -119,7 +119,15 @@ const useDragAutoScroll = (viewportRef: React.RefObject<HTMLDivElement | null>) 
   }, [viewportRef]);
 };
 
-export const BaseNodeTree = () => {
+type TreeMode = 'view' | 'edit';
+
+interface IBaseNodeTreeProps {
+  mode?: TreeMode;
+}
+
+export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
+  const { mode = 'edit' } = props;
+  const isEditMode = mode === 'edit';
   const { t } = useTranslation(['common']);
   const baseId = useBaseId() as string;
   const router = useRouter();
@@ -139,10 +147,13 @@ export const BaseNodeTree = () => {
   const canCreateWorkflow = Boolean(permission?.['automation|create']);
   const canCreateApp = Boolean(buildAppEnabled && permission?.['base|update']);
   const canCreateFolder = Boolean(permission?.['base|update']);
-  const canCreateResource = Boolean(
-    canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
-  );
-  const canMoveNode = Boolean(permission?.['base|update']);
+
+  const canCreateResource =
+    isEditMode &&
+    Boolean(
+      canCreateTable || canCreateDashboard || canCreateWorkflow || canCreateApp || canCreateFolder
+    );
+  const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
 
   const { isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu } =
     useBaseNodeContext();
@@ -153,9 +164,24 @@ export const BaseNodeTree = () => {
   const treeItemsRef = useRef(treeItems);
   const viewportRef = useRef<HTMLDivElement>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [expandedItems, setExpandedItems] = useLocalStorage<string[]>(
-    LocalStorageKeys.BaseNodeExpandedItems,
-    []
+  const [expandedItemsMap, setExpandedItemsMap] = useLocalStorage<Record<string, string[]>>(
+    LocalStorageKeys.BaseNodeTreeExpandedItems,
+    {}
+  );
+
+  const expandedItems = useMemo(() => expandedItemsMap?.[baseId] ?? [], [expandedItemsMap, baseId]);
+  const setExpandedItems = useCallback(
+    (updater: string[] | ((prev: string[]) => string[])) => {
+      setExpandedItemsMap((prev) => {
+        const currentExpanded = prev?.[baseId] ?? [];
+        const newExpanded = typeof updater === 'function' ? updater(currentExpanded) : updater;
+        return {
+          ...prev,
+          [baseId]: newExpanded,
+        };
+      });
+    },
+    [baseId, setExpandedItemsMap]
   );
 
   const { mutateAsync: updateUserLastVisit } = useMutation({
@@ -242,11 +268,7 @@ export const BaseNodeTree = () => {
         return typeof updater === 'function' ? updater(prev) : updater;
       });
     },
-    setExpandedItems: (updater) => {
-      setExpandedItems((prev) => {
-        return typeof updater === 'function' ? updater(prev ?? []) : updater;
-      });
-    },
+    setExpandedItems,
     rootItemId: ROOT_ID,
     indent: INDENTATION_WIDTH,
     dataLoader: {
@@ -545,21 +567,28 @@ export const BaseNodeTree = () => {
 
   return (
     <>
-      <div className="flex w-full flex-col px-4 pt-4">
-        <BaseNodeAddResourceButton
-          curdHooks={curdHooks}
-          parentId={ROOT_ID}
-          canCreateFolder={canCreateFolder}
-          canCreateTable={canCreateTable}
-          canCreateDashboard={canCreateDashboard}
-          canCreateWorkflow={canCreateWorkflow}
-          canCreateApp={canCreateApp}
-        >
-          <Button variant={'outline'} size={'xs'} className="w-full" disabled={!canCreateResource}>
-            <AddBoldIcon />
-          </Button>
-        </BaseNodeAddResourceButton>
-      </div>
+      {isEditMode && (
+        <div className="flex w-full flex-col px-4 pt-4">
+          <BaseNodeAddResourceButton
+            curdHooks={curdHooks}
+            parentId={ROOT_ID}
+            canCreateFolder={canCreateFolder}
+            canCreateTable={canCreateTable}
+            canCreateDashboard={canCreateDashboard}
+            canCreateWorkflow={canCreateWorkflow}
+            canCreateApp={canCreateApp}
+          >
+            <Button
+              variant={'outline'}
+              size={'xs'}
+              className="w-full"
+              disabled={!canCreateResource}
+            >
+              <AddBoldIcon />
+            </Button>
+          </BaseNodeAddResourceButton>
+        </div>
+      )}
 
       {isLoading && Object.keys(treeItems).length === 0 ? (
         <div className="flex w-full flex-col gap-2 px-4">
@@ -586,124 +615,132 @@ export const BaseNodeTree = () => {
               const name = getNodeName(node);
 
               return (
-                <TreeItem key={nodeId} item={item} className="h-8 w-full cursor-pointer">
-                  <TreeItemLabel className="size-full min-w-0 py-0">
-                    <div className="flex min-w-0 flex-1 items-center gap-2">
-                      {editingNodeId === nodeId ? (
-                        <Input
-                          ref={inputRef}
-                          type="text"
-                          placeholder="name"
-                          defaultValue={item.getItemName()}
-                          style={{
-                            boxShadow: 'none',
-                          }}
-                          className="round-none size-full cursor-text bg-background outline-none"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              const newVal = e.currentTarget.value;
-                              if (newVal && newVal !== item.getItemName()) {
-                                curdHooks.updateNode(nodeId, { name: newVal });
+                <TreeItem asChild key={nodeId} item={item}>
+                  <div className="h-8 w-full cursor-pointer">
+                    <TreeItemLabel className="size-full min-w-0 py-0">
+                      <div className="flex min-w-0 flex-1 items-center gap-2">
+                        {editingNodeId === nodeId ? (
+                          <Input
+                            ref={inputRef}
+                            type="text"
+                            placeholder="name"
+                            defaultValue={item.getItemName()}
+                            style={{
+                              boxShadow: 'none',
+                            }}
+                            className="round-none size-full cursor-text bg-background outline-none"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                const newVal = e.currentTarget.value;
+                                if (newVal && newVal !== item.getItemName()) {
+                                  curdHooks.updateNode(nodeId, { name: newVal });
+                                }
+                                setEditingNodeId(null);
+                              } else if (e.key === 'Escape') {
+                                setEditingNodeId(null);
                               }
-                              setEditingNodeId(null);
-                            } else if (e.key === 'Escape') {
-                              setEditingNodeId(null);
-                            }
-                          }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                          }}
-                          onMouseDown={(e) => {
-                            e.stopPropagation();
-                          }}
-                        />
-                      ) : (
-                        <>
-                          <ItemIcon item={item} />
-                          <div
-                            className="flex min-w-0 grow items-center gap-1"
-                            title={item.getItemName()}
-                          >
-                            <span className="truncate text-left">{item.getItemName()}</span>
-                            {node.resourceType === BaseNodeResourceType.Workflow &&
-                              (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
-                                <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-                              )}
-                          </div>
-                          {
-                            // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation();
+                            }}
+                          />
+                        ) : (
+                          <>
+                            <ItemIcon item={item} />
                             <div
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              className="flex shrink-0 cursor-pointer items-center gap-2"
+                              className="flex min-w-0 grow items-center gap-1"
+                              title={item.getItemName()}
                             >
-                              <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
-                                {canCreateResource && (
-                                  <BaseNodeAddResourceButton
-                                    curdHooks={curdHooks}
-                                    parentId={nodeId === ROOT_ID ? undefined : nodeId}
-                                    canCreateFolder={
-                                      canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
-                                    }
-                                    canCreateTable={canCreateTable}
-                                    canCreateDashboard={canCreateDashboard}
-                                    canCreateWorkflow={canCreateWorkflow}
-                                    canCreateApp={canCreateApp}
-                                  >
-                                    <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
-                                      <AddBoldIcon className="size-full" />
-                                    </Button>
-                                  </BaseNodeAddResourceButton>
+                              <span className="truncate text-left">{item.getItemName()}</span>
+                              {node.resourceType === BaseNodeResourceType.Workflow &&
+                                (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
+                                  <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
                                 )}
-                              </div>
-                              <BaseNodeStarButton
-                                resourceType={resourceType}
-                                resourceId={resourceId}
-                              />
-                              <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
-                                <BaseNodeMore
+                            </div>
+                            {
+                              // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                }}
+                                className="flex shrink-0 cursor-pointer items-center gap-2"
+                              >
+                                <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
+                                  {canCreateResource && (
+                                    <BaseNodeAddResourceButton
+                                      curdHooks={curdHooks}
+                                      parentId={nodeId === ROOT_ID ? undefined : nodeId}
+                                      canCreateFolder={
+                                        canCreateFolder &&
+                                        checkCanCreateFolder(item, maxFolderDepth)
+                                      }
+                                      canCreateTable={canCreateTable}
+                                      canCreateDashboard={canCreateDashboard}
+                                      canCreateWorkflow={canCreateWorkflow}
+                                      canCreateApp={canCreateApp}
+                                    >
+                                      <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
+                                        <AddBoldIcon className="size-full" />
+                                      </Button>
+                                    </BaseNodeAddResourceButton>
+                                  )}
+                                </div>
+                                <BaseNodeStarButton
                                   resourceType={resourceType}
                                   resourceId={resourceId}
-                                  className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
-                                  onRename={() => setEditingNodeId(nodeId)}
-                                  onDelete={async (permanent: boolean, confirm: boolean = true) => {
-                                    const titleMap = {
-                                      [BaseNodeResourceType.Folder]: t('common:noun.folder'),
-                                      [BaseNodeResourceType.Table]: t('common:noun.table'),
-                                      [BaseNodeResourceType.Dashboard]: t('common:noun.dashboard'),
-                                      [BaseNodeResourceType.Workflow]: t('common:noun.automation'),
-                                      [BaseNodeResourceType.App]: t('common:noun.app'),
-                                    };
-                                    const result = !confirm
-                                      ? true
-                                      : await comfirmModal({
-                                          title: `${t('common:actions.delete')} ${titleMap[resourceType] ?? ''}`,
-                                          description: t('common:actions.deleteTip', {
-                                            name,
-                                          }),
-                                          confirmText: t('common:actions.delete'),
-                                          cancelText: t('common:actions.cancel'),
-                                          confirmButtonVariant: 'destructive',
-                                        });
-                                    if (result) {
-                                      await curdHooks.deleteNode(nodeId, permanent);
-                                    }
-                                  }}
-                                  onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
-                                    await curdHooks.duplicateNode(nodeId, {
-                                      name,
-                                      ...(ro ?? {}),
-                                    });
-                                  }}
                                 />
+                                <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
+                                  <BaseNodeMore
+                                    resourceType={resourceType}
+                                    resourceId={resourceId}
+                                    className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+                                    onRename={() => setEditingNodeId(nodeId)}
+                                    onDelete={async (
+                                      permanent: boolean,
+                                      confirm: boolean = true
+                                    ) => {
+                                      const titleMap = {
+                                        [BaseNodeResourceType.Folder]: t('common:noun.folder'),
+                                        [BaseNodeResourceType.Table]: t('common:noun.table'),
+                                        [BaseNodeResourceType.Dashboard]:
+                                          t('common:noun.dashboard'),
+                                        [BaseNodeResourceType.Workflow]:
+                                          t('common:noun.automation'),
+                                        [BaseNodeResourceType.App]: t('common:noun.app'),
+                                      };
+                                      const result = !confirm
+                                        ? true
+                                        : await comfirmModal({
+                                            title: `${t('common:actions.delete')} ${titleMap[resourceType] ?? ''}`,
+                                            description: t('common:actions.deleteTip', {
+                                              name,
+                                            }),
+                                            confirmText: t('common:actions.delete'),
+                                            cancelText: t('common:actions.cancel'),
+                                            confirmButtonVariant: 'destructive',
+                                          });
+                                      if (result) {
+                                        await curdHooks.deleteNode(nodeId, permanent);
+                                      }
+                                    }}
+                                    onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
+                                      await curdHooks.duplicateNode(nodeId, {
+                                        name,
+                                        ...(ro ?? {}),
+                                      });
+                                    }}
+                                  />
+                                </div>
                               </div>
-                            </div>
-                          }
-                        </>
-                      )}
-                    </div>
-                  </TreeItemLabel>
+                            }
+                          </>
+                        )}
+                      </div>
+                    </TreeItemLabel>
+                  </div>
                 </TreeItem>
               );
             })}

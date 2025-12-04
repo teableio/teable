@@ -3,7 +3,7 @@
 
 import type { ItemInstance } from '@headless-tree/core';
 import { ChevronDownIcon } from '@radix-ui/react-icons';
-import Slot from '@radix-ui/react-slot';
+import { Slot } from '@radix-ui/react-slot';
 import * as React from 'react';
 import { cn } from '../utils';
 
@@ -81,7 +81,7 @@ function TreeItem<T = any>({
     '--tree-padding': `${item.getItemMeta().level * indent}px`,
   } as React.CSSProperties;
 
-  const Comp = asChild ? Slot.Root : 'button';
+  const Comp = asChild ? Slot : 'button';
 
   return (
     <TreeContext.Provider value={{ indent, currentItem: item }}>
