@@ -285,9 +285,16 @@ export class BaseService {
     this.logger.log(
       `base-duplicate-service: Start to duplicating base: ${duplicateBaseRo.fromBaseId}`
     );
+
     return await this.prismaService.$tx(
       async () => {
-        return await this.baseDuplicateService.duplicateBase(duplicateBaseRo);
+        const res = await this.baseDuplicateService.duplicateBase(duplicateBaseRo, true);
+        await this.baseDuplicateService.emitBaseDuplicateAuditLog(
+          res.id,
+          duplicateBaseRo,
+          res.recordsLength
+        );
+        return res;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -377,6 +384,11 @@ export class BaseService {
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
+        await this.baseDuplicateService.emitBaseTemplateApplyAuditLog(
+          res.id,
+          createBaseFromTemplateRo,
+          res.recordsLength
+        );
         return res;
       },
       {

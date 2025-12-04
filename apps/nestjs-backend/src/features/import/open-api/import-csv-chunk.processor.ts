@@ -57,6 +57,7 @@ interface ITableImportChunkJob {
     sourceColumnMap?: Record<string, number | null>;
   };
   ro: IImportOptionRo | IInplaceImportOptionRo;
+  logId: string;
 }
 
 export const TABLE_IMPORT_CSV_CHUNK_QUEUE = 'import-table-csv-chunk-queue';
@@ -279,6 +280,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
       recordsCal,
       options: { notification },
       ro,
+      logId,
     } = job;
 
     const { columnInfo, fields, sourceColumnMap } = recordsCal;
@@ -322,6 +324,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
         lastChunk,
         parentJobId: jobId,
         ro,
+        logId,
       },
       {
         jobId: chunkJobId,

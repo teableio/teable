@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IFieldRo } from '@teable/core';
-import { FieldType, getRandomString, HttpErrorCode, TimeFormatting } from '@teable/core';
+import {
+  FieldType,
+  generateLogId,
+  getRandomString,
+  HttpErrorCode,
+  TimeFormatting,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
   IAnalyzeRo,
@@ -103,6 +109,8 @@ export class ImportOpenApiService {
 
       const jobId = `${ImportTableCsvChunkQueueProcessor.JOB_ID_PREFIX}:${table.id}:${getRandomString(6)}`;
 
+      const logId = generateLogId();
+
       if (importData && columns.length) {
         await this.importTableCsvChunkQueueProcessor.queue.add(
           `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
@@ -129,6 +137,7 @@ export class ImportOpenApiService {
               columnInfo: columns,
             },
             ro: importRo,
+            logId,
           },
           {
             jobId,
@@ -249,6 +258,8 @@ export class ImportOpenApiService {
 
     const jobId = await this.generateChunkJobId(tableId);
 
+    const logId = generateLogId();
+
     await this.importTableCsvChunkQueueProcessor.queue.add(
       `${TABLE_IMPORT_CSV_CHUNK_QUEUE}_job`,
       {
@@ -274,6 +285,7 @@ export class ImportOpenApiService {
           fields: fieldRaws as { id: string; type: FieldType }[],
         },
         ro: inplaceImportRo,
+        logId,
       },
       {
         jobId,

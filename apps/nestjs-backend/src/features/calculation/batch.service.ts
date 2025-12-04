@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode, IdPrefix, RecordOpBuilder, FieldType } from '@teable/core';
 import type { IOtOperation, IRecord, TableDomain } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -456,7 +456,8 @@ export class BatchService {
     collectionId: string,
     opType: RawOpType,
     docType: IdPrefix,
-    dataList: { docId: string; version: number; data?: unknown }[]
+    dataList: { docId: string; version: number; data?: unknown }[],
+    skipAuditLog?: boolean
   ) {
     const collection = `${docType}_${collectionId}`;
     const rawOpMap: IRawOpMap = { [collection]: {} };
@@ -466,6 +467,7 @@ export class BatchService {
       seq: 1,
       m: {
         ts: Date.now(),
+        ...(skipAuditLog !== undefined && { skipAuditLog }),
       },
     };
 

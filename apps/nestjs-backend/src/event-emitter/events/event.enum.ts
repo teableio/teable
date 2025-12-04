@@ -78,9 +78,8 @@ export enum Events {
 
   AUDIT_LOG_SAVED = 'audit-log.saved',
 
-  IMPORT_TABLE_COMPLETE = 'import.table.complete',
-
-  BASE_IMPORT_COMPLETE = 'base.import.complete',
-
   NOTIFY_MAIL_MERGE = 'notify.mail.merge',
+
+  // record source
+  TABLE_RECORD_CREATE_RELATIVE = 'table.record.create.relative',
 }

@@ -10,7 +10,12 @@ import {
 } from '@teable/core';
 import type { View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IDuplicateTableRo, IDuplicateTableVo, IFieldWithTableIdJson } from '@teable/openapi';
+import {
+  CreateRecordAction,
+  type IDuplicateTableRo,
+  type IDuplicateTableVo,
+  type IFieldWithTableIdJson,
+} from '@teable/openapi';
 import { Knex } from 'knex';
 import { get, pick, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -19,6 +24,8 @@ import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.service';
@@ -42,7 +49,8 @@ export class TableDuplicateService {
     private readonly dataLoaderService: DataLoaderService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
+    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   private disableTableDomainDataLoader() {
@@ -86,13 +94,15 @@ export class TableDuplicateService {
         );
 
         if (includeRecords) {
-          await this.duplicateTableData(
+          const count = await this.duplicateTableData(
             dbTableName,
             newTableVo.dbTableName,
             sourceToTargetViewMap,
             sourceToTargetFieldMap,
             []
           );
+
+          await this.emitTableDuplicateAuditLog(newTableVo.id, count, duplicateRo);
 
           await this.duplicateAttachments(sourceTableId, newTableVo.id, sourceToTargetFieldMap);
           await this.duplicateLinkJunction(
@@ -266,7 +276,16 @@ export class TableDuplicateService {
       )
       .toQuery();
 
+    const sourceTableCountSql = await this.knex(sourceDbTableName)
+      .count('*', { as: 'count' })
+      .toQuery();
+
+    const sourceTableCountResult =
+      await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(sourceTableCountSql);
+
     await prisma.$executeRawUnsafe(sql);
+
+    return Number(sourceTableCountResult[0]?.count || 0);
   }
 
   private async createRowOrderField(dbTableName: string, viewId: string) {
@@ -919,5 +938,25 @@ export class TableDuplicateService {
 
       await prisma.$executeRawUnsafe(sql);
     }
+  }
+
+  private async emitTableDuplicateAuditLog(
+    targetTableId: string,
+    recordCount: number,
+    ro: IDuplicateTableRo
+  ) {
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.TableDuplicate,
+        resourceId: targetTableId,
+        recordCount,
+        params: ro,
+      });
+    });
   }
 }

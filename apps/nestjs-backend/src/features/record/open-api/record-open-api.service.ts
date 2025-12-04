@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
   IAttachmentItem,
@@ -8,7 +8,7 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ICreateRecordsRo, IUpdateRecordsRo } from '@teable/openapi';
+import { ICreateRecordsRo, IUpdateRecordsRo, UpdateRecordAction } from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -19,8 +19,10 @@ import type {
   IUpdateRecordRo,
 } from '@teable/openapi';
 import { keyBy, pick } from 'lodash';
+import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
+import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { AttachmentsService } from '../../attachments/attachments.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
@@ -41,7 +43,8 @@ export class RecordOpenApiService {
     private readonly recordModifyService: RecordModifyService,
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly recordModifySharedService: RecordModifySharedService,
-    private readonly tableDomainQueryService: TableDomainQueryService
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   @retryOnDeadlock()
@@ -85,7 +88,22 @@ export class RecordOpenApiService {
   }
 
   @retryOnDeadlock()
-  async updateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo, windowId?: string) {
+  async updateRecords(
+    tableId: string,
+    updateRecordsRo: IUpdateRecordsRo,
+    windowId?: string,
+    isAiInternal?: string
+  ) {
+    if (isAiInternal) {
+      this.cls.set('skipRecordAuditLog', true);
+      this.cls.set('user.id', 'aiRobot');
+      await this.recordService.emitRecordAuditLogEvent(
+        UpdateRecordAction.AiRecordUpdate,
+        tableId,
+        updateRecordsRo.records?.length ?? 0
+      );
+    }
+
     return await this.recordModifyService.updateRecords(
       tableId,
       updateRecordsRo as IUpdateRecordsInternalRo,
@@ -104,7 +122,8 @@ export class RecordOpenApiService {
     tableId: string,
     recordId: string,
     updateRecordRo: IUpdateRecordRo,
-    windowId?: string
+    windowId?: string,
+    isAiInternal?: string
   ): Promise<IRecord> {
     await this.updateRecords(
       tableId,
@@ -112,7 +131,8 @@ export class RecordOpenApiService {
         ...updateRecordRo,
         records: [{ id: recordId, fields: updateRecordRo.record.fields }],
       },
-      windowId
+      windowId,
+      isAiInternal
     );
 
     const snapshots = await this.recordService.getSnapshotBulkWithPermission(

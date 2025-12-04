@@ -22,7 +22,7 @@ import {
   isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ResourceType } from '@teable/openapi';
+import { CreateRecordAction, ResourceType } from '@teable/openapi';
 import type {
   ICreateRecordsRo,
   ICreateTableRo,
@@ -34,11 +34,15 @@ import type {
   IUpdateOrderRo,
 } from '@teable/openapi';
 import { nanoid } from 'nanoid';
+import { ClsService } from 'nestjs-cls';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
 import { RawOpType } from '../../../share-db/interface';
+import type { IClsStore } from '../../../types/cls';
 import { updateOrder } from '../../../utils/update-order';
 import { PermissionService } from '../../auth/permission.service';
 import { BatchService } from '../../calculation/batch.service';
@@ -70,7 +74,9 @@ export class TableOpenApiService {
     private readonly tableDuplicateService: TableDuplicateService,
     private readonly batchService: BatchService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
   ) {}
 
   private async createView(tableId: string, viewRos: IViewRo[]) {
@@ -208,6 +214,15 @@ export class TableOpenApiService {
       };
     });
 
+    const isDefaultRecords =
+      tableRo.records?.length === 3 &&
+      tableRo?.records?.every(({ fields }) => Object.keys(fields).length === 0);
+
+    // default records
+    if (isDefaultRecords) {
+      this.cls.set('skipRecordAuditLog', true);
+    }
+
     const records = await this.prismaService.$tx(async () => {
       const recordsVo =
         tableRo.records?.length &&
@@ -218,6 +233,10 @@ export class TableOpenApiService {
 
       return recordsVo ? recordsVo.records : [];
     });
+
+    if (isDefaultRecords) {
+      await this.emitDefaultRecordsAuditLog(schema.id, tableRo);
+    }
 
     return {
       ...schema,
@@ -779,5 +798,14 @@ export class TableOpenApiService {
       record: recordPermission,
       view: viewPermission,
     };
+  }
+
+  private async emitDefaultRecordsAuditLog(tableId: string, ro: ICreateTableWithDefault) {
+    this.eventEmitterService.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
+      resourceId: tableId,
+      action: CreateRecordAction.CreateDefaultRecords,
+      recordCount: 3,
+      params: ro,
+    });
   }
 }

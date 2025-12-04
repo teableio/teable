@@ -4,15 +4,19 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { IAttachmentCellValue } from '@teable/core';
 import { FieldType, generateAttachmentId } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IBaseJson } from '@teable/openapi';
-import { UploadType } from '@teable/openapi';
+import type { IBaseJson, ImportBaseRo } from '@teable/openapi';
+import { CreateRecordAction, UploadType } from '@teable/openapi';
 import { Queue, Job } from 'bullmq';
 import * as csvParser from 'csv-parser';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import * as unzipper from 'unzipper';
 import { InjectDbProvider } from '../../../db-provider/db.provider';
 import { IDbProvider } from '../../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
+import { Events } from '../../../event-emitter/events';
+import type { IClsStore } from '../../../types/cls';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { BatchProcessor } from '../BatchProcessor.class';
@@ -21,11 +25,20 @@ import { BaseImportJunctionCsvQueueProcessor } from './base-import-junction.proc
 interface IBaseImportCsvJob {
   path: string;
   userId: string;
+  baseId: string;
+  origin?: {
+    ip: string;
+    byApi: boolean;
+    userAgent: string;
+    referer: string;
+  };
   tableIdMap: Record<string, string>;
   fieldIdMap: Record<string, string>;
   viewIdMap: Record<string, string>;
   fkMap: Record<string, string>;
   structure: IBaseJson;
+  importBaseRo: ImportBaseRo;
+  logId: string;
 }
 
 export const BASE_IMPORT_CSV_QUEUE = 'base-import-csv-queue';
@@ -43,7 +56,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     @InjectStorageAdapter() private readonly storageAdapter: StorageAdapter,
     @InjectQueue(BASE_IMPORT_CSV_QUEUE) public readonly queue: Queue<IBaseImportCsvJob>,
-    @InjectDbProvider() private readonly dbProvider: IDbProvider
+    @InjectDbProvider() private readonly dbProvider: IDbProvider,
+    private readonly cls: ClsService<IClsStore>,
+    private readonly eventEmitterService: EventEmitterService
   ) {
     super();
   }
@@ -68,7 +83,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
     }
   }
 
-  private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>) {
+  private async handleBaseImportCsv(job: Job<IBaseImportCsvJob>): Promise<void> {
     const { path, userId, tableIdMap, fieldIdMap, viewIdMap, structure, fkMap } = job.data;
     const csvStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
@@ -77,8 +92,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
     const parser = unzipper.Parse();
     csvStream.pipe(parser);
+    let totalRecordsCount = 0;
 
-    return new Promise<{ success: boolean }>((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       parser.on('entry', (entry) => {
         const filePath = entry.path;
         const isTable = filePath.startsWith('tables/') && entry.type !== 'Directory';
@@ -105,8 +121,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           const buttonDbFieldNames = buttonFields.map(({ dbFieldName }) => dbFieldName);
 
           const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
-          const batchProcessor = new BatchProcessor<Record<string, unknown>>((chunk) =>
-            this.handleChunk(
+          const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
+            totalRecordsCount += chunk.length;
+            await this.handleChunk(
               chunk,
               {
                 tableId: tableIdMap[tableId],
@@ -117,8 +134,10 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 attachmentsFields,
               },
               excludeDbFieldNames
-            )
-          );
+            );
+            // Update audit log after each chunk is written to database
+            await this.emitBaseImportAuditLog(job, totalRecordsCount);
+          });
 
           entry
             .pipe(
@@ -149,8 +168,9 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
               reject(error);
             })
             .on('end', () => {
-              this.logger.log(`csv ${tableId} finished`);
-              resolve({ success: true });
+              this.logger.log(
+                `csv ${tableId} finished, total records so far: ${totalRecordsCount}`
+              );
             });
         } else {
           entry.autodrain();
@@ -158,8 +178,8 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
       });
 
       parser.on('close', () => {
-        this.logger.log('import csv parser completed');
-        resolve({ success: true });
+        this.logger.log(`import csv parser completed, total records: ${totalRecordsCount}`);
+        resolve();
       });
 
       parser.on('error', (error) => {
@@ -372,5 +392,21 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         delay: 2000,
       }
     );
+  }
+
+  private async emitBaseImportAuditLog(job: Job<IBaseImportCsvJob>, recordsLength: number) {
+    const { origin, userId, baseId, importBaseRo, logId } = job.data;
+
+    await this.cls.run(async () => {
+      this.cls.set('origin', origin!);
+      this.cls.set('user.id', userId);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.BaseImport,
+        resourceId: baseId,
+        recordCount: recordsLength,
+        params: importBaseRo,
+        logId,
+      });
+    });
   }
 }

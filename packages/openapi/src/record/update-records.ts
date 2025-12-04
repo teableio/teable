@@ -43,7 +43,14 @@ export const UpdateRecordsRoute: RouteConfig = registerRoute({
 
 export async function updateRecords(
   tableId: string,
-  recordsRo: IUpdateRecordsRo
+  recordsRo: IUpdateRecordsRo,
+  byAi?: boolean
 ): Promise<AxiosResponse<IRecord[]>> {
-  return axios.patch<IRecord[]>(urlBuilder(UPDATE_RECORDS, { tableId }), recordsRo);
+  return axios.patch<IRecord[]>(urlBuilder(UPDATE_RECORDS, { tableId }), recordsRo, {
+    ...(byAi && {
+      headers: {
+        'x-ai-internal': 'true',
+      },
+    }),
+  });
 }
