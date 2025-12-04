@@ -87,6 +87,9 @@ export const DeleteAccountDialog = () => {
             Object.keys(deleteError).map((key) => {
               const errorKey = key as keyof IDeleteUserErrorData;
               const error = deleteError[errorKey];
+              if (!Array.isArray(error)) {
+                return <></>;
+              }
               return (
                 <Alert variant="destructive" key={key}>
                   <X className="size-4" />
