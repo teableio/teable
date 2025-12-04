@@ -3,15 +3,14 @@ import { getBaseNodeChannel } from '@teable/core';
 import type { IBaseNodeVo } from '@teable/openapi';
 import { getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { useBaseId, useConnection } from '@teable/sdk/hooks';
+import { useConnection } from '@teable/sdk/hooks';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { buildTreeItems } from './helper';
 
 export type TreeItemData = Omit<IBaseNodeVo, 'children'> & { children: string[] };
 
-export const useBaseNode = () => {
-  const baseId = useBaseId() as string;
+export const useBaseNode = (baseId: string) => {
   const { connection } = useConnection();
   const channel = getBaseNodeChannel(baseId);
   const presence = connection?.getPresence(channel);
