@@ -456,8 +456,7 @@ export class BatchService {
     collectionId: string,
     opType: RawOpType,
     docType: IdPrefix,
-    dataList: { docId: string; version: number; data?: unknown }[],
-    skipAuditLog?: boolean
+    dataList: { docId: string; version: number; data?: unknown }[]
   ) {
     const collection = `${docType}_${collectionId}`;
     const rawOpMap: IRawOpMap = { [collection]: {} };
@@ -467,7 +466,6 @@ export class BatchService {
       seq: 1,
       m: {
         ts: Date.now(),
-        ...(skipAuditLog !== undefined && { skipAuditLog }),
       },
     };
 

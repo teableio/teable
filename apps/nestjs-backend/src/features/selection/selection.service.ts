@@ -1005,6 +1005,7 @@ export class SelectionService {
   ) {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
+    this.cls.set('skipRecordAuditLog', true);
 
     await this.cls.run(async () => {
       this.cls.set('origin', origin!);

@@ -62,7 +62,7 @@ export class BaseDuplicateService {
         >)
       : await this.getCrossBaseLinkFieldTableMap(tableIdMap);
 
-    let recordsLength = undefined;
+    let recordsLength = 0;
     if (withRecords) {
       recordsLength = await this.duplicateTableData(
         tableIdMap,
@@ -78,9 +78,6 @@ export class BaseDuplicateService {
       // This mirrors what the computed pipeline does during regular record writes.
       await this.recomputeComputedColumnsForDuplicatedBase(tableIdMap);
     }
-
-    // Emit audit log after transaction completes successfully
-    await this.emitBaseDuplicateAuditLog(base.id, duplicateBaseRo, recordsLength);
 
     return { ...base, recordsLength } as ICreateBaseVo & { recordsLength?: number };
   }

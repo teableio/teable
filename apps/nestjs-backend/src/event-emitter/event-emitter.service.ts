@@ -184,10 +184,6 @@ export class EventEmitterService {
         const rawOp = data[id] as CreateOp | DeleteOp | EditOp;
         const extendPlainContext = this.createExtendPlainContext(docId, id);
 
-        // Extract skipAuditLog from rawOp metadata
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const skipAuditLog = (rawOp as any).m?.skipAuditLog;
-
         const opType = this.getOpType(rawOp);
         if (opType === null) continue;
 
@@ -199,7 +195,6 @@ export class EventEmitterService {
         const event = this.createEvent(docType, opType, {
           ...extendPlainContext,
           ...plainContext,
-          skipAuditLog,
           context: {
             ...extendPlainContext.context,
             ...plainContext?.context,
@@ -302,7 +297,7 @@ export class EventEmitterService {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private createEvent(docType: DocType, action: RawOpType, plain: any) {
-    const { context, skipAuditLog, ...payload } = plain;
+    const { context, ...payload } = plain;
     const eventName = this.eventNameMapping[action]?.[docType];
     if (!eventName) return undefined;
 
@@ -310,11 +305,6 @@ export class EventEmitterService {
 
     if (eventName === Events.TABLE_RECORD_UPDATE) {
       payload.oldField = oldField;
-    }
-
-    // Add skipAuditLog to payload for record events
-    if (docType === IdPrefix.Record && skipAuditLog !== undefined) {
-      payload.skipAuditLog = skipAuditLog;
     }
 
     return match(docType)

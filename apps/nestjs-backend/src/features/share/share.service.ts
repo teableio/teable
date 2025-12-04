@@ -617,11 +617,18 @@ export class ShareService {
   }
 
   async emitFormAuditLog(tableId: string, length: number, createRecordsRo: ICreateRecordsRo) {
-    this.eventEmitterService.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
-      action: CreateRecordAction.FormSubmit,
-      resourceId: tableId,
-      recordCount: length,
-      params: createRecordsRo,
+    const userId = this.cls.get('user.id');
+    const origin = this.cls.get('origin');
+
+    await this.cls.run(async () => {
+      this.cls.set('user.id', userId);
+      this.cls.set('origin', origin!);
+      await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
+        action: CreateRecordAction.FormSubmit,
+        resourceId: tableId,
+        recordCount: length,
+        params: createRecordsRo,
+      });
     });
   }
 }
