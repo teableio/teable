@@ -456,6 +456,7 @@ export type I18nTranslations = {
             "dashboard": string;
             "automation": string;
             "authorityMatrix": string;
+            "design": string;
             "adminPanel": string;
             "license": string;
             "instanceId": string;
@@ -464,7 +465,6 @@ export type I18nTranslations = {
             "global": string;
             "organizationPanel": string;
             "unknownError": string;
-            "design": string;
             "pluginPanel": string;
             "pluginContextMenu": string;
             "plugin": string;
@@ -474,7 +474,6 @@ export type I18nTranslations = {
             "app": string;
             "webSearch": string;
             "folder": string;
-            "float": string;
         };
         "level": {
             "free": string;
