@@ -25,6 +25,7 @@ interface IUseBaseNodeCrudOptions {
   onCreateSuccess?: (node: IBaseNodeVo) => void;
   onDuplicateSuccess?: (node: IBaseNodeVo) => void;
   onUpdateSuccess?: (node: IBaseNodeVo) => void;
+  onUpdateError?: (error: unknown, variables: { nodeId: string; ro: IUpdateBaseNodeRo }) => void;
   onMoveSuccess?: (node: IBaseNodeVo) => void;
   onDeleteSuccess?: (nodeId: string) => void;
 }
@@ -44,6 +45,7 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IUpdateBaseNodeRo }) =>
       updateBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => props?.onUpdateSuccess?.(node),
+    onError: (error, variables) => props?.onUpdateError?.(error, variables),
   });
 
   const { mutateAsync: duplicateNodeFn } = useMutation({

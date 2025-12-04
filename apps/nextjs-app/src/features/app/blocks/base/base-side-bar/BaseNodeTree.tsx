@@ -449,6 +449,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     onDuplicateSuccess: duplicateSuccefulyCallback,
     onDeleteSuccess: deleteSuccefulyCallback,
     onMoveSuccess: () => invalidateMenu(),
+    onUpdateError: () => invalidateMenu(),
   });
 
   useEffect(() => {
