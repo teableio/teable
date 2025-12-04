@@ -2470,6 +2470,7 @@ export type I18nTranslations = {
                 "notFound": string;
                 "invalidCode": string;
                 "resendCooldown": string;
+                "alreadyVerified": string;
             };
             "organization": {
                 "notFound": string;

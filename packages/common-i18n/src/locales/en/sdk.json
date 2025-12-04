@@ -1250,7 +1250,8 @@
     "domainVerification": {
       "notFound": "No domain verification code found",
       "invalidCode": "Invalid verification code",
-      "resendCooldown": "Please wait for 1 minute before requesting a new code"
+      "resendCooldown": "Please wait for 1 minute before requesting a new code",
+      "alreadyVerified": "Domain already verified"
     },
     "organization": {
       "notFound": "Organization not found",

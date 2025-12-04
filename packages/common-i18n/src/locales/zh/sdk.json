@@ -1250,7 +1250,8 @@
     "domainVerification": {
       "notFound": "未找到域名验证码",
       "invalidCode": "验证码无效",
-      "resendCooldown": "请等待1分钟后再请求新的验证码"
+      "resendCooldown": "请等待1分钟后再请求新的验证码",
+      "alreadyVerified": "域名已验证"
     },
     "organization": {
       "notFound": "组织未找到",
