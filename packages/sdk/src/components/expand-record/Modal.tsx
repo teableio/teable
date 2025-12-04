@@ -26,9 +26,6 @@ export const Modal: FC<
           if (e.key === 'Escape') {
             onClose?.();
           }
-          if (e.key === 'Enter') {
-            return;
-          }
           e.stopPropagation();
         }}
         onMouseDown={(e) => e.stopPropagation()}
