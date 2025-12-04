@@ -17,6 +17,7 @@
   "main": "dist/index.js",
   "module": "dist/index.js",
   "scripts": {
+    "prebuild": "node ./scripts/generate-prisma.mjs",
     "build": "tsc",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./node_modules/.cache ./.eslintcache",
     "dev": "tsc --watch",
