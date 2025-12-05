@@ -92,14 +92,13 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
 
     useEffect(() => {
       if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
-        onChange?.(attachmentsRef.current.concat(newAttachments));
         setNewAttachments([]);
         requestAnimationFrame(() => {
           setUploadingFiles({});
+          onChange?.(attachmentsRef.current.concat(newAttachments));
         });
       }
     }, [newAttachments, onChange, uploadingFiles]);
-
     const onDelete = (id: string) => {
       const finalAttachments = attachments.filter((attachment) => attachment.id !== id);
       onChange?.(!finalAttachments.length ? null : finalAttachments);
@@ -216,6 +215,8 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
     useEffect(() => {
       if (attachments && attachments.length) {
         setSortData([...attachments]);
+      } else {
+        setSortData([]);
       }
     }, [attachments]);
 
