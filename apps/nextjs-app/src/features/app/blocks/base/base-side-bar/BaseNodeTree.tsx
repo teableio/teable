@@ -592,7 +592,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       )}
 
       {isLoading && Object.keys(treeItems).length === 0 ? (
-        <div className="flex w-full flex-col gap-2 px-4">
+        <div className="flex w-full flex-col gap-2 px-2">
           <Skeleton className="h-7 w-full" />
           <Skeleton className="h-7 w-full" />
           <Skeleton className="h-7 w-full" />
@@ -603,7 +603,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       ) : (
         <ScrollArea
           viewportRef={viewportRef}
-          className="flex w-full !border-none px-4 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+          className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
           scrollBar="none"
         >
           <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
