@@ -676,7 +676,6 @@ describe('OpenAPI SelectionController (e2e)', () => {
           [2, 2],
         ],
       });
-      console.log('result.data.ids', result.data.ids, table.records[0].id, table.records[2].id);
       expect(result.data.ids).toEqual([table.records[0].id, table.records[2].id]);
     });
 
@@ -966,6 +965,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
           [2, 2],
           [2, 2],
         ],
+        header: [tableData.fields[0]],
       });
       const record = await getRecord(tableData.id, tableData.records[2].id);
       expect((record.fields[tableData.fields[2].id] as IUserCellValue)?.title).toBe(
