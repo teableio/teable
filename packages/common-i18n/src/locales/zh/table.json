@@ -804,6 +804,20 @@
         "testResults": "测试结果",
         "triggerTest": "触发器",
         "actionTest": "动作 {{index}}"
+      },
+      "htmlPreview": {
+        "preview": "预览",
+        "code": "代码",
+        "download": "下载",
+        "downloadHtml": "HTML",
+        "downloadImage": "图片 (PNG)",
+        "copy": "复制",
+        "copied": "已复制!",
+        "fullscreen": "全屏",
+        "exitFullscreen": "退出全屏",
+        "downloadSuccess": "图片下载成功",
+        "downloadFailed": "图片捕获失败",
+        "iframeFailed": "捕获失败：无法访问 iframe"
       }
     },
     "tools": {

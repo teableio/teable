@@ -802,6 +802,20 @@
         "testResults": "Test Results",
         "triggerTest": "Trigger",
         "actionTest": "Action {{index}}"
+      },
+      "htmlPreview": {
+        "preview": "Preview",
+        "code": "Code",
+        "download": "Download",
+        "downloadHtml": "HTML",
+        "downloadImage": "Image (PNG)",
+        "copy": "Copy",
+        "copied": "Copied!",
+        "fullscreen": "Fullscreen",
+        "exitFullscreen": "Exit Fullscreen",
+        "downloadSuccess": "Image downloaded successfully",
+        "downloadFailed": "Failed to capture image",
+        "iframeFailed": "Failed to capture: iframe not accessible"
       }
     },
     "tools": {

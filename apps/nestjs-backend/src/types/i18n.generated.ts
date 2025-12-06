@@ -3484,6 +3484,20 @@ export type I18nTranslations = {
                     "triggerTest": string;
                     "actionTest": string;
                 };
+                "htmlPreview": {
+                    "preview": string;
+                    "code": string;
+                    "download": string;
+                    "downloadHtml": string;
+                    "downloadImage": string;
+                    "copy": string;
+                    "copied": string;
+                    "fullscreen": string;
+                    "exitFullscreen": string;
+                    "downloadSuccess": string;
+                    "downloadFailed": string;
+                    "iframeFailed": string;
+                };
             };
             "codeBlock": {
                 "hiddenLines": string;
