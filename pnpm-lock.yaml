@@ -58,41 +58,41 @@ importers:
   apps/nestjs-backend:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: 4.0.0-beta.55
-        version: 4.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 4.0.0-beta.85
+        version: 4.0.0-beta.85(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/anthropic':
-        specifier: 3.0.0-beta.50
-        version: 3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.75
+        version: 3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/azure':
-        specifier: 3.0.0-beta.55
-        version: 3.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.86
+        version: 3.0.0-beta.86(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/cohere':
-        specifier: 3.0.0-beta.32
-        version: 3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.44
+        version: 3.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/deepseek':
-        specifier: 2.0.0-beta.32
-        version: 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.46
+        version: 2.0.0-beta.46(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/google':
-        specifier: 3.0.0-beta.39
-        version: 3.0.0-beta.39(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.65
+        version: 3.0.0-beta.65(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/mistral':
-        specifier: 3.0.0-beta.32
-        version: 3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.45
+        version: 3.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai':
-        specifier: 3.0.0-beta.54
-        version: 3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.84
+        version: 3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai-compatible':
-        specifier: 2.0.0-beta.32
-        version: 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.44
+        version: 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/provider-utils':
-        specifier: 4.0.0-beta.31
-        version: 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 4.0.0-beta.43
+        version: 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/togetherai':
-        specifier: 2.0.0-beta.33
-        version: 2.0.0-beta.33(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.45
+        version: 2.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/xai':
-        specifier: 3.0.0-beta.35
-        version: 3.0.0-beta.35(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.51
+        version: 3.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@aws-sdk/client-s3':
         specifier: 3.609.0
         version: 3.609.0
@@ -152,7 +152,7 @@ importers:
         version: 10.3.5(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@openrouter/ai-sdk-provider':
         specifier: 1.2.3
-        version: 1.2.3(ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)
+        version: 1.2.3(ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)
       '@opentelemetry/api':
         specifier: 1.9.0
         version: 1.9.0
@@ -223,8 +223,8 @@ importers:
         specifier: 1.3.0
         version: 1.3.0(valibot@1.1.0(typescript@5.4.3))
       ai:
-        specifier: 6.0.0-beta.93
-        version: 6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 6.0.0-beta.137
+        version: 6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       ajv:
         specifier: 8.12.0
         version: 8.12.0
@@ -2200,62 +2200,62 @@ packages:
   '@adobe/css-tools@4.4.1':
     resolution: {integrity: sha512-12WGKBQzjUAI4ayyF4IAtfw2QR/IDoqk6jTddXDhtYTJF9ASmoE1zst7cVtP0aL/F1jUJL5r+JxKXKEgHNbEUQ==}
 
-  '@ai-sdk/amazon-bedrock@4.0.0-beta.55':
-    resolution: {integrity: sha512-rvDjfHSOWXH3ufHnMElmYJmL4Ml+cG8im+cS0VgYwOvNNpD9z1dpd+M7K1BTxjAzA2qss5Y5ZcbVKy/KKbwj7A==}
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.85':
+    resolution: {integrity: sha512-MFCzgfwUAES+k5NQuy+h8+1YT1IkjN+OcztotnNK4kSBOWuPkztWlI72vUnyGfOaEkCwd5UFYFdrfQcLi8ROIQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/anthropic@3.0.0-beta.50':
-    resolution: {integrity: sha512-PKTRpzWhGD449Cm27KL1EVg0vUcgT32Tu7WvxtEXyl+JoD4YVXs353QWNx1tcFqML1TAmuCbVUFq9KvoNYIFLg==}
+  '@ai-sdk/anthropic@3.0.0-beta.75':
+    resolution: {integrity: sha512-bbKV82kekrjj5x1J7xxxxRGEArDpQgwScRGEHC2HYV8WCt2j6Y9NdxBz/p28UWdgUy5atYcefjgNOeENcoLqRQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/azure@3.0.0-beta.55':
-    resolution: {integrity: sha512-LJ3OJ7ATutjmw+IEVhn646Yt74/KeWSXXS3SQ+v0K5EPwhrKvR4dit3CRc1HOEqo4M3b5rQF0TQ3rKp8H6tRfQ==}
+  '@ai-sdk/azure@3.0.0-beta.86':
+    resolution: {integrity: sha512-3C+f9FsYNG55F192czrmAUt3/V9OAwMnxuRCKiB7/ZAVtA9mQL9BU6H6ZVvDNZKrfiQV/aW/myWa8JDN34KKSw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/cohere@3.0.0-beta.32':
-    resolution: {integrity: sha512-Dj7HvelE9sqHgxlt6o0/j54fWttuROtPJizVlYNsXHa9NMreKzC6RBJRhuaqj2ob1MHsaxIb2svsW5A55GYEyA==}
+  '@ai-sdk/cohere@3.0.0-beta.44':
+    resolution: {integrity: sha512-xXY8ZcueNUfPuIlBiMCGt9i2rlfUgGCR0DE+oMY2Q7E2kjdya19GLgMeAQCCKd6FC8eofdHYxVwNenWc/MIr/g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/deepseek@2.0.0-beta.32':
-    resolution: {integrity: sha512-wXGXMekPHIlQ0cMyV/h9ZkEiJPJI5Dm0eNRERPgKbf3FU3oJjQXDktac8kQcA5NI08gJN6u5Wykh6IBPmL0u6w==}
+  '@ai-sdk/deepseek@2.0.0-beta.46':
+    resolution: {integrity: sha512-JijlFfig80tsCppFBbj1ua93LDjrans+zTo8fxOMWF3msAkRtjABeOcUPIqYfP/vQlIqzV4xUsUKjFrbp1Q6Jg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.0-beta.50':
-    resolution: {integrity: sha512-1SkmLI6y2/2YoWtMD6T9QaZZtyyTYbL9aFq6DSLJGklM5uBjeZzYj0L5eL0YCxYdL1PWj/uSsUNPpfuYBol5ew==}
+  '@ai-sdk/gateway@2.0.0-beta.72':
+    resolution: {integrity: sha512-5Lw5KoI6Xt51fiQcWUcgnQr1WssnqWcPoBHL3Urt2qDgayVZhVf4G5n232MzpSesJHCwoYSUprDaAKkzrYeDAQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google@3.0.0-beta.39':
-    resolution: {integrity: sha512-mo4PXEiRW4Pux8A6l3vXPYhdTyoAdegTSmdWYWzEtJcww9x1uXAV2QeM0uBkgfjSyBFDFuDuoWmf+d3CNxwdIQ==}
+  '@ai-sdk/google@3.0.0-beta.65':
+    resolution: {integrity: sha512-J/FCxTBTcGEv/VnPjtnOZA0F3/1RBv27Hh8lh7pLbQopUpijp2dOLLWUcpBF31I4KgigJEbY46A3UJ8PMPI7Bw==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/mistral@3.0.0-beta.32':
-    resolution: {integrity: sha512-ihCRBqgWPuyymYf43r+c2mW5D8ywYMgCJNJqhSCGjkV35XVFO55kWoUy03Dm60DSjZ3vmnVHDCj0SONoUR0PJQ==}
+  '@ai-sdk/mistral@3.0.0-beta.45':
+    resolution: {integrity: sha512-sd15aOnnMYc4r2jhXM3aL3IYTVB02X80b82EEL3aT10VH9v/KEjDeeOwCAFwZM2J3PYU5vixmCi6+CdfqjP8/g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@2.0.0-beta.32':
-    resolution: {integrity: sha512-xoGaSaMuOUcbSXjOwbgwhlo+AYo1+1UTDeVTLZVXBvA6ywANUgWuTkNCSAsNkH2AiE3wDVLmK0ADKtNPQGEj/Q==}
+  '@ai-sdk/openai-compatible@2.0.0-beta.44':
+    resolution: {integrity: sha512-CtJbw1FUPIJrNv5e5TQDs0MGvkTTq6vCOyyfXm+MJz/iqGaiAV7YRcCSfgGUmBNp6BeBomRJiyOjNKTsbp3ThA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai@3.0.0-beta.54':
-    resolution: {integrity: sha512-EjCi1brWfDQOm/FXzijl5oujUUk0Y+wxmJGV5uaNqoVo8uIUUM/YoNpQtaarM68QN4BJPJfr90vXV1rH7NkD6A==}
+  '@ai-sdk/openai@3.0.0-beta.84':
+    resolution: {integrity: sha512-LS0/LyocNMZpKTZe6qdhSOwWWMQa1bt26R9BSwoT3fD2LVbX0YJhJm4LjLI8ku13HiQGIdbN0h7BtBhiyZq2Gg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2266,8 +2266,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@4.0.0-beta.31':
-    resolution: {integrity: sha512-IfE4sAYyO4+tUAoJGyvxeEaa0FMhygrvj2OVdDFuMpGOfFBQHETlP+X7bwnJY8M0oYBp9BEB+YF9D5sCx5oc0w==}
+  '@ai-sdk/provider-utils@4.0.0-beta.43':
+    resolution: {integrity: sha512-Lp3G7mQ/ruwg9PnhPz5enR9zuE6sjPnczoZhdX+O8senHWdmiJ1vAY9Tqijd9DEbZV5J11DVowniVRBeQSXCiw==}
     engines: {node: '>=18'}
     peerDependencies:
       '@valibot/to-json-schema': ^1.3.0
@@ -2286,18 +2286,18 @@ packages:
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/provider@3.0.0-beta.15':
-    resolution: {integrity: sha512-vHAlJe2yRQvEsB/Ldy799HUjTSDzTWk6w3PIJFAOuhuJ3c2PvOcHrcY3IULPIx6bOnB2OgG3BE6zySey5pnyBQ==}
+  '@ai-sdk/provider@3.0.0-beta.24':
+    resolution: {integrity: sha512-lYBjT2+8+2auq1mUs5oMrQs4O9COzHty/QukjrjBLRjkmeb9WeTQVVi0oeEGXf3yTdeY2eSwYOdz+H4zRHsacg==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/togetherai@2.0.0-beta.33':
-    resolution: {integrity: sha512-G5bKq+TDwEn3LI+e/R7SDGswYVP0yNbxRxSJT9pNrBFGTjV4kJyH5EwmKxeRANRRbYY2C0P5HjYj6VASC4Zbmw==}
+  '@ai-sdk/togetherai@2.0.0-beta.45':
+    resolution: {integrity: sha512-KmTcPgFBDCpBXzZs3U0ccAR6Ivh5MyL6yrvikAAsUPsAE0P0ISPHkVqlX90CjHPvzRxby7l+7nG2ajVM9IyCPA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/xai@3.0.0-beta.35':
-    resolution: {integrity: sha512-cezBZihPmn+dnM2RRvG7iLQjkORnT1kSrNpOjbpwHSD3dIsSpuAWC3cWJiqF81mtWv5AFEEFW3jsNPEPZXRWqg==}
+  '@ai-sdk/xai@3.0.0-beta.51':
+    resolution: {integrity: sha512-WmKnhBraIHQ4rc8KcxBcpYKHm0LvgSfROFr+blDR5ViL10biZl9usYuTrD3nf3ERrtuolVRKXqKf9U7HDUBQtg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -8752,8 +8752,8 @@ packages:
     peerDependencies:
       valibot: ^1.1.0
 
-  '@vercel/oidc@3.0.3':
-    resolution: {integrity: sha512-yNEQvPcVrK9sIe637+I0jD6leluPxzwJKx/Haw6F4H77CdDsszUn5V3o96LPziXkSNE2B83+Z3mjqGKBK/R6Gg==}
+  '@vercel/oidc@3.0.5':
+    resolution: {integrity: sha512-fnYhv671l+eTTp48gB4zEsTW/YtRgRPnkI2nT7x6qw5rkI1Lq2hTmQIpHPgyThI0znLK+vX2n9XxKdXZ7BUbbw==}
     engines: {node: '>= 20'}
 
   '@vitejs/plugin-react-swc@3.6.0':
@@ -9043,8 +9043,8 @@ packages:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
     engines: {node: '>=8'}
 
-  ai@6.0.0-beta.93:
-    resolution: {integrity: sha512-HzHA68Toh+Pxn2Jfp6Rs6zIlkd5H/CK5AMextPPZ6JHFJIRO6pMBj5P8QU/NLJzJ41NcirtLlWr7WYRtZziVMQ==}
+  ai@6.0.0-beta.137:
+    resolution: {integrity: sha512-e9st1mGQeysHKZ9x4qf48mPNkvbi5EsFLcrABwUGTbcrkq/PGeuiL+yL8tBdcY23VHJ3IvJF4pKh+Ll79RVeig==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -18549,11 +18549,11 @@ snapshots:
 
   '@adobe/css-tools@4.4.1': {}
 
-  '@ai-sdk/amazon-bedrock@4.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.85(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/anthropic': 3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/anthropic': 3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@smithy/eventstream-codec': 4.0.5
       '@smithy/util-utf8': 4.0.0
       aws4fetch: 1.0.20
@@ -18563,93 +18563,92 @@ snapshots:
       - arktype
       - effect
 
-  '@ai-sdk/anthropic@3.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/anthropic@3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/azure@3.0.0-beta.55(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/azure@3.0.0-beta.86(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai': 3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai': 3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/cohere@3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/cohere@3.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/deepseek@2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/deepseek@2.0.0-beta.46(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/gateway@2.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/gateway@2.0.0-beta.72(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@vercel/oidc': 3.0.3
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@vercel/oidc': 3.0.5
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/google@3.0.0-beta.39(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/google@3.0.0-beta.65(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/mistral@3.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/mistral@3.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/openai-compatible@2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/openai-compatible@2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/openai@3.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/openai@3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
@@ -18663,9 +18662,9 @@ snapshots:
       eventsource-parser: 3.0.6
       zod: 4.1.8
 
-  '@ai-sdk/provider-utils@4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/provider-utils@4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.15
+      '@ai-sdk/provider': 3.0.0-beta.24
       '@standard-schema/spec': 1.0.0
       eventsource-parser: 3.0.6
       zod: 4.1.8
@@ -18677,26 +18676,26 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/provider@3.0.0-beta.15':
+  '@ai-sdk/provider@3.0.0-beta.24':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/togetherai@2.0.0-beta.33(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/togetherai@2.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/xai@3.0.0-beta.35(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/xai@3.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.0-beta.32(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
@@ -21939,10 +21938,10 @@ snapshots:
 
   '@one-ini/wasm@0.1.1': {}
 
-  '@openrouter/ai-sdk-provider@1.2.3(ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)':
+  '@openrouter/ai-sdk-provider@1.2.3(ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)':
     dependencies:
       '@openrouter/sdk': 0.1.27
-      ai: 6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      ai: 6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
 
   '@openrouter/sdk@0.1.27':
@@ -26840,7 +26839,7 @@ snapshots:
     dependencies:
       valibot: 1.1.0(typescript@5.4.3)
 
-  '@vercel/oidc@3.0.3': {}
+  '@vercel/oidc@3.0.5': {}
 
   '@vitejs/plugin-react-swc@3.6.0(@swc/helpers@0.5.17)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))':
     dependencies:
@@ -27236,11 +27235,11 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@6.0.0-beta.93(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8):
+  ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8):
     dependencies:
-      '@ai-sdk/gateway': 2.0.0-beta.50(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.15
-      '@ai-sdk/provider-utils': 4.0.0-beta.31(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/gateway': 2.0.0-beta.72(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@opentelemetry/api': 1.9.0
       zod: 4.1.8
     transitivePeerDependencies:
