@@ -838,4 +838,77 @@ describe('Comprehensive Field Sort Tests (e2e)', () => {
       // The important thing is that sorting works with the new context parameter
     });
   });
+
+  describe('Multiple Select Sorting with Question Mark Choices', () => {
+    let specialTable: ITableFullVo;
+    let specialFieldId: string;
+
+    beforeEach(async () => {
+      specialTable = await createTable(baseId, {
+        name: 'Multi Select Question Mark Table',
+        fields: [
+          {
+            name: 'Special Multi Select',
+            type: FieldType.MultipleSelect,
+            options: {
+              choices: [
+                { id: 'opt-a', name: 'Alpha?' },
+                { id: 'opt-b', name: 'Beta' },
+                { id: 'opt-c', name: 'Gamma' },
+              ],
+            },
+          },
+        ],
+        records: [
+          { fields: { 'Special Multi Select': ['Beta'] } },
+          { fields: { 'Special Multi Select': ['Alpha?'] } },
+          { fields: { 'Special Multi Select': ['Gamma'] } },
+          { fields: { 'Special Multi Select': null } },
+        ],
+      });
+      specialFieldId =
+        specialTable.fields.find((f) => f.name === 'Special Multi Select')?.id ??
+        (() => {
+          throw new Error('Special Multi Select field not found');
+        })();
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, specialTable.id);
+    });
+
+    test('should sort ascending even when choices contain "?"', async () => {
+      const { data } = await apiGetRecords(specialTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        orderBy: [{ fieldId: specialFieldId, order: SortFunc.Asc }],
+      });
+      const { records } = data;
+
+      expect(records.length).toBe(4);
+      const firstChoice = records.map((r) => {
+        const value = r.fields[specialFieldId] as string[] | null | undefined;
+        return value?.[0] ?? null;
+      });
+
+      // Null should come first (NULLS FIRST), followed by ordered choices
+      expect(firstChoice).toEqual([null, 'Alpha?', 'Beta', 'Gamma']);
+    });
+
+    test('should sort descending even when choices contain "?"', async () => {
+      const { data } = await apiGetRecords(specialTable.id, {
+        fieldKeyType: FieldKeyType.Id,
+        orderBy: [{ fieldId: specialFieldId, order: SortFunc.Desc }],
+      });
+      const { records } = data;
+
+      expect(records.length).toBe(4);
+      const firstChoice = records.map((r) => {
+        const value = r.fields[specialFieldId] as string[] | null | undefined;
+        return value?.[0] ?? null;
+      });
+
+      // For DESC, choices should be reversed and NULLS LAST
+      expect(firstChoice).toEqual(['Gamma', 'Beta', 'Alpha?', null]);
+    });
+  });
 });

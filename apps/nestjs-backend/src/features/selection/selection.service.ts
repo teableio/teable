@@ -546,7 +546,7 @@ export class SelectionService {
                   ? field.isMultipleCellValue
                     ? cvs
                     : cvs?.[0]
-                  : field.cellValue2String(cellValue);
+                  : sourceField.cellValue2String(cellValue);
             }
             break;
           case FieldType.Date:
@@ -555,7 +555,7 @@ export class SelectionService {
                 ? Array.isArray(cellValue)
                   ? cellValue[0]
                   : cellValue
-                : field.cellValue2String(cellValue);
+                : sourceField.cellValue2String(cellValue);
             break;
           case FieldType.Link: {
             recordField[field.id] = cellValue

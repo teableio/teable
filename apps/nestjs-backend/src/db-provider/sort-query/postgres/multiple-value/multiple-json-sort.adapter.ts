@@ -10,15 +10,16 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
    * If not an array, fall back to comparing the raw scalar text.
    */
   private firstChoiceIndexExpr(optionSets: string[]) {
-    const arrayLiteral = `ARRAY[${optionSets
-      .map((name) => this.knex.raw('?', [name]).toQuery())
-      .join(', ')}]`;
-    return `CASE
+    const arrayLiteral = `ARRAY[${this.createSqlPlaceholders(optionSets)}]`;
+    const sql = `CASE
       WHEN ${this.columnName} IS NULL THEN NULL
       WHEN jsonb_typeof(${this.columnName}::jsonb) = 'array'
         THEN ARRAY_POSITION(${arrayLiteral}, jsonb_path_query_first(${this.columnName}::jsonb, '$[0]') #>> '{}')
       ELSE ARRAY_POSITION(${arrayLiteral}, ${this.columnName}::text)
     END`;
+    // arrayLiteral is used twice, so duplicate the bindings to satisfy both occurrences
+    const bindings = [...optionSets, ...optionSets];
+    return { sql, bindings };
   }
 
   private orderByMultiSelect(
@@ -30,8 +31,8 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
     const { choices } = this.field.options as ISelectFieldOptions;
     if (!choices.length) return builderClient;
     const optionSets = choices.map(({ name }) => name);
-    const firstIndex = this.firstChoiceIndexExpr(optionSets);
-    builderClient.orderByRaw(`${firstIndex} ${direction} NULLS ${nulls}`);
+    const { sql, bindings } = this.firstChoiceIndexExpr(optionSets);
+    builderClient.orderByRaw(`${sql} ${direction} NULLS ${nulls}`, bindings);
     // Stable tie-breaker to make ordering deterministic when min index is equal
     builderClient.orderByRaw(`${this.columnName}::jsonb::text ${direction} NULLS ${nulls}`);
     return builderClient;
@@ -92,8 +93,8 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
     } else if ([FieldType.SingleSelect, FieldType.MultipleSelect].includes(type)) {
       const { choices } = this.field.options as ISelectFieldOptions;
       const optionSets = choices.map(({ name }) => name);
-      const firstIndex = this.firstChoiceIndexExpr(optionSets);
-      return this.knex.raw(`${firstIndex} ASC NULLS FIRST`).toQuery();
+      const { sql, bindings } = this.firstChoiceIndexExpr(optionSets);
+      return this.knex.raw(`${sql} ASC NULLS FIRST`, bindings).toQuery();
     } else {
       return this.knex
         .raw(
@@ -118,8 +119,8 @@ export class MultipleJsonSortAdapter extends SortFunctionPostgres {
     } else if ([FieldType.SingleSelect, FieldType.MultipleSelect].includes(type)) {
       const { choices } = this.field.options as ISelectFieldOptions;
       const optionSets = choices.map(({ name }) => name);
-      const firstIndex = this.firstChoiceIndexExpr(optionSets);
-      return this.knex.raw(`${firstIndex} DESC NULLS LAST`).toQuery();
+      const { sql, bindings } = this.firstChoiceIndexExpr(optionSets);
+      return this.knex.raw(`${sql} DESC NULLS LAST`, bindings).toQuery();
     } else {
       return this.knex
         .raw(

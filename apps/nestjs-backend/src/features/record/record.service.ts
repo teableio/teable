@@ -2,6 +2,7 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import { Prisma } from '@prisma/client';
 import type {
   CreatedByFieldCore,
   FieldCore,
@@ -584,6 +585,45 @@ export class RecordService {
     });
 
     return [searchValue, fieldId, hideNotMatchRow];
+  }
+
+  private stringifyRawQueryDebugPayload(payload: unknown): string {
+    try {
+      return JSON.stringify(payload, (_, value) =>
+        typeof value === 'bigint' ? value.toString() : value
+      );
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`Failed to stringify raw query debug payload: ${reason}`);
+      return '[raw query debug payload: <unserializable>]';
+    }
+  }
+
+  private handleRawQueryError(
+    error: unknown,
+    sql: string,
+    debugContext: Record<string, unknown>
+  ): never {
+    const context = { sql, ...debugContext };
+    const contextString = this.stringifyRawQueryDebugPayload(context);
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      error.message = `${error.message}\nContext: ${contextString}`;
+      Object.assign(error, context);
+      this.logger.error(
+        `Raw query known request error. Context: ${contextString}`,
+        error.stack ?? undefined
+      );
+      throw error;
+    }
+    this.logger.error(
+      `Raw query unexpected error. message: ${(error as Error)?.message}. Context: ${contextString}`,
+      (error as Error)?.stack
+    );
+    if (error instanceof Error) {
+      error.message = `${error.message}\nContext: ${contextString}`;
+      Object.assign(error, context);
+    }
+    throw error;
   }
 
   async prepareQuery(
@@ -1792,7 +1832,27 @@ export class RecordService {
 
     const sql = queryBuilder.toQuery();
     this.logger.debug('getRecordsQuery: %s', sql);
-    const result = await this.prismaService.txClient().$queryRawUnsafe<{ __id: string }[]>(sql);
+    let result: { __id: string }[];
+    try {
+      result = await this.prismaService.txClient().$queryRawUnsafe<{ __id: string }[]>(sql);
+    } catch (error) {
+      this.handleRawQueryError(error, sql, {
+        tableId,
+        dbTableName,
+        viewId,
+        ignoreViewQuery,
+        useQueryModel,
+        take,
+        skip,
+        orderBy: query.orderBy,
+        groupBy: query.groupBy,
+        filter: filterWithGroup,
+        search: query.search,
+        filterLinkCellCandidate: query.filterLinkCellCandidate,
+        filterLinkCellSelected: query.filterLinkCellSelected,
+        selectedRecordIds: query.selectedRecordIds,
+      });
+    }
     const ids = result.map((r) => r.__id);
 
     const {

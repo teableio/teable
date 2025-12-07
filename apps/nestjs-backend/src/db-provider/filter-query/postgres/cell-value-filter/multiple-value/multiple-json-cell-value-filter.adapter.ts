@@ -29,9 +29,16 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     }
 
     const { type } = this.field;
+    const literalValues: ILiteralValueList = Array.isArray(value)
+      ? (value as ILiteralValueList)
+      : ([value] as ILiteralValueList);
+
+    if (isUserOrLink(type)) {
+      return this.isAnyOfOperatorHandler(builderClient, _operator, literalValues, _dbProvider);
+    }
 
     if (type === FieldType.Link) {
-      const parseValue = JSON.stringify({ title: value });
+      const parseValue = JSON.stringify({ title: literalValues[0] });
 
       builderClient.whereRaw(`${this.tableColumnRef}::jsonb @> ?::jsonb`, [parseValue]);
     } else {
@@ -40,7 +47,7 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
         SELECT 1 FROM jsonb_array_elements_text(${this.tableColumnRef}::jsonb) as elem
         WHERE elem ~* ?
       )`,
-        [`^${value}$`]
+        [`^${literalValues[0]}$`]
       );
     }
     return builderClient;
@@ -62,9 +69,16 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
     }
 
     const { type } = this.field;
+    const literalValues: ILiteralValueList = Array.isArray(value)
+      ? (value as ILiteralValueList)
+      : ([value] as ILiteralValueList);
+
+    if (isUserOrLink(type)) {
+      return this.isNoneOfOperatorHandler(builderClient, _operator, literalValues, _dbProvider);
+    }
 
     if (type === FieldType.Link) {
-      const parseValue = JSON.stringify({ title: value });
+      const parseValue = JSON.stringify({ title: literalValues[0] });
 
       builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @> ?::jsonb`, [
         parseValue,

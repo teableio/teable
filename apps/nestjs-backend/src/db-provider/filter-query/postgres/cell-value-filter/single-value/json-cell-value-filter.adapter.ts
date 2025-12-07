@@ -37,10 +37,9 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
     }
 
     if (isUserOrLink(type)) {
-      builderClient.whereRaw(
-        `jsonb_path_exists(${this.tableColumnRef}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$.id ? (@ == $value)', value]
-      );
+      builderClient.whereRaw(`jsonb_extract_path_text(${this.tableColumnRef}::jsonb, 'id') = ?`, [
+        value,
+      ]);
     } else {
       builderClient.whereRaw(
         `jsonb_path_exists(${this.tableColumnRef}::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
@@ -73,8 +72,8 @@ export class JsonCellValueFilterAdapter extends CellValueFilterPostgres {
 
     if (isUserOrLink(type)) {
       builderClient.whereRaw(
-        `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '{}')::jsonb, ?::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
-        ['$.id ? (@ == $value)', value]
+        `jsonb_extract_path_text(COALESCE(${this.tableColumnRef}, '{}'::jsonb), 'id') IS DISTINCT FROM ?`,
+        [value]
       );
     } else {
       builderClient.whereRaw(

@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 import { DB_PROVIDER_SYMBOL } from '../src/db-provider/db.provider';
 import type { IDbProvider } from '../src/db-provider/db.provider.interface';
 import { FieldConvertingService } from '../src/features/field/field-calculate/field-converting.service';
+import { FieldService } from '../src/features/field/field.service';
 import { FieldOpenApiService } from '../src/features/field/open-api/field-open-api.service';
 import type { IClsStore } from '../src/types/cls';
 import { getError } from './utils/get-error';
@@ -213,6 +214,74 @@ describe('Field convert transaction (e2e)', () => {
       expect(afterExists).toBe(true);
     } finally {
       stageAlterSpy?.mockRestore();
+      await permanentDeleteBase(base.id);
+    }
+  });
+
+  it('keeps column when delete field rolls back inside a single transaction', async () => {
+    const clsService = app.get<ClsService<IClsStore>>(ClsService);
+    const fieldOpenApiService = app.get(FieldOpenApiService);
+    const prismaService = app.get(PrismaService);
+    const dbProvider = app.get<IDbProvider>(DB_PROVIDER_SYMBOL);
+    const fieldService = app.get(FieldService);
+
+    const base = await createBase({
+      spaceId: globalThis.testConfig.spaceId,
+      name: 'delete-field-tx',
+    });
+
+    let alterSpy: MockInstance | undefined;
+    try {
+      const table = await createTable(base.id, {
+        name: 'DeleteTx',
+        fields: [
+          {
+            name: 'Keep',
+            type: FieldType.SingleLineText,
+          },
+          {
+            name: 'DropMe',
+            type: FieldType.SingleLineText,
+          },
+        ],
+      });
+      const dropFieldId = table.fields?.find((f) => f.name === 'DropMe')?.id as string;
+      expect(dropFieldId).toBeTruthy();
+
+      const fieldRaw = await prismaService.field.findUniqueOrThrow({
+        where: { id: dropFieldId },
+        select: { dbFieldName: true },
+      });
+
+      const hasColumn = async () =>
+        dbProvider.checkColumnExist(
+          table.dbTableName,
+          fieldRaw.dbFieldName,
+          prismaService.txClient()
+        );
+      expect(await hasColumn()).toBe(true);
+
+      const originalAlter = fieldService.alterTableDeleteField.bind(fieldService);
+      alterSpy = vi
+        .spyOn(fieldService, 'alterTableDeleteField')
+        .mockImplementationOnce(async (...args) => {
+          const result = await originalAlter(...(args as Parameters<typeof originalAlter>));
+          throw new Error('force-delete-failure');
+        });
+
+      const error = await getError(() =>
+        runWithTestUser(clsService, () => fieldOpenApiService.deleteField(table.id, dropFieldId))
+      );
+      expect(error).toBeTruthy();
+
+      const fieldAfter = await prismaService.field.findUnique({
+        where: { id: dropFieldId },
+        select: { id: true },
+      });
+      expect(fieldAfter?.id).toBe(dropFieldId);
+      expect(await hasColumn()).toBe(true);
+    } finally {
+      alterSpy?.mockRestore();
       await permanentDeleteBase(base.id);
     }
   });

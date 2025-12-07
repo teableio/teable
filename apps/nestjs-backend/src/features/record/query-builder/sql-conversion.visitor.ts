@@ -793,7 +793,18 @@ abstract class BaseSqlConversionVisitor<
       const needsNumericCoercion = (op: string) =>
         ['>', '<', '>=', '<=', '=', '!=', '<>'].includes(op);
       if (operator.text && needsNumericCoercion(operator.text)) {
-        if (leftType === 'number' && rightType === 'string') {
+        const isBooleanNumericCompare =
+          (leftType === 'boolean' && rightType === 'number') ||
+          (leftType === 'number' && rightType === 'boolean');
+        if (isBooleanNumericCompare) {
+          if (leftType === 'boolean') {
+            left = this.coerceBooleanToNumeric(left, exprContexts[0]);
+            right = this.safeCastToNumeric(right);
+          } else {
+            left = this.safeCastToNumeric(left);
+            right = this.coerceBooleanToNumeric(right, exprContexts[1]);
+          }
+        } else if (leftType === 'number' && rightType === 'string') {
           right = this.safeCastToNumeric(right);
         } else if (leftType === 'string' && rightType === 'number') {
           left = this.safeCastToNumeric(left);
@@ -1322,6 +1333,19 @@ abstract class BaseSqlConversionVisitor<
    */
   private safeCastToNumeric(value: string): string {
     return this.dialect!.coerceToNumericForCompare(value);
+  }
+
+  /**
+   * Normalize a boolean expression into a numeric scalar (1/0) for cross-type comparisons.
+   * Preserves NULL so equality checks against NULL behave as expected.
+   */
+  private coerceBooleanToNumeric(value: string, exprCtx?: ExprContext): string {
+    const normalized =
+      exprCtx && exprCtx instanceof FieldReferenceCurlyContext
+        ? this.normalizeBooleanFieldReference(value, exprCtx) ?? value
+        : value;
+    const boolExpr = `(${normalized})`;
+    return `(CASE WHEN ${boolExpr} IS NULL THEN NULL WHEN ${boolExpr} THEN 1 ELSE 0 END)::numeric`;
   }
 
   /**

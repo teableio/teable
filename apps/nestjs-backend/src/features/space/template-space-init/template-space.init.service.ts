@@ -11,21 +11,16 @@ export class TemplateSpaceInitService implements OnModuleInit {
   async onModuleInit() {
     const prisma = this.prismaService.txClient();
 
-    const templateSpace = await prisma.space.findFirst({
-      where: {
-        isTemplate: true,
-      },
-    });
-
-    if (templateSpace) {
-      this.logger.log('Template space already exists');
-      return;
-    }
-
     const initTemplateSpaceId = `${IdPrefix.Space}DefaultTempSpcId`;
 
-    await prisma.space.create({
-      data: {
+    await prisma.space.upsert({
+      where: {
+        id: initTemplateSpaceId,
+      },
+      update: {
+        isTemplate: true,
+      },
+      create: {
         id: initTemplateSpaceId,
         name: 'Template Space',
         isTemplate: true,
@@ -33,6 +28,6 @@ export class TemplateSpaceInitService implements OnModuleInit {
       },
     });
 
-    this.logger.log('Template space created');
+    this.logger.log('Template space ensured');
   }
 }

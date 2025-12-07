@@ -775,62 +775,69 @@ export class FieldOpenApiService {
 
   @Timing()
   async deleteFields(tableId: string, fieldIds: string[], windowId?: string) {
-    const fieldRaws = await this.prismaService.field.findMany({
-      where: { tableId, id: { in: fieldIds }, deletedTime: null },
-    });
-    const fieldRawMap = new Map(fieldRaws.map((raw) => [raw.id, raw]));
-
-    if (fieldRawMap.size !== fieldIds.length) {
-      const notExistFieldId = fieldIds.find((id) => !fieldRawMap.has(id));
-      throw new NotFoundException(`Field ${notExistFieldId} not found`);
-    }
-
-    const fieldVos = fieldIds.map((id) => rawField2FieldObj(fieldRawMap.get(id)!));
-    const fields = fieldVos.map(createFieldInstanceByVo);
-
-    const nonComputedFields = fields.filter((field) => !field.isComputed);
-    const projection = nonComputedFields.map((field) => field.id);
-    const records =
-      projection.length === 0
-        ? undefined
-        : await this.recordService.getRecordsFields(
-            tableId,
-            {
-              projection,
-              fieldKeyType: FieldKeyType.Id,
-              take: -1,
-            },
-            true
-          );
-
-    const columnsMeta = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
-    const referenceMap = await this.getFieldReferenceMap(fieldIds);
-
-    // Drop per-field search indexes before entering long-running transaction
-    // to avoid prolonging the interactive transaction and hitting its timeout.
-    for (const field of fields) {
-      try {
-        await this.tableIndexService.deleteSearchFieldIndex(tableId, field);
-      } catch (e) {
-        this.logger.warn(`deleteFields: pre-drop search index failed for ${field.id}: ${e}`);
-      }
-    }
-
-    await this.prismaService.$tx(
+    const { fields, fieldVos, columnsMeta, referenceMap, records } = await this.prismaService.$tx(
       async () => {
-        const sources = [{ tableId, fieldIds: fields.map((f) => f.id) }];
+        const fieldRaws = await this.prismaService.txClient().field.findMany({
+          where: { tableId, id: { in: fieldIds }, deletedTime: null },
+        });
+        const fieldRawMap = new Map(fieldRaws.map((raw) => [raw.id, raw]));
+
+        if (fieldRawMap.size !== fieldIds.length) {
+          const notExistFieldId = fieldIds.find((id) => !fieldRawMap.has(id));
+          throw new NotFoundException(`Field ${notExistFieldId} not found`);
+        }
+
+        const fieldVoList = fieldIds.map((id) => rawField2FieldObj(fieldRawMap.get(id)!));
+        const fieldInstances = fieldVoList.map(createFieldInstanceByVo);
+
+        const nonComputedFields = fieldInstances.filter((field) => !field.isComputed);
+        const projection = nonComputedFields.map((field) => field.id);
+        const recordSnapshot =
+          projection.length === 0
+            ? undefined
+            : await this.recordService.getRecordsFields(
+                tableId,
+                {
+                  projection,
+                  fieldKeyType: FieldKeyType.Id,
+                  take: -1,
+                },
+                true
+              );
+
+        const columnMetaMap = await this.viewService.getColumnsMetaMap(tableId, fieldIds);
+        const refMap = await this.getFieldReferenceMap(fieldIds);
+
+        // Drop per-field search indexes inside the same transaction boundary
+        for (const field of fieldInstances) {
+          try {
+            await this.tableIndexService.deleteSearchFieldIndex(tableId, field);
+          } catch (e) {
+            this.logger.warn(`deleteFields: drop search index failed for ${field.id}: ${e}`);
+          }
+        }
+
+        const sources = [{ tableId, fieldIds: fieldInstances.map((f) => f.id) }];
         await this.computedOrchestrator.computeCellChangesForFieldsBeforeDelete(
           sources,
           async () => {
             await this.fieldViewSyncService.deleteDependenciesByFieldIds(
               tableId,
-              fields.map((f) => f.id)
+              fieldInstances.map((f) => f.id)
             );
-            for (const field of fields) {
+            for (const field of fieldInstances) {
               await this.fieldDeletingService.alterDeleteField(tableId, field);
             }
           }
         );
+
+        return {
+          fields: fieldInstances,
+          fieldVos: fieldVoList,
+          columnsMeta: columnMetaMap,
+          referenceMap: refMap,
+          records: recordSnapshot,
+        };
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
