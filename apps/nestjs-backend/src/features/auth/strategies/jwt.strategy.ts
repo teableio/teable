@@ -1,7 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { AUTOMATION_ROBOT_USER, APP_ROBOT_USER } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
+import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
@@ -15,27 +17,65 @@ import { JwtAuthInternalType } from './types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_NAME) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
     private readonly userService: UserService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly prismaService: PrismaService
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.jwt.secret,
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: IJwtAuthInfo | IJwtAuthInternalInfo) {
+  async validate(req: Request, payload: IJwtAuthInfo | IJwtAuthInternalInfo) {
     if ('baseId' in payload) {
-      const user =
-        payload.type === JwtAuthInternalType.App ? APP_ROBOT_USER : AUTOMATION_ROBOT_USER;
-      this.cls.set('user', user);
-      this.cls.set('tempAuthBaseId', payload.baseId);
-      return user;
+      return this.validateInternalToken(payload, req);
+    }
+    return this.validateUserToken(payload);
+  }
+
+  private async validateInternalToken(payload: IJwtAuthInternalInfo, req: Request) {
+    const user = payload.type === JwtAuthInternalType.App ? APP_ROBOT_USER : AUTOMATION_ROBOT_USER;
+    this.cls.set('user', user);
+    this.cls.set('tempAuthBaseId', payload.baseId);
+
+    if (payload.type === JwtAuthInternalType.App) {
+      await this.setAppIdFromToken(req);
     }
 
+    return user;
+  }
+
+  private async setAppIdFromToken(req: Request) {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '');
+
+    if (!token) return;
+
+    try {
+      const app = await this.prismaService.app.findFirst({
+        where: {
+          accessToken: token,
+          deletedTime: null,
+        },
+        select: { id: true },
+      });
+
+      if (app) {
+        this.cls.set('appId', app.id);
+      }
+    } catch (error) {
+      this.logger.error('Failed to query app by token:', error);
+    }
+  }
+
+  private async validateUserToken(payload: IJwtAuthInfo) {
     const user = await this.userService.getUserById(payload.userId);
     if (!user) {
       throw new UnauthorizedException();

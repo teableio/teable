@@ -289,11 +289,7 @@ export class BaseService {
     return await this.prismaService.$tx(
       async () => {
         const res = await this.baseDuplicateService.duplicateBase(duplicateBaseRo, true);
-        await this.baseDuplicateService.emitBaseDuplicateAuditLog(
-          res.id,
-          duplicateBaseRo,
-          res.recordsLength
-        );
+        await this.baseDuplicateService.emitBaseDuplicateAuditLog(res.id, res.recordsLength);
         return res;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
