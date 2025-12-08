@@ -46,7 +46,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
       ) : (
         <Spin />
       )}
-      <div className="relative flex h-7 shrink-0 grow-0 flex-col items-start gap-1 justify-center">
+      <div className="relative flex h-7 shrink-0 grow-0 flex-col items-start justify-center gap-1">
         <div
           className="text-sm leading-none"
           onDoubleClick={() => {
@@ -62,7 +62,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             style={{
               boxShadow: 'none',
             }}
-            className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-2 outline-none"
+            className="round-none absolute left-[-2px] top-0 size-full cursor-text bg-background px-2 outline-none dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onBlur={(e) => {

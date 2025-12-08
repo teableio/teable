@@ -120,7 +120,7 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
           type="text"
           placeholder="name"
           defaultValue={view.name}
-          className="absolute left-0 top-0 size-full py-0 text-xs focus-visible:ring-transparent focus-visible:ring-offset-0"
+          className="absolute left-0 top-0 size-full py-0 text-xs focus-visible:ring-transparent focus-visible:ring-offset-0 dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
           // eslint-disable-next-line jsx-a11y/no-autofocus
           autoFocus
           onBlur={(e) => {
