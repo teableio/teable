@@ -482,26 +482,37 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     let expression: string;
     if (targetLookupField.isLookup) {
       const nestedLinkFieldId = getLinkFieldId(targetLookupField.lookupOptions);
-      const fieldCteMap = this.state.getFieldCteMap();
-      if (
-        nestedLinkFieldId &&
-        this.canReuseNestedCte(nestedLinkFieldId) &&
-        this.joinedCtes?.has(nestedLinkFieldId)
-      ) {
-        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
-        expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
-      } else if (nestedLinkFieldId) {
-        // Block the nested link id so the select visitor does not attempt to reuse
-        // the same link CTE (which may not exist in this scope) and instead computes
-        // the lookup expression directly.
-        const visitor = buildSelectVisitor(nestedLinkFieldId);
-        const targetFieldResult = targetLookupField.accept(visitor);
-        expression =
-          typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+      if (nestedLinkFieldId && nestedLinkFieldId === this.currentLinkFieldId) {
+        // When the lookup we target is computed from the same link CTE we are currently
+        // generating (self-referencing), read its materialized column from the foreign
+        // table instead of trying to reuse or re-enter the link CTE.
+        expression = `"${foreignAlias}"."${targetLookupField.dbFieldName}"`;
       } else {
-        const targetFieldResult = targetLookupField.accept(selectVisitor);
-        expression =
-          typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+        const fieldCteMap = this.state.getFieldCteMap();
+        if (
+          nestedLinkFieldId &&
+          this.canReuseNestedCte(nestedLinkFieldId) &&
+          this.joinedCtes?.has(nestedLinkFieldId)
+        ) {
+          const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
+          expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
+        } else if (nestedLinkFieldId) {
+          // Block the nested link id so the select visitor does not attempt to reuse
+          // the same link CTE (which may not exist in this scope) and instead computes
+          // the lookup expression directly.
+          const visitor = buildSelectVisitor(nestedLinkFieldId);
+          const targetFieldResult = targetLookupField.accept(visitor);
+          expression =
+            typeof targetFieldResult === 'string'
+              ? targetFieldResult
+              : targetFieldResult.toSQL().sql;
+        } else {
+          const targetFieldResult = targetLookupField.accept(selectVisitor);
+          expression =
+            typeof targetFieldResult === 'string'
+              ? targetFieldResult
+              : targetFieldResult.toSQL().sql;
+        }
       }
     } else {
       const visitor =
