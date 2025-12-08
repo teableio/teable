@@ -816,6 +816,44 @@
         "downloadSuccess": "Image downloaded successfully",
         "downloadFailed": "Failed to capture image",
         "iframeFailed": "Failed to capture: iframe not accessible"
+      },
+      "loadAttachment": {
+        "title": "Load Attachment",
+        "loading": "Loading attachment",
+        "failed": "Failed to load attachment",
+        "empty": "No attachments loaded",
+        "modeNative": "AI Vision",
+        "modeNativeDesc": "Loaded into AI native context",
+        "modeExtracted": "Text Extracted",
+        "modeExtractedDesc": "File content parsed and extracted as text for analysis",
+        "visionLoaded": "Loaded for visual analysis",
+        "textExtracted": "{{chars}} characters extracted",
+        "contextLoaded": "Loaded to AI context"
+      },
+      "textExtract": {
+        "title": "Text Extract",
+        "loading": "Extracting text",
+        "failed": "Failed to extract text",
+        "empty": "No text extracted",
+        "preview": "Preview",
+        "truncated": "Truncated",
+        "previews": "previews",
+        "chars": "{{chars}} chars",
+        "totalCharacters": "Total: {{chars}} characters",
+        "filesTruncated": "({{count}} file(s) truncated)"
+      },
+      "importExcel": {
+        "title": "Import Excel",
+        "loading": "Processing file...",
+        "failed": "Import failed",
+        "suggestions": "Suggestions",
+        "analyzeComplete": "Analysis Complete",
+        "worksheets": "Worksheets",
+        "columns": "columns",
+        "nextStep": "Next: AI will import with field mappings",
+        "importComplete": "Import Complete",
+        "stageAnalyze": "Analyzing",
+        "stageImport": "Importing"
       }
     },
     "tools": {

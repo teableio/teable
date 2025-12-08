@@ -818,6 +818,44 @@
         "downloadSuccess": "图片下载成功",
         "downloadFailed": "图片捕获失败",
         "iframeFailed": "捕获失败：无法访问 iframe"
+      },
+      "loadAttachment": {
+        "title": "加载附件",
+        "loading": "正在加载附件",
+        "failed": "加载附件失败",
+        "empty": "没有加载任何附件",
+        "modeNative": "AI 视觉",
+        "modeNativeDesc": "已直接加载到 AI 原生上下文，可进行图像分析",
+        "modeExtracted": "文本提取",
+        "modeExtractedDesc": "文件内容已解析并提取为文本用于分析",
+        "visionLoaded": "已加载用于视觉分析",
+        "textExtracted": "已提取 {{chars}} 字符",
+        "contextLoaded": "已加载到 AI 上下文"
+      },
+      "textExtract": {
+        "title": "文本提取",
+        "loading": "正在提取文本",
+        "failed": "文本提取失败",
+        "empty": "未提取到文本",
+        "preview": "预览",
+        "truncated": "已截断",
+        "previews": "个预览",
+        "chars": "{{chars}} 字符",
+        "totalCharacters": "总计: {{chars}} 字符",
+        "filesTruncated": "({{count}} 个文件已截断)"
+      },
+      "importExcel": {
+        "title": "导入 Excel",
+        "loading": "正在处理文件...",
+        "failed": "导入失败",
+        "suggestions": "建议",
+        "analyzeComplete": "分析完成",
+        "worksheets": "工作表",
+        "columns": "列",
+        "nextStep": "下一步：AI 将根据字段映射进行导入",
+        "importComplete": "导入完成",
+        "stageAnalyze": "分析中",
+        "stageImport": "导入中"
       }
     },
     "tools": {

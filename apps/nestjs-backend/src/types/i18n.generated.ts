@@ -3501,6 +3501,44 @@ export type I18nTranslations = {
                     "downloadFailed": string;
                     "iframeFailed": string;
                 };
+                "loadAttachment": {
+                    "title": string;
+                    "loading": string;
+                    "failed": string;
+                    "empty": string;
+                    "modeNative": string;
+                    "modeNativeDesc": string;
+                    "modeExtracted": string;
+                    "modeExtractedDesc": string;
+                    "visionLoaded": string;
+                    "textExtracted": string;
+                    "contextLoaded": string;
+                };
+                "textExtract": {
+                    "title": string;
+                    "loading": string;
+                    "failed": string;
+                    "empty": string;
+                    "preview": string;
+                    "truncated": string;
+                    "previews": string;
+                    "chars": string;
+                    "totalCharacters": string;
+                    "filesTruncated": string;
+                };
+                "importExcel": {
+                    "title": string;
+                    "loading": string;
+                    "failed": string;
+                    "suggestions": string;
+                    "analyzeComplete": string;
+                    "worksheets": string;
+                    "columns": string;
+                    "nextStep": string;
+                    "importComplete": string;
+                    "stageAnalyze": string;
+                    "stageImport": string;
+                };
             };
             "codeBlock": {
                 "hiddenLines": string;
