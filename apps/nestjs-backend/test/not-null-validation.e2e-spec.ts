@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import type { ISelectFieldOptions } from '@teable/core';
 import { FieldKeyType, FieldType } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
 import {
@@ -73,7 +74,7 @@ describe('Not null validation (e2e)', () => {
         options: {
           ...select.options,
           choices: [{ id: 'optA', name: 'A' }],
-        },
+        } as ISelectFieldOptions,
       });
 
       fieldIds.text = updatedText.id;
