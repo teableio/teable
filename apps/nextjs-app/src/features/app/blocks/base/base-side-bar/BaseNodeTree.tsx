@@ -155,8 +155,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     );
   const canMoveNode = isEditMode && Boolean(permission?.['base|update']);
 
-  const { isLoading, maxFolderDepth, treeItems, setTreeItems, invalidateMenu } =
-    useBaseNodeContext();
+  const { isLoading, maxFolderDepth, treeItems, setTreeItems } = useBaseNodeContext();
   const { confirm: comfirmModal } = useConfirm();
   const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -337,9 +336,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
         setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
       }
-      invalidateMenu();
+      setSelectedItems([node.id]);
     },
-    [baseId, router, invalidateMenu, setExpandedItems]
+    [baseId, router, setExpandedItems, setSelectedItems]
   );
 
   const duplicateSuccefulyCallback = useCallback(
@@ -360,10 +359,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           router.push(url, undefined, { shallow: true });
         }
       }
-
-      invalidateMenu();
     },
-    [baseId, router, invalidateMenu]
+    [baseId, router]
   );
 
   const getAllParentIds = useCallback((nodeId: string) => {
@@ -430,26 +427,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         }
       };
       clickNextItem(nodeId);
-      invalidateMenu();
     },
-    [
-      router,
-      baseId,
-      selectedItems,
-      tree,
-      invalidateMenu,
-      handlePrimaryAction,
-      setExpandedItems,
-      getAllParentIds,
-    ]
+    [router, baseId, selectedItems, tree, handlePrimaryAction, setExpandedItems, getAllParentIds]
   );
 
   const curdHooks = useBaseNodeCrud({
     onCreateSuccess: createSuccefulyCallback,
     onDuplicateSuccess: duplicateSuccefulyCallback,
     onDeleteSuccess: deleteSuccefulyCallback,
-    onMoveSuccess: () => invalidateMenu(),
-    onUpdateError: () => invalidateMenu(),
   });
 
   useEffect(() => {
@@ -476,6 +461,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       });
     }
   }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
+
+  useEffect(() => {
+    if (selectedItems.length === 0) return;
+    if (Object.keys(treeItems).length === 0) return;
+    const focusItem = tree.getItemInstance(selectedItems[0]);
+    if (focusItem) {
+      focusItem.setFocused();
+      focusItem.scrollTo({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [selectedItems, tree, treeItems]);
 
   useEffect(() => {
     if (!Object.keys(treeItems).length) return;
@@ -715,7 +710,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                       const result = !confirm
                                         ? true
                                         : await comfirmModal({
-                                            title: `${t('common:actions.delete')} ${titleMap[resourceType] ?? ''}`,
+                                            title: `${t('common:actions.delete')} ${(titleMap[resourceType] ?? '').toLowerCase()}`,
                                             description: t('common:actions.deleteTip', {
                                               name,
                                             }),

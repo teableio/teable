@@ -27,6 +27,7 @@ interface IUseBaseNodeCrudOptions {
   onUpdateSuccess?: (node: IBaseNodeVo) => void;
   onUpdateError?: (error: unknown, variables: { nodeId: string; ro: IUpdateBaseNodeRo }) => void;
   onMoveSuccess?: (node: IBaseNodeVo) => void;
+  onMoveError?: (error: unknown, variables: { nodeId: string; ro: IMoveBaseNodeRo }) => void;
   onDeleteSuccess?: (nodeId: string) => void;
 }
 
@@ -34,36 +35,58 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const baseId = useBaseId() as string;
   const { t } = useTranslation(['table', 'common']);
 
-  const { treeItems } = useBaseNodeContext();
+  const { treeItems, invalidateMenu } = useBaseNodeContext();
 
   const { mutateAsync: createNodeFn } = useMutation({
     mutationFn: (ro: ICreateBaseNodeRo) => createBaseNode(baseId, ro).then((res) => res.data),
-    onSuccess: (node) => props?.onCreateSuccess?.(node),
+    onSuccess: (node) => {
+      invalidateMenu();
+      props?.onCreateSuccess?.(node);
+    },
   });
 
   const { mutateAsync: updateNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IUpdateBaseNodeRo }) =>
       updateBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: (node) => props?.onUpdateSuccess?.(node),
-    onError: (error, variables) => props?.onUpdateError?.(error, variables),
+    onSuccess: (node) => {
+      invalidateMenu();
+      props?.onUpdateSuccess?.(node);
+    },
+    onError: (error, variables) => {
+      invalidateMenu();
+      props?.onUpdateError?.(error, variables);
+    },
   });
 
   const { mutateAsync: duplicateNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IDuplicateBaseNodeRo }) =>
       duplicateBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: (node) => props?.onDuplicateSuccess?.(node),
+    onSuccess: (node) => {
+      invalidateMenu();
+      props?.onDuplicateSuccess?.(node);
+    },
   });
 
   const { mutateAsync: moveNodeFn } = useMutation({
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IMoveBaseNodeRo }) =>
       moveBaseNode(baseId, nodeId, ro).then((res) => res.data),
-    onSuccess: (node) => props?.onMoveSuccess?.(node),
+    onSuccess: (node) => {
+      invalidateMenu();
+      props?.onMoveSuccess?.(node);
+    },
+    onError: (error, variables) => {
+      invalidateMenu();
+      props?.onMoveError?.(error, variables);
+    },
   });
 
   const { mutateAsync: deleteNodeFn } = useMutation({
     mutationFn: ({ nodeId, permanent }: { nodeId: string; permanent?: boolean }) =>
       permanent ? permanentDeleteBaseNode(baseId, nodeId) : deleteBaseNode(baseId, nodeId),
-    onSuccess: (_, { nodeId }) => props?.onDeleteSuccess?.(nodeId),
+    onSuccess: (_, { nodeId }) => {
+      invalidateMenu();
+      props?.onDeleteSuccess?.(nodeId);
+    },
   });
 
   const createNode = useCallback(
