@@ -986,6 +986,8 @@
       "templateNotFound": "Template {{templateId}} not found"
     },
     "baseNode": {
+      "baseIdIsRequired": "Base ID is required",
+      "nodeIdIsRequired": "Node ID is required",
       "invalidResourceType": "Invalid resource type",
       "notFound": "Base node not found",
       "parentMustBeFolder": "Parent must be a folder",

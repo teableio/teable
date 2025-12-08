@@ -986,6 +986,8 @@
       "templateNotFound": "Modello {{templateId}} non trovato"
     },
     "baseNode": {
+      "baseIdIsRequired": "ID base richiesto",
+      "nodeIdIsRequired": "ID nodo richiesto",
       "invalidResourceType": "Tipo di risorsa non valido",
       "notFound": "Nodo base non trovato",
       "parentMustBeFolder": "Il genitore deve essere una cartella",

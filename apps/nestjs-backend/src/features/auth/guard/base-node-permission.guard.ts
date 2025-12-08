@@ -2,7 +2,6 @@ import type { ExecutionContext } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { HttpErrorCode } from '@teable/core';
-import type { BaseNodeAction } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { BaseNodeResourceType } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
@@ -12,6 +11,7 @@ import {
   checkBaseNodePermission,
   checkBaseNodePermissionCreate,
 } from '../../base-node/base-node.permission.helper';
+import { BaseNodeAction } from '../../base-node/types';
 import { BASE_NODE_PERMISSIONS_KEY } from '../decorators/base-node-permissions.decorator';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
 import { PermissionService } from '../permission.service';
@@ -46,7 +46,11 @@ export class BaseNodePermissionGuard extends PermissionGuard {
 
     const baseId = this.getBaseId(context);
     if (!baseId) {
-      throw new CustomHttpException('Base ID is required', HttpErrorCode.RESTRICTED_RESOURCE);
+      throw new CustomHttpException('Base ID is required', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.baseIdIsRequired',
+        },
+      });
     }
     const permissionContext = await this.getPermissionContext();
     return this.checkActivate(context, baseId, permissionContext);
@@ -81,18 +85,26 @@ export class BaseNodePermissionGuard extends PermissionGuard {
     }
 
     const baseNodePermissionsWithoutCreate = baseNodePermissions.filter(
-      (permission: BaseNodeAction) => permission !== 'base_node|create'
+      (permission: BaseNodeAction) => permission !== BaseNodeAction.Create
     );
     if (!baseNodePermissionsWithoutCreate.length) {
       return true;
     }
 
     if (!nodeId) {
-      throw new CustomHttpException('Node ID is required', HttpErrorCode.RESTRICTED_RESOURCE);
+      throw new CustomHttpException('Node ID is required', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.nodeIdIsRequired',
+        },
+      });
     }
 
     if (!node) {
-      throw new CustomHttpException('Node not found', HttpErrorCode.NOT_FOUND);
+      throw new CustomHttpException('Node not found', HttpErrorCode.NOT_FOUND, {
+        localization: {
+          i18nKey: 'httpErrors.baseNode.notFound',
+        },
+      });
     }
 
     return baseNodePermissionsWithoutCreate.every((permission: BaseNodeAction) =>

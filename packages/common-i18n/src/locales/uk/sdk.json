@@ -986,6 +986,8 @@
       "templateNotFound": "Шаблон {{templateId}} не знайдено"
     },
     "baseNode": {
+      "baseIdIsRequired": "Базова ID обов'язкова",
+      "nodeIdIsRequired": "Вузол ID обов'язковий",
       "invalidResourceType": "Недійсний тип ресурсу",
       "notFound": "Базовий вузол не знайдено",
       "parentMustBeFolder": "Батьківський елемент має бути папкою",

@@ -986,6 +986,8 @@
       "templateNotFound": "テンプレート {{templateId}} が見つかりません"
     },
     "baseNode": {
+      "baseIdIsRequired": "ベースIDが必要です",
+      "nodeIdIsRequired": "ノードIDが必要です",
       "invalidResourceType": "無効なリソースタイプ",
       "notFound": "ベースノードが見つかりません",
       "parentMustBeFolder": "親はフォルダーである必要があります",

@@ -998,6 +998,8 @@
       "templateNotFound": "Plantilla {{templateId}} no encontrada"
     },
     "baseNode": {
+      "baseIdIsRequired": "ID de base requerido",
+      "nodeIdIsRequired": "ID de nodo requerido",
       "invalidResourceType": "Tipo de recurso no válido",
       "notFound": "Nodo base no encontrado",
       "parentMustBeFolder": "El padre debe ser una carpeta",

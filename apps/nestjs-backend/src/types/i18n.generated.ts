@@ -2224,6 +2224,8 @@ export type I18nTranslations = {
                 "templateNotFound": string;
             };
             "baseNode": {
+                "baseIdIsRequired": string;
+                "nodeIdIsRequired": string;
                 "invalidResourceType": string;
                 "notFound": string;
                 "parentMustBeFolder": string;

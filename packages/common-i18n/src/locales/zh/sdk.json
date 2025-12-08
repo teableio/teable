@@ -986,6 +986,8 @@
       "templateNotFound": "模板 {{templateId}} 不存在"
     },
     "baseNode": {
+      "baseIdIsRequired": "数据库ID是必需的",
+      "nodeIdIsRequired": "节点ID是必需的",
       "invalidResourceType": "无效的资源类型",
       "notFound": "节点未找到",
       "parentMustBeFolder": "父级必须是文件夹",

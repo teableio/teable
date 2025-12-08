@@ -986,6 +986,8 @@
       "templateNotFound": "Vorlage {{templateId}} nicht gefunden"
     },
     "baseNode": {
+      "baseIdIsRequired": "Base-ID ist erforderlich",
+      "nodeIdIsRequired": "Knoten-ID ist erforderlich",
       "invalidResourceType": "Ungültiger Ressourcentyp",
       "notFound": "Basisknoten nicht gefunden",
       "parentMustBeFolder": "Übergeordnetes Element muss ein Ordner sein",

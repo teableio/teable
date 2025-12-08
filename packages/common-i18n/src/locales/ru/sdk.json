@@ -986,6 +986,8 @@
       "templateNotFound": "Шаблон {{templateId}} не найден"
     },
     "baseNode": {
+      "baseIdIsRequired": "Базовая ID требуется",
+      "nodeIdIsRequired": "Узел ID требуется",
       "invalidResourceType": "Недопустимый тип ресурса",
       "notFound": "Базовый узел не найден",
       "parentMustBeFolder": "Родитель должен быть папкой",

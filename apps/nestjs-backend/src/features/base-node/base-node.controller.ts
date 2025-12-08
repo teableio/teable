@@ -19,6 +19,7 @@ import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
 import { checkBaseNodePermission } from './base-node.permission.helper';
 import { BaseNodeService } from './base-node.service';
+import { BaseNodeAction } from './types';
 
 @Controller('api/base/:baseId/node')
 @UseGuards(BaseNodePermissionGuard)
@@ -36,7 +37,7 @@ export class BaseNodeController {
     return nodeList.filter((node) =>
       checkBaseNodePermission(
         { resourceType: node.resourceType, resourceId: node.resourceId },
-        'base_node|read',
+        BaseNodeAction.Read,
         permissionContext
       )
     );
@@ -52,7 +53,7 @@ export class BaseNodeController {
       nodes: tree.nodes.filter((node) =>
         checkBaseNodePermission(
           { resourceType: node.resourceType, resourceId: node.resourceId },
-          'base_node|read',
+          BaseNodeAction.Read,
           permissionContext
         )
       ),
@@ -61,7 +62,7 @@ export class BaseNodeController {
 
   @Get(':nodeId')
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|read')
+  @BaseNodePermissions(BaseNodeAction.Read)
   async getNode(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string
@@ -71,7 +72,7 @@ export class BaseNodeController {
 
   @Post()
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|create')
+  @BaseNodePermissions(BaseNodeAction.Create)
   async create(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(createBaseNodeRoSchema)) ro: ICreateBaseNodeRo
@@ -81,7 +82,7 @@ export class BaseNodeController {
 
   @Post(':nodeId/duplicate')
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|read', 'base_node|create')
+  @BaseNodePermissions(BaseNodeAction.Read, BaseNodeAction.Create)
   async duplicate(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
@@ -92,7 +93,7 @@ export class BaseNodeController {
 
   @Put(':nodeId')
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|update')
+  @BaseNodePermissions(BaseNodeAction.Update)
   async update(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
@@ -113,14 +114,14 @@ export class BaseNodeController {
 
   @Delete(':nodeId')
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|delete')
+  @BaseNodePermissions(BaseNodeAction.Delete)
   async delete(@Param('baseId') baseId: string, @Param('nodeId') nodeId: string): Promise<void> {
     return this.baseNodeService.delete(baseId, nodeId);
   }
 
   @Delete(':nodeId/permanent')
   @Permissions('base|read')
-  @BaseNodePermissions('base_node|delete')
+  @BaseNodePermissions(BaseNodeAction.Delete)
   async permanentDelete(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string

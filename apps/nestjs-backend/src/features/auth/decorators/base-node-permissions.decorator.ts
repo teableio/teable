@@ -1,5 +1,5 @@
 import { SetMetadata } from '@nestjs/common';
-import type { BaseNodeAction } from '@teable/core';
+import type { BaseNodeAction } from '../../base-node/types';
 
 export const BASE_NODE_PERMISSIONS_KEY = 'baseNodePermissions';
 

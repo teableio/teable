@@ -44,15 +44,6 @@ export const baseActions = [
 export const baseActionSchema = z.enum(baseActions);
 export type BaseAction = z.infer<typeof baseActionSchema>;
 
-export const baseNodeActions = [
-  'base_node|read',
-  'base_node|create',
-  'base_node|update',
-  'base_node|delete',
-] as const;
-export const baseNodeActionSchema = z.enum(baseNodeActions);
-export type BaseNodeAction = z.infer<typeof baseNodeActionSchema>;
-
 export const tableActions = [
   'table|create',
   'table|delete',

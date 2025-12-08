@@ -986,6 +986,8 @@
       "templateNotFound": "Şablon {{templateId}} bulunamadı"
     },
     "baseNode": {
+      "baseIdIsRequired": "Base ID gereklidir",
+      "nodeIdIsRequired": "Node ID gereklidir",
       "invalidResourceType": "Geçersiz kaynak türü",
       "notFound": "Temel düğüm bulunamadı",
       "parentMustBeFolder": "Üst öğe bir klasör olmalıdır",

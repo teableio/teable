@@ -1352,7 +1352,7 @@ describe('BaseNodeController (e2e) /api/base/:baseId/node', () => {
       });
 
       it('should deny viewer from duplicating table node', async () => {
-        // Duplicate requires base_node|read and base_node|create
+        // Duplicate requires BaseNodeAction.Read and BaseNodeAction.Create
         // For table, create requires table|create which viewer doesn't have
         const error = await getError(() =>
           viewerAxios.post(
