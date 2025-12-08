@@ -1,0 +1,107 @@
+import type { INestApplication } from '@nestjs/common';
+import { FieldKeyType, FieldType } from '@teable/core';
+import type { ITableFullVo } from '@teable/openapi';
+import { vi } from 'vitest';
+import { RecordService } from '../src/features/record/record.service';
+import {
+  createField,
+  createRecords,
+  createTable,
+  getRecords,
+  initApp,
+  permanentDeleteTable,
+} from './utils/init-app';
+
+describe('Auto number continuity (e2e)', () => {
+  let app: INestApplication;
+  const baseId = globalThis.testConfig.baseId;
+
+  beforeAll(async () => {
+    const appCtx = await initApp();
+    app = appCtx.app;
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  describe('when record creation fails', () => {
+    let table: ITableFullVo;
+
+    beforeEach(async () => {
+      table = await createTable(baseId, { name: `auto-number-${Date.now()}` });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, table.id);
+    });
+
+    it('should not advance autoNumber if the request fails before hitting the database', async () => {
+      const recordService = app.get(RecordService);
+      const initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const initialCount = initial.records.length;
+      const maxAutoNumber =
+        initial.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
+
+      const spy = vi.spyOn(recordService, 'batchCreateRecords').mockImplementationOnce(async () => {
+        throw new Error('mocked-create-failure');
+      });
+
+      await createRecords(
+        table.id,
+        {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: { [table.fields[0].id]: 'should-fail' } }],
+        },
+        500
+      );
+      spy.mockRestore();
+
+      const { records: created } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [table.fields[0].id]: 'ok' } }],
+      });
+
+      const after = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const finalMax = after.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
+
+      expect(after.records.length).toBe(initialCount + 1);
+      expect(finalMax).toBe(maxAutoNumber + 1);
+      expect(created[0].autoNumber).toBe(finalMax);
+    });
+
+    it('should keep autoNumber when missing required field then retry with value', async () => {
+      const initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const initialCount = initial.records.length;
+      const maxAutoNumber =
+        initial.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
+
+      const requiredField = await createField(table.id, {
+        name: 'Required',
+        type: FieldType.SingleLineText,
+        notNull: true,
+      });
+
+      await createRecords(
+        table.id,
+        {
+          fieldKeyType: FieldKeyType.Id,
+          records: [{ fields: {} }],
+        },
+        400
+      );
+
+      const { records: created } = await createRecords(table.id, {
+        fieldKeyType: FieldKeyType.Id,
+        records: [{ fields: { [requiredField.id]: 'ok' } }],
+      });
+
+      const after = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      const finalMax = after.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
+
+      expect(after.records.length).toBe(initialCount + 1);
+      expect(finalMax).toBe(maxAutoNumber + 1);
+      expect(created[0].autoNumber).toBe(finalMax);
+    });
+  });
+});

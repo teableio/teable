@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IMakeOptional, TableDomain } from '@teable/core';
-import { FieldKeyType, generateRecordId, CellFormat, HttpErrorCode } from '@teable/core';
+import { CellFormat, FieldKeyType, HttpErrorCode, generateRecordId } from '@teable/core';
 import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
@@ -33,7 +33,7 @@ export class RecordCreateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(table, records, fieldKeyType, typecast, ignoreMissingFields);
+    >(table, records, fieldKeyType, typecast, ignoreMissingFields, true);
     const preparedRecords = await this.shared.appendRecordOrderIndexes(
       table,
       typecastRecords,
@@ -109,7 +109,7 @@ export class RecordCreateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(table, records, fieldKeyType, typecast);
+    >(table, records, fieldKeyType, typecast, false, true);
     await this.recordService.createRecordsOnlySql(table, typecastRecords);
   }
 

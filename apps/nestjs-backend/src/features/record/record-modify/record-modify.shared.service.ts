@@ -127,7 +127,8 @@ export class RecordModifySharedService {
     records: T[],
     fieldKeyType: FieldKeyType = FieldKeyType.Name,
     typecast: boolean = false,
-    ignoreMissingFields: boolean = false
+    ignoreMissingFields: boolean = false,
+    enforceNotNull: boolean = false
   ): Promise<T[]> {
     const recordsFields = map(records, 'fields');
     const effectFieldInstance = this.getEffectFieldInstances(
@@ -168,10 +169,61 @@ export class RecordModifySharedService {
         }
       });
     }
-    return records.map((record, i) => ({
+    const result = records.map((record, i) => ({
       ...record,
       fields: newRecordsFields[i],
     }));
+
+    if (enforceNotNull) {
+      this.ensureNotNullFields(
+        table,
+        result.map((r) => r.fields),
+        fieldKeyType
+      );
+    }
+
+    return result;
+  }
+
+  private ensureNotNullFields(
+    table: TableDomain,
+    records: Record<string, unknown>[],
+    fieldKeyType: FieldKeyType
+  ) {
+    const requiredFields = table.fieldList
+      .filter((f) => !f.isComputed)
+      .filter((f) => f.type !== FieldType.Link)
+      .filter((f) => f.notNull);
+
+    if (!requiredFields.length) return;
+
+    const missingFields = new Set<FieldCore>();
+    for (const record of records) {
+      for (const field of requiredFields) {
+        const key = field[fieldKeyType];
+        const value = record[key];
+        if (value === undefined || value === null) {
+          missingFields.add(field);
+        }
+      }
+    }
+
+    if (!missingFields.size) return;
+
+    const missingFieldList = Array.from(missingFields);
+    throw new CustomHttpException(
+      `Fields ${missingFieldList.map((f) => f.id).join(', ')} not null validation failed`,
+      HttpErrorCode.VALIDATION_ERROR,
+      {
+        localization: {
+          i18nKey: 'httpErrors.custom.fieldValueNotNull',
+          context: {
+            tableName: table.name,
+            fieldName: missingFieldList.map((f) => f.name).join(', '),
+          },
+        },
+      }
+    );
   }
 
   @Timing()

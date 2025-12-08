@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-identical-functions */
 import { Injectable } from '@nestjs/common';
 import type {
   IAttachmentCellValue,
@@ -80,10 +81,14 @@ export class RecordOpenApiService {
     createRecordsRo: ICreateRecordsRo & { records: IMakeOptional<IRecordInnerRo, 'id'>[] },
     ignoreMissingFields: boolean = false
   ): Promise<ICreateRecordsVo> {
-    return this.recordModifyService.multipleCreateRecords(
-      tableId,
-      createRecordsRo,
-      ignoreMissingFields
+    return await this.prismaService.$tx(
+      async () =>
+        this.recordModifyService.multipleCreateRecords(
+          tableId,
+          createRecordsRo,
+          ignoreMissingFields
+        ),
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
   }
 
