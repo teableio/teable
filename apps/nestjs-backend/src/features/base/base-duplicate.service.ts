@@ -376,22 +376,17 @@ export class BaseDuplicateService {
     });
   }
 
-  async emitBaseDuplicateAuditLog(
-    baseId: string,
-    duplicateBaseRo: IDuplicateBaseRo,
-    recordsLength?: number
-  ) {
+  async emitBaseDuplicateAuditLog(baseId: string, recordsLength?: number) {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
 
     await this.cls.run(async () => {
       this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
+      this.cls.set('user.id', userId!);
       await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
         action: CreateRecordAction.BaseDuplicate,
         resourceId: baseId,
         recordCount: recordsLength,
-        params: duplicateBaseRo,
       });
     });
   }
@@ -406,12 +401,11 @@ export class BaseDuplicateService {
 
     await this.cls.run(async () => {
       this.cls.set('origin', origin!);
-      this.cls.set('user.id', userId);
+      this.cls.set('user.id', userId!);
       await this.eventEmitterService.emitAsync(Events.TABLE_RECORD_CREATE_RELATIVE, {
         action: CreateRecordAction.TemplateApply,
         resourceId: baseId,
         recordCount: recordsLength,
-        params: templateApplyRo,
       });
     });
   }

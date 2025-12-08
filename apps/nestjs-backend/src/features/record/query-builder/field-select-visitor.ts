@@ -625,11 +625,16 @@ export class FieldSelectVisitor implements IFieldVisitor<IFieldSelectName> {
       return this.checkAndSelectLookupField(field);
     }
 
-    // Build JSON with user info from system column __last_modified_by
-    const alias = this.tableAlias;
-    const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
-    const expr = this.dialect.buildUserJsonObjectById(idRef);
-    this.state.setSelection(field.id, expr);
-    return this.qb.client.raw(expr);
+    const trackAll = field.isTrackAll();
+    if (trackAll) {
+      // Build JSON with user info from system column __last_modified_by
+      const alias = this.tableAlias;
+      const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
+      const expr = this.dialect.buildUserJsonObjectById(idRef);
+      this.state.setSelection(field.id, expr);
+      return this.qb.client.raw(expr);
+    }
+
+    return this.checkAndSelectLookupField(field);
   }
 }

@@ -155,7 +155,7 @@ export class TypeCastAndValidate {
       if (cellValue === undefined) {
         return;
       }
-      const validate = this.field.validateCellValue(cellValue);
+      const validate = this.field.validateCellValueWithNotNull(cellValue);
       if (!validate) return;
       if (!validate.success) {
         if (this.typecast) {

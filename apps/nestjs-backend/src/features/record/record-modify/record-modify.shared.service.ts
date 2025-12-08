@@ -10,6 +10,7 @@ import type {
   FieldCore,
   IMakeOptional,
   IUserFieldOptions,
+  LastModifiedByFieldCore,
   LastModifiedTimeFieldCore,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -66,11 +67,15 @@ export class RecordModifySharedService {
     const fieldIds = Array.from(new Set(nonNoop.map((c) => c.fieldId)));
     const sysFields = table.getLastModifiedFields().filter((f) => {
       if (!fieldIds.includes(f.id)) return false;
-      if (f.type !== FieldType.LastModifiedTime) return true;
-
-      const lmt = f as LastModifiedTimeFieldCore;
-      // Only treat as a system field when it tracks all fields (generated column)
-      return lmt.isTrackAll();
+      if (f.type === FieldType.LastModifiedTime) {
+        const lmt = f as LastModifiedTimeFieldCore;
+        // Only treat as a system field when it tracks all fields (generated column)
+        return lmt.isTrackAll();
+      }
+      if (f.type === FieldType.LastModifiedBy) {
+        return (f as LastModifiedByFieldCore).isTrackAll();
+      }
+      return true;
     });
     const sysSet = new Set(sysFields.map((f) => f.id));
     return nonNoop.filter((c) => !sysSet.has(c.fieldId));

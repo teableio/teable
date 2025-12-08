@@ -305,7 +305,7 @@ export class ImportTableCsvQueueProcessor extends WorkerHost {
         action: actionType,
         resourceId: table.id,
         recordCount: range.at(-1) || 0,
-        params: ro,
+        params: { fileType: ro?.fileType },
         logId,
       });
     });

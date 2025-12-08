@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { AUTOMATION_ROBOT_USER, APP_ROBOT_USER } from '@teable/core';
+import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import type { authConfig } from '../../../configs/auth.config';
@@ -24,18 +25,35 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: config.jwt.secret,
+      passReqToCallback: true,
     });
   }
 
-  async validate(payload: IJwtAuthInfo | IJwtAuthInternalInfo) {
+  async validate(req: Request, payload: IJwtAuthInfo | IJwtAuthInternalInfo) {
     if ('baseId' in payload) {
-      const user =
-        payload.type === JwtAuthInternalType.App ? APP_ROBOT_USER : AUTOMATION_ROBOT_USER;
-      this.cls.set('user', user);
-      this.cls.set('tempAuthBaseId', payload.baseId);
-      return user;
+      return this.validateInternalToken(payload, req);
+    }
+    return this.validateUserToken(payload);
+  }
+
+  private async validateInternalToken(payload: IJwtAuthInternalInfo, req: Request) {
+    const user = payload.type === JwtAuthInternalType.App ? APP_ROBOT_USER : AUTOMATION_ROBOT_USER;
+    this.cls.set('user', user);
+    this.cls.set('tempAuthBaseId', payload.baseId);
+
+    if (payload.type === JwtAuthInternalType.App) {
+      await this.setAppIdFromToken(req);
     }
 
+    return user;
+  }
+
+  protected async setAppIdFromToken(_req: Request) {
+    // This method is overridden in enterprise edition to support app authentication
+    // Community edition does not have app model, so this is a no-op
+  }
+
+  private async validateUserToken(payload: IJwtAuthInfo) {
     const user = await this.userService.getUserById(payload.userId);
     if (!user) {
       throw new UnauthorizedException();

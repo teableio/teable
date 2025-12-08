@@ -20,7 +20,6 @@ import type {
   IShareViewCollaboratorsRo,
   ISearchCountRo,
   ISearchIndexByQueryRo,
-  ICreateRecordsRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isEmpty } from 'lodash';
@@ -267,11 +266,7 @@ export class ShareService {
         typecast,
       });
     });
-    await this.emitFormAuditLog(tableId, records.length, {
-      records: [{ fields }],
-      fieldKeyType: FieldKeyType.Id,
-      typecast,
-    });
+    await this.emitFormAuditLog(tableId, records.length);
     if (records.length === 0) {
       throw new CustomHttpException(
         'The number of successful submit records is 0',
@@ -616,7 +611,7 @@ export class ShareService {
     return this.recordOpenApiService.buttonClick(shareInfo.tableId, recordId, fieldId);
   }
 
-  async emitFormAuditLog(tableId: string, length: number, createRecordsRo: ICreateRecordsRo) {
+  async emitFormAuditLog(tableId: string, length: number) {
     const userId = this.cls.get('user.id');
     const origin = this.cls.get('origin');
 
@@ -627,7 +622,6 @@ export class ShareService {
         action: CreateRecordAction.FormSubmit,
         resourceId: tableId,
         recordCount: length,
-        params: createRecordsRo,
       });
     });
   }

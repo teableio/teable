@@ -46,6 +46,7 @@ import type {
   FieldCore,
   AutoNumberFieldCore,
   CreatedTimeFieldCore,
+  LastModifiedByFieldCore,
   LastModifiedTimeFieldCore,
   FormulaFieldCore,
   IFieldWithExpression,
@@ -2145,12 +2146,43 @@ export class SelectColumnSqlConversionVisitor extends BaseSqlConversionVisitor<I
     }
 
     // Handle user-related fields
-    if (fieldInfo.type === FieldType.CreatedBy || fieldInfo.type === FieldType.LastModifiedBy) {
+    if (fieldInfo.type === FieldType.CreatedBy) {
       // For system user fields, derive directly from system columns to avoid JSON dependency
       const alias = selectContext.tableAlias;
-      const sysCol = fieldInfo.type === FieldType.CreatedBy ? '__created_by' : '__last_modified_by';
-      const idRef = alias ? `"${alias}"."${sysCol}"` : `"${sysCol}"`;
+      const idRef = alias ? `"${alias}"."__created_by"` : `"__created_by"`;
       return this.dialect!.selectUserNameById(idRef);
+    }
+    if (fieldInfo.type === FieldType.LastModifiedBy) {
+      const trackAll = (fieldInfo as LastModifiedByFieldCore).isTrackAll();
+      if (trackAll) {
+        const alias = selectContext.tableAlias;
+        const idRef = alias ? `"${alias}"."__last_modified_by"` : `"__last_modified_by"`;
+        return this.dialect!.selectUserNameById(idRef);
+      }
+      if (!selectionSql) {
+        if (selectContext.tableAlias) {
+          selectionSql = `"${selectContext.tableAlias}"."${fieldInfo.dbFieldName}"`;
+        } else {
+          selectionSql = `"${fieldInfo.dbFieldName}"`;
+        }
+      }
+      if (preferRaw && selectContext.targetDbFieldType === DbFieldType.Json) {
+        if (fieldInfo.isMultipleCellValue) {
+          return this.dialect!.linkExtractTitles(selectionSql, true);
+        }
+        const titleExpr = this.dialect!.jsonTitleFromExpr(selectionSql);
+        if (this.dialect!.driver === DriverClient.Pg) {
+          return `to_jsonb(${titleExpr})`;
+        }
+        if (this.dialect!.driver === DriverClient.Sqlite) {
+          return `json(${titleExpr})`;
+        }
+        return titleExpr;
+      }
+      if (fieldInfo.isMultipleCellValue) {
+        return this.dialect!.linkExtractTitles(selectionSql, true);
+      }
+      return this.dialect!.jsonTitleFromExpr(selectionSql);
     }
     if (fieldInfo.type === FieldType.User) {
       // For normal User fields, extract title from the JSON selection when available

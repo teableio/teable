@@ -11,6 +11,7 @@ import type {
   ISingleLineTextFieldOptions,
   ICreatedTimeFieldOptions,
   ILastModifiedTimeFieldOptions,
+  ILastModifiedByFieldOptions,
   IUserFieldOptions,
   ICheckboxFieldOptions,
   ILongTextFieldOptions,
@@ -32,6 +33,7 @@ import { ConditionalRollupOptions } from './options/ConditionalRollupOptions';
 import { CreatedTimeOptions } from './options/CreatedTimeOptions';
 import { DateOptions } from './options/DateOptions';
 import { FormulaOptions } from './options/FormulaOptions';
+import { LastModifiedByOptions } from './options/LastModifiedByOptions';
 import { LastModifiedTimeOptions } from './options/LastModifiedTimeOptions';
 import { LinkOptions } from './options/LinkOptions';
 import { LongTextOptions } from './options/LongTextOptions';
@@ -146,6 +148,13 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
       return (
         <LastModifiedTimeOptions
           options={options as ILastModifiedTimeFieldOptions}
+          onChange={onChange}
+        />
+      );
+    case FieldType.LastModifiedBy:
+      return (
+        <LastModifiedByOptions
+          options={options as ILastModifiedByFieldOptions}
           onChange={onChange}
         />
       );

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { IMakeOptional, TableDomain } from '@teable/core';
-import { FieldKeyType, generateRecordId, CellFormat, HttpErrorCode } from '@teable/core';
+import { CellFormat, FieldKeyType, HttpErrorCode, generateRecordId } from '@teable/core';
 import type { ICreateRecordsRo, ICreateRecordsVo } from '@teable/openapi';
 import { ThresholdConfig, IThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';

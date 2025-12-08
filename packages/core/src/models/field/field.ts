@@ -1,4 +1,5 @@
 import type { ZodSafeParseResult } from 'zod';
+import { ZodError } from 'zod';
 import type { TableDomain } from '../table';
 import type { IFilter } from '../view/filter';
 import type { CellValueType, DbFieldType, FieldType } from './constant';
@@ -94,6 +95,28 @@ export abstract class FieldCore implements IFieldVo {
   abstract validateOptions(): ZodSafeParseResult<unknown> | undefined;
 
   abstract validateCellValue(value: unknown): ZodSafeParseResult<unknown> | undefined;
+
+  /**
+   * Wrapper to enforce notNull when calling validateCellValue.
+   */
+  validateCellValueWithNotNull(value: unknown): ZodSafeParseResult<unknown> | undefined {
+    if (this.isComputed) {
+      return this.validateCellValue(value);
+    }
+    if (this.notNull && (value === null || value === undefined)) {
+      return {
+        success: false,
+        error: new ZodError([
+          {
+            code: 'custom',
+            message: 'Required',
+            path: [],
+          },
+        ]),
+      };
+    }
+    return this.validateCellValue(value);
+  }
 
   /**
    * Updates the dbFieldType based on the current field type, cellValueType, and isMultipleCellValue

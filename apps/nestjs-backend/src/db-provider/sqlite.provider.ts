@@ -387,17 +387,23 @@ export class SqliteProvider implements IDbProvider {
     } = params;
     const subQuerySql = subQuery.toQuery();
     const wrap = (id: string) => this.knex.client.wrapIdentifier(id);
-    const setClause = dbFieldNames
-      .map(
-        (c) =>
-          `${wrap(c)} = (SELECT s.${wrap(c)} FROM (${subQuerySql}) AS s WHERE s.${wrap(
-            idFieldName
-          )} = ${dbTableName}.${wrap(idFieldName)})`
-      )
-      .join(', ');
-    const returning = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)]
-      .map((c) => wrap(c))
-      .join(', ');
+    const setClauses = dbFieldNames.map(
+      (c) =>
+        `${wrap(c)} = (SELECT s.${wrap(c)} FROM (${subQuerySql}) AS s WHERE s.${wrap(
+          idFieldName
+        )} = ${dbTableName}.${wrap(idFieldName)})`
+    );
+    const wrappedVersion = wrap('__version');
+    // Always bump __version so published ShareDB ops stay aligned with DB state
+    setClauses.push(`${wrappedVersion} = ${dbTableName}.${wrappedVersion} + 1`);
+    const setClause = setClauses.join(', ');
+    const returningColumns = [
+      wrap(idFieldName),
+      wrappedVersion,
+      `${dbTableName}.${wrappedVersion} - 1 as ${wrap('__prev_version')}`,
+      ...(returningDbFieldNames || dbFieldNames).map((c) => wrap(c)),
+    ];
+    const returning = returningColumns.join(', ');
     const restrictClause =
       restrictRecordIds && restrictRecordIds.length
         ? ` AND ${dbTableName}.${wrap(idFieldName)} IN (${restrictRecordIds

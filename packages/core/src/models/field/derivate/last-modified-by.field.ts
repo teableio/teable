@@ -18,6 +18,19 @@ export class LastModifiedByFieldCore extends UserAbstractCore {
     return null;
   }
 
+  getTrackedFieldIds(): string[] {
+    return this.options?.trackedFieldIds ?? [];
+  }
+
+  isTrackAll(): boolean {
+    return this.getTrackedFieldIds().length === 0;
+  }
+
+  shouldUpdate(changedFieldIds: Set<string>): boolean {
+    const trackedFieldIds = this.getTrackedFieldIds();
+    return this.isTrackAll() || trackedFieldIds.some((id) => changedFieldIds.has(id));
+  }
+
   getIsPersistedAsGeneratedColumn(): boolean {
     return this.meta?.persistedAsGeneratedColumn === true;
   }

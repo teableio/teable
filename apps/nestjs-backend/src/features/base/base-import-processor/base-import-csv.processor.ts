@@ -395,7 +395,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
   }
 
   private async emitBaseImportAuditLog(job: Job<IBaseImportCsvJob>, recordsLength: number) {
-    const { origin, userId, baseId, importBaseRo, logId } = job.data;
+    const { origin, userId, baseId, logId } = job.data;
 
     await this.cls.run(async () => {
       this.cls.set('origin', origin!);
@@ -404,7 +404,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
         action: CreateRecordAction.BaseImport,
         resourceId: baseId,
         recordCount: recordsLength,
-        params: importBaseRo,
         logId,
       });
     });

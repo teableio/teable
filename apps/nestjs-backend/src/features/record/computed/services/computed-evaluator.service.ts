@@ -43,7 +43,6 @@ export class ComputedEvaluatorService {
   async evaluate(
     impact: IComputedImpactByTable,
     opts: {
-      versionBaseline?: 'previous' | 'current';
       excludeFieldIds?: Set<string>;
       preferAutoNumberPaging?: boolean;
       tableDomains: ReadonlyMap<string, TableDomain>;
@@ -114,7 +113,7 @@ export class ComputedEvaluatorService {
       const strategy = this.selectPaginationStrategy(paginationContext);
       await strategy.run(paginationContext, async (rows) => {
         if (!rows.length) return;
-        const evaluatedRows = this.buildEvaluatedRows(rows, fieldInstances, opts);
+        const evaluatedRows = this.buildEvaluatedRows(rows, fieldInstances);
         totalOps += this.publishBatch(
           tableId,
           impactedFieldIds,
@@ -160,15 +159,17 @@ export class ComputedEvaluatorService {
 
   private buildEvaluatedRows(
     rows: Array<IComputedRowResult>,
-    fieldInstances: IFieldInstance[],
-    opts?: { versionBaseline?: 'previous' | 'current' }
-  ): Array<{ recordId: string; version: number; fields: Record<string, unknown> }> {
+    fieldInstances: IFieldInstance[]
+  ): Array<{
+    recordId: string;
+    version: number;
+    prevVersion?: number;
+    fields: Record<string, unknown>;
+  }> {
     return rows.map((row) => {
       const recordId = row.__id;
-      const version =
-        opts?.versionBaseline === 'current'
-          ? (row.__version as number)
-          : (row.__prev_version as number | undefined) ?? (row.__version as number) - 1;
+      const version = row.__version as number;
+      const prevVersion = row.__prev_version as number | undefined;
 
       const fieldsMap: Record<string, unknown> = {};
       for (const field of fieldInstances) {
@@ -185,7 +186,7 @@ export class ComputedEvaluatorService {
         if (cellValue != null) fieldsMap[field.id] = cellValue;
       }
 
-      return { recordId, version, fields: fieldsMap };
+      return { recordId, version, prevVersion, fields: fieldsMap };
     });
   }
 
@@ -194,7 +195,12 @@ export class ComputedEvaluatorService {
     impactedFieldIds: Set<string>,
     validFieldIds: Set<string>,
     excludeFieldIds: Set<string>,
-    evaluatedRows: Array<{ recordId: string; version: number; fields: Record<string, unknown> }>
+    evaluatedRows: Array<{
+      recordId: string;
+      version: number;
+      prevVersion?: number;
+      fields: Record<string, unknown>;
+    }>
   ): number {
     if (!evaluatedRows.length) return 0;
 
@@ -204,7 +210,7 @@ export class ComputedEvaluatorService {
     if (!targetFieldIds.length) return 0;
 
     const opDataList = evaluatedRows
-      .map(({ recordId, version, fields }) => {
+      .map(({ recordId, version, prevVersion, fields }) => {
         const ops = targetFieldIds
           .map((fid) => {
             const hasValue = Object.prototype.hasOwnProperty.call(fields, fid);
@@ -219,7 +225,9 @@ export class ComputedEvaluatorService {
 
         if (!ops.length) return null;
 
-        return { docId: recordId, version, data: ops, count: ops.length } as const;
+        const opVersion = prevVersion ?? version;
+
+        return { docId: recordId, version: opVersion, data: ops, count: ops.length } as const;
       })
       .filter(Boolean) as { docId: string; version: number; data: unknown; count: number }[];
 
@@ -229,7 +237,7 @@ export class ComputedEvaluatorService {
       tableId,
       RawOpType.Edit,
       IdPrefix.Record,
-      opDataList.map(({ docId, version, data }) => ({ docId, version: version - 1, data }))
+      opDataList.map(({ docId, version, data }) => ({ docId, version, data }))
     );
 
     return opDataList.reduce((sum, current) => sum + current.count, 0);
