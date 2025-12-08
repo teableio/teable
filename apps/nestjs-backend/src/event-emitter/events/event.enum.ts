@@ -11,6 +11,10 @@ export enum Events {
   // BASE_CLONE = 'base.clone',
   // BASE_MOVE = 'base.move',
 
+  BASE_NODE_CREATE = 'base.node.create',
+  BASE_NODE_DELETE = 'base.node.delete',
+  BASE_NODE_UPDATE = 'base.node.update',
+
   TABLE_CREATE = 'table.create',
   TABLE_DELETE = 'table.delete',
   TABLE_UPDATE = 'table.update',

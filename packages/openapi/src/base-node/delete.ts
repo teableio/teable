@@ -5,6 +5,13 @@ import { z } from '../zod';
 
 export const DELETE_BASE_NODE = '/base/{baseId}/node/{nodeId}';
 
+export const deleteBaseNodeVoSchema = z.object({
+  resourceId: z.string(),
+  resourceType: z.string(),
+});
+
+export type IDeleteBaseNodeVo = z.infer<typeof deleteBaseNodeVoSchema>;
+
 export const DeleteBaseNodeRoute: RouteConfig = registerRoute({
   method: 'delete',
   path: DELETE_BASE_NODE,
@@ -18,11 +25,16 @@ export const DeleteBaseNodeRoute: RouteConfig = registerRoute({
   responses: {
     200: {
       description: 'Deleted node Successfully',
+      content: {
+        'application/json': {
+          schema: deleteBaseNodeVoSchema,
+        },
+      },
     },
   },
   tags: ['base node'],
 });
 
 export const deleteBaseNode = async (baseId: string, nodeId: string) => {
-  return axios.delete(urlBuilder(DELETE_BASE_NODE, { baseId, nodeId }));
+  return axios.delete<IDeleteBaseNodeVo>(urlBuilder(DELETE_BASE_NODE, { baseId, nodeId }));
 };

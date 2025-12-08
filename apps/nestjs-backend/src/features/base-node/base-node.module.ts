@@ -8,6 +8,7 @@ import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { BaseNodeController } from './base-node.controller';
+import { BaseNodeListener } from './base-node.listener';
 import { BaseNodeService } from './base-node.service';
 import { BaseNodeFolderModule } from './folder/base-node-folder.module';
 
@@ -22,7 +23,7 @@ import { BaseNodeFolderModule } from './folder/base-node-folder.module';
     FieldDuplicateModule,
   ],
   controllers: [BaseNodeController],
-  providers: [BaseNodeService, TableDuplicateService, BaseNodePermissionGuard],
-  exports: [BaseNodeService, BaseNodePermissionGuard],
+  providers: [BaseNodePermissionGuard, TableDuplicateService, BaseNodeListener, BaseNodeService],
+  exports: [BaseNodePermissionGuard, TableDuplicateService, BaseNodeListener, BaseNodeService],
 })
 export class BaseNodeModule {}

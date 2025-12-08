@@ -1,11 +1,14 @@
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import type { Knex } from 'knex';
 import { GlobalModule } from '../../global/global.module';
 import { BaseNodeModule } from './base-node.module';
 import { BaseNodeService } from './base-node.service';
+import { buildBatchUpdateSql } from './helper';
 
 describe('BaseNodeService', () => {
   let service: BaseNodeService;
+  let knex: Knex;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -13,6 +16,7 @@ describe('BaseNodeService', () => {
     }).compile();
 
     service = module.get<BaseNodeService>(BaseNodeService);
+    knex = module.get<Knex>('CUSTOM_KNEX');
   });
 
   it('should be defined', () => {
@@ -21,17 +25,17 @@ describe('BaseNodeService', () => {
 
   describe('buildBatchUpdateSql', () => {
     it('should return null for empty data', () => {
-      const result = service.buildBatchUpdateSql([]);
+      const result = buildBatchUpdateSql(knex, []);
       expect(result).toBeNull();
     });
 
     it('should return null for data with empty values', () => {
-      const result = service.buildBatchUpdateSql([{ id: 'node1', values: {} }]);
+      const result = buildBatchUpdateSql(knex, [{ id: 'node1', values: {} }]);
       expect(result).toBeNull();
     });
 
     it('should build SQL for single record with single field', () => {
-      const result = service.buildBatchUpdateSql([{ id: 'node1', values: { order: 1 } }]);
+      const result = buildBatchUpdateSql(knex, [{ id: 'node1', values: { order: 1 } }]);
 
       expect(result).not.toBeNull();
       expect(result).toContain('update "base_node"');
@@ -41,7 +45,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should build SQL for single record with multiple fields', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'node1', values: { parentId: null, order: 5 } },
       ]);
 
@@ -53,7 +57,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should build SQL for multiple records with same fields', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'node1', values: { order: 1 } },
         { id: 'node2', values: { order: 2 } },
         { id: 'node3', values: { order: 3 } },
@@ -68,7 +72,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should build SQL for multiple records with different fields', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'node1', values: { parentId: 'folder1', order: 1 } },
         { id: 'node2', values: { order: 2 } }, // only order
         { id: 'node3', values: { parentId: null } }, // only parentId
@@ -84,7 +88,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should handle string values correctly', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'node1', values: { resourceType: 'table' } },
       ]);
 
@@ -94,7 +98,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should convert camelCase keys to snake_case columns', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'node1', values: { parentId: 'p1', resourceType: 'dashboard', createdBy: 'user1' } },
       ]);
 
@@ -109,7 +113,7 @@ describe('BaseNodeService', () => {
     });
 
     it('should build complete SQL for multiple records with multiple fields', () => {
-      const result = service.buildBatchUpdateSql([
+      const result = buildBatchUpdateSql(knex, [
         { id: 'bnod001', values: { parentId: null, order: 10 } },
         { id: 'bnod002', values: { parentId: 'folder1', order: 20 } },
         { id: 'bnod003', values: { parentId: 'folder2', order: 30 } },

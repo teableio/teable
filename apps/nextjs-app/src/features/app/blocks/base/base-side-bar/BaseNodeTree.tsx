@@ -502,16 +502,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       const newVal = inputRef.current?.value ?? '';
       if (oldVal === newVal) return;
       const nodeId = item.getId();
-      setTreeItems((prevItems) => ({
-        ...prevItems,
-        [nodeId]: {
-          ...prevItems[nodeId],
-          resourceMeta: {
-            ...prevItems[nodeId].resourceMeta,
-            name: newVal,
-          },
-        },
-      }));
       curdHooks.updateNode(nodeId, {
         name: newVal,
       });

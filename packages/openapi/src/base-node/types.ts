@@ -76,23 +76,23 @@ const baseNodeBaseSchema = z.object({
 export const baseNodeVoSchema = z.discriminatedUnion('resourceType', [
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.Table),
-    resourceMeta: baseNodeTableResourceMetaSchema.optional(),
+    resourceMeta: baseNodeTableResourceMetaSchema,
   }),
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.Dashboard),
-    resourceMeta: baseNodeDashboardResourceMetaSchema.optional(),
+    resourceMeta: baseNodeDashboardResourceMetaSchema,
   }),
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.Workflow),
-    resourceMeta: baseNodeWorkflowResourceMetaSchema.optional(),
+    resourceMeta: baseNodeWorkflowResourceMetaSchema,
   }),
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.App),
-    resourceMeta: baseNodeAppResourceMetaSchema.optional(),
+    resourceMeta: baseNodeAppResourceMetaSchema,
   }),
   baseNodeBaseSchema.extend({
     resourceType: z.literal(BaseNodeResourceType.Folder),
-    resourceMeta: baseNodeFolderResourceMetaSchema.optional(),
+    resourceMeta: baseNodeFolderResourceMetaSchema,
   }),
 ]);
 

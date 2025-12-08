@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
-import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
+import type { IBaseNodeTreeVo, IBaseNodeVo, IDeleteBaseNodeVo } from '@teable/openapi';
 import {
   moveBaseNodeRoSchema,
   createBaseNodeRoSchema,
@@ -12,6 +12,8 @@ import {
   IUpdateBaseNodeRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
+import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
+import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
@@ -73,6 +75,7 @@ export class BaseNodeController {
   @Post()
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Create)
+  @EmitControllerEvent(Events.BASE_NODE_CREATE)
   async create(
     @Param('baseId') baseId: string,
     @Body(new ZodValidationPipe(createBaseNodeRoSchema)) ro: ICreateBaseNodeRo
@@ -83,6 +86,7 @@ export class BaseNodeController {
   @Post(':nodeId/duplicate')
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Read, BaseNodeAction.Create)
+  @EmitControllerEvent(Events.BASE_NODE_CREATE)
   async duplicate(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
@@ -94,6 +98,7 @@ export class BaseNodeController {
   @Put(':nodeId')
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Update)
+  @EmitControllerEvent(Events.BASE_NODE_UPDATE)
   async update(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string,
@@ -115,17 +120,22 @@ export class BaseNodeController {
   @Delete(':nodeId')
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Delete)
-  async delete(@Param('baseId') baseId: string, @Param('nodeId') nodeId: string): Promise<void> {
+  @EmitControllerEvent(Events.BASE_NODE_DELETE)
+  async delete(
+    @Param('baseId') baseId: string,
+    @Param('nodeId') nodeId: string
+  ): Promise<IDeleteBaseNodeVo> {
     return this.baseNodeService.delete(baseId, nodeId);
   }
 
   @Delete(':nodeId/permanent')
   @Permissions('base|read')
   @BaseNodePermissions(BaseNodeAction.Delete)
+  @EmitControllerEvent(Events.BASE_NODE_DELETE)
   async permanentDelete(
     @Param('baseId') baseId: string,
     @Param('nodeId') nodeId: string
-  ): Promise<void> {
+  ): Promise<IDeleteBaseNodeVo> {
     return this.baseNodeService.delete(baseId, nodeId, true);
   }
 
