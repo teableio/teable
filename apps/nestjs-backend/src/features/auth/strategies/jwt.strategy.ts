@@ -1,8 +1,7 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigType } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { AUTOMATION_ROBOT_USER, APP_ROBOT_USER } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
 import type { Request } from 'express';
 import { ClsService } from 'nestjs-cls';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -17,13 +16,10 @@ import { JwtAuthInternalType } from './types';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_NAME) {
-  private readonly logger = new Logger(JwtStrategy.name);
-
   constructor(
     @AuthConfig() readonly config: ConfigType<typeof authConfig>,
     private readonly userService: UserService,
-    private readonly cls: ClsService<IClsStore>,
-    private readonly prismaService: PrismaService
+    private readonly cls: ClsService<IClsStore>
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
