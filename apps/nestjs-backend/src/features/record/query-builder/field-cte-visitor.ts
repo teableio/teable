@@ -438,7 +438,8 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     // If the target is a Link field, read its link_value from the JOINed CTE or subquery
     let fallbackBlockedLinkIdForTarget: string | undefined;
 
-    if (targetLookupField.type === FieldType.Link) {
+    // Treat lookup-link targets as lookups (handled below); only use this branch for real link fields.
+    if (targetLookupField.type === FieldType.Link && !targetLookupField.isLookup) {
       const nestedLinkFieldId = (targetLookupField as LinkFieldCore).id;
       const fieldCteMap = this.state.getFieldCteMap();
       if (this.canReuseNestedCte(nestedLinkFieldId) && this.joinedCtes?.has(nestedLinkFieldId)) {
@@ -481,23 +482,37 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     let expression: string;
     if (targetLookupField.isLookup) {
       const nestedLinkFieldId = getLinkFieldId(targetLookupField.lookupOptions);
-      const fieldCteMap = this.state.getFieldCteMap();
-      if (
-        nestedLinkFieldId &&
-        this.canReuseNestedCte(nestedLinkFieldId) &&
-        this.joinedCtes?.has(nestedLinkFieldId)
-      ) {
-        const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
-        expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
-      } else if (nestedLinkFieldId) {
-        const visitor = buildSelectVisitor(nestedLinkFieldId);
-        const targetFieldResult = targetLookupField.accept(visitor);
-        expression =
-          typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+      if (nestedLinkFieldId && nestedLinkFieldId === this.currentLinkFieldId) {
+        // When the lookup we target is computed from the same link CTE we are currently
+        // generating (self-referencing), read its materialized column from the foreign
+        // table instead of trying to reuse or re-enter the link CTE.
+        expression = `"${foreignAlias}"."${targetLookupField.dbFieldName}"`;
       } else {
-        const targetFieldResult = targetLookupField.accept(selectVisitor);
-        expression =
-          typeof targetFieldResult === 'string' ? targetFieldResult : targetFieldResult.toSQL().sql;
+        const fieldCteMap = this.state.getFieldCteMap();
+        if (
+          nestedLinkFieldId &&
+          this.canReuseNestedCte(nestedLinkFieldId) &&
+          this.joinedCtes?.has(nestedLinkFieldId)
+        ) {
+          const nestedCteName = fieldCteMap.get(nestedLinkFieldId)!;
+          expression = `"${nestedCteName}"."lookup_${targetLookupField.id}"`;
+        } else if (nestedLinkFieldId) {
+          // Block the nested link id so the select visitor does not attempt to reuse
+          // the same link CTE (which may not exist in this scope) and instead computes
+          // the lookup expression directly.
+          const visitor = buildSelectVisitor(nestedLinkFieldId);
+          const targetFieldResult = targetLookupField.accept(visitor);
+          expression =
+            typeof targetFieldResult === 'string'
+              ? targetFieldResult
+              : targetFieldResult.toSQL().sql;
+        } else {
+          const targetFieldResult = targetLookupField.accept(selectVisitor);
+          expression =
+            typeof targetFieldResult === 'string'
+              ? targetFieldResult
+              : targetFieldResult.toSQL().sql;
+        }
       }
     } else {
       const visitor =
@@ -2260,6 +2275,14 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           collectLinkDependencies(targetField);
         };
 
+        // Ensure lookup-of-link targets bring along their nested link CTEs and are JOINed
+        for (const lookupField of lookupFields) {
+          const nestedLinkId = getLinkFieldId(lookupField.lookupOptions);
+          if (!nestedLinkId) continue;
+          const nestedLinkField = foreignTable.getField(nestedLinkId) as LinkFieldCore | undefined;
+          ensureLinkDependency(nestedLinkField);
+        }
+
         const ensureDisplayFieldDependencies = () => {
           const displayFieldIds = new Set<string>();
           const lookupFieldId = (linkField.options as ILinkFieldOptions).lookupFieldId;
@@ -2280,6 +2303,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         };
 
         ensureDisplayFieldDependencies();
+
+        // Explicitly join nested link CTEs referenced by lookup-of-link targets so lookup values
+        // remain available when the target field itself is a lookup.
+        for (const lookupField of lookupFields) {
+          const nestedLinkId = getLinkFieldId(lookupField.lookupOptions);
+          if (!nestedLinkId) continue;
+          const nestedLinkField = foreignTable.getField(nestedLinkId) as LinkFieldCore | undefined;
+          ensureLinkDependency(nestedLinkField);
+        }
 
         if (process.env.DEBUG_NESTED_CTE === '1' && nestedJoins.size) {
           // eslint-disable-next-line no-console
@@ -2654,15 +2686,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
         // Ensure deeper nested dependencies for this nested link are also generated
         this.generateNestedForeignCtesIfNeeded(table, foreignTable, linkField);
 
-        // Collect all nested link dependencies that need to be JOINed
-        const nestedJoins = new Set<string>();
-        const lookupFields = linkField.getLookupFields(table);
-        const rollupFields = linkField.getRollupFields(table);
-        if (this.filteredIdSet) {
-          // filteredIdSet belongs to the main table. For nested tables, we cannot filter
-          // by main-table projection IDs; keep all nested lookup/rollup columns to ensure correctness.
-        }
-
         const ensureConditionalComputedCteForField = (targetField?: FieldCore) => {
           if (!targetField) {
             return;
@@ -2683,6 +2706,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
 
         const ensureLinkDependency = (linkFieldCore?: LinkFieldCore | null) =>
           this.ensureLinkDependencyForScope(linkFieldCore, foreignTable, linkField.id, nestedJoins);
+
+        // Collect all nested link dependencies that need to be JOINed
+        const nestedJoins = new Set<string>();
+        const lookupFields = linkField.getLookupFields(table);
+        const rollupFields = linkField.getRollupFields(table);
+        if (this.filteredIdSet) {
+          // filteredIdSet belongs to the main table. For nested tables, we cannot filter
+          // by main-table projection IDs; keep all nested lookup/rollup columns to ensure correctness.
+        }
 
         const collectLinkDependencies = (
           field: FieldCore | undefined,
