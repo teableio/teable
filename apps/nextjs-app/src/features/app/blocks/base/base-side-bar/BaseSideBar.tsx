@@ -42,7 +42,7 @@ export const BaseSideBar = () => {
           label: t('common:noun.app'),
           Icon: AppWindowMac,
           hidden: !basePermission?.['base|update'] || !buildAppEnabled,
-          billingLevel: BillingProductLevel.Pro,
+          billingLevel: isEE ? BillingProductLevel.Pro : BillingProductLevel.Plus,
         },
         {
           href: `/base/${baseId}/dashboard`,
