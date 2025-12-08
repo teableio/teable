@@ -556,7 +556,10 @@
         "apiProxy": "API Proxy (Optional)",
         "apiProxyDescription": "Configure reverse proxy URLs for v0 and Vercel APIs (e.g., Cloudflare Workers). Leave empty to use default endpoints.",
         "v0BaseUrl": "v0 API Base URL",
-        "vercelBaseUrl": "Vercel API Base URL"
+        "vercelBaseUrl": "Vercel API Base URL",
+        "aiGateway": "Vercel AI Gateway (Optional)",
+        "aiGatewayDescription": "Configure Vercel AI Gateway to access hundreds of models through a single endpoint. Access <a>AI Gateway settings</a> to get API key",
+        "aiGatewayApiKey": "AI Gateway API Key"
       }
     },
     "action": {

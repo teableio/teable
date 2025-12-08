@@ -553,7 +553,10 @@
         "apiProxy": "API 代理 (可选)",
         "apiProxyDescription": "配置 v0 和 Vercel API 的反向代理地址（如 Cloudflare Workers）。留空则使用默认地址。",
         "v0BaseUrl": "v0 API 代理地址",
-        "vercelBaseUrl": "Vercel API 代理地址"
+        "vercelBaseUrl": "Vercel API 代理地址",
+        "aiGateway": "Vercel AI Gateway (可选)",
+        "aiGatewayDescription": "配置 Vercel AI Gateway 以通过单一端点访问数百种模型。访问 <a>AI Gateway 设置</a> 获取 API 密钥",
+        "aiGatewayApiKey": "AI Gateway API 密钥"
       }
     },
     "action": {

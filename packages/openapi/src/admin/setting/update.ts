@@ -78,6 +78,8 @@ export const appConfigSchema = z.object({
   // Proxy URLs for v0 and Vercel API (Cloudflare Workers reverse proxy)
   v0BaseUrl: z.url().optional(),
   vercelBaseUrl: z.url().optional(),
+  // Vercel AI Gateway configuration
+  aiGatewayApiKey: z.string().optional(),
 });
 
 export type IAppConfig = z.infer<typeof appConfigSchema>;

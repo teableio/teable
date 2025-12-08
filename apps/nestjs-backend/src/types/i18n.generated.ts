@@ -750,6 +750,9 @@ export type I18nTranslations = {
                     "apiProxyDescription": string;
                     "v0BaseUrl": string;
                     "vercelBaseUrl": string;
+                    "aiGateway": string;
+                    "aiGatewayDescription": string;
+                    "aiGatewayApiKey": string;
                 };
                 "instanceTitle": string;
             };
