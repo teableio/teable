@@ -168,12 +168,10 @@ export class RecordModifySharedService {
         }
       });
     }
-    const result = records.map((record, i) => ({
+    return records.map((record, i) => ({
       ...record,
       fields: newRecordsFields[i],
     }));
-
-    return result;
   }
 
   @Timing()
