@@ -444,9 +444,9 @@
           "errorTips": "Sie haben die AI LLM API noch nicht konfiguriert. AI Chat/AI Automatisierung kann nicht verwendet werden"
         },
         "app": {
-          "title": "App-Generierung",
-          "description": "Sie haben die v0 API noch nicht konfiguriert. Die App-Generierungsfunktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
-          "errorTips": "Sie haben die v0 API noch nicht konfiguriert. Die App-Generierungsfunktion ist nicht verfügbar"
+          "title": "App-Builder",
+          "description": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar, <anchor>zu den Einstellungen gehen</anchor>",
+          "errorTips": "Sie haben die v0 API noch nicht konfiguriert. Die App-Builder-Funktion ist nicht verfügbar"
         },
         "webSearch": {
           "title": "Websuche",

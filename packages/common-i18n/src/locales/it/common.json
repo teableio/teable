@@ -441,9 +441,9 @@
           "errorTips": "Non hai ancora configurato l'API LLM AI, AI Chat/automazione AI non sarà utilizzabile"
         },
         "app": {
-          "title": "Generazione app",
-          "description": "Non hai ancora configurato l'API v0, la funzione di generazione app non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
-          "errorTips": "Non hai ancora configurato l'API v0, la funzione di generazione app non sarà disponibile"
+          "title": "Costruttore di app",
+          "description": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile, <anchor>vai alle impostazioni</anchor>",
+          "errorTips": "Non hai ancora configurato l'API v0, la funzione Costruttore di app non sarà disponibile"
         },
         "webSearch": {
           "title": "Ricerca web",

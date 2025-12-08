@@ -595,9 +595,9 @@
           "errorTips": "You have not configured the AI LLM API, AI Chat/ AI automation will not be usable"
         },
         "app": {
-          "title": "App generation",
-          "description": "You have not configured the v0 API key, the App Generation feature will not be available, <anchor>go to setting</anchor>",
-          "errorTips": "You have not configured the v0 API key, the App Generation feature will not be available"
+          "title": "App builder",
+          "description": "You have not configured the v0 API key, the App builder feature will not be available, <anchor>go to setting</anchor>",
+          "errorTips": "You have not configured the v0 API key, the App builder feature will not be available"
         },
         "webSearch": {
           "title": "Web search",
@@ -836,8 +836,8 @@
     "deleteTip": "Are you sure you want to delete \"{{name}}\" base?"
   },
   "app": {
-    "title": "App generation",
-    "description": "Configure the v0 API Key to enable APP Generation capabilities. Access <a>v0 setting</a> to obtain your API Key",
+    "title": "App builder",
+    "description": "Configure the v0 API Key to enable App builder capabilities. Access <a>v0 setting</a> to obtain your API Key",
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"
   }

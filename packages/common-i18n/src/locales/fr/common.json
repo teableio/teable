@@ -405,9 +405,9 @@
           "errorTips": "Vous n'avez pas encore configuré l'API LLM AI, AI Chat/automatisation AI ne pourra pas être utilisé"
         },
         "app": {
-          "title": "Génération d'application",
-          "description": "Vous n'avez pas encore configuré l'API v0, la fonction de génération d'application ne sera pas disponible, <anchor>aller aux paramètres</anchor>",
-          "errorTips": "Vous n'avez pas encore configuré l'API v0, la fonction de génération d'application ne sera pas disponible"
+          "title": "Générateur d'application",
+          "description": "Vous n'avez pas encore configuré l'API v0, la fonction Générateur d'application ne sera pas disponible, <anchor>aller aux paramètres</anchor>",
+          "errorTips": "Vous n'avez pas encore configuré l'API v0, la fonction Générateur d'application ne sera pas disponible"
         },
         "webSearch": {
           "title": "Recherche web",

@@ -410,9 +410,9 @@
           "errorTips": "AI LLM APIをまだ設定していません。AIチャット/AI自動化が使用できません"
         },
         "app": {
-          "title": "アプリ生成",
-          "description": "v0 APIをまだ設定していません。アプリ生成機能が利用できません。<anchor>設定に移動</anchor>",
-          "errorTips": "v0 APIをまだ設定していません。アプリ生成機能が利用できません"
+          "title": "アプリビルダー",
+          "description": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません。<anchor>設定に移動</anchor>",
+          "errorTips": "v0 APIをまだ設定していません。アプリビルダー機能が利用できません"
         },
         "webSearch": {
           "title": "ウェブ検索",

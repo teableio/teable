@@ -592,9 +592,9 @@
           "errorTips": "您尚未配置 AI LLM API，AI 对话/AI 自动化将无法使用"
         },
         "app": {
-          "title": "应用生成",
-          "description": "您尚未配置 v0 API，应用生成功能将无法使用，<anchor>前往设置</anchor>",
-          "errorTips": "您尚未配置 v0 API，应用生成功能将无法使用"
+          "title": "应用构建器",
+          "description": "您尚未配置 v0 API，应用构建器功能将无法使用，<anchor>前往设置</anchor>",
+          "errorTips": "您尚未配置 v0 API，应用构建器功能将无法使用"
         },
         "webSearch": {
           "title": "网络搜索",
@@ -833,8 +833,8 @@
     "deleteTip": "确定要删除 \"{{name}}\" 数据库吗？"
   },
   "app": {
-    "title": "应用生成",
-    "description": "配置 v0 API 密钥以启用应用生成功能，访问 <a>v0 设置</a> 获取 API 密钥",
+    "title": "应用构建器",
+    "description": "配置 v0 API 密钥以启用应用构建器功能，访问 <a>v0 设置</a> 获取 API 密钥",
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"
   }
