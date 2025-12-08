@@ -71,26 +71,19 @@ export class RatingFieldCore extends FieldCore {
   }
 
   validateCellValue(value: unknown) {
-    if (this.isMultipleCellValue) {
-      return z
-        .array(
-          z
-            .number()
-            .int()
-            .max(this.options.max ?? 10)
-            .min(1)
-        )
-        .nonempty()
-        .nullable()
-        .safeParse(value);
-    }
-    return z
+    const baseSchema = z
       .number()
       .int()
       .max(this.options.max ?? 10)
-      .min(1)
-      .nullable()
-      .safeParse(value);
+      .min(1);
+
+    if (this.isMultipleCellValue) {
+      const schema = z.array(baseSchema).nonempty();
+      return (this.notNull ? schema : schema.nullable()).safeParse(value);
+    }
+
+    const schema = this.notNull ? baseSchema : baseSchema.nullable();
+    return schema.safeParse(value);
   }
 
   accept<T>(visitor: IFieldVisitor<T>): T {
