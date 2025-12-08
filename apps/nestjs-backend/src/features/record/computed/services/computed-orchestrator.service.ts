@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, NotFoundException } from '@nestjs/common';
-import type { TableDomain } from '@teable/core';
+import { FieldType } from '@teable/core';
+import type { TableDomain, LastModifiedByFieldCore, LastModifiedTimeFieldCore } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { InjectDbProvider } from '../../../../db-provider/db.provider';
 import { IDbProvider } from '../../../../db-provider/db.provider.interface';
@@ -68,8 +69,17 @@ export class ComputedOrchestratorService {
 
     // Collect base changed field ids to avoid re-publishing base ops via computed
     const changedFieldIds = new Set<string>();
+    const changedRecordIdsByTable = new Map<string, Set<string>>();
     for (const s of filtered) {
-      for (const ctx of s.cellContexts) changedFieldIds.add(ctx.fieldId);
+      let recordSet = changedRecordIdsByTable.get(s.tableId);
+      if (!recordSet) {
+        recordSet = new Set<string>();
+        changedRecordIdsByTable.set(s.tableId, recordSet);
+      }
+      for (const ctx of s.cellContexts) {
+        changedFieldIds.add(ctx.fieldId);
+        if (ctx.recordId) recordSet.add(ctx.recordId);
+      }
     }
 
     // 1) Collect impact per source and merge once
@@ -127,12 +137,37 @@ export class ComputedOrchestratorService {
 
     await this.lockImpactedRecords(filtered, impactMerged, tableDomains);
 
+    // Track-all LastModified* fields are persisted/generated outside base ops.
+    // Ensure they are part of impacted fields and not excluded so their new values get published.
+    const excludeFieldIds = new Set(changedFieldIds);
+    for (const [tid, domain] of tableDomains) {
+      const trackAllAudit = domain
+        .getLastModifiedFields()
+        .filter((f) =>
+          f.type === FieldType.LastModifiedTime
+            ? (f as LastModifiedTimeFieldCore).isTrackAll()
+            : f.type === FieldType.LastModifiedBy && (f as LastModifiedByFieldCore).isTrackAll()
+        );
+      if (!trackAllAudit.length) continue;
+      const recordIds = changedRecordIdsByTable.get(tid);
+      if (!recordIds?.size) continue;
+      const group = (impactMerged[tid] ||= {
+        fieldIds: new Set<string>(),
+        recordIds: new Set<string>(),
+      });
+      trackAllAudit.forEach((f) => {
+        group.fieldIds.add(f.id);
+        excludeFieldIds.delete(f.id);
+      });
+      recordIds.forEach((rid) => group.recordIds.add(rid));
+    }
+
     // 2) Perform the actual base update(s) if provided
     await update(tableDomains);
 
     // 3) Evaluate and publish computed values
     const total = await this.evaluator.evaluate(impactMerged, {
-      excludeFieldIds: changedFieldIds,
+      excludeFieldIds,
       tableDomains,
     });
 

@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { FieldType } from '@teable/core';
@@ -77,15 +78,16 @@ export class RecordComputedUpdateService {
         ?.persistedAsGeneratedColumn === true;
     const cols: string[] = [];
     for (const f of fields) {
-      if (
-        !f.isLookup &&
-        (f.type === FieldType.CreatedBy ||
-          f.type === FieldType.LastModifiedBy ||
-          f.type === FieldType.CreatedTime ||
-          f.type === FieldType.LastModifiedTime) &&
-        isPersistedGenerated(f)
-      ) {
-        continue;
+      // Keep track-all system timestamps in the RETURNING list so computed ops
+      // can emit their values. Skip persisted generated audit users.
+      if (!f.isLookup && isPersistedGenerated(f)) {
+        if (f.type === FieldType.CreatedTime || f.type === FieldType.LastModifiedTime) {
+          cols.push(f.dbFieldName);
+          continue;
+        }
+        if (f.type === FieldType.CreatedBy || f.type === FieldType.LastModifiedBy) {
+          continue;
+        }
       }
       if (isFormulaField(f)) {
         // Lookup-formula fields are persisted as regular columns on the host table
@@ -140,19 +142,6 @@ export class RecordComputedUpdateService {
 
     const columnNames = this.getUpdatableColumns(fields);
     const returningNames = this.getReturningColumns(fields);
-    if (!columnNames.length) {
-      const selectSql = qb.toQuery();
-      // No updatable columns (e.g., all are generated formulas). Return current values via SELECT.
-      try {
-        return await this.prismaService
-          .txClient()
-          .$queryRawUnsafe<
-            Array<{ __id: string; __version: number } & Record<string, unknown>>
-          >(selectSql);
-      } catch (error) {
-        this.handleRawQueryError(error, selectSql, tableId, fields);
-      }
-    }
 
     const returningWithAutoNumber = Array.from(
       new Set([...returningNames, AUTO_NUMBER_FIELD_NAME])
