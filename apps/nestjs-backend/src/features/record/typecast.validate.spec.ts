@@ -166,6 +166,23 @@ describe('TypeCastAndValidate', () => {
     });
   });
 
+  it('should bypass notNull for computed fields', async () => {
+    const field = mockDeep<IFieldInstance>({
+      type: FieldType.Formula,
+      isComputed: true,
+      notNull: true,
+      validateCellValue: vi.fn().mockReturnValue({ success: true, data: null }),
+      validateCellValueWithNotNull: vi.fn().mockReturnValue({ success: true, data: null }),
+    });
+    const typeCastAndValidate = new TypeCastAndValidate({ services, field, tableId });
+    const result = (typeCastAndValidate as any).mapFieldsCellValuesWithValidate(
+      [null],
+      (v: any) => v
+    );
+    expect(result[0]).toBeNull();
+    expect(field.validateCellValueWithNotNull).toHaveBeenCalled();
+  });
+
   describe('mapFieldsCellValuesWithValidate', () => {
     const field = mockDeep<IFieldInstance>({ id: 'fldxxxx' });
     const typeCastAndValidate = new TypeCastAndValidate({
@@ -178,12 +195,10 @@ describe('TypeCastAndValidate', () => {
       const cellValues = [1];
       const callback = vi.fn(() => 'value');
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore-next-line
-      field.validateCellValue.mockReturnValue({
+      field.validateCellValueWithNotNull = vi.fn().mockReturnValue({
         success: false,
         error: 'error',
-      });
+      }) as any;
 
       const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, callback);
 
@@ -200,12 +215,10 @@ describe('TypeCastAndValidate', () => {
         tableId,
       });
 
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-      // @ts-ignore-next-line
-      field.validateCellValue.mockReturnValue({
+      field.validateCellValueWithNotNull = vi.fn().mockReturnValue({
         success: false,
         error: 'error',
-      });
+      }) as any;
 
       const error = await getError(async () =>
         typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn())
@@ -215,16 +228,18 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should return null if typecast is false', () => {
-      const field = mockDeep<IFieldInstance>();
+      const field = mockDeep<IFieldInstance>({
+        validateCellValueWithNotNull: vi.fn().mockReturnValue({ success: true, data: null }),
+      }) as any;
       const typeCastAndValidate = new TypeCastAndValidate({
         services,
         field,
         tableId,
       });
 
-      field.validateCellValue.mockReturnValue({
+      field.validateCellValue = vi.fn().mockReturnValue({
         success: true,
-      } as any);
+      }) as any;
 
       const cellValues = [1];
 
@@ -237,15 +252,11 @@ describe('TypeCastAndValidate', () => {
     });
 
     it('should not throw error if no field value', () => {
-      const cellValues = [1];
-
-      field.validateCellValue.mockReturnValue({
-        success: true,
-      } as any);
+      const cellValues = [undefined];
 
       const result = typeCastAndValidate['mapFieldsCellValuesWithValidate'](cellValues, vi.fn());
 
-      expect(result).toEqual([null]);
+      expect(result).toEqual([undefined]);
     });
   });
 

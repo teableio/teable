@@ -100,6 +100,9 @@ export abstract class FieldCore implements IFieldVo {
    * Wrapper to enforce notNull when calling validateCellValue.
    */
   validateCellValueWithNotNull(value: unknown): SafeParseReturnType<unknown, unknown> | undefined {
+    if (this.isComputed) {
+      return this.validateCellValue(value);
+    }
     if (this.notNull && (value === null || value === undefined)) {
       return {
         success: false,

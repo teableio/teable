@@ -7,9 +7,11 @@ import {
   createField,
   createRecords,
   createTable,
+  convertField,
   getRecords,
   initApp,
   permanentDeleteTable,
+  deleteRecords,
 } from './utils/init-app';
 
 describe('Auto number continuity (e2e)', () => {
@@ -71,14 +73,26 @@ describe('Auto number continuity (e2e)', () => {
     });
 
     it('should keep autoNumber when missing required field then retry with value', async () => {
-      const initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
-      const initialCount = initial.records.length;
+      let initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
       const maxAutoNumber =
         initial.records.reduce((max, r) => Math.max(max, r.autoNumber ?? 0), 0) || 0;
+      if (initial.records.length) {
+        await deleteRecords(
+          table.id,
+          initial.records.map((r) => r.id)
+        );
+        initial = await getRecords(table.id, { fieldKeyType: FieldKeyType.Id });
+      }
 
-      const requiredField = await createField(table.id, {
+      const initialCount = initial.records.length;
+
+      let requiredField = await createField(table.id, {
         name: 'Required',
         type: FieldType.SingleLineText,
+      });
+
+      requiredField = await convertField(table.id, requiredField.id, {
+        ...requiredField,
         notNull: true,
       });
 
@@ -86,7 +100,7 @@ describe('Auto number continuity (e2e)', () => {
         table.id,
         {
           fieldKeyType: FieldKeyType.Id,
-          records: [{ fields: {} }],
+          records: [{ fields: { [requiredField.id]: null } }],
         },
         400
       );
