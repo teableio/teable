@@ -179,10 +179,7 @@ export class IndexBuilderPostgres extends IndexBuilderAbstract {
     const oldIndexName = this.getIndexName(table, oldField);
     const newIndexName = this.getIndexName(table, newField);
 
-    return `
-      ALTER INDEX IF EXISTS "${schema}"."${oldIndexName}"
-      RENAME TO "${newIndexName}"
-    `;
+    return `ALTER INDEX IF EXISTS "${schema}"."${oldIndexName}" RENAME TO "${newIndexName}"`;
   }
 
   getIndexInfoSql(dbTableName: string): string {

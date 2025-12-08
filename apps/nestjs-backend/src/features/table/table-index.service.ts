@@ -201,6 +201,8 @@ export class TableIndexService {
     oldField: Pick<IFieldInstance, 'id' | 'dbFieldName'>,
     newField: Pick<IFieldInstance, 'id' | 'dbFieldName'>
   ) {
+    if (oldField.dbFieldName === newField.dbFieldName) return;
+
     const tableRaw = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
       where: { id: tableId, deletedTime: null },
       select: { dbTableName: true },
@@ -208,10 +210,36 @@ export class TableIndexService {
     const { dbTableName } = tableRaw;
     const index = await this.getActivatedTableIndexes(tableId);
     if (index.includes(TableIndex.search)) {
-      const sql = this.dbProvider
-        .searchIndex()
-        .getUpdateSingleIndexNameSql(dbTableName, oldField, newField);
-      await this.prismaService.$executeRawUnsafe(sql);
+      const searchIndex = this.dbProvider.searchIndex();
+      // drop any existing index with the target name to avoid 42P07
+      const dropSql = searchIndex.getDeleteSingleIndexSql(
+        dbTableName,
+        newField as unknown as IFieldInstance
+      );
+      dropSql && (await this.prismaService.$executeRawUnsafe(dropSql));
+
+      const sql = searchIndex.getUpdateSingleIndexNameSql(dbTableName, oldField, newField);
+      try {
+        await this.prismaService.$executeRawUnsafe(sql);
+      } catch (error) {
+        this.logger.warn(
+          `Rename search index skipped: ${(error as Error).message}`,
+          (error as Error).stack
+        );
+      }
+
+      // Ensure the (possibly renamed) index exists after the operation
+      const fieldRaw = await this.prismaService.field.findUnique({
+        where: { id: newField.id },
+      });
+      if (fieldRaw) {
+        const fieldInstance = createFieldInstanceByRaw({
+          ...fieldRaw,
+          dbFieldName: newField.dbFieldName,
+        }) as IFieldInstance;
+        const createSql = searchIndex.createSingleIndexSql(dbTableName, fieldInstance);
+        createSql && (await this.prismaService.$executeRawUnsafe(createSql));
+      }
     }
   }
 

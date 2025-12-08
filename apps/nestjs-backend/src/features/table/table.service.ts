@@ -36,8 +36,8 @@ export class TableService implements IReadonlyAdapterService {
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
 
-  generateValidName(name: string) {
-    return convertNameToValidCharacter(name, 40);
+  generateValidName(name: string, maxLength = 40) {
+    return convertNameToValidCharacter(name, maxLength);
   }
 
   private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
@@ -54,14 +54,19 @@ export class TableService implements IReadonlyAdapterService {
         return acc > cur.order ? acc : cur.order;
       }, 0) + 1;
 
-    const validTableName = this.generateValidName(uniqName);
-    let dbTableName = this.dbProvider.generateDbTableName(
-      baseId,
-      tableRo.dbTableName || validTableName
+    // Keep the physical table name unique (and thus the auto-number sequence) even when
+    // multiple tables share the same display name.
+    const autoNameSuffix = tableRo.dbTableName ? '' : `_${tableId}`;
+    const maxDbTableNameLength = Math.max(1, 40 - autoNameSuffix.length);
+    const validTableName = this.generateValidName(
+      tableRo.dbTableName || uniqName,
+      maxDbTableNameLength
     );
+    const buildDbTableName = (name: string) => this.dbProvider.generateDbTableName(baseId, name);
+    let dbTableName = buildDbTableName(`${validTableName}${autoNameSuffix}`);
 
     const existTable = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { dbTableName: tableRo.dbTableName },
+      where: { dbTableName },
       select: { id: true },
     });
 
@@ -77,8 +82,10 @@ export class TableService implements IReadonlyAdapterService {
           }
         );
       } else {
-        // add uniqId ensure no conflict
-        dbTableName += getRandomString(10);
+        // add uniqId ensure no conflict while keeping the auto suffix
+        const fallbackTableName =
+          `${validTableName}${autoNameSuffix}_${getRandomString(6)}`.substring(0, 40);
+        dbTableName = buildDbTableName(fallbackTableName);
       }
     }
 
