@@ -1,4 +1,4 @@
-import { Bell, Link, Settings, UserEdit } from '@teable/icons';
+import { Bell, Link, Settings, User } from '@teable/icons';
 import { useIsTouchDevice } from '@teable/sdk/hooks';
 import {
   Dialog,
@@ -28,7 +28,7 @@ export const SettingDialog = () => {
       {
         key: 'profile',
         name: t('settings.account.tab'),
-        Icon: UserEdit,
+        Icon: User,
       },
       {
         key: 'system',
@@ -49,14 +49,14 @@ export const SettingDialog = () => {
   }, [t]);
 
   const content = (
-    <Tabs defaultValue="profile" className="flex h-full gap-4 overflow-hidden">
-      <TabsList className="grid gap-2 bg-inherit border-none text-left">
+    <Tabs defaultValue="profile" className="flex h-full gap-0 overflow-hidden">
+      <TabsList className="flex h-full w-[200px] flex-col items-start justify-start bg-muted p-4">
         {tabList.map(({ key, name, Icon }) => {
           return (
             <TabsTrigger
               key={key}
               value={key}
-              className="justify-start gap-2 font-normal hover:bg-accent cursor-pointer data-[state=active]:bg-accent data-[state=active]:font-medium"
+              className="h-8 w-full cursor-pointer justify-start gap-2 rounded-md font-normal data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:shadow-none hover:bg-surface"
             >
               <Icon className="size-5 shrink-0 sm:size-4" />
               <span className="hidden sm:inline">{name}</span>
@@ -105,7 +105,9 @@ export const SettingDialog = () => {
         </Sheet>
       ) : (
         <Dialog open={open} onOpenChange={setOpen}>
-          <DialogContent className="h-5/6 max-h-[800px] max-w-6xl pb-0">{content}</DialogContent>
+          <DialogContent className="h-4/5 max-h-[800px] max-w-[860px] overflow-hidden p-0">
+            {content}
+          </DialogContent>
         </Dialog>
       )}
     </>

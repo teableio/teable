@@ -81,7 +81,7 @@
       "title": "プロフィール",
       "tab": "アカウント",
       "updatePhoto": "写真の更新",
-      "updateNameDesc": "あなたの名前は投稿やメンションに表示されます。いつでも変更できます。",
+      "updateNameDesc": "ニックネームまたは名前、Teable で表示したい名前を入力してください",
       "securityTitle": "アカウントセキュリティ",
       "email": "Eメール",
       "password": "パスワード",

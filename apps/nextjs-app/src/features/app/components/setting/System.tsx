@@ -1,5 +1,6 @@
 import { useTheme } from '@teable/next-themes';
 import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
+import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { LanguagePicker } from '../LanguagePicker';
@@ -21,18 +22,17 @@ export const System: React.FC = () => {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col gap-6 px-8 py-4">
       <div>
         <h3 className="text-lg font-medium">{t('settings.setting.title')}</h3>
       </div>
-      <Separator />
-      <div className="space-y-1">
-        <div>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
           <Label>{t('settings.setting.theme')}</Label>
-          <div className="text-sm text-muted-foreground">{t('settings.setting.themeDesc')}</div>
+          <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
         </div>
         <RadioGroup
-          className="grid max-w-screen-md grid-cols-3 gap-4 pt-2 sm:gap-8"
+          className="grid max-w-screen-md grid-cols-3 gap-4 sm:gap-8"
           defaultValue={theme}
           onValueChange={(value) => {
             setTheme(value);
@@ -42,26 +42,17 @@ export const System: React.FC = () => {
             <RadioGroupItem value="light" id="light" className="peer sr-only" />
             <Label
               htmlFor="light"
-              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
             >
-              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
-                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
-                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
-                    <div className="h-2 w-4/5 rounded-lg bg-[#ecedef] sm:w-[80px]" />
-                    <div className="h-2 w-full rounded-lg bg-[#ecedef] sm:w-[100px]" />
-                  </div>
-                  <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                    <div className="size-4 rounded-full bg-[#ecedef]" />
-                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
-                  </div>
-                  <div className="flex items-center space-x-2 rounded-md bg-white p-2 shadow-sm">
-                    <div className="size-4 rounded-full bg-[#ecedef]" />
-                    <div className="h-2 w-[100px] rounded-lg bg-[#ecedef]" />
-                  </div>
-                </div>
-              </div>
+              <Image
+                className="overflow-hidden rounded-md border"
+                src={'/images/theme/theme-light.png'}
+                alt=""
+                width={198}
+                height={132}
+              />
             </Label>
-            <span className="block w-full p-2 text-center font-normal">
+            <span className="mt-1 block w-full text-center text-sm font-normal">
               {t('settings.setting.light')}
             </span>
           </div>
@@ -69,26 +60,17 @@ export const System: React.FC = () => {
             <RadioGroupItem value="dark" id="dark" className="peer sr-only" />
             <Label
               htmlFor="dark"
-              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
             >
-              <div className="items-center rounded-md border-2 border-muted bg-popover p-1 hover:bg-accent hover:text-accent-foreground">
-                <div className="space-y-2 rounded-sm bg-slate-950 p-2">
-                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
-                    <div className="h-2 w-4/5 rounded-lg bg-slate-400 sm:w-[80px]" />
-                    <div className="h-2 w-full rounded-lg bg-slate-400 sm:w-[100px]" />
-                  </div>
-                  <div className="flex items-center space-x-2 rounded-md bg-slate-800 p-2 shadow-sm">
-                    <div className="size-4 rounded-full bg-slate-400" />
-                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
-                  </div>
-                  <div className="flex items-center space-x-2 rounded-md bg-slate-800 p-2 shadow-sm">
-                    <div className="size-4 rounded-full bg-slate-400" />
-                    <div className="h-2 w-[100px] rounded-lg bg-slate-400" />
-                  </div>
-                </div>
-              </div>
+              <Image
+                className="overflow-hidden rounded-md border"
+                src={'/images/theme/theme-dark.png'}
+                alt=""
+                width={198}
+                height={132}
+              />
             </Label>
-            <span className="block w-full p-2 text-center font-normal">
+            <span className="mt-1 block w-full text-center text-sm font-normal">
               {t('settings.setting.dark')}
             </span>
           </div>
@@ -96,24 +78,17 @@ export const System: React.FC = () => {
             <RadioGroupItem value="system" id="system" className="peer sr-only" />
             <Label
               htmlFor="system"
-              className="flex flex-col rounded-md border-2 border-muted bg-popover peer-data-[state=checked]:border-primary hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
+              className="flex cursor-pointer flex-col rounded-lg border-2 border-transparent bg-popover p-1 peer-data-[state=checked]:border-primary peer-data-[state=checked]:shadow-[0_4px_12px_rgba(0,0,0,0.08),0_2px_2px_rgba(0,0,0,0.06)] hover:bg-accent hover:text-accent-foreground [&:has([data-state=checked])]:border-primary"
             >
-              <div className="items-center rounded-md border-2 border-muted p-1 hover:border-accent">
-                <div className="space-y-2 rounded-sm bg-[#ecedef] p-2">
-                  <div className="space-y-2 rounded-md bg-white p-2 shadow-sm">
-                    <div className="h-2 w-4/5 rounded-lg bg-[#ecedef]" />
-                    <div className="h-2 w-full rounded-lg bg-[#ecedef]" />
-                    <div className="h-2 w-full rounded-lg bg-[#ecedef]" />
-                  </div>
-                  <div className="space-y-2 rounded-md bg-slate-800 p-2 shadow-sm">
-                    <div className="h-2 w-4/5 rounded-lg bg-slate-400" />
-                    <div className="h-2 w-full rounded-lg bg-slate-400" />
-                    <div className="h-2 w-full rounded-lg bg-slate-400" />
-                  </div>
-                </div>
-              </div>
+              <Image
+                className="overflow-hidden rounded-md border"
+                src={'/images/theme/theme-system.png'}
+                alt=""
+                width={198}
+                height={132}
+              />
             </Label>
-            <span className="block w-full p-2 text-center font-normal">
+            <span className="mt-1 block w-full text-center text-sm font-normal">
               {t('settings.setting.system')}
             </span>
           </div>
@@ -133,10 +108,6 @@ export const System: React.FC = () => {
           </div>
         </div>
       )}
-      <div>
-        <Label>{t('settings.setting.version')}</Label>
-        <div className="pt-2 text-base">{process.env.NEXT_PUBLIC_BUILD_VERSION}</div>
-      </div>
     </div>
   );
 };

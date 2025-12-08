@@ -1,13 +1,12 @@
 import { useMutation } from '@tanstack/react-query';
 import { updateUserLang } from '@teable/openapi';
-import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuTrigger,
-} from '@teable/ui-lib/shadcn/ui/dropdown-menu';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@teable/ui-lib/shadcn/ui/select';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 
@@ -52,33 +51,23 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
   };
 
   const currentLanguage = i18n.language.split('-')[0];
+  // 检查当前语言是否存在于列表中，如果不存在则使用 'default'，确保 Select 组件能正确显示 placeholder 或选中项
+  const selectedValue = languages.some((l) => l.key === currentLanguage)
+    ? currentLanguage
+    : 'default';
+
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button className={className} variant="outline">
-          {languages.find((item) => item.key == currentLanguage)?.title || 'default'}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56">
-        <DropdownMenuRadioGroup
-          value={currentLanguage}
-          onValueChange={(value) => {
-            setLanguage(value);
-          }}
-        >
-          {languages.map((item) => {
-            return (
-              <DropdownMenuRadioItem
-                key={item.key}
-                disabled={currentLanguage === item.key}
-                value={item.key}
-              >
-                {item.title}
-              </DropdownMenuRadioItem>
-            );
-          })}
-        </DropdownMenuRadioGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <Select value={selectedValue} onValueChange={setLanguage}>
+      <SelectTrigger className={`w-full max-w-[320px] ${className || ''}`}>
+        <SelectValue placeholder="Select Language" />
+      </SelectTrigger>
+      <SelectContent>
+        {languages.map((item) => (
+          <SelectItem key={item.key} value={item.key}>
+            {item.title}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 };

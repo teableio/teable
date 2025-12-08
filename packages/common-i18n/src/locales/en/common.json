@@ -148,10 +148,10 @@
     },
     "back": "Back to home",
     "account": {
-      "title": "My profile",
-      "tab": "My account",
+      "title": "Profile",
+      "tab": "Profile",
       "updatePhoto": "Update photo",
-      "updateNameDesc": "Your name will be displayed on contributions and mentions. You can change it anytime.",
+      "updateNameDesc": "Nickname or first name, however you want to be called in Teable",
       "securityTitle": "Account security",
       "email": "Email",
       "password": "Password",
@@ -221,14 +221,14 @@
       }
     },
     "notify": {
-      "title": "My notifications",
+      "title": "Notifications",
       "label": "Activity in your space",
       "desc": "Receive emails when you get comments, mentions, page invites, reminders, access requests, and property changes."
     },
     "setting": {
-      "title": "My settings",
-      "theme": "Theme",
-      "themeDesc": "Select the theme for the app.",
+      "title": "Preferences",
+      "theme": "Intertace theme",
+      "themeDesc": "Select your interface color scheme",
       "dark": "Dark",
       "light": "Light",
       "system": "System",
