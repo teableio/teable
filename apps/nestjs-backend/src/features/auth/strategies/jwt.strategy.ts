@@ -52,27 +52,9 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     return user;
   }
 
-  private async setAppIdFromToken(req: Request) {
-    const authHeader = req.headers.authorization || '';
-    const token = authHeader.replace(/^Bearer\s+/i, '');
-
-    if (!token) return;
-
-    try {
-      const app = await this.prismaService.app.findFirst({
-        where: {
-          accessToken: token,
-          deletedTime: null,
-        },
-        select: { id: true },
-      });
-
-      if (app) {
-        this.cls.set('appId', app.id);
-      }
-    } catch (error) {
-      this.logger.error('Failed to query app by token:', error);
-    }
+  protected async setAppIdFromToken(_req: Request) {
+    // This method is overridden in enterprise edition to support app authentication
+    // Community edition does not have app model, so this is a no-op
   }
 
   private async validateUserToken(payload: IJwtAuthInfo) {
