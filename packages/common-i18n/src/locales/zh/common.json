@@ -648,7 +648,7 @@
     "fromSpace": "来自 \"{{name}}\" 空间",
     "permanentDeleteTips": "确定要永久删除 \"{{name}}\" {{resource}}吗？",
     "resetTrashConfirm": "确定要清空回收站吗？",
-    "addToTrash": "放入回收站",
+    "addToTrash": "移到回收站",
     "description": "回收站中的数据依然会占用记录用量和附件用量。"
   },
   "pluginCenter": {

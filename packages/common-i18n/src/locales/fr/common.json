@@ -474,7 +474,7 @@
     "fromSpace": "De l'espace \"{{name}}\"",
     "permanentDeleteTips": "Êtes-vous sûr de vouloir supprimer définitivement \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Êtes-vous sûr de vouloir vider la corbeille?",
-    "addToTrash": "Ajouter à la corbeille",
+    "addToTrash": "Déplacer dans la corbeille",
     "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes."
   },
   "automation": {

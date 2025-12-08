@@ -507,7 +507,7 @@
     "fromSpace": "Von \"{{name}}\" Space",
     "permanentDeleteTips": "Sind Sie sicher, dass Sie \"{{name}}\" {{resource}}? dauerhaft löschen möchten",
     "resetTrashConfirm": "Sind Sie sicher, dass Sie den Papierkorb leeren wollen?",
-    "addToTrash": "In den Papierkorb verschieben",
+    "addToTrash": "Zum Papierkorb verschieben",
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge."
   },
   "pluginCenter": {

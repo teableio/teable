@@ -368,9 +368,6 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                 <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
                   {t('common:actions.cancel')}
                 </Button>
-                <Button variant="destructive" size={'sm'} onClick={() => deleteTable(true)}>
-                  {t('common:actions.permanentDelete')}
-                </Button>
                 <Button size={'sm'} onClick={() => deleteTable(false)}>
                   {t('common:trash.addToTrash')}
                 </Button>

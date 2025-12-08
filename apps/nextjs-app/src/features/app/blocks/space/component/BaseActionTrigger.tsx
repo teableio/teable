@@ -197,9 +197,6 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               <Button size={'sm'} variant={'ghost'} onClick={() => setDeleteConfirm(false)}>
                 {t('common:actions.cancel')}
               </Button>
-              <Button variant="destructive" size={'sm'} onClick={() => handleDelete(true)}>
-                {t('common:actions.permanentDelete')}
-              </Button>
               <Button size={'sm'} onClick={() => handleDelete()}>
                 {t('common:trash.addToTrash')}
               </Button>

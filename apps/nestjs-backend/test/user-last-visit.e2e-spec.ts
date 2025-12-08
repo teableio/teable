@@ -14,12 +14,11 @@ import {
   getUserLastVisitListBase,
   getUserLastVisitMap,
   LastVisitResourceType,
-  permanentDeleteTable,
   updateUserLastVisit,
   userLastVisitListBaseVoSchema,
 } from '@teable/openapi';
 import { isEmpty } from 'lodash';
-import { getViews, initApp, permanentDeleteBase } from './utils/init-app';
+import { getViews, initApp, permanentDeleteBase, permanentDeleteTable } from './utils/init-app';
 
 describe('OpenAPI OAuthController (e2e)', () => {
   let app: INestApplication;

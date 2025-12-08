@@ -10,7 +10,6 @@ import {
   createBase,
   createSpace,
   getRecord,
-  permanentDeleteTable,
   updateRecord,
   uploadAttachment,
   urlBuilder,
@@ -26,7 +25,7 @@ import { EventEmitterService } from '../src/event-emitter/event-emitter.service'
 import { Events } from '../src/event-emitter/events';
 import StorageAdapter from '../src/features/attachments/plugins/adapter';
 import { createAwaitWithEvent } from './utils/event-promise';
-import { createField, createTable, initApp } from './utils/init-app';
+import { permanentDeleteTable, createField, createTable, initApp } from './utils/init-app';
 
 describe('OpenAPI AttachmentController (e2e)', () => {
   let app: INestApplication;

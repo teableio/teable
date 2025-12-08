@@ -28,11 +28,11 @@ import {
   createSpace,
   createBase,
   emailSpaceInvitation,
-  permanentDeleteBase,
   getRecords,
 } from '@teable/openapi';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import {
+  permanentDeleteBase,
   createField,
   getRecord,
   initApp,

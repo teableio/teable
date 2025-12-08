@@ -503,7 +503,7 @@
     "fromSpace": "Dallo spazio \"{{name}}\"",
     "permanentDeleteTips": "Sei sicuro di voler eliminare definitivamente \"{{name}}\" {{resource}}?",
     "resetTrashConfirm": "Sei sicuro di voler svuotare il cestino?",
-    "addToTrash": "Aggiungi al cestino",
+    "addToTrash": "Muovi nel cestino",
     "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati."
   },
   "pluginCenter": {

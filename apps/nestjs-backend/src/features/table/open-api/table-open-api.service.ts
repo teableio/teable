@@ -351,13 +351,15 @@ export class TableOpenApiService {
   async dropTables(tableIds: string[]) {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { id: { in: tableIds } },
-      select: { dbTableName: true, version: true, id: true, baseId: true },
+      select: { dbTableName: true, version: true, id: true, baseId: true, deletedTime: true },
     });
 
     for (const table of tables) {
-      await this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
-        { docId: table.id, version: table.version },
-      ]);
+      if (!table.deletedTime) {
+        await this.batchService.saveRawOps(table.baseId, RawOpType.Del, IdPrefix.Table, [
+          { docId: table.id, version: table.version },
+        ]);
+      }
       await this.prismaService
         .txClient()
         .$executeRawUnsafe(this.dbProvider.dropTable(table.dbTableName));
