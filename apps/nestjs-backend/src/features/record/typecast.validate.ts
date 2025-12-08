@@ -155,6 +155,21 @@ export class TypeCastAndValidate {
       if (cellValue === undefined) {
         return;
       }
+      if (this.field.notNull && cellValue == null) {
+        throw new CustomHttpException(
+          `Field ${this.field.name}[${this.field.id}] not null validation failed`,
+          HttpErrorCode.VALIDATION_ERROR,
+          {
+            localization: {
+              i18nKey: 'httpErrors.custom.fieldValueNotNull',
+              context: {
+                tableName: this.tableId,
+                fieldName: this.field.name,
+              },
+            },
+          }
+        );
+      }
       const validate = this.field.validateCellValue(cellValue);
       if (!validate) return;
       if (!validate.success) {

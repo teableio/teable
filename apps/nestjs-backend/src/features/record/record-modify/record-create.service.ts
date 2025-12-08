@@ -33,7 +33,7 @@ export class RecordCreateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(table, records, fieldKeyType, typecast, ignoreMissingFields, true);
+    >(table, records, fieldKeyType, typecast, ignoreMissingFields);
     const preparedRecords = await this.shared.appendRecordOrderIndexes(
       table,
       typecastRecords,
@@ -109,7 +109,7 @@ export class RecordCreateService {
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
     const typecastRecords = await this.shared.validateFieldsAndTypecast<
       IMakeOptional<IRecordInnerRo, 'id'>
-    >(table, records, fieldKeyType, typecast, false, true);
+    >(table, records, fieldKeyType, typecast);
     await this.recordService.createRecordsOnlySql(table, typecastRecords);
   }
 
