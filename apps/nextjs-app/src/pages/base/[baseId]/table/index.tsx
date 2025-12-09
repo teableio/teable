@@ -10,23 +10,35 @@ const Node: NextPageWithLayout = () => {
 export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context, ssrApi) => {
   const { baseId, ...queryParams } = context.query;
   const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
-  const userLastVisitTable = await ssrApi.getUserLastVisit(
-    LastVisitResourceType.Table,
-    baseId as string
-  );
+  const [userLastVisitTable, tableList] = await Promise.all([
+    ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId as string),
+    ssrApi.getTables(baseId as string),
+  ]);
 
-  if (!userLastVisitTable) {
+  const tableIds = tableList.map((table) => table.id);
+  const tableId =
+    userLastVisitTable?.resourceId && tableIds.includes(userLastVisitTable.resourceId)
+      ? userLastVisitTable.resourceId
+      : tableIds[0];
+
+  if (!tableId) {
     return {
       notFound: true,
     };
   }
 
-  const userLastVisitView = await ssrApi.getUserLastVisit(
-    LastVisitResourceType.View,
-    userLastVisitTable.resourceId as string
-  );
+  const [userLastVisitView, viewList] = await Promise.all([
+    ssrApi.getUserLastVisit(LastVisitResourceType.View, tableId as string),
+    ssrApi.getViewList(tableId as string),
+  ]);
 
-  if (!userLastVisitView) {
+  const viewIds = viewList.map((view) => view.id);
+  const viewId =
+    userLastVisitView?.resourceId && viewIds.includes(userLastVisitView.resourceId)
+      ? userLastVisitView.resourceId
+      : viewIds[0];
+
+  if (!viewId) {
     return {
       notFound: true,
     };
@@ -34,7 +46,7 @@ export const getServerSideProps: GetServerSideProps = withAuthSSR(async (context
 
   return {
     redirect: {
-      destination: `/base/${baseId}/table/${userLastVisitTable.resourceId}/${userLastVisitView.resourceId}?${queryString}`,
+      destination: `/base/${baseId}/table/${tableId}/${viewId}?${queryString}`,
       permanent: false,
     },
   };

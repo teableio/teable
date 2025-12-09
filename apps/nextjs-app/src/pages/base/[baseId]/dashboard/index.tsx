@@ -29,7 +29,11 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         }),
       ]);
 
-      const dashboardId = lastVisit?.resourceId || dashboardList[0]?.id;
+      const dashboardIds = dashboardList.map((dashboard) => dashboard.id);
+      const dashboardId =
+        lastVisit?.resourceId && dashboardIds.includes(lastVisit.resourceId)
+          ? lastVisit.resourceId
+          : dashboardIds[0];
       if (dashboardId) {
         return {
           redirect: {

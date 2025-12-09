@@ -37,7 +37,12 @@ export const getServerSideProps = withEnv(
       const { tableId, viewId, baseId, recordId, fromNotify: notifyId } = context.query;
       const queryClient = new QueryClient();
 
-      await Promise.all([
+      const [tableList] = await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.tableList(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getTables(queryKey[1]),
+        }),
+
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
           queryFn: ({ queryKey }) =>
@@ -54,6 +59,39 @@ export const getServerSideProps = withEnv(
           queryFn: ({ queryKey }) => ssrApi.getTablePermission(queryKey[1], queryKey[2]),
         }),
       ]);
+
+      const tableIds = tableList.map((table) => table.id);
+      if (tableIds.length === 0) {
+        return {
+          notFound: true,
+        };
+      }
+      if (!tableIds.includes(tableId as string)) {
+        return {
+          redirect: {
+            destination: `/base/${baseId}/table/${tableIds[0]}`,
+            permanent: false,
+          },
+        };
+      }
+
+      if (viewId) {
+        const viewList = await queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.viewList(tableId as string),
+          queryFn: () => ssrApi.getViewList(tableId as string),
+        });
+        const viewIds = viewList.map((view) => view.id);
+        const hasPermission = viewIds.includes(viewId as string);
+        const defaultViewId = viewIds[0];
+        if (!hasPermission && defaultViewId) {
+          return {
+            redirect: {
+              destination: `/base/${baseId}/table/${tableId}/${defaultViewId}`,
+              permanent: false,
+            },
+          };
+        }
+      }
 
       let recordServerData;
       if (recordId) {
