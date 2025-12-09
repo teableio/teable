@@ -26,7 +26,7 @@ import {
 } from '@teable/ui-lib/base/headless-tree';
 import type { DragTarget, ItemInstance } from '@teable/ui-lib/base/headless-tree';
 import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
-import { Button, Input, Skeleton } from '@teable/ui-lib/shadcn';
+import { Button, cn, Input, Skeleton } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
 import { useParams } from 'next/navigation';
@@ -39,6 +39,7 @@ import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { useTableHref } from '../../table-list/useTableHref';
+import { useGridSearchStore } from '../../view/grid/useGridSearchStore';
 import {
   BaseNodeResourceIconMap,
   BaseNodeResourceLastVisitMap,
@@ -138,6 +139,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     appId?: string;
     tableId?: string;
   }>();
+  const { highlightedTableId } = useGridSearchStore();
   const tableHrefMap = useTableHref();
   const permission = useBasePermission();
   const { buildApp: buildAppEnabled } = useDisableAIAction();
@@ -599,11 +601,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               if (!node || Object.keys(node).length === 0) return null;
               const { resourceType, resourceId } = node;
               const name = getNodeName(node);
+              const isHighlighted = isEditMode && highlightedTableId === resourceId;
 
               return (
                 <TreeItem asChild key={nodeId} item={item}>
                   <div className="h-8 w-full cursor-pointer">
-                    <TreeItemLabel className="size-full min-w-0 py-0">
+                    <TreeItemLabel
+                      className={cn('size-full min-w-0 py-0', {
+                        'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+                      })}
+                    >
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         {editingNodeId === nodeId ? (
                           <Input
