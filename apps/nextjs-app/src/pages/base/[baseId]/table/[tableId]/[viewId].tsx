@@ -12,8 +12,6 @@ import type { IViewPageProps } from '@/lib/view-pages-data';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 
 const Node: NextPageWithLayout<ITableProps> = ({
   fieldServerData,

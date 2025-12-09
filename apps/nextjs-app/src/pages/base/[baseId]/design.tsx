@@ -6,8 +6,7 @@ import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { tableConfig } from '@/features/i18n/table.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
-import type { NextPageWithLayout } from '@/lib/type';
-import type { IViewPageProps } from '@/lib/view-pages-data';
+import type { IBasePageProps, NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
@@ -20,9 +19,7 @@ export const getServerSideProps = withEnv(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
       const queryClient = new QueryClient();
-      const [tables] = await Promise.all([
-        ssrApi.getTables(baseId as string),
-
+      await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
           queryFn: ({ queryKey }) =>
@@ -35,25 +32,18 @@ export const getServerSideProps = withEnv(
         }),
       ]);
 
-      if (tables) {
-        const { i18nNamespaces } = tableConfig;
-        return {
-          props: {
-            tableServerData: tables,
-            dehydratedState: dehydrate(queryClient),
-            ...(await getTranslationsProps(context, i18nNamespaces)),
-          },
-        };
-      }
-
+      const { i18nNamespaces } = tableConfig;
       return {
-        notFound: true,
+        props: {
+          dehydratedState: dehydrate(queryClient),
+          ...(await getTranslationsProps(context, i18nNamespaces)),
+        },
       };
     })
   )
 );
 
-Node.getLayout = function getLayout(page: ReactElement, pageProps: IViewPageProps) {
+Node.getLayout = function getLayout(page: ReactElement, pageProps: IBasePageProps) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };
 

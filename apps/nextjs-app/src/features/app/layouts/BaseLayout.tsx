@@ -19,7 +19,7 @@ import { useSdkLocale } from '../hooks/useSdkLocale';
 
 export const BaseLayout: React.FC<{
   children: React.ReactNode;
-  tableServerData: ITableVo[];
+  tableServerData?: ITableVo[];
   dehydratedState?: DehydratedState;
   user?: IUser;
 }> = ({ children, tableServerData, user, dehydratedState }) => {

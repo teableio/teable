@@ -18,6 +18,8 @@ import { getColorsCssVariablesText } from '@/themes/utils';
 import nextI18nextConfig from '../../next-i18next.config.js';
 import { AppProviders } from '../AppProviders';
 import '@glideapps/glide-data-grid/dist/index.css';
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 import 'reactflow/dist/style.css';
 
 dayjs.extend(utc);

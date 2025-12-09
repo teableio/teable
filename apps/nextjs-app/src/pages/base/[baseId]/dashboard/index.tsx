@@ -1,5 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import { LastVisitResourceType, type ITableVo } from '@teable/openapi';
+import { LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -8,10 +8,8 @@ import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
-import type { NextPageWithLayout } from '@/lib/type';
+import type { IBasePageProps, NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
 import withEnv from '@/lib/withEnv';
 
 const Node: NextPageWithLayout = () => <DashboardPage />;
@@ -22,19 +20,12 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       const { baseId } = context.query;
       const queryClient = new QueryClient();
 
-      const [tables, lastVisit, dashboardList] = await Promise.all([
-        ssrApi.getTables(baseId as string),
-
+      const [lastVisit, dashboardList] = await Promise.all([
         ssrApi.getUserLastVisit(LastVisitResourceType.Dashboard, baseId as string),
 
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.getDashboardList(baseId as string),
           queryFn: ({ queryKey }) => ssrApi.getDashboardList(queryKey[1]),
-        }),
-
-        queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
-          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
         }),
       ]);
 
@@ -48,9 +39,21 @@ export const getServerSideProps: GetServerSideProps = withEnv(
         };
       }
 
+      await Promise.all([
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.base(baseId as string),
+          queryFn: ({ queryKey }) =>
+            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+        }),
+
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.getBasePermission(baseId as string),
+          queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
+        }),
+      ]);
+
       return {
         props: {
-          tableServerData: tables,
           dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, dashboardConfig.i18nNamespaces)),
         },
@@ -59,12 +62,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   )
 );
 
-Node.getLayout = function getLayout(
-  page: ReactElement,
-  pageProps: {
-    tableServerData: ITableVo[];
-  }
-) {
+Node.getLayout = function getLayout(page: ReactElement, pageProps: IBasePageProps) {
   return <BaseLayout {...pageProps}>{page}</BaseLayout>;
 };
 export default Node;

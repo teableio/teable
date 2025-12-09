@@ -19,9 +19,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       const { baseId } = context.query;
       const queryClient = new QueryClient();
 
-      const [tables] = await Promise.all([
-        ssrApi.getTables(baseId as string),
-
+      await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
           queryFn: ({ queryKey }) =>
@@ -36,7 +34,6 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 
       return {
         props: {
-          tableServerData: tables,
           dehydratedState: dehydrate(queryClient),
           ...(await getTranslationsProps(context, ['common', 'space', 'sdk'])),
         },
