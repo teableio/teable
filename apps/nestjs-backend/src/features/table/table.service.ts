@@ -2,6 +2,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { IOtOperation, ISnapshotBase } from '@teable/core';
 import {
+  DriverClient,
   generateTableId,
   getRandomString,
   getUniqName,
@@ -40,8 +41,17 @@ export class TableService implements IReadonlyAdapterService {
     return convertNameToValidCharacter(name, 40);
   }
 
+  private async lockBaseRow(baseId: string) {
+    if (this.dbProvider.driver !== DriverClient.Pg) return;
+
+    await this.prismaService.txClient()
+      .$executeRaw`select id from base where id = ${baseId} for update`;
+  }
+
   private async createDBTable(baseId: string, tableRo: ICreateTableRo, createTable = true) {
     const userId = this.cls.get('user.id');
+    await this.lockBaseRow(baseId);
+
     const tableRaws = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, deletedTime: null },
       select: { name: true, order: true },
@@ -60,13 +70,13 @@ export class TableService implements IReadonlyAdapterService {
       tableRo.dbTableName || validTableName
     );
 
-    const existTable = await this.prismaService.txClient().tableMeta.findFirst({
-      where: { dbTableName: tableRo.dbTableName },
-      select: { id: true },
-    });
+    if (tableRo.dbTableName) {
+      const existTable = await this.prismaService.txClient().tableMeta.findFirst({
+        where: { dbTableName, baseId },
+        select: { id: true },
+      });
 
-    if (existTable) {
-      if (tableRo.dbTableName) {
+      if (existTable) {
         throw new CustomHttpException(
           `dbTableName ${tableRo.dbTableName} already exists`,
           HttpErrorCode.VALIDATION_ERROR,
@@ -76,7 +86,14 @@ export class TableService implements IReadonlyAdapterService {
             },
           }
         );
-      } else {
+      }
+    } else {
+      const existTable = await this.prismaService.txClient().tableMeta.findFirst({
+        where: { dbTableName },
+        select: { id: true },
+      });
+
+      if (existTable) {
         // add uniqId ensure no conflict
         dbTableName += getRandomString(10);
       }
