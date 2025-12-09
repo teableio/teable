@@ -863,6 +863,7 @@
     "unauthorized": "Не авторизовано",
     "unauthorizedShare": "Не авторизована доступ",
     "paymentRequired": "Потрібна оплата",
+    "creditLimitExceeded": "Перевищено ліміт кредитів",
     "restrictedResource": "Обмежений ресурс",
     "notFound": "Не знайдено",
     "conflict": "Конфлікт",

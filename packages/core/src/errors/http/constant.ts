@@ -8,6 +8,7 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.UNAUTHORIZED]: 401,
   [HttpErrorCode.UNAUTHORIZED_SHARE]: 401,
   [HttpErrorCode.PAYMENT_REQUIRED]: 402,
+  [HttpErrorCode.CREDIT_LIMIT_EXCEEDED]: 402,
   [HttpErrorCode.RESTRICTED_RESOURCE]: 403,
   [HttpErrorCode.NOT_FOUND]: 404,
   [HttpErrorCode.REQUEST_TIMEOUT]: 408,

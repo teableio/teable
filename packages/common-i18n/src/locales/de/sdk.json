@@ -863,6 +863,7 @@
     "unauthorized": "Nicht autorisiert",
     "unauthorizedShare": "Nicht autorisierte Freigabe",
     "paymentRequired": "Zahlung erforderlich",
+    "creditLimitExceeded": "Kreditlimit überschritten",
     "restrictedResource": "Eingeschränkte Ressource",
     "notFound": "Nicht gefunden",
     "conflict": "Konflikt",

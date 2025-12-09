@@ -863,6 +863,7 @@
     "unauthorized": "承認されていません",
     "unauthorizedShare": "共有が承認されていません",
     "paymentRequired": "支払いが必要です",
+    "creditLimitExceeded": "算力上限を超えました",
     "restrictedResource": "制限されたリソース",
     "notFound": "見つかりません",
     "conflict": "競合",

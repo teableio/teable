@@ -875,6 +875,7 @@
     "unauthorized": "No autorizado",
     "unauthorizedShare": "Compartir no autorizado",
     "paymentRequired": "Pago requerido",
+    "creditLimitExceeded": "Límite de créditos excedido",
     "restrictedResource": "Recurso restringido",
     "notFound": "No encontrado",
     "conflict": "Conflicto",

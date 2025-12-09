@@ -2097,6 +2097,7 @@ export type I18nTranslations = {
             "unauthorized": string;
             "unauthorizedShare": string;
             "paymentRequired": string;
+            "creditLimitExceeded": string;
             "restrictedResource": string;
             "notFound": string;
             "conflict": string;

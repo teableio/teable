@@ -863,6 +863,7 @@
     "unauthorized": "令牌无效",
     "unauthorizedShare": "无权限执行此操作",
     "paymentRequired": "需要支付才能完成此操作",
+    "creditLimitExceeded": "算力额度已超限",
     "restrictedResource": "此资源受限",
     "notFound": "请求的资源不存在或未共享",
     "conflict": "请求因与当前资源状态冲突而无法完成",

@@ -863,6 +863,7 @@
     "unauthorized": "Yetkisiz",
     "unauthorizedShare": "Yetkisiz Paylaşım",
     "paymentRequired": "Ödeme Gerekli",
+    "creditLimitExceeded": "Kredi Limiti Aşıldı",
     "restrictedResource": "Kısıtlı Kaynak",
     "notFound": "Bulunamadı",
     "conflict": "Çatışma",
