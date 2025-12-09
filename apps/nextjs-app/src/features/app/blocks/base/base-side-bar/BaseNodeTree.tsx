@@ -452,6 +452,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     );
     if (!node) return;
 
+    const parentIds = getAllParentIds(node.id);
+    setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     setSelectedItems([node.id]);
     const lastVisitResourceType =
       BaseNodeResourceLastVisitMap[node.resourceType as keyof typeof BaseNodeResourceLastVisitMap];
