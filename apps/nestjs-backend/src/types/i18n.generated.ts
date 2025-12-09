@@ -3747,9 +3747,25 @@ export type I18nTranslations = {
             "automation": {
                 "created": string;
                 "updated": string;
+                "workflow": string;
+                "trigger": string;
+                "scriptAction": string;
+                "workflowLabel": string;
+                "triggerLabel": string;
+                "scriptActionLabel": string;
                 "workflowId": string;
                 "triggerId": string;
                 "scriptActionId": string;
+                "viewAutomation": string;
+                "navigateToAutomation": string;
+                "triggerType": {
+                    "recordCreated": string;
+                    "recordUpdated": string;
+                    "recordCreatedOrUpdated": string;
+                    "formSubmitted": string;
+                    "scheduledTime": string;
+                    "buttonClick": string;
+                };
                 "testPassed": string;
                 "testFailed": string;
                 "testOutput": string;

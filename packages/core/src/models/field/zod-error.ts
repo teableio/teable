@@ -209,7 +209,7 @@ const validateOptions = (data: IValidateFieldOptionProps) => {
   if (result && !result.success) {
     res.push({
       path: ['options'],
-      message: `RefineOptionsError: ${fromZodError(result.error).message}`,
+      message: fromZodError(result.error).message,
       i18nKey: 'sdk:editor.error.refineOptionsError',
       context: {
         message: fromZodError(result.error).message,
