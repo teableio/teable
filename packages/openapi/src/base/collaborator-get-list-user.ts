@@ -52,6 +52,7 @@ export const ListBaseCollaboratorUserRoute: RouteConfig = registerRoute({
       },
     },
   },
+  tags: ['base'],
 });
 
 export const getUserCollaborators = async (
