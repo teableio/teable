@@ -1,16 +1,11 @@
 'use client';
 
-import { useMutation } from '@tanstack/react-query';
 import type {
   IBaseNodeVo,
   IDuplicateBaseNodeRo,
   IBaseNodeWorkflowResourceMeta,
-  IUpdateUserLastVisitRo,
 } from '@teable/openapi';
-import {
-  BaseNodeResourceType,
-  updateUserLastVisit as updateUserLastVisitApi,
-} from '@teable/openapi';
+import { BaseNodeResourceType } from '@teable/openapi';
 import { LocalStorageKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { useConfirm } from '@teable/ui-lib/base/dialog/confirm-modal';
@@ -184,12 +179,6 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     },
     [baseId, setExpandedItemsMap]
   );
-
-  const { mutateAsync: updateUserLastVisit } = useMutation({
-    mutationFn: (ro: IUpdateUserLastVisitRo) => {
-      return updateUserLastVisitApi(ro);
-    },
-  });
 
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
@@ -455,16 +444,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const parentIds = getAllParentIds(node.id);
     setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     setSelectedItems([node.id]);
-    const lastVisitResourceType =
-      BaseNodeResourceLastVisitMap[node.resourceType as keyof typeof BaseNodeResourceLastVisitMap];
-    if (lastVisitResourceType) {
-      updateUserLastVisit({
-        resourceId: node.resourceId,
-        resourceType: lastVisitResourceType,
-        parentResourceId: baseId,
-      });
-    }
-  }, [treeItems, urlPath, urlParams, baseId, updateUserLastVisit]);
+  }, [treeItems, urlPath, urlParams, baseId]);
 
   useEffect(() => {
     if (selectedItems.length === 0) return;
