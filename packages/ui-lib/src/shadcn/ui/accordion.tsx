@@ -44,8 +44,10 @@ AccordionTrigger.displayName = AccordionPrimitive.Trigger.displayName;
 
 const AccordionContent = React.forwardRef<
   React.ElementRef<typeof AccordionPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof AccordionPrimitive.Content> & {
+    innerClassName?: string;
+  }
+>(({ className, children, innerClassName, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
     className={cn(
@@ -54,7 +56,7 @@ const AccordionContent = React.forwardRef<
     )}
     {...props}
   >
-    <div className="pb-3">{children}</div>
+    <div className={cn('pb-3', innerClassName)}>{children}</div>
   </AccordionPrimitive.Content>
 ));
 AccordionContent.displayName = AccordionPrimitive.Content.displayName;

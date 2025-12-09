@@ -72,6 +72,7 @@ export type IRecordSnapshotItemVo = z.infer<typeof recordSnapshotItemVoSchema>;
 export type IResourceMapVo = z.infer<typeof resourceMapVoSchema>;
 
 export const trashRoSchema = z.object({
+  spaceId: z.string().startsWith(IdPrefix.Space).optional(),
   resourceType: z.enum([ResourceType.Space, ResourceType.Base]),
 });
 

@@ -13,7 +13,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { BaseCard } from './BaseCard';
+import { BaseList } from './BaseList';
 
 export const RecentlyBase = () => {
   const { t } = useTranslation(['space']);
@@ -23,6 +23,9 @@ export const RecentlyBase = () => {
     queryKey: ReactQueryKeys.recentlyBase(),
     queryFn: () => getUserLastVisitListBase().then((res) => res.data),
   });
+  const recentlyBases = useMemo(() => {
+    return recentlyBase?.list || [];
+  }, [recentlyBase]);
 
   // Shared bases data
   const { data: sharedBases } = useQuery({
@@ -30,25 +33,9 @@ export const RecentlyBase = () => {
     queryFn: () => getSharedBase().then((res) => res.data),
   });
 
-  const { data: spaceList } = useQuery({
-    queryKey: ReactQueryKeys.spaceList(),
-    queryFn: () => getSpaceList().then((data) => data.data),
-  });
-
-  const spaceNameMap = useMemo(() => {
-    if (!spaceList) return {};
-    return spaceList.reduce(
-      (acc, space) => {
-        acc[space.id] = space.name;
-        return acc;
-      },
-      {} as Record<string, string>
-    );
-  }, [spaceList]);
-
   // Don't render if neither recent nor shared bases exist
   if (
-    (!recentlyBase?.list.length || recentlyBase?.list.length === 0) &&
+    (!recentlyBases?.length || recentlyBases?.length === 0) &&
     (!sharedBases?.length || sharedBases?.length === 0)
   ) {
     return null;
@@ -77,20 +64,13 @@ export const RecentlyBase = () => {
 
         <CardContent className="pt-0">
           <TabsContent value="recent" className="mt-0">
-            {!recentlyBase?.list.length || recentlyBase?.list.length === 0 ? (
+            {!recentlyBases?.length || recentlyBases?.length === 0 ? (
               <div className="flex items-center justify-center text-muted-foreground">
-                No recently visited bases
+                {t('space:baseList.empty')}
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3">
-                {recentlyBase?.list.map((item) => (
-                  <BaseCard
-                    className="h-20 max-w-[34rem] flex-1 sm:min-w-[17rem]"
-                    key={item.resourceId}
-                    base={item.resource}
-                    spaceName={spaceNameMap[item.resource.spaceId]}
-                  />
-                ))}
+              <div className="flex flex-col gap-2">
+                <BaseList baseIds={recentlyBases.map((item) => item.resourceId)} />
               </div>
             )}
           </TabsContent>
@@ -101,15 +81,8 @@ export const RecentlyBase = () => {
                 {t('space:sharedBase.empty')}
               </div>
             ) : (
-              <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,17rem),1fr))] gap-3">
-                {sharedBases?.map((base) => (
-                  <BaseCard
-                    className="h-20 max-w-[34rem] flex-1 sm:min-w-[17rem]"
-                    key={base.id}
-                    base={base}
-                    spaceName={base.spaceName || spaceNameMap[base.spaceId]}
-                  />
-                ))}
+              <div className="flex flex-col gap-2">
+                <BaseList baseIds={sharedBases.map((base) => base.id)} />
               </div>
             )}
           </TabsContent>

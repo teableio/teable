@@ -101,5 +101,13 @@
   "noSpaces": {
     "title": "Hi {{userName}}!",
     "description": "Create your first space to start your data collaboration journey."
+  },
+  "baseList": {
+    "allBases": "All bases",
+    "owner": "Owner",
+    "lastOpened": "Last opened",
+    "enter": "Enter",
+    "noTables": "No tables",
+    "empty": "No bases yet"
   }
 }

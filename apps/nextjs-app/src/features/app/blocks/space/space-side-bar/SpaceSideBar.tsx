@@ -78,8 +78,8 @@ export const SpaceSideBar = (props: { isAdmin?: boolean | null }) => {
           })}
         </ul>
       </div>
-      <div className="flex flex-col overflow-hidden">
-        <PinList />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <PinList className="max-h-[30vh] flex-none" />
         <SpaceList />
       </div>
     </>

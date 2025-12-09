@@ -52,7 +52,8 @@
     "turnOn": "开启",
     "exit": "退出",
     "next": "下一页",
-    "previous": "上一页"
+    "previous": "上一页",
+    "select": "选择"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -641,6 +642,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "空间回收站",
     "type": "类型",
     "resetTrash": "清空回收站",
     "deletedBy": "操作者",

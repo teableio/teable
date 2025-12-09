@@ -12,6 +12,7 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
+import { keyBy } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -20,6 +21,7 @@ import { IDbProvider } from '../../db-provider/db.provider.interface';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { updateOrder } from '../../utils/update-order';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { PermissionService } from '../auth/permission.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { GraphService } from '../graph/graph.service';
@@ -52,6 +54,7 @@ export class BaseService {
           name: true,
           icon: true,
           spaceId: true,
+          createdBy: true,
         },
         where: {
           id: baseId,
@@ -101,6 +104,8 @@ export class BaseService {
         order: true,
         spaceId: true,
         icon: true,
+        createdBy: true,
+        lastModifiedTime: true,
       },
       where: {
         deletedTime: null,
@@ -122,9 +127,24 @@ export class BaseService {
       },
       orderBy: [{ spaceId: 'asc' }, { order: 'asc' }],
     });
+
+    const createUserList = await this.prismaService.user.findMany({
+      where: { id: { in: baseList.map((base) => base.createdBy) } },
+      select: { id: true, name: true, avatar: true },
+    });
+    const createUserMap = keyBy(createUserList, 'id');
+
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
-      return { ...base, role };
+      const createUser = createUserMap[base.createdBy];
+      return {
+        ...base,
+        role,
+        createdUser: {
+          ...createUser,
+          avatar: createUser?.avatar && getPublicFullStorageUrl(createUser.avatar),
+        },
+      };
     });
   }
 

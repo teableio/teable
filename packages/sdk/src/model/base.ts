@@ -11,6 +11,7 @@ export class Base implements IGetBaseVo {
   collaboratorType?: CollaboratorType;
   restrictedAuthority?: boolean;
   enabledAuthority?: boolean;
+  createdBy: string;
 
   constructor(base: IGetBaseVo) {
     const {
@@ -22,6 +23,7 @@ export class Base implements IGetBaseVo {
       collaboratorType,
       restrictedAuthority,
       enabledAuthority,
+      createdBy,
     } = base;
     this.id = id;
     this.name = name;
@@ -31,6 +33,7 @@ export class Base implements IGetBaseVo {
     this.collaboratorType = collaboratorType;
     this.restrictedAuthority = restrictedAuthority;
     this.enabledAuthority = enabledAuthority;
+    this.createdBy = createdBy;
   }
 
   async createTable(tableRo?: ICreateTableRo) {

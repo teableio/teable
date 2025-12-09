@@ -2,8 +2,8 @@ import { dehydrate, QueryClient } from '@tanstack/react-query';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
-import { SharedBasePage } from '@/features/app/blocks/space/SharedBasePage';
-import { SharedBaseLayout } from '@/features/app/layouts/SharedBaseLayout';
+import { SpaceInnerTrashPage } from '@/features/app/blocks/trash/SpaceInnerTrashPage';
+import { SpaceInnerLayout } from '@/features/app/layouts/SpaceInnerLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
@@ -11,23 +11,17 @@ import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
 
-const Node: NextPageWithLayout = () => <SharedBasePage />;
+const SpaceTrash: NextPageWithLayout = () => <SpaceInnerTrashPage />;
 
 export const getServerSideProps: GetServerSideProps = withEnv(
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const queryClient = new QueryClient();
 
-      await Promise.all([
-        queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.spaceList(),
-          queryFn: () => ssrApi.getSpaceList(),
-        }),
-        queryClient.fetchQuery({
-          queryKey: ReactQueryKeys.getSharedBase(),
-          queryFn: () => ssrApi.getSharedBase(),
-        }),
-      ]);
+      await queryClient.fetchQuery({
+        queryKey: ReactQueryKeys.spaceList(),
+        queryFn: () => ssrApi.getSpaceList(),
+      });
 
       return {
         props: {
@@ -39,7 +33,8 @@ export const getServerSideProps: GetServerSideProps = withEnv(
   )
 );
 
-Node.getLayout = function getLayout(page: ReactElement, pageProps) {
-  return <SharedBaseLayout {...pageProps}>{page}</SharedBaseLayout>;
+SpaceTrash.getLayout = function getLayout(page: ReactElement, pageProps) {
+  return <SpaceInnerLayout {...pageProps}>{page}</SpaceInnerLayout>;
 };
-export default Node;
+
+export default SpaceTrash;

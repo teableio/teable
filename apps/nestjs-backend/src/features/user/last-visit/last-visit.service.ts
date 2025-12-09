@@ -79,6 +79,33 @@ export class LastVisitService {
     };
   }
 
+  async spaceVisit(userId: string, parentResourceId: string) {
+    const lastVisit = await this.prismaService.userLastVisit.findFirst({
+      where: {
+        userId,
+        parentResourceId,
+        resourceType: LastVisitResourceType.Space,
+      },
+      orderBy: {
+        lastVisitTime: 'desc',
+      },
+      take: 1,
+      select: {
+        resourceId: true,
+        resourceType: true,
+      },
+    });
+
+    if (lastVisit) {
+      return {
+        resourceId: lastVisit.resourceId,
+        resourceType: lastVisit.resourceType as LastVisitResourceType,
+      };
+    }
+
+    return undefined;
+  }
+
   async tableVisit(userId: string, baseId: string): Promise<IUserLastVisitVo | undefined> {
     const knex = this.knex;
 
@@ -404,6 +431,7 @@ export class LastVisitService {
         resourceIcon: 'b.icon',
         resourceRole: 'c.role_name',
         spaceId: 's.id',
+        createBy: 'b.created_by',
       })
       .from('user_last_visit as ulv')
       .join('base as b', function () {
@@ -436,6 +464,7 @@ export class LastVisitService {
         resourceIcon: string;
         resourceRole: IRole;
         spaceId: string;
+        createBy: string;
       }[]
     >(query.toQuery());
 
@@ -449,6 +478,7 @@ export class LastVisitService {
         icon: result.resourceIcon,
         role: result.resourceRole,
         spaceId: result.spaceId,
+        createdBy: result.createBy,
       },
     }));
 
@@ -463,6 +493,8 @@ export class LastVisitService {
     params: IGetUserLastVisitRo
   ): Promise<IUserLastVisitVo | undefined> {
     switch (params.resourceType) {
+      case LastVisitResourceType.Space:
+        return this.spaceVisit(userId, params.parentResourceId);
       case LastVisitResourceType.Table:
         return this.tableVisit(userId, params.parentResourceId);
       case LastVisitResourceType.View:
@@ -495,7 +527,6 @@ export class LastVisitService {
         resourceType: LastVisitResourceType.Base,
         resourceId,
         parentResourceId,
-        maxRecords: 10,
       });
       return;
     }

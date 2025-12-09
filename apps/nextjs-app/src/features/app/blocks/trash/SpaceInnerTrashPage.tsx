@@ -1,4 +1,3 @@
-import type { QueryFunctionContext } from '@tanstack/react-query';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
 import { MoreHorizontal, RefreshCcw, Trash2 } from '@teable/icons';
@@ -7,7 +6,7 @@ import {
   getTrash,
   ResourceType,
   restoreTrash,
-  permanentDeleteSpace,
+  permanentDeleteBase,
   PrincipalType,
 } from '@teable/openapi';
 import { InfiniteTable } from '@teable/sdk/components';
@@ -23,18 +22,21 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import { useParams } from 'next/navigation';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
-import { SpaceAvatar } from '../../components/space/SpaceAvatar';
 
-export const SpaceTrashPage = () => {
+export const SpaceInnerTrashPage = () => {
+  const { spaceId } = useParams<{ spaceId: string }>();
+  const router = useRouter();
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
-  const resourceType = ResourceType.Space;
+  const resourceType = ResourceType.Base;
 
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
@@ -45,7 +47,7 @@ export const SpaceTrashPage = () => {
   >();
 
   const queryFn = async () => {
-    const res = await getTrash({ resourceType });
+    const res = await getTrash({ spaceId, resourceType });
     const { trashItems, nextCursor } = res.data;
 
     setNextCursor(() => nextCursor);
@@ -72,8 +74,8 @@ export const SpaceTrashPage = () => {
     },
   });
 
-  const { mutateAsync: mutatePermanentDeleteSpace } = useMutation({
-    mutationFn: (props: { spaceId: string }) => permanentDeleteSpace(props.spaceId),
+  const { mutateAsync: mutatePermanentDeleteBase } = useMutation({
+    mutationFn: (props: { baseId: string }) => permanentDeleteBase(props.baseId),
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType));
       toast.success(t('actions.deleteSucceed'));
@@ -100,12 +102,33 @@ export const SpaceTrashPage = () => {
 
           const { name } = resourceInfo;
 
-          return (
-            <div className="flex min-w-0 items-center gap-2 pl-2">
-              <SpaceAvatar name={name} className="size-6" />
-              <span className="truncate text-sm ">{name}</span>
-            </div>
-          );
+          if ('spaceId' in resourceInfo) {
+            const spaceId = resourceInfo.spaceId;
+            const spaceInfo = resourceMap[spaceId];
+
+            return (
+              <div className="flex items-center space-x-2 pr-2 text-sm">
+                <span>{name}</span>
+                <Button
+                  className="text-xs"
+                  variant="outline"
+                  size="xs"
+                  onClick={() => {
+                    router.push({
+                      pathname: '/space/[spaceId]',
+                      query: { spaceId },
+                    });
+                  }}
+                >
+                  <span className="max-w-40 truncate text-xs">
+                    {t('trash.fromSpace', { name: spaceInfo.name })}
+                  </span>
+                </Button>
+              </div>
+            );
+          }
+
+          return <div className="text-wrap pr-2 text-sm">{name}</div>;
         },
       },
       {
@@ -181,7 +204,7 @@ export const SpaceTrashPage = () => {
     ];
 
     return tableColumns;
-  }, [t, resourceMap, userMap, mutateRestore]);
+  }, [t, router, resourceMap, userMap, mutateRestore]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {
@@ -207,7 +230,7 @@ export const SpaceTrashPage = () => {
         onOpenChange={setConfirmVisible}
         title={t('trash.permanentDeleteTips', {
           name: deletingResource?.name,
-          resource: t('noun.space'),
+          resource: t('noun.base'),
         })}
         cancelText={t('actions.cancel')}
         confirmText={t('actions.confirm')}
@@ -216,8 +239,8 @@ export const SpaceTrashPage = () => {
           if (deletingResource == null) return;
           const { resourceId } = deletingResource;
           setConfirmVisible(false);
-          mutatePermanentDeleteSpace({
-            spaceId: resourceId,
+          mutatePermanentDeleteBase({
+            baseId: resourceId,
           });
         }}
       />

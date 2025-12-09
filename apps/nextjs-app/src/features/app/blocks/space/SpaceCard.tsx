@@ -20,7 +20,7 @@ import { CollaboratorAvatars } from '../../components/space/CollaboratorAvatars'
 import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
-import { DraggableBaseGrid } from './DraggableBaseGrid';
+import { BaseList } from './BaseList';
 import { StarButton } from './space-side-bar/StarButton';
 
 interface ISpaceCard {
@@ -140,7 +140,7 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
       </CardHeader>
       <CardContent className="space-y-4">
         {bases?.length ? (
-          <DraggableBaseGrid bases={bases} />
+          <BaseList baseIds={bases.map((base) => base.id)} />
         ) : (
           <div className="flex h-24 w-full items-center justify-center">
             {t('space:spaceIsEmpty')}

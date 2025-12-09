@@ -47,7 +47,7 @@ function Tree({ indent = 20, tree, className, ...props }: TreeProps) {
       <div
         data-slot="tree"
         style={mergedStyle}
-        className={cn('flex flex-col', className)}
+        className={cn('flex flex-col isolate', className)}
         {...otherProps}
       />
     </TreeContext.Provider>
@@ -89,7 +89,7 @@ function TreeItem<T = any>({
         data-slot="tree-item"
         style={mergedStyle}
         className={cn(
-          'group z-10 ps-[var(--tree-padding)] outline-none select-none pb-0.5 last:pb-0 focus:z-20 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+          'group ps-[var(--tree-padding)] outline-none select-none pb-0.5 last:pb-0 focus:z-20 data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
           className
         )}
         data-focus={typeof item.isFocused === 'function' ? item.isFocused() || false : undefined}

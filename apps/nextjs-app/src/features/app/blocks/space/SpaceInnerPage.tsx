@@ -22,7 +22,7 @@ import { SpaceActionBar } from '../../components/space/SpaceActionBar';
 import { SpaceRenaming } from '../../components/space/SpaceRenaming';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useSetting } from '../../hooks/useSetting';
-import { DraggableBaseGrid } from './DraggableBaseGrid';
+import { BaseList } from './BaseList';
 import { StarButton } from './space-side-bar/StarButton';
 import { useBaseList } from './useBaseList';
 
@@ -113,9 +113,9 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="min-w-auto flex size-full px-12 py-8 sm:min-w-[760px]">
-        <div className="flex w-full flex-1 flex-col space-y-6">
-          <div className="flex items-center gap-2 pb-6 sm:mr-16">
+      <div ref={ref} className="flex h-full min-w-0 flex-1 gap-10 px-12 py-8 sm:min-w-[760px]">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col space-y-6">
+          <div className="flex shrink-0 items-center gap-2 pb-6 sm:mr-16">
             <SpaceRenaming
               spaceName={spaceName!}
               isRenaming={renaming}
@@ -150,11 +150,11 @@ export const SpaceInnerPage: React.FC = () => {
             onSpaceSetting={onSpaceSetting}
           />
           {basesInSpace?.length ? (
-            <ScrollArea className="sm:mr-8 sm:pb-2">
-              <DraggableBaseGrid bases={basesInSpace} className="pb-8 sm:pr-8" />
-            </ScrollArea>
+            <div className="flex min-h-0 flex-1 flex-col">
+              <BaseList baseIds={basesInSpace.map((base) => base.id)} />
+            </div>
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-2">
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2">
               <Image
                 src={
                   isDark
