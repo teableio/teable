@@ -2,8 +2,6 @@
 import type { CallHandler, ExecutionContext, NestInterceptor } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { BaseNodeResourceType } from '@teable/openapi';
-import type { IDeleteBaseNodeVo, IBaseNodeVo } from '@teable/openapi';
 import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { tap } from 'rxjs';
@@ -18,8 +16,8 @@ import {
   DashboardEventFactory,
   AppEventFactory,
   WorkflowEventFactory,
-  BaseFolderEventFactory,
 } from '../events';
+import { BaseNodeEventFactory } from '../events/base/base-node.event';
 
 @Injectable()
 export class EventMiddleware implements NestInterceptor {
@@ -110,161 +108,17 @@ export class EventMiddleware implements NestInterceptor {
         )
       )
 
-      .with(Events.BASE_NODE_CREATE, () => {
-        const { baseId } = reqParams;
-        const { resourceId, resourceType, resourceMeta } = resolveData as IBaseNodeVo;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_CREATE,
-              {
-                baseId,
-                folder: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_CREATE,
-              {
-                baseId,
-                dashboard: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_CREATE,
-              {
-                baseId,
-                workflow: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_CREATE,
-              {
-                baseId,
-                app: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-
-          default:
-            return null;
+      .with(
+        P.union(Events.BASE_NODE_CREATE, Events.BASE_NODE_UPDATE, Events.BASE_NODE_DELETE),
+        () => {
+          const { baseId } = reqParams;
+          return BaseNodeEventFactory.create(
+            eventName,
+            { baseId, node: resolveData },
+            eventContext
+          );
         }
-      })
-      .with(Events.BASE_NODE_UPDATE, () => {
-        const { baseId } = reqParams;
-        const { resourceId, resourceType, resourceMeta } = resolveData as IBaseNodeVo;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_UPDATE,
-              {
-                baseId,
-                folder: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_UPDATE,
-              {
-                baseId,
-                dashboard: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_UPDATE,
-              {
-                baseId,
-                workflow: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_UPDATE,
-              {
-                baseId,
-                app: {
-                  id: resourceId,
-                  ...resourceMeta,
-                },
-                ...reqParams,
-              },
-              eventContext
-            );
-
-          default:
-            return null;
-        }
-      })
-      .with(Events.BASE_NODE_DELETE, () => {
-        const { baseId } = reqParams;
-        const { resourceId, resourceType } = resolveData as IDeleteBaseNodeVo;
-        switch (resourceType) {
-          case BaseNodeResourceType.Folder:
-            return BaseFolderEventFactory.create(
-              Events.BASE_FOLDER_DELETE,
-              { baseId, folderId: resourceId, ...reqParams },
-              eventContext
-            );
-          case BaseNodeResourceType.Dashboard:
-            return DashboardEventFactory.create(
-              Events.DASHBOARD_DELETE,
-              { baseId, dashboardId: resourceId, ...reqParams },
-              eventContext
-            );
-          case BaseNodeResourceType.Workflow:
-            return WorkflowEventFactory.create(
-              Events.WORKFLOW_DELETE,
-              { baseId, workflowId: resourceId, ...reqParams },
-              eventContext
-            );
-          case BaseNodeResourceType.App:
-            return AppEventFactory.create(
-              Events.APP_DELETE,
-              { baseId, appId: resourceId, ...reqParams },
-              eventContext
-            );
-
-          default:
-            return null;
-        }
-      })
+      )
 
       .otherwise(() => null);
   }
