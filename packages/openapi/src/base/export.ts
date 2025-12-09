@@ -144,27 +144,15 @@ export const viewPluginJsonSchema = viewJsonSchema.extend({
 });
 
 export const folderJsonSchema = z.object({
-  id: z.string().openapi({
-    description: 'The id of the folder.',
-  }),
-  name: z.string().openapi({
-    description: 'The name of the folder.',
-  }),
+  id: z.string(),
+  name: z.string(),
 });
 
 export const nodeJsonSchema = z.object({
-  id: z.string().openapi({
-    description: 'The id of the node.',
-  }),
-  parentId: z.string().nullable().openapi({
-    description: 'The id of the parent node.',
-  }),
-  resourceId: z.string().openapi({
-    description: 'The id of the resource.',
-  }),
-  resourceType: z.nativeEnum(BaseNodeResourceType).openapi({
-    description: 'The type of the resource.',
-  }),
+  id: z.string(),
+  parentId: z.string().nullable(),
+  resourceId: z.string(),
+  resourceType: z.enum(BaseNodeResourceType),
   order: z.number(),
 });
 

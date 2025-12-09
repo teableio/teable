@@ -10,7 +10,7 @@ import { baseNodeVoSchema, BaseNodeResourceType, type IBaseNodeVo } from './type
 export const CREATE_BASE_NODE = '/base/{baseId}/node';
 
 const createBaseNodeSchema = z.object({
-  resourceType: z.nativeEnum(BaseNodeResourceType),
+  resourceType: z.enum(BaseNodeResourceType),
   parentId: z.string().nullable().optional(),
   name: z.string().trim().min(1),
 });

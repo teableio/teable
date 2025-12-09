@@ -8,8 +8,6 @@ export enum BaseNodeResourceType {
   Folder = 'folder',
 }
 
-export const baseNodeResourceTypeSchema = z.nativeEnum(BaseNodeResourceType);
-
 const defaultResourceMetaSchema = z.object({
   name: z.string(),
   icon: z.string().nullable().optional(),
