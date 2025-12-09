@@ -88,10 +88,10 @@
       "passwordDesc": "アカウントにログインするための永続的なパスワードを設定してください。",
       "changePassword": {
         "title": "パスワードの変更",
-        "desc": "現在のパスワードと新しいパスワードを入力してください。",
-        "current": "現在のパスワードを入力",
-        "new": "新しいパスワードを入力",
-        "confirm": "新しいパスワードの再入力"
+        "desc": "現在のパスワードを入力し、新しいパスワードを設定してください",
+        "current": "現在のパスワード",
+        "new": "新しいパスワード",
+        "confirm": "新しいパスワード（確認）"
       },
       "changePasswordError": {
         "disMatch": "新しいパスワードが一致しません。",
@@ -116,6 +116,26 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 パスワードの追加に成功しました。"
+      },
+      "changeEmail": {
+        "title": "メールアドレスの変更",
+        "desc": "パスワードを認証し、新しいメールアドレスを確認してください",
+        "current": "現在のパスワード",
+        "new": "新しいメールアドレス",
+        "code": "認証コード",
+        "getCode": "コードを送信",
+        "error": {
+          "invalidCode": "認証コードが無効です。",
+          "invalidPassword": "パスワードが無効です。",
+          "invalidConflict": "新しいメールアドレスは既に登録されています。",
+          "invalidSameEmail": "新しいメールアドレスは現在のものと同じです。",
+          "sendMailRateLimit": "新しいメールを送信するまで {{seconds}} 秒お待ちください"
+        },
+        "success": {
+          "title": "🎉 メールアドレスを変更しました。",
+          "desc": "2秒後にログインページへリダイレクトされます。",
+          "sendSuccess": "認証コードが送信されました。"
+        }
       }
     },
     "notify": {

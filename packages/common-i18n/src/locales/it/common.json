@@ -95,11 +95,11 @@
       "password": "Password",
       "passwordDesc": "Imposta una password permanente per accedere al tuo account.",
       "changePassword": {
-        "title": "Cambia password",
-        "desc": "Inserisci la tua password attuale e la tua nuova password.",
-        "current": "Inserisci la tua password attuale",
-        "new": "Inserisci la tua nuova password",
-        "confirm": "Conferma la tua nuova password"
+        "title": "Modifica password",
+        "desc": "Inserisci la password attuale e impostane una nuova",
+        "current": "Password attuale",
+        "new": "Nuova password",
+        "confirm": "Conferma nuova password"
       },
       "changePasswordError": {
         "disMatch": "La tua nuova password non corrisponde.",
@@ -124,21 +124,22 @@
         "title": "🎉 Aggiunta password riuscita."
       },
       "changeEmail": {
-        "title": "Aggiorna email",
-        "desc": "Inserisci la tua password attuale e la tua nuova email.",
-        "current": "Inserisci la tua password attuale",
-        "new": "Inserisci la tua nuova email",
-        "code": "Inserisci il codice di verifica",
-        "getCode": "Ottieni codice di verifica",
+        "title": "Modifica indirizzo email",
+        "desc": "Verifica la tua password e conferma il tuo nuovo indirizzo email",
+        "current": "Password attuale",
+        "new": "Nuova email",
+        "code": "Codice di verifica",
+        "getCode": "Invia codice",
         "error": {
           "invalidCode": "Il codice di verifica non è valido.",
           "invalidPassword": "La password non è valida.",
           "invalidConflict": "La nuova email è già registrata.",
-          "invalidSameEmail": "La nuova email è uguale all'email attuale."
+          "invalidSameEmail": "La nuova email è uguale a quella attuale.",
+          "sendMailRateLimit": "Attendi {{seconds}} secondi prima di inviare una nuova email"
         },
         "success": {
-          "title": "🎉 Cambio email riuscito.",
-          "desc": "Verrai reindirizzato alla pagina di accesso in 2 secondi.",
+          "title": "🎉 Email modificata con successo.",
+          "desc": "Sarai reindirizzato alla pagina di login tra 2 secondi.",
           "sendSuccess": "Codice di verifica inviato con successo."
         }
       }

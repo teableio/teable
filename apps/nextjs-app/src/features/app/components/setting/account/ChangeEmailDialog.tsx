@@ -117,18 +117,16 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
   return (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="md:w-80">
+      <DialogContent className="md:w-[400px]">
         <DialogHeader>
-          <DialogTitle className="text-center text-sm">
-            {t('settings.account.changeEmail.title')}
-          </DialogTitle>
-          <DialogDescription className="text-center text-xs">
+          <DialogTitle className="text-base">{t('settings.account.changeEmail.title')}</DialogTitle>
+          <DialogDescription className="text-sm">
             {t('settings.account.changeEmail.desc')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground" htmlFor="currentPassword">
+            <Label className="font-normal text-foreground" htmlFor="currentPassword">
               {t('settings.account.changeEmail.current')}
             </Label>
             <Input
@@ -142,7 +140,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground" htmlFor="newEmail">
+            <Label className="font-normal text-foreground" htmlFor="newEmail">
               {t('settings.account.changeEmail.new')}
             </Label>
             <Input
@@ -156,7 +154,7 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
           </div>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-2">
-              <Label className="text-xs text-muted-foreground" htmlFor="code">
+              <Label className="font-normal text-foreground" htmlFor="code">
                 {t('settings.account.changeEmail.code')}
               </Label>
               <Button
@@ -183,8 +181,9 @@ export function ChangeEmailDialog({ children }: { children: React.ReactNode }) {
               onChange={(e) => setCode(e.target.value)}
             />
           </div>
+          <ErrorComponent className="!mt-4 text-xs" error={error} />
         </div>
-        <ErrorComponent className="break-all text-center" error={error} />
+
         <Button
           className="w-full"
           size={'sm'}

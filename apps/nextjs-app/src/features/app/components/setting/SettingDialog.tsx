@@ -50,7 +50,7 @@ export const SettingDialog = () => {
 
   const content = (
     <Tabs defaultValue="profile" className="flex h-full gap-0 overflow-hidden">
-      <TabsList className="flex h-full w-[200px] flex-col items-start justify-start bg-muted p-4">
+      <TabsList className="flex h-full w-[200px] flex-col items-start justify-start gap-1 rounded-none border-none bg-muted p-4">
         {tabList.map(({ key, name, Icon }) => {
           return (
             <TabsTrigger

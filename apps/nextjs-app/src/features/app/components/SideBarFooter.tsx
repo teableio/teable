@@ -13,11 +13,15 @@ export const SideBarFooter: React.FC = () => {
   const { user } = useSession();
 
   return (
-    <div className="m-2 flex flex-col items-center gap-1">
-      <div className="flex w-full justify-between">
+    <div className="m-2 flex flex-col items-center gap-2">
+      <div className="flex w-full justify-between gap-2">
         <UserNav>
-          <Button variant="ghost" size={'xs'} className="w-full justify-start text-sm font-normal">
-            <UserAvatar user={user} />
+          <Button
+            variant="ghost"
+            size={'sm'}
+            className="w-full justify-start py-1.5 pl-2 text-sm font-normal"
+          >
+            <UserAvatar className="border" user={user} />
             {user.name}
           </Button>
         </UserNav>

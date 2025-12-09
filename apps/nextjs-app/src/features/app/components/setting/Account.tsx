@@ -68,7 +68,7 @@ export const Account: React.FC = () => {
   );
 
   return (
-    <div className="flex h-full flex-col gap-6 px-8 py-4">
+    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
       <h3 className="text-lg font-medium">{t('settings.account.title')}</h3>
       <div className="flex flex-1 flex-col gap-6">
         <div className="flex flex-col items-start justify-start">
@@ -96,14 +96,14 @@ export const Account: React.FC = () => {
           </div>
         </div>
         <div>
-          <h3 className="mb-3 text-sm font-semibold">
+          <h3 className="mb-3 text-sm font-medium">
             {t('settings.account.securityTitle')}
             {!sessionUser.hasPassword && <AddPassword />}
           </h3>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <div className="flex items-center justify-between rounded-md border bg-card px-4 py-3">
               <div className="flex flex-col gap-1">
-                <Label>{t('settings.account.email')}</Label>
+                <p className="text-sm font-medium">{t('settings.account.email')}</p>
                 <div className="text-xs text-muted-foreground">{sessionUser.email}</div>
               </div>
               <ChangeEmailDialog>
@@ -115,7 +115,7 @@ export const Account: React.FC = () => {
             {sessionUser.hasPassword && (
               <div className="flex items-center justify-between rounded-md border bg-card px-4 py-3">
                 <div className="flex flex-col gap-1">
-                  <Label>{t('settings.account.password')}</Label>
+                  <p className="text-sm font-medium">{t('settings.account.password')}</p>
                   <div className="text-xs text-muted-foreground">
                     {t('settings.account.passwordDesc')}
                   </div>

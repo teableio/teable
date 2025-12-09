@@ -22,7 +22,7 @@ export const Integration = () => {
   });
 
   return (
-    <div className="flex h-full flex-col gap-6 px-8 py-4">
+    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
       <div className="flex items-center text-lg font-medium">
         <h3
           className={cn('text-lg font-medium', {

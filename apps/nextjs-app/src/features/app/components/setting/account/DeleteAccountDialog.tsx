@@ -66,7 +66,7 @@ export const DeleteAccountDialog = () => {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-sm">
+          <DialogTitle className="flex items-center gap-2 text-base font-semibold">
             <AlertTriangle className="size-5 text-destructive" />
             {t('settings.account.deleteAccount.title')}
           </DialogTitle>

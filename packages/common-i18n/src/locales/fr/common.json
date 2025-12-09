@@ -89,10 +89,10 @@
       "passwordDesc": "Définissez un mot de passe permanent pour vous connecter à votre compte.",
       "changePassword": {
         "title": "Changer le mot de passe",
-        "desc": "Veuillez entrer votre mot de passe actuel et votre nouveau mot de passe.",
-        "current": "Entrez votre mot de passe actuel",
-        "new": "Entrez votre nouveau mot de passe",
-        "confirm": "Confirmez votre nouveau mot de passe"
+        "desc": "Veuillez saisir votre mot de passe actuel et en définir un nouveau",
+        "current": "Mot de passe actuel",
+        "new": "Nouveau mot de passe",
+        "confirm": "Confirmer le nouveau mot de passe"
       },
       "changePasswordError": {
         "disMatch": "Votre nouveau mot de passe ne correspond pas.",
@@ -117,6 +117,26 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Mot de passe ajouté avec succès."
+      },
+      "changeEmail": {
+        "title": "Changer l'adresse e-mail",
+        "desc": "Veuillez vérifier votre mot de passe et confirmer votre nouvelle adresse e-mail",
+        "current": "Mot de passe actuel",
+        "new": "Nouvel e-mail",
+        "code": "Code de vérification",
+        "getCode": "Envoyer le code",
+        "error": {
+          "invalidCode": "Le code de vérification n'est pas valide.",
+          "invalidPassword": "Le mot de passe n'est pas valide.",
+          "invalidConflict": "La nouvelle adresse e-mail est déjà enregistrée.",
+          "invalidSameEmail": "La nouvelle adresse e-mail est identique à l'actuelle.",
+          "sendMailRateLimit": "Veuillez patienter {{seconds}} secondes avant d'envoyer un nouvel e-mail"
+        },
+        "success": {
+          "title": "🎉 E-mail modifié avec succès.",
+          "desc": "Vous serez redirigé vers la page de connexion dans 2 secondes.",
+          "sendSuccess": "Code de vérification envoyé avec succès."
+        }
       }
     },
     "notify": {

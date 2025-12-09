@@ -124,7 +124,7 @@ export const NotificationsManage: React.FC = () => {
         <Button
           variant="ghost"
           size={'xs'}
-          className="relative"
+          className="relative "
           onClick={() => {
             setNotifyStatus(NotificationStatesEnum.Unread);
             refresh();
@@ -142,6 +142,32 @@ export const NotificationsManage: React.FC = () => {
       </PopoverTrigger>
       <PopoverContent side="left" align="end" className="min-w-[500px] p-0">
         <div className="w-full">
+          <div className="flex items-center justify-between border-b border-border-high p-4">
+            <div className="text-base font-semibold">{t('notification.title')}</div>
+            {renderNewButton()}
+            <div>
+              <Button
+                variant="ghost"
+                size="xs"
+                className={cn('ml-2', {
+                  'bg-accent': notifyStatus === NotificationStatesEnum.Unread,
+                })}
+                onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
+              >
+                {t('notification.title')}
+              </Button>
+              <Button
+                variant="ghost"
+                size="xs"
+                className={cn('ml-2', {
+                  'bg-accent': notifyStatus === NotificationStatesEnum.Read,
+                })}
+                onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
+              >
+                {t('notification.read')}
+              </Button>
+            </div>
+          </div>
           <NotificationList
             className="relative max-h-[78vh] overflow-auto"
             notifyStatus={notifyStatus}
@@ -168,32 +194,6 @@ export const NotificationsManage: React.FC = () => {
           ) : (
             ''
           )}
-          <div className="flex items-center justify-between border-t border-border-high p-4">
-            <div className="text-sm font-normal">{t('notification.title')}</div>
-            {renderNewButton()}
-            <div>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn('ml-2', {
-                  'bg-surface border': notifyStatus === NotificationStatesEnum.Unread,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Unread)}
-              >
-                {t('notification.title')}
-              </Button>
-              <Button
-                variant="ghost"
-                size="xs"
-                className={cn('ml-2', {
-                  'bg-surface border': notifyStatus === NotificationStatesEnum.Read,
-                })}
-                onClick={() => setNotifyStatus(NotificationStatesEnum.Read)}
-              >
-                {t('notification.read')}
-              </Button>
-            </div>
-          </div>
         </div>
       </PopoverContent>
     </Popover>

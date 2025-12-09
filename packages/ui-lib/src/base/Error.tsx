@@ -8,6 +8,8 @@ interface IErrorProps {
 export const Error = (props: IErrorProps) => {
   const { error, className } = props;
 
+  if (!error) return null;
+
   return (
     <div
       data-state={error ? 'show' : 'hide'}

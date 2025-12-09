@@ -96,10 +96,10 @@
       "passwordDesc": "Legen Sie ein dauerhaftes Passwort für die Anmeldung bei Ihrem Konto fest.",
       "changePassword": {
         "title": "Passwort ändern",
-        "desc": "Bitte geben Sie Ihr aktuelles Passwort und Ihr neues Passwort ein.",
-        "current": "Geben Sie Ihr aktuelles Passwort ein",
-        "new": "Geben Sie Ihr neues Passwort ein",
-        "confirm": "Bestätigen Sie Ihr neues Passwort"
+        "desc": "Bitte geben Sie Ihr aktuelles Passwort ein und legen Sie ein neues fest",
+        "current": "Aktuelles Passwort",
+        "new": "Neues Passwort",
+        "confirm": "Neues Passwort bestätigen"
       },
       "changePasswordError": {
         "disMatch": "Ihr neues Passwort stimmt nicht überein.",
@@ -124,22 +124,23 @@
         "title": "🎉 Passwort erfolgreich hinzugefügt."
       },
       "changeEmail": {
-        "title": "E-Mail aktualisieren",
-        "desc": "Bitte geben Sie Ihr aktuelles Passwort und Ihre neue E-Mail-Adresse ein.",
-        "current": "Geben Sie Ihr aktuelles Passwort ein",
-        "new": "Geben Sie Ihre neue E-Mail ein",
-        "code": "Geben Sie den Verifizierungscode ein",
-        "getCode": "Verifizierungscode erhalten",
+        "title": "E-Mail-Adresse ändern",
+        "desc": "Bitte verifizieren Sie Ihr Passwort und bestätigen Sie Ihre neue E-Mail-Adresse",
+        "current": "Aktuelles Passwort",
+        "new": "Neue E-Mail",
+        "code": "Bestätigungscode",
+        "getCode": "Code senden",
         "error": {
-          "invalidCode": "Der Verifizierungscode ist ungültig.",
+          "invalidCode": "Der Bestätigungscode ist ungültig.",
           "invalidPassword": "Das Passwort ist ungültig.",
-          "invalidConflict": "Die neue E-Mail ist bereits registriert.",
-          "invalidSameEmail": "Die neue E-Mail ist die gleiche wie die aktuelle."
+          "invalidConflict": "Die neue E-Mail-Adresse ist bereits registriert.",
+          "invalidSameEmail": "Die neue E-Mail-Adresse ist dieselbe wie die aktuelle.",
+          "sendMailRateLimit": "Bitte warten Sie {{seconds}} Sekunden, bevor Sie eine neue E-Mail senden"
         },
         "success": {
           "title": "🎉 E-Mail erfolgreich geändert.",
-          "desc": "Sie werden in 2 Sekunden auf die Anmeldeseite weitergeleitet.",
-          "sendSuccess": "Überprüfungscode erfolgreich gesendet."
+          "desc": "Sie werden in 2 Sekunden zur Anmeldeseite weitergeleitet.",
+          "sendSuccess": "Bestätigungscode erfolgreich gesendet."
         }
       }
     },

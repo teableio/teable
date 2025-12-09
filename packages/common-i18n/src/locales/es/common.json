@@ -96,10 +96,10 @@
       "passwordDesc": "Establece una contraseña permanente para iniciar sesión en tu cuenta.",
       "changePassword": {
         "title": "Cambiar contraseña",
-        "desc": "Por favor, ingresa tu contraseña actual y tu nueva contraseña.",
-        "current": "Ingresa tu contraseña actual",
-        "new": "Ingresa tu nueva contraseña",
-        "confirm": "Confirma tu nueva contraseña"
+        "desc": "Introduce tu contraseña actual y establece una nueva",
+        "current": "Contraseña actual",
+        "new": "Nueva contraseña",
+        "confirm": "Confirmar nueva contraseña"
       },
       "changePasswordError": {
         "disMatch": "Su nueva contraseña no coincide.",
@@ -124,22 +124,23 @@
         "title": "🎉 Agregue la contraseña con éxito."
       },
       "changeEmail": {
-        "title": "Actualizar correo electrónico",
-        "desc": "Ingrese su contraseña actual y su nuevo correo electrónico.",
-        "current": "Ingrese su contraseña actual",
-        "new": "Ingrese su nuevo correo electrónico",
-        "code": "Ingrese el código de verificación",
-        "getCode": "Obtener código de verificación",
+        "title": "Cambiar dirección de correo",
+        "desc": "Verifica tu contraseña y confirma tu nueva dirección de correo",
+        "current": "Contraseña actual",
+        "new": "Nuevo correo",
+        "code": "Código de verificación",
+        "getCode": "Enviar código",
         "error": {
           "invalidCode": "El código de verificación no es válido.",
           "invalidPassword": "La contraseña no es válida.",
-          "invalidConflict": "El nuevo correo electrónico ya está registrado.",
-          "invalidSameEmail": "El nuevo correo electrónico es el mismo que el correo electrónico actual."
+          "invalidConflict": "El nuevo correo ya está registrado.",
+          "invalidSameEmail": "El nuevo correo es el mismo que el actual.",
+          "sendMailRateLimit": "Espera {{seconds}} segundos antes de enviar un nuevo correo"
         },
         "success": {
-          "title": "🎉 Cambie el correo electrónico con éxito.",
-          "desc": "Será redirigido a la página de inicio de sesión en 2 segundos.",
-          "sendSuccess": "Código de verificación enviado correctamente."
+          "title": "🎉 Correo cambiado con éxito.",
+          "desc": "Serás redirigido a la página de inicio de sesión en 2 segundos.",
+          "sendSuccess": "Código de verificación enviado con éxito."
         }
       }
     },

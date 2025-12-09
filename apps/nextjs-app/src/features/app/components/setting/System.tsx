@@ -22,13 +22,13 @@ export const System: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex h-full flex-col gap-6 px-8 py-4">
+    <div className="flex h-full flex-col gap-6 border-l px-8 py-4">
       <div>
         <h3 className="text-lg font-medium">{t('settings.setting.title')}</h3>
       </div>
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-1">
-          <Label>{t('settings.setting.theme')}</Label>
+          <h3 className="text-sm font-medium text-foreground">{t('settings.setting.theme')}</h3>
           <p className="text-xs text-muted-foreground">{t('settings.setting.themeDesc')}</p>
         </div>
         <RadioGroup
@@ -95,14 +95,16 @@ export const System: React.FC = () => {
         </RadioGroup>
       </div>
       <div>
-        <Label>{t('settings.setting.language')}</Label>
+        <h3 className="text-sm font-medium text-foreground">{t('settings.setting.language')}</h3>
         <div className="pt-2">
           <LanguagePicker />
         </div>
       </div>
       {isSupportsMultiplePointers && (
         <div>
-          <Label>{t('settings.setting.interactionMode')}</Label>
+          <h3 className="text-sm font-medium text-foreground">
+            {t('settings.setting.interactionMode')}
+          </h3>
           <div className="pt-2">
             <InteractionSelect />
           </div>

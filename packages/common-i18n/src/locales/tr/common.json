@@ -92,10 +92,10 @@
       "passwordDesc": "Hesabınıza giriş yapmak için kalıcı bir şifre belirleyin.",
       "changePassword": {
         "title": "Şifre değiştir",
-        "desc": "Lütfen mevcut şifrenizi ve yeni şifrenizi girin.",
-        "current": "Mevcut şifrenizi girin",
-        "new": "Yeni şifrenizi girin",
-        "confirm": "Yeni şifrenizi onaylayın"
+        "desc": "Lütfen mevcut şifrenizi girin ve yeni bir şifre belirleyin",
+        "current": "Mevcut şifre",
+        "new": "Yeni şifre",
+        "confirm": "Yeni şifreyi onayla"
       },
       "changePasswordError": {
         "disMatch": "Yeni şifreleriniz eşleşmiyor.",
@@ -120,6 +120,26 @@
       },
       "addPasswordSuccess": {
         "title": "🎉 Şifre başarıyla eklendi."
+      },
+      "changeEmail": {
+        "title": "E-posta adresini değiştir",
+        "desc": "Lütfen şifrenizi doğrulayın ve yeni e-posta adresinizi onaylayın",
+        "current": "Mevcut şifre",
+        "new": "Yeni e-posta",
+        "code": "Doğrulama kodu",
+        "getCode": "Kodu gönder",
+        "error": {
+          "invalidCode": "Doğrulama kodu geçersiz.",
+          "invalidPassword": "Şifre geçersiz.",
+          "invalidConflict": "Yeni e-posta adresi zaten kayıtlı.",
+          "invalidSameEmail": "Yeni e-posta mevcut e-posta ile aynı.",
+          "sendMailRateLimit": "Yeni bir e-posta göndermeden önce lütfen {{seconds}} saniye bekleyin"
+        },
+        "success": {
+          "title": "🎉 E-posta başarıyla değiştirildi.",
+          "desc": "2 saniye içinde giriş sayfasına yönlendirileceksiniz.",
+          "sendSuccess": "Doğrulama kodu başarıyla gönderildi."
+        }
       }
     },
     "notify": {
