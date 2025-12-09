@@ -6,6 +6,7 @@ import { z } from '../../zod';
 export const GET_USER_LAST_VISIT = '/user/last-visit';
 
 export enum LastVisitResourceType {
+  Space = 'space',
   Base = 'base',
   Table = 'table',
   View = 'view',

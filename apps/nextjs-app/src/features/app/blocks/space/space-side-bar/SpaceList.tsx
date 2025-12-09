@@ -116,8 +116,8 @@ export const SpaceList: FC = () => {
   };
 
   return (
-    <div className="flex flex-col gap-2 overflow-hidden">
-      <div className="px-3">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden">
+      <div className="shrink-0 px-3">
         {!disallowSpaceCreation && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -166,7 +166,7 @@ export const SpaceList: FC = () => {
           </DropdownMenu>
         )}
       </div>
-      <div className="overflow-y-auto px-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-3">
         <ul>
           {spaceList?.map((space) => (
             <li key={space.id}>
@@ -223,10 +223,11 @@ export const SpaceList: FC = () => {
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Select {t('noun.space')}</label>
               <Select value={selectedSpaceId} onValueChange={setSelectedSpaceId}>
                 <SelectTrigger>
-                  <SelectValue placeholder={`Choose a ${t('noun.space').toLowerCase()}...`} />
+                  <SelectValue
+                    placeholder={`${t('actions.select')} ${t('noun.space').toLowerCase()}...`}
+                  />
                 </SelectTrigger>
                 <SelectContent>
                   {spacesWithBaseCreatePermission.map((space) => (

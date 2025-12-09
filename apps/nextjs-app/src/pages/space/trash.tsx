@@ -3,7 +3,7 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { SpaceTrashPage } from '@/features/app/blocks/trash/SpaceTrashPage';
-import { SpaceLayout } from '@/features/app/layouts/SpaceLayout';
+import { SpaceTrashLayout } from '@/features/app/layouts/SpaceTrashLayout';
 import { spaceConfig } from '@/features/i18n/space.config';
 import ensureLogin from '@/lib/ensureLogin';
 import { getTranslationsProps } from '@/lib/i18n';
@@ -34,7 +34,7 @@ export const getServerSideProps: GetServerSideProps = withEnv(
 );
 
 SpaceTrash.getLayout = function getLayout(page: ReactElement, pageProps) {
-  return <SpaceLayout {...pageProps}>{page}</SpaceLayout>;
+  return <SpaceTrashLayout {...pageProps}>{page}</SpaceTrashLayout>;
 };
 
 export default SpaceTrash;

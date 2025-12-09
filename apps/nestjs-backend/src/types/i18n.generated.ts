@@ -241,6 +241,7 @@ export type I18nTranslations = {
             "import": string;
             "expand": string;
             "deleteTip": string;
+            "select": string;
         };
         "quickAction": {
             "title": string;
@@ -846,6 +847,7 @@ export type I18nTranslations = {
             "resetTrashConfirm": string;
             "addToTrash": string;
             "description": string;
+            "spaceTrash": string;
         };
         "pluginCenter": {
             "pluginUrlEmpty": string;
@@ -2692,6 +2694,14 @@ export type I18nTranslations = {
         "noSpaces": {
             "title": string;
             "description": string;
+        };
+        "baseList": {
+            "allBases": string;
+            "owner": string;
+            "lastOpened": string;
+            "enter": string;
+            "noTables": string;
+            "empty": string;
         };
     };
     "system": {

@@ -16,6 +16,15 @@ export const getBaseItemSchema = z.object({
   collaboratorType: z.enum(CollaboratorType).optional(),
   restrictedAuthority: z.boolean().optional(),
   enabledAuthority: z.boolean().optional(),
+  lastModifiedTime: z.string().nullable().optional(),
+  createdBy: z.string(),
+  createdUser: z
+    .object({
+      id: z.string(),
+      name: z.string(),
+      avatar: z.string().nullable().optional(),
+    })
+    .optional(),
 });
 
 export const getBaseVoSchema = getBaseItemSchema;

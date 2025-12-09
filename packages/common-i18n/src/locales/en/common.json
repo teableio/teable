@@ -52,7 +52,8 @@
     "turnOn": "Turn on",
     "exit": "Exit",
     "next": "Next",
-    "previous": "Previous"
+    "previous": "Previous",
+    "select": "Select"
   },
   "quickAction": {
     "title": "Quick actions...",
@@ -644,6 +645,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "Space trash",
     "type": "Type",
     "resetTrash": "Empty trash",
     "deletedBy": "Deleted by",

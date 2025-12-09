@@ -118,10 +118,11 @@ type TreeMode = 'view' | 'edit';
 
 interface IBaseNodeTreeProps {
   mode?: TreeMode;
+  emptyText?: string;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
-  const { mode = 'edit' } = props;
+  const { mode = 'edit', emptyText } = props;
   const isEditMode = mode === 'edit';
   const { t } = useTranslation(['common']);
   const baseId = useBaseId() as string;
@@ -545,6 +546,27 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     );
   };
 
+  if (Object.keys(treeItems).length === 0) {
+    if (isLoading) {
+      return (
+        <div className="flex w-full flex-col gap-2 px-2">
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-full" />
+        </div>
+      );
+    } else if (emptyText) {
+      return (
+        <div className="flex w-full flex-col gap-2 px-2">
+          <p className="text-sm text-muted-foreground">{emptyText}</p>
+        </div>
+      );
+    }
+  }
+
   return (
     <>
       {isEditMode && (
@@ -570,172 +592,155 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         </div>
       )}
 
-      {isLoading && Object.keys(treeItems).length === 0 ? (
-        <div className="flex w-full flex-col gap-2 px-2">
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-        </div>
-      ) : (
-        <ScrollArea
-          viewportRef={viewportRef}
-          className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
-          scrollBar="none"
-        >
-          <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
-            <AssistiveTreeDescription tree={tree} />
-            {tree.getItems().map((item) => {
-              const nodeId = item.getId();
-              const node = item.getItemData();
-              if (!node || Object.keys(node).length === 0) return null;
-              const { resourceType, resourceId } = node;
-              const name = getNodeName(node);
-              const isHighlighted = isEditMode && highlightedTableId === resourceId;
-              const isPinned = pinMap?.[resourceId];
-              return (
-                <TreeItem asChild key={nodeId} item={item}>
-                  <div className="h-8 w-full cursor-pointer">
-                    <TreeItemLabel
-                      className={cn('size-full min-w-0 py-0', {
-                        'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
-                      })}
-                    >
-                      <div className="flex min-w-0 flex-1 items-center gap-2">
-                        {editingNodeId === nodeId ? (
-                          <Input
-                            ref={inputRef}
-                            type="text"
-                            placeholder="name"
-                            defaultValue={item.getItemName()}
-                            style={{
-                              boxShadow: 'none',
-                            }}
-                            className="round-none size-full cursor-text bg-background outline-none"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                const newVal = e.currentTarget.value;
-                                if (newVal && newVal !== item.getItemName()) {
-                                  curdHooks.updateNode(nodeId, { name: newVal });
-                                }
-                                setEditingNodeId(null);
-                              } else if (e.key === 'Escape') {
-                                setEditingNodeId(null);
+      <ScrollArea
+        viewportRef={viewportRef}
+        className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+        scrollBar="none"
+      >
+        <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
+          <AssistiveTreeDescription tree={tree} />
+          {tree.getItems().map((item) => {
+            const nodeId = item.getId();
+            const node = item.getItemData();
+            if (!node || Object.keys(node).length === 0) return null;
+            const { resourceType, resourceId } = node;
+            const name = getNodeName(node);
+            const isHighlighted = isEditMode && highlightedTableId === resourceId;
+            const isPinned = pinMap?.[resourceId];
+            return (
+              <TreeItem asChild key={nodeId} item={item}>
+                <div className="h-8 w-full cursor-pointer">
+                  <TreeItemLabel
+                    className={cn('size-full min-w-0 py-0', {
+                      'bg-orange-300/40 hover:bg-orange-300/40': isHighlighted,
+                    })}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      {editingNodeId === nodeId ? (
+                        <Input
+                          ref={inputRef}
+                          type="text"
+                          placeholder="name"
+                          defaultValue={item.getItemName()}
+                          style={{
+                            boxShadow: 'none',
+                          }}
+                          className="round-none size-full cursor-text bg-background outline-none"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              const newVal = e.currentTarget.value;
+                              if (newVal && newVal !== item.getItemName()) {
+                                curdHooks.updateNode(nodeId, { name: newVal });
                               }
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                            }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                            }}
-                          />
-                        ) : (
-                          <>
-                            <ItemIcon item={item} />
+                              setEditingNodeId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingNodeId(null);
+                            }
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <ItemIcon item={item} />
+                          <div
+                            className="flex min-w-0 grow items-center gap-1"
+                            title={item.getItemName()}
+                          >
+                            <span className="truncate text-left">{item.getItemName()}</span>
+                            {node.resourceType === BaseNodeResourceType.Workflow &&
+                              (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
+                                <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                              )}
+                          </div>
+                          {
+                            // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
                             <div
-                              className="flex min-w-0 grow items-center gap-1"
-                              title={item.getItemName()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              className={cn('flex shrink-0 cursor-pointer items-center gap-2', {
+                                'w-0 group-hover:w-auto': !isPinned,
+                              })}
                             >
-                              <span className="truncate text-left">{item.getItemName()}</span>
-                              {node.resourceType === BaseNodeResourceType.Workflow &&
-                                (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
-                                  <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
+                              <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden">
+                                {canCreateResource && (
+                                  <BaseNodeAddResourceButton
+                                    curdHooks={curdHooks}
+                                    parentId={nodeId === ROOT_ID ? undefined : nodeId}
+                                    canCreateFolder={
+                                      canCreateFolder && checkCanCreateFolder(item, maxFolderDepth)
+                                    }
+                                    canCreateTable={canCreateTable}
+                                    canCreateDashboard={canCreateDashboard}
+                                    canCreateWorkflow={canCreateWorkflow}
+                                    canCreateApp={canCreateApp}
+                                  >
+                                    <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
+                                      <AddBoldIcon className="size-full" />
+                                    </Button>
+                                  </BaseNodeAddResourceButton>
                                 )}
-                            </div>
-                            {
-                              // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-                              <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                }}
-                                className={cn('flex shrink-0 cursor-pointer items-center gap-2', {
-                                  'w-0 group-hover:w-auto': !isPinned,
-                                })}
-                              >
-                                <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden">
-                                  {canCreateResource && (
-                                    <BaseNodeAddResourceButton
-                                      curdHooks={curdHooks}
-                                      parentId={nodeId === ROOT_ID ? undefined : nodeId}
-                                      canCreateFolder={
-                                        canCreateFolder &&
-                                        checkCanCreateFolder(item, maxFolderDepth)
-                                      }
-                                      canCreateTable={canCreateTable}
-                                      canCreateDashboard={canCreateDashboard}
-                                      canCreateWorkflow={canCreateWorkflow}
-                                      canCreateApp={canCreateApp}
-                                    >
-                                      <Button variant={'ghost'} size={'xs'} className="size-4 p-0">
-                                        <AddBoldIcon className="size-full" />
-                                      </Button>
-                                    </BaseNodeAddResourceButton>
-                                  )}
-                                </div>
-                                <BaseNodeStarButton
+                              </div>
+                              <BaseNodeStarButton
+                                resourceType={resourceType}
+                                resourceId={resourceId}
+                              />
+                              <div className="opacity-0 group-hover:opacity-100 ">
+                                <BaseNodeMore
                                   resourceType={resourceType}
                                   resourceId={resourceId}
+                                  className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+                                  onRename={() => setEditingNodeId(nodeId)}
+                                  onDelete={async (permanent: boolean, confirm: boolean = true) => {
+                                    const titleMap = {
+                                      [BaseNodeResourceType.Folder]: t('common:noun.folder'),
+                                      [BaseNodeResourceType.Table]: t('common:noun.table'),
+                                      [BaseNodeResourceType.Dashboard]: t('common:noun.dashboard'),
+                                      [BaseNodeResourceType.Workflow]: t('common:noun.automation'),
+                                      [BaseNodeResourceType.App]: t('common:noun.app'),
+                                    };
+                                    const result = !confirm
+                                      ? true
+                                      : await comfirmModal({
+                                          title: `${t('common:actions.delete')} ${(titleMap[resourceType] ?? '').toLowerCase()}`,
+                                          description: t('common:actions.deleteTip', {
+                                            name,
+                                          }),
+                                          confirmText: t('common:actions.delete'),
+                                          cancelText: t('common:actions.cancel'),
+                                          confirmButtonVariant: 'destructive',
+                                        });
+                                    if (result) {
+                                      await curdHooks.deleteNode(nodeId, permanent);
+                                    }
+                                  }}
+                                  onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
+                                    await curdHooks.duplicateNode(nodeId, {
+                                      name,
+                                      ...(ro ?? {}),
+                                    });
+                                  }}
                                 />
-                                <div className="opacity-0 group-hover:opacity-100 ">
-                                  <BaseNodeMore
-                                    resourceType={resourceType}
-                                    resourceId={resourceId}
-                                    className="size-4 shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
-                                    onRename={() => setEditingNodeId(nodeId)}
-                                    onDelete={async (
-                                      permanent: boolean,
-                                      confirm: boolean = true
-                                    ) => {
-                                      const titleMap = {
-                                        [BaseNodeResourceType.Folder]: t('common:noun.folder'),
-                                        [BaseNodeResourceType.Table]: t('common:noun.table'),
-                                        [BaseNodeResourceType.Dashboard]:
-                                          t('common:noun.dashboard'),
-                                        [BaseNodeResourceType.Workflow]:
-                                          t('common:noun.automation'),
-                                        [BaseNodeResourceType.App]: t('common:noun.app'),
-                                      };
-                                      const result = !confirm
-                                        ? true
-                                        : await comfirmModal({
-                                            title: `${t('common:actions.delete')} ${(titleMap[resourceType] ?? '').toLowerCase()}`,
-                                            description: t('common:actions.deleteTip', {
-                                              name,
-                                            }),
-                                            confirmText: t('common:actions.delete'),
-                                            cancelText: t('common:actions.cancel'),
-                                            confirmButtonVariant: 'destructive',
-                                          });
-                                      if (result) {
-                                        await curdHooks.deleteNode(nodeId, permanent);
-                                      }
-                                    }}
-                                    onDuplicate={async (ro?: IDuplicateBaseNodeRo) => {
-                                      await curdHooks.duplicateNode(nodeId, {
-                                        name,
-                                        ...(ro ?? {}),
-                                      });
-                                    }}
-                                  />
-                                </div>
                               </div>
-                            }
-                          </>
-                        )}
-                      </div>
-                    </TreeItemLabel>
-                  </div>
-                </TreeItem>
-              );
-            })}
-            <TreeDragLine />
-          </Tree>
-          <ScrollBar className="z-30" />
-        </ScrollArea>
-      )}
+                            </div>
+                          }
+                        </>
+                      )}
+                    </div>
+                  </TreeItemLabel>
+                </div>
+              </TreeItem>
+            );
+          })}
+          <TreeDragLine />
+        </Tree>
+        <ScrollBar className="z-30" />
+      </ScrollArea>
     </>
   );
 };

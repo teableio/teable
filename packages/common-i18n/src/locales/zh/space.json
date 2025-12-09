@@ -101,5 +101,13 @@
   "noSpaces": {
     "title": "Hi {{userName}}！",
     "description": "创建您的第一个空间，开始您的数据协作之旅"
+  },
+  "baseList": {
+    "allBases": "所有数据库",
+    "owner": "所有者",
+    "lastOpened": "最近打开",
+    "enter": "进入",
+    "noTables": "暂无表",
+    "empty": "暂无数据库"
   }
 }
