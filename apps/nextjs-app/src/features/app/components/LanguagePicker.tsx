@@ -51,7 +51,6 @@ export const LanguagePicker: React.FC<{ className?: string }> = ({ className }) 
   };
 
   const currentLanguage = i18n.language.split('-')[0];
-  // 检查当前语言是否存在于列表中，如果不存在则使用 'default'，确保 Select 组件能正确显示 placeholder 或选中项
   const selectedValue = languages.some((l) => l.key === currentLanguage)
     ? currentLanguage
     : 'default';
