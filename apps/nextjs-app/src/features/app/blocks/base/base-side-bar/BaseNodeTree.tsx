@@ -158,21 +158,15 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     LocalStorageKeys.BaseNodeTreeExpandedItems,
     {}
   );
-
-  const expandedItems = useMemo(() => expandedItemsMap?.[baseId] ?? [], [expandedItemsMap, baseId]);
-  const setExpandedItems = useCallback(
-    (updater: string[] | ((prev: string[]) => string[])) => {
-      setExpandedItemsMap((prev) => {
-        const currentExpanded = prev?.[baseId] ?? [];
-        const newExpanded = typeof updater === 'function' ? updater(currentExpanded) : updater;
-        return {
-          ...prev,
-          [baseId]: newExpanded,
-        };
-      });
-    },
-    [baseId, setExpandedItemsMap]
-  );
+  const [expandedItems, setExpandedItems] = useState<string[]>(expandedItemsMap?.[baseId] ?? []);
+  useEffect(() => {
+    setExpandedItemsMap((prev) => {
+      return {
+        ...prev,
+        [baseId]: expandedItems,
+      };
+    });
+  }, [expandedItems, baseId, setExpandedItemsMap]);
 
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
@@ -247,11 +241,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       selectedItems,
       expandedItems,
     },
-    setSelectedItems: (updater) => {
-      setSelectedItems((prev) => {
-        return typeof updater === 'function' ? updater(prev) : updater;
-      });
-    },
+    setSelectedItems,
     setExpandedItems,
     rootItemId: ROOT_ID,
     indent: INDENTATION_WIDTH,
