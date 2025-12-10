@@ -243,18 +243,15 @@ const UnifiedBasePage: NextPageWithLayout<IPageProps> = ({
 
   switch (resourceType) {
     case BaseNodeResourceType.Table:
-      if (fieldServerData && viewServerData && recordsServerData) {
-        return (
-          <Table
-            fieldServerData={fieldServerData}
-            viewServerData={viewServerData}
-            recordsServerData={recordsServerData}
-            recordServerData={recordServerData}
-            groupPointsServerDataMap={groupPointsServerDataMap}
-          />
-        );
-      }
-      return null;
+      return (
+        <Table
+          fieldServerData={fieldServerData ?? []}
+          viewServerData={viewServerData ?? []}
+          recordsServerData={recordsServerData ?? { records: [] }}
+          recordServerData={recordServerData}
+          groupPointsServerDataMap={groupPointsServerDataMap}
+        />
+      );
     case BaseNodeResourceType.Dashboard:
       return <DashboardPage />;
     case BaseNodeResourceType.Workflow:
