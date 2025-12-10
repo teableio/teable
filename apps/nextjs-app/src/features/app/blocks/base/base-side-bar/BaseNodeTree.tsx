@@ -493,9 +493,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   }, [selectedItems, tree, treeItems]);
 
   useEffect(() => {
-    if (!Object.keys(treeItems).length) return;
+    if (isLoading) return;
     tree.rebuildTree();
-  }, [tree, treeItems]);
+  }, [tree, treeItems, isLoading]);
 
   useEffect(() => {
     let timeout: NodeJS.Timeout | null = null;
