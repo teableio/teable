@@ -94,7 +94,7 @@ BEGIN
             base_id,
             resource_type,
             resource_id,
-            row_number() OVER (PARTITION BY base_id ORDER BY sort_value ASC NULLS LAST),
+            row_number() OVER (PARTITION BY base_id ORDER BY resource_type, sort_value ASC NULLS LAST),
             ''anonymous'',
             created_time,
             last_modified_time
