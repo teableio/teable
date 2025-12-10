@@ -5,10 +5,11 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useState } from 'react';
 import { dashboardConfig } from '@/features/i18n/dashboard.config';
+import { useBaseResource } from '../hooks/useBaseResource';
+import type { IBaseResourceDashboard } from '../hooks/useBaseResource';
 import { useInitializationZodI18n } from '../hooks/useInitializationZodI18n';
 import { useSetting } from '../hooks/useSetting';
 import { DashboardHeader } from './DashboardHeader';
@@ -16,12 +17,11 @@ import { DashboardMain } from './DashboardMain';
 import { EmptyDashboard } from './EmptyDashboard';
 
 export function DashboardPage() {
-  const baseId = useBaseId()!;
-  const router = useRouter();
+  const baseId = useBaseId() as string;
   const { t } = useTranslation(dashboardConfig.i18nNamespaces);
   const [showDeprecationBanner, setShowDeprecationBanner] = useState(true);
   useInitializationZodI18n();
-  const dashboardQueryId = router.query.dashboardId as string | undefined;
+  const { dashboardId: dashboardQueryId } = useBaseResource() as IBaseResourceDashboard;
   const { data: dashboardList, isLoading } = useQuery({
     queryKey: ReactQueryKeys.getDashboardList(baseId),
     queryFn: ({ queryKey }) => getDashboardList(queryKey[1]).then((res) => res.data),

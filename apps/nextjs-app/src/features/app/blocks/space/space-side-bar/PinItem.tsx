@@ -98,10 +98,14 @@ export const PinItem = (props: IPinItemProps) => {
       return (
         <ItemButton className={className}>
           <Link
-            href={{
-              pathname: '/base/[baseId]/[tableId]/[viewId]',
-              query: { baseId: pin.parentBaseId, tableId: pin.viewMeta.tableId, viewId: pin.id },
-            }}
+            href={
+              getNodeUrl({
+                baseId: pin.parentBaseId!,
+                resourceType: BaseNodeResourceType.Table,
+                resourceId: pin.viewMeta.tableId,
+                viewId: pin.id,
+              }) ?? {}
+            }
             title={pin.name}
           >
             {pin.viewMeta?.type === ViewType.Plugin && pin.viewMeta?.pluginLogo ? (

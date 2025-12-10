@@ -24,24 +24,22 @@ import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button, cn, Input, Skeleton } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
-import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useClickAway, useLocalStorage } from 'react-use';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
+import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { useTableHref } from '../../table-list/useTableHref';
 import { useGridSearchStore } from '../../view/grid/useGridSearchStore';
 import {
   BaseNodeResourceIconMap,
-  BaseNodeResourceLastVisitMap,
   getNodeIcon,
   getNodeName,
   getNodeUrl,
-  parseNodeUrl,
   ROOT_ID,
   useBaseNodeCrud,
 } from '../base-node/hooks';
@@ -127,13 +125,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { t } = useTranslation(['common']);
   const baseId = useBaseId() as string;
   const router = useRouter();
-  const urlPath = router.asPath;
-  const urlParams = useParams<{
-    dashboardId?: string;
-    automationId?: string;
-    appId?: string;
-    tableId?: string;
-  }>();
+  const baseResource = useBaseResource();
   const { highlightedTableId } = useGridSearchStore();
   const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
   const permission = useBasePermission();
@@ -432,19 +424,34 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     treeItemsRef.current = treeItems;
   }, [treeItems]);
 
+  const currentResourceId = useMemo(() => {
+    switch (baseResource.resourceType) {
+      case BaseNodeResourceType.Table:
+        return baseResource.tableId;
+      case BaseNodeResourceType.Dashboard:
+        return baseResource.dashboardId;
+      case BaseNodeResourceType.Workflow:
+        return baseResource.workflowId;
+      case BaseNodeResourceType.App:
+        return baseResource.appId;
+      default:
+        return undefined;
+    }
+  }, [baseResource]);
+
   useEffect(() => {
     if (Object.keys(treeItems).length === 0) return;
     const nodes = Object.values(treeItems);
-    const { resourceType, resourceId } = parseNodeUrl({ baseId, url: urlPath, urlParams }) ?? {};
+    const { resourceType } = baseResource;
     const node = nodes.find(
-      (node) => node.resourceType === resourceType && node.resourceId === resourceId
+      (node) => node.resourceType === resourceType && node.resourceId === currentResourceId
     );
     if (!node) return;
 
     const parentIds = getAllParentIds(node.id);
     setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
     setSelectedItems([node.id]);
-  }, [treeItems, urlPath, urlParams, baseId]);
+  }, [treeItems, baseResource, currentResourceId]);
 
   useEffect(() => {
     if (selectedItems.length === 0) return;
@@ -643,7 +650,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                 }}
                                 className="flex shrink-0 cursor-pointer items-center gap-2"
                               >
-                                <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden  group-data-[selected=true]:opacity-100">
+                                <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden">
                                   {canCreateResource && (
                                     <BaseNodeAddResourceButton
                                       curdHooks={curdHooks}
@@ -667,7 +674,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   resourceType={resourceType}
                                   resourceId={resourceId}
                                 />
-                                <div className="opacity-0 group-hover:opacity-100 group-data-[selected=true]:opacity-100">
+                                <div className="opacity-0 group-hover:opacity-100 ">
                                   <BaseNodeMore
                                     resourceType={resourceType}
                                     resourceId={resourceId}

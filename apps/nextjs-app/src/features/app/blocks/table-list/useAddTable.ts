@@ -1,9 +1,11 @@
 import type { IFieldRo } from '@teable/core';
 import { Colors, FieldType, getUniqName, NumberFormattingType, ViewType } from '@teable/core';
-import { useBase, useTables } from '@teable/sdk/hooks';
+import { BaseNodeResourceType } from '@teable/openapi';
+import { useBase, useBaseId, useTables } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback } from 'react';
+import { getNodeUrl } from '../base/base-node/hooks';
 
 export const useDefaultFields = (): IFieldRo[] => {
   const { t } = useTranslation('table');
@@ -44,12 +46,11 @@ export const useDefaultFields = (): IFieldRo[] => {
 
 export function useAddTable() {
   const base = useBase();
+  const baseId = useBaseId() as string;
   const tables = useTables();
   const router = useRouter();
-  const { baseId } = router.query;
   const { t } = useTranslation('table');
   const fieldRos = useDefaultFields();
-
   return useCallback(async () => {
     const uniqueName = getUniqName(
       t('table.newTableLabel'),
@@ -64,15 +65,14 @@ export function useAddTable() {
     ).data;
     const tableId = tableData.id;
     const viewId = tableData.defaultViewId;
-    router.push(
-      {
-        pathname: '/base/[baseId]/[tableId]/[viewId]',
-        query: { baseId, tableId, viewId },
-      },
-      undefined,
-      {
-        shallow: Boolean(router.query.viewId),
-      }
-    );
+    const url = getNodeUrl({
+      baseId,
+      resourceType: BaseNodeResourceType.Table,
+      resourceId: tableId,
+      viewId,
+    });
+    if (url) {
+      router.push(url, undefined, { shallow: true });
+    }
   }, [t, tables, base, fieldRos, router, baseId]);
 }

@@ -7,11 +7,12 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { Button, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { developerConfig } from '@/features/i18n/developer.config';
+import { useBaseResource } from '../../../hooks/useBaseResource';
+import type { IBaseResourceTable } from '../../../hooks/useBaseResource';
 import { SettingRight } from '../SettingRight';
 import { SettingRightTitle } from '../SettingRightTitle';
 import { FilterBuilder } from './FilterBuilder';
@@ -23,9 +24,10 @@ import { ViewBuilder } from './ViewBuilder';
 
 export const QueryBuilder = () => {
   const { t } = useTranslation(developerConfig.i18nNamespaces);
-  const router = useRouter();
-  const [baseId, setBaseId] = useState<string>(router.query.baseId as string);
-  const [tableId, setTableId] = useState<string>(router.query.tableId as string);
+  const { baseId: initialBaseId, tableId: initialTableId } =
+    useBaseResource() as IBaseResourceTable;
+  const [baseId, setBaseId] = useState<string>(initialBaseId);
+  const [tableId, setTableId] = useState<string>(initialTableId);
   const [viewId, setViewId] = useState<string>();
   const [filter, setFilter] = useState<IFilterSet | null>(null);
   const [fieldKeyType, setFieldKeyType] = useState<FieldKeyType>();

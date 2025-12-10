@@ -18,12 +18,13 @@ import {
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { PluginContextMenu } from '../../components/plugin-context-menu/PluginContextMenu';
 import { PluginPanel } from '../../components/plugin-panel/PluginPanel';
+import type { IBaseResourceTable } from '../../hooks/useBaseResource';
+import { useBaseResource } from '../../hooks/useBaseResource';
 import { useBrand } from '../../hooks/useBrand';
 import { View } from '../view/View';
 import { FailAlert } from './FailAlert';
@@ -46,15 +47,11 @@ export const Table: React.FC<ITableProps> = ({
   groupPointsServerDataMap,
 }) => {
   const table = useTable();
-  const router = useRouter();
   const { undo, redo } = useUndoRedo();
   const queryClient = useQueryClient();
 
-  const { baseId, tableId, viewId } = router.query as {
-    tableId: string;
-    viewId: string;
-    baseId: string;
-  };
+  const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
+
   const { data: base } = useQuery({
     queryKey: ReactQueryKeys.base(baseId as string),
     queryFn: ({ queryKey }) => getBaseById(queryKey[1]).then((res) => res.data),

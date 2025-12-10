@@ -4,14 +4,15 @@ import { ChevronLeft } from 'lucide-react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { useBaseResource } from '../../hooks/useBaseResource';
+import type { IBaseResourceTable } from '../../hooks/useBaseResource';
 import { DbConnectionPanel } from '../db-connection/Panel';
 import { BaseDetail } from './BaseDetail';
 import { TableTabs } from './TableTabs';
 
 export const Design = () => {
   const router = useRouter();
-  const baseId = router.query.baseId as string;
-  const tableId = router.query.tableId as string | undefined;
+  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
   const { t } = useTranslation(['table', 'common']);
 
   const handleBack = () => {

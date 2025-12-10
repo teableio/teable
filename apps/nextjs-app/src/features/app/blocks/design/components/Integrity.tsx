@@ -3,14 +3,14 @@ import { checkBaseIntegrity, fixBaseIntegrity } from '@teable/openapi';
 import { useBase } from '@teable/sdk/hooks';
 import { Button, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { Loader2, Check } from 'lucide-react';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { IBaseResourceTable } from '../../../hooks/useBaseResource';
+import { useBaseResource } from '../../../hooks/useBaseResource';
 
 export const IntegrityButton = () => {
   const base = useBase();
   const { t } = useTranslation(['table', 'common']);
-  const router = useRouter();
-  const tableId = router.query.tableId as string;
+  const { tableId } = useBaseResource() as IBaseResourceTable;
 
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['baseIntegrity', base.id],

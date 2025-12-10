@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
-import { duplicateView } from '@teable/openapi';
-import { useTableId, useTablePermission } from '@teable/sdk/hooks';
+import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
+import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -21,6 +21,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, Fragment, useEffect } from 'react';
 import { useDownload } from '../../../hooks/useDownLoad';
+import { getNodeUrl } from '../../base/base-node/hooks';
 import { usePinMap } from '../../space/usePinMap';
 import { VIEW_ICON_MAP } from '../constant';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
@@ -37,9 +38,9 @@ interface IProps {
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [open, setOpen] = useState(false);
-  const tableId = useTableId();
+  const tableId = useTableId() as string;
+  const baseId = useBaseId() as string;
   const router = useRouter();
-  const baseId = router.query.baseId as string;
   const deleteView = useDeleteView(view.id);
   const permission = useTablePermission();
   const { t } = useTranslation('table');
@@ -48,20 +49,21 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const { highlightedViewId } = useGridSearchStore();
   const isHighlighted = highlightedViewId === view.id;
   const { mutateAsync: duplicateViewFn, isLoading: isDuplicateViewLoading } = useMutation({
-    mutationFn: () => duplicateView(tableId!, view.id),
+    mutationFn: () => duplicateView(tableId, view.id),
     onSuccess: (data) => {
       const { id } = data?.data || {};
       if (!id) {
         return;
       }
-      router.push(
-        {
-          pathname: '/base/[baseId]/[tableId]/[viewId]',
-          query: { baseId, tableId: tableId, viewId: id },
-        },
-        undefined,
-        { shallow: Boolean(id) }
-      );
+      const url = getNodeUrl({
+        baseId,
+        resourceType: BaseNodeResourceType.Table,
+        resourceId: tableId,
+        viewId: id,
+      });
+      if (url) {
+        router.push(url, undefined, { shallow: true });
+      }
     },
   });
   const { trigger } = useDownload({
@@ -82,14 +84,15 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
 
   const navigateHandler = () => {
     resetSearchHandler?.();
-    router.push(
-      {
-        pathname: '/base/[baseId]/[tableId]/[viewId]',
-        query: { baseId, tableId: tableId, viewId: view.id },
-      },
-      undefined,
-      { shallow: Boolean(view.id) }
-    );
+    const url = getNodeUrl({
+      baseId,
+      resourceType: BaseNodeResourceType.Table,
+      resourceId: tableId,
+      viewId: view.id,
+    });
+    if (url) {
+      router.push(url, undefined, { shallow: true });
+    }
   };
   const ViewIcon = VIEW_ICON_MAP[view.type];
   const pinMap = usePinMap();

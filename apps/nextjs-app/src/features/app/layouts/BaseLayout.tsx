@@ -3,7 +3,6 @@ import type { ITableVo } from '@teable/openapi';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import type { IUser } from '@teable/sdk';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { Fragment } from 'react';
 import { AppLayout } from '@/features/app/layouts';
@@ -15,6 +14,8 @@ import { BasePermissionListener } from '../blocks/base/BasePermissionListener';
 import { UsageLimitModal } from '../components/billing/UsageLimitModal';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
+import type { IBaseResourceTable } from '../hooks/useBaseResource';
+import { useBaseResource } from '../hooks/useBaseResource';
 import { useSdkLocale } from '../hooks/useSdkLocale';
 
 export const BaseLayout: React.FC<{
@@ -23,8 +24,7 @@ export const BaseLayout: React.FC<{
   dehydratedState?: DehydratedState;
   user?: IUser;
 }> = ({ children, tableServerData, user, dehydratedState }) => {
-  const router = useRouter();
-  const { baseId, tableId, viewId } = router.query;
+  const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
 

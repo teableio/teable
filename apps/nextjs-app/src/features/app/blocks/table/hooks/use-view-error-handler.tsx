@@ -1,10 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
 import { HttpError, HttpErrorCode } from '@teable/core';
-import { getTableById } from '@teable/openapi';
+import { BaseNodeResourceType, getTableById } from '@teable/openapi';
 import { useConnection } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
 import type { ConnectionReceiveRequest } from 'sharedb/lib/sharedb';
+import { getNodeUrl } from '../../base/base-node/hooks';
 
 export const useViewErrorHandler = (baseId: string, tableId: string, viewId: string) => {
   const router = useRouter();
@@ -15,18 +16,15 @@ export const useViewErrorHandler = (baseId: string, tableId: string, viewId: str
       getTableById(baseId, tableId),
     onSuccess: (data) => {
       const defaultViewId = data.data.defaultViewId;
-      router.push(
-        {
-          pathname: '/base/[baseId]/[tableId]/[viewId]',
-          query: {
-            tableId,
-            viewId: defaultViewId,
-            baseId,
-          },
-        },
-        undefined,
-        { shallow: Boolean(defaultViewId) }
-      );
+      const url = getNodeUrl({
+        baseId,
+        resourceType: BaseNodeResourceType.Table,
+        resourceId: tableId,
+        viewId: defaultViewId,
+      });
+      if (url) {
+        router.push(url, undefined, { shallow: true });
+      }
     },
   });
 

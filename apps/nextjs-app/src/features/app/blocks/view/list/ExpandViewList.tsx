@@ -1,5 +1,6 @@
 import { verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ChevronDown, DraggableHandle } from '@teable/icons';
+import { BaseNodeResourceType } from '@teable/openapi';
 import { useTablePermission } from '@teable/sdk/hooks';
 import {
   Popover,
@@ -16,6 +17,8 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { tableConfig } from '@/features/i18n/table.config';
+import { useBaseResource, type IBaseResourceTable } from '../../../hooks/useBaseResource';
+import { getNodeUrl } from '../../base/base-node/hooks';
 import { VIEW_ICON_MAP } from '../constant';
 import { DraggableWrapper } from './DraggableWrapper';
 
@@ -25,7 +28,7 @@ export const ExpandViewList = () => {
   const [isDraggable, setIsDraggable] = useState(true);
   const router = useRouter();
   const permission = useTablePermission();
-
+  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -63,18 +66,15 @@ export const ExpandViewList = () => {
                       opacity: isDragging ? '0.6' : '1',
                     }}
                     onSelect={() => {
-                      router.push(
-                        {
-                          pathname: '/base/[baseId]/[tableId]/[viewId]',
-                          query: {
-                            baseId: router.query.baseId,
-                            tableId: router.query.tableId,
-                            viewId: id,
-                          },
-                        },
-                        undefined,
-                        { shallow: true }
-                      );
+                      const url = getNodeUrl({
+                        baseId,
+                        resourceType: BaseNodeResourceType.Table,
+                        resourceId: tableId,
+                        viewId: id,
+                      });
+                      if (url) {
+                        router.push(url, undefined, { shallow: true });
+                      }
                       setOpen(false);
                     }}
                   >

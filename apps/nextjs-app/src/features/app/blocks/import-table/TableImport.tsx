@@ -15,6 +15,7 @@ import {
   analyzeFile,
   importTableFromFile,
   inplaceImportTableFromFile,
+  BaseNodeResourceType,
 } from '@teable/openapi';
 import { useBase, LocalStorageKeys } from '@teable/sdk';
 import {
@@ -44,6 +45,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useCallback } from 'react';
 import { useLocalStorage } from 'react-use';
+import { getNodeUrl } from '../base/base-node/hooks';
 import { FieldConfigPanel, InplaceFieldConfigPanel } from './field-config-panel';
 import { UploadPanel } from './upload-panel';
 import { UrlPanel } from './UrlPanel';
@@ -91,16 +93,15 @@ export const TableImport = (props: ITableImportProps) => {
     onSuccess: (data) => {
       const { defaultViewId: viewId, id: tableId } = data[0];
       onOpenChange?.(false);
-      router.push(
-        {
-          pathname: '/base/[baseId]/[tableId]/[viewId]',
-          query: { baseId: base.id, tableId, viewId },
-        },
-        undefined,
-        {
-          shallow: true,
-        }
-      );
+      const url = getNodeUrl({
+        baseId: base.id,
+        resourceType: BaseNodeResourceType.Table,
+        resourceId: tableId,
+        viewId,
+      });
+      if (url) {
+        router.push(url, undefined, { shallow: true });
+      }
     },
   });
 

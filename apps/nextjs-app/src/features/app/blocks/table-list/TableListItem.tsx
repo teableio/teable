@@ -32,12 +32,11 @@ export const TableListItem: React.FC<IProps> = ({
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const viewId = router.query.viewId;
   const { highlightedTableId } = useGridSearchStore();
   const isHighlighted = highlightedTableId === table.id;
 
   const navigateHandler = async () => {
-    router.push(href, undefined, { shallow: Boolean(viewId) });
+    router.push(href, undefined, { shallow: true });
   };
 
   useEffect(() => {

@@ -12,6 +12,8 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { IBaseResourceTable } from '../../hooks/useBaseResource';
+import { useBaseResource } from '../../hooks/useBaseResource';
 import { DynamicBaseErd } from '../erd/DynamicBaseErd';
 import { FieldSetting } from '../view/field/FieldSetting';
 import { DataTable } from './data-table/DataTable';
@@ -71,14 +73,15 @@ const TablePicker = ({
 export const TableTabs = () => {
   const tables = useTables();
   const router = useRouter();
-  const tableId = router.query.tableId as string;
-  const baseId = router.query.baseId as string;
+  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
 
   return (
     <Tabs
       value={tableId}
       onValueChange={(tableId) =>
-        router.push({ pathname: router.pathname, query: { ...router.query, tableId } })
+        router.push({
+          pathname: `/base/${baseId}/table/${tableId}`,
+        })
       }
       className="space-y-4"
     >
@@ -87,7 +90,9 @@ export const TableTabs = () => {
           tableId={tableId}
           readonly={false}
           onChange={(tableId) =>
-            router.push({ pathname: router.pathname, query: { ...router.query, tableId } })
+            router.push({
+              pathname: `/base/${baseId}/table/${tableId}`,
+            })
           }
         />
         <BaseErdialog baseId={baseId} />
