@@ -151,6 +151,7 @@ export const handleTableResource = async (
   ]);
 
   const tableIds = tableList.map((t) => t.id);
+  if (tableIds.length === 0) return { notFound: true };
   if (!tableIds.includes(tableId)) return redirect(`/base/${baseId}/table/${tableIds[0]}`);
 
   // check view exists
@@ -159,6 +160,7 @@ export const handleTableResource = async (
     queryFn: () => ssrApi.getViewList(tableId),
   });
   const viewIds = viewList.map((v) => v.id);
+  if (viewIds.length === 0) return { notFound: true };
   if (!viewIds.includes(viewId)) return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}`);
 
   // handle recordId
