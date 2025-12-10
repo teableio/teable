@@ -1288,124 +1288,131 @@ export class FieldOpenApiService {
     windowId?: string
   ) {
     const { name, viewId } = duplicateFieldRo;
-    const prisma = this.prismaService.txClient();
+    const { newField } = await this.prismaService.$tx(
+      async () => {
+        const prisma = this.prismaService.txClient();
 
-    // throw error if field not found
-    const fieldRaw = await prisma.field.findUniqueOrThrow({
-      where: {
-        id: fieldId,
-        deletedTime: null,
-      },
-    });
+        // throw error if field not found
+        const fieldRaw = await prisma.field.findUniqueOrThrow({
+          where: {
+            id: fieldId,
+            deletedTime: null,
+          },
+        });
 
-    const fieldName = await this.fieldSupplementService.uniqFieldName(sourceTableId, name);
+        const fieldName = await this.fieldSupplementService.uniqFieldName(sourceTableId, name);
 
-    const dbFieldName = await this.fieldService.generateDbFieldName(sourceTableId, fieldName);
+        const dbFieldName = await this.fieldService.generateDbFieldName(sourceTableId, fieldName);
 
-    const fieldInstance = createFieldInstanceByRaw(fieldRaw);
+        const fieldInstance = createFieldInstanceByRaw(fieldRaw);
 
-    const newFieldInstance = {
-      ...fieldInstance,
-      name: fieldName,
-      dbFieldName,
-      id: generateFieldId(),
-    } as IFieldInstance;
+        const newFieldInstance = {
+          ...fieldInstance,
+          name: fieldName,
+          dbFieldName,
+          id: generateFieldId(),
+        } as IFieldInstance;
 
-    delete newFieldInstance.isPrimary;
-    if (newFieldInstance.type === FieldType.Formula) {
-      newFieldInstance.meta = undefined;
-    }
-
-    if (viewId) {
-      const view = await prisma.view.findUniqueOrThrow({
-        where: { id: viewId, deletedTime: null },
-        select: {
-          id: true,
-          columnMeta: true,
-        },
-      });
-      const columnMeta = (view.columnMeta ? JSON.parse(view.columnMeta) : {}) as IColumnMeta;
-      const fieldViewOrder = columnMeta[fieldId]?.order;
-
-      const getterFieldViewOrders = Object.values(columnMeta)
-        .filter(({ order }) => order > fieldViewOrder)
-        .map(({ order }) => order)
-        .sort();
-
-      const targetFieldViewOrder = getterFieldViewOrders?.length
-        ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
-        : fieldViewOrder + 1;
-
-      (newFieldInstance as IFieldRo).order = {
-        viewId,
-        orderIndex: targetFieldViewOrder,
-      };
-    }
-
-    // create field may not support notNull and unique validate
-    delete newFieldInstance.notNull;
-    delete newFieldInstance.unique;
-
-    if (fieldInstance.type === FieldType.Button) {
-      newFieldInstance.options = omit(fieldInstance.options, ['workflow']);
-    }
-
-    if (FieldType.Link === fieldInstance.type && !fieldInstance.isLookup) {
-      newFieldInstance.options = {
-        ...pick(fieldInstance.options, [
-          'filter',
-          'filterByViewId',
-          'foreignTableId',
-          'relationship',
-          'visibleFieldIds',
-          'baseId',
-        ]),
-        // all link field should be one way link
-        isOneWay: true,
-      } as ILinkFieldOptions;
-    }
-
-    if (
-      fieldInstance.isLookup ||
-      fieldInstance.type === FieldType.Rollup ||
-      fieldInstance.type === FieldType.ConditionalRollup
-    ) {
-      const sourceLookupOptions = fieldInstance.lookupOptions;
-      if (sourceLookupOptions) {
-        const normalizedLookupOptions = pick(sourceLookupOptions, [
-          'foreignTableId',
-          'lookupFieldId',
-          'linkFieldId',
-          'filter',
-          'sort',
-          'limit',
-        ]);
-        if (Object.keys(normalizedLookupOptions).length > 0) {
-          newFieldInstance.lookupOptions =
-            normalizedLookupOptions as IFieldInstance['lookupOptions'];
-        } else {
-          delete newFieldInstance.lookupOptions;
+        delete newFieldInstance.isPrimary;
+        if (newFieldInstance.type === FieldType.Formula) {
+          newFieldInstance.meta = undefined;
         }
-      } else {
-        delete newFieldInstance.lookupOptions;
-      }
-    }
 
-    // after create field, and add constraint relative
-    const newField = await this.createField(sourceTableId, {
-      ...omit(newFieldInstance, ['notNull', 'unique']),
-    });
+        if (viewId) {
+          const view = await prisma.view.findUniqueOrThrow({
+            where: { id: viewId, deletedTime: null },
+            select: {
+              id: true,
+              columnMeta: true,
+            },
+          });
+          const columnMeta = (view.columnMeta ? JSON.parse(view.columnMeta) : {}) as IColumnMeta;
+          const fieldViewOrder = columnMeta[fieldId]?.order;
 
-    if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
-      // Duplicate records synchronously to avoid cross-transaction CLS leaks
-      await this.duplicateFieldData(
-        sourceTableId,
-        newField.id,
-        fieldRaw.dbFieldName,
-        omit(newFieldInstance, 'order') as IFieldInstance,
-        { sourceFieldId: fieldRaw.id }
-      );
-    }
+          const getterFieldViewOrders = Object.values(columnMeta)
+            .filter(({ order }) => order > fieldViewOrder)
+            .map(({ order }) => order)
+            .sort();
+
+          const targetFieldViewOrder = getterFieldViewOrders?.length
+            ? (getterFieldViewOrders[0] + fieldViewOrder) / 2
+            : fieldViewOrder + 1;
+
+          (newFieldInstance as IFieldRo).order = {
+            viewId,
+            orderIndex: targetFieldViewOrder,
+          };
+        }
+
+        // create field may not support notNull and unique validate
+        delete newFieldInstance.notNull;
+        delete newFieldInstance.unique;
+
+        if (fieldInstance.type === FieldType.Button) {
+          newFieldInstance.options = omit(fieldInstance.options, ['workflow']);
+        }
+
+        if (FieldType.Link === fieldInstance.type && !fieldInstance.isLookup) {
+          newFieldInstance.options = {
+            ...pick(fieldInstance.options, [
+              'filter',
+              'filterByViewId',
+              'foreignTableId',
+              'relationship',
+              'visibleFieldIds',
+              'baseId',
+            ]),
+            // all link field should be one way link
+            isOneWay: true,
+          } as ILinkFieldOptions;
+        }
+
+        if (
+          fieldInstance.isLookup ||
+          fieldInstance.type === FieldType.Rollup ||
+          fieldInstance.type === FieldType.ConditionalRollup
+        ) {
+          const sourceLookupOptions = fieldInstance.lookupOptions;
+          if (sourceLookupOptions) {
+            const normalizedLookupOptions = pick(sourceLookupOptions, [
+              'foreignTableId',
+              'lookupFieldId',
+              'linkFieldId',
+              'filter',
+              'sort',
+              'limit',
+            ]);
+            if (Object.keys(normalizedLookupOptions).length > 0) {
+              newFieldInstance.lookupOptions =
+                normalizedLookupOptions as IFieldInstance['lookupOptions'];
+            } else {
+              delete newFieldInstance.lookupOptions;
+            }
+          } else {
+            delete newFieldInstance.lookupOptions;
+          }
+        }
+
+        // after create field, and add constraint relative
+        const newField = await this.createField(sourceTableId, {
+          ...omit(newFieldInstance, ['notNull', 'unique']),
+        });
+
+        if (!fieldInstance.isComputed && fieldInstance.type !== FieldType.Button) {
+          // Duplicate records synchronously to avoid cross-transaction CLS leaks
+          await this.duplicateFieldData(
+            sourceTableId,
+            newField.id,
+            fieldRaw.dbFieldName,
+            omit(newFieldInstance, 'order') as IFieldInstance,
+            { sourceFieldId: fieldRaw.id }
+          );
+        }
+
+        return { newField };
+      },
+      { timeout: this.thresholdConfig.bigTransactionTimeout }
+    );
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
       operationId: generateOperationId(),
