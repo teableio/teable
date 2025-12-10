@@ -1,7 +1,7 @@
 'use client';
 
 import { useTheme } from '@teable/next-themes';
-import type { ExternalToast } from 'sonner';
+import type { ExternalToast, ToastT } from 'sonner';
 import { Toaster as Sonner, toast as sonnerToast } from 'sonner';
 import { cn } from '../utils';
 
@@ -41,7 +41,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
 
 const DEFAULT_DURATION = 2 * 1000;
 const toast: typeof sonnerToast = Object.assign(
-  (message: string | React.ReactNode, data?: ExternalToast) =>
+  (message: ToastT['title'], data?: ExternalToast) =>
     sonnerToast(message, {
       closeButton: true,
       duration: DEFAULT_DURATION,
@@ -49,35 +49,35 @@ const toast: typeof sonnerToast = Object.assign(
     }),
   {
     ...sonnerToast,
-    error: (message: string | React.ReactNode, data?: ExternalToast) => {
+    error: (message: ToastT['title'], data?: ExternalToast) => {
       return sonnerToast.error(message, {
         closeButton: true,
         duration: DEFAULT_DURATION,
         ...data,
       });
     },
-    warning: (message: string | React.ReactNode, data?: ExternalToast) => {
+    warning: (message: ToastT['title'], data?: ExternalToast) => {
       return sonnerToast.warning(message, {
         closeButton: true,
         duration: DEFAULT_DURATION,
         ...data,
       });
     },
-    success: (message: string | React.ReactNode, data?: ExternalToast) => {
+    success: (message: ToastT['title'], data?: ExternalToast) => {
       return sonnerToast.success(message, {
         closeButton: true,
         duration: DEFAULT_DURATION,
         ...data,
       });
     },
-    info: (message: string | React.ReactNode, data?: ExternalToast) => {
+    info: (message: ToastT['title'], data?: ExternalToast) => {
       return sonnerToast.info(message, {
         closeButton: true,
         duration: DEFAULT_DURATION,
         ...data,
       });
     },
-    message: (message: string | React.ReactNode, data?: ExternalToast) => {
+    message: (message: ToastT['title'], data?: ExternalToast) => {
       return sonnerToast.message(message, {
         closeButton: true,
         duration: DEFAULT_DURATION,
