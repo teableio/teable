@@ -316,12 +316,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         }
       }
 
-      if (parentItem && parentItem.resourceType === BaseNodeResourceType.Folder) {
+      if (
+        parentItem &&
+        parentItem.resourceType === BaseNodeResourceType.Folder &&
+        !expandedItems.includes(parentItem.id)
+      ) {
         setExpandedItems((prev) => [...(prev ?? []), parentItem.id]);
       }
       setSelectedItems([node.id]);
     },
-    [baseId, router, setExpandedItems, setSelectedItems]
+    [baseId, router, expandedItems, setExpandedItems, setSelectedItems]
   );
 
   const duplicateSuccefulyCallback = useCallback(
@@ -405,13 +409,25 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         const nextItem = findNextNonFolderItem(item);
         if (nextItem) {
           const nextParentIds = getAllParentIds(nextItem.getId());
-          setExpandedItems((prev) => [...new Set([...(prev ?? []), ...nextParentIds])]);
+          const diffExpandedItems = nextParentIds.filter((id) => !expandedItems.includes(id));
+          if (diffExpandedItems.length > 0) {
+            setExpandedItems((prev) => [...new Set([...(prev ?? []), ...diffExpandedItems])]);
+          }
           handlePrimaryAction(nextItem);
         }
       };
       clickNextItem(nodeId);
     },
-    [router, baseId, selectedItems, tree, handlePrimaryAction, setExpandedItems, getAllParentIds]
+    [
+      router,
+      baseId,
+      selectedItems,
+      tree,
+      expandedItems,
+      handlePrimaryAction,
+      setExpandedItems,
+      getAllParentIds,
+    ]
   );
 
   const curdHooks = useBaseNodeCrud({
@@ -449,14 +465,16 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     if (!node) return;
 
     const parentIds = getAllParentIds(node.id);
-    if (parentIds.length > 0) {
-      setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
+    const diffExpandedItems = parentIds.filter((id) => !expandedItems.includes(id));
+    if (diffExpandedItems.length > 0) {
+      setExpandedItems((prev) => [...new Set([...(prev ?? []), ...diffExpandedItems])]);
     }
     setSelectedItems([node.id]);
   }, [
     treeItems,
     baseResource,
     currentResourceId,
+    expandedItems,
     getAllParentIds,
     setExpandedItems,
     setSelectedItems,
