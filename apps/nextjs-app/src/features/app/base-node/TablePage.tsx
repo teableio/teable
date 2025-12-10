@@ -1,12 +1,15 @@
 /* eslint-disable sonarjs/cognitive-complexity */
+import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import { Table } from '@/features/app/blocks/table/Table';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
+import { baseAllConfig } from '@/features/i18n/base-all.config';
+import { getTranslationsProps } from '@/lib/i18n';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import { redirect } from './helper';
-import type { BuildBaseProps, ISSRContext, SSRResult, ITablePageProps } from './types';
+import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 
 export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
   const [lastVisit, viewList] = await Promise.all([
@@ -23,7 +26,6 @@ export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
 export const getTableServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
-  buildBaseProps: BuildBaseProps,
   queryParams: Record<string, string | string[] | undefined>
 ): Promise<SSRResult> => {
   const { ssrApi, baseId, queryClient } = ctx;
@@ -102,7 +104,8 @@ export const getTableServerSideProps = async (
     props: {
       ...serverData,
       ...(recordServerData ? { recordServerData } : {}),
-      ...(await buildBaseProps(ctx)),
+      ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
+      dehydratedState: dehydrate(ctx.queryClient),
     },
   };
 };

@@ -24,14 +24,8 @@ export interface ISSRContext {
 
 export type SSRResult = GetServerSidePropsResult<IBaseNodePageProps>;
 
-export type BuildBaseProps = (
-  ctx: ISSRContext,
-  extra?: Record<string, unknown>
-) => Promise<Record<string, unknown>>;
-
 export type SSRHandler = (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
-  buildBaseProps: BuildBaseProps,
   queryParams?: Record<string, string | string[] | undefined>
 ) => Promise<SSRResult>;

@@ -1,4 +1,4 @@
-export type { ISSRContext, BuildBaseProps, SSRHandler, SSRResult } from './types';
+export type { ISSRContext, SSRHandler, SSRResult } from './types';
 
 export { redirect, handleEmptyPath } from './helper';
 

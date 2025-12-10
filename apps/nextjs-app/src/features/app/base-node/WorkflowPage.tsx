@@ -1,16 +1,23 @@
+import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { AutomationPage } from '@/features/app/automation/Pages';
+import { baseAllConfig } from '@/features/i18n/base-all.config';
+import { getTranslationsProps } from '@/lib/i18n';
 import type { IBaseResourceParsed } from '../hooks/useBaseResource';
-import type { BuildBaseProps, ISSRContext, SSRResult } from './types';
+import type { ISSRContext, SSRResult } from './types';
 
 export const getWorkflowServerSideProps = async (
   ctx: ISSRContext,
-  parsed: IBaseResourceParsed,
-  buildBaseProps: BuildBaseProps
+  parsed: IBaseResourceParsed
 ): Promise<SSRResult> => {
   if (parsed.resourceType !== BaseNodeResourceType.Workflow) return { notFound: true };
 
-  return { props: await buildBaseProps(ctx) };
+  return {
+    props: {
+      ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
+      dehydratedState: dehydrate(ctx.queryClient),
+    },
+  };
 };
 
 export const WorkflowPage = () => {

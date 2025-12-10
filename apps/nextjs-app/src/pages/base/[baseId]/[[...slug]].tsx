@@ -1,17 +1,17 @@
-import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { QueryClient } from '@tanstack/react-query';
 import { IdPrefix } from '@teable/core';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { CommunityPage } from '@/features/app/base/CommunityPage';
-import type { BuildBaseProps, ISSRContext } from '@/features/app/base-node';
+import type { ISSRContext } from '@/features/app/base-node';
 import {
   TablePage,
-  handleTableResource,
+  getTableServerSideProps,
   DashBoardPage,
-  handleDashboardResource,
-  handleWorkflowResource,
+  getDashboardServerSideProps,
+  getWorkflowServerSideProps,
   WorkflowPage,
   handleEmptyPath,
   redirect,
@@ -19,18 +19,10 @@ import {
 import type { IBaseNodePageProps } from '@/features/app/base-node/types';
 import { parseBaseSlug, useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
-import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
-import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
-
-const buildBaseProps: BuildBaseProps = async (ctx, extra) => ({
-  ...extra,
-  ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
-  dehydratedState: dehydrate(ctx.queryClient),
-});
 
 const UnifiedBasePage: NextPageWithLayout<IBaseNodePageProps> = (props: IBaseNodePageProps) => {
   const { resourceType } = useBaseResource();
@@ -79,16 +71,16 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
       const ctx: ISSRContext = { context, queryClient, baseId: baseIdStr, ssrApi };
 
       if (!parsed.resourceType) {
-        return handleEmptyPath(ctx, buildBaseProps);
+        return handleEmptyPath(ctx);
       }
 
       switch (parsed.resourceType) {
         case BaseNodeResourceType.Table:
-          return handleTableResource(ctx, parsed, buildBaseProps, queryParams);
+          return getTableServerSideProps(ctx, parsed, queryParams);
         case BaseNodeResourceType.Dashboard:
-          return handleDashboardResource(ctx, parsed, buildBaseProps);
+          return getDashboardServerSideProps(ctx, parsed);
         case BaseNodeResourceType.Workflow:
-          return handleWorkflowResource(ctx, parsed, buildBaseProps);
+          return getWorkflowServerSideProps(ctx, parsed);
         case BaseNodeResourceType.App:
         default:
           return { notFound: true };
