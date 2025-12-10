@@ -13,6 +13,7 @@ import { Knex } from 'knex';
 import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import pLimit from 'p-limit';
 import { IStorageConfig, StorageConfig } from '../../configs/storage';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -195,13 +196,13 @@ export class BaseExportService {
     const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
 
     // 4. export attachments
-    await this.appendAttachments('attachments', tableRaws, archive);
-
-    // 4.1 export attachments data .csv
     if (includeData) {
+      await this.appendAttachments('attachments', tableRaws, archive);
+
+      // 4.1 export attachments data csv
       await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
 
-      // 5. export table data csv
+      // 4.2 export table data csv
       const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
       const crossBaseRelativeFieldIds = new Set(crossBaseRelativeFields.map(({ id }) => id));
       const crossBaseRelativeFieldsRaws = fieldRaws.filter(({ id }) =>
@@ -234,7 +235,7 @@ export class BaseExportService {
         .filter(({ id }) => !crossBaseRelativeFieldIds.has(id))
         .map((f) => createFieldInstanceByRaw(f));
 
-      // 6. export junction csv for link fields
+      // 5. export junction csv for link fields
       const junctionTableName = [] as string[];
       for (const linkField of linkFieldInstances) {
         const { options } = linkField;
@@ -352,19 +353,28 @@ export class BaseExportService {
       ...att,
       name: attachmentTokenRaws.find(({ token }) => token === att.token)?.name,
     }));
-    for (const { token, path, name } of attachments) {
-      const stream = await this.storageAdapter.downloadFile(
-        StorageAdapter.getBucket(UploadType.Table),
-        path
-      );
 
-      archive.append(stream, { name: `${filePath}/${token}.${name?.split('.').pop()}` });
-    }
+    // Use p-limit to control concurrency and avoid opening too many connections
+    const limit = pLimit(3);
 
+    // Download all attachments
+    await Promise.all(
+      attachments.map(({ token, path, name }) =>
+        limit(async () => {
+          const stream = await this.storageAdapter.downloadFile(
+            StorageAdapter.getBucket(UploadType.Table),
+            path
+          );
+          archive.append(stream, { name: `${filePath}/${token}.${name?.split('.').pop()}` });
+        })
+      )
+    );
+
+    // Download all thumbnails
     const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
-
     const prefix = `${filePath}/thumbnail__`;
-    for (const { thumbnailPath, name } of thumbnailAttachments) {
+
+    const thumbnailTasks = thumbnailAttachments.flatMap(({ thumbnailPath, name }) => {
       const suffix = name?.split('.').pop() || 'jpg';
       const {
         lg: thumbnailLgPath,
@@ -372,33 +382,51 @@ export class BaseExportService {
         sm: thumbnailSmPath,
       } = JSON.parse(thumbnailPath as string);
 
+      const tasks = [];
+
       if (thumbnailLgPath) {
-        const stream = await this.storageAdapter.downloadFile(
-          StorageAdapter.getBucket(UploadType.Table),
-          thumbnailLgPath
+        tasks.push(
+          limit(async () => {
+            const stream = await this.storageAdapter.downloadFile(
+              StorageAdapter.getBucket(UploadType.Table),
+              thumbnailLgPath
+            );
+            const fileName = thumbnailLgPath.split('/').pop();
+            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
+          })
         );
-        const fileName = thumbnailLgPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
 
       if (thumbnailMdPath) {
-        const stream = await this.storageAdapter.downloadFile(
-          StorageAdapter.getBucket(UploadType.Table),
-          thumbnailMdPath
+        tasks.push(
+          limit(async () => {
+            const stream = await this.storageAdapter.downloadFile(
+              StorageAdapter.getBucket(UploadType.Table),
+              thumbnailMdPath
+            );
+            const fileName = thumbnailMdPath.split('/').pop();
+            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
+          })
         );
-        const fileName = thumbnailMdPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
 
       if (thumbnailSmPath) {
-        const stream = await this.storageAdapter.downloadFile(
-          StorageAdapter.getBucket(UploadType.Table),
-          thumbnailSmPath
+        tasks.push(
+          limit(async () => {
+            const stream = await this.storageAdapter.downloadFile(
+              StorageAdapter.getBucket(UploadType.Table),
+              thumbnailSmPath
+            );
+            const fileName = thumbnailSmPath.split('/').pop();
+            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
+          })
         );
-        const fileName = thumbnailSmPath.split('/').pop();
-        archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
       }
-    }
+
+      return tasks;
+    });
+
+    await Promise.all(thumbnailTasks);
   }
 
   private async appendTableDataCsv(
