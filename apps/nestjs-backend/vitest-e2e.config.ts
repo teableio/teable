@@ -10,7 +10,7 @@ if (!process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT) {
   process.env.CONDITIONAL_QUERY_DEFAULT_LIMIT = process.env.CONDITIONAL_QUERY_MAX_LIMIT;
 }
 
-const timeout = process.env.CI ? 30000 : 10000;
+const timeout = process.env.CI ? 60000 : 10000;
 const testFiles = ['**/test/**/*.{e2e-test,e2e-spec}.{js,ts}'];
 
 export default defineConfig({

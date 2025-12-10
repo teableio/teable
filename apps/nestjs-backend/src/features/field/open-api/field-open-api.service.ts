@@ -1525,7 +1525,7 @@ export class FieldOpenApiService {
     });
 
     const query = qb.toQuery();
-    const result = await this.prismaService.$queryRawUnsafe<{ count: number }[]>(query);
+    const result = await this.prismaService.txClient().$queryRawUnsafe<{ count: number }[]>(query);
     return Number(result[0].count);
   }
 
@@ -1565,8 +1565,9 @@ export class FieldOpenApiService {
       .limit(chunkSize)
       .offset(page * chunkSize)
       .toQuery();
-    const result =
-      await this.prismaService.$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
+    const result = await this.prismaService
+      .txClient()
+      .$queryRawUnsafe<{ __id: string; [key: string]: string }[]>(query);
     this.logger.debug('getFieldRecords: ', result);
     return result.map((item) => ({
       id: item.__id,
