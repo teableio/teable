@@ -5,7 +5,7 @@ import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { redirect } from './helper';
 import type { BuildBaseProps, ISSRContext, SSRResult } from './types';
 
-export const handleDashboardResource = async (
+export const getDashboardServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
   buildBaseProps: BuildBaseProps

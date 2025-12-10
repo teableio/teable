@@ -20,7 +20,7 @@ export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
     : viewIds[0]!;
 };
 
-export const handleTableResource = async (
+export const getTableServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
   buildBaseProps: BuildBaseProps,

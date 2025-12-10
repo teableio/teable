@@ -2,6 +2,6 @@ export type { ISSRContext, BuildBaseProps, SSRHandler, SSRResult } from './types
 
 export { redirect, handleEmptyPath } from './helper';
 
-export { TablePage, handleTableResource } from './TablePage';
-export { DashBoardPage, handleDashboardResource } from './DashBoardPage';
-export { WorkflowPage, handleWorkflowResource } from './WorkflowPage';
+export { TablePage, getTableServerSideProps } from './TablePage';
+export { DashBoardPage, getDashboardServerSideProps } from './DashBoardPage';
+export { WorkflowPage, getWorkflowServerSideProps } from './WorkflowPage';
