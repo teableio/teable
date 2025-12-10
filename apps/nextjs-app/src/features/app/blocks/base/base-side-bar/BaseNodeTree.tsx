@@ -449,9 +449,18 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     if (!node) return;
 
     const parentIds = getAllParentIds(node.id);
-    setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
+    if (parentIds.length > 0) {
+      setExpandedItems((prev) => [...new Set([...(prev ?? []), ...parentIds])]);
+    }
     setSelectedItems([node.id]);
-  }, [treeItems, baseResource, currentResourceId]);
+  }, [
+    treeItems,
+    baseResource,
+    currentResourceId,
+    getAllParentIds,
+    setExpandedItems,
+    setSelectedItems,
+  ]);
 
   useEffect(() => {
     if (selectedItems.length === 0) return;

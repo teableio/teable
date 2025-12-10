@@ -1,0 +1,126 @@
+/* eslint-disable sonarjs/cognitive-complexity */
+import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
+import { ReactQueryKeys } from '@teable/sdk/config';
+import type { SsrApi } from '@/backend/api/rest/ssr-api';
+import { Table } from '@/features/app/blocks/table/Table';
+import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
+import { getViewPageServerData } from '@/lib/view-pages-data';
+import { redirect } from './helper';
+import type { BuildBaseProps, ISSRContext, SSRResult, ITablePageProps } from './types';
+
+export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
+  const [lastVisit, viewList] = await Promise.all([
+    ssrApi.getUserLastVisit(LastVisitResourceType.View, tableId),
+    ssrApi.getViewList(tableId),
+  ]);
+  const viewIds = viewList.map((v) => v.id);
+  if (viewIds.length === 0) return undefined;
+  return lastVisit?.resourceId && viewIds.includes(lastVisit.resourceId)
+    ? lastVisit.resourceId
+    : viewIds[0]!;
+};
+
+export const handleTableResource = async (
+  ctx: ISSRContext,
+  parsed: IBaseResourceParsed,
+  buildBaseProps: BuildBaseProps,
+  queryParams: Record<string, string | string[] | undefined>
+): Promise<SSRResult> => {
+  const { ssrApi, baseId, queryClient } = ctx;
+  if (parsed.resourceType !== BaseNodeResourceType.Table) return { notFound: true };
+  const { tableId, viewId } = parsed;
+  const { recordId, fromNotify: notifyId } = queryParams as {
+    recordId?: string;
+    fromNotify?: string;
+  };
+
+  if (!tableId) {
+    const [lastVisit, tableList] = await Promise.all([
+      ssrApi.getUserLastVisit(LastVisitResourceType.Table, baseId),
+      ssrApi.getTables(baseId),
+    ]);
+    const tableIds = tableList.map((t) => t.id);
+    const defaultTableId =
+      lastVisit?.resourceId && tableIds.includes(lastVisit.resourceId)
+        ? lastVisit.resourceId
+        : tableIds[0];
+
+    const defaultViewId = defaultTableId
+      ? await getDefaultViewId(ssrApi, defaultTableId)
+      : undefined;
+    if (defaultTableId && defaultViewId) {
+      return redirect(`/base/${baseId}/table/${defaultTableId}/${defaultViewId}`);
+    }
+    return { notFound: true };
+  }
+
+  if (!viewId) {
+    const defaultViewId = await getDefaultViewId(ssrApi, tableId);
+    if (defaultViewId) {
+      return redirect(`/base/${baseId}/table/${tableId}/${defaultViewId}`);
+    }
+    return { notFound: true };
+  }
+
+  // check table exists
+  const [tableList] = await Promise.all([
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.tableList(baseId),
+      queryFn: () => ssrApi.getTables(baseId),
+    }),
+    queryClient.fetchQuery({
+      queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
+      queryFn: () => ssrApi.getTablePermission(baseId, tableId),
+    }),
+  ]);
+
+  const tableIds = tableList.map((t) => t.id);
+  if (tableIds.length === 0) return { notFound: true };
+  if (!tableIds.includes(tableId)) return redirect(`/base/${baseId}/table/${tableIds[0]}`);
+
+  // check view exists
+  const viewList = await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.viewList(tableId),
+    queryFn: () => ssrApi.getViewList(tableId),
+  });
+  const viewIds = viewList.map((v) => v.id);
+  if (viewIds.length === 0) return { notFound: true };
+  if (!viewIds.includes(viewId)) return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}`);
+
+  // handle recordId
+  let recordServerData: ITablePageProps['recordServerData'];
+  if (recordId) {
+    if (notifyId) await ssrApi.updateNotificationStatus(notifyId, { isRead: true });
+    recordServerData = await ssrApi.getRecord(tableId, recordId);
+    if (!recordServerData) return redirect(`/base/${baseId}/table/${tableId}/${viewId}`);
+  }
+
+  const serverData = await getViewPageServerData(ssrApi, baseId, tableId, viewId);
+  if (!serverData) return { notFound: true };
+
+  return {
+    props: {
+      ...serverData,
+      ...(recordServerData ? { recordServerData } : {}),
+      ...(await buildBaseProps(ctx)),
+    },
+  };
+};
+
+export const TablePage = ({
+  fieldServerData,
+  viewServerData,
+  recordsServerData,
+  recordServerData,
+  groupPointsServerDataMap,
+}: ITablePageProps) => {
+  return (
+    <Table
+      fieldServerData={fieldServerData ?? []}
+      viewServerData={viewServerData ?? []}
+      recordsServerData={recordsServerData ?? { records: [] }}
+      recordServerData={recordServerData}
+      groupPointsServerDataMap={groupPointsServerDataMap}
+    />
+  );
+};
