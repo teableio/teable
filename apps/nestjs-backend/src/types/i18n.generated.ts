@@ -3499,6 +3499,8 @@ export type I18nTranslations = {
                     "generating": string;
                     "openApp": string;
                     "viewProgress": string;
+                    "newApp": string;
+                    "building": string;
                 };
                 "generateAutomation": {
                     "title": string;

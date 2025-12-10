@@ -789,7 +789,9 @@
         "generatingApp": "Generating app",
         "generating": "Generating...",
         "openApp": "Open App",
-        "viewProgress": "View Progress"
+        "viewProgress": "View Progress",
+        "newApp": "New App",
+        "building": "Building..."
       },
       "generateAutomation": {
         "title": "Automation Builder",

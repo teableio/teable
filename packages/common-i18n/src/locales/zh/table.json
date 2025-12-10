@@ -791,7 +791,8 @@
         "generatingApp": "生成应用",
         "generating": "生成中...",
         "openApp": "打开应用",
-        "viewProgress": "查看进度"
+        "viewProgress": "查看进度",
+        "building": "构建中..."
       },
       "generateAutomation": {
         "title": "自动化构建器",
