@@ -13,7 +13,7 @@ import {
   getDashboardServerSideProps,
   getWorkflowServerSideProps,
   WorkflowPage,
-  handleEmptyPath,
+  getBaseServerSideProps,
   redirect,
 } from '@/features/app/base-node';
 import type { IBaseNodePageProps } from '@/features/app/base-node/types';
@@ -21,6 +21,7 @@ import { parseBaseSlug, useBaseResource } from '@/features/app/hooks/useBaseReso
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import { baseAllConfig } from '@/features/i18n/base-all.config';
 import ensureLogin from '@/lib/ensureLogin';
+import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
@@ -70,10 +71,16 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
       ]);
 
       const i18nNamespaces = baseAllConfig.i18nNamespaces;
-      const ctx: ISSRContext = { context, queryClient, baseId: baseIdStr, ssrApi, i18nNamespaces };
+      const ctx: ISSRContext = {
+        context,
+        queryClient,
+        baseId: baseIdStr,
+        ssrApi,
+        getTranslationsProps: () => getTranslationsProps(context, i18nNamespaces),
+      };
 
       if (!parsed.resourceType) {
-        return handleEmptyPath(ctx);
+        return getBaseServerSideProps(ctx);
       }
 
       switch (parsed.resourceType) {

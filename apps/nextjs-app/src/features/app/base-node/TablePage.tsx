@@ -5,8 +5,6 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import { Table } from '@/features/app/blocks/table/Table';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
-import type { I18nNamespace } from '@/lib/i18n';
-import { getTranslationsProps } from '@/lib/i18n';
 import { getViewPageServerData } from '@/lib/view-pages-data';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult, ITablePageProps } from './types';
@@ -104,7 +102,7 @@ export const getTableServerSideProps = async (
     props: {
       ...serverData,
       ...(recordServerData ? { recordServerData } : {}),
-      ...(await getTranslationsProps(ctx.context, ctx.i18nNamespaces)),
+      ...(await ctx.getTranslationsProps()),
       dehydratedState: dehydrate(ctx.queryClient),
     },
   };
