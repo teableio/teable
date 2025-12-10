@@ -4,7 +4,10 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTables } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 
-export const useTableHref = () => {
+export const useTableHref = (): {
+  hrefMap: Record<string, string>;
+  viewIdMap: Record<string, string>;
+} => {
   const baseId = useBaseId();
   const tables = useTables();
   const { data: userLastVisitMap } = useQuery({
@@ -17,11 +20,13 @@ export const useTableHref = () => {
   });
 
   return useMemo(() => {
-    const map: Record<string, string> = {};
+    const hrefMap: Record<string, string> = {};
+    const viewIdMap: Record<string, string> = {};
     tables.forEach((table) => {
-      map[table.id] =
-        `/base/${baseId}/table/${table.id}/${userLastVisitMap?.[table.id]?.resourceId || table.defaultViewId}`;
+      const viewId = userLastVisitMap?.[table.id]?.resourceId || table.defaultViewId;
+      viewIdMap[table.id] = viewId;
+      hrefMap[table.id] = `/base/${baseId}/table/${table.id}/${viewId}`;
     });
-    return map;
+    return { hrefMap, viewIdMap };
   }, [baseId, tables, userLastVisitMap]);
 };

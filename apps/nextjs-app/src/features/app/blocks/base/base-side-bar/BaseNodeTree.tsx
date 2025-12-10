@@ -135,7 +135,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     tableId?: string;
   }>();
   const { highlightedTableId } = useGridSearchStore();
-  const tableHrefMap = useTableHref();
+  const { hrefMap: tableHrefMap, viewIdMap: tableViewIdsMap } = useTableHref();
   const permission = useBasePermission();
   const { buildApp: buildAppEnabled } = useDisableAIAction();
   const { disallowDashboard } = useSetting();
@@ -185,7 +185,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       const node = item.getItemData();
       const { resourceType, resourceId } = node;
       if (resourceType === BaseNodeResourceType.Table) {
-        const viewId = router.query.viewId as string;
+        const viewId = tableViewIdsMap[resourceId];
         const url = tableHrefMap[resourceId];
         if (url) {
           router.push({ pathname: url }, undefined, {
@@ -205,7 +205,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         shallow: true,
       });
     },
-    [baseId, router, tableHrefMap]
+    [baseId, router, tableHrefMap, tableViewIdsMap]
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {

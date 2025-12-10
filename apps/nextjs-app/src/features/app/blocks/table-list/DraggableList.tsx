@@ -19,7 +19,7 @@ export const DraggableList = () => {
 
   const [innerTables, setInnerTables] = useState([...tables]);
 
-  const tableHrefMap = useTableHref();
+  const { hrefMap: tableHrefMap } = useTableHref();
 
   useEffect(() => {
     setInnerTables(tables);
