@@ -3,7 +3,6 @@ import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { DashboardPage as DashboardPageComponent } from '@/features/app/dashboard/Pages';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
-import { baseAllConfig } from '@/features/i18n/base-all.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
@@ -33,7 +32,7 @@ export const getDashboardServerSideProps = async (
 
     return {
       props: {
-        ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
+        ...(await getTranslationsProps(ctx.context, ctx.i18nNamespaces)),
         dehydratedState: dehydrate(ctx.queryClient),
       },
     };
@@ -46,7 +45,7 @@ export const getDashboardServerSideProps = async (
 
   return {
     props: {
-      ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
+      ...(await getTranslationsProps(ctx.context, ctx.i18nNamespaces)),
       dehydratedState: dehydrate(ctx.queryClient),
     },
   };

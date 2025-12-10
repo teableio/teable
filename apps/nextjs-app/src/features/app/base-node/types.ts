@@ -4,6 +4,7 @@ import type { IGroupPointsVo } from '@teable/openapi';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
+import type { I18nNamespace } from '@/lib/i18n';
 import type { IBasePageProps } from '@/lib/type';
 export interface ITablePageProps {
   fieldServerData?: IFieldVo[];
@@ -20,6 +21,7 @@ export interface ISSRContext {
   queryClient: QueryClient;
   baseId: string;
   ssrApi: SsrApi;
+  i18nNamespaces: I18nNamespace[] | I18nNamespace | undefined;
 }
 
 export type SSRResult = GetServerSidePropsResult<IBaseNodePageProps>;

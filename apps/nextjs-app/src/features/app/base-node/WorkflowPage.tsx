@@ -1,7 +1,6 @@
 import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { AutomationPage } from '@/features/app/automation/Pages';
-import { baseAllConfig } from '@/features/i18n/base-all.config';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { IBaseResourceParsed } from '../hooks/useBaseResource';
 import type { ISSRContext, SSRResult } from './types';
@@ -14,7 +13,7 @@ export const getWorkflowServerSideProps = async (
 
   return {
     props: {
-      ...(await getTranslationsProps(ctx.context, baseAllConfig.i18nNamespaces)),
+      ...(await getTranslationsProps(ctx.context, ctx.i18nNamespaces)),
       dehydratedState: dehydrate(ctx.queryClient),
     },
   };
