@@ -33,6 +33,7 @@ import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
 import { useSetting } from '@/features/app/hooks/useSetting';
+import { usePinMap } from '../../space/usePinMap';
 import { useTableHref } from '../../table-list/useTableHref';
 import { useGridSearchStore } from '../../view/grid/useGridSearchStore';
 import {
@@ -131,6 +132,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const permission = useBasePermission();
   const { buildApp: buildAppEnabled } = useDisableAIAction();
   const { disallowDashboard } = useSetting();
+  const pinMap = usePinMap();
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = Boolean(permission?.['automation|create']);
@@ -618,7 +620,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
               const { resourceType, resourceId } = node;
               const name = getNodeName(node);
               const isHighlighted = isEditMode && highlightedTableId === resourceId;
-
+              const isPinned = pinMap?.[resourceId];
               return (
                 <TreeItem asChild key={nodeId} item={item}>
                   <div className="h-8 w-full cursor-pointer">
@@ -675,7 +677,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                 }}
-                                className="flex shrink-0 cursor-pointer items-center gap-2"
+                                className={cn('flex shrink-0 cursor-pointer items-center gap-2', {
+                                  'w-0 group-hover:w-auto': !isPinned,
+                                })}
                               >
                                 <div className="opacity-0 group-hover:opacity-100 group-data-[folder=false]:hidden">
                                   {canCreateResource && (
