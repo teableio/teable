@@ -1,7 +1,13 @@
 import type { INestApplication } from '@nestjs/common';
-import { FieldType } from '@teable/core';
+import { FieldType, StatisticsFunc } from '@teable/core';
 import type { ITableFullVo } from '@teable/openapi';
-import { getSearchCount, getSearchIndex, createField, updateViewColumnMeta } from '@teable/openapi';
+import {
+  getAggregation,
+  getSearchCount,
+  getSearchIndex,
+  createField,
+  updateViewColumnMeta,
+} from '@teable/openapi';
 import { x_20 } from './data-helpers/20x';
 import { x_20_link, x_20_link_from_lookups } from './data-helpers/20x-link';
 import { getError } from './utils/get-error';
@@ -149,6 +155,62 @@ describe('OpenAPI AggregationController (e2e)', () => {
         search: ['Go to Gentle night', '', false],
       });
       expect(result2?.data).toBe('');
+    });
+  });
+
+  describe('aggregation statistics with search filtering', () => {
+    let statTable: ITableFullVo;
+    let nameFieldId: string;
+    let quantityFieldId: string;
+
+    beforeAll(async () => {
+      statTable = await createTable(baseId, {
+        name: 'agg_search_filter',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Quantity', type: FieldType.Number },
+        ],
+        records: [
+          { fields: { Name: 'apple phone', Quantity: 180 } },
+          { fields: { Name: 'battery', Quantity: 60 } },
+          { fields: { Name: 'apple cable', Quantity: 120 } },
+        ],
+      });
+
+      nameFieldId = statTable.fields.find((field) => field.name === 'Name')!.id;
+      quantityFieldId = statTable.fields.find((field) => field.name === 'Quantity')!.id;
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, statTable.id);
+    });
+
+    const getAggValue = async (
+      statisticFunc: StatisticsFunc,
+      search?: [string, string, boolean]
+    ) => {
+      const result = (
+        await getAggregation(statTable.id, {
+          field: { [statisticFunc]: [quantityFieldId] },
+          ...(search ? { search } : {}),
+        })
+      ).data;
+
+      return result.aggregations?.find((agg) => agg.fieldId === quantityFieldId)?.total?.value;
+    };
+
+    it.each<[StatisticsFunc, number, number]>([
+      [StatisticsFunc.Sum, 360, 300],
+      [StatisticsFunc.Average, 120, 150],
+      [StatisticsFunc.Min, 60, 120],
+      [StatisticsFunc.Max, 180, 180],
+      [StatisticsFunc.Count, 3, 2],
+    ])('%s respects hide-not-matching search', async (statisticFunc, totalAll, totalFiltered) => {
+      const initialValue = await getAggValue(statisticFunc);
+      expect(initialValue).toBe(totalAll);
+
+      const filteredValue = await getAggValue(statisticFunc, ['apple', nameFieldId, true]);
+      expect(filteredValue).toBe(totalFiltered);
     });
   });
 });

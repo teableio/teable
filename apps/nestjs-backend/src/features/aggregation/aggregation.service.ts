@@ -249,7 +249,7 @@ export class AggregationService implements IAggregationService {
     });
 
     // Build aggregate query using the permission-aware builder so the CTE is preserved
-    const { qb } = await this.recordQueryBuilder.createRecordAggregateBuilder(
+    const { qb, selectionMap } = await this.recordQueryBuilder.createRecordAggregateBuilder(
       permissionProbe.viewCte ?? dbTableName,
       {
         tableId,
@@ -264,6 +264,13 @@ export class AggregationService implements IAggregationService {
         builder: permissionProbe.builder,
       }
     );
+
+    if (search && search[2] && searchFields?.length) {
+      const tableIndex = await this.tableIndexService.getActivatedTableIndexes(tableId);
+      qb.where((builder) => {
+        this.dbProvider.searchQuery(builder, searchFields, tableIndex, search, { selectionMap });
+      });
+    }
 
     if (groupBy?.length) {
       qb.limit(this.thresholdConfig.maxGroupPoints);
