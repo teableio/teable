@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { FieldModule } from '../field/field.module';
+import { TableDomainQueryModule } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { IntegrityController } from './integrity.controller';
 import { LinkFieldIntegrityService } from './link-field.service';
@@ -7,7 +8,7 @@ import { LinkIntegrityService } from './link-integrity.service';
 import { UniqueIndexService } from './unique-index.service';
 
 @Module({
-  imports: [FieldModule],
+  imports: [FieldModule, TableDomainQueryModule],
   controllers: [IntegrityController],
   providers: [
     ForeignKeyIntegrityService,

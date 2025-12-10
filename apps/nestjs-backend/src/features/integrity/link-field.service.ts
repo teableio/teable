@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { FieldType, type ILinkFieldOptions } from '@teable/core';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityIssue } from '@teable/openapi';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
@@ -65,7 +65,17 @@ export class LinkFieldIntegrityService {
     }
 
     const query = this.dbProvider.integrityQuery().checkLinks(params);
-    return await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
+    try {
+      return await this.prismaService.$queryRawUnsafe<{ id: string }[]>(query);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2010') {
+        this.logger.warn(
+          `Skip link integrity check for field "${params.linkDbFieldName}" on table "${params.dbTableName}" due to missing column: ${error.meta?.message || error.message}`
+        );
+        return [];
+      }
+      throw error;
+    }
   }
 
   private async fixLinks(params: {

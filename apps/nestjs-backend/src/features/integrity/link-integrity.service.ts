@@ -1,14 +1,23 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 import { Injectable, Logger } from '@nestjs/common';
-import { FieldType, type ILinkFieldOptions, CellValueType, DbFieldType } from '@teable/core';
+import {
+  FieldType,
+  type ILinkFieldOptions,
+  CellValueType,
+  DbFieldType,
+  Relationship,
+} from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
-import { PrismaService } from '@teable/db-main-prisma';
+import { Prisma, PrismaService } from '@teable/db-main-prisma';
 import { IntegrityIssueType, type IIntegrityCheckVo, type IIntegrityIssue } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { LinkFieldQueryService } from '../field/field-calculate/link-field-query.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
+import { TableDomainQueryService } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { LinkFieldIntegrityService } from './link-field.service';
 import { UniqueIndexService } from './unique-index.service';
@@ -22,6 +31,8 @@ export class LinkIntegrityService {
     private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
     private readonly uniqueIndexService: UniqueIndexService,
+    private readonly tableDomainQueryService: TableDomainQueryService,
+    private readonly linkFieldQueryService: LinkFieldQueryService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {}
@@ -219,11 +230,13 @@ export class LinkIntegrityService {
         });
       }
 
+      let canCheckLinks = false;
       const tableExistsSql = this.dbProvider.checkTableExist(options.fkHostTableName);
       const tableExists =
         await this.prismaService.$queryRawUnsafe<{ exists: boolean }[]>(tableExistsSql);
+      const hostTableExists = tableExists[0].exists;
 
-      if (!tableExists[0].exists) {
+      if (!hostTableExists) {
         issues.push({
           fieldId: field.id,
           type: IntegrityIssueType.ForeignKeyHostTableNotFound,
@@ -257,6 +270,7 @@ export class LinkIntegrityService {
             message: `Foreign key name "${options.foreignKeyName}" is missing for link field (Field Name: ${field.name}, Field ID: ${field.id}) in table ${table.name}`,
           });
         }
+        canCheckLinks = selfKeyExists && foreignKeyExists;
       }
 
       if (options.symmetricFieldId) {
@@ -281,7 +295,7 @@ export class LinkIntegrityService {
         });
       }
 
-      if (foreignTable) {
+      if (foreignTable && hostTableExists && canCheckLinks) {
         const linkField = createFieldInstanceByRaw(field) as LinkFieldDto;
         const invalidReferences = await this.foreignKeyIntegrityService.getIssues(
           table.id,
@@ -344,6 +358,187 @@ export class LinkIntegrityService {
     return issues;
   }
 
+  private async fixMissingForeignKeyColumns(
+    fieldId: string,
+    issueType?: IntegrityIssueType
+  ): Promise<IIntegrityIssue | undefined> {
+    const prisma = this.prismaService.txClient();
+    const fieldRaw = await prisma.field.findFirst({
+      where: { id: fieldId, type: FieldType.Link, isLookup: null, deletedTime: null },
+    });
+
+    if (!fieldRaw) {
+      return;
+    }
+
+    const linkField = createFieldInstanceByRaw(fieldRaw) as LinkFieldDto;
+    const options = linkField.options;
+    const tableMeta = await prisma.tableMeta.findFirst({
+      where: { id: fieldRaw.tableId, deletedTime: null },
+      select: { dbTableName: true },
+    });
+
+    if (!tableMeta) {
+      return;
+    }
+
+    const tableDomain = await this.tableDomainQueryService.getTableDomainById(fieldRaw.tableId);
+    const tableNameMap = await this.linkFieldQueryService.getTableNameMapForLinkFields(
+      fieldRaw.tableId,
+      [linkField]
+    );
+
+    const queries = this.dbProvider.createColumnSchema(
+      tableMeta.dbTableName,
+      linkField,
+      tableDomain,
+      false,
+      fieldRaw.tableId,
+      tableNameMap,
+      false,
+      true
+    );
+
+    const hostExistsResult = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(
+      this.dbProvider.checkTableExist(options.fkHostTableName)
+    );
+    const hostAlreadyExists = hostExistsResult[0]?.exists;
+    const foreignDbTableName = tableNameMap.get(options.foreignTableId);
+
+    if (!foreignDbTableName) {
+      return;
+    }
+
+    const orderColumnName = linkField.getOrderColumnName();
+
+    if (hostAlreadyExists) {
+      const [selfKeyExists, foreignKeyExists, orderColumnExists] = await Promise.all([
+        this.dbProvider.checkColumnExist(options.fkHostTableName, options.selfKeyName, prisma),
+        this.dbProvider.checkColumnExist(options.fkHostTableName, options.foreignKeyName, prisma),
+        orderColumnName
+          ? this.dbProvider.checkColumnExist(options.fkHostTableName, orderColumnName, prisma)
+          : Promise.resolve(true),
+      ]);
+
+      const alterSchema = this.knex.schema.alterTable(options.fkHostTableName, (table) => {
+        switch (options.relationship) {
+          case Relationship.ManyMany: {
+            if (!selfKeyExists) {
+              table
+                .string(options.selfKeyName)
+                .references('__id')
+                .inTable(tableMeta.dbTableName)
+                .withKeyName(`fk_${options.selfKeyName}`);
+            }
+            if (!foreignKeyExists) {
+              table
+                .string(options.foreignKeyName)
+                .references('__id')
+                .inTable(foreignDbTableName)
+                .withKeyName(`fk_${options.foreignKeyName}`);
+            }
+            if (orderColumnName && !orderColumnExists) {
+              table.integer(orderColumnName).nullable();
+            }
+            break;
+          }
+          case Relationship.ManyOne:
+          case Relationship.OneOne: {
+            if (!foreignKeyExists) {
+              table
+                .string(options.foreignKeyName)
+                .references('__id')
+                .inTable(foreignDbTableName)
+                .withKeyName(`fk_${options.foreignKeyName}`);
+              if (options.relationship === Relationship.OneOne) {
+                table.unique([options.foreignKeyName], {
+                  indexName: `index_${options.foreignKeyName}`,
+                });
+              }
+            }
+            if (orderColumnName && !orderColumnExists) {
+              table.integer(orderColumnName).nullable();
+            }
+            break;
+          }
+          case Relationship.OneMany: {
+            if (options.isOneWay) {
+              if (!selfKeyExists) {
+                table
+                  .string(options.selfKeyName)
+                  .references('__id')
+                  .inTable(tableMeta.dbTableName)
+                  .withKeyName(`fk_${options.selfKeyName}`);
+              }
+              if (!foreignKeyExists) {
+                table
+                  .string(options.foreignKeyName)
+                  .references('__id')
+                  .inTable(foreignDbTableName)
+                  .withKeyName(`fk_${options.foreignKeyName}`);
+              }
+              if (!selfKeyExists || !foreignKeyExists) {
+                table.unique([options.selfKeyName, options.foreignKeyName], {
+                  indexName: `index_${options.selfKeyName}_${options.foreignKeyName}`,
+                });
+              }
+            } else {
+              if (!selfKeyExists) {
+                table
+                  .string(options.selfKeyName)
+                  .references('__id')
+                  .inTable(tableMeta.dbTableName)
+                  .withKeyName(`fk_${options.selfKeyName}`);
+              }
+              if (orderColumnName && !orderColumnExists) {
+                table.integer(orderColumnName).nullable();
+              }
+            }
+            break;
+          }
+          default:
+            break;
+        }
+      });
+
+      const alterSqls = alterSchema
+        .toSQL()
+        .map(({ sql }) => sql)
+        .filter((sql) => sql && !sql.startsWith('PRAGMA'));
+
+      for (const sql of alterSqls) {
+        await prisma.$executeRawUnsafe(sql);
+      }
+    } else {
+      const sqls = queries.filter((sql) => sql && !sql.startsWith('PRAGMA'));
+      if (!sqls.length) {
+        return;
+      }
+
+      for (const sql of sqls) {
+        try {
+          await prisma.$executeRawUnsafe(sql);
+        } catch (error) {
+          if (
+            error instanceof Prisma.PrismaClientKnownRequestError &&
+            error.code === 'P2010' &&
+            (error.meta as { code?: string })?.code === '42P07'
+          ) {
+            // Relation already exists; continue with the rest of the fix
+            continue;
+          }
+          throw error;
+        }
+      }
+    }
+
+    return {
+      type: issueType ?? IntegrityIssueType.ForeignKeyNotFound,
+      fieldId,
+      message: `Restored missing foreign key columns for link field (Field Name: ${fieldRaw.name}, Field ID: ${fieldId})`,
+    };
+  }
+
   async linkIntegrityFix(baseId: string, tableId?: string): Promise<IIntegrityIssue[]> {
     const checkResult = await this.linkIntegrityCheck(baseId, tableId || '');
     const fixResults: IIntegrityIssue[] = [];
@@ -357,6 +552,12 @@ export class LinkIntegrityService {
           }
           case IntegrityIssueType.InvalidLinkReference: {
             const result = await this.linkFieldIntegrityService.fix(issue.fieldId);
+            result && fixResults.push(result);
+            break;
+          }
+          case IntegrityIssueType.ForeignKeyNotFound:
+          case IntegrityIssueType.ForeignKeyHostTableNotFound: {
+            const result = await this.fixMissingForeignKeyColumns(issue.fieldId, issue.type);
             result && fixResults.push(result);
             break;
           }

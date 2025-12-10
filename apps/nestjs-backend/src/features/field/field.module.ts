@@ -9,6 +9,6 @@ import { FieldService } from './field.service';
 @Module({
   imports: [CalculationModule, TableDomainQueryModule],
   providers: [FieldService, DbProvider, FormulaFieldService, LinkFieldQueryService],
-  exports: [FieldService],
+  exports: [FieldService, LinkFieldQueryService],
 })
 export class FieldModule {}

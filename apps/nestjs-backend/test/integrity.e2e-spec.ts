@@ -9,6 +9,7 @@ import { FieldType, Relationship } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { ITableFullVo } from '@teable/openapi';
 import {
+  IntegrityIssueType,
   checkBaseIntegrity,
   convertField,
   createBase,
@@ -42,8 +43,21 @@ describe('OpenAPI integrity (e2e)', () => {
   let knex: Knex;
 
   async function executeKnex(builder: Knex.SchemaBuilder | Knex.QueryBuilder) {
-    const query = builder.toQuery();
-    return await prisma.$executeRawUnsafe(query);
+    const compiled = builder.toSQL();
+    const sqlItems = Array.isArray(compiled) ? compiled : [compiled];
+    const statements = sqlItems
+      .map(({ sql, bindings }) => ({
+        sql,
+        bindings: bindings || [],
+      }))
+      .filter(({ sql }) => sql && !sql.startsWith('PRAGMA'));
+
+    let result: unknown;
+    for (const { sql, bindings } of statements) {
+      const executableSql = knex.raw(sql, bindings).toQuery();
+      result = await prisma.$executeRawUnsafe(executableSql);
+    }
+    return result;
   }
 
   beforeAll(async () => {
@@ -422,6 +436,111 @@ describe('OpenAPI integrity (e2e)', () => {
 
       const integrity5 = await checkBaseIntegrity(baseId2, base2table2.id);
       expect(integrity5.data.hasIssues).toEqual(false);
+    });
+
+    it('should surface and fix missing foreign key columns during link integrity check', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'many many link',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyMany,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const options = linkField.options as ILinkFieldOptions;
+
+      await executeKnex(
+        knex.schema.alterTable(options.fkHostTableName, (table) => {
+          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
+          table.dropColumn(options.foreignKeyName);
+        })
+      );
+
+      const integrity = await checkBaseIntegrity(baseId2, base2table1.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((item) => item.issues);
+      expect(
+        issues.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignKeyNotFound && issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+
+      await fixBaseIntegrity(baseId2, base2table1.id);
+
+      const integrityAfterFix = await checkBaseIntegrity(baseId2, base2table1.id);
+      expect(integrityAfterFix.data.hasIssues).toEqual(false);
+    });
+
+    it('should rebuild missing junction table during link integrity fix', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'many many link (drop table)',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyMany,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const options = linkField.options as ILinkFieldOptions;
+
+      await executeKnex(knex.schema.dropTable(options.fkHostTableName));
+
+      const integrity = await checkBaseIntegrity(baseId2, base2table1.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((item) => item.issues);
+      expect(
+        issues.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignKeyHostTableNotFound &&
+            issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+
+      await fixBaseIntegrity(baseId2, base2table1.id);
+
+      const integrityAfterFix = await checkBaseIntegrity(baseId2, base2table1.id);
+      expect(integrityAfterFix.data.hasIssues).toEqual(false);
+    });
+
+    it('should restore missing foreign key columns for ManyOne link host', async () => {
+      const linkFieldRo: IFieldRo = {
+        name: 'many one link (drop column)',
+        type: FieldType.Link,
+        options: {
+          baseId: baseId2,
+          relationship: Relationship.ManyOne,
+          foreignTableId: base2table2.id,
+        },
+      };
+
+      const linkField = await createField(base2table1.id, linkFieldRo);
+      const options = linkField.options as ILinkFieldOptions;
+
+      await executeKnex(
+        knex.schema.alterTable(options.fkHostTableName, (table) => {
+          table.dropForeign(options.foreignKeyName, `fk_${options.foreignKeyName}`);
+          table.dropColumn(options.foreignKeyName);
+          table.dropColumn(`${options.foreignKeyName}_order`);
+        })
+      );
+
+      const integrity = await checkBaseIntegrity(baseId2, base2table1.id);
+      const issues = integrity.data.linkFieldIssues.flatMap((item) => item.issues);
+      expect(
+        issues.some(
+          (issue) =>
+            issue.type === IntegrityIssueType.ForeignKeyNotFound && issue.fieldId === linkField.id
+        )
+      ).toEqual(true);
+
+      await fixBaseIntegrity(baseId2, base2table1.id);
+
+      const integrityAfterFix = await checkBaseIntegrity(baseId2, base2table1.id);
+      expect(integrityAfterFix.data.hasIssues).toEqual(false);
     });
   });
 
