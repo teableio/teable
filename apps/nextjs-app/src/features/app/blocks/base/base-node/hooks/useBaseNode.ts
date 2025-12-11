@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getBaseNodeChannel } from '@teable/core';
-import type { IBaseNodeVo } from '@teable/openapi';
+import type { IBaseNodeTreeVo, IBaseNodeVo } from '@teable/openapi';
 import { getBaseNodeTree } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useConnection } from '@teable/sdk/hooks';
@@ -16,10 +16,21 @@ export const useBaseNode = (baseId: string) => {
   const channel = getBaseNodeChannel(baseId);
   const presence = connection?.getPresence(channel);
   const [nodes, setNodes] = useState<IBaseNodeVo[]>([]);
-  const [treeItems, setTreeItems] = useState<Record<string, TreeItemData>>({});
   const [shouldInvalidate, setShouldInvalidate] = useState(0);
 
   const queryClient = useQueryClient();
+
+  // Initialize treeItems from cache to avoid flash of empty state on remount
+  const [treeItems, setTreeItems] = useState<Record<string, TreeItemData>>(() => {
+    const cachedData = queryClient.getQueryData<IBaseNodeTreeVo>(
+      ReactQueryKeys.baseNodeTree(baseId)
+    );
+    if (cachedData?.nodes && cachedData.nodes.length > 0) {
+      return buildTreeItems(cachedData.nodes);
+    }
+    return {};
+  });
+
   const { data: queryData, isLoading } = useQuery({
     queryKey: ReactQueryKeys.baseNodeTree(baseId),
     queryFn: ({ queryKey }) => getBaseNodeTree(queryKey[1]).then((res) => res.data),
