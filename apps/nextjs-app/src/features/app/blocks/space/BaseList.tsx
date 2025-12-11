@@ -45,18 +45,31 @@ export const BaseList = (props: IBaseListProps) => {
       };
     });
 
+    /**
+     * 1. Both have lastVisitTime: compare by lastVisitTime (recent first)
+     * 2. One has lastVisitTime: prioritize the one with lastVisitTime
+     * 3. Both have lastModifiedTime: compare by lastModifiedTime (recent first)
+     * 4. One has lastModifiedTime: prioritize the one with lastModifiedTime
+     * 5. Finally, sort by createdTime (recent first)
+     */
     return withTime.sort((a, b) => {
-      const aTime = a.lastVisitTime
-        ? new Date(a.lastVisitTime).getTime()
-        : a.lastModifiedTime
-          ? new Date(a.lastModifiedTime).getTime()
-          : Number.NEGATIVE_INFINITY;
-      const bTime = b.lastVisitTime
-        ? new Date(b.lastVisitTime).getTime()
-        : b.lastModifiedTime
-          ? new Date(b.lastModifiedTime).getTime()
-          : Number.NEGATIVE_INFINITY;
-      return bTime - aTime;
+      if (a.lastVisitTime && b.lastVisitTime) {
+        return new Date(b.lastVisitTime).getTime() - new Date(a.lastVisitTime).getTime();
+      }
+
+      if (a.lastVisitTime && !b.lastVisitTime) return -1;
+      if (!a.lastVisitTime && b.lastVisitTime) return 1;
+
+      if (a.lastModifiedTime && b.lastModifiedTime) {
+        return new Date(b.lastModifiedTime).getTime() - new Date(a.lastModifiedTime).getTime();
+      }
+
+      if (a.lastModifiedTime && !b.lastModifiedTime) return -1;
+      if (!a.lastModifiedTime && b.lastModifiedTime) return 1;
+
+      const aCreated = a.createdTime ? new Date(a.createdTime).getTime() : 0;
+      const bCreated = b.createdTime ? new Date(b.createdTime).getTime() : 0;
+      return bCreated - aCreated;
     });
   }, [baseIds, allBaseMap, lastVisitBaseMap]);
 

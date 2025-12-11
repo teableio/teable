@@ -269,6 +269,7 @@ export class SpaceService {
         icon: true,
         createdBy: true,
         lastModifiedTime: true,
+        createdTime: true,
       },
       where: {
         spaceId,
@@ -292,6 +293,7 @@ export class SpaceService {
         ...base,
         role,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
+        createdTime: base.createdTime?.toISOString(),
         createdUser: {
           ...createUser,
           avatar: createUser?.avatar && getPublicFullStorageUrl(createUser.avatar),
