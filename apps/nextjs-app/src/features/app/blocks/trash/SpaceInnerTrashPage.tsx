@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { Database, RefreshCcw, Trash2 } from '@teable/icons';
+import { Database, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
 import {
   getTrash,
@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import { IterationCcwIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -151,7 +152,7 @@ export const SpaceInnerTrashPage = () => {
                 title={t('actions.restore')}
                 onClick={() => mutateRestore({ trashId })}
               >
-                <RefreshCcw className="size-4" />
+                <IterationCcwIcon className="size-4" />
               </Button>
               <Button
                 size="xs"
