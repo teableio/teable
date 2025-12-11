@@ -236,12 +236,12 @@ export type I18nTranslations = {
             "exit": string;
             "next": string;
             "previous": string;
+            "select": string;
             "continue": string;
             "export": string;
             "import": string;
             "expand": string;
             "deleteTip": string;
-            "select": string;
         };
         "quickAction": {
             "title": string;
@@ -838,6 +838,7 @@ export type I18nTranslations = {
             };
         };
         "trash": {
+            "spaceTrash": string;
             "type": string;
             "resetTrash": string;
             "deletedBy": string;
@@ -847,7 +848,6 @@ export type I18nTranslations = {
             "resetTrashConfirm": string;
             "addToTrash": string;
             "description": string;
-            "spaceTrash": string;
         };
         "pluginCenter": {
             "pluginUrlEmpty": string;
@@ -2658,6 +2658,10 @@ export type I18nTranslations = {
             "title": string;
             "description": string;
             "empty": string;
+        };
+        "trash": {
+            "spaceDescription": string;
+            "baseDescription": string;
         };
         "integration": {
             "title": string;
