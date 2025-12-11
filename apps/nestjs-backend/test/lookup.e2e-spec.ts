@@ -112,6 +112,32 @@ const defaultFields: IFieldRo[] = [
 const normalizeSingle = <T>(value: T | T[]) =>
   Array.isArray(value) ? (value.length ? value[0] : undefined) : value;
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const waitForLinkWithTitle = async (
+  tableId: string,
+  recordId: string,
+  fieldId: string,
+  expectedId: string,
+  expectedTitle: string,
+  retries = 10,
+  delayMs = 100
+) => {
+  for (let i = 0; i < retries; i++) {
+    const record = await getRecord(tableId, recordId);
+    const value = record.fields[fieldId];
+    if (
+      Array.isArray(value) &&
+      value.some((item) => item.id === expectedId && item.title === expectedTitle)
+    ) {
+      return record;
+    }
+    await sleep(delayMs);
+  }
+  // return last record state for assertion
+  return await getRecord(tableId, recordId);
+};
+
 describe('OpenAPI Lookup field (e2e)', () => {
   let app: INestApplication;
   const baseId = globalThis.testConfig.baseId;
@@ -589,7 +615,13 @@ describe('OpenAPI Lookup field (e2e)', () => {
         'text'
       );
 
-      const record = await getRecord(table1.id, table1.records[1].id);
+      const record = await waitForLinkWithTitle(
+        table1.id,
+        table1.records[1].id,
+        getFieldByType(table1.fields, FieldType.Link).id,
+        table2.records[1].id,
+        'text'
+      );
 
       expect(record.fields[getFieldByType(table1.fields, FieldType.Link).id]).toEqual([
         { id: table2.records[1].id, title: 'text' },

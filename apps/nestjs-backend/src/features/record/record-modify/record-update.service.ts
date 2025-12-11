@@ -41,6 +41,20 @@ export class RecordUpdateService {
     thresholdMs: 2000,
     reportToSentry: true,
     sentryTag: 'record-update',
+    sentryContext: (args) => {
+      const [tableId, updateRecordsRo, windowId] = args as [
+        string,
+        Partial<IUpdateRecordsInternalRo>,
+        string | undefined,
+      ];
+      return {
+        tableId,
+        windowId,
+        recordCount: updateRecordsRo?.records?.length,
+        fieldIds: updateRecordsRo?.fieldIds,
+        typecast: updateRecordsRo?.typecast,
+      };
+    },
   })
   @retryOnDeadlock()
   async updateRecords(
