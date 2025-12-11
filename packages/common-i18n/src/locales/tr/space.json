@@ -61,8 +61,12 @@
   },
   "sharedBase": {
     "title": "Paylaşılan veritabanları",
-    "description": "Sizinle paylaşılan veritabanları burada görünecek",
+    "description": "Katılmaya davet edildiğim tüm veritabanları",
     "empty": "Henüz paylaşılan veritabanı yok"
+  },
+  "trash": {
+    "spaceDescription": "Bu örnekteki tüm silinen alanlar",
+    "baseDescription": "Bu alandaki tüm silinen veritabanları"
   },
   "integration": {
     "title": "Integrasyonlar",
