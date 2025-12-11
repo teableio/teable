@@ -651,7 +651,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                             className="flex min-w-0 grow items-center gap-1"
                             title={item.getItemName()}
                           >
-                            <span className="truncate text-left">{item.getItemName()}</span>
+                            <span
+                              className="truncate text-left"
+                              onDoubleClick={() => {
+                                setEditingNodeId(nodeId);
+                              }}
+                            >
+                              {item.getItemName()}
+                            </span>
                             {node.resourceType === BaseNodeResourceType.Workflow &&
                               (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
                                 <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
