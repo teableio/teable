@@ -174,7 +174,8 @@ export const ReactQueryKeys = {
 
   getSharedBase: () => ['shared-base-list'] as const,
 
-  getSpaceTrash: (resourceType: ResourceType) => ['space-trash', resourceType] as const,
+  getSpaceTrash: (resourceType: ResourceType, spaceId?: string) =>
+    ['space-trash', resourceType, spaceId] as const,
 
   getTrashItems: (resourceId: string) => ['trash-items', resourceId] as const,
 

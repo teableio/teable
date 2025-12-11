@@ -152,21 +152,24 @@ export class TrashService {
 
   private async getBaseTrash(spaceId?: string) {
     const { bases } = await this.getAuthorizedSpacesAndBases();
-    const baseIds = bases.map((base) => base.id);
-    const spaceIds = spaceId ? [spaceId] : bases.map((base) => base.spaceId);
+    const authorizedBaseIds = bases.map((base) => base.id);
+    const authorizedBaseSpaceIds = bases.map((base) => base.spaceId);
     const baseIdMap = keyBy(bases, 'id');
 
     const trashedSpaces = await this.prismaService.trash.findMany({
       where: {
         resourceType: ResourceType.Space,
-        resourceId: { in: spaceIds },
+        resourceId: { in: authorizedBaseSpaceIds },
       },
       select: { resourceId: true },
     });
     const list = await this.prismaService.trash.findMany({
       where: {
-        parentId: { notIn: trashedSpaces.map((space) => space.resourceId) },
-        resourceId: { in: baseIds },
+        parentId: {
+          notIn: trashedSpaces.map((space) => space.resourceId),
+          in: spaceId ? [spaceId] : undefined,
+        },
+        resourceId: { in: authorizedBaseIds },
         resourceType: ResourceType.Base,
       },
     });
