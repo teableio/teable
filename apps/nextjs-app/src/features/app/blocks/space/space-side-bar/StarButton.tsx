@@ -55,7 +55,7 @@ export const StarButton = (props: IStarButtonProps) => {
         >
           <Star
             className={cn(
-              'size-3 shrink-0 opacity-0 group-hover:opacity-100 transition-colors',
+              'size-4 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 transition-colors',
               {
                 'opacity-100': isPin,
                 'fill-yellow-400 text-yellow-400': isPin,

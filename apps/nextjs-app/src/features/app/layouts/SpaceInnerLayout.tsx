@@ -46,7 +46,7 @@ export const SpaceInnerLayout: React.FC<{
             <div id="portal" className="relative flex h-screen w-full items-start">
               <Sidebar headerLeft={<SpaceSwitcher />}>
                 <Fragment>
-                  <div className="flex flex-1 flex-col gap-2 divide-y divide-solid overflow-hidden">
+                  <div className="flex flex-1 flex-col gap-1 divide-y divide-solid overflow-hidden">
                     <SpaceInnerSideBar isAdmin={user?.isAdmin} />
                   </div>
                   <SideBarFooter />

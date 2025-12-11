@@ -53,9 +53,9 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
 
   return (
     <>
-      <div className="flex flex-col justify-center gap-2 px-2">
+      <div className="flex flex-col justify-center px-2">
         {space && (
-          <div className=" px-4">
+          <div className="p-2">
             <CreateBaseModalTrigger spaceId={space.id}>
               <Button variant={'outline'} size={'sm'} className="w-full" disabled={!canCreateSpace}>
                 <Plus className="size-4 shrink-0" />
@@ -64,17 +64,17 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
             </CreateBaseModalTrigger>
           </div>
         )}
-        <ul>
+        <ul className="py-1">
           {pageRoutes.map(({ href, text, Icon, hidden }) => {
             if (hidden) return null;
             return (
-              <li key={href} className="my-[2px] px-2">
+              <li key={href}>
                 <Button
                   variant="ghost"
                   size={'xs'}
                   asChild
                   className={cn(
-                    'w-full justify-start text-sm ',
+                    'w-full justify-start h-8 text-sm ',
                     href === router.pathname && 'bg-accent'
                   )}
                 >

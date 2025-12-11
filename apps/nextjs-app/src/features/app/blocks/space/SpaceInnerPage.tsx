@@ -113,7 +113,7 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex h-full min-w-0 flex-1 gap-10 px-12 py-8 sm:min-w-[760px]">
+      <div ref={ref} className="flex h-full min-w-0 flex-1 gap-12 px-8 py-6 sm:min-w-[760px]">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col ">
           <div className="flex shrink-0 items-center gap-2 pb-6 sm:mr-16">
             <SpaceRenaming
@@ -122,7 +122,7 @@ export const SpaceInnerPage: React.FC = () => {
               onChange={(e) => setSpaceName(e.target.value)}
               onBlur={(e) => toggleUpdateSpace(e)}
             >
-              <h1 className="text-2xl font-semibold">{space.name}</h1>
+              <h1 className="line-clamp-1 text-2xl font-semibold ">{space.name}</h1>
             </SpaceRenaming>
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
             {isCloud && (

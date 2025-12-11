@@ -560,7 +560,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
       );
     } else if (emptyText) {
       return (
-        <div className="flex w-full flex-col gap-2 px-2 ">
+        <div className="flex min-h-16 w-full flex-col items-center justify-center gap-2 px-2 ">
           <p className="text-sm text-muted-foreground">{emptyText}</p>
         </div>
       );

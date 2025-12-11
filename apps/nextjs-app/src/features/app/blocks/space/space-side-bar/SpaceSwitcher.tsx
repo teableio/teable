@@ -152,8 +152,8 @@ export const SpaceSwitcher = () => {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="w-full p-2 text-base">
-            <SpaceAvatar name={currentSpace?.name ?? ''} className="size-6" />
+          <Button variant="ghost" size="sm" className="h-10 w-full p-2 text-base">
+            <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8" />
             <p className="grow truncate text-left font-semibold ">{currentSpace?.name}</p>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
@@ -161,8 +161,8 @@ export const SpaceSwitcher = () => {
 
         <PopoverContent className="min-w-[360px] p-0" align="start">
           <Command>
-            <div className="px-2  pt-4">
-              <p className="pb-2 text-sm ">
+            <div className="px-4 pb-2 pt-4">
+              <p className="pb-2 text-sm font-semibold ">
                 {t('space:allSpaces')} ({spaceList?.length || 0})
               </p>
               <CommandInput
@@ -175,7 +175,7 @@ export const SpaceSwitcher = () => {
             <CommandList className="max-h-[300px]">
               <CommandEmpty>{t('common:noResult')}</CommandEmpty>
 
-              <CommandGroup className="px-2">
+              <CommandGroup className="px-2 py-0">
                 {spaceList?.map((space) => {
                   const isSelected = space.id === currentSpaceId;
                   const subscription = subscriptionMap.get(space.id);
@@ -185,7 +185,7 @@ export const SpaceSwitcher = () => {
                       key={space.id}
                       value={space.name}
                       onSelect={() => handleSelectSpace(space)}
-                      className={cn('group flex items-center gap-2 mb-1 rounded-md h-9', {
+                      className={cn('group flex items-center gap-2 rounded-md h-10', {
                         'bg-accent': isSelected,
                       })}
                     >
@@ -209,7 +209,7 @@ export const SpaceSwitcher = () => {
               <Button
                 onClick={handleOpenCreateDialog}
                 variant="ghost"
-                className=" flex h-9 w-full items-center justify-start rounded-md p-2 text-blue-700 hover:bg-accent"
+                className="flex h-8 items-center justify-start rounded-md p-2 text-blue-600 hover:text-blue-600"
               >
                 <Plus className="size-4 shrink-0 " />
                 {t('space:action.createSpace')}
@@ -218,11 +218,11 @@ export const SpaceSwitcher = () => {
 
             <CommandSeparator />
 
-            <div className="flex flex-col py-1">
+            <div className="flex flex-col px-2 py-1">
               <Link
                 href="/space/shared-base"
                 onClick={() => setOpen(false)}
-                className="flex h-9 items-center gap-3 px-4 py-3 hover:bg-accent"
+                className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
                 <Database className="size-4 shrink-0" />
                 <span className="text-sm ">{t('space:sharedBase.title')}</span>
@@ -231,7 +231,7 @@ export const SpaceSwitcher = () => {
                 <Link
                   href="/admin/setting"
                   onClick={() => setOpen(false)}
-                  className="flex h-9 items-center gap-3 px-4 py-3 hover:bg-accent"
+                  className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
                 >
                   <Admin className="size-4 shrink-0" />
                   <span className="text-sm ">{t('common:noun.adminPanel')}</span>
@@ -242,7 +242,7 @@ export const SpaceSwitcher = () => {
                 <Link
                   href={`/enterprise/${organization.id}`}
                   onClick={() => setOpen(false)}
-                  className="flex h-9 items-center gap-3 px-4 py-3 hover:bg-accent"
+                  className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
                 >
                   <Settings className="size-4 shrink-0" />
                   <span className="text-sm ">{t('common:noun.organizationPanel')}</span>
@@ -252,7 +252,7 @@ export const SpaceSwitcher = () => {
               <Link
                 href="/space/trash"
                 onClick={() => setOpen(false)}
-                className="flex h-9 items-center gap-3 px-4 py-3 hover:bg-accent"
+                className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
                 <Trash2 className="size-4 shrink-0" />
                 <span className="text-sm ">{t('common:trash.spaceTrash')}</span>
