@@ -18,7 +18,6 @@ import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
-import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
@@ -26,7 +25,6 @@ import { Collaborator } from '../../components/collaborator-manage/components/Co
 
 export const SpaceInnerTrashPage = () => {
   const { spaceId } = useParams<{ spaceId: string }>();
-  const router = useRouter();
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);

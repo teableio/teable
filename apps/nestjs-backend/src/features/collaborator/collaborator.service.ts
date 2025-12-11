@@ -19,7 +19,7 @@ import type {
 } from '@teable/openapi';
 import { CollaboratorType, PrincipalType } from '@teable/openapi';
 import { Knex } from 'knex';
-import { difference, map } from 'lodash';
+import { difference, keyBy, map } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
@@ -830,6 +830,12 @@ export class CollaboratorService {
         },
       },
     });
+
+    const createdUserList = await this.prismaService.txClient().user.findMany({
+      where: { id: { in: bases.map((base) => base.createdBy) } },
+      select: { id: true, name: true, avatar: true },
+    });
+    const createdUserMap = keyBy(createdUserList, 'id');
     return bases.map((base) => ({
       id: base.id,
       name: base.name,
@@ -842,9 +848,10 @@ export class CollaboratorService {
       createdTime: base.createdTime?.toISOString(),
       createdBy: base.createdBy,
       createdUser: {
-        id: base.createdBy,
-        name: base.createdBy,
-        avatar: base.createdBy ? getPublicFullStorageUrl(base.createdBy) : null,
+        ...(createdUserMap[base.createdBy] ?? {}),
+        avatar:
+          createdUserMap[base.createdBy]?.avatar &&
+          getPublicFullStorageUrl(createdUserMap[base.createdBy]?.avatar ?? ''),
       },
     }));
   }

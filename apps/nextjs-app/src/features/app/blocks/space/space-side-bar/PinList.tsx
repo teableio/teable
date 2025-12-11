@@ -100,7 +100,7 @@ export const PinList = (props: { className?: string }) => {
           innerClassName="flex min-h-0 flex-1 flex-col"
         >
           <ScrollArea className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
-            <div className="flexmin-h-0 flex-1 flex-col overflow-y-auto">
+            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
               {pinListData?.length === 0 && (
                 <div className="text-center text-xs text-muted-foreground">
                   {t('space:pin.empty')}

@@ -1,5 +1,5 @@
 import type { DehydratedState } from '@tanstack/react-query';
-import { Component, Database, Home, Users } from '@teable/icons';
+import { Component, Database } from '@teable/icons';
 import type { IUser } from '@teable/sdk';
 import { NotificationProvider, SessionProvider } from '@teable/sdk';
 import { AppProvider } from '@teable/sdk/context';

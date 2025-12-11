@@ -280,23 +280,23 @@ export class SpaceService {
       },
     });
 
-    const createUserList = await this.prismaService.user.findMany({
+    const createdUserList = await this.prismaService.user.findMany({
       where: { id: { in: baseList.map((base) => base.createdBy) } },
       select: { id: true, name: true, avatar: true },
     });
-    const createUserMap = keyBy(createUserList, 'id');
+    const createdUserMap = keyBy(createdUserList, 'id');
 
     return baseList.map((base) => {
       const role = roleMap[base.id] || roleMap[base.spaceId];
-      const createUser = createUserMap[base.createdBy];
+      const createdUser = createdUserMap[base.createdBy];
       return {
         ...base,
         role,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
         createdUser: {
-          ...createUser,
-          avatar: createUser?.avatar && getPublicFullStorageUrl(createUser.avatar),
+          ...createdUser,
+          avatar: createdUser?.avatar && getPublicFullStorageUrl(createdUser.avatar),
         },
       };
     });

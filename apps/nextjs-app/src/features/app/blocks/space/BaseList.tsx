@@ -123,7 +123,7 @@ export const BaseList = (props: IBaseListProps) => {
             <div className="bg-muted">
               <BaseNodeTree
                 mode="view"
-                emptyText={t('space:baseList.empty')}
+                emptyText={t('space:baseList.noTables')}
                 skeleton={
                   <div className="flex w-full flex-col gap-2 px-2">
                     <Skeleton className="h-7 w-full" />

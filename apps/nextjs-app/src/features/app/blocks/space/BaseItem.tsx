@@ -1,13 +1,7 @@
 /* eslint-disable jsx-a11y/no-static-element-interactions */
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 import { hasPermission } from '@teable/core';
-import {
-  ChevronDown,
-  ChevronRight,
-  Database,
-  DraggableHandle,
-  MoreHorizontal,
-} from '@teable/icons';
+import { ChevronDown, ChevronRight, Database, MoreHorizontal } from '@teable/icons';
 import type { IGetBaseVo } from '@teable/openapi';
 import { PinType } from '@teable/openapi';
 import { useLanDayjs } from '@teable/sdk/hooks';
@@ -161,7 +155,9 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
         </Avatar>
-        <span className="truncate text-xs">{base.createdUser?.name}</span>
+        <span className="truncate text-xs" title={base.createdUser?.name}>
+          {base.createdUser?.name}
+        </span>
       </div>
 
       {/* Last Opened Column */}
