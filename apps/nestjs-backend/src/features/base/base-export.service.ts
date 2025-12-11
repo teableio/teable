@@ -1,6 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
 import type { ILinkFieldOptions, ILocalization } from '@teable/core';
 import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
 import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
@@ -66,19 +67,60 @@ export class BaseExportService {
     @StorageConfig() private readonly storageConfig: IStorageConfig
   ) {}
 
+  private captureExportError(
+    error: unknown,
+    context: {
+      stage: 'fetchBase' | 'processExport';
+      baseId: string;
+      includeData: boolean;
+      baseName?: string;
+    }
+  ) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    const userId = this.cls.get('user.id');
+
+    Sentry.withScope((scope) => {
+      scope.setTag('feature', 'base-export');
+      scope.setTag('export.stage', context.stage);
+      scope.setContext('base-export', {
+        baseId: context.baseId,
+        baseName: context.baseName,
+        includeData: context.includeData,
+        userId,
+      });
+      scope.setLevel?.('error');
+      Sentry.captureException(err);
+    });
+
+    this.logger.error(
+      `export base zip failed at ${context.stage}: ${err.message}`,
+      err.stack ?? undefined
+    );
+  }
+
   private generateExportFolderId() {
     return `${getRandomString(12)}`;
   }
 
   async exportBaseZip(baseId: string, includeData = true) {
-    const { name: baseName } = await this.prismaService.base.findFirstOrThrow({
-      where: {
-        id: baseId,
-      },
-      select: {
-        name: true,
-      },
-    });
+    let baseName: string | undefined;
+    try {
+      ({ name: baseName } = await this.prismaService.base.findFirstOrThrow({
+        where: {
+          id: baseId,
+        },
+        select: {
+          name: true,
+        },
+      }));
+    } catch (error) {
+      this.captureExportError(error, {
+        stage: 'fetchBase',
+        baseId,
+        includeData,
+      });
+      throw error;
+    }
 
     this.processExportBaseZip(baseId, includeData)
       .then(async (result) => {
@@ -103,7 +145,12 @@ export class BaseExportService {
         this.notifyExportResult(baseId, message, previewUrl);
       })
       .catch(async (e) => {
-        this.logger.error(`export base zip error: ${e.message}`, e?.stack);
+        this.captureExportError(e, {
+          stage: 'processExport',
+          baseId,
+          baseName,
+          includeData,
+        });
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
           context: {
