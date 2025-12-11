@@ -22,7 +22,9 @@ export const SideBarFooter: React.FC = () => {
             className="w-full justify-start py-1.5 pl-2 text-sm font-normal"
           >
             <UserAvatar className="border" user={user} />
-            {user.name}
+            <p className="truncate" title={user.name}>
+              {user.name}
+            </p>
           </Button>
         </UserNav>
         <SettingDialog />

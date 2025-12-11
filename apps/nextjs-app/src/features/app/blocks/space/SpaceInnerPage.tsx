@@ -113,9 +113,9 @@ export const SpaceInnerPage: React.FC = () => {
 
   return (
     space && (
-      <div ref={ref} className="flex h-full min-w-0 flex-1 gap-12 px-8 py-6 sm:min-w-[760px]">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col ">
-          <div className="flex shrink-0 items-center gap-2 pb-6 sm:mr-16">
+      <div ref={ref} className="flex h-full min-w-0 flex-1 flex-col px-8 py-6 sm:min-w-[760px]">
+        <div className="flex shrink-0 items-center justify-between gap-4 pb-4">
+          <div className="flex min-w-0 items-center gap-2">
             <SpaceRenaming
               spaceName={spaceName!}
               isRenaming={renaming}
@@ -140,7 +140,7 @@ export const SpaceInnerPage: React.FC = () => {
             )}
           </div>
           <SpaceActionBar
-            className="flex shrink-0 items-center justify-end gap-3 sm:hidden"
+            className="flex shrink-0 items-center gap-3"
             space={space}
             buttonSize={'xs'}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
@@ -150,49 +150,41 @@ export const SpaceInnerPage: React.FC = () => {
             onRename={() => setRenaming(true)}
             onSpaceSetting={onSpaceSetting}
           />
-          {basesInSpace?.length ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <BaseList baseIds={basesInSpace.map((base) => base.id)} />
-            </div>
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2">
-              <Image
-                src={
-                  isDark
-                    ? '/images/layout/empty-base-dark.png'
-                    : '/images/layout/empty-base-light.png'
-                }
-                alt="No roles available"
-                width={240}
-                height={240}
-              />
-              <div className="flex flex-col items-center justify-center gap-2">
-                <p className="text-base font-semibold text-foreground">
-                  {t('space:emptySpaceTitle')}
-                </p>
-                <p className="text-sm text-muted-foreground">{t('space:spaceIsEmpty')}</p>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="hidden w-72 min-w-60 flex-col sm:flex">
-          <SpaceActionBar
-            className="flex shrink-0 items-center justify-end gap-3 pb-8"
-            space={space}
-            buttonSize={'xs'}
-            invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
-            disallowSpaceInvitation={disallowSpaceInvitation}
-            onDelete={() => deleteSpaceMutator(space.id)}
-            onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
-            onRename={() => setRenaming(true)}
-            onSpaceSetting={onSpaceSetting}
-          />
-          <ScrollArea className="flex-1">
-            <div className="text-left">
-              <Collaborators spaceId={spaceId} space={space} />
-            </div>
-          </ScrollArea>
+        <div className="flex min-h-0 flex-1 gap-8 pt-4">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            {basesInSpace?.length ? (
+              <BaseList baseIds={basesInSpace.map((base) => base.id)} />
+            ) : (
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2">
+                <Image
+                  src={
+                    isDark
+                      ? '/images/layout/empty-base-dark.png'
+                      : '/images/layout/empty-base-light.png'
+                  }
+                  alt="No roles available"
+                  width={240}
+                  height={240}
+                />
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <p className="text-base font-semibold text-foreground">
+                    {t('space:emptySpaceTitle')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{t('space:spaceIsEmpty')}</p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="hidden w-[200px] min-w-[200px] flex-col sm:flex">
+            <ScrollArea className="flex-1 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
+              <div className="text-left">
+                <Collaborators spaceId={spaceId} space={space} />
+              </div>
+            </ScrollArea>
+          </div>
         </div>
       </div>
     )

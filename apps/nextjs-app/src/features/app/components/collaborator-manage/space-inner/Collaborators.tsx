@@ -54,7 +54,10 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
                 <Building2 className="size-7" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">
+                <p
+                  className="truncate text-sm font-medium"
+                  title={item.type === PrincipalType.User ? item.userName : item.departmentName}
+                >
                   {item.type === PrincipalType.User ? item.userName : item.departmentName}
                 </p>
                 {isBase && (
