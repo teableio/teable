@@ -97,7 +97,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
         </div>
       )}
       {/* Name Column */}
-      <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden pr-1">
+      <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden px-2">
         <Button
           variant="ghost"
           size="xs"
@@ -168,7 +168,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
       {/* Creator Column */}
       <div className="flex w-44 shrink-0 items-center gap-2 px-4">
-        <Avatar className="size-6">
+        <Avatar className="size-6 border">
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
         </Avatar>
@@ -182,7 +182,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
       {/* Actions Column */}
       <div
-        className="flex w-[147px] shrink-0 items-center justify-end gap-2 px-4 opacity-0 group-hover:opacity-100"
+        className="w-37 flex shrink-0 items-center justify-end gap-2 px-4 opacity-0 group-hover:opacity-100"
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >

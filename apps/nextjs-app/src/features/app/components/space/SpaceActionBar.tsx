@@ -80,8 +80,8 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         onSpaceSetting={onSpaceSetting}
         onImportBase={() => setImportBaseOpen(true)}
       >
-        <Button variant={'outline'} size={buttonSize}>
-          <MoreHorizontal />
+        <Button variant={'outline'} size={buttonSize} className="p-[5px]">
+          <MoreHorizontal className="size-4" />
         </Button>
       </SpaceActionTrigger>
 

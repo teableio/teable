@@ -89,9 +89,9 @@ export const PinList = (props: { className?: string }) => {
       }}
     >
       <AccordionItem className="flex min-h-0 flex-1 flex-col border-0" value="pin-list">
-        <AccordionTrigger className="shrink-0 px-3 hover:no-underline">
-          <div className="flex items-center gap-1">
-            <Star className="size-3 fill-yellow-400 text-yellow-400" />
+        <AccordionTrigger className="h-10 shrink-0 px-3 hover:no-underline">
+          <div className="flex items-center gap-2">
+            <Star className="size-4 fill-yellow-400 text-yellow-400" />
             {t('space:pin.pin')}
           </div>
         </AccordionTrigger>
@@ -100,7 +100,7 @@ export const PinList = (props: { className?: string }) => {
           innerClassName="flex min-h-0 flex-1 flex-col"
         >
           <ScrollArea className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-3">
+            <div className="flexmin-h-0 flex-1 flex-col overflow-y-auto">
               {pinListData?.length === 0 && (
                 <div className="text-center text-xs text-muted-foreground">
                   {t('space:pin.empty')}
