@@ -39,7 +39,8 @@
     "turnOn": "有効にする",
     "exit": "ログアウト",
     "next": "次へ",
-    "previous": "前へ"
+    "previous": "前へ",
+    "select": "選択"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -489,6 +490,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "スペースのゴミ箱",
     "type": "タイプ",
     "resetTrash": "ゴミ箱を空にする",
     "deletedBy": "削除者",

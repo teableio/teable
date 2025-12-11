@@ -47,7 +47,8 @@
     "turnOn": "Activar",
     "exit": "Cerrar sesión",
     "next": "Siguiente",
-    "previous": "Anterior"
+    "previous": "Anterior",
+    "select": "Seleccionar"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
@@ -479,6 +480,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "Papelera de espacio",
     "type": "Tipo",
     "resetTrash": "Vaciar papelera",
     "deletedBy": "Eliminado por",

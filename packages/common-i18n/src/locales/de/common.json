@@ -47,7 +47,8 @@
     "turnOn": "Einschalten",
     "exit": "Ausloggen",
     "next": "Nächste",
-    "previous": "Vorherige"
+    "previous": "Vorherige",
+    "select": "Auswählen"
   },
   "quickAction": {
     "title": "Schnelle Aktionen...",
@@ -500,6 +501,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "Space Papierkorb",
     "type": "Typ",
     "resetTrash": "Papierkorb leeren",
     "deletedBy": "Gelöscht von",
