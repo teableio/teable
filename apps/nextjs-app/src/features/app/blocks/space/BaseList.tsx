@@ -103,7 +103,7 @@ export const BaseList = (props: IBaseListProps) => {
     });
   };
 
-  const renderBaseRow = (base: IGetBaseVo, dragHandleProps?: React.HTMLAttributes<HTMLElement>) => (
+  const renderBaseRow = (base: IGetBaseVo) => (
     <Collapsible
       key={base.id}
       open={expandedBases.has(base.id)}
@@ -118,7 +118,6 @@ export const BaseList = (props: IBaseListProps) => {
         onEnterBase={() => intoBase(base.id)}
         onUpdate={(data) => updateBaseMutator({ baseId: base.id, updateBaseRo: data })}
         onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
-        dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
         <AnchorContext.Provider value={{ baseId: base.id }}>

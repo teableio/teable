@@ -32,7 +32,6 @@ export interface IBaseItemProps {
   onEnterBase?: () => void;
   onUpdate?: (data: { name?: string; icon?: string }) => void;
   onDelete?: (permanent?: boolean) => void;
-  dragHandleProps?: React.HTMLAttributes<HTMLElement>;
 }
 
 export const BaseItem: FC<IBaseItemProps> = (props) => {
@@ -45,7 +44,6 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
     onEnterBase,
     onUpdate,
     onDelete,
-    dragHandleProps,
   } = props;
   const dayjs = useLanDayjs();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
@@ -86,16 +84,10 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
   useClickAway(inputRef, finishEditing);
 
   return (
-    <div className={cn('group flex h-12 items-center  hover:bg-accent', className)}>
-      {/* Drag Handle */}
-      {dragHandleProps && (
-        <div
-          className="flex h-full w-6 shrink-0 cursor-grab items-center justify-center opacity-0 group-hover:opacity-100"
-          {...dragHandleProps}
-        >
-          <DraggableHandle className="size-3 text-muted-foreground" />
-        </div>
-      )}
+    <div
+      className={cn('group flex h-12 items-center  hover:bg-accent', className)}
+      onClick={() => onToggleExpand?.()}
+    >
       {/* Name Column */}
       <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden pr-1">
         <Button
@@ -148,11 +140,9 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
             />
           ) : (
             <>
-              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
               <p
                 className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium"
                 title={base.name}
-                onClick={() => onToggleExpand?.()}
               >
                 {base.name}
               </p>
