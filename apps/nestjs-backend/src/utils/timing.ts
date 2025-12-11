@@ -5,7 +5,7 @@ import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import { Span } from '../tracing/decorators/span';
 
-type SentrySeverity = Parameters<typeof Sentry.captureMessage>[1];
+type SentrySeverity = Extract<Parameters<typeof Sentry.captureMessage>[1], string>;
 
 type TimingOptions = {
   key?: string;

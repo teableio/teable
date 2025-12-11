@@ -8,6 +8,7 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
+import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
@@ -18,7 +19,6 @@ import { ComputedOrchestratorService } from '../computed/services/computed-orche
 import { RecordService } from '../record.service';
 import { IUpdateRecordsInternalRo } from '../type';
 import { RecordModifySharedService } from './record-modify.shared.service';
-import { Timing } from '../../utils/timing';
 
 @Injectable()
 export class RecordUpdateService {
