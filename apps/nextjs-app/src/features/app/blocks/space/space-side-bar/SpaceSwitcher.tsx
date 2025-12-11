@@ -152,9 +152,13 @@ export const SpaceSwitcher = () => {
     <>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-10 w-full p-2 text-base">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-10 min-w-0 flex-1 justify-start p-2 text-base"
+          >
             <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8" />
-            <p className="grow truncate text-left font-semibold ">{currentSpace?.name}</p>
+            <p className="truncate text-left font-semibold ">{currentSpace?.name}</p>
             <ChevronDown className="size-4 shrink-0" />
           </Button>
         </PopoverTrigger>

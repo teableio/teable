@@ -121,8 +121,9 @@ export const SpaceInnerPage: React.FC = () => {
               isRenaming={renaming}
               onChange={(e) => setSpaceName(e.target.value)}
               onBlur={(e) => toggleUpdateSpace(e)}
+              className="h-8"
             >
-              <h1 className="line-clamp-1 text-2xl font-semibold ">{space.name}</h1>
+              <h1 className="truncate text-2xl font-semibold">{space.name}</h1>
             </SpaceRenaming>
             <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
             {isCloud && (

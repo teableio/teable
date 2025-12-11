@@ -85,27 +85,26 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
   return (
     <div
-      className={cn('group flex h-12 items-center  hover:bg-accent', className)}
+      className={cn('group flex h-12 items-center cursor-pointer hover:bg-accent', className)}
       onClick={() => onToggleExpand?.()}
     >
+      <Button
+        variant="ghost"
+        size="xs"
+        className="size-4 shrink-0 p-0"
+        onClick={(e) => {
+          stopPropagation(e);
+          onToggleExpand?.();
+        }}
+      >
+        {isExpanded ? (
+          <ChevronDown className="size-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="size-4 text-muted-foreground" />
+        )}
+      </Button>
       {/* Name Column */}
       <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden px-2">
-        <Button
-          variant="ghost"
-          size="xs"
-          className="size-4 shrink-0 p-0"
-          onClick={(e) => {
-            stopPropagation(e);
-            onToggleExpand?.();
-          }}
-        >
-          {isExpanded ? (
-            <ChevronDown className="size-4 text-muted-foreground" />
-          ) : (
-            <ChevronRight className="size-4 text-muted-foreground" />
-          )}
-        </Button>
-
         <div
           className="flex items-center"
           onClick={(e) => hasUpdatePermission && stopPropagation(e)}
@@ -157,7 +156,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Creator Column */}
-      <div className="flex w-44 shrink-0 items-center gap-2 px-4">
+      <div className="flex w-40 shrink-0 items-center gap-2">
         <Avatar className="size-6 border">
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
@@ -166,13 +165,13 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Last Opened Column */}
-      <div className="w-44 shrink-0 px-4 text-xs">
+      <div className="w-60 shrink-0 text-xs">
         {lastVisitTime ? dayjs(lastVisitTime).fromNow() : '-'}
       </div>
 
       {/* Actions Column */}
       <div
-        className="w-37 flex shrink-0 items-center justify-end gap-2 px-4 opacity-0 group-hover:opacity-100"
+        className="absolute right-0 flex shrink-0 items-center justify-end gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100"
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >

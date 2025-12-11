@@ -1,7 +1,8 @@
-import { Input } from '@teable/ui-lib';
+import { cn, Input } from '@teable/ui-lib';
 import React, { useEffect, useRef } from 'react';
 
 interface SpaceRenamingProps {
+  className?: string;
   spaceName: string;
   isRenaming: boolean;
   children: React.ReactNode;
@@ -10,7 +11,7 @@ interface SpaceRenamingProps {
 }
 
 export const SpaceRenaming: React.FC<SpaceRenamingProps> = (props) => {
-  const { spaceName, isRenaming, children, onChange, onBlur } = props;
+  const { spaceName, isRenaming, children, onChange, onBlur, className } = props;
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export const SpaceRenaming: React.FC<SpaceRenamingProps> = (props) => {
       {isRenaming ? (
         <Input
           ref={inputRef}
-          className="m-0.5 h-6 flex-1"
+          className={cn('m-0.5 h-6 flex-1', className)}
           value={spaceName}
           onKeyDown={handleKeyDown}
           onChange={onChange}

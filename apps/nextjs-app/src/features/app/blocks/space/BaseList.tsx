@@ -112,7 +112,6 @@ export const BaseList = (props: IBaseListProps) => {
       <BaseItem
         base={base}
         lastVisitTime={lastVisitBaseMap[base.id]?.lastVisitTime}
-        className="cursor-pointer"
         isExpanded={expandedBases.has(base.id)}
         onToggleExpand={() => toggleExpanded(base.id)}
         onEnterBase={() => intoBase(base.id)}
@@ -133,10 +132,9 @@ export const BaseList = (props: IBaseListProps) => {
     <ScrollArea className="h-full !border-none bg-background [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-h-0 [&>[data-radix-scroll-area-viewport]>div]:!min-w-0">
       {/* Header */}
       <div className="sticky top-0 z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground">
-        <div className="flex-1 pl-8 pr-4">{t('space:baseList.allBases')}</div>
-        <div className="w-44 shrink-0 px-4">{t('space:baseList.owner')}</div>
-        <div className="w-44 shrink-0 px-4">{t('space:baseList.lastOpened')}</div>
-        <div className="w-[147px] shrink-0" />
+        <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
+        <div className="w-40 shrink-0">{t('space:baseList.owner')}</div>
+        <div className="w-60 shrink-0">{t('space:baseList.lastOpened')}</div>
       </div>
 
       {/* Rows */}
