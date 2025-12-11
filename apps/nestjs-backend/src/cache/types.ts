@@ -33,6 +33,8 @@ export interface ICacheStore {
   [key: `waitlist:invite-code:${string}`]: number;
   [key: `send-mail-rate-limit:${string}`]: boolean;
   [key: `automation:email:rate:${string}:${number}`]: number;
+  // Distributed lock keys
+  [key: `lock:${string}`]: string;
 }
 
 export interface IAttachmentSignatureCache {

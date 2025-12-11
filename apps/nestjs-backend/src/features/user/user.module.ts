@@ -4,7 +4,6 @@ import multer from 'multer';
 import { StorageModule } from '../attachments/plugins/storage.module';
 import { SettingModule } from '../setting/setting.module';
 import { LastVisitModule } from './last-visit/last-visit.module';
-import { UserInitService } from './user-init.service';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -18,7 +17,7 @@ import { UserService } from './user.service';
     SettingModule,
     LastVisitModule,
   ],
-  providers: [UserService, UserInitService],
+  providers: [UserService],
   exports: [UserService],
 })
 export class UserModule {}
