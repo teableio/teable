@@ -97,7 +97,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
         </div>
       )}
       {/* Name Column */}
-      <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden">
+      <div className="flex h-8 w-full flex-1 items-center gap-2 overflow-hidden pr-1">
         <Button
           variant="ghost"
           size="xs"
@@ -131,7 +131,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
           {isEditing ? (
             <Input
               ref={inputRef}
-              className="h-6 w-full"
+              className="size-full"
               value={editingValue}
               onClick={stopPropagation}
               onMouseDown={stopPropagation}
