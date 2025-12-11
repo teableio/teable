@@ -839,6 +839,7 @@ export class CollaboratorService {
       spaceName: base.space?.name,
       collaboratorType: CollaboratorType.Base,
       lastModifiedTime: base.lastModifiedTime?.toISOString(),
+      createdTime: base.createdTime?.toISOString(),
       createdBy: base.createdBy,
       createdUser: {
         id: base.createdBy,

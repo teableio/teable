@@ -17,6 +17,7 @@ export const getBaseItemSchema = z.object({
   restrictedAuthority: z.boolean().optional(),
   enabledAuthority: z.boolean().optional(),
   lastModifiedTime: z.string().nullable().optional(),
+  createdTime: z.string().nullable().optional(),
   createdBy: z.string(),
   createdUser: z
     .object({
