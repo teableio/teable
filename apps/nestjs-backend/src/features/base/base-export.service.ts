@@ -1,11 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Readable, PassThrough } from 'stream';
+import { PassThrough, Readable } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type { ILinkFieldOptions, ILocalization } from '@teable/core';
-import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
-import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
+import { FieldType, ViewType, getRandomString, isLinkLookupOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import type { Base, Field, TableMeta, View } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
 import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -14,8 +14,7 @@ import { Knex } from 'knex';
 import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import pLimit from 'p-limit';
-import { IStorageConfig, StorageConfig } from '../../configs/storage';
+import { type IStorageConfig, StorageConfig } from '../../configs/storage';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -101,6 +100,50 @@ export class BaseExportService {
 
   private generateExportFolderId() {
     return `${getRandomString(12)}`;
+  }
+
+  /**
+   * Download a single file and append it to archive with timeout and error handling
+   * @returns true on success, false on failure
+   */
+  private async appendFileToArchive(
+    archive: archiver.Archiver,
+    bucket: string,
+    s3Path: string,
+    archivePath: string,
+    timeoutMs: number = 10 * 60 * 1000
+  ): Promise<boolean> {
+    try {
+      const stream = await this.storageAdapter.downloadFile(bucket, s3Path);
+
+      await new Promise<void>((resolve, reject) => {
+        archive.append(stream, { name: archivePath });
+
+        const timeout = setTimeout(() => {
+          stream.destroy();
+          reject(new Error(`File stream timeout after ${timeoutMs}ms: ${archivePath}`));
+        }, timeoutMs);
+
+        stream.on('error', (err) => {
+          clearTimeout(timeout);
+          stream.destroy();
+          reject(err);
+        });
+
+        stream.on('end', () => {
+          clearTimeout(timeout);
+          stream.destroy();
+          resolve();
+        });
+      });
+
+      return true;
+    } catch (err) {
+      this.logger.error(
+        `Failed to export file ${s3Path} to ${archivePath}: ${err instanceof Error ? err.message : String(err)}`
+      );
+      return false;
+    }
   }
 
   async exportBaseZip(baseId: string, includeData = true) {
@@ -209,7 +252,7 @@ export class BaseExportService {
       zlib: { level: 9 },
     });
 
-    archive.on('warning', function (err) {
+    archive.on('warning', (err) => {
       if (err.code === 'ENOENT') {
         // log warning
       } else {
@@ -218,7 +261,7 @@ export class BaseExportService {
       }
     });
 
-    archive.on('error', function (err) {
+    archive.on('error', (err) => {
       passThrough.emit('error', err);
       throw err;
     });
@@ -242,12 +285,38 @@ export class BaseExportService {
     const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
     const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
 
-    // 4. export attachments
-    if (includeData) {
-      await this.appendAttachments('attachments', tableRaws, archive);
+    // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
+    // If uploadFileStream is called after finalize(), large files will hang in append
+    // Note: This occupies sockets, recommend setting BACKEND_STORAGE_S3_UPLOAD_QUEUE_SIZE=1 to control upload concurrency to 1
+    const uploadPromise = this.storageAdapter.uploadFileStream(
+      bucket,
+      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
+      passThrough,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': 'application/zip',
+      }
+    );
 
-      // 4.1 export attachments data csv
+    // 4 export data
+    if (includeData) {
+      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments`);
+      // 4.0 export attachments
+      await this.appendAttachments('attachments', tableRaws, archive);
+      this.logger.log(
+        `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
+      );
+
+      // 4.1 export attachments data .csv
+      this.logger.log(
+        `export base ${baseRaw.id}/${baseRaw.name}: Start exporting attachments data csv`
+      );
       await this.appendAttachmentsDataCsv('attachments', tableRaws, archive);
+      this.logger.log(
+        `export base ${baseRaw.id}/${baseRaw.name}: End exporting attachments data csv`
+      );
+
+      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: Start exporting table data csv`);
 
       // 4.2 export table data csv
       const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, false);
@@ -297,19 +366,14 @@ export class BaseExportService {
           );
         }
       }
+
+      this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: End exporting table data csv`);
     }
 
     archive.finalize();
 
-    const uploadResult = await this.storageAdapter.uploadFileStream(
-      bucket,
-      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
-      passThrough,
-      {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'application/zip',
-      }
-    );
+    // Wait for upload to complete (upload was started above)
+    const uploadResult = await uploadPromise;
 
     return {
       path: uploadResult.path,
@@ -400,28 +464,16 @@ export class BaseExportService {
       ...att,
       name: attachmentTokenRaws.find(({ token }) => token === att.token)?.name,
     }));
+    const bucket = StorageAdapter.getBucket(UploadType.Table);
+    for (const { token, path, name } of attachments) {
+      const archivePath = `${filePath}/${token}.${name?.split('.').pop()}`;
+      await this.appendFileToArchive(archive, bucket, path, archivePath);
+    }
 
-    // Use p-limit to control concurrency and avoid opening too many connections
-    const limit = pLimit(3);
-
-    // Download all attachments
-    await Promise.all(
-      attachments.map(({ token, path, name }) =>
-        limit(async () => {
-          const stream = await this.storageAdapter.downloadFile(
-            StorageAdapter.getBucket(UploadType.Table),
-            path
-          );
-          archive.append(stream, { name: `${filePath}/${token}.${name?.split('.').pop()}` });
-        })
-      )
-    );
-
-    // Download all thumbnails
     const thumbnailAttachments = attachments.filter(({ thumbnailPath }) => thumbnailPath);
     const prefix = `${filePath}/thumbnail__`;
 
-    const thumbnailTasks = thumbnailAttachments.flatMap(({ thumbnailPath, name }) => {
+    for (const { thumbnailPath, name } of thumbnailAttachments) {
       const suffix = name?.split('.').pop() || 'jpg';
       const {
         lg: thumbnailLgPath,
@@ -429,51 +481,36 @@ export class BaseExportService {
         sm: thumbnailSmPath,
       } = JSON.parse(thumbnailPath as string);
 
-      const tasks = [];
-
       if (thumbnailLgPath) {
-        tasks.push(
-          limit(async () => {
-            const stream = await this.storageAdapter.downloadFile(
-              StorageAdapter.getBucket(UploadType.Table),
-              thumbnailLgPath
-            );
-            const fileName = thumbnailLgPath.split('/').pop();
-            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
-          })
+        const fileName = thumbnailLgPath.split('/').pop();
+        await this.appendFileToArchive(
+          archive,
+          bucket,
+          thumbnailLgPath,
+          `${prefix}${fileName}.${suffix}`
         );
       }
 
       if (thumbnailMdPath) {
-        tasks.push(
-          limit(async () => {
-            const stream = await this.storageAdapter.downloadFile(
-              StorageAdapter.getBucket(UploadType.Table),
-              thumbnailMdPath
-            );
-            const fileName = thumbnailMdPath.split('/').pop();
-            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
-          })
+        const fileName = thumbnailMdPath.split('/').pop();
+        await this.appendFileToArchive(
+          archive,
+          bucket,
+          thumbnailMdPath,
+          `${prefix}${fileName}.${suffix}`
         );
       }
 
       if (thumbnailSmPath) {
-        tasks.push(
-          limit(async () => {
-            const stream = await this.storageAdapter.downloadFile(
-              StorageAdapter.getBucket(UploadType.Table),
-              thumbnailSmPath
-            );
-            const fileName = thumbnailSmPath.split('/').pop();
-            archive.append(stream, { name: `${prefix}${fileName}.${suffix}` });
-          })
+        const fileName = thumbnailSmPath.split('/').pop();
+        await this.appendFileToArchive(
+          archive,
+          bucket,
+          thumbnailSmPath,
+          `${prefix}${fileName}.${suffix}`
         );
       }
-
-      return tasks;
-    });
-
-    await Promise.all(thumbnailTasks);
+    }
   }
 
   private async appendTableDataCsv(

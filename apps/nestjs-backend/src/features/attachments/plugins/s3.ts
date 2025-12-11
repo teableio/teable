@@ -13,7 +13,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NodeHttpHandler } from '@smithy/node-http-handler';
 import { getRandomString, HttpErrorCode } from '@teable/core';
 import * as fse from 'fs-extra';
