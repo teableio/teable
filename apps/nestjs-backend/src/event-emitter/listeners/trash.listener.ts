@@ -2,8 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { PrismaService } from '@teable/db-main-prisma';
 import { ResourceType } from '@teable/openapi';
-import type { SpaceDeleteEvent, BaseDeleteEvent, TableDeleteEvent } from '../events';
+import type {
+  SpaceDeleteEvent,
+  BaseDeleteEvent,
+  TableDeleteEvent,
+  WorkflowDeleteEvent,
+} from '../events';
 import { Events } from '../events';
+
+type IListenerEvent = SpaceDeleteEvent | BaseDeleteEvent | TableDeleteEvent | WorkflowDeleteEvent;
 
 @Injectable()
 export class TrashListener {
@@ -12,7 +19,8 @@ export class TrashListener {
   @OnEvent(Events.SPACE_DELETE, { async: true })
   @OnEvent(Events.BASE_DELETE, { async: true })
   @OnEvent(Events.TABLE_DELETE, { async: true })
-  async spaceDeleteListener(event: SpaceDeleteEvent | BaseDeleteEvent | TableDeleteEvent) {
+  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
+  async spaceDeleteListener(event: IListenerEvent) {
     const { name, payload, context } = event;
     const { user } = context;
     let resourceId: string;
@@ -57,6 +65,17 @@ export class TrashListener {
         });
         deletedTime = space.deletedTime;
         parentId = space?.baseId;
+        break;
+      }
+      case Events.WORKFLOW_DELETE: {
+        resourceId = payload.workflowId;
+        resourceType = ResourceType.Automation;
+        const workflow = await this.prismaService.workflow.findUniqueOrThrow({
+          where: { id: resourceId },
+          select: { id: true, baseId: true, deletedTime: true },
+        });
+        deletedTime = workflow.deletedTime;
+        parentId = workflow.baseId;
         break;
       }
     }
