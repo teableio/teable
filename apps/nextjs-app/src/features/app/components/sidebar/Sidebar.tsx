@@ -4,6 +4,7 @@ import { Button, cn } from '@teable/ui-lib';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { useMedia } from 'react-use';
 import { SIDE_BAR_WIDTH } from '../toggle-side-bar/constant';
 import { HoverWrapper } from '../toggle-side-bar/HoverWrapper';
 import { SheetWrapper } from '../toggle-side-bar/SheetWrapper';
@@ -20,7 +21,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   const { headerLeft, children, className } = props;
   const isMobile = useIsMobile();
   const [leftVisible, setLeftVisible] = useState(true);
-
+  const isLargeScreen = useMedia('(min-width: 1024px)');
   const { setVisible } = useSidebarStore();
 
   const { status } = useChatPanelStore();
@@ -34,6 +35,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   useEffect(() => {
     setVisible(leftVisible);
   }, [leftVisible, setVisible]);
+
+  useEffect(() => {
+    setLeftVisible(isLargeScreen);
+  }, [isLargeScreen]);
 
   return (
     <>

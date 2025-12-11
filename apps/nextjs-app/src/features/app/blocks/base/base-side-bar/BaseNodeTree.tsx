@@ -119,6 +119,7 @@ type TreeMode = 'view' | 'edit';
 interface IBaseNodeTreeProps {
   mode?: TreeMode;
   emptyText?: string;
+  skeleton?: React.ReactNode;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
@@ -549,14 +550,20 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   if (Object.keys(treeItems).length === 0) {
     if (isLoading) {
       return (
-        <div className="flex w-full flex-col gap-2 px-2">
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-full" />
-        </div>
+        <>
+          {props.skeleton ? (
+            props.skeleton
+          ) : (
+            <div className="flex w-full flex-col gap-2 px-2">
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+              <Skeleton className="h-7 w-full" />
+            </div>
+          )}
+        </>
       );
     } else if (emptyText) {
       return (

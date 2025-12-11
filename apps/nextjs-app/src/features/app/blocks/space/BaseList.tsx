@@ -2,7 +2,7 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { deleteBase, permanentDeleteBase, updateBase, type IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { AnchorContext } from '@teable/sdk/context';
-import { Collapsible, CollapsibleContent, ScrollArea } from '@teable/ui-lib/shadcn';
+import { Collapsible, CollapsibleContent, ScrollArea, Skeleton } from '@teable/ui-lib/shadcn';
 import { keyBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -14,7 +14,6 @@ import { BaseNodeTree } from '../base/base-side-bar/BaseNodeTree';
 import { useLastVisitBase } from '../base/hooks';
 import { BaseItem } from './BaseItem';
 import { useBaseList } from './useBaseList';
-
 interface IBaseListProps {
   baseIds: string[];
 }
@@ -121,7 +120,19 @@ export const BaseList = (props: IBaseListProps) => {
       <CollapsibleContent>
         <AnchorContext.Provider value={{ baseId: base.id }}>
           <BaseNodeProvider>
-            <BaseNodeTree mode="view" emptyText={t('space:baseList.empty')} />
+            <div className="bg-muted">
+              <BaseNodeTree
+                mode="view"
+                emptyText={t('space:baseList.empty')}
+                skeleton={
+                  <div className="flex w-full flex-col gap-2 px-2">
+                    <Skeleton className="h-7 w-full" />
+                    <Skeleton className="h-7 w-full" />
+                    <Skeleton className="h-7 w-full" />
+                  </div>
+                }
+              />
+            </div>
           </BaseNodeProvider>
         </AnchorContext.Provider>
       </CollapsibleContent>
@@ -134,7 +145,7 @@ export const BaseList = (props: IBaseListProps) => {
       <div className="sticky top-0 z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
         <div className="w-40 shrink-0">{t('space:baseList.owner')}</div>
-        <div className="w-60 shrink-0">{t('space:baseList.lastOpened')}</div>
+        <div className="w-40 shrink-0 lg:w-60">{t('space:baseList.lastOpened')}</div>
       </div>
 
       {/* Rows */}

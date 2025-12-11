@@ -165,7 +165,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Last Opened Column */}
-      <div className="w-60 shrink-0 text-xs">
+      <div className="w-40 shrink-0 text-xs lg:w-60">
         {lastVisitTime ? dayjs(lastVisitTime).fromNow() : '-'}
       </div>
 
