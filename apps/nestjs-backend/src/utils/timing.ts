@@ -2,10 +2,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Logger } from '@nestjs/common';
+import * as Sentry from '@sentry/nestjs';
+import type { SeverityLevel } from '@sentry/types';
 import { Span } from '../tracing/decorators/span';
 
-export function Timing(customLoggerKey?: string): MethodDecorator {
+type TimingOptions = {
+  key?: string;
+  thresholdMs?: number;
+  reportToSentry?: boolean;
+  sentryLevel?: SeverityLevel;
+  sentryTag?: string;
+};
+
+export function Timing(customLoggerKeyOrOptions?: string | TimingOptions): MethodDecorator {
   const logger = new Logger('Timing');
+  const options: TimingOptions =
+    typeof customLoggerKeyOrOptions === 'string'
+      ? { key: customLoggerKeyOrOptions }
+      : customLoggerKeyOrOptions || {};
+  const {
+    key,
+    thresholdMs = 100,
+    reportToSentry = false,
+    sentryLevel = 'warning',
+    sentryTag,
+  } = options;
+
   return (
     target: Object,
     propertyKey: string | symbol,
@@ -19,28 +41,53 @@ export function Timing(customLoggerKey?: string): MethodDecorator {
       const start = process.hrtime.bigint();
       const result = originalMethod.apply(this, args);
       const className = target.constructor.name;
+      const methodName = String(propertyKey);
 
-      const printLog = () => {
+      const report = () => {
         const end = process.hrtime.bigint();
-        const gap = (end - start) / BigInt(1000000);
-        if (gap > 100) {
+        const durationMs = Number((end - start) / BigInt(1000000));
+        if (durationMs > thresholdMs) {
+          const heapUsedMb = Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100;
           logger.log(
-            `${className} - ${String(customLoggerKey || propertyKey)} Execution Time: ${gap} ms; Heap Usage: ${
-              Math.round((process.memoryUsage().heapUsed / 1024 / 1024) * 100) / 100
-            } MB`
+            `${className} - ${String(key || propertyKey)} Execution Time: ${durationMs} ms; Heap Usage: ${heapUsedMb} MB`
           );
+          if (reportToSentry) {
+            Sentry.withScope((scope) => {
+              scope.setLevel?.(sentryLevel);
+              scope.setTag('feature', 'timing');
+              scope.setTag('timing.class', className);
+              scope.setTag('timing.method', methodName);
+              if (sentryTag) {
+                scope.setTag('timing.tag', sentryTag);
+              }
+              scope.setContext('timing', {
+                durationMs,
+                thresholdMs,
+                heapUsedMb,
+                argsLength: args?.length ?? 0,
+              });
+              Sentry.captureMessage(
+                `${className}.${methodName} exceeded timing threshold (${durationMs}ms > ${thresholdMs}ms)`,
+                sentryLevel
+              );
+            });
+          }
         }
       };
 
       if (result instanceof Promise) {
-        return result.then((data) => {
-          printLog();
-          return data;
-        });
-      } else {
-        printLog();
-        return result;
+        return result
+          .then((data) => {
+            report();
+            return data;
+          })
+          .catch((error) => {
+            report();
+            throw error;
+          });
       }
+      report();
+      return result;
     };
   };
 }

@@ -18,6 +18,7 @@ import { ComputedOrchestratorService } from '../computed/services/computed-orche
 import { RecordService } from '../record.service';
 import { IUpdateRecordsInternalRo } from '../type';
 import { RecordModifySharedService } from './record-modify.shared.service';
+import { Timing } from '../../utils/timing';
 
 @Injectable()
 export class RecordUpdateService {
@@ -35,6 +36,12 @@ export class RecordUpdateService {
     private readonly cls: ClsService<IClsStore>
   ) {}
 
+  @Timing({
+    key: 'updateRecords',
+    thresholdMs: 2000,
+    reportToSentry: true,
+    sentryTag: 'record-update',
+  })
   @retryOnDeadlock()
   async updateRecords(
     tableId: string,
