@@ -838,6 +838,13 @@ export class CollaboratorService {
       spaceId: base.spaceId,
       spaceName: base.space?.name,
       collaboratorType: CollaboratorType.Base,
+      lastModifiedTime: base.lastModifiedTime?.toISOString(),
+      createdBy: base.createdBy,
+      createdUser: {
+        id: base.createdBy,
+        name: base.createdBy,
+        avatar: base.createdBy ? getPublicFullStorageUrl(base.createdBy) : null,
+      },
     }));
   }
 
