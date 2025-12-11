@@ -40,7 +40,8 @@
     "turnOn": "Увімкнути",
     "exit": "Вийти",
     "next": "Наступна",
-    "previous": "Попередня"
+    "previous": "Попередня",
+    "select": "Вибрати"
   },
   "quickAction": {
     "title": "Швидкі дії...",
@@ -493,6 +494,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "Кошик простору",
     "type": "Тип",
     "resetTrash": "Очистити кошик",
     "deletedBy": "Видалено",

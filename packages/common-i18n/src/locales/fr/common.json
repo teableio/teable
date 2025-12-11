@@ -40,7 +40,8 @@
     "turnOn": "Activer",
     "exit": "Déconnexion",
     "next": "Suivant",
-    "previous": "Précédent"
+    "previous": "Précédent",
+    "select": "Sélectionner"
   },
   "quickAction": {
     "title": "Actions rapides...",
@@ -467,6 +468,7 @@
     "showMore": "Voir plus"
   },
   "trash": {
+    "spaceTrash": "Corbeille d'espace",
     "type": "Type",
     "resetTrash": "Vider",
     "deletedBy": "Supprimé par",

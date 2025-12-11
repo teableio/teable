@@ -47,7 +47,8 @@
     "turnOn": "Attiva",
     "exit": "Esci",
     "next": "Successivo",
-    "previous": "Precedente"
+    "previous": "Precedente",
+    "select": "Seleziona"
   },
   "quickAction": {
     "title": "Azioni rapide...",
@@ -496,6 +497,7 @@
     }
   },
   "trash": {
+    "spaceTrash": "Cestino dello spazio",
     "type": "Tipo",
     "resetTrash": "Svuota cestino",
     "deletedBy": "Eliminato da",
