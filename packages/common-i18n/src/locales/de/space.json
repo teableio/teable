@@ -61,8 +61,12 @@
   },
   "sharedBase": {
     "title": "Geteilte Bases",
-    "description": "Die mit Ihnen geteilten Bases werden hier erscheinen",
+    "description": "Alle Bases, zu denen ich eingeladen wurde",
     "empty": "Noch keine geteilten Bases"
+  },
+  "trash": {
+    "spaceDescription": "Alle gelöschten Spaces in dieser Instanz",
+    "baseDescription": "Alle gelöschten Bases in diesem Space"
   },
   "integration": {
     "title": "Integrationen",

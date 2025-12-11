@@ -61,7 +61,11 @@
   },
   "sharedBase": {
     "title": "Basi condivise",
-    "description": "Le basi condivise con te appariranno qui",
+    "description": "Tutte le basi a cui sono stato invitato a partecipare",
     "empty": "Nessuna base condivisa ancora"
+  },
+  "trash": {
+    "spaceDescription": "Tutti gli spazi eliminati in questa istanza",
+    "baseDescription": "Tutte le basi eliminate in questo spazio"
   }
 }

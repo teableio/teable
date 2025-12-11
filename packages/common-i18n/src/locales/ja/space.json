@@ -61,8 +61,12 @@
   },
   "sharedBase": {
     "title": "共有ベース",
-    "description": "共有されたベースはここに表示されます",
+    "description": "参加を招待されたすべてのベース",
     "empty": "共有ベースはまだありません"
+  },
+  "trash": {
+    "spaceDescription": "このインスタンス内のすべての削除されたスペース",
+    "baseDescription": "このスペース内のすべての削除されたベース"
   },
   "integration": {
     "title": "インテグレーション",

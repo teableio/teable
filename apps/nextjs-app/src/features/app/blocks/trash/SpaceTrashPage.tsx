@@ -185,16 +185,14 @@ export const SpaceTrashPage = () => {
   if (!isHydrated || isLoading) return null;
 
   return (
-    <div className="flex h-screen flex-1 flex-col space-y-4 overflow-hidden py-8">
-      <div className="flex items-center justify-between px-8">
+    <div className="flex h-screen flex-1 flex-col space-y-4 overflow-hidden p-8">
+      <div className="flex flex-col items-start justify-between gap-2 ">
         <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
+        <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
+          {t('space:trash.spaceDescription')}
+        </p>
       </div>
-      <InfiniteTable
-        rows={allRows}
-        columns={columns}
-        className="px-8"
-        fetchNextPage={fetchNextPageInner}
-      />
+      <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
       <ConfirmDialog
         open={isConfirmVisible}
         onOpenChange={setConfirmVisible}
