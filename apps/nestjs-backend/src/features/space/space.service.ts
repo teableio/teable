@@ -291,6 +291,7 @@ export class SpaceService {
       return {
         ...base,
         role,
+        lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdUser: {
           ...createUser,
           avatar: createUser?.avatar && getPublicFullStorageUrl(createUser.avatar),

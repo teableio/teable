@@ -108,13 +108,11 @@ export const BaseList = (props: IBaseListProps) => {
         dragHandleProps={dragHandleProps}
       />
       <CollapsibleContent>
-        <div className="p-2 text-sm">
-          <AnchorContext.Provider value={{ baseId: base.id }}>
-            <BaseNodeProvider>
-              <BaseNodeTree mode="view" emptyText={t('space:baseList.empty')} />
-            </BaseNodeProvider>
-          </AnchorContext.Provider>
-        </div>
+        <AnchorContext.Provider value={{ baseId: base.id }}>
+          <BaseNodeProvider>
+            <BaseNodeTree mode="view" emptyText={t('space:baseList.empty')} />
+          </BaseNodeProvider>
+        </AnchorContext.Provider>
       </CollapsibleContent>
     </Collapsible>
   );

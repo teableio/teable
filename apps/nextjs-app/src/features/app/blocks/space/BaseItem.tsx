@@ -148,7 +148,12 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
             />
           ) : (
             <>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium" title={base.name}>
+              {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions */}
+              <p
+                className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium"
+                title={base.name}
+                onClick={() => onToggleExpand?.()}
+              >
                 {base.name}
               </p>
               <StarButton
