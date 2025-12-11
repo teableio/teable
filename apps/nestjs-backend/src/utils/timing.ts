@@ -3,14 +3,15 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
-import type { SeverityLevel } from '@sentry/types';
 import { Span } from '../tracing/decorators/span';
+
+type SentrySeverity = Parameters<typeof Sentry.captureMessage>[1];
 
 type TimingOptions = {
   key?: string;
   thresholdMs?: number;
   reportToSentry?: boolean;
-  sentryLevel?: SeverityLevel;
+  sentryLevel?: SentrySeverity;
   sentryTag?: string;
 };
 
