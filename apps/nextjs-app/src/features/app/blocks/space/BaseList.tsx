@@ -34,15 +34,18 @@ export const BaseList = (props: IBaseListProps) => {
   }, [allBaseList]);
 
   const sortedList = useMemo(() => {
-    const withTime = baseIds.map((baseId) => {
-      const base = allBaseMap[baseId] || {};
-      const lastVisitTime = lastVisitBaseMap[baseId]?.lastVisitTime;
+    const withTime = baseIds
+      .map((baseId) => {
+        const base = allBaseMap[baseId];
+        if (!base) return null;
+        const lastVisitTime = lastVisitBaseMap[baseId]?.lastVisitTime;
 
-      return {
-        ...base,
-        lastVisitTime,
-      };
-    });
+        return {
+          ...base,
+          lastVisitTime,
+        };
+      })
+      .filter((item) => item !== null) as (IGetBaseVo & { lastVisitTime?: string })[];
 
     /**
      * 1. Both have lastVisitTime: compare by lastVisitTime (recent first)
