@@ -1,6 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ColumnDef } from '@tanstack/react-table';
-import { MoreHorizontal, RefreshCcw, Trash2 } from '@teable/icons';
+import { Database, RefreshCcw, Trash2 } from '@teable/icons';
 import type { ITrashItemVo, ITrashVo } from '@teable/openapi';
 import {
   getTrash,
@@ -13,13 +13,7 @@ import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { useParams } from 'next/navigation';
@@ -58,7 +52,7 @@ export const SpaceInnerTrashPage = () => {
   };
 
   const { data, isFetching, isLoading, fetchNextPage } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.getSpaceTrash(resourceType),
+    queryKey: ReactQueryKeys.getSpaceTrash(resourceType, spaceId),
     queryFn,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
@@ -69,7 +63,7 @@ export const SpaceInnerTrashPage = () => {
     mutationFn: (props: { trashId: string }) => restoreTrash(props.trashId),
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.spaceList());
-      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType));
+      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType, spaceId));
       toast.success(t('actions.restoreSucceed'));
     },
   });
@@ -77,7 +71,7 @@ export const SpaceInnerTrashPage = () => {
   const { mutateAsync: mutatePermanentDeleteBase } = useMutation({
     mutationFn: (props: { baseId: string }) => permanentDeleteBase(props.baseId),
     onSuccess: () => {
-      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType));
+      queryClient.invalidateQueries(ReactQueryKeys.getSpaceTrash(resourceType, spaceId));
       toast.success(t('actions.deleteSucceed'));
     },
   });
@@ -99,36 +93,13 @@ export const SpaceInnerTrashPage = () => {
           const resourceInfo = resourceMap[resourceId];
 
           if (!resourceInfo) return null;
-
           const { name } = resourceInfo;
-
-          if ('spaceId' in resourceInfo) {
-            const spaceId = resourceInfo.spaceId;
-            const spaceInfo = resourceMap[spaceId];
-
-            return (
-              <div className="flex items-center space-x-2 pr-2 text-sm">
-                <span>{name}</span>
-                <Button
-                  className="text-xs"
-                  variant="outline"
-                  size="xs"
-                  onClick={() => {
-                    router.push({
-                      pathname: '/space/[spaceId]',
-                      query: { spaceId },
-                    });
-                  }}
-                >
-                  <span className="max-w-40 truncate text-xs">
-                    {t('trash.fromSpace', { name: spaceInfo.name })}
-                  </span>
-                </Button>
-              </div>
-            );
-          }
-
-          return <div className="text-wrap pr-2 text-sm">{name}</div>;
+          return (
+            <div className="flex min-w-0 items-center gap-2 pl-2">
+              <Database className="size-6 rounded-md border p-1" />
+              <span className="truncate text-sm ">{name}</span>
+            </div>
+          );
         },
       },
       {
@@ -172,32 +143,32 @@ export const SpaceInnerTrashPage = () => {
           if (!resourceInfo) return null;
 
           return (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button aria-haspopup="true" size="icon" variant="ghost" className="size-8">
-                  <MoreHorizontal className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="gap-x-2" onClick={() => mutateRestore({ trashId })}>
-                  <RefreshCcw className="size-4" />
-                  {t('actions.restore')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className="gap-x-2 text-destructive focus:text-destructive"
-                  onClick={() => {
-                    setConfirmVisible(true);
-                    setDeletingResource({
-                      resourceId,
-                      name: resourceInfo.name,
-                    });
-                  }}
-                >
-                  <Trash2 className="size-4" />
-                  {t('actions.permanentDelete')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-1">
+              <Button
+                size="xs"
+                variant="ghost"
+                className="p-1"
+                title={t('actions.restore')}
+                onClick={() => mutateRestore({ trashId })}
+              >
+                <RefreshCcw className="size-4" />
+              </Button>
+              <Button
+                size="xs"
+                variant="ghost"
+                className="p-1"
+                title={t('actions.permanentDelete')}
+                onClick={() => {
+                  setConfirmVisible(true);
+                  setDeletingResource({
+                    resourceId,
+                    name: resourceInfo.name,
+                  });
+                }}
+              >
+                <Trash2 className="size-4" />
+              </Button>
+            </div>
           );
         },
       },
