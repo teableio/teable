@@ -3,8 +3,20 @@ import { getNodeUrl } from '@/features/app/blocks/base/base-node/hooks';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
 
-export const getBaseServerSideProps = async (ctx: ISSRContext): Promise<SSRResult> => {
+export const getBaseServerSideProps = async (
+  ctx: ISSRContext,
+  redirectPage: boolean = true
+): Promise<SSRResult> => {
   const { ssrApi, baseId } = ctx;
+  if (!redirectPage) {
+    return {
+      props: {
+        ...(await ctx.getTranslationsProps()),
+        dehydratedState: dehydrate(ctx.queryClient),
+      },
+    };
+  }
+
   const [lastVisitNode, nodes] = await Promise.all([
     ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
     ssrApi.getBaseNodeList(baseId),
