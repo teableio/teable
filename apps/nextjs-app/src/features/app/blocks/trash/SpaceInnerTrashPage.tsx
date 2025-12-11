@@ -175,7 +175,7 @@ export const SpaceInnerTrashPage = () => {
     ];
 
     return tableColumns;
-  }, [t, router, resourceMap, userMap, mutateRestore]);
+  }, [t, resourceMap, userMap, mutateRestore]);
 
   const fetchNextPageInner = useCallback(() => {
     if (!isFetching && nextCursor) {
