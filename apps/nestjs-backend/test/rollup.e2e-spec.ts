@@ -446,6 +446,218 @@ describe('OpenAPI Rollup field (e2e)', () => {
     expect(recordAfter1.fields[rollupFieldVo.id]).toEqual('123, 456');
   });
 
+  it('concatenates link titles when rolling up a link field', async () => {
+    const services = await createTable(baseId, {
+      name: 'rollup_link_services',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: 'International' } }, { fields: { Title: 'BtoB' } }],
+    });
+
+    const employees = await createTable(baseId, {
+      name: 'rollup_link_employees',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Name: 'Alice' } }],
+    });
+
+    const departments = await createTable(baseId, {
+      name: 'rollup_link_departments',
+      fields: [{ name: 'Dept', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Dept: 'HR' } }],
+    });
+
+    try {
+      const serviceLink = await createField(employees.id, {
+        name: 'Services',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: services.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(employees.id, employees.records[0].id, serviceLink.id, [
+        { id: services.records[0].id },
+        { id: services.records[1].id },
+      ]);
+
+      const employeeLink = await createField(departments.id, {
+        name: 'Employees',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: employees.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(departments.id, departments.records[0].id, employeeLink.id, [
+        { id: employees.records[0].id },
+      ]);
+
+      const rollup = await createField(departments.id, {
+        name: 'service_titles',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'concatenate({values})',
+        },
+        lookupOptions: {
+          foreignTableId: employees.id,
+          linkFieldId: employeeLink.id,
+          lookupFieldId: serviceLink.id,
+        },
+      } as IFieldRo);
+
+      const record = await getRecord(departments.id, departments.records[0].id);
+      expect(record.fields[rollup.id]).toEqual('International, BtoB');
+    } finally {
+      await permanentDeleteTable(baseId, departments.id);
+      await permanentDeleteTable(baseId, employees.id);
+      await permanentDeleteTable(baseId, services.id);
+    }
+  });
+
+  it('joins link titles with array_join when rolling up a link field', async () => {
+    const services = await createTable(baseId, {
+      name: 'rollup_link_services_array_join',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: 'International' } }, { fields: { Title: 'BtoB' } }],
+    });
+
+    const employees = await createTable(baseId, {
+      name: 'rollup_link_employees_array_join',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Name: 'Alice' } }],
+    });
+
+    const departments = await createTable(baseId, {
+      name: 'rollup_link_departments_array_join',
+      fields: [{ name: 'Dept', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Dept: 'HR' } }],
+    });
+
+    try {
+      const serviceLink = await createField(employees.id, {
+        name: 'Services',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: services.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(employees.id, employees.records[0].id, serviceLink.id, [
+        { id: services.records[0].id },
+        { id: services.records[1].id },
+      ]);
+
+      const employeeLink = await createField(departments.id, {
+        name: 'Employees',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: employees.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(departments.id, departments.records[0].id, employeeLink.id, [
+        { id: employees.records[0].id },
+      ]);
+
+      const rollup = await createField(departments.id, {
+        name: 'service_titles_join',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'array_join({values})',
+        },
+        lookupOptions: {
+          foreignTableId: employees.id,
+          linkFieldId: employeeLink.id,
+          lookupFieldId: serviceLink.id,
+        },
+      } as IFieldRo);
+
+      const record = await getRecord(departments.id, departments.records[0].id);
+      expect(record.fields[rollup.id]).toEqual('International, BtoB');
+    } finally {
+      await permanentDeleteTable(baseId, departments.id);
+      await permanentDeleteTable(baseId, employees.id);
+      await permanentDeleteTable(baseId, services.id);
+    }
+  });
+
+  it('deduplicates link titles with array_unique when rolling up a link field', async () => {
+    const services = await createTable(baseId, {
+      name: 'rollup_link_services_unique',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Title: 'International' } }, { fields: { Title: 'BtoB' } }],
+    });
+
+    const employees = await createTable(baseId, {
+      name: 'rollup_link_employees_unique',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Name: 'Alice' } }, { fields: { Name: 'Bob' } }],
+    });
+
+    const departments = await createTable(baseId, {
+      name: 'rollup_link_departments_unique',
+      fields: [{ name: 'Dept', type: FieldType.SingleLineText } as IFieldRo],
+      records: [{ fields: { Dept: 'HR' } }],
+    });
+
+    try {
+      const serviceLink = await createField(employees.id, {
+        name: 'Services',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: services.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(employees.id, employees.records[0].id, serviceLink.id, [
+        { id: services.records[0].id },
+      ]);
+      await updateRecordField(employees.id, employees.records[1].id, serviceLink.id, [
+        { id: services.records[1].id },
+      ]);
+
+      const employeeLink = await createField(departments.id, {
+        name: 'Employees',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.OneMany,
+          foreignTableId: employees.id,
+        },
+      } as IFieldRo);
+
+      await updateRecordField(departments.id, departments.records[0].id, employeeLink.id, [
+        { id: employees.records[0].id },
+        { id: employees.records[1].id },
+      ]);
+
+      const rollup = await createField(departments.id, {
+        name: 'service_titles_unique',
+        type: FieldType.Rollup,
+        options: {
+          expression: 'array_unique({values})',
+        },
+        lookupOptions: {
+          foreignTableId: employees.id,
+          linkFieldId: employeeLink.id,
+          lookupFieldId: serviceLink.id,
+        },
+      } as IFieldRo);
+
+      const record = await getRecord(departments.id, departments.records[0].id);
+      const values = record.fields[rollup.id] as string[];
+      expect(values).toHaveLength(2);
+      expect(values).toEqual(expect.arrayContaining(['International', 'BtoB']));
+    } finally {
+      await permanentDeleteTable(baseId, departments.id);
+      await permanentDeleteTable(baseId, employees.id);
+      await permanentDeleteTable(baseId, services.id);
+    }
+  });
+
   describe('rollup expression coverage', () => {
     const baseId = globalThis.testConfig.baseId;
 

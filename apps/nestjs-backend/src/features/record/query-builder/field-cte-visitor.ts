@@ -359,6 +359,19 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
 
     const rollupFunctionName = parseRollupFunctionName(rollupOptions.expression);
     const aggregatesToJson = JSON_AGG_FUNCTIONS.has(rollupFunctionName);
+    const formattingVisitor = new FieldFormattingVisitor(expression, this.dialect);
+    const formattedExpression = targetField.accept(formattingVisitor);
+    const useFormattedForArrayFunctions =
+      (targetField.type === FieldType.Link ||
+        targetField.type === FieldType.Formula ||
+        targetField.type === FieldType.ConditionalRollup) &&
+      (rollupFunctionName === 'array_join' ||
+        rollupFunctionName === 'concatenate' ||
+        rollupFunctionName === 'array_unique' ||
+        rollupFunctionName === 'array_compact');
+    const aggregationInputExpression = useFormattedForArrayFunctions
+      ? formattedExpression
+      : expression;
     const buildAggregate = (expr: string) => {
       const aggregate = this.generateRollupAggregation(
         rollupOptions.expression,
@@ -378,11 +391,11 @@ class FieldCteSelectionVisitor implements IFieldVisitor<IFieldSelectName> {
     const rollupFilter = (rollupField as FieldCore).getFilter?.();
     if (rollupFilter && this.dbProvider.driver === DriverClient.Pg) {
       const sub = this.buildForeignFilterSubquery(rollupFilter);
-      const filteredExpr = `CASE WHEN EXISTS ${sub} THEN ${expression} ELSE NULL END`;
+      const filteredExpr = `CASE WHEN EXISTS ${sub} THEN ${aggregationInputExpression} ELSE NULL END`;
       return buildAggregate(filteredExpr);
     }
 
-    return buildAggregate(expression);
+    return buildAggregate(aggregationInputExpression);
   }
   private visitLookupField(field: FieldCore): IFieldSelectName {
     if (!field.isLookup) {
@@ -1284,16 +1297,6 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
     return `(${expression})${castSuffix}`;
   }
 
-  private shouldUseFormattedExpressionForAggregation(fn: string): boolean {
-    switch (fn) {
-      case 'array_join':
-      case 'concatenate':
-        return true;
-      default:
-        return false;
-    }
-  }
-
   private rollupFunctionSupportsOrdering(expression: string): boolean {
     const fn = parseRollupFunctionName(expression);
     switch (fn) {
@@ -1579,9 +1582,15 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
       const formattedExpression = targetField.accept(formattingVisitor);
 
       const aggregationFn = parseRollupFunctionName(expression);
-      const aggregationInputExpression = this.shouldUseFormattedExpressionForAggregation(
-        aggregationFn
-      )
+      const useFormattedForArrayFunctions =
+        (targetField.type === FieldType.Link ||
+          targetField.type === FieldType.Formula ||
+          targetField.type === FieldType.ConditionalRollup) &&
+        (aggregationFn === 'array_join' ||
+          aggregationFn === 'concatenate' ||
+          aggregationFn === 'array_unique' ||
+          aggregationFn === 'array_compact');
+      const aggregationInputExpression = useFormattedForArrayFunctions
         ? formattedExpression
         : rawExpression;
 

@@ -1,4 +1,4 @@
-import { CellValueType, FieldType } from '@teable/core';
+import { CellValueType, FieldType, Relationship } from '@teable/core';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
 import { renderHook, act } from '@testing-library/react';
 import type { IFieldEditorRo } from '../type';
@@ -157,6 +157,61 @@ describe('useUpdateLookupOptions', () => {
         lookupFieldId: 'lookupFieldId',
       },
       cellValueType: CellValueType.Number,
+      isMultipleCellValue: true,
+    });
+  });
+
+  it('keeps rollup options when linking to a lookup field', () => {
+    const field = {
+      type: FieldType.Rollup,
+      options: {
+        expression: 'sum({values})',
+        timeZone: 'UTC',
+      },
+      lookupOptions: {
+        foreignTableId: 'foreignTableId',
+        linkFieldId: 'linkFieldId',
+      },
+    } as IFieldEditorRo;
+    const setField = vi.fn();
+
+    const { result } = renderHook(() => useUpdateLookupOptions(field, setField));
+
+    act(() => {
+      result.current(
+        {
+          lookupFieldId: 'lookupFieldId',
+        },
+        {
+          type: FieldType.Link,
+          isMultipleCellValue: true,
+        } as LinkField,
+        {
+          id: 'lookupFieldId',
+          type: FieldType.Link,
+          cellValueType: CellValueType.String,
+          isMultipleCellValue: true,
+          options: {
+            relationship: Relationship.ManyOne,
+            foreignTableId: 'foreignTableId',
+            lookupFieldId: 'displayFieldId',
+            fkHostTableName: 'host_table',
+            selfKeyName: 'selfKey',
+            foreignKeyName: 'foreignKey',
+          },
+        } as unknown as IFieldInstance
+      );
+    });
+
+    expect(setField).toHaveBeenCalledWith({
+      type: FieldType.Rollup,
+      options: field.options,
+      lookupOptions: {
+        foreignTableId: 'foreignTableId',
+        linkFieldId: 'linkFieldId',
+        lookupFieldId: 'lookupFieldId',
+      },
+      cellValueType: CellValueType.String,
       isMultipleCellValue: true,
     });
   });

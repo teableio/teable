@@ -156,8 +156,12 @@ export class FieldFormattingVisitor implements IFieldVisitor<string> {
   }
 
   visitLinkField(_field: LinkFieldCore): string {
-    // Link fields should not be formatted directly, return as-is
-    return this.fieldExpression;
+    if (_field.isMultipleCellValue) {
+      // Extract titles from link arrays in a deterministic order
+      return this.dialect.formatStringArray(this.fieldExpression, { fieldInfo: _field });
+    }
+    // Single link: read the embedded title from the JSON object
+    return this.dialect.jsonTitleFromExpr(this.fieldExpression);
   }
 
   visitRollupField(_field: RollupFieldCore): string {

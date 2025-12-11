@@ -14,6 +14,7 @@ import {
   TimeFormatting,
 } from '@teable/core';
 import type { Knex } from 'knex';
+import { FieldFormattingVisitor } from '../field-formatting-visitor';
 import type { IRecordQueryDialectProvider } from '../record-query-dialect.interface';
 
 export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
@@ -523,6 +524,18 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
     options: { rollupField: FieldCore; targetField: FieldCore }
   ): string {
     const requiresJsonArray = options.rollupField.dbFieldType === DbFieldType.Json;
+    const needsFormatted =
+      (options.targetField.type === FieldType.Link ||
+        options.targetField.type === FieldType.Formula ||
+        options.targetField.type === FieldType.ConditionalRollup) &&
+      (fn === 'array_join' ||
+        fn === 'concatenate' ||
+        fn === 'array_unique' ||
+        fn === 'array_compact');
+    const formattedExpr = needsFormatted
+      ? options.targetField.accept(new FieldFormattingVisitor(fieldExpression, this))
+      : fieldExpression;
+    const exprForAggregation = needsFormatted ? formattedExpr : fieldExpression;
     switch (fn) {
       case 'sum':
       case 'average':
@@ -534,7 +547,7 @@ export class PgRecordQueryDialect implements IRecordQueryDialectProvider {
       case 'min':
       case 'array_join':
       case 'concatenate':
-        return `${fieldExpression}`;
+        return `${exprForAggregation}`;
       case 'count':
       case 'countall':
       case 'counta':

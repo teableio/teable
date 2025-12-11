@@ -26,9 +26,14 @@ export function useUpdateLookupOptions(
         return;
       }
 
+      const shouldPreserveRollupOptions = field.type === FieldType.Rollup && !field.isLookup;
       const optionsResult =
         lookupField?.type && safeParseOptions(lookupField.type, lookupField.options);
-      const options = optionsResult?.success ? optionsResult.data : field.options;
+      const options = shouldPreserveRollupOptions
+        ? field.options
+        : optionsResult?.success
+          ? optionsResult.data
+          : field.options;
       const newField: IFieldEditorRo = lookupField
         ? {
             ...field,
