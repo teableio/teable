@@ -64,6 +64,8 @@ interface ICommonOperationProps extends IBaseNodeMoreProps {
 
 const CommonOperation = (props: ICommonOperationProps) => {
   const {
+    open,
+    setOpen,
     onRename,
     onDuplicate,
     onDelete,
@@ -82,7 +84,7 @@ const CommonOperation = (props: ICommonOperationProps) => {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={open} onOpenChange={setOpen}>
         <DropdownMenuTrigger asChild>
           <div>
             <MoreHorizontal className={className} />
