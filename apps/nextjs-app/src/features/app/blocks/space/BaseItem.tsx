@@ -135,46 +135,58 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
               }}
             />
           ) : (
-            <div
-              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
-              title={base.name}
-            >
-              <span className="truncate text-sm font-medium">{base.name}</span>
-              <StarButton
-                className="size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100"
-                id={base.id}
-                type={PinType.Base}
-              />
-            </div>
+            <>
+              <div
+                className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+                title={base.name}
+              >
+                <span className="truncate text-sm font-medium">{base.name}</span>
+                <StarButton
+                  className="size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100"
+                  id={base.id}
+                  type={PinType.Base}
+                />
+              </div>
+
+              <Button
+                variant="outline"
+                size="xs"
+                className="hidden h-7 w-0 shrink-0 gap-1 opacity-0 group-hover:w-auto sm:flex sm:group-hover:opacity-100"
+                onClick={onEnterBase}
+              >
+                <ArrowRight className="size-4" />
+                {t('space:baseList.enter')}
+              </Button>
+            </>
           )}
         </div>
       </div>
 
       {/* Creator Column */}
-      <div className="flex w-40 shrink-0 items-center gap-2">
+      <div className="hidden w-10 shrink-0 items-center gap-2 sm:flex sm:w-40">
         <Avatar className="size-6 border">
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
         </Avatar>
-        <span className="truncate text-xs" title={base.createdUser?.name}>
+        <span className="hidden truncate text-xs sm:block" title={base.createdUser?.name}>
           {base.createdUser?.name}
         </span>
       </div>
 
       {/* Last Opened Column */}
-      <div className="w-40 shrink-0 text-xs lg:w-60">
+      <div className="hidden w-32 shrink-0 truncate text-xs sm:flex">
         {lastVisitTime ? dayjs(lastVisitTime).fromNow() : '-'}
       </div>
 
       {/* Actions Column */}
       <div
-        className="absolute right-0 flex shrink-0 items-center justify-end gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100"
+        className="absolute right-0 flex shrink-0 items-center gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100"
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >
-        <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={onEnterBase}>
+        <Button variant="outline" size="xs" className="h-7 gap-1 sm:hidden" onClick={onEnterBase}>
           <ArrowRight className="size-4" />
-          {t('space:baseList.enter')}
+          <span className="hidden sm:flex">{t('space:baseList.enter')}</span>
         </Button>
 
         <BaseActionTrigger

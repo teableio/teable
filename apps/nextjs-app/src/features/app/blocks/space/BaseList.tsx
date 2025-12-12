@@ -2,7 +2,8 @@ import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { deleteBase, permanentDeleteBase, updateBase, type IGetBaseVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { AnchorContext } from '@teable/sdk/context';
-import { Collapsible, CollapsibleContent, ScrollArea, Skeleton } from '@teable/ui-lib/shadcn';
+import { Spin } from '@teable/ui-lib/base';
+import { Collapsible, CollapsibleContent, ScrollArea } from '@teable/ui-lib/shadcn';
 import { keyBy } from 'lodash';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -128,10 +129,8 @@ export const BaseList = (props: IBaseListProps) => {
                 mode="view"
                 emptyText={t('space:baseList.noTables')}
                 skeleton={
-                  <div className="flex w-full flex-col gap-2 px-2">
-                    <Skeleton className="h-7 w-full" />
-                    <Skeleton className="h-7 w-full" />
-                    <Skeleton className="h-7 w-full" />
+                  <div className="flex w-full flex-col items-center justify-center gap-2 px-2">
+                    <Spin className="size-4" />
                   </div>
                 }
               />
@@ -147,8 +146,8 @@ export const BaseList = (props: IBaseListProps) => {
       {/* Header */}
       <div className="sticky top-0 z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
-        <div className="w-40 shrink-0">{t('space:baseList.owner')}</div>
-        <div className="w-40 shrink-0 lg:w-60">{t('space:baseList.lastOpened')}</div>
+        <div className="hidden w-10 shrink-0 sm:block sm:w-40">{t('space:baseList.owner')}</div>
+        <div className="hidden w-32 shrink-0 sm:block">{t('space:baseList.lastOpened')}</div>
       </div>
 
       {/* Rows */}
