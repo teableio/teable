@@ -547,7 +547,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     );
   };
 
-  if (Object.keys(treeItems).length === 0) {
+  const renderEmpty = () => {
     if (isLoading) {
       return (
         <>
@@ -572,33 +572,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         </div>
       );
     }
-  }
+  };
 
-  return (
-    <>
-      {isEditMode && (
-        <div className="flex w-full flex-col px-4 pt-4">
-          <BaseNodeAddResourceButton
-            curdHooks={curdHooks}
-            parentId={ROOT_ID}
-            canCreateFolder={canCreateFolder}
-            canCreateTable={canCreateTable}
-            canCreateDashboard={canCreateDashboard}
-            canCreateWorkflow={canCreateWorkflow}
-            canCreateApp={canCreateApp}
-          >
-            <Button
-              variant={'outline'}
-              size={'xs'}
-              className="w-full"
-              disabled={!canCreateResource}
-            >
-              <AddBoldIcon />
-            </Button>
-          </BaseNodeAddResourceButton>
-        </div>
-      )}
-
+  const renderTree = () => {
+    return (
       <ScrollArea
         viewportRef={viewportRef}
         className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
@@ -755,6 +732,34 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         </Tree>
         <ScrollBar className="z-30" />
       </ScrollArea>
+    );
+  };
+
+  return (
+    <>
+      {isEditMode && (
+        <div className="flex w-full flex-col px-4 pt-4">
+          <BaseNodeAddResourceButton
+            curdHooks={curdHooks}
+            parentId={ROOT_ID}
+            canCreateFolder={canCreateFolder}
+            canCreateTable={canCreateTable}
+            canCreateDashboard={canCreateDashboard}
+            canCreateWorkflow={canCreateWorkflow}
+            canCreateApp={canCreateApp}
+          >
+            <Button
+              variant={'outline'}
+              size={'xs'}
+              className="w-full"
+              disabled={!canCreateResource}
+            >
+              <AddBoldIcon />
+            </Button>
+          </BaseNodeAddResourceButton>
+        </div>
+      )}
+      {Object.keys(treeItems).length === 0 ? renderEmpty() : renderTree()}
     </>
   );
 };
