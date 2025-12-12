@@ -2,7 +2,6 @@
 import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Skeleton } from '@teable/ui-lib/shadcn';
 import dynamic from 'next/dynamic';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
