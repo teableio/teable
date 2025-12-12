@@ -146,8 +146,8 @@ export const BaseList = (props: IBaseListProps) => {
       {/* Header */}
       <div className="sticky top-0 z-10 flex h-8 items-center border-b bg-background text-xs font-medium text-muted-foreground">
         <div className="flex-1 truncate pl-6 pr-2">{t('space:baseList.allBases')}</div>
-        <div className="hidden w-10 shrink-0 sm:block sm:w-40">{t('space:baseList.owner')}</div>
-        <div className="hidden w-32 shrink-0 sm:block">{t('space:baseList.lastOpened')}</div>
+        <div className="hidden shrink-0 px-2 sm:block sm:w-40">{t('space:baseList.owner')}</div>
+        <div className="hidden w-32 shrink-0 px-2 sm:block">{t('space:baseList.lastOpened')}</div>
       </div>
 
       {/* Rows */}

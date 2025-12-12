@@ -126,7 +126,6 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             )}
           </div>
           <SpaceActionBar
-            className="flex shrink-0 items-center gap-3"
             buttonSize="xs"
             space={space}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}

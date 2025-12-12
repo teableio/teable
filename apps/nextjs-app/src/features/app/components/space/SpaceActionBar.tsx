@@ -1,8 +1,9 @@
 import { hasPermission } from '@teable/core';
-import { MoreHorizontal, UserPlus } from '@teable/icons';
+import { MoreHorizontal, Plus, UserPlus } from '@teable/icons';
 import { type IGetSpaceVo } from '@teable/openapi';
+import { useIsMobile } from '@teable/sdk/hooks';
 import type { ButtonProps } from '@teable/ui-lib';
-import { Button } from '@teable/ui-lib';
+import { Button, cn } from '@teable/ui-lib';
 import { useTranslation } from 'next-i18next';
 import React from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';
@@ -38,33 +39,34 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
+  const isMobile = useIsMobile();
 
   return (
-    <div className={className}>
+    <div className={cn('flex shrink-0 items-center gap-2', className)}>
       {hasPermission(space.role, 'base|create') && (
         <CreateBaseModalTrigger spaceId={space.id}>
-          <Button
-            className={GUIDE_CREATE_BASE}
-            size={buttonSize}
-            // onClick={() => {
-            //   const name = getUniqName(
-            //     t('common:noun.base'),
-            //     bases?.map((base) => base.name) || []
-            //   );
-            //   createBaseMutator({ spaceId: space.id, name });
-            //   close();
-            // }}
-          >
-            {t('space:action.createBase')}
-            {/* {createBaseLoading && <Spin />} */}
-          </Button>
+          {isMobile ? (
+            <Button variant={'outline'} size="icon" className="size-7">
+              <Plus className="size-4" />
+            </Button>
+          ) : (
+            <Button className={GUIDE_CREATE_BASE} size={buttonSize}>
+              {t('space:action.createBase')}
+            </Button>
+          )}
         </CreateBaseModalTrigger>
       )}
       {!disallowSpaceInvitation && (
         <InviteSpacePopover space={space}>
-          <Button variant={'outline'} size={buttonSize}>
-            <UserPlus className="size-4" /> {t('space:action.invite')}
-          </Button>
+          {isMobile ? (
+            <Button variant={'outline'} size="icon" className="size-7">
+              <UserPlus className="size-4" />
+            </Button>
+          ) : (
+            <Button variant={'outline'} size={buttonSize}>
+              <UserPlus className="size-4" /> {t('space:action.invite')}
+            </Button>
+          )}
         </InviteSpacePopover>
       )}
 

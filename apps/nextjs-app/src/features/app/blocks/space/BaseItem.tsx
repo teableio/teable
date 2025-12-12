@@ -170,7 +170,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Creator Column */}
-      <div className="hidden w-10 shrink-0 items-center gap-2 sm:flex sm:w-40">
+      <div className="hidden w-10 shrink-0 items-center gap-2 px-2 sm:flex sm:w-40">
         <Avatar className="size-6 border">
           <AvatarImage src={base.createdUser?.avatar ?? ''} />
           <AvatarFallback className="text-xs">{base.createdUser?.name?.slice(0, 1)}</AvatarFallback>
@@ -181,7 +181,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       </div>
 
       {/* Last Opened Column */}
-      <div className="hidden w-32 shrink-0 truncate text-xs sm:flex">
+      <div className="hidden w-32 shrink-0 truncate px-2 text-xs sm:flex">
         {lastVisitTime ? dayjs(lastVisitTime).fromNow() : '-'}
       </div>
 

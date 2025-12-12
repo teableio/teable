@@ -10,7 +10,8 @@ import {
   updateSpace,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { ScrollArea } from '@teable/ui-lib/shadcn';
+import { useIsMobile } from '@teable/sdk/hooks';
+import { cn, ScrollArea } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -33,7 +34,7 @@ export const SpaceInnerPage: React.FC = () => {
   const ref = useRef<HTMLDivElement>(null);
   const spaceId = router.query.spaceId as string;
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
+  const isMobile = useIsMobile();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
 
@@ -111,36 +112,70 @@ export const SpaceInnerPage: React.FC = () => {
     });
   };
 
+  const renderSubscription = () => {
+    if (space && isCloud) {
+      return (
+        <LevelWithUpgrade
+          level={subscriptionSummary?.level}
+          status={subscriptionSummary?.status}
+          spaceId={space.id}
+          withUpgrade={space.role === Role.Owner}
+          organization={space.organization}
+        />
+      );
+    }
+    return null;
+  };
+
+  const renderOrganization = () => {
+    if (!isCloud && space && space.organization) {
+      return <div className="text-sm text-gray-500">{space.organization.name}</div>;
+    }
+    return null;
+  };
+
   return (
     space && (
-      <div ref={ref} className="flex h-full min-w-0 flex-1 flex-col px-8 py-6 sm:min-w-[760px]">
-        <div className="flex shrink-0 items-center justify-between gap-4 pb-4">
-          <div className="flex min-w-0 items-center gap-2">
-            <SpaceRenaming
-              spaceName={spaceName!}
-              isRenaming={renaming}
-              onChange={(e) => setSpaceName(e.target.value)}
-              onBlur={(e) => toggleUpdateSpace(e)}
-              className="h-8"
-            >
-              <h1 className="truncate text-2xl font-semibold">{space.name}</h1>
-            </SpaceRenaming>
-            <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
-            {isCloud && (
-              <LevelWithUpgrade
-                level={subscriptionSummary?.level}
-                status={subscriptionSummary?.status}
-                spaceId={space.id}
-                withUpgrade={space.role === Role.Owner}
-                organization={space.organization}
-              />
-            )}
-            {!isCloud && space.organization && (
-              <div className="text-sm text-gray-500">{space.organization.name}</div>
-            )}
-          </div>
+      <div ref={ref} className={cn('flex h-full min-w-0 flex-1 flex-col py-6 sm:min-w-[760px]')}>
+        <div
+          className={cn(
+            'flex shrink-0 px-8 items-start sm:items-center justify-between gap-4  sm:pb-4'
+          )}
+        >
+          {isMobile ? (
+            <div className="flex min-w-0 flex-col items-start justify-start gap-2">
+              <div className="flex items-center justify-start gap-2 text-left">
+                <SpaceRenaming
+                  spaceName={spaceName!}
+                  isRenaming={renaming}
+                  onChange={(e) => setSpaceName(e.target.value)}
+                  onBlur={(e) => toggleUpdateSpace(e)}
+                  className="h-8"
+                >
+                  <h1 className="truncate text-2xl font-semibold">{space.name}</h1>
+                </SpaceRenaming>
+              </div>
+              {renderSubscription()}
+              {renderOrganization()}
+            </div>
+          ) : (
+            <div className="flex min-w-0 items-center gap-2">
+              <SpaceRenaming
+                spaceName={spaceName!}
+                isRenaming={renaming}
+                onChange={(e) => setSpaceName(e.target.value)}
+                onBlur={(e) => toggleUpdateSpace(e)}
+                className="h-8"
+              >
+                <h1 className="truncate text-2xl font-semibold">{space.name}</h1>
+              </SpaceRenaming>
+              <StarButton className="opacity-100" id={space.id} type={PinType.Space} />
+              {renderSubscription()}
+              {renderOrganization()}
+            </div>
+          )}
+
           <SpaceActionBar
-            className="flex shrink-0 items-center gap-3"
             space={space}
             buttonSize={'xs'}
             invQueryFilters={ReactQueryKeys.baseAll() as unknown as string[]}
@@ -152,7 +187,7 @@ export const SpaceInnerPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex min-h-0 flex-1 gap-8 pt-4">
+        <div className="flex min-h-0 flex-1 gap-8 px-4 pt-4 sm:px-8">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {basesInSpace?.length ? (
               <BaseList baseIds={basesInSpace.map((base) => base.id)} />
