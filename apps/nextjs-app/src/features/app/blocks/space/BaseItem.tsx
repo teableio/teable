@@ -79,7 +79,10 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
   return (
     <div
-      className={cn('group flex h-12 items-center cursor-pointer hover:bg-accent', className)}
+      className={cn(
+        'relative group flex h-12 items-center cursor-pointer hover:bg-accent',
+        className
+      )}
       onClick={() => onToggleExpand?.()}
     >
       <Button
@@ -132,19 +135,17 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
               }}
             />
           ) : (
-            <>
-              <p
-                className="min-w-0 flex-1 cursor-pointer truncate text-sm font-medium"
-                title={base.name}
-              >
-                {base.name}
-              </p>
+            <div
+              className="flex min-w-0 flex-1 cursor-pointer items-center gap-2"
+              title={base.name}
+            >
+              <span className="truncate text-sm font-medium">{base.name}</span>
               <StarButton
-                className="size-4 shrink-0 opacity-0 group-hover:opacity-100"
+                className="size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100"
                 id={base.id}
                 type={PinType.Base}
               />
-            </>
+            </div>
           )}
         </div>
       </div>
