@@ -16,6 +16,7 @@ import { Emoji } from '../../components/emoji/Emoji';
 import { EmojiPicker } from '../../components/emoji/EmojiPicker';
 import { BaseActionTrigger } from './component/BaseActionTrigger';
 import { StarButton } from './space-side-bar/StarButton';
+import { usePinMap } from './usePinMap';
 
 export interface IBaseItemProps {
   base: IGetBaseVo;
@@ -40,6 +41,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
     onDelete,
   } = props;
   const dayjs = useLanDayjs();
+  const pinMap = usePinMap();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const inputRef = useRef<HTMLInputElement>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -142,7 +144,12 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
               >
                 <span className="truncate text-sm font-medium">{base.name}</span>
                 <StarButton
-                  className="size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100"
+                  className={cn(
+                    'size-4 w-0 shrink-0 opacity-0 group-hover:w-auto group-hover:opacity-100',
+                    {
+                      'w-auto opacity-100': pinMap?.[base.id],
+                    }
+                  )}
                   id={base.id}
                   type={PinType.Base}
                 />
