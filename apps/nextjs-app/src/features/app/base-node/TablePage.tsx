@@ -33,6 +33,7 @@ export const getTableServerSideProps = async (
     recordId?: string;
     fromNotify?: string;
   };
+  const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
 
   if (!tableId) {
     const [lastVisit, tableList] = await Promise.all([
@@ -57,7 +58,7 @@ export const getTableServerSideProps = async (
   if (!viewId) {
     const defaultViewId = await getDefaultViewId(ssrApi, tableId);
     if (defaultViewId) {
-      return redirect(`/base/${baseId}/table/${tableId}/${defaultViewId}`);
+      return redirect(`/base/${baseId}/table/${tableId}/${defaultViewId}?${queryString}`);
     }
     return { notFound: true };
   }
@@ -76,7 +77,9 @@ export const getTableServerSideProps = async (
 
   const tableIds = tableList.map((t) => t.id);
   if (tableIds.length === 0) return { notFound: true };
-  if (!tableIds.includes(tableId)) return redirect(`/base/${baseId}/table/${tableIds[0]}`);
+  if (!tableIds.includes(tableId)) {
+    return redirect(`/base/${baseId}/table/${tableIds[0]}`);
+  }
 
   // check view exists
   const viewList = await queryClient.fetchQuery({
@@ -85,7 +88,9 @@ export const getTableServerSideProps = async (
   });
   const viewIds = viewList.map((v) => v.id);
   if (viewIds.length === 0) return { notFound: true };
-  if (!viewIds.includes(viewId)) return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}`);
+  if (!viewIds.includes(viewId)) {
+    return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}?${queryString}`);
+  }
 
   // handle recordId
   let recordServerData: ITablePageProps['recordServerData'];
