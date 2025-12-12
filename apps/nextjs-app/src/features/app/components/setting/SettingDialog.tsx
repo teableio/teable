@@ -21,7 +21,7 @@ import { useSettingStore } from './useSettingStore';
 export const SettingDialog = () => {
   const { t } = useTranslation('common');
   const isTouchDevice = useIsTouchDevice();
-  const { open, setOpen } = useSettingStore();
+  const { open, setOpen, tab, setTab } = useSettingStore();
 
   const tabList = useMemo(() => {
     return [
@@ -49,7 +49,14 @@ export const SettingDialog = () => {
   }, [t]);
 
   const content = (
-    <Tabs defaultValue="profile" className="flex h-full gap-0 overflow-hidden">
+    <Tabs
+      defaultValue="profile"
+      value={tab}
+      onValueChange={(value) =>
+        setTab(value as 'profile' | 'system' | 'notifications' | 'integration')
+      }
+      className="flex h-full gap-0 overflow-hidden"
+    >
       <TabsList className="flex h-full w-[200px] flex-col items-start justify-start gap-1 rounded-none border-none bg-muted p-4">
         {tabList.map(({ key, name, Icon }) => {
           return (

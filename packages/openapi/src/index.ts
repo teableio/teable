@@ -44,3 +44,4 @@ export * from './formula';
 export * from './unsubscribe';
 export * from './base-node';
 export * from './types';
+export * from './user-integration';

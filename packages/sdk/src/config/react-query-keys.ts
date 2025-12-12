@@ -230,4 +230,6 @@ export const ReactQueryKeys = {
     ['workflow-item', baseId, workflowId] as const,
 
   getApp: (baseId: string, appId: string) => ['app', baseId, appId] as const,
+
+  getUserIntegrations: () => ['user-integrations-list'] as const,
 };

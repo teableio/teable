@@ -53,7 +53,8 @@
     "exit": "退出",
     "next": "下一页",
     "previous": "上一页",
-    "select": "选择"
+    "select": "选择",
+    "refresh": "刷新"
   },
   "quickAction": {
     "title": "快捷搜索...",
@@ -248,14 +249,40 @@
     },
     "integration": {
       "title": "集成",
-      "description": "您已授权 {{count}} 个应用程序访问您的帐户。",
-      "lastUsed": "上次使用于 {{date}}",
-      "revoke": "撤销",
-      "owner": "{{user}} 所有",
-      "revokeTitle": "您确定要撤销授权吗？",
-      "revokeDesc": "{{name}} 将不再能够访问 Teable API。此操作无法撤销。",
-      "scopeTitle": "权限",
-      "scopeDesc": "此应用程序将能够获取以下权限："
+      "thirdPartyIntegrations": {
+        "title": "第三方集成",
+        "description": "您已授权 {{count}} 个应用程序访问您的帐户。",
+        "lastUsed": "上次使用于 {{date}}",
+        "revoke": "撤销",
+        "owner": "{{user}} 所有",
+        "revokeTitle": "您确定要撤销授权吗？",
+        "revokeDesc": "{{name}} 将不再能够访问 Teable API。此操作无法撤销。",
+        "scopeTitle": "权限",
+        "scopeDesc": "此应用程序将能够获取以下权限："
+      },
+      "userIntegration": {
+        "title": "已连接账户",
+        "description": "连接外部账户以授权 Teable 访问和同步您的资源。",
+        "emptyDescription": "没有已连接的账户",
+        "actions": {
+          "reconnect": "重新连接"
+        },
+        "slack": {
+          "user": "Slack 用户",
+          "workspace": "Slack 工作区"
+        },
+        "deleteTitle": "移除已连接账户",
+        "deleteDesc": "您确定要移除 {{name}} 吗？",
+        "create": "连接新账户",
+        "manage": "管理已连接账户",
+        "searchPlaceholder": "搜索已连接账户",
+        "defaultName": "{{name}} 集成",
+        "callback": {
+          "error": "授权失败",
+          "title": "授权成功",
+          "desc": "您可以关闭此窗口了。"
+        }
+      }
     }
   },
   "noun": {

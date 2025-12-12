@@ -53,7 +53,8 @@
     "exit": "Exit",
     "next": "Next",
     "previous": "Previous",
-    "select": "Select"
+    "select": "Select",
+    "refresh": "Refresh"
   },
   "quickAction": {
     "title": "Quick actions...",
@@ -248,14 +249,40 @@
     },
     "integration": {
       "title": "Integrations",
-      "description": "You have granted {{count}} applications access to your account.",
-      "lastUsed": "Last used at {{date}}",
-      "revoke": "Revoke",
-      "owner": "Owner by {{user}}",
-      "revokeTitle": "Are you sure you want to revoke authorization?",
-      "revokeDesc": "{{name}} will no longer be able to access the Teable API. You cannot undo this action.",
-      "scopeTitle": "Permissions",
-      "scopeDesc": "This application will be able to get the following scopes:"
+      "thirdPartyIntegrations": {
+        "title": "Third-party integrations",
+        "description": "You have granted {{count}} applications access to your account.",
+        "lastUsed": "Last used at {{date}}",
+        "revoke": "Revoke",
+        "owner": "Owner by {{user}}",
+        "revokeTitle": "Are you sure you want to revoke authorization?",
+        "revokeDesc": "{{name}} will no longer be able to access the Teable API. You cannot undo this action.",
+        "scopeTitle": "Permissions",
+        "scopeDesc": "This application will be able to get the following scopes:"
+      },
+      "userIntegration": {
+        "title": "Connected accounts",
+        "description": "Connect external accounts to authorize Teable to access and sync your resources.",
+        "emptyDescription": "No connected accounts",
+        "actions": {
+          "reconnect": "Reconnect"
+        },
+        "slack": {
+          "user": "Slack user",
+          "workspace": "Slack workspace"
+        },
+        "deleteTitle": "Remove connected account",
+        "deleteDesc": "Are you sure you want to remove {{name}}?",
+        "create": "Connect new account",
+        "manage": "Manage connected accounts",
+        "searchPlaceholder": "Search connected accounts",
+        "defaultName": "{{name}} Integration",
+        "callback": {
+          "error": "Authorization failed",
+          "title": "Authorization successful",
+          "desc": "You may close this window now."
+        }
+      }
     }
   },
   "noun": {

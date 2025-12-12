@@ -23,8 +23,8 @@ export const RevokeButton = (props: { name: string; clientId: string; onSuccess?
     <ConfirmDialog
       open={revokeConfirm}
       onOpenChange={setRevokeConfirm}
-      title={t('settings.integration.revokeTitle')}
-      description={t('settings.integration.revokeDesc', { name })}
+      title={t('settings.integration.thirdPartyIntegrations.revokeTitle')}
+      description={t('settings.integration.thirdPartyIntegrations.revokeDesc', { name })}
       cancelText={t('actions.cancel')}
       confirmText={t('actions.confirm')}
       onCancel={() => setRevokeConfirm(false)}
@@ -32,7 +32,7 @@ export const RevokeButton = (props: { name: string; clientId: string; onSuccess?
     >
       <Button size={'xs'} variant={'destructive'} disabled={revokeTokenLoading}>
         {revokeTokenLoading && <Spin />}
-        {t('settings.integration.revoke')}
+        {t('settings.integration.thirdPartyIntegrations.revoke')}
       </Button>
     </ConfirmDialog>
   );

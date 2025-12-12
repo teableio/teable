@@ -1,5 +1,5 @@
 import { useTheme } from '@teable/next-themes';
-import { Label, RadioGroup, RadioGroupItem, Separator } from '@teable/ui-lib/shadcn';
+import { Label, RadioGroup, RadioGroupItem } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';

@@ -36,6 +36,7 @@ export class NextController {
     'public/?*',
     'enterprise/?*',
     'unsubscribe/?*',
+    'integrations/authorize/?*',
   ])
   public async home(@Req() req: express.Request, @Res() res: express.Response) {
     await this.nextService.server.getRequestHandler()(req, res);

@@ -242,6 +242,7 @@ export type I18nTranslations = {
             "import": string;
             "expand": string;
             "deleteTip": string;
+            "refresh": string;
         };
         "quickAction": {
             "title": string;
@@ -389,6 +390,40 @@ export type I18nTranslations = {
                 "revokeDesc": string;
                 "scopeTitle": string;
                 "scopeDesc": string;
+                "thirdPartyIntegrations": {
+                    "title": string;
+                    "description": string;
+                    "lastUsed": string;
+                    "revoke": string;
+                    "owner": string;
+                    "revokeTitle": string;
+                    "revokeDesc": string;
+                    "scopeTitle": string;
+                    "scopeDesc": string;
+                };
+                "userIntegration": {
+                    "title": string;
+                    "description": string;
+                    "emptyDescription": string;
+                    "actions": {
+                        "reconnect": string;
+                    };
+                    "slack": {
+                        "user": string;
+                        "workspace": string;
+                    };
+                    "deleteTitle": string;
+                    "deleteDesc": string;
+                    "create": string;
+                    "manage": string;
+                    "searchPlaceholder": string;
+                    "defaultName": string;
+                    "callback": {
+                        "error": string;
+                        "title": string;
+                        "desc": string;
+                    };
+                };
             };
             "templateAdmin": {
                 "title": string;
