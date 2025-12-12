@@ -11,6 +11,7 @@ import { useState, useMemo } from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useChatPanelStore } from '../../components/sidebar/useChatPanelStore';
 import { BaseNodeProvider } from '../base/base-node/BaseNodeProvider';
+import { getNodeUrl } from '../base/base-node/hooks';
 import { BaseNodeTree } from '../base/base-side-bar/BaseNodeTree';
 import { useLastVisitBase } from '../base/hooks';
 import { BaseItem } from './BaseItem';
@@ -95,7 +96,7 @@ export const BaseList = (props: IBaseListProps) => {
 
   const intoBase = (baseId: string) => {
     openChatPanel();
-    router.push({ pathname: '/base/[baseId]', query: { baseId } });
+    router.push(`/base/${baseId}`);
   };
 
   const toggleExpanded = (baseId: string) => {
@@ -133,6 +134,18 @@ export const BaseList = (props: IBaseListProps) => {
                     <Spin className="size-4" />
                   </div>
                 }
+                onPrimaryAction={(item) => {
+                  const node = item.getItemData();
+                  const { resourceType, resourceId } = node;
+                  const url = getNodeUrl({
+                    baseId: base.id,
+                    resourceType,
+                    resourceId,
+                  });
+                  if (url) {
+                    router.push(url);
+                  }
+                }}
               />
             </div>
           </BaseNodeProvider>

@@ -120,6 +120,7 @@ interface IBaseNodeTreeProps {
   mode?: TreeMode;
   emptyText?: string;
   skeleton?: React.ReactNode;
+  onPrimaryAction?: (item: ItemInstance<TreeItemData>) => void;
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
@@ -172,6 +173,10 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
+      if (props.onPrimaryAction) {
+        props.onPrimaryAction(item);
+        return;
+      }
       const node = item.getItemData();
       const { resourceType, resourceId } = node;
       if (resourceType === BaseNodeResourceType.Table) {
