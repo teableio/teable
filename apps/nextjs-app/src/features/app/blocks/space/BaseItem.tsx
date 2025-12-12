@@ -186,7 +186,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
       >
         <Button variant="outline" size="xs" className="h-7 gap-1 sm:hidden" onClick={onEnterBase}>
           <ArrowRight className="size-4" />
-          <span className="hidden sm:flex">{t('space:baseList.enter')}</span>
+          {t('space:baseList.enter')}
         </Button>
 
         <BaseActionTrigger

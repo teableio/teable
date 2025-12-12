@@ -129,7 +129,7 @@ export const BaseList = (props: IBaseListProps) => {
                 mode="view"
                 emptyText={t('space:baseList.noTables')}
                 skeleton={
-                  <div className="flex w-full flex-col items-center justify-center gap-2 px-2">
+                  <div className="flex w-full flex-col items-center justify-center gap-2 p-2">
                     <Spin className="size-4" />
                   </div>
                 }
