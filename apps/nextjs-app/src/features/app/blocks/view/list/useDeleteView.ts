@@ -16,11 +16,13 @@ export function useDeleteView(viewId: string) {
     const currentIndex = views.findIndex((v) => v.id === viewId);
     const nextView = views[currentIndex + 1] ?? views[currentIndex - 1];
 
-    await table.deleteView(viewId);
+    const deletePromise = table.deleteView(viewId);
     if (nextView) {
-      router.replace(`/base/${baseId}/table/${table.id}/${nextView.id}`);
-    } else {
-      router.replace(`/base/${baseId}/table/${table.id}`);
+      router.replace(`/base/${baseId}/table/${table.id}/${nextView.id}`, undefined, {
+        shallow: true,
+      });
     }
+
+    await deletePromise;
   }, [baseId, router, table, views, viewId]);
 }

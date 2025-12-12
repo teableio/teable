@@ -61,7 +61,7 @@ export const useViewErrorHandler = (baseId: string, tableId: string, viewId: str
               redirectLockRef.current = true;
               redirectDefaultView({ baseId, tableId });
             }
-          }, 0);
+          }, 100);
         }
       }
     };
