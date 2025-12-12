@@ -10,9 +10,9 @@ import {
   Tabs,
   TabsContent,
 } from '@teable/ui-lib/shadcn';
+import { useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import type { IBaseResourceTable } from '../../hooks/useBaseResource';
 import { useBaseResource } from '../../hooks/useBaseResource';
 import { DynamicBaseErd } from '../erd/DynamicBaseErd';
 import { FieldSetting } from '../view/field/FieldSetting';
@@ -73,15 +73,15 @@ const TablePicker = ({
 export const TableTabs = () => {
   const tables = useTables();
   const router = useRouter();
-  const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
+  const { baseId } = useBaseResource();
+  const searchParams = useSearchParams();
+  const tableId = searchParams.get('tableId') ?? '';
 
   return (
     <Tabs
       value={tableId}
       onValueChange={(tableId) =>
-        router.push({
-          pathname: `/base/${baseId}/table/${tableId}`,
-        })
+        router.push({ pathname: router.pathname, query: { ...router.query, tableId } })
       }
       className="space-y-4"
     >
@@ -90,9 +90,7 @@ export const TableTabs = () => {
           tableId={tableId}
           readonly={false}
           onChange={(tableId) =>
-            router.push({
-              pathname: `/base/${baseId}/table/${tableId}`,
-            })
+            router.push({ pathname: router.pathname, query: { ...router.query, tableId } })
           }
         />
         <BaseErdialog baseId={baseId} />
