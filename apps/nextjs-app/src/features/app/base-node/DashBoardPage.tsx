@@ -1,7 +1,7 @@
 import { dehydrate } from '@tanstack/react-query';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { DashboardPage as DashboardPageComponent } from '@/features/app/dashboard/Pages';
+import dynamic from 'next/dynamic';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
@@ -50,6 +50,13 @@ export const getDashboardServerSideProps = async (
   };
 };
 
+const DynamicDashboard = dynamic(
+  () => import('@/features/app/dashboard/Pages').then((mod) => mod.DashboardPage),
+  {
+    ssr: false,
+  }
+);
+
 export const DashBoardPage = () => {
-  return <DashboardPageComponent />;
+  return <DynamicDashboard />;
 };
