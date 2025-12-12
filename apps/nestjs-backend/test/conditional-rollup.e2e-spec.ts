@@ -1134,6 +1134,87 @@ describe('OpenAPI Conditional Rollup field (e2e)', () => {
     });
   });
 
+  describe('jsonpath binding safety for link filters', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let assigneeId: string;
+    let hoursId: string;
+    let rollupField: IFieldVo;
+    let hostRecordId: string;
+
+    beforeAll(async () => {
+      host = await createTable(baseId, {
+        name: 'ConditionalRollup_Link_Filter_Host',
+        fields: [{ name: 'Owner', type: FieldType.SingleLineText } as IFieldRo],
+        records: [{ fields: { Owner: '[Owner]' } }],
+      });
+      hostRecordId = host.records[0].id;
+
+      foreign = await createTable(baseId, {
+        name: 'ConditionalRollup_Link_Filter_Foreign',
+        fields: [
+          { name: 'Task', type: FieldType.SingleLineText } as IFieldRo,
+          { name: 'Hours', type: FieldType.Number } as IFieldRo,
+        ],
+        records: [
+          { fields: { Task: 'Match 1', Hours: 2 } },
+          { fields: { Task: 'Match 2', Hours: 3 } },
+          { fields: { Task: 'Non Match', Hours: 7 } },
+        ],
+      });
+
+      const linkField = await createField(foreign.id, {
+        name: 'Assignee',
+        type: FieldType.Link,
+        options: {
+          relationship: Relationship.ManyMany,
+          foreignTableId: host.id,
+        },
+      } as IFieldRo);
+
+      assigneeId = linkField.id;
+      hoursId = foreign.fields.find((field) => field.name === 'Hours')!.id;
+
+      // Link the first two tasks to the host record; leave the third unlinked.
+      for (const task of foreign.records.slice(0, 2)) {
+        await updateRecordByApi(foreign.id, task.id, assigneeId, [{ id: hostRecordId }]);
+      }
+
+      const filter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: assigneeId,
+            operator: 'contains',
+            value: '[Owner]',
+          },
+        ],
+      };
+
+      rollupField = await createField(host.id, {
+        name: 'Assigned Hours Sum',
+        type: FieldType.ConditionalRollup,
+        options: {
+          foreignTableId: foreign.id,
+          lookupFieldId: hoursId,
+          expression: 'sum({values})',
+          filter,
+        },
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('aggregates when filtering link titles containing regex characters', async () => {
+      const record = await getRecord(host.id, hostRecordId);
+
+      expect(record.fields[rollupField.id]).toEqual(5);
+    });
+  });
+
   describe('date field reference filters', () => {
     let foreign: ITableFullVo;
     let host: ITableFullVo;

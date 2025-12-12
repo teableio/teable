@@ -12,7 +12,11 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
     this.ensureLiteralValue(value, _operator);
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ == "${value}")'`);
+    const jsonPath = '$[*] ? (@ == $value)';
+    builderClient.whereRaw(
+      `jsonb_path_exists(${this.tableColumnRef}::jsonb, '${jsonPath}'::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
+      [String(value)]
+    );
     return builderClient;
   }
 
@@ -22,8 +26,10 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
     value: ILiteralValue,
     _dbProvider: IDbProvider
   ): Knex.QueryBuilder {
+    const jsonPath = '$[*] ? (@ == $value)';
     builderClient.whereRaw(
-      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ == "${value}")'`
+      `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '${jsonPath}'::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
+      [String(value)]
     );
     return builderClient;
   }
@@ -36,8 +42,10 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const escapedValue = escapeJsonbRegex(String(value));
     this.ensureLiteralValue(value, _operator);
+    const jsonPath = '$[*] ? (@ like_regex $value flag "i")';
     builderClient.whereRaw(
-      `${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`
+      `jsonb_path_exists(${this.tableColumnRef}::jsonb, '${jsonPath}'::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
+      [escapedValue]
     );
     return builderClient;
   }
@@ -50,8 +58,10 @@ export class MultipleStringCellValueFilterAdapter extends CellValueFilterPostgre
   ): Knex.QueryBuilder {
     const escapedValue = escapeJsonbRegex(String(value));
     this.ensureLiteralValue(value, _operator);
+    const jsonPath = '$[*] ? (@ like_regex $value flag "i")';
     builderClient.whereRaw(
-      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @\\? '$[*] \\? (@ like_regex "${escapedValue}" flag "i")'`
+      `NOT jsonb_path_exists(COALESCE(${this.tableColumnRef}, '[]')::jsonb, '${jsonPath}'::jsonpath, jsonb_build_object('value', to_jsonb(?::text)))`,
+      [escapedValue]
     );
     return builderClient;
   }
