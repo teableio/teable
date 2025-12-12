@@ -7,12 +7,11 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { StandaloneViewProvider } from '@teable/sdk/context';
 import { Button, ToggleGroup, ToggleGroupItem } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { developerConfig } from '@/features/i18n/developer.config';
-import { useBaseResource } from '../../../hooks/useBaseResource';
-import type { IBaseResourceTable } from '../../../hooks/useBaseResource';
 import { SettingRight } from '../SettingRight';
 import { SettingRightTitle } from '../SettingRightTitle';
 import { FilterBuilder } from './FilterBuilder';
@@ -24,10 +23,9 @@ import { ViewBuilder } from './ViewBuilder';
 
 export const QueryBuilder = () => {
   const { t } = useTranslation(developerConfig.i18nNamespaces);
-  const { baseId: initialBaseId, tableId: initialTableId } =
-    useBaseResource() as IBaseResourceTable;
-  const [baseId, setBaseId] = useState<string>(initialBaseId);
-  const [tableId, setTableId] = useState<string>(initialTableId);
+  const searchParams = useSearchParams();
+  const [baseId, setBaseId] = useState<string>(searchParams.get('baseId') ?? '');
+  const [tableId, setTableId] = useState<string>(searchParams.get('tableId') ?? '');
   const [viewId, setViewId] = useState<string>();
   const [filter, setFilter] = useState<IFilterSet | null>(null);
   const [fieldKeyType, setFieldKeyType] = useState<FieldKeyType>();
