@@ -24,16 +24,16 @@ export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
 export const getTableServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
-  queryParams: Record<string, string | string[] | undefined>
+  queryParams?: Record<string, string | string[] | undefined>
 ): Promise<SSRResult> => {
   const { ssrApi, baseId, queryClient } = ctx;
   if (parsed.resourceType !== BaseNodeResourceType.Table) return { notFound: true };
   const { tableId, viewId } = parsed;
-  const { recordId, fromNotify: notifyId } = queryParams as {
-    recordId?: string;
-    fromNotify?: string;
-  };
-  const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
+  const { recordId, fromNotify: notifyId } =
+    (queryParams as { recordId?: string; fromNotify?: string }) ?? {};
+  const queryString = queryParams
+    ? new URLSearchParams(queryParams as Record<string, string>).toString()
+    : '';
 
   if (!tableId) {
     const [lastVisit, tableList] = await Promise.all([
