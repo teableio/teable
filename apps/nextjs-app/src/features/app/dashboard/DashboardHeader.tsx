@@ -46,10 +46,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     onSuccess: () => {
       setMenuOpen(false);
       queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
-      router.push({
-        pathname: '/base/[baseId]/dashboard',
-        query: { baseId },
-      });
+      router.push(`/base/${baseId}/dashboard`);
     },
   });
 

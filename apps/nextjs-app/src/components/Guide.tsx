@@ -180,7 +180,7 @@ export const Guide = ({ user }: { user?: IUserMeVo }) => {
         { key: StepKey.CreateBase, step: guideStepMap[StepKey.CreateBase] },
       ],
       '/base/[baseId]': [{ key: StepKey.CreateTable, step: guideStepMap[StepKey.CreateTable] }],
-      '/base/[baseId]/[tableId]/[viewId]': [
+      '/base/[baseId]/[[...slug]]': [
         { key: StepKey.CreateTable, step: guideStepMap[StepKey.CreateTable] },
         { key: StepKey.CreateView, step: guideStepMap[StepKey.CreateView] },
         { key: StepKey.ViewFiltering, step: guideStepMap[StepKey.ViewFiltering] },

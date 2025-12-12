@@ -98,17 +98,7 @@ export const TableOperation = (props: ITableOperationProps) => {
 
     const firstTableId = tables.find((t) => t.id !== tableId)?.id;
     if (routerTableId === tableId) {
-      router.push(
-        firstTableId
-          ? {
-              pathname: '/base/[baseId]/[tableId]',
-              query: { baseId, tableId: firstTableId },
-            }
-          : {
-              pathname: '/base/[baseId]',
-              query: { baseId },
-            }
-      );
+      router.push(firstTableId ? `/base/${baseId}/table/${firstTableId}` : `/base/${baseId}`);
     }
   };
 
@@ -122,10 +112,7 @@ export const TableOperation = (props: ITableOperationProps) => {
         queryKey: ReactQueryKeys.tableList(baseId as string),
       });
       setDuplicateSetting(false);
-      router.push({
-        pathname: '/base/[baseId]/[tableId]',
-        query: { baseId, tableId: id },
-      });
+      router.push(`/base/${baseId}/table/${id}`);
     },
   });
 

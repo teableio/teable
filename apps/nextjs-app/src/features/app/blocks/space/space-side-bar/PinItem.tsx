@@ -70,13 +70,7 @@ export const PinItem = (props: IPinItemProps) => {
     case PinType.Table: {
       return (
         <ItemButton className={className}>
-          <Link
-            href={{
-              pathname: '/base/[baseId]/[tableId]',
-              query: { baseId: pin.parentBaseId, tableId: pin.id },
-            }}
-            title={pin.name}
-          >
+          <Link href={`/base/${pin.parentBaseId}/table/${pin.id}`} title={pin.name}>
             {pin.icon ? (
               <div className="size-4 shrink-0 text-[3.5rem] leading-none">
                 <Emoji emoji={pin.icon} size={16} />

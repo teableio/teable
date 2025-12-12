@@ -112,17 +112,7 @@ export const TableImport = (props: ITableImportProps) => {
     onSuccess: () => {
       onOpenChange?.(false);
       const { tableId: routerTableId } = router.query;
-      routerTableId !== tableId &&
-        router.push(
-          {
-            pathname: '/base/[baseId]/[tableId]',
-            query: { baseId: base.id, tableId },
-          },
-          undefined,
-          {
-            shallow: true,
-          }
-        );
+      routerTableId !== tableId && router.push(`/base/${base.id}/table/${tableId}`);
     },
   });
 
