@@ -474,48 +474,6 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     // bump version on target table; qualify to avoid ambiguity with FROM subquery columns
     updateColumns['__version'] = this.knex.raw('?? + 1', [`${dbTableName}.__version`]);
 
-    const subQuerySql = subQuery.toSQL();
-    const inlineBindings = (sql: string, bindings: unknown[]): string => {
-      // Inline only real parameter placeholders; skip question marks inside string literals.
-      let out = '';
-      let bindingIdx = 0;
-      let inSingle = false;
-
-      for (let i = 0; i < sql.length; i++) {
-        const ch = sql[i];
-        if (ch === "'") {
-          out += ch;
-          const next = sql[i + 1];
-          if (inSingle && next === "'") {
-            // Escaped single quote inside literal
-            out += next;
-            i++;
-            continue;
-          }
-          inSingle = !inSingle;
-          continue;
-        }
-        if (ch === '?' && !inSingle) {
-          const binding = bindings[bindingIdx++];
-          // _escapeBinding is knex-internal but stable across our supported versions
-          // and matches how knex formats .toQuery().
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const escaped = (this.knex.client as any)._escapeBinding(binding, {
-            timeZone: undefined,
-          });
-          out += escaped;
-          continue;
-        }
-        out += ch;
-      }
-
-      return out;
-    };
-
-    const sentinel = '__QMARK__';
-    const inlinedSubQuerySql = inlineBindings(subQuerySql.sql, subQuerySql.bindings ?? []);
-    const subQuerySqlSafe = inlinedSubQuerySql.replace(/\?/g, sentinel);
-    const fromRaw = this.knex.raw(`(${subQuerySqlSafe}) as ??`, [alias]);
     const returningCols = [idFieldName, '__version', ...(returningDbFieldNames || dbFieldNames)];
     const qualifiedReturning = returningCols.map((c) => this.knex.ref(`${dbTableName}.${c}`));
     // also return previous version for ShareDB op version alignment
@@ -526,18 +484,18 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
     ];
     const builder = this.knex(dbTableName)
       .update(updateColumns)
-      .updateFrom(fromRaw)
+      // Use a subquery builder directly so bindings are handled by Knex (no manual placeholder parsing).
+      .updateFrom(subQuery.clone().as(alias))
       .where(`${dbTableName}.${idFieldName}`, this.knex.ref(`${alias}.${idFieldName}`));
 
     if (restrictRecordIds?.length) {
       builder.whereIn(`${dbTableName}.${idFieldName}`, restrictRecordIds);
     }
 
-    const queryWithSentinel = builder
+    const query = builder
       // Returning is supported on Postgres; qualify to avoid ambiguity with FROM subquery
       .returning(returningAll as unknown as [])
       .toQuery();
-    const query = queryWithSentinel.replace(new RegExp(sentinel, 'g'), '?');
     this.logger.debug('updateFromSelectSql: ' + query);
     return query;
   }
