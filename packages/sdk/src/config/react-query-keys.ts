@@ -225,4 +225,9 @@ export const ReactQueryKeys = {
   oauthApp: (clientId: string) => ['oauth-app', clientId] as const,
 
   baseNodeTree: (baseId: string) => ['base-node-tree', baseId] as const,
+
+  workflowItem: (baseId: string, workflowId: string) =>
+    ['workflow-item', baseId, workflowId] as const,
+
+  getApp: (baseId: string, appId: string) => ['app', baseId, appId] as const,
 };

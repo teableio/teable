@@ -3,7 +3,7 @@ import { Copy, Edit, MoreHorizontal, Plus } from '@teable/icons';
 import {
   deleteDashboard,
   duplicateDashboard,
-  getDashboardList,
+  getDashboard,
   renameDashboard,
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
@@ -41,6 +41,11 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const canManage = basePermissions?.['base|update'];
   const { brandName } = useBrand();
 
+  const { data: dashboard } = useQuery({
+    queryKey: ReactQueryKeys.getDashboard(dashboardId),
+    queryFn: () => getDashboard(baseId, dashboardId).then((res) => res.data),
+  });
+
   const { mutate: deleteDashboardMutate } = useMutation({
     mutationFn: () => deleteDashboard(baseId, dashboardId),
     onSuccess: () => {
@@ -53,7 +58,7 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
   const { mutate: duplicateDashboardMutate } = useMutation({
     mutationFn: () =>
       duplicateDashboard(baseId, dashboardId, {
-        name: `${selectedDashboard?.name} ${t('common:noun.copy')}`,
+        name: `${dashboard?.name} ${t('common:noun.copy')}`,
       }),
     onSuccess: () => {
       queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
@@ -61,21 +66,15 @@ export const DashboardHeader = (props: { dashboardId: string }) => {
     },
   });
 
-  const { data: dashboardList } = useQuery({
-    queryKey: ReactQueryKeys.getDashboardList(baseId),
-    queryFn: ({ queryKey }) => getDashboardList(queryKey[1]).then((res) => res.data),
-  });
-
   const { mutate: renameDashboardMutate } = useMutation({
     mutationFn: ({ name }: { name: string }) => renameDashboard(baseId, dashboardId, name),
     onSuccess: () => {
       setIsRenaming(false);
-      queryClient.invalidateQueries(ReactQueryKeys.getDashboardList(baseId));
+      queryClient.invalidateQueries(ReactQueryKeys.getDashboard(dashboardId));
     },
   });
 
-  const selectedDashboard = dashboardList?.find(({ id }) => id === dashboardId);
-  const dashboardName = selectedDashboard?.name ?? t('common:noun.dashboard');
+  const dashboardName = dashboard?.name ?? t('common:noun.dashboard');
 
   const startRename = () => {
     setIsRenaming(true);

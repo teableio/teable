@@ -1,12 +1,13 @@
 'use client';
 
+import { useQueryClient } from '@tanstack/react-query';
 import type {
   IBaseNodeVo,
   IDuplicateBaseNodeRo,
   IBaseNodeWorkflowResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { LocalStorageKeys } from '@teable/sdk/config';
+import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useBasePermission } from '@teable/sdk/hooks';
 import { useConfirm } from '@teable/ui-lib/base/dialog/confirm-modal';
 import {
@@ -124,8 +125,9 @@ interface IBaseNodeTreeProps {
 }
 
 export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
-  const { mode = 'edit', emptyText } = props;
+  const { mode = 'edit', emptyText, onPrimaryAction } = props;
   const isEditMode = mode === 'edit';
+  const queryClient = useQueryClient();
   const { t } = useTranslation(['common']);
   const baseId = useBaseId() as string;
   const router = useRouter();
@@ -173,8 +175,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   const handlePrimaryAction = useCallback(
     (item: ItemInstance<TreeItemData>) => {
-      if (props.onPrimaryAction) {
-        props.onPrimaryAction(item);
+      if (onPrimaryAction) {
+        onPrimaryAction(item);
         return;
       }
       const node = item.getItemData();
@@ -200,7 +202,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
         shallow: true,
       });
     },
-    [baseId, router, tableHrefMap, tableViewIdsMap]
+    [baseId, router, tableHrefMap, tableViewIdsMap, onPrimaryAction]
   );
 
   const handleDrop = (items: ItemInstance<TreeItemData>[], target: DragTarget<TreeItemData>) => {
@@ -345,6 +347,24 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     [baseId, router]
   );
 
+  const updateSuccefulyCallback = useCallback(
+    (node: IBaseNodeVo) => {
+      const { resourceType, resourceId } = node;
+      switch (resourceType) {
+        case BaseNodeResourceType.Dashboard:
+          queryClient.invalidateQueries(ReactQueryKeys.getDashboard(resourceId));
+          break;
+        case BaseNodeResourceType.Workflow:
+          queryClient.invalidateQueries(ReactQueryKeys.workflowItem(baseId, resourceId));
+          break;
+        case BaseNodeResourceType.App:
+          queryClient.invalidateQueries(ReactQueryKeys.getApp(baseId, resourceId));
+          break;
+      }
+    },
+    [baseId, queryClient]
+  );
+
   const getAllParentIds = useCallback((nodeId: string) => {
     const parentIds: string[] = [];
     let parentId = treeItemsRef.current[nodeId]?.parentId;
@@ -419,6 +439,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     onCreateSuccess: createSuccefulyCallback,
     onDuplicateSuccess: duplicateSuccefulyCallback,
     onDeleteSuccess: deleteSuccefulyCallback,
+    onUpdateSuccess: updateSuccefulyCallback,
   });
 
   useEffect(() => {
