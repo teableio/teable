@@ -9,12 +9,12 @@ import {
 import {
   AnchorContext,
   FieldProvider,
-  useTable,
   useUndoRedo,
   ViewProvider,
   PersonalViewProxy,
   PersonalViewProvider,
   ReactQueryKeys,
+  useTables,
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
@@ -46,11 +46,13 @@ export const Table: React.FC<ITableProps> = ({
   recordServerData,
   groupPointsServerDataMap,
 }) => {
-  const table = useTable();
+  const tables = useTables();
   const { undo, redo } = useUndoRedo();
   const queryClient = useQueryClient();
 
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
+
+  const table = tables.find((t) => t.id === tableId);
 
   const { data: base } = useQuery({
     queryKey: ReactQueryKeys.base(baseId as string),
