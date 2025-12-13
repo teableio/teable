@@ -1,5 +1,14 @@
+import { getBaseNodeChannel } from '@teable/core';
+import type {
+  IBaseNodePresenceFlushPayload,
+  IBaseNodePresenceCreatePayload,
+  IBaseNodePresenceUpdatePayload,
+  IBaseNodePresenceDeletePayload,
+} from '@teable/openapi';
 import type { Knex } from 'knex';
 import { snakeCase } from 'lodash';
+import type { LocalPresence } from 'sharedb/lib/client';
+import type { ShareDbService } from '../../share-db/share-db.service';
 
 export const buildBatchUpdateSql = (
   knex: Knex,
@@ -42,4 +51,22 @@ export const buildBatchUpdateSql = (
 
   const idsToUpdate = data.map((item) => item.id);
   return knex('base_node').update(updatePayload).whereIn('id', idsToUpdate).toQuery();
+};
+
+export const presenceHandler = <
+  T =
+    | IBaseNodePresenceFlushPayload
+    | IBaseNodePresenceCreatePayload
+    | IBaseNodePresenceUpdatePayload
+    | IBaseNodePresenceDeletePayload,
+>(
+  baseId: string,
+  shareDbService: ShareDbService,
+  handler: (presence: LocalPresence<T>) => void
+) => {
+  const channel = getBaseNodeChannel(baseId);
+  const presence = shareDbService.connect().getPresence(channel);
+  const localPresence = presence.create(channel);
+  handler(localPresence);
+  localPresence.destroy();
 };

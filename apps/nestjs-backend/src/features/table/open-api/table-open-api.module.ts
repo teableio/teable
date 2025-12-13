@@ -30,6 +30,6 @@ import { TableOpenApiService } from './table-open-api.service';
   ],
   controllers: [TableController],
   providers: [DbProvider, TableOpenApiService, TableIndexService, TableDuplicateService],
-  exports: [TableOpenApiService],
+  exports: [TableOpenApiService, TableDuplicateService],
 })
 export class TableOpenApiModule {}

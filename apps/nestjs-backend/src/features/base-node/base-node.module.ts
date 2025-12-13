@@ -5,7 +5,6 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { FieldDuplicateModule } from '../field/field-duplicate/field-duplicate.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { TableOpenApiModule } from '../table/open-api/table-open-api.module';
-import { TableDuplicateService } from '../table/table-duplicate.service';
 import { TableModule } from '../table/table.module';
 import { BaseNodeController } from './base-node.controller';
 import { BaseNodeListener } from './base-node.listener';
@@ -23,7 +22,7 @@ import { BaseNodeFolderModule } from './folder/base-node-folder.module';
     FieldDuplicateModule,
   ],
   controllers: [BaseNodeController],
-  providers: [BaseNodePermissionGuard, TableDuplicateService, BaseNodeListener, BaseNodeService],
-  exports: [BaseNodePermissionGuard, TableDuplicateService, BaseNodeListener, BaseNodeService],
+  providers: [BaseNodePermissionGuard, BaseNodeService, BaseNodeListener],
+  exports: [BaseNodePermissionGuard, BaseNodeService],
 })
 export class BaseNodeModule {}

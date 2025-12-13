@@ -42,7 +42,7 @@ import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-k
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
-import { buildBatchUpdateSql } from './helper';
+import { buildBatchUpdateSql, presenceHandler } from './helper';
 
 type IResourceCreateEvent =
   | BaseFolderCreateEvent
@@ -332,7 +332,7 @@ export class BaseNodeListener {
     };
   }
 
-  presenceHandler<
+  private presenceHandler<
     T =
       | IBaseNodePresenceFlushPayload
       | IBaseNodePresenceCreatePayload
@@ -345,14 +345,10 @@ export class BaseNodeListener {
       this.logger.error('ShareDB connection is already closed, presence handler skipped');
       return;
     }
-    const channel = getBaseNodeChannel(baseId);
-    const presence = this.shareDbService.connect().getPresence(channel);
-    const localPresence = presence.create(channel);
-    handler(localPresence);
-    localPresence.destroy();
+    presenceHandler(baseId, this.shareDbService, handler);
   }
 
-  async getMaxOrder(baseId: string, parentId?: string | null) {
+  private async getMaxOrder(baseId: string, parentId?: string | null) {
     const prisma = this.prismaService.txClient();
     const aggregate = await prisma.baseNode.aggregate({
       where: { baseId, parentId },
@@ -362,7 +358,7 @@ export class BaseNodeListener {
     return aggregate._max.order ?? 0;
   }
 
-  async batchUpdateBaseNodes(data: { id: string; values: { [key: string]: unknown } }[]) {
+  private async batchUpdateBaseNodes(data: { id: string; values: { [key: string]: unknown } }[]) {
     const sql = buildBatchUpdateSql(this.knex, data);
     if (!sql) {
       return;

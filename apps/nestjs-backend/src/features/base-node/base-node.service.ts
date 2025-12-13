@@ -16,25 +16,30 @@ import type {
   IBaseNodeResourceMeta,
   IBaseNodeResourceMetaWithId,
   ICreateTableRo,
+  IBaseNodePresenceCreatePayload,
+  IBaseNodePresenceDeletePayload,
+  IBaseNodePresenceFlushPayload,
+  IBaseNodePresenceUpdatePayload,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
 import { isString, keyBy, omit } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
+import type { LocalPresence } from 'sharedb/lib/client';
 import { CustomHttpException } from '../../custom.exception';
 import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-keys';
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
+import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { prepareCreateTableRo } from '../table/open-api/table.pipe.helper';
 import { TableDuplicateService } from '../table/table-duplicate.service';
-import { BaseNodeListener } from './base-node.listener';
 import { BaseNodeFolderService } from './folder/base-node-folder.service';
-import { buildBatchUpdateSql } from './helper';
+import { buildBatchUpdateSql, presenceHandler } from './helper';
 
 type IBaseNodeEntry = {
   id: string;
@@ -55,14 +60,14 @@ export class BaseNodeService {
   private readonly logger = new Logger(BaseNodeService.name);
   constructor(
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
+    private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly cls: ClsService<IClsStore>,
     private readonly baseNodeFolderService: BaseNodeFolderService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly tableDuplicateService: TableDuplicateService,
-    private readonly dashboardService: DashboardService,
-    private readonly baseNodeListener: BaseNodeListener
+    private readonly dashboardService: DashboardService
   ) {}
 
   private get userId() {
@@ -741,7 +746,7 @@ export class BaseNodeService {
     }
 
     const vo = await this.entry2vo(newNode);
-    this.baseNodeListener.presenceHandler(baseId, (presence) => {
+    this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'update',
         data: { ...vo },
@@ -1049,5 +1054,21 @@ export class BaseNodeService {
       return;
     }
     await this.prismaService.txClient().$executeRawUnsafe(sql);
+  }
+
+  private presenceHandler<
+    T =
+      | IBaseNodePresenceFlushPayload
+      | IBaseNodePresenceCreatePayload
+      | IBaseNodePresenceUpdatePayload
+      | IBaseNodePresenceDeletePayload,
+  >(baseId: string, handler: (presence: LocalPresence<T>) => void) {
+    this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
+    // Skip if ShareDB connection is already closed (e.g., during shutdown)
+    if (this.shareDbService.shareDbAdapter.closed) {
+      this.logger.error('ShareDB connection is already closed, presence handler skipped');
+      return;
+    }
+    presenceHandler(baseId, this.shareDbService, handler);
   }
 }
