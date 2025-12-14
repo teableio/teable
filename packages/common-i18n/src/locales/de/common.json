@@ -208,7 +208,10 @@
     "aiChat": "KI-Chat",
     "app": "App",
     "webSearch": "Websuche",
-    "folder": "Ordner"
+    "folder": "Ordner",
+    "newAutomation": "Neue Automatisierung",
+    "newApp": "Neue App",
+    "newFolder": "Neuer Ordner"
   },
   "level": {
     "free": "Free",

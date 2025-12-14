@@ -387,7 +387,7 @@
     "deleteTip1": "Se eliminarán los campos de enlace vinculados con esta tabla en otras tablas.",
     "deleteTip2": "Esta tabla se puede restaurar desde la basura después de la eliminación.",
     "operator": {
-      "createBlank": "Crear una mesa en blanco"
+      "createBlank": "Nueva tabla"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Copiar y pegar solo funciona en https o localhost",

@@ -204,7 +204,10 @@
     "aiChat": "Chat AI",
     "app": "App",
     "webSearch": "Ricerca web",
-    "folder": "Cartella"
+    "folder": "Cartella",
+    "newAutomation": "Nuova automazione",
+    "newApp": "Nuova applicazione",
+    "newFolder": "Nuova cartella"
   },
   "level": {
     "free": "Gratuito",
@@ -689,7 +692,6 @@
       "sendErrorToAI": "Invia errore a AI"
     }
   },
-
   "base": {
     "deleteTip": "Sei sicuro di voler eliminare \"{{name}}\" base?"
   }

@@ -206,7 +206,10 @@
     "aiChat": "AI Sohbet",
     "app": "Uygulama",
     "webSearch": "Web araması",
-    "folder": "Klasör"
+    "folder": "Klasör",
+    "newAutomation": "Yeni otomasyon",
+    "newApp": "Yeni uygulama",
+    "newFolder": "Yeni klasör"
   },
   "level": {
     "free": "Ücretsiz",

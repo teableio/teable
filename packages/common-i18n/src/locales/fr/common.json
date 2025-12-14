@@ -203,7 +203,10 @@
     "aiChat": "Chat IA",
     "app": "Application",
     "webSearch": "Recherche web",
-    "folder": "Dossier"
+    "folder": "Dossier",
+    "newAutomation": "Nouvelle automatisation",
+    "newApp": "Nouvelle application",
+    "newFolder": "Nouveau dossier"
   },
   "level": {
     "free": "Gratuit",
@@ -650,7 +653,6 @@
       "sendErrorToAI": "Envoyer l'erreur à AI"
     }
   },
-
   "base": {
     "deleteTip": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" base?"
   }

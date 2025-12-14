@@ -200,7 +200,10 @@
     "aiChat": "Chat de IA",
     "app": "Aplicación",
     "webSearch": "Búsqueda web",
-    "folder": "Carpeta"
+    "folder": "Carpeta",
+    "newAutomation": "Nueva automatización",
+    "newApp": "Nueva aplicación",
+    "newFolder": "Nueva carpeta"
   },
   "level": {
     "free": "Gratis",

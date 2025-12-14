@@ -202,7 +202,10 @@
     "aiChat": "AIチャット",
     "app": "アプリ",
     "webSearch": "ウェブ検索",
-    "folder": "フォルダ"
+    "folder": "フォルダ",
+    "newAutomation": "新しいオートメーション",
+    "newApp": "新しいアプリ",
+    "newFolder": "新しいフォルダ"
   },
   "level": {
     "free": "無料",

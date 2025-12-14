@@ -391,7 +391,7 @@
     "deleteTip1": "Verknüpfungsfelder, die mit dieser Tabelle in anderen Tabellen verknüpft sind, werden gelöscht.",
     "deleteTip2": "Diese Tabelle kann nach dem Löschen aus dem Papierkorb wiederhergestellt werden.",
     "operator": {
-      "createBlank": "Eine leere Tabelle erstellen"
+      "createBlank": "Neue Tabelle"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Kopieren und Einfügen funktioniert nur bei HTTPS oder localhost",

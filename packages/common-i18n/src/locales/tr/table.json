@@ -390,7 +390,7 @@
     "deleteTip1": "Diğer tablolardaki bu tabloyla bağlantılı bağlantı alanları silinecek.",
     "deleteTip2": "Bu tablo silindikten sonra çöp kutusundan geri yüklenebilir.",
     "operator": {
-      "createBlank": "Boş bir tablo oluştur"
+      "createBlank": "Yeni tablo"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Kopyala ve yapıştır yalnızca HTTPS veya localhost'ta çalışır",

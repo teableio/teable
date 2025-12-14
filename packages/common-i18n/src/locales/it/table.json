@@ -391,7 +391,7 @@
     "deleteTip1": "I campi di collegamento collegati a questa tabella in altre tabelle saranno eliminati.",
     "deleteTip2": "Questa tabella può essere ripristinata dal cestino dopo l'eliminazione.",
     "operator": {
-      "createBlank": "Crea una tabella vuota"
+      "createBlank": "Nuova tabella"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Copia e incolla funziona solo in HTTPS o localhost",

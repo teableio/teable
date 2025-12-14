@@ -382,7 +382,7 @@
     "deleteTip1": "この表にリンクされている他の表のリンクフィールドは削除されます",
     "deleteTip2": "このテーブルは削除後、ごみ箱から復元できます",
     "operator": {
-      "createBlank": "空のテーブルを作成する"
+      "createBlank": "新しいテーブル"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "コピーと貼り付けはHTTPSまたはローカルホストでのみ機能します",
