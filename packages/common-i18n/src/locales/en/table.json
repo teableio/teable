@@ -407,7 +407,7 @@
     "deleteTip1": "Link fields linked with this table in other tables will be deleted.",
     "deleteTip2": "This table can be restored from the trash after deletion.",
     "operator": {
-      "createBlank": "Create a blank table"
+      "createBlank": "New table"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "Copy and paste only works in HTTPS or localhost",
@@ -913,7 +913,6 @@
       "deleteRecord": "Delete record",
       "updateRecord": "Update record",
       "updateRecords": "Update records",
-
       "updateBase": "Update database info",
       "planTask": "Plan task...",
       "generateTables": "Generate tables",
@@ -926,13 +925,11 @@
       "generateLookupFields": "Generate lookup fields",
       "generateRollupFields": "Generate rollup fields",
       "generateFormulaFields": "Generate formula fields",
-
       "generateWorkflow": "Generate workflow",
       "generateTrigger": "Generate trigger",
       "generateScriptAction": "Generate script action node",
       "generateSendMailAction": "Generate send mail action node",
       "generateAction": "Generate action node",
-
       "setupAutomationTrigger": "Setup automation trigger",
       "testAutomationNode": "Test automation node",
       "activateAutomation": "Activate automation",
@@ -943,15 +940,12 @@
       "developTask": "Develop task",
       "generateSummary": "Generate summary",
       "previewEnvironment": "Prepare preview environment",
-
       "getRelativeData": "Get relative data",
       "getPreviousNodeOutputVariables": "Get previous node output variables",
       "getApiJson": "Get API info",
       "generateScriptAndDependencies": "Generate script and dependencies",
-
       "analyzingAttachment": "Analyzing attachment...",
       "locateResource": "Locate",
-
       "operationSuccess": "Operation completed successfully",
       "operationFailed": "Operation failed"
     },

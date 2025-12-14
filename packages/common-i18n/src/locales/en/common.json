@@ -285,7 +285,10 @@
     "aiChat": "AI Chat",
     "app": "App",
     "webSearch": "Web search",
-    "folder": "Folder"
+    "folder": "Folder",
+    "newAutomation": "New automation",
+    "newApp": "New app",
+    "newFolder": "New folder"
   },
   "level": {
     "free": "Free",

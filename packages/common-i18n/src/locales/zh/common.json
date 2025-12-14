@@ -285,7 +285,10 @@
     "aiChat": "AI 对话",
     "app": "应用",
     "webSearch": "网络搜索",
-    "folder": "文件夹"
+    "folder": "文件夹",
+    "newAutomation": "新自动化",
+    "newApp": "新应用",
+    "newFolder": "新文件夹"
   },
   "level": {
     "free": "免费版",

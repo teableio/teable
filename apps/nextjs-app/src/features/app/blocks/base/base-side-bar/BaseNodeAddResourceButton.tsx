@@ -92,13 +92,13 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     if (canCreateWorkflow) {
       list.push({
         resourceType: BaseNodeResourceType.Workflow,
-        label: t('common:noun.automation'),
+        label: t('common:noun.newAutomation'),
       });
     }
     if (canCreateApp) {
       list.push({
         resourceType: BaseNodeResourceType.App,
-        label: t('common:noun.app'),
+        label: t('common:noun.newApp'),
       });
     }
     if (canCreateDashboard) {
@@ -111,7 +111,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     if (canCreateFolder) {
       list.push({
         resourceType: BaseNodeResourceType.Folder,
-        label: t('common:noun.folder'),
+        label: t('common:noun.newFolder'),
       });
     }
 

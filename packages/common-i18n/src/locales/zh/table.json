@@ -77,7 +77,6 @@
         "currencyExample": "货币 (￥100)",
         "percentExample": "百分比 (20%)"
       },
-
       "singleSelect": {
         "title": "状态",
         "options": {
@@ -408,7 +407,7 @@
     "deleteTip1": "其他表中关联了此表的关联字段将会被删除。",
     "deleteTip2": "此表被删除后可在回收站中进行恢复。",
     "operator": {
-      "createBlank": "创建一个新表格"
+      "createBlank": "新表格"
     },
     "actionTips": {
       "copyAndPasteEnvironment": "复制和粘贴功能仅在 HTTPS 或 localhost 环境下可用",
@@ -914,7 +913,6 @@
       "deleteRecord": "删除记录",
       "updateRecord": "更新记录",
       "updateRecords": "更新记录",
-
       "updateBase": "更新数据库信息",
       "planTask": "规划任务中...",
       "generateTables": "生成表格",
@@ -927,33 +925,27 @@
       "generateLookupFields": "生成查找字段",
       "generateRollupFields": "生成聚合字段",
       "generateFormulaFields": "生成公式字段",
-
       "generateWorkflow": "生成工作流",
       "generateTrigger": "生成触发器",
       "generateScriptAction": "生成 script 节点",
       "generateSendMailAction": "生成发送邮件节点",
       "generateAction": "生成节点",
-
       "setupAutomationTrigger": "设置自动化触发器",
       "testAutomationNode": "测试自动化节点",
       "activateAutomation": "启用自动化",
       "wait": "等待",
-
       "getRelativeData": "获取相关数据",
       "getPreviousNodeOutputVariables": "获取其他节点输出变量",
       "getApiJson": "获取 API 信息",
       "generateScriptAndDependencies": "生成脚本和依赖",
-
       "initialize": "初始化环境",
       "rename": "生成应用名称",
       "buildTest": "构建测试",
       "developTask": "开发任务",
       "generateSummary": "生成总结",
       "previewEnvironment": "准备预览环境",
-
       "analyzingAttachment": "分析附件中...",
       "locateResource": "定位",
-
       "operationSuccess": "操作成功完成",
       "operationFailed": "操作失败"
     },
