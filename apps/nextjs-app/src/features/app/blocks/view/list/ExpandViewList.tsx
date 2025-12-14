@@ -1,7 +1,7 @@
 import { verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { ChevronDown, DraggableHandle } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { useTablePermission } from '@teable/sdk/hooks';
+import { useTablePermission, useViewId } from '@teable/sdk/hooks';
 import {
   Popover,
   PopoverTrigger,
@@ -29,6 +29,8 @@ export const ExpandViewList = () => {
   const router = useRouter();
   const permission = useTablePermission();
   const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
+  const curViewId = useViewId();
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -37,7 +39,7 @@ export const ExpandViewList = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-auto max-w-[456px] p-1">
-        <Command>
+        <Command value={curViewId}>
           <CommandInput
             className="h-9"
             placeholder={t('table:view.searchView')}
@@ -59,7 +61,7 @@ export const ExpandViewList = () => {
                 return (
                   <CommandItem
                     key={id}
-                    value={name}
+                    value={id}
                     ref={setNodeRef}
                     style={{
                       ...style,

@@ -1,4 +1,4 @@
-import { useBaseId, useTable, useViews } from '@teable/sdk/hooks';
+import { useBaseId, useTable, useViews, useViewId } from '@teable/sdk/hooks';
 import { useRouter } from 'next/router';
 import { useCallback } from 'react';
 
@@ -7,22 +7,25 @@ export function useDeleteView(viewId: string) {
   const views = useViews();
   const router = useRouter();
   const baseId = useBaseId() as string;
+  const curViewId = useViewId();
 
   return useCallback(async () => {
     if (!table || !views) {
       return;
     }
 
-    const currentIndex = views.findIndex((v) => v.id === viewId);
-    const nextView = views[currentIndex + 1] ?? views[currentIndex - 1];
-
     const deletePromise = table.deleteView(viewId);
-    if (nextView) {
-      router.replace(`/base/${baseId}/table/${table.id}/${nextView.id}`, undefined, {
-        shallow: true,
-      });
+
+    if (curViewId === viewId) {
+      const currentIndex = views.findIndex((v) => v.id === viewId);
+      const nextView = views[currentIndex + 1] ?? views[currentIndex - 1];
+      if (nextView) {
+        router.replace(`/base/${baseId}/table/${table.id}/${nextView.id}`, undefined, {
+          shallow: true,
+        });
+      }
     }
 
     await deletePromise;
-  }, [baseId, router, table, views, viewId]);
+  }, [baseId, router, table, views, viewId, curViewId]);
 }
