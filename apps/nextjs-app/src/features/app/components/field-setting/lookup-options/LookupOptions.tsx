@@ -2,7 +2,7 @@ import type { ILookupLinkOptionsVo, ILookupOptionsRo } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { ChevronDown } from '@teable/icons';
 import { StandaloneViewProvider } from '@teable/sdk/context';
-import { useFields, useTable, useFieldStaticGetter, useBaseId } from '@teable/sdk/hooks';
+import { useFields, useTable, useFieldStaticGetter, useBaseId, useTables } from '@teable/sdk/hooks';
 import type { IFieldInstance, LinkField } from '@teable/sdk/model';
 import { Button } from '@teable/ui-lib/shadcn';
 import { Trans, useTranslation } from 'next-i18next';
@@ -57,6 +57,7 @@ export const LookupOptions = (props: {
 }) => {
   const { fieldId, options = {}, onChange, requireFilter = false } = props;
   const table = useTable();
+  const tables = useTables();
   const fields = useFields({ withHidden: true, withDenied: true });
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [innerOptions, setInnerOptions] = useState<Partial<ILookupLinkOptionsVo>>({
@@ -98,6 +99,9 @@ export const LookupOptions = (props: {
     [fields]
   );
   const existLinkField = linkFields.length > 0;
+  const foreignTable = innerOptions.foreignTableId
+    ? tables.find((t) => t.id === innerOptions.foreignTableId)
+    : undefined;
 
   return (
     <div className="w-full space-y-4 border-t pt-4" data-testid="lookup-options">
@@ -131,7 +135,7 @@ export const LookupOptions = (props: {
                       ns="table"
                       i18nKey="field.editor.lookupToTable"
                       values={{
-                        tableName: table?.name,
+                        tableName: foreignTable?.name,
                       }}
                       components={{ bold: <span className="font-semibold" /> }}
                     />
