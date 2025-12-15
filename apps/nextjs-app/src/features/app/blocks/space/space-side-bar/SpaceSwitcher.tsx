@@ -205,7 +205,7 @@ export const SpaceSwitcher = () => {
                         <StarButton
                           id={space.id}
                           type={PinType.Space}
-                          className={cn('size-4 w-0 shrink-0 group-hover:w-auto', {
+                          className={cn('w-0 shrink-0 group-hover:w-auto', {
                             'opacity-100 w-auto': isPinned,
                           })}
                         />
