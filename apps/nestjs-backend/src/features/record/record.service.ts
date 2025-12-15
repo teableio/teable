@@ -2615,12 +2615,16 @@ export class RecordService {
   async emitRecordAuditLogEvent(
     action: UpdateRecordAction | CreateRecordAction,
     tableId: string,
-    recordCount: number
+    recordCount: number,
+    appId?: string
   ) {
     this.eventEmitter.emit(Events.TABLE_RECORD_CREATE_RELATIVE, {
       action,
       resourceId: tableId,
       recordCount,
+      params: {
+        appId,
+      },
     });
   }
 }

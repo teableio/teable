@@ -18,6 +18,8 @@ export enum CreateRecordAction {
   TableDuplicate = 'table.duplicate',
 
   CreateDefaultRecords = 'table.default-records.create',
+
+  AppRecordCreate = 'app.record.create',
 }
 
 export enum UpdateRecordAction {
@@ -32,4 +34,6 @@ export enum UpdateRecordAction {
 
   // ai record update
   AiRecordUpdate = 'ai.record.update',
+
+  AppRecordUpdate = 'app.record.update',
 }

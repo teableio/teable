@@ -9,7 +9,12 @@ import type {
 } from '@teable/core';
 import { FieldKeyType, FieldType, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { ICreateRecordsRo, IUpdateRecordsRo, UpdateRecordAction } from '@teable/openapi';
+import {
+  CreateRecordAction,
+  ICreateRecordsRo,
+  IUpdateRecordsRo,
+  UpdateRecordAction,
+} from '@teable/openapi';
 import type {
   IRecordHistoryItemVo,
   ICreateRecordsVo,
@@ -52,9 +57,10 @@ export class RecordOpenApiService {
   async multipleCreateRecords(
     tableId: string,
     createRecordsRo: ICreateRecordsRo,
-    ignoreMissingFields: boolean = false
+    ignoreMissingFields: boolean = false,
+    isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
-    return await this.prismaService.$tx(
+    const res = await this.prismaService.$tx(
       async () =>
         this.recordModifyService.multipleCreateRecords(
           tableId,
@@ -63,6 +69,27 @@ export class RecordOpenApiService {
         ),
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+
+    const appId = this.cls.get('appId');
+    if (appId) {
+      this.cls.set('skipRecordAuditLog', true);
+      await this.recordService.emitRecordAuditLogEvent(
+        CreateRecordAction.AppRecordCreate,
+        tableId,
+        createRecordsRo.records?.length ?? 0,
+        appId
+      );
+    } else if (isAiInternal) {
+      this.cls.set('skipRecordAuditLog', true);
+      this.cls.set('user.id', 'aiRobot');
+      await this.recordService.emitRecordAuditLogEvent(
+        CreateRecordAction.AiRecordCreate,
+        tableId,
+        createRecordsRo.records?.length ?? 0
+      );
+    }
+
+    return res;
   }
 
   /**
@@ -99,7 +126,22 @@ export class RecordOpenApiService {
     windowId?: string,
     isAiInternal?: string
   ) {
-    if (isAiInternal) {
+    const res = await this.recordModifyService.updateRecords(
+      tableId,
+      updateRecordsRo as IUpdateRecordsInternalRo,
+      windowId
+    );
+
+    const appId = this.cls.get('appId');
+    if (appId) {
+      this.cls.set('skipRecordAuditLog', true);
+      await this.recordService.emitRecordAuditLogEvent(
+        UpdateRecordAction.AppRecordUpdate,
+        tableId,
+        updateRecordsRo.records?.length ?? 0,
+        appId
+      );
+    } else if (isAiInternal) {
       this.cls.set('skipRecordAuditLog', true);
       this.cls.set('user.id', 'aiRobot');
       await this.recordService.emitRecordAuditLogEvent(
@@ -109,11 +151,7 @@ export class RecordOpenApiService {
       );
     }
 
-    return await this.recordModifyService.updateRecords(
-      tableId,
-      updateRecordsRo as IUpdateRecordsInternalRo,
-      windowId
-    );
+    return res;
   }
 
   async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsRo) {

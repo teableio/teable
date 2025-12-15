@@ -163,9 +163,15 @@ export class RecordOpenApiController {
   @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
   async createRecords(
     @Param('tableId') tableId: string,
-    @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo
+    @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo,
+    @Headers('x-ai-internal') isAiInternal?: string
   ): Promise<ICreateRecordsVo> {
-    return await this.recordOpenApiService.multipleCreateRecords(tableId, createRecordsRo);
+    return await this.recordOpenApiService.multipleCreateRecords(
+      tableId,
+      createRecordsRo,
+      undefined,
+      isAiInternal
+    );
   }
 
   @Permissions('record|create', 'record|read')
