@@ -131,7 +131,7 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
           echo "record_count=$RECORD_COUNT" >> $GITHUB_OUTPUT
           
-          # Save full response for status checking
+          # Save full response for status checkin
           echo "$BODY" > /tmp/teable_response.json
           
           echo "✅ All Issue IDs verified successfully!"
