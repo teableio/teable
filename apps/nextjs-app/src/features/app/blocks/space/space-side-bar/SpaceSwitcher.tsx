@@ -36,6 +36,7 @@ import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceAvatar } from '../../../components/space/SpaceAvatar';
 import { useSpaceList } from '../hooks';
+import { usePinMap } from '../usePinMap';
 import { StarButton } from './StarButton';
 
 interface ISubscriptionBadgeProps {
@@ -84,9 +85,18 @@ export const SpaceSwitcher = () => {
   const [open, setOpen] = useState(false);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [spaceName, setSpaceName] = useState('');
+  const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
 
+  const pinMap = usePinMap();
   const { spaceList } = useSpaceList();
   const currentSpaceId = router.query.spaceId as string | undefined;
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setHighlightedValue(currentSpaceId);
+    }
+  };
 
   const { data: subscriptionList } = useQuery({
     queryKey: ['subscription-summary-list'],
@@ -150,7 +160,7 @@ export const SpaceSwitcher = () => {
 
   return (
     <>
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="sm" className="h-10 min-w-0 justify-start p-2 text-base">
             <SpaceAvatar name={currentSpace?.name ?? ''} className="size-8" />
@@ -160,7 +170,7 @@ export const SpaceSwitcher = () => {
         </PopoverTrigger>
 
         <PopoverContent className="min-w-[360px] p-0" align="start">
-          <Command value="">
+          <Command value={highlightedValue} onValueChange={setHighlightedValue}>
             <div className="px-4 pb-2 pt-4">
               <p className="pb-2 text-sm font-semibold ">
                 {t('space:allSpaces')} ({spaceList?.length || 0})
@@ -179,24 +189,29 @@ export const SpaceSwitcher = () => {
                 {spaceList?.map((space) => {
                   const isSelected = space.id === currentSpaceId;
                   const subscription = subscriptionMap.get(space.id);
+                  const isPinned = pinMap?.[space.id];
 
                   return (
                     <CommandItem
                       key={space.id}
-                      value={space.name}
+                      value={space.id}
                       onSelect={() => handleSelectSpace(space)}
-                      className={cn('group flex items-center gap-2 rounded-md h-10', {
-                        'bg-accent': isSelected,
-                      })}
+                      className={cn('group flex items-center gap-2 rounded-md h-10')}
                     >
                       <div className="flex min-w-0 grow items-center gap-2">
                         <SpaceAvatar name={space.name} className="size-6" />
                         <span className="truncate text-sm ">{space.name}</span>
-                        <StarButton id={space.id} type={PinType.Space} className="size-4" />
+                        {isCloud && <SubscriptionBadge level={subscription?.level} />}
+                        <StarButton
+                          id={space.id}
+                          type={PinType.Space}
+                          className={cn('size-4 w-0 shrink-0 group-hover:w-auto', {
+                            'opacity-100 w-auto': isPinned,
+                          })}
+                        />
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
-                        {isCloud && <SubscriptionBadge level={subscription?.level} />}
                         {isSelected && <Check className="size-5 " />}
                       </div>
                     </CommandItem>

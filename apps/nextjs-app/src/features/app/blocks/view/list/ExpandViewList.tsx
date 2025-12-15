@@ -26,20 +26,28 @@ export const ExpandViewList = () => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const [open, setOpen] = useState(false);
   const [isDraggable, setIsDraggable] = useState(true);
+  const [highlightedValue, setHighlightedValue] = useState<string | undefined>();
   const router = useRouter();
   const permission = useTablePermission();
   const { baseId, tableId } = useBaseResource() as IBaseResourceTable;
   const curViewId = useViewId();
 
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (isOpen) {
+      setHighlightedValue(curViewId);
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button className="size-7 shrink-0 px-0" size="xs" variant="ghost">
           <ChevronDown className="size-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-auto max-w-[456px] p-1">
-        <Command value={curViewId}>
+        <Command value={highlightedValue} onValueChange={setHighlightedValue}>
           <CommandInput
             className="h-9"
             placeholder={t('table:view.searchView')}

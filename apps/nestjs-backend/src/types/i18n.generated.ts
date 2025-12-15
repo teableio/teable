@@ -476,6 +476,9 @@ export type I18nTranslations = {
             "app": string;
             "webSearch": string;
             "folder": string;
+            "newAutomation": string;
+            "newApp": string;
+            "newFolder": string;
         };
         "level": {
             "free": string;
