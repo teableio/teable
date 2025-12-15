@@ -166,7 +166,7 @@ const ConditionalRollupForeignSection = (props: IConditionalRollupForeignSection
     <div className="space-y-3">
       <div className="space-y-2">
         {table?.name ? (
-          <span className="neutral-content label-text">
+          <span className="neutral-content label-text text-sm font-medium">
             <Trans
               ns="table"
               i18nKey="field.editor.rollupToTable"
