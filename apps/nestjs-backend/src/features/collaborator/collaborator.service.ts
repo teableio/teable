@@ -2,6 +2,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
 import {
+  BillableRoles,
   canManageRole,
   getRandomString,
   HttpErrorCode,
@@ -461,13 +462,12 @@ export class CollaboratorService {
     // Get billable users if not community edition and includeBase is true
     let billableUserIds = new Set<string>();
     if (!isCommunityEdition && options?.includeBase) {
-      const billableRoles = ['owner', 'creator', 'editor'];
       const billableBuilder = this.knex.queryBuilder();
       await this.getSpaceCollaboratorBuilder(billableBuilder, spaceId, {
         ...options,
         includeBase: true,
       });
-      billableBuilder.whereIn('collaborator.role_name', billableRoles);
+      billableBuilder.whereIn('collaborator.role_name', [...BillableRoles]);
       billableBuilder.select({ user_id: 'users.id' });
 
       const billableUsers = await this.prismaService
@@ -478,8 +478,6 @@ export class CollaboratorService {
     }
 
     return collaborators.map((collaborator) => {
-      const billableRoles = ['owner', 'creator', 'editor'];
-
       return {
         type: PrincipalType.User,
         resourceType: collaborator.resource_type as CollaboratorType,
@@ -492,7 +490,7 @@ export class CollaboratorService {
         base: baseMap[collaborator.resource_id],
         billable:
           !isCommunityEdition &&
-          (billableRoles.includes(collaborator.role_name) ||
+          (BillableRoles.includes(collaborator.role_name as (typeof BillableRoles)[number]) ||
             billableUserIds.has(collaborator.user_id)),
       };
     });
