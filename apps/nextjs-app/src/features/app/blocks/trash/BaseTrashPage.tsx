@@ -16,8 +16,10 @@ import { ConfirmDialog } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
+import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 
@@ -27,7 +29,7 @@ export const BaseTrashPage = () => {
   const queryClient = useQueryClient();
   const permission = useBasePermission();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
+  const { brandName } = useBrand();
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
@@ -157,6 +159,9 @@ export const BaseTrashPage = () => {
   return (
     <>
       <div className="flex h-screen w-full flex-1 flex-col space-y-4 overflow-hidden pt-8">
+        <Head>
+          <title>{`${t('noun.trash')} - ${brandName}`}</title>
+        </Head>
         <div className="flex w-full items-center justify-between px-8 pb-2">
           <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
           {permission?.['table|delete'] && (

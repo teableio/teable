@@ -17,8 +17,10 @@ import { Button } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
+import Head from 'next/head';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { useBrand } from '@/features/app/hooks/useBrand';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 import { SpaceAvatar } from '../../components/space/SpaceAvatar';
@@ -27,7 +29,7 @@ export const SpaceTrashPage = () => {
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
-
+  const { brandName } = useBrand();
   const resourceType = ResourceType.Space;
 
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
@@ -187,6 +189,9 @@ export const SpaceTrashPage = () => {
 
   return (
     <div className="flex h-screen flex-1 flex-col space-y-4 overflow-hidden p-8">
+      <Head>
+        <title>{`${t('common:trash.spaceTrash')} - ${brandName}`}</title>
+      </Head>
       <div className="flex flex-col items-start justify-between gap-2 ">
         <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
         <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
