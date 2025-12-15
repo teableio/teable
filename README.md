@@ -22,9 +22,6 @@
   <a aria-label="Build" href="https://github.com/teableio/teable/actions?query=Build%20and%20Push%20to%20Docker%20Registry">
     <img alt="build" src="https://img.shields.io/github/actions/workflow/status/teableio/teable/docker-push.yml?label=Build&logo=github&style=flat-quare&labelColor=000000" />
   </a>
-  <a aria-label="Codefactor grade" href="https://www.codefactor.io/repository/github/teableio/teable">
-    <img alt="Codefactor" src="https://img.shields.io/codefactor/grade/github/teableio/teable?label=Codefactor&logo=codefactor&style=flat-quare&labelColor=000000" />
-  </a>
   <a aria-label="Coverage Status" href="https://coveralls.io/github/teableio/teable?branch=develop">
     <img alt="Coverage" src="https://coveralls.io/repos/github/teableio/teable/badge.svg?branch=develop" />
   </a>
@@ -107,10 +104,6 @@ Visualize and interact with data in various ways best suited for their specific 
     <td width="50%"><img alt="Record history" src="static/assets/images/record-history.png"></td>
   </tr>
 </table>
-
-### 📊 Charts & Dashboard
-
-  <img alt="Teable Dashboard" width="100%" src="static/assets/images/dashboard.png">
 
 More features coming soon, see our <a target="_blank" href="https://app.teable.ai/share/shr04TEw1u9EOQojPmG/view">Roadmap</a>
 
