@@ -44,7 +44,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
     <>
       {isMobile ? (
         <SheetWrapper>
-          <div className="group/sidebar flex size-full flex-col overflow-hidden bg-background p-5">
+          <div className="group/sidebar flex size-full flex-col overflow-hidden bg-background">
             <SidebarHeader headerLeft={headerLeft} />
             {children}
           </div>
