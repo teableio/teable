@@ -6,6 +6,9 @@ on:
     branches:
       - develop
 
+permissions:
+  pull-requests: write
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -119,54 +122,129 @@ jobs:
             exit 1
           fi
           
-          # Extract record IDs for updating
+          # Extract record IDs and their statuses for updating
+          echo "$BODY" | jq -c '.records[] | {id: .id, status: .fields.status}' > /tmp/records.json
+          
           RECORD_IDS=$(echo "$BODY" | jq -r '.records[].id')
           echo "record_ids<<EOF" >> $GITHUB_OUTPUT
           echo "$RECORD_IDS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           echo "record_count=$RECORD_COUNT" >> $GITHUB_OUTPUT
           
+          # Save full response for status checking
+          echo "$BODY" > /tmp/teable_response.json
+          
           echo "✅ All Issue IDs verified successfully!"
 
-      - name: 📝 Update Community_PR field in Teable
+      - name: 📝 Update Teable records (Community_PR & Status)
         if: steps.extract-issues.outputs.has_issues == 'true' && steps.verify-issues.outputs.record_count > 0
         env:
           TEABLE_API_TOKEN: ${{ secrets.APP_TEABLE_AI_TOKEN }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-          RECORD_IDS: ${{ steps.verify-issues.outputs.record_ids }}
         run: |
-          echo "📝 Updating Community_PR field with PR URL: $PR_URL"
+          echo "📝 Updating Teable records..."
           
-          # Update each record with the PR URL
-          while IFS= read -r RECORD_ID; do
-            if [ -n "$RECORD_ID" ]; then
-              echo "Updating record: $RECORD_ID"
-              
-              UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
-                "https://app.teable.ai/api/table/tblNHimLUhUDtC3K7Jk/record/$RECORD_ID" \
-                -H "Authorization: Bearer $TEABLE_API_TOKEN" \
-                -H "Content-Type: application/json" \
-                -H "Accept: application/json" \
-                -d "{\"fieldKeyType\":\"dbFieldName\",\"record\":{\"fields\":{\"Community_PR\":\"$PR_URL\"}}}")
-              
-              HTTP_CODE=$(echo "$UPDATE_RESPONSE" | tail -n1)
-              BODY=$(echo "$UPDATE_RESPONSE" | sed '$d')
-              
-              if [ "$HTTP_CODE" != "200" ]; then
-                echo "::warning::Failed to update record $RECORD_ID. HTTP Code: $HTTP_CODE"
-                echo "Response: $BODY"
-              else
-                echo "✅ Successfully updated record $RECORD_ID"
+          # Status values that should be updated to "Entered development workflow"
+          STATUSES_TO_UPDATE=("" "Need more information" "Added to backlog")
+          
+          # Read records from saved response
+          cat /tmp/teable_response.json | jq -c '.records[]' | while read -r record; do
+            RECORD_ID=$(echo "$record" | jq -r '.id')
+            CURRENT_STATUS=$(echo "$record" | jq -r '.fields.status // ""')
+            
+            echo "Processing record: $RECORD_ID (current status: '$CURRENT_STATUS')"
+            
+            # Determine if status should be updated
+            SHOULD_UPDATE_STATUS="false"
+            for status in "${STATUSES_TO_UPDATE[@]}"; do
+              if [ "$CURRENT_STATUS" == "$status" ]; then
+                SHOULD_UPDATE_STATUS="true"
+                break
               fi
+            done
+            
+            # Build update payload
+            if [ "$SHOULD_UPDATE_STATUS" == "true" ]; then
+              echo "  → Status will be updated to 'Entered development workflow'"
+              UPDATE_PAYLOAD="{\"fieldKeyType\":\"dbFieldName\",\"record\":{\"fields\":{\"Community_PR\":\"$PR_URL\",\"status\":\"Entered development workflow\"}}}"
+            else
+              echo "  → Status will not be changed (current: '$CURRENT_STATUS')"
+              UPDATE_PAYLOAD="{\"fieldKeyType\":\"dbFieldName\",\"record\":{\"fields\":{\"Community_PR\":\"$PR_URL\"}}}"
             fi
-          done <<< "$RECORD_IDS"
+            
+            # Send update request
+            UPDATE_RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
+              "https://app.teable.ai/api/table/tblNHimLUhUDtC3K7Jk/record/$RECORD_ID" \
+              -H "Authorization: Bearer $TEABLE_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -H "Accept: application/json" \
+              -d "$UPDATE_PAYLOAD")
+            
+            HTTP_CODE=$(echo "$UPDATE_RESPONSE" | tail -n1)
+            BODY=$(echo "$UPDATE_RESPONSE" | sed '$d')
+            
+            if [ "$HTTP_CODE" != "200" ]; then
+              echo "::warning::Failed to update record $RECORD_ID. HTTP Code: $HTTP_CODE"
+              echo "Response: $BODY"
+            else
+              echo "✅ Successfully updated record $RECORD_ID"
+            fi
+          done
           
-          echo "✅ Community_PR field update completed!"
+          echo "✅ Teable records update completed!"
+
+      - name: 📝 Append Issue IDs to PR description
+        if: steps.extract-issues.outputs.has_issues == 'true' && steps.verify-issues.outputs.record_count > 0
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_IDS: ${{ steps.extract-issues.outputs.issue_ids }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          echo "📝 Checking if Issue IDs need to be appended to PR description..."
+          
+          # Create Issue IDs reference line
+          ISSUE_IDS_LINE="**Related Issues:** $ISSUE_IDS"
+          
+          # Check if Issue IDs are already in the PR body
+          ISSUES_ALREADY_IN_BODY="true"
+          for ISSUE_ID in $ISSUE_IDS; do
+            if ! echo "$PR_BODY" | grep -q "$ISSUE_ID"; then
+              ISSUES_ALREADY_IN_BODY="false"
+              break
+            fi
+          done
+          
+          # Check if the reference line already exists
+          if echo "$PR_BODY" | grep -q "^\*\*Related Issues:\*\*"; then
+            echo "✅ Related Issues line already exists in PR description, skipping update"
+            exit 0
+          fi
+          
+          # If all Issue IDs are already in the body but not in the reference format, we still want to add the reference line
+          # This ensures consistency and makes it easier to parse
+          
+          echo "📝 Appending Issue IDs to PR description..."
+          
+          # Append Issue IDs to PR body
+          if [ -z "$PR_BODY" ]; then
+            NEW_BODY="$ISSUE_IDS_LINE"
+          else
+            NEW_BODY="$PR_BODY
+          
+          ---
+          $ISSUE_IDS_LINE"
+          fi
+          
+          # Update PR description using GitHub CLI
+          gh pr edit "$PR_NUMBER" --body "$NEW_BODY"
+          
+          echo "✅ PR description updated with Issue IDs!"
 
       - name: ✅ Check Complete
         if: steps.extract-issues.outputs.has_issues == 'true'
         run: |
           echo "✅ Issue ID check completed successfully!"
           echo "📋 Verified Issue IDs: ${{ steps.extract-issues.outputs.issue_ids }}"
-          echo "🔗 PR URL updated in Teable records"
-
+          echo "🔗 PR URL and status updated in Teable records"
+          echo "📝 Issue IDs appended to PR description for squash merge"
