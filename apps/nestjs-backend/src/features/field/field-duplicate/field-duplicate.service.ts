@@ -17,7 +17,7 @@ import {
   isLinkLookupOptions,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { IBaseJson, IFieldJson, IFieldWithTableIdJson } from '@teable/openapi';
+import type { IBaseJson, IFieldWithTableIdJson } from '@teable/openapi';
 import { Knex } from 'knex';
 import { pick, get } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
@@ -775,69 +775,262 @@ export class FieldDuplicateService {
   ): Promise<void> {
     if (!dependFields.length) return;
 
-    const maxCount = dependFields.length * 10;
+    const concurrency = this.getDependencyFieldCreateConcurrency();
 
-    const checkedField = [] as IFieldJson[];
+    const existingFieldIds = Object.keys(fieldMap);
+    const duplicatingFieldIds = new Set<string>([
+      ...existingFieldIds,
+      ...dependFields.map((f) => f.id),
+    ]);
+    const knownFieldIds = new Set<string>(existingFieldIds);
 
-    const countMap = {} as Record<string, number>;
+    const fieldById = new Map<string, IFieldWithTableIdJson>();
+    const orderIndexById = new Map<string, number>();
 
-    while (dependFields.length) {
-      const curField = dependFields.shift();
-      if (!curField) continue;
+    dependFields.forEach((field, index) => {
+      fieldById.set(field.id, field);
+      orderIndexById.set(field.id, index);
+    });
 
-      const { sourceTableId, targetTableId } = curField;
+    const dependentsByDependencyId = new Map<string, string[]>();
+    const unresolvedCountByFieldId = new Map<string, number>();
 
-      const isChecked = checkedField.some((f) => f.id === curField.id);
-      // InDegree all ready
-      const isInDegreeReady = await this.isInDegreeReady(curField, fieldMap, scope);
-
-      if (isInDegreeReady) {
-        await this.duplicateSingleDependField(
-          sourceTableId,
-          targetTableId,
-          curField,
-          tableIdMap,
-          fieldMap,
-          scope
-        );
-        continue;
-      }
-
-      if (isChecked) {
-        if (curField.hasError) {
-          await this.duplicateSingleDependField(
-            sourceTableId,
-            targetTableId,
-            curField,
-            tableIdMap,
-            fieldMap,
-            scope,
-            true
-          );
-        } else if (!countMap[curField.id] || countMap[curField.id] < maxCount) {
-          dependFields.push(curField);
-          checkedField.push(curField);
-          countMap[curField.id] = (countMap[curField.id] || 0) + 1;
+    for (const field of dependFields) {
+      const dependencies = this.getInternalDependencies(field, duplicatingFieldIds);
+      let unresolved = 0;
+      for (const depId of dependencies) {
+        if (!knownFieldIds.has(depId)) {
+          unresolved += 1;
+        }
+        const list = dependentsByDependencyId.get(depId);
+        if (list) {
+          list.push(field.id);
         } else {
+          dependentsByDependencyId.set(depId, [field.id]);
+        }
+      }
+      unresolvedCountByFieldId.set(field.id, unresolved);
+    }
+
+    const remainingIds = new Set<string>(dependFields.map((f) => f.id));
+
+    let readyIds = dependFields
+      .filter((f) => (unresolvedCountByFieldId.get(f.id) ?? 0) === 0)
+      .map((f) => f.id);
+
+    while (remainingIds.size) {
+      let forcedErrorIds = new Set<string>();
+      if (readyIds.length === 0) {
+        const erroredIds = dependFields
+          .filter((f) => remainingIds.has(f.id) && Boolean(f.hasError))
+          .map((f) => f.id);
+
+        if (erroredIds.length === 0) {
+          const nextId = dependFields.find((f) => remainingIds.has(f.id))?.id;
+          const curField = nextId ? fieldById.get(nextId) : undefined;
           throw new CustomHttpException(
-            `Create circular field when create field: ${curField.name}[${curField.id}]`,
+            `Create circular field when create field: ${curField?.name ?? ''}[${curField?.id ?? ''}]`,
             HttpErrorCode.VALIDATION_ERROR,
             {
               localization: {
                 i18nKey: 'httpErrors.field.cycleDetectedCreateField',
                 context: {
-                  id: curField.id,
-                  name: curField.name,
+                  id: curField?.id,
+                  name: curField?.name,
                 },
               },
             }
           );
         }
+
+        readyIds = erroredIds;
+        forcedErrorIds = new Set<string>(erroredIds);
+      }
+
+      const currentLayerIds = readyIds;
+      readyIds = [];
+      const nextReadyIds = new Set<string>();
+
+      const processFieldId = async (fieldId: string) => {
+        if (!remainingIds.has(fieldId)) {
+          return;
+        }
+
+        const field = fieldById.get(fieldId);
+        if (!field) {
+          remainingIds.delete(fieldId);
+          return;
+        }
+
+        await this.duplicateSingleDependField(
+          field.sourceTableId,
+          field.targetTableId,
+          field,
+          tableIdMap,
+          fieldMap,
+          scope,
+          forcedErrorIds.has(fieldId)
+        );
+
+        remainingIds.delete(fieldId);
+        knownFieldIds.add(fieldId);
+
+        const dependents = dependentsByDependencyId.get(fieldId) ?? [];
+        for (const dependentId of dependents) {
+          if (!remainingIds.has(dependentId)) {
+            continue;
+          }
+          const nextUnresolved = (unresolvedCountByFieldId.get(dependentId) ?? 0) - 1;
+          unresolvedCountByFieldId.set(dependentId, nextUnresolved);
+          if (nextUnresolved === 0) {
+            nextReadyIds.add(dependentId);
+          }
+        }
+      };
+
+      if (concurrency <= 1 || currentLayerIds.length <= 1) {
+        for (const fieldId of currentLayerIds) {
+          await processFieldId(fieldId);
+        }
       } else {
-        dependFields.push(curField);
-        checkedField.push(curField);
+        const layerGroupsByTableId = new Map<string, string[]>();
+        for (const fieldId of currentLayerIds) {
+          const field = fieldById.get(fieldId);
+          const tableKey = field?.targetTableId ?? fieldId;
+          const group = layerGroupsByTableId.get(tableKey);
+          if (group) {
+            group.push(fieldId);
+          } else {
+            layerGroupsByTableId.set(tableKey, [fieldId]);
+          }
+        }
+
+        const groups = [...layerGroupsByTableId.values()].map((group) =>
+          group.sort((a, b) => (orderIndexById.get(a) ?? 0) - (orderIndexById.get(b) ?? 0))
+        );
+
+        await this.runWithConcurrency(groups, concurrency, async (group) => {
+          for (const fieldId of group) {
+            await processFieldId(fieldId);
+          }
+        });
+      }
+
+      readyIds = [...nextReadyIds].sort(
+        (a, b) => (orderIndexById.get(a) ?? 0) - (orderIndexById.get(b) ?? 0)
+      );
+    }
+  }
+
+  private getDependencyFieldCreateConcurrency(): number {
+    const configured = Number(process.env.FIELD_DUPLICATE_FIELD_CREATE_CONCURRENCY ?? 5);
+    const normalized = Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 5;
+
+    const hasActiveTx = this.prismaService.txClient() !== this.prismaService;
+
+    // Avoid concurrent Prisma queries within an interactive transaction by default.
+    // Many duplicate/import flows run inside a single big transaction.
+    // Opt-in (at your own risk) via FIELD_DUPLICATE_FIELD_CREATE_CONCURRENCY_IN_TX.
+    if (hasActiveTx) {
+      const configuredInTx = process.env.FIELD_DUPLICATE_FIELD_CREATE_CONCURRENCY_IN_TX;
+      if (configuredInTx == null || configuredInTx === '') {
+        return 1;
+      }
+      const inTx = Number(configuredInTx);
+      return Number.isFinite(inTx) && inTx > 0 ? Math.floor(inTx) : 1;
+    }
+
+    return normalized;
+  }
+
+  private async runWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T) => Promise<void>
+  ): Promise<void> {
+    if (!items.length) return;
+
+    const limit = Math.max(1, Math.floor(concurrency));
+    let nextIndex = 0;
+
+    const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        const index = nextIndex++;
+        if (index >= items.length) {
+          return;
+        }
+        await worker(items[index]);
+      }
+    });
+
+    await Promise.all(workers);
+  }
+
+  private getInternalDependencies(
+    field: IFieldWithTableIdJson,
+    duplicatingFieldIds: Set<string>
+  ): Set<string> {
+    const dependencies = new Set<string>();
+
+    if (field.aiConfig) {
+      const { aiConfig } = field;
+
+      if ('sourceFieldId' in aiConfig && aiConfig.sourceFieldId) {
+        dependencies.add(aiConfig.sourceFieldId);
+      }
+
+      if ('prompt' in aiConfig) {
+        const { prompt, attachmentFieldIds = [] } = aiConfig;
+        extractFieldReferences(prompt).forEach((fieldId) => dependencies.add(fieldId));
+        attachmentFieldIds.forEach((fieldId) => dependencies.add(fieldId));
       }
     }
+
+    if (field.type === FieldType.Formula && !field.isLookup) {
+      const formulaOptions = field.options as IFormulaFieldOptions;
+      extractFieldReferences(formulaOptions.expression).forEach((fieldId) =>
+        dependencies.add(fieldId)
+      );
+    }
+
+    if (field.type === FieldType.ConditionalRollup) {
+      const options = field.options as IConditionalRollupFieldOptions | undefined;
+      if (options) {
+        this.collectConditionalDependencies({
+          lookupFieldId: options.lookupFieldId,
+          filter: options.filter,
+          sortFieldId: options.sort?.fieldId,
+        }).forEach((fieldId) => dependencies.add(fieldId));
+      }
+    }
+
+    if (field.isLookup && field.isConditionalLookup) {
+      const lookupOptions = field.lookupOptions as IConditionalLookupOptions | undefined;
+      if (lookupOptions) {
+        this.collectConditionalDependencies({
+          lookupFieldId: lookupOptions.lookupFieldId,
+          filter: lookupOptions.filter,
+          sortFieldId: lookupOptions.sort?.fieldId,
+        }).forEach((fieldId) => dependencies.add(fieldId));
+      }
+    }
+
+    if (field.isLookup || field.type === FieldType.Rollup) {
+      const lookupOptions = field.lookupOptions;
+      if (lookupOptions && isLinkLookupOptions(lookupOptions)) {
+        dependencies.add(lookupOptions.linkFieldId);
+        dependencies.add(lookupOptions.lookupFieldId);
+      }
+    }
+
+    for (const depId of [...dependencies]) {
+      if (depId === field.id || !duplicatingFieldIds.has(depId)) {
+        dependencies.delete(depId);
+      }
+    }
+
+    return dependencies;
   }
 
   async duplicateSingleDependField(
@@ -1459,113 +1652,6 @@ export class FieldDuplicateService {
     }
   }
 
-  private async isInDegreeReady(
-    field: IFieldWithTableIdJson,
-    fieldMap: Record<string, string>,
-    scope: 'base' | 'table' = 'base'
-  ) {
-    const { isLookup, type, isConditionalLookup } = field;
-    if (field.aiConfig) {
-      const { aiConfig } = field;
-
-      if ('sourceFieldId' in aiConfig) {
-        return Boolean(fieldMap[aiConfig.sourceFieldId]);
-      }
-
-      if ('prompt' in aiConfig) {
-        const { prompt, attachmentFieldIds = [] } = aiConfig;
-        const fieldIds = extractFieldReferences(prompt);
-        const keys = Object.keys(fieldMap);
-        return [...fieldIds, ...attachmentFieldIds].every((field) => keys.includes(field));
-      }
-    }
-
-    if (type === FieldType.Formula && !isLookup) {
-      const formulaOptions = field.options as IFormulaFieldOptions;
-      const referencedFields = this.extractFieldIds(formulaOptions.expression);
-      const keys = Object.keys(fieldMap);
-      return referencedFields.every((field) => keys.includes(field));
-    }
-
-    if (type === FieldType.ConditionalRollup) {
-      const options = field.options as IConditionalRollupFieldOptions | undefined;
-      if (!options) {
-        return false;
-      }
-
-      if (options.baseId) {
-        return true;
-      }
-
-      const dependencies = this.collectConditionalDependencies({
-        lookupFieldId: options.lookupFieldId,
-        filter: options.filter,
-        sortFieldId: options.sort?.fieldId,
-      });
-      return this.areDependenciesResolved(fieldMap, dependencies);
-    }
-
-    if (isLookup && isConditionalLookup) {
-      const lookupOptions = field.lookupOptions as IConditionalLookupOptions | undefined;
-      if (!lookupOptions) {
-        return false;
-      }
-
-      if (lookupOptions.baseId) {
-        return true;
-      }
-
-      const dependencies = this.collectConditionalDependencies({
-        lookupFieldId: lookupOptions.lookupFieldId,
-        filter: lookupOptions.filter,
-        sortFieldId: lookupOptions.sort?.fieldId,
-      });
-      return this.areDependenciesResolved(fieldMap, dependencies);
-    }
-
-    if (isLookup || type === FieldType.Rollup) {
-      const { lookupOptions, sourceTableId } = field;
-      if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
-        return false;
-      }
-      const { linkFieldId, lookupFieldId, foreignTableId } = lookupOptions;
-      const isSelfLink = foreignTableId === sourceTableId;
-      const linkField = await this.prismaService.txClient().field.findUnique({
-        where: {
-          id: linkFieldId,
-        },
-        select: {
-          options: true,
-        },
-      });
-
-      // if the cross base relative field is existed, the lookup or rollup field should be ready to create
-      const linkFieldOptions = JSON.parse(
-        linkField?.options || ('{}' as string)
-      ) as ILinkFieldOptions;
-
-      if (linkFieldOptions.baseId) {
-        return true;
-      }
-
-      // duplicate table should not consider lookupFieldId when link field is not self link
-      return scope === 'base' || isSelfLink
-        ? Boolean(fieldMap[lookupFieldId] && fieldMap[linkFieldId])
-        : fieldMap[linkFieldId];
-    }
-
-    return false;
-  }
-
-  private extractFieldIds(expression: string): string[] {
-    const matches = expression.match(/\{fld[a-zA-Z0-9]+\}/g);
-
-    if (!matches) {
-      return [];
-    }
-    return matches.map((match) => match.slice(1, -1));
-  }
-
   private collectConditionalDependencies({
     lookupFieldId,
     filter,
@@ -1590,17 +1676,5 @@ export class FieldDuplicateService {
     }
 
     return [...dependencies];
-  }
-
-  private areDependenciesResolved(
-    fieldMap: Record<string, string>,
-    dependencies: string[]
-  ): boolean {
-    if (!dependencies.length) {
-      return true;
-    }
-
-    const knownFieldIds = new Set(Object.keys(fieldMap));
-    return dependencies.every((fieldId) => knownFieldIds.has(fieldId));
   }
 }
