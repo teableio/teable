@@ -41,9 +41,11 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
 
+  const canCreateBase = hasPermission(space.role, 'base|create');
+
   return (
     <div className={cn('flex shrink-0 items-center gap-2', className)}>
-      {hasPermission(space.role, 'base|create') && (
+      {canCreateBase && (
         <CreateBaseModalTrigger spaceId={space.id}>
           {isMobile ? (
             <Button variant={'outline'} size="icon" className="size-7">

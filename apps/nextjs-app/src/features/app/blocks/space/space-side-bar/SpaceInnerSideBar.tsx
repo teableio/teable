@@ -49,7 +49,7 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
     },
   ];
 
-  const canCreateSpace = space && hasPermission(space?.role, 'space|create');
+  const canCreateBase = space && hasPermission(space?.role, 'base|create');
 
   return (
     <>
@@ -57,7 +57,7 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
         {space && (
           <div className="p-2">
             <CreateBaseModalTrigger spaceId={space.id}>
-              <Button variant={'outline'} size={'sm'} className="w-full" disabled={!canCreateSpace}>
+              <Button variant={'outline'} size={'sm'} className="w-full" disabled={!canCreateBase}>
                 <Plus className="size-4 shrink-0" />
                 {t('space:action.createBase')}
               </Button>
