@@ -1844,13 +1844,16 @@ export class RecordService {
       queryBuilder.limit(take);
     }
 
-    const sql = queryBuilder.toQuery();
-    this.logger.debug('getRecordsQuery: %s', sql);
+    const sqlNative = queryBuilder.toSQL().toNative();
+    const sqlDebug = queryBuilder.toQuery();
+    this.logger.debug('getRecordsQuery: %s', sqlDebug);
     let result: { __id: string }[];
     try {
-      result = await this.prismaService.txClient().$queryRawUnsafe<{ __id: string }[]>(sql);
+      result = await this.prismaService
+        .txClient()
+        .$queryRawUnsafe<{ __id: string }[]>(sqlNative.sql, ...sqlNative.bindings);
     } catch (error) {
-      this.handleRawQueryError(error, sql, {
+      this.handleRawQueryError(error, sqlNative.sql, {
         tableId,
         dbTableName,
         viewId,
@@ -1865,6 +1868,8 @@ export class RecordService {
         filterLinkCellCandidate: query.filterLinkCellCandidate,
         filterLinkCellSelected: query.filterLinkCellSelected,
         selectedRecordIds: query.selectedRecordIds,
+        bindings: sqlNative.bindings,
+        sqlDebug,
       });
     }
     const ids = result.map((r) => r.__id);

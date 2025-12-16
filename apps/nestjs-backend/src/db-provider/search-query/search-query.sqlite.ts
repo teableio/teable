@@ -23,13 +23,13 @@ export class SearchQuerySqlite extends SearchQueryAbstract {
 
   appendBuilder() {
     const { originQueryBuilder } = this;
-    const sql = this.getSql();
-    sql && this.originQueryBuilder.orWhereRaw(sql);
+    const condition = this.getQuery();
+    condition && this.originQueryBuilder.orWhereRaw(condition);
     return originQueryBuilder;
   }
 
-  getSql(): string {
-    return this.getQuery().toQuery();
+  getSql(): string | null {
+    return this.getQuery().toSQL().sql;
   }
 
   getQuery() {
@@ -213,12 +213,12 @@ export class SearchQuerySqliteBuilder {
     this.context = context;
   }
 
-  getSearchQuery() {
+  private getSearchConditions() {
     const { queryBuilder, searchIndexRo, searchField, tableIndex, context } = this;
     const { search } = searchIndexRo;
 
     if (!search || !searchField?.length) {
-      return queryBuilder;
+      return [] as Array<{ field: IFieldInstance; condition: Knex.Raw }>;
     }
 
     return searchField.map((field) => {
@@ -229,7 +229,7 @@ export class SearchQuerySqliteBuilder {
         tableIndex,
         context
       );
-      return searchQueryBuilder.getSql();
+      return { field, condition: searchQueryBuilder.getQuery() };
     });
   }
 
@@ -250,7 +250,7 @@ export class SearchQuerySqliteBuilder {
       return queryBuilder;
     }
 
-    const searchQuerySql = this.getSearchQuery() as string[];
+    const searchConditions = this.getSearchConditions();
 
     queryBuilder.with('search_hit_row', (qb) => {
       qb.select('*');
@@ -259,8 +259,8 @@ export class SearchQuerySqliteBuilder {
 
       qb.where((subQb) => {
         subQb.where((orWhere) => {
-          searchQuerySql.forEach((sql) => {
-            orWhere.orWhereRaw(sql);
+          searchConditions.forEach(({ condition }) => {
+            orWhere.orWhereRaw(condition);
           });
         });
         if (this.searchIndexRo.filter && setFilterQuery) {
@@ -281,30 +281,27 @@ export class SearchQuerySqliteBuilder {
       baseSortIndex && qb.orderBy(baseSortIndex, 'asc');
     });
 
-    const searchQuerySql2 = this.getSearchQuery() as string[];
-
     queryBuilder.with('search_field_union_table', (qb) => {
-      for (let index = 0; index < searchField.length; index++) {
-        const currentWhereRaw = searchQuerySql[index];
-        const field = searchField[index];
+      for (let index = 0; index < searchConditions.length; index++) {
+        const { field, condition } = searchConditions[index];
 
         // Get the correct field name using the same logic as in SearchQueryAbstract
         const selection = this.context?.selectionMap.get(field.id);
         const fieldName = selection ? (selection as string) : field.dbFieldName;
 
         // boolean field or new field which does not support search should be skipped
-        if (!currentWhereRaw || !fieldName) {
+        if (!fieldName) {
           continue;
         }
 
         if (index === 0) {
           qb.select('*', knexInstance.raw(`? as matched_column`, [fieldName]))
-            .whereRaw(`${currentWhereRaw}`)
+            .whereRaw(condition)
             .from('search_hit_row');
         } else {
           qb.unionAll(function () {
             this.select('*', knexInstance.raw(`? as matched_column`, [fieldName]))
-              .whereRaw(`${currentWhereRaw}`)
+              .whereRaw(condition)
               .from('search_hit_row');
           });
         }

@@ -26,15 +26,14 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
 
   appendBuilder() {
     const { originQueryBuilder } = this;
-    const sql = this.getSql();
-    if (sql) {
-      this.originQueryBuilder.orWhereRaw(sql);
-    }
+    const condition = this.getQuery();
+    condition && this.originQueryBuilder.orWhereRaw(condition);
     return originQueryBuilder;
   }
 
   getSql(): string | null {
-    return this.getQuery() ? this.getQuery().toQuery() : null;
+    const condition = this.getQuery();
+    return condition ? condition.toSQL().sql : null;
   }
 
   getQuery() {
@@ -126,7 +125,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
     const { search, knex } = this;
     const searchValue = search[0];
     const precision = get(this.field, ['options', 'formatting', 'precision']) ?? 0;
-    return knex.raw(`ROUND(${this.fieldName}::numeric, ?)::text ILIKE ?`, [
+    return knex.raw(`ROUND(${this.fieldName}::numeric, ?::int)::text ILIKE ?`, [
       precision,
       `%${searchValue}%`,
     ]);
@@ -179,7 +178,7 @@ export class SearchQueryPostgres extends SearchQueryAbstract {
       `
       EXISTS (
         SELECT 1 FROM (
-          SELECT string_agg(ROUND(elem::numeric, ?)::text, ', ') as aggregated
+          SELECT string_agg(ROUND(elem::numeric, ?::int)::text, ', ') as aggregated
           FROM jsonb_array_elements_text(${this.fieldName}::jsonb) as elem
         ) as sub
         WHERE sub.aggregated ILIKE ?
@@ -257,12 +256,12 @@ export class SearchQueryPostgresBuilder {
     this.context = context;
   }
 
-  getSearchQuery() {
+  private getSearchConditions() {
     const { queryBuilder, searchIndexRo, searchFields, tableIndex, context } = this;
     const { search } = searchIndexRo;
 
     if (!search || !searchFields?.length) {
-      return queryBuilder;
+      return [] as Array<{ field: IFieldInstance; condition: Knex.Raw }>;
     }
 
     return searchFields
@@ -274,41 +273,36 @@ export class SearchQueryPostgresBuilder {
           tableIndex,
           context
         );
-        return searchQueryBuilder.getSql();
+        const condition = searchQueryBuilder.getQuery();
+        return condition ? { field, condition } : undefined;
       })
-      .filter((sql) => sql);
+      .filter((item): item is { field: IFieldInstance; condition: Knex.Raw } => Boolean(item));
   }
 
   getCaseWhenSqlBy() {
-    const { searchFields, queryBuilder, searchIndexRo, context } = this;
+    const { queryBuilder, searchIndexRo, context } = this;
     const { search } = searchIndexRo;
     const isSearchAllFields = !search?.[1];
-    const searchQuerySql = this.getSearchQuery() as string[];
-    return searchFields
-      .filter(({ cellValueType }) => {
+    const knexInstance = queryBuilder.client;
+    const conditions = this.getSearchConditions();
+
+    return conditions
+      .filter(({ field }) => {
         // global search does not support date time and checkbox
         if (
           isSearchAllFields &&
-          [CellValueType.DateTime, CellValueType.Boolean].includes(cellValueType)
+          [CellValueType.DateTime, CellValueType.Boolean].includes(field.cellValueType)
         ) {
           return false;
         }
         return true;
       })
-      .map((field, index) => {
-        const knexInstance = queryBuilder.client;
-        const searchSql = searchQuerySql[index];
-
+      .map(({ field, condition }) => {
         // Get the correct field name using the same logic as in SearchQueryAbstract
         const selection = context?.selectionMap.get(field.id);
         const fieldName = selection ? (selection as string) : field.dbFieldName;
 
-        return knexInstance.raw(
-          `
-          CASE WHEN ${searchSql} THEN ? END
-        `,
-          [fieldName]
-        );
+        return knexInstance.raw('CASE WHEN (?) THEN ? END', [condition, fieldName]);
       });
   }
 
@@ -330,9 +324,8 @@ export class SearchQueryPostgresBuilder {
       return queryBuilder;
     }
 
-    const searchQuerySql = this.getSearchQuery() as string[];
-
-    const caseWhenQueryDbSql = this.getCaseWhenSqlBy() as string[];
+    const searchConditions = this.getSearchConditions();
+    const caseWhenConditions = this.getCaseWhenSqlBy();
 
     queryBuilder.with('search_hit_row', (qb) => {
       qb.select('*');
@@ -341,8 +334,8 @@ export class SearchQueryPostgresBuilder {
 
       qb.where((subQb) => {
         subQb.where((orWhere) => {
-          searchQuerySql.forEach((sql) => {
-            orWhere.orWhereRaw(sql);
+          searchConditions.forEach(({ condition }) => {
+            orWhere.orWhereRaw(condition);
           });
         });
         if (this.searchIndexRo.filter && setFilterQuery) {
@@ -366,12 +359,8 @@ export class SearchQueryPostgresBuilder {
     queryBuilder.with('search_field_union_table', (qb) => {
       qb.select('__id').select(
         knexInstance.raw(
-          `array_remove(
-            ARRAY [
-              ${caseWhenQueryDbSql.join(',')}
-            ],
-            NULL
-          ) as matched_columns`
+          `array_remove(ARRAY [${caseWhenConditions.map(() => '(?)').join(', ')}], NULL) as matched_columns`,
+          caseWhenConditions
         )
       );
 

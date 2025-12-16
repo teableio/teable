@@ -35,19 +35,33 @@ export abstract class SearchQueryAbstract {
     tableIndex: TableIndex[],
     context?: IRecordQueryFilterContext
   ) {
-    const searchQuery = searchField.map((field) => {
-      const searchQueryBuilder = new SearchQuery(queryBuilder, field, search, tableIndex, context);
-      return searchQueryBuilder.getSql();
-    });
-
     const knexInstance = queryBuilder.client;
 
+    const conditions = searchField
+      .map((field) => {
+        const searchQueryBuilder = new SearchQuery(
+          queryBuilder,
+          field,
+          search,
+          tableIndex,
+          context
+        );
+        return searchQueryBuilder.getQuery();
+      })
+      .filter((cond): cond is Knex.Raw => Boolean(cond));
+
+    if (conditions.length === 0) {
+      queryBuilder.select(knexInstance.raw('0 as count'));
+      return queryBuilder;
+    }
+
+    const parts = conditions.map((cond) =>
+      knexInstance.raw('(CASE WHEN (?) THEN 1 ELSE 0 END)', [cond])
+    );
+
+    // Use nested raws to preserve bindings and avoid inlining values into SQL text.
     queryBuilder.select(
-      knexInstance.raw(`
-        COALESCE(SUM(
-          ${searchQuery.map((sql) => `(CASE WHEN (${sql}) THEN 1 ELSE 0 END)`).join(' + ')}
-        ), 0) as count
-      `)
+      knexInstance.raw(`COALESCE(SUM(${parts.map(() => '(?)').join(' + ')}), 0) as count`, parts)
     );
 
     return queryBuilder;
@@ -72,25 +86,25 @@ export abstract class SearchQueryAbstract {
     }
   }
 
-  protected abstract json(): Knex.QueryBuilder;
+  protected abstract json(): Knex.Raw;
 
-  protected abstract text(): Knex.QueryBuilder;
+  protected abstract text(): Knex.Raw;
 
-  protected abstract date(): Knex.QueryBuilder;
+  protected abstract date(): Knex.Raw;
 
-  protected abstract number(): Knex.QueryBuilder;
+  protected abstract number(): Knex.Raw;
 
-  protected abstract multipleNumber(): Knex.QueryBuilder;
+  protected abstract multipleNumber(): Knex.Raw;
 
-  protected abstract multipleDate(): Knex.QueryBuilder;
+  protected abstract multipleDate(): Knex.Raw;
 
-  protected abstract multipleText(): Knex.QueryBuilder;
+  protected abstract multipleText(): Knex.Raw;
 
-  protected abstract multipleJson(): Knex.QueryBuilder;
+  protected abstract multipleJson(): Knex.Raw;
 
   abstract getSql(): string | null;
 
-  abstract getQuery(): Knex.QueryBuilder;
+  abstract getQuery(): Knex.Raw | null;
 
   abstract appendBuilder(): Knex.QueryBuilder;
 
