@@ -63,7 +63,7 @@ export class BaseNodeService {
     private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly cls: ClsService<IClsStore & { baseNodeApi?: boolean }>,
+    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>,
     private readonly baseNodeFolderService: BaseNodeFolderService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly tableDuplicateService: TableDuplicateService,
@@ -74,8 +74,8 @@ export class BaseNodeService {
     return this.cls.get('user.id');
   }
 
-  private setBaseNodeApi() {
-    this.cls.set('baseNodeApi', true);
+  private setIgnoreBaseNodeListener() {
+    this.cls.set('ignoreBaseNodeListener', true);
   }
 
   private getSelect() {
@@ -330,7 +330,7 @@ export class BaseNodeService {
   }
 
   async create(baseId: string, ro: ICreateBaseNodeRo): Promise<IBaseNodeVo> {
-    this.setBaseNodeApi();
+    this.setIgnoreBaseNodeListener();
 
     const { resourceType, parentId } = ro;
     const resource = await this.createResource(baseId, ro);
@@ -419,7 +419,7 @@ export class BaseNodeService {
   }
 
   async duplicate(baseId: string, nodeId: string, ro: IDuplicateBaseNodeRo) {
-    this.setBaseNodeApi();
+    this.setIgnoreBaseNodeListener();
 
     const anchor = await this.prismaService.baseNode
       .findFirstOrThrow({
@@ -550,7 +550,7 @@ export class BaseNodeService {
   }
 
   async update(baseId: string, nodeId: string, ro: IUpdateBaseNodeRo) {
-    this.setBaseNodeApi();
+    this.setIgnoreBaseNodeListener();
 
     const node = await this.prismaService.baseNode
       .findFirstOrThrow({
@@ -622,7 +622,7 @@ export class BaseNodeService {
   }
 
   async delete(baseId: string, nodeId: string, permanent?: boolean) {
-    this.setBaseNodeApi();
+    this.setIgnoreBaseNodeListener();
 
     const node = await this.prismaService.baseNode
       .findFirstOrThrow({
@@ -706,7 +706,7 @@ export class BaseNodeService {
   }
 
   async move(baseId: string, nodeId: string, ro: IMoveBaseNodeRo): Promise<IBaseNodeVo> {
-    this.setBaseNodeApi();
+    this.setIgnoreBaseNodeListener();
 
     const { parentId, anchorId, position } = ro;
 

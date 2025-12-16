@@ -72,11 +72,11 @@ export class BaseNodeListener {
     private readonly prismaService: PrismaService,
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly shareDbService: ShareDbService,
-    private readonly cls: ClsService<IClsStore & { baseNodeApi?: boolean }>
+    private readonly cls: ClsService<IClsStore & { ignoreBaseNodeListener?: boolean }>
   ) {}
 
-  private getBaseNodeApi() {
-    return this.cls.get('baseNodeApi');
+  private getIgnoreBaseNodeListener() {
+    return this.cls.get('ignoreBaseNodeListener');
   }
 
   @OnEvent(Events.BASE_FOLDER_CREATE, { async: true })
@@ -85,8 +85,8 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_CREATE, { async: true })
   @OnEvent(Events.APP_CREATE, { async: true })
   async onResourceCreate(event: IResourceCreateEvent) {
-    const baseNodeApi = this.getBaseNodeApi();
-    if (baseNodeApi) {
+    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
+    if (ignoreBaseNodeListener) {
       return;
     }
 
@@ -159,8 +159,8 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
   @OnEvent(Events.APP_UPDATE, { async: true })
   async onResourceUpdate(event: IResourceUpdateEvent) {
-    const baseNodeApi = this.getBaseNodeApi();
-    if (baseNodeApi) {
+    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
+    if (ignoreBaseNodeListener) {
       return;
     }
 
@@ -229,8 +229,8 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
   async onResourceDelete(event: IResourceDeleteEvent) {
-    const baseNodeApi = this.getBaseNodeApi();
-    if (baseNodeApi) {
+    const ignoreBaseNodeListener = this.getIgnoreBaseNodeListener();
+    if (ignoreBaseNodeListener) {
       return;
     }
 
