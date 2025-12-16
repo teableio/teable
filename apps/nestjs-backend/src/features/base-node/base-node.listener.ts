@@ -72,11 +72,11 @@ export class BaseNodeListener {
     private readonly shareDbService: ShareDbService
   ) {}
 
-  @OnEvent(Events.BASE_FOLDER_CREATE)
-  @OnEvent(Events.TABLE_CREATE)
-  @OnEvent(Events.DASHBOARD_CREATE)
-  @OnEvent(Events.WORKFLOW_CREATE)
-  @OnEvent(Events.APP_CREATE)
+  @OnEvent(Events.BASE_FOLDER_CREATE, { async: true })
+  @OnEvent(Events.TABLE_CREATE, { async: true })
+  @OnEvent(Events.DASHBOARD_CREATE, { async: true })
+  @OnEvent(Events.WORKFLOW_CREATE, { async: true })
+  @OnEvent(Events.APP_CREATE, { async: true })
   async onResourceCreate(event: IResourceCreateEvent) {
     const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
 
@@ -142,11 +142,11 @@ export class BaseNodeListener {
     };
   }
 
-  @OnEvent(Events.BASE_FOLDER_UPDATE)
-  @OnEvent(Events.TABLE_UPDATE)
-  @OnEvent(Events.DASHBOARD_UPDATE)
-  @OnEvent(Events.WORKFLOW_UPDATE)
-  @OnEvent(Events.APP_UPDATE)
+  @OnEvent(Events.BASE_FOLDER_UPDATE, { async: true })
+  @OnEvent(Events.TABLE_UPDATE, { async: true })
+  @OnEvent(Events.DASHBOARD_UPDATE, { async: true })
+  @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
+  @OnEvent(Events.APP_UPDATE, { async: true })
   async onResourceUpdate(event: IResourceUpdateEvent) {
     const { baseId, resourceType, resourceId } = this.prepareResourceUpdate(event);
     if (baseId && resourceType && resourceId) {
@@ -206,12 +206,12 @@ export class BaseNodeListener {
     };
   }
 
-  @OnEvent(Events.BASE_DELETE)
-  @OnEvent(Events.BASE_FOLDER_DELETE)
-  @OnEvent(Events.TABLE_DELETE)
-  @OnEvent(Events.DASHBOARD_DELETE)
-  @OnEvent(Events.WORKFLOW_DELETE)
-  @OnEvent(Events.APP_DELETE)
+  @OnEvent(Events.BASE_DELETE, { async: true })
+  @OnEvent(Events.BASE_FOLDER_DELETE, { async: true })
+  @OnEvent(Events.TABLE_DELETE, { async: true })
+  @OnEvent(Events.DASHBOARD_DELETE, { async: true })
+  @OnEvent(Events.WORKFLOW_DELETE, { async: true })
+  @OnEvent(Events.APP_DELETE, { async: true })
   async onResourceDelete(event: IResourceDeleteEvent) {
     const { baseId, resourceType, resourceId } = this.prepareResourceDelete(event);
     if (!baseId) {
