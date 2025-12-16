@@ -7,7 +7,7 @@
   },
   "allSpaces": "Tous les espaces",
   "emptySpaceTitle": "Aucune base dans cet espace",
-  "spaceIsEmpty": "Créez une base de données dès maintenant pour commencer votre parcours de gestion efficace des données",
+  "spaceIsEmpty": "Créez votre première base pour commencer",
   "baseModal": {
     "copy": "Copier",
     "duplicate": "Dupliquer \"{{baseName}}\"",

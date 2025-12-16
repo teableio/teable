@@ -1,7 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { hasPermission } from '@teable/core';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { getUniqName, hasPermission } from '@teable/core';
 import { Home, Plus, Settings, Trash2 } from '@teable/icons';
-import { getSpaceById } from '@teable/openapi';
+import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
 import { Button } from '@teable/ui-lib/shadcn/ui/button';
@@ -9,8 +9,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { CreateBaseModalTrigger } from '@/features/app/components/space/CreateBaseModal';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { useBaseList } from '../useBaseList';
 import { PinList } from './PinList';
 
 export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
@@ -24,6 +24,25 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
     enabled: !!spaceId,
   });
+
+  const allBases = useBaseList();
+  const bases = allBases?.filter((base) => base.spaceId === spaceId);
+
+  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+    mutationFn: createBase,
+    onSuccess: ({ data }) => {
+      router.push({
+        pathname: '/base/[baseId]',
+        query: { baseId: data.id },
+      });
+    },
+  });
+
+  const handleCreateBase = () => {
+    if (!spaceId) return;
+    const name = getUniqName(t('common:noun.base'), bases?.map((base) => base.name) || []);
+    createBaseMutator({ spaceId, name });
+  };
 
   const pageRoutes: {
     href: string;
@@ -56,12 +75,16 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
       <div className="flex flex-col justify-center px-2">
         {space && (
           <div className="p-2">
-            <CreateBaseModalTrigger spaceId={space.id}>
-              <Button variant={'outline'} size={'sm'} className="w-full" disabled={!canCreateBase}>
-                <Plus className="size-4 shrink-0" />
-                {t('space:action.createBase')}
-              </Button>
-            </CreateBaseModalTrigger>
+            <Button
+              variant={'outline'}
+              size={'sm'}
+              className="w-full"
+              disabled={!canCreateBase || createBaseLoading}
+              onClick={handleCreateBase}
+            >
+              <Plus className="size-4 shrink-0" />
+              {t('space:action.createBase')}
+            </Button>
           </div>
         )}
         <ul className="py-1">

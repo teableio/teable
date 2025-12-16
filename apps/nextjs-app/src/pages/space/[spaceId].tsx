@@ -1,4 +1,5 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
+import { Role } from '@teable/core';
 import { ReactQueryKeys } from '@teable/sdk';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
@@ -17,17 +18,37 @@ export const getServerSideProps: GetServerSideProps = withEnv(
     withAuthSSR(async (context, ssrApi) => {
       const { spaceId } = context.query;
       const queryClient = new QueryClient();
-      await Promise.all([
+
+      // Fetch space info and base list first to check if auto-creation is needed
+      const [space, baseList] = await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.space(spaceId as string),
           queryFn: ({ queryKey }) => ssrApi.getSpaceById(queryKey[1]),
         }),
-
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.baseAll(),
           queryFn: () => ssrApi.getBaseList(),
         }),
+      ]);
 
+      // Check if user is owner and space has no bases
+      const basesInSpace = baseList.filter((base) => base.spaceId === spaceId);
+      const isOwner = space.role === Role.Owner;
+
+      // If owner enters an empty space, auto-create a base and redirect
+      if (isOwner && basesInSpace.length === 0) {
+        const newBase = await ssrApi.createBase({
+          spaceId: spaceId as string,
+        });
+        return {
+          redirect: {
+            destination: `/base/${newBase.id}`,
+            permanent: false,
+          },
+        };
+      }
+
+      await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId as string, {
             skip: 0,

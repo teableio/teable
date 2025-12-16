@@ -7,7 +7,7 @@
   },
   "allSpaces": "所有空间",
   "emptySpaceTitle": "此空间暂无数据库",
-  "spaceIsEmpty": "立即创建一个数据库，开启高效的数据管理之旅",
+  "spaceIsEmpty": "创建您的第一个数据库开始使用",
   "baseModal": {
     "copy": "副本",
     "duplicate": "复制 \"{{baseName}}\"",

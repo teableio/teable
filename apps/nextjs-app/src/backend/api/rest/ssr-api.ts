@@ -33,9 +33,12 @@ import type {
   IUserLastVisitBaseNodeVo,
   IGetUserLastVisitBaseNodeRo,
   IBaseNodeListVo,
+  ICreateBaseRo,
+  ICreateBaseVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
+  CREATE_BASE,
   GET_BASE,
   GET_BASE_ALL,
   GET_DASHBOARD,
@@ -292,5 +295,9 @@ export class SsrApi {
     return this.axios
       .get<IUserLastVisitListBaseVo>(GET_USER_LAST_VISIT_LIST_BASE)
       .then(({ data }) => data);
+  }
+
+  async createBase(createBaseRo: ICreateBaseRo) {
+    return this.axios.post<ICreateBaseVo>(CREATE_BASE, createBaseRo).then(({ data }) => data);
   }
 }

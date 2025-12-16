@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Role } from '@teable/core';
+import { getUniqName, hasPermission, Role } from '@teable/core';
+import { Plus } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import {
+  createBase,
   PinType,
   deleteSpace,
   getSpaceById,
@@ -12,6 +14,7 @@ import {
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { cn, ScrollArea } from '@teable/ui-lib/shadcn';
+import { Button } from '@teable/ui-lib/shadcn/ui/button';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -87,6 +90,23 @@ export const SpaceInnerPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ReactQueryKeys.space(spaceId) });
     },
   });
+
+  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+    mutationFn: createBase,
+    onSuccess: ({ data }) => {
+      router.push({
+        pathname: '/base/[baseId]',
+        query: { baseId: data.id },
+      });
+    },
+  });
+
+  const handleCreateBase = () => {
+    const name = getUniqName(t('common:noun.base'), basesInSpace?.map((base) => base.name) || []);
+    createBaseMutator({ spaceId, name });
+  };
+
+  const canCreateBase = space && hasPermission(space.role, 'base|create');
 
   useEffect(() => setSpaceName(space?.name), [renaming, space?.name]);
 
@@ -192,14 +212,14 @@ export const SpaceInnerPage: React.FC = () => {
             {basesInSpace?.length ? (
               <BaseList baseIds={basesInSpace.map((base) => base.id)} />
             ) : (
-              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4">
                 <Image
                   src={
                     isDark
                       ? '/images/layout/empty-base-dark.png'
                       : '/images/layout/empty-base-light.png'
                   }
-                  alt="No roles available"
+                  alt="No bases available"
                   width={240}
                   height={240}
                 />
@@ -209,6 +229,12 @@ export const SpaceInnerPage: React.FC = () => {
                   </p>
                   <p className="text-sm text-muted-foreground">{t('space:spaceIsEmpty')}</p>
                 </div>
+                {canCreateBase && (
+                  <Button onClick={handleCreateBase} disabled={createBaseLoading}>
+                    <Plus className="size-4" />
+                    {t('space:action.createBase')}
+                  </Button>
+                )}
               </div>
             )}
           </div>

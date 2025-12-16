@@ -6,8 +6,8 @@
     "invite": "Invite"
   },
   "allSpaces": "All spaces",
-  "emptySpaceTitle": "No databases in this space",
-  "spaceIsEmpty": "Create one database now to start your efficient data management journey",
+  "emptySpaceTitle": "No bases in this space",
+  "spaceIsEmpty": "Create your first base to start",
   "baseModal": {
     "copy": "Copy",
     "duplicate": "Duplicate \"{{baseName}}\"",
