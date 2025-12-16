@@ -1,14 +1,9 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import type {
-  INumberFieldOptions,
-  IDateFieldOptions,
-  DateFormattingPreset,
-  FieldCore,
-} from '@teable/core';
+import type { INumberFieldOptions, IDateFieldOptions, FieldCore } from '@teable/core';
+import { DateFormattingPreset, TimeFormatting } from '@teable/core';
 import type { Knex } from 'knex';
 import type { IRecordQueryGroupContext } from '../../features/record/query-builder/record-query-builder.interface';
 import { isUserOrLink } from '../../utils/is-user-or-link';
-import { getPostgresDateTimeFormatString } from './format-string';
 import { AbstractGroupQuery } from './group-query.abstract';
 import type { IGroupQueryExtra } from './group-query.interface';
 
@@ -56,20 +51,37 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     return this.originQueryBuilder.select(column).groupBy(groupByColumn);
   }
 
+  private resolveDateTruncUnit(
+    datePreset: DateFormattingPreset,
+    time: TimeFormatting
+  ): 'year' | 'month' | 'day' | 'minute' {
+    switch (datePreset) {
+      case DateFormattingPreset.Y:
+        return 'year';
+      case DateFormattingPreset.M:
+      case DateFormattingPreset.YM:
+        return 'month';
+      default:
+        return time !== TimeFormatting.None ? 'minute' : 'day';
+    }
+  }
+
   date(field: FieldCore): Knex.QueryBuilder {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
-    const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
+    const unit = this.resolveDateTruncUnit(date as DateFormattingPreset, time);
+    const dbFieldAlias = field.dbFieldName.replace(/"/g, '""');
 
-    const column = this.knex.raw(
-      `TO_CHAR(TIMEZONE(?, ${columnName}), ?) as "${field.dbFieldName}"`,
-      [timeZone, formatString]
-    );
-    const groupByColumn = this.knex.raw(`TO_CHAR(TIMEZONE(?, ${columnName}), ?)`, [
-      timeZone,
-      formatString,
-    ]);
+    // Use timestamptz group keys:
+    // 1) Convert to local timestamp via TIMEZONE(tz, timestamptz)
+    // 2) DATE_TRUNC in local time
+    // 3) Convert back to timestamptz via TIMEZONE(tz, timestamp)
+    const groupExpr = `TIMEZONE(?, DATE_TRUNC(?, TIMEZONE(?, ${columnName})))`;
+    const bindings = [timeZone, unit, timeZone] as const;
+
+    const column = this.knex.raw(`${groupExpr} as "${dbFieldAlias}"`, bindings);
+    const groupByColumn = this.knex.raw(groupExpr, bindings);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -131,21 +143,25 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const columnName = this.getTableColumnName(field);
     const { options } = field;
     const { date, time, timeZone } = (options as IDateFieldOptions).formatting;
-    const formatString = getPostgresDateTimeFormatString(date as DateFormattingPreset, time);
+    const unit = this.resolveDateTruncUnit(date as DateFormattingPreset, time);
+    const dbFieldAlias = field.dbFieldName.replace(/"/g, '""');
+
+    const elemExpr = `TIMEZONE(?, DATE_TRUNC(?, TIMEZONE(?, CAST(elem AS timestamp with time zone))))`;
+    const elemBindings = [timeZone, unit, timeZone] as const;
 
     const column = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
-      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as "${field.dbFieldName}"
+      (SELECT to_jsonb(array_agg(${elemExpr}))
+      FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as "${dbFieldAlias}"
       `,
-      [timeZone, formatString]
+      elemBindings
     );
     const groupByColumn = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(TO_CHAR(TIMEZONE(?, CAST(elem AS timestamp with time zone)), ?)))
+      (SELECT to_jsonb(array_agg(${elemExpr}))
       FROM jsonb_array_elements_text(${columnName}::jsonb) as elem)
       `,
-      [timeZone, formatString]
+      elemBindings
     );
 
     if (this.isDistinct) {
