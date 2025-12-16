@@ -29,6 +29,10 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           queryKey: ReactQueryKeys.baseAll(),
           queryFn: () => ssrApi.getBaseList(),
         }),
+        queryClient.fetchQuery({
+          queryKey: ReactQueryKeys.recentlyBase(),
+          queryFn: () => ssrApi.getRecentlyBase(),
+        }),
       ]);
 
       // Check if user is owner and space has no bases

@@ -25,6 +25,7 @@ import AddBoldIcon from '@teable/ui-lib/icons/app/add-bold.svg';
 import { Button, cn, Input, Skeleton } from '@teable/ui-lib/shadcn';
 import { ScrollArea, ScrollBar } from '@teable/ui-lib/shadcn/ui/scroll-area';
 import { Tree, TreeDragLine, TreeItem, TreeItemLabel } from '@teable/ui-lib/src/shadcn/ui/tree';
+import { ChevronDownIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -51,7 +52,7 @@ import { BaseNodeAddResourceButton } from './BaseNodeAddResourceButton';
 import { BaseNodeMore } from './BaseNodeMore';
 import { BaseNodeStarButton } from './BaseNodeStarButton';
 
-const INDENTATION_WIDTH = 16;
+const INDENTATION_WIDTH = 24;
 const SCROLL_EDGE_THRESHOLD = 60; // pixels from edge to trigger scroll
 const SCROLL_MAX_SPEED = 15; // max pixels per frame
 
@@ -549,7 +550,9 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     const icon = getNodeIcon(data);
     const isFolder = item.isFolder();
     if (isFolder) {
-      return <IconComponent className="size-4 shrink-0" />;
+      return (
+        <ChevronDownIcon className="size-4 text-muted-foreground group-aria-[expanded=false]:-rotate-90" />
+      );
     }
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events

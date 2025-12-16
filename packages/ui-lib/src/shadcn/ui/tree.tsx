@@ -146,7 +146,6 @@ function TreeItemLabel<T = any>({
       data-search-match={isSearchMatch ? 'true' : undefined}
       className={cn(
         'flex items-center gap-1 rounded-md border border-transparent px-2 py-1 text-sm transition-colors hover:bg-accent group-focus-visible:ring-[3px] group-focus-visible:ring-ring/50 [&_svg]:pointer-events-none [&_svg]:shrink-0',
-        !isFolder && 'ps-7',
         isDragTarget && 'border-dashed border-foreground bg-foreground/[0.06]',
         isSearchMatch && 'bg-blue-400/20',
         isSelected && 'bg-accent text-accent-foreground',
@@ -154,9 +153,6 @@ function TreeItemLabel<T = any>({
       )}
       {...props}
     >
-      {item.isFolder() && (
-        <ChevronDownIcon className="size-4 text-muted-foreground group-aria-[expanded=false]:-rotate-90" />
-      )}
       {children || (typeof item.getItemName === 'function' ? item.getItemName() : null)}
     </span>
   );
