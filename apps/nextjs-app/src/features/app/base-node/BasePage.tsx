@@ -10,7 +10,7 @@ export const getBaseServerSideProps = async (ctx: ISSRContext): Promise<SSRResul
     ssrApi.getBaseNodeList(baseId),
   ]);
 
-  const findNode = nodes.find((n) => n.resourceId === lastVisitNode?.resourceId);
+  const findNode = nodes.find((n) => n.resourceId === lastVisitNode?.resourceId) ?? nodes[0];
   if (findNode) {
     const url = getNodeUrl({
       baseId,
