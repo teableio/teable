@@ -297,13 +297,10 @@ export class BaseNodeListener {
     };
   }
 
-  private presenceHandler<
-    T =
-      | IBaseNodePresenceFlushPayload
-      | IBaseNodePresenceCreatePayload
-      | IBaseNodePresenceUpdatePayload
-      | IBaseNodePresenceDeletePayload,
-  >(baseId: string, handler: (presence: LocalPresence<T>) => void) {
+  private presenceHandler<T = IBaseNodePresenceFlushPayload>(
+    baseId: string,
+    handler: (presence: LocalPresence<T>) => void
+  ) {
     this.performanceCacheService.del(generateBaseNodeListCacheKey(baseId));
     // Skip if ShareDB connection is already closed (e.g., during shutdown)
     if (this.shareDbService.shareDbAdapter.closed) {

@@ -40,7 +40,6 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
   const { mutateAsync: createNodeFn } = useMutation({
     mutationFn: (ro: ICreateBaseNodeRo) => createBaseNode(baseId, ro).then((res) => res.data),
     onSuccess: (node) => {
-      invalidateMenu();
       props?.onCreateSuccess?.(node);
     },
   });
@@ -49,7 +48,6 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IUpdateBaseNodeRo }) =>
       updateBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => {
-      invalidateMenu();
       props?.onUpdateSuccess?.(node);
     },
     onError: (error, variables) => {
@@ -62,7 +60,6 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IDuplicateBaseNodeRo }) =>
       duplicateBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => {
-      invalidateMenu();
       props?.onDuplicateSuccess?.(node);
     },
   });
@@ -71,7 +68,6 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, ro }: { nodeId: string; ro: IMoveBaseNodeRo }) =>
       moveBaseNode(baseId, nodeId, ro).then((res) => res.data),
     onSuccess: (node) => {
-      invalidateMenu();
       props?.onMoveSuccess?.(node);
     },
     onError: (error, variables) => {
@@ -84,7 +80,6 @@ export const useBaseNodeCrud = (props?: IUseBaseNodeCrudOptions) => {
     mutationFn: ({ nodeId, permanent }: { nodeId: string; permanent?: boolean }) =>
       permanent ? permanentDeleteBaseNode(baseId, nodeId) : deleteBaseNode(baseId, nodeId),
     onSuccess: (_, { nodeId }) => {
-      invalidateMenu();
       props?.onDeleteSuccess?.(nodeId);
     },
   });

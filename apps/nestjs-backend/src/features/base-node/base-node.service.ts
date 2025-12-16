@@ -550,6 +550,8 @@ export class BaseNodeService {
   }
 
   async update(baseId: string, nodeId: string, ro: IUpdateBaseNodeRo) {
+    this.setBaseNodeApi();
+
     const node = await this.prismaService.baseNode
       .findFirstOrThrow({
         where: { baseId, id: nodeId },
@@ -620,6 +622,8 @@ export class BaseNodeService {
   }
 
   async delete(baseId: string, nodeId: string, permanent?: boolean) {
+    this.setBaseNodeApi();
+
     const node = await this.prismaService.baseNode
       .findFirstOrThrow({
         where: { baseId, id: nodeId },
@@ -702,6 +706,8 @@ export class BaseNodeService {
   }
 
   async move(baseId: string, nodeId: string, ro: IMoveBaseNodeRo): Promise<IBaseNodeVo> {
+    this.setBaseNodeApi();
+
     const { parentId, anchorId, position } = ro;
 
     const node = await this.prismaService.baseNode
@@ -1080,7 +1086,6 @@ export class BaseNodeService {
 
   private presenceHandler<
     T =
-      | IBaseNodePresenceFlushPayload
       | IBaseNodePresenceCreatePayload
       | IBaseNodePresenceUpdatePayload
       | IBaseNodePresenceDeletePayload,

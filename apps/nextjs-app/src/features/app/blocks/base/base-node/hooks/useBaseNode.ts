@@ -87,7 +87,11 @@ export const useBaseNode = (baseId: string) => {
       if (!isEmpty(remotePresences)) {
         const remotePayload = get(remotePresences, channel);
         if (remotePayload) {
-          setShouldInvalidate((prev) => prev + 1);
+          if (remotePayload.event === 'flush') {
+            setShouldInvalidate((prev) => prev + 1);
+          } else {
+            invalidateMenu();
+          }
         }
       }
     };
@@ -99,7 +103,7 @@ export const useBaseNode = (baseId: string) => {
       presence?.listenerCount('receive') === 0 && presence?.unsubscribe();
       presence?.listenerCount('receive') === 0 && presence?.destroy();
     };
-  }, [connection, presence, channel, setNodes]);
+  }, [connection, presence, channel, setNodes, invalidateMenu]);
 
   return useMemo(() => {
     return {
