@@ -327,7 +327,9 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
     }
   };
 
-  const codeBg = isLightTheme ? 'bg-slate-100' : 'bg-gray-900';
+  const codeBg = isLightTheme
+    ? 'bg-input'
+    : 'bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]';
 
   const normalContent = (
     <div className="flex h-[360px] w-full">
@@ -336,7 +338,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
           <>
             {filteredFields.length > 0 && (
               <div>
-                <h3 className="text- py-1 pl-2 text-[13px] font-semibold text-slate-500">
+                <h3 className="text- py-1 pl-2 text-[13px] font-semibold text-muted-foreground">
                   {t('functionType.fields')}
                 </h3>
                 {filteredFields.map((result, index: number) => {
@@ -354,7 +356,7 @@ export const FormulaEditor: FC<IFormulaEditorProps> = (props) => {
                       ref={isSuggestionItem ? suggestionItemRef : null}
                       className={cn(
                         'flex items-center px-2 py-[6px] w-full cursor-pointer text-sm',
-                        isSuggestionItem ? codeBg : 'bg-transparent'
+                        isSuggestionItem ? 'bg-accent' : 'bg-transparent'
                       )}
                       onClick={onItemClick}
                       onMouseEnter={() => setSuggestionItemIndex(index)}
