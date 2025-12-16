@@ -34,6 +34,7 @@ import { Emoji } from '@/features/app/components/emoji/Emoji';
 import { EmojiPicker } from '@/features/app/components/emoji/EmojiPicker';
 import { useBaseResource } from '@/features/app/hooks/useBaseResource';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
+import { useIsCommunity } from '@/features/app/hooks/useIsCommunity';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { usePinMap } from '../../space/usePinMap';
 import { useTableHref } from '../../table-list/useTableHref';
@@ -139,10 +140,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const { buildApp: buildAppEnabled } = useDisableAIAction();
   const { disallowDashboard } = useSetting();
   const pinMap = usePinMap();
+  const isCommunity = useIsCommunity();
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
-  const canCreateWorkflow = Boolean(permission?.['automation|create']);
-  const canCreateApp = Boolean(buildAppEnabled && permission?.['base|update']);
+  const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
+  const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['base|update']);
   const canCreateFolder = Boolean(permission?.['base|update']);
 
   const canCreateResource =
