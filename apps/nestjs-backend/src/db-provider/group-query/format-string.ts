@@ -23,6 +23,6 @@ export const getSqliteDateTimeFormatString = (date: DateFormattingPreset, time: 
     case DateFormattingPreset.YM:
       return '%Y-%m';
     default:
-      return time !== TimeFormatting.None ? '%Y-%m-%d-%H-%M' : '%Y-%m-%d';
+      return time !== TimeFormatting.None ? '%Y-%m-%d %H:%M' : '%Y-%m-%d';
   }
 };
