@@ -63,7 +63,7 @@ export class BaseNodeService {
     private readonly shareDbService: ShareDbService,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
-    private readonly cls: ClsService<IClsStore>,
+    private readonly cls: ClsService<IClsStore & { baseNodeApi?: boolean }>,
     private readonly baseNodeFolderService: BaseNodeFolderService,
     private readonly tableOpenApiService: TableOpenApiService,
     private readonly tableDuplicateService: TableDuplicateService,
@@ -72,6 +72,10 @@ export class BaseNodeService {
 
   private get userId() {
     return this.cls.get('user.id');
+  }
+
+  private setBaseNodeApi() {
+    this.cls.set('baseNodeApi', true);
   }
 
   private getSelect() {
@@ -326,8 +330,9 @@ export class BaseNodeService {
   }
 
   async create(baseId: string, ro: ICreateBaseNodeRo): Promise<IBaseNodeVo> {
-    const { resourceType, parentId } = ro;
+    this.setBaseNodeApi();
 
+    const { resourceType, parentId } = ro;
     const resource = await this.createResource(baseId, ro);
     const resourceId = resource.id;
 
@@ -345,7 +350,15 @@ export class BaseNodeService {
       select: this.getSelect(),
     });
 
-    return this.entry2vo(entry, omit(resource, 'id'));
+    const vo = await this.entry2vo(entry, omit(resource, 'id'));
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'create',
+        data: { ...vo },
+      });
+    });
+
+    return vo;
   }
 
   protected async createResource(
@@ -406,6 +419,8 @@ export class BaseNodeService {
   }
 
   async duplicate(baseId: string, nodeId: string, ro: IDuplicateBaseNodeRo) {
+    this.setBaseNodeApi();
+
     const anchor = await this.prismaService.baseNode
       .findFirstOrThrow({
         where: { baseId, id: nodeId },
@@ -433,7 +448,6 @@ export class BaseNodeService {
       resourceId,
       ro
     );
-
     const { entry } = await this.prismaService.$tx(async (prisma) => {
       const maxOrder = await this.getMaxOrder(baseId, anchor.parentId);
       const newNodeId = generateBaseNodeId();
@@ -483,7 +497,14 @@ export class BaseNodeService {
       };
     });
 
-    return this.entry2vo(entry, omit(resource, 'id'));
+    const vo = await this.entry2vo(entry, omit(resource, 'id'));
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'create',
+        data: { ...vo },
+      });
+    });
+    return vo;
   }
 
   protected async duplicateResource(
@@ -549,7 +570,14 @@ export class BaseNodeService {
       ro
     );
 
-    return this.entry2vo(node);
+    const vo = await this.entry2vo(node);
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'update',
+        data: { ...vo },
+      });
+    });
+    return vo;
   }
 
   protected async updateResource(
@@ -631,6 +659,12 @@ export class BaseNodeService {
       where: { id: nodeId },
     });
 
+    this.presenceHandler(baseId, (presence) => {
+      presence.submit({
+        event: 'delete',
+        data: { id: nodeId },
+      });
+    });
     return node;
   }
 

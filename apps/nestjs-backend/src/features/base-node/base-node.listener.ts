@@ -8,6 +8,7 @@ import type {
   IBaseNodePresenceUpdatePayload,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
+import { ClsService } from 'nestjs-cls';
 import type { LocalPresence } from 'sharedb/lib/client';
 import type {
   BaseFolderUpdateEvent,
@@ -38,6 +39,7 @@ import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-k
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
+import type { IClsStore } from '../../types/cls';
 import { presenceHandler } from './helper';
 
 type IResourceCreateEvent =
@@ -69,8 +71,13 @@ export class BaseNodeListener {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
-    private readonly shareDbService: ShareDbService
+    private readonly shareDbService: ShareDbService,
+    private readonly cls: ClsService<IClsStore & { baseNodeApi?: boolean }>
   ) {}
+
+  private getBaseNodeApi() {
+    return this.cls.get('baseNodeApi');
+  }
 
   @OnEvent(Events.BASE_FOLDER_CREATE, { async: true })
   @OnEvent(Events.TABLE_CREATE, { async: true })
@@ -78,8 +85,12 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_CREATE, { async: true })
   @OnEvent(Events.APP_CREATE, { async: true })
   async onResourceCreate(event: IResourceCreateEvent) {
-    const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
+    const baseNodeApi = this.getBaseNodeApi();
+    if (baseNodeApi) {
+      return;
+    }
 
+    const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
     if (!baseId || !resourceType || !resourceId) {
       this.logger.error('Invalid resource create event', event);
       return;
@@ -148,6 +159,11 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_UPDATE, { async: true })
   @OnEvent(Events.APP_UPDATE, { async: true })
   async onResourceUpdate(event: IResourceUpdateEvent) {
+    const baseNodeApi = this.getBaseNodeApi();
+    if (baseNodeApi) {
+      return;
+    }
+
     const { baseId, resourceType, resourceId } = this.prepareResourceUpdate(event);
     if (baseId && resourceType && resourceId) {
       this.presenceHandler(baseId, (presence) => {
@@ -213,6 +229,11 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_DELETE, { async: true })
   @OnEvent(Events.APP_DELETE, { async: true })
   async onResourceDelete(event: IResourceDeleteEvent) {
+    const baseNodeApi = this.getBaseNodeApi();
+    if (baseNodeApi) {
+      return;
+    }
+
     const { baseId, resourceType, resourceId } = this.prepareResourceDelete(event);
     if (!baseId) {
       return;
