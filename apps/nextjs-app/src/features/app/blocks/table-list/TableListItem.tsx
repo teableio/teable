@@ -116,7 +116,7 @@ export const TableListItem: React.FC<IProps> = ({
           style={{
             boxShadow: 'none',
           }}
-          className="round-none absolute left-0 top-0 size-full cursor-text bg-background px-4 outline-none dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
+          className="round-none absolute left-0 top-0 size-full cursor-text px-4 outline-none"
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               if (e.currentTarget.value && e.currentTarget.value !== table.name) {

@@ -62,7 +62,7 @@ export const TableInfo: React.FC<{ className?: string }> = ({ className }) => {
             style={{
               boxShadow: 'none',
             }}
-            className="round-none absolute left-[-2px] top-0 size-full cursor-text bg-background px-2 outline-none dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]"
+            className="round-none absolute left-[-2px] top-0 size-full cursor-text px-2 outline-none"
             // eslint-disable-next-line jsx-a11y/no-autofocus
             autoFocus
             onBlur={(e) => {
