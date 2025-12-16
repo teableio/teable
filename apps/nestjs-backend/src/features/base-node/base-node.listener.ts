@@ -1,8 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
-import { generateBaseNodeId, ANONYMOUS_USER_ID, getBaseNodeChannel } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Prisma } from '@teable/db-main-prisma';
 import type {
   IBaseNodePresenceCreatePayload,
   IBaseNodePresenceDeletePayload,
@@ -10,8 +8,6 @@ import type {
   IBaseNodePresenceUpdatePayload,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { Knex } from 'knex';
-import { InjectModel } from 'nest-knexjs';
 import type { LocalPresence } from 'sharedb/lib/client';
 import type {
   BaseFolderUpdateEvent,
@@ -42,7 +38,7 @@ import { generateBaseNodeListCacheKey } from '../../performance-cache/generate-k
 import { PerformanceCacheService } from '../../performance-cache/service';
 import type { IPerformanceCacheStore } from '../../performance-cache/types';
 import { ShareDbService } from '../../share-db/share-db.service';
-import { buildBatchUpdateSql, presenceHandler } from './helper';
+import { presenceHandler } from './helper';
 
 type IResourceCreateEvent =
   | BaseFolderCreateEvent
@@ -72,7 +68,6 @@ export class BaseNodeListener {
 
   constructor(
     private readonly prismaService: PrismaService,
-    @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
     private readonly shareDbService: ShareDbService
   ) {}
@@ -83,34 +78,12 @@ export class BaseNodeListener {
   @OnEvent(Events.WORKFLOW_CREATE)
   @OnEvent(Events.APP_CREATE)
   async onResourceCreate(event: IResourceCreateEvent) {
-    const { baseId, resourceType, resourceId, userId } = this.prepareResourceCreate(event);
+    const { baseId, resourceType, resourceId } = this.prepareResourceCreate(event);
 
     if (!baseId || !resourceType || !resourceId) {
       this.logger.error('Invalid resource create event', event);
       return;
     }
-
-    const createNode = async (prisma: PrismaService) => {
-      const findNode = await prisma.baseNode.findFirst({
-        where: { baseId, resourceType, resourceId },
-      });
-      if (findNode) {
-        return;
-      }
-      const maxOrder = await this.getMaxOrder(baseId);
-      await prisma.baseNode.create({
-        data: {
-          id: generateBaseNodeId(),
-          baseId,
-          resourceType,
-          resourceId,
-          parentId: null,
-          order: maxOrder + 1,
-          createdBy: userId || ANONYMOUS_USER_ID,
-        },
-      });
-    };
-    await createNode(this.prismaService);
 
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
@@ -255,35 +228,6 @@ export class BaseNodeListener {
       return;
     }
 
-    const deleteNode = async (prisma: Prisma.TransactionClient) => {
-      const toDeleteNode = await prisma.baseNode.findFirst({
-        where: { baseId, resourceType, resourceId },
-      });
-      if (!toDeleteNode) {
-        return;
-      }
-      await prisma.baseNode.deleteMany({
-        where: { id: toDeleteNode.id },
-      });
-      const maxOrder = await this.getMaxOrder(baseId);
-      const orphans = await prisma.baseNode.findMany({
-        where: { baseId, parentId: toDeleteNode.parentId },
-        select: { id: true, order: true },
-      });
-      if (orphans.length > 0) {
-        await this.batchUpdateBaseNodes(
-          orphans.map((orphan) => ({
-            id: orphan.id,
-            values: {
-              parentId: null,
-              order: maxOrder + orphan.order + 1,
-            },
-          }))
-        );
-      }
-    };
-    await deleteNode(this.prismaService);
-
     this.presenceHandler(baseId, (presence) => {
       presence.submit({
         event: 'flush',
@@ -346,23 +290,5 @@ export class BaseNodeListener {
       return;
     }
     presenceHandler(baseId, this.shareDbService, handler);
-  }
-
-  private async getMaxOrder(baseId: string, parentId?: string | null) {
-    const prisma = this.prismaService.txClient();
-    const aggregate = await prisma.baseNode.aggregate({
-      where: { baseId, parentId },
-      _max: { order: true },
-    });
-
-    return aggregate._max.order ?? 0;
-  }
-
-  private async batchUpdateBaseNodes(data: { id: string; values: { [key: string]: unknown } }[]) {
-    const sql = buildBatchUpdateSql(this.knex, data);
-    if (!sql) {
-      return;
-    }
-    await this.prismaService.$executeRawUnsafe(sql);
   }
 }

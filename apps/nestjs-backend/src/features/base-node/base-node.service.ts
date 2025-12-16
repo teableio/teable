@@ -328,28 +328,21 @@ export class BaseNodeService {
   async create(baseId: string, ro: ICreateBaseNodeRo): Promise<IBaseNodeVo> {
     const { resourceType, parentId } = ro;
 
-    const { entry, resource } = await this.prismaService.$tx(async (prisma) => {
-      const resource = await this.createResource(baseId, ro);
-      const resourceId = resource.id;
+    const resource = await this.createResource(baseId, ro);
+    const resourceId = resource.id;
 
-      const maxOrder = await this.getMaxOrder(baseId);
-      const entry = await prisma.baseNode.create({
-        data: {
-          id: generateBaseNodeId(),
-          baseId,
-          resourceType,
-          resourceId,
-          order: maxOrder + 1,
-          parentId,
-          createdBy: this.userId,
-        },
-        select: this.getSelect(),
-      });
-
-      return {
-        entry,
-        resource,
-      };
+    const maxOrder = await this.getMaxOrder(baseId);
+    const entry = await this.prismaService.baseNode.create({
+      data: {
+        id: generateBaseNodeId(),
+        baseId,
+        resourceType,
+        resourceId,
+        order: maxOrder + 1,
+        parentId,
+        createdBy: this.userId,
+      },
+      select: this.getSelect(),
     });
 
     return this.entry2vo(entry, omit(resource, 'id'));
@@ -434,14 +427,14 @@ export class BaseNodeService {
       });
     }
 
-    const { entry, resource } = await this.prismaService.$tx(async (prisma) => {
-      const resource = await this.duplicateResource(
-        baseId,
-        resourceType as BaseNodeResourceType,
-        resourceId,
-        ro
-      );
+    const resource = await this.duplicateResource(
+      baseId,
+      resourceType as BaseNodeResourceType,
+      resourceId,
+      ro
+    );
 
+    const { entry } = await this.prismaService.$tx(async (prisma) => {
       const maxOrder = await this.getMaxOrder(baseId, anchor.parentId);
       const newNodeId = generateBaseNodeId();
       const entry = await prisma.baseNode.create({
@@ -487,7 +480,6 @@ export class BaseNodeService {
 
       return {
         entry,
-        resource,
       };
     });
 
@@ -550,14 +542,12 @@ export class BaseNodeService {
         });
       });
 
-    await this.prismaService.$tx(async () => {
-      await this.updateResource(
-        baseId,
-        node.resourceType as BaseNodeResourceType,
-        node.resourceId,
-        ro
-      );
-    });
+    await this.updateResource(
+      baseId,
+      node.resourceType as BaseNodeResourceType,
+      node.resourceId,
+      ro
+    );
 
     return this.entry2vo(node);
   }
@@ -631,16 +621,14 @@ export class BaseNodeService {
       }
     }
 
-    await this.prismaService.$tx(async (prisma) => {
-      await this.deleteResource(
-        baseId,
-        node.resourceType as BaseNodeResourceType,
-        node.resourceId,
-        permanent
-      );
-      await prisma.baseNode.delete({
-        where: { id: nodeId },
-      });
+    await this.deleteResource(
+      baseId,
+      node.resourceType as BaseNodeResourceType,
+      node.resourceId,
+      permanent
+    );
+    await this.prismaService.baseNode.delete({
+      where: { id: nodeId },
     });
 
     return node;
