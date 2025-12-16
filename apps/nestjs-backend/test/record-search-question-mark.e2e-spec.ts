@@ -8,6 +8,7 @@ describe('Record search with question mark (e2e)', () => {
   const baseId = globalThis.testConfig.baseId;
   let tableId: string | undefined;
   let viewId: string | undefined;
+  let urlFieldId: string | undefined;
 
   const urlField = { name: 'url', type: FieldType.SingleLineText };
   const urlWithQuestionMark = 'https://example.com/path?param=value';
@@ -27,6 +28,7 @@ describe('Record search with question mark (e2e)', () => {
 
     tableId = table.id;
     viewId = table.views?.[0]?.id;
+    urlFieldId = table.fields?.find((f) => f.name === urlField.name)?.id;
   });
 
   afterAll(async () => {
@@ -46,5 +48,8 @@ describe('Record search with question mark (e2e)', () => {
 
     expect(res.status).toBe(200);
     expect(res.data.records).toHaveLength(1);
+    expect(res.data.extra?.searchHitIndex).toEqual([
+      { fieldId: urlFieldId, recordId: res.data.records[0].id },
+    ]);
   });
 });
