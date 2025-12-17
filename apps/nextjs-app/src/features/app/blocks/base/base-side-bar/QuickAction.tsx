@@ -112,7 +112,7 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
                       }}
                     >
                       {icon ? (
-                        <Emoji emoji={icon} size={'1rem'} />
+                        <Emoji emoji={icon} size="1rem" className="size-4 shrink-0" />
                       ) : IconComponent ? (
                         <IconComponent className="size-4 shrink-0" />
                       ) : null}
