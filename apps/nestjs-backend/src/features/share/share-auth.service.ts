@@ -88,7 +88,7 @@ export class ShareAuthService {
     };
   }
 
-  async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
+  async getLinkViewInfo(linkFieldId: string, templateHeader?: string): Promise<IShareViewInfo> {
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
         where: {
@@ -121,7 +121,22 @@ export class ShareAuthService {
       );
     }
 
-    if (isAnonymous(this.cls.get('user.id'))) {
+    if (templateHeader) {
+      const templateId = this.permissionService.getTemplateIdByHeader(templateHeader);
+      if (!templateId) {
+        throw new CustomHttpException(
+          `Template header is invalid`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.templateHeaderInvalid',
+            },
+          }
+        );
+      }
+    }
+
+    if (templateHeader || isAnonymous(this.cls.get('user.id'))) {
       await this.permissionService.validTemplatePermissions(fieldRaw.tableId, [
         'table|read',
         'record|read',
