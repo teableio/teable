@@ -31,11 +31,13 @@ import { generateAggCacheKey } from '../../../performance-cache/generate-keys';
 import type { IClsStore } from '../../../types/cls';
 import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TqlPipe } from '../../record/open-api/tql.pipe';
 import { AggregationOpenApiService } from './aggregation-open-api.service';
 
 @Controller('api/table/:tableId/aggregation')
+@AllowAnonymous()
 export class AggregationOpenApiController {
   constructor(
     private readonly aggregationOpenApiService: AggregationOpenApiService,

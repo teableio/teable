@@ -4,7 +4,7 @@ import { redirect } from './helper';
 import type { ISSRContext, SSRResult } from './types';
 
 export const getBaseServerSideProps = async (ctx: ISSRContext): Promise<SSRResult> => {
-  const { ssrApi, baseId } = ctx;
+  const { ssrApi, baseId, base } = ctx;
   const [lastVisitNode, nodes] = await Promise.all([
     ssrApi.getUserLastVisitBaseNode({ parentResourceId: baseId }),
     ssrApi.getBaseNodeList(baseId),
@@ -24,6 +24,7 @@ export const getBaseServerSideProps = async (ctx: ISSRContext): Promise<SSRResul
     props: {
       ...(await ctx.getTranslationsProps()),
       dehydratedState: dehydrate(ctx.queryClient),
+      base,
     },
   };
 };

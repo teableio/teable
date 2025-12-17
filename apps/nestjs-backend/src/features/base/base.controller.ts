@@ -54,13 +54,13 @@ import type {
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService } from './base-import.service';
-import { BaseQueryService } from './base-query/base-query.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -72,7 +72,6 @@ export class BaseController {
     private readonly baseImportService: BaseImportService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseQueryService: BaseQueryService,
     private readonly invitationService: InvitationService
   ) {}
 
@@ -147,6 +146,7 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId')
+  @AllowAnonymous(AllowAnonymousType.PUBLIC)
   async getBaseById(@Param('baseId') baseId: string): Promise<IGetBaseVo> {
     return await this.baseService.getBaseById(baseId);
   }
@@ -197,6 +197,7 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/permission')
+  @AllowAnonymous(AllowAnonymousType.PUBLIC)
   async getPermission(): Promise<IGetBasePermissionVo> {
     return await this.baseService.getPermission();
   }

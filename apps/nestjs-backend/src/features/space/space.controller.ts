@@ -39,15 +39,12 @@ import {
   IUpdateIntegrationRo,
   testLLMRoSchema,
   ITestLLMRo,
-  IntegrationType,
 } from '@teable/openapi';
-import { omit } from 'lodash';
 import { CustomHttpException } from '../../custom.exception';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
-import { Public } from '../auth/decorators/public.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { SpaceService } from './space.service';

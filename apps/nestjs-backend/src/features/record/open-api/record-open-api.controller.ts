@@ -20,6 +20,7 @@ import type {
   IButtonClickVo,
   ICreateRecordsVo,
   IRecord,
+  IRecordGetCollaboratorsVo,
   IRecordStatusVo,
   IRecordsVo,
 } from '@teable/openapi';
@@ -40,6 +41,8 @@ import {
   IUpdateRecordsRo,
   recordInsertOrderRoSchema,
   IRecordInsertOrderRo,
+  recordGetCollaboratorsRoSchema,
+  IRecordGetCollaboratorsRo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
@@ -49,6 +52,7 @@ import { generateRecordCacheKey } from '../../../performance-cache/generate-keys
 import type { IClsStore } from '../../../types/cls';
 import { filterHasMe } from '../../../utils/filter-has-me';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { RecordService } from '../record.service';
 import { FieldKeyPipe } from './field-key.pipe';
@@ -56,6 +60,7 @@ import { RecordOpenApiService } from './record-open-api.service';
 import { TqlPipe } from './tql.pipe';
 
 @Controller('api/table/:tableId/record')
+@AllowAnonymous()
 export class RecordOpenApiController {
   constructor(
     private readonly recordService: RecordService,
@@ -82,6 +87,15 @@ export class RecordOpenApiController {
     @Query(new ZodValidationPipe(getRecordHistoryQuerySchema)) query: IGetRecordHistoryQuery
   ) {
     return this.recordOpenApiService.getRecordHistory(tableId, undefined, query);
+  }
+
+  @Permissions('record|read')
+  @Get('collaborators')
+  async getCollaborators(
+    @Param('tableId') tableId: string,
+    @Query(new ZodValidationPipe(recordGetCollaboratorsRoSchema)) query: IRecordGetCollaboratorsRo
+  ): Promise<IRecordGetCollaboratorsVo> {
+    return this.recordService.getRecordsCollaborators(tableId, query);
   }
 
   @Permissions('record|read')

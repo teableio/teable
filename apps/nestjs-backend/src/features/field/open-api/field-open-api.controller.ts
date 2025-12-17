@@ -37,11 +37,13 @@ import type {
   IPlanFieldVo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { FieldService } from '../field.service';
 import { FieldOpenApiService } from './field-open-api.service';
 
 @Controller('api/table/:tableId/field')
+@AllowAnonymous()
 export class FieldOpenApiController {
   constructor(
     private readonly fieldService: FieldService,

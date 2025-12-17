@@ -4,7 +4,7 @@ import { isEqual } from 'lodash';
 import { useState } from 'react';
 import { useDebounce, useLatest, useUpdateEffect } from 'react-use';
 import { useTranslation } from '../../../context/app/i18n';
-import { useFields, useTableId, useViewId, useTablePermission } from '../../../hooks';
+import { useFields, useTableId, useViewId } from '../../../hooks';
 import { ReadOnlyTip } from '../../ReadOnlyTip';
 import type { IFilterBaseComponent } from '../types';
 import { BaseViewFilter } from './BaseViewFilter';
@@ -39,9 +39,8 @@ export const ViewFilter = (props: IViewFilterProps) => {
 
   const viewId = useViewId();
   const tableId = useTableId();
-  const permission = useTablePermission();
   const viewFilterLinkContext = useViewFilterLinkContext(tableId, viewId, {
-    disabled: !permission['view|update'],
+    disabled: Boolean(props.viewFilterLinkContext),
   });
   const finalViewFilterLinkContext = props.viewFilterLinkContext || viewFilterLinkContext;
 

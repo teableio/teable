@@ -1093,7 +1093,8 @@
       "deniedByEnabledAuthorityMatrix": "权限矩阵已启用，操作被拒绝",
       "invalidRequestPath": "请求路径无效",
       "notAllowedOperation": "您没有权限执行此操作",
-      "notAllowedDepartment": "您没有权限访问此部门"
+      "notAllowedDepartment": "您没有权限访问此部门",
+      "templateHeaderInvalid": "模板头无效"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "默认角色未找到",

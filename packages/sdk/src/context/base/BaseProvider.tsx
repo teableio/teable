@@ -8,6 +8,7 @@ import {
 import type { FC, ReactNode } from 'react';
 import { useContext, useEffect, useMemo } from 'react';
 import { ReactQueryKeys } from '../../config';
+import { useIsTemplate } from '../../hooks/use-is-template';
 import { Base } from '../../model';
 import { AnchorContext } from '../anchor';
 import { BaseContext } from './BaseContext';
@@ -18,6 +19,7 @@ interface IBaseProviderProps {
 
 export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => {
   const { baseId } = useContext(AnchorContext);
+  const isTemplate = useIsTemplate();
   const { data: baseData } = useQuery({
     queryKey: ReactQueryKeys.base(baseId as string),
     queryFn: ({ queryKey }) =>
@@ -25,6 +27,9 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => 
   });
 
   useEffect(() => {
+    if (isTemplate) {
+      return;
+    }
     if (baseData) {
       updateUserLastVisit({
         resourceId: baseData.id,
@@ -32,7 +37,7 @@ export const BaseProvider: FC<IBaseProviderProps> = ({ children, fallback }) => 
         parentResourceId: baseData.spaceId,
       });
     }
-  }, [baseData]);
+  }, [baseData, isTemplate]);
 
   const { data: basePermissionData } = useQuery({
     queryKey: ReactQueryKeys.getBasePermission(baseId as string),

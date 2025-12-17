@@ -1,4 +1,3 @@
-import { User, Users } from '@teable/icons';
 import { useTablePermission, usePersonalView, useView } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import {
@@ -27,7 +26,6 @@ export const PersonalViewSwitch = (props: IPersonalViewSwitchProps) => {
     usePersonalView();
   const [isConfirmOpen, setIsConfirmOpen] = useState<boolean>(false);
   const hasSyncPermission = permission['view|update'];
-
   const onSwitchChange = (checked: boolean) => {
     if (checked) {
       openPersonalView?.();

@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IGetRecordsRo } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER } from '@teable/openapi';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from '../../types/cls';
 import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
+import type { IReadonlyServiceContext } from './types';
 
 @Injectable()
 export class RecordReadonlyServiceAdapter
@@ -14,7 +15,7 @@ export class RecordReadonlyServiceAdapter
   implements IShareDbReadonlyAdapterService
 {
   constructor(
-    private readonly cls: ClsService<IClsStore>,
+    private readonly cls: ClsService<IReadonlyServiceContext>,
     private readonly prismaService: PrismaService,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex
   ) {
@@ -23,6 +24,7 @@ export class RecordReadonlyServiceAdapter
 
   getDocIdsByQuery(tableId: string, query: IGetRecordsRo = {}) {
     const shareId = this.cls.get('shareViewId');
+    const templateHeader = this.cls.get('templateHeader');
     const url = shareId
       ? `/share/${shareId}/socket/record/doc-ids`
       : `/table/${tableId}/record/socket/doc-ids`;
@@ -39,6 +41,7 @@ export class RecordReadonlyServiceAdapter
         {
           headers: {
             cookie: this.cls.get('cookie'),
+            [IS_TEMPLATE_HEADER]: templateHeader,
           },
         }
       )
@@ -50,6 +53,7 @@ export class RecordReadonlyServiceAdapter
     projection?: { [fieldNameOrId: string]: boolean }
   ) {
     const shareId = this.cls.get('shareViewId');
+    const templateHeader = this.cls.get('templateHeader');
     const url = shareId
       ? `/share/${shareId}/socket/record/snapshot-bulk`
       : `/table/${tableId}/record/socket/snapshot-bulk`;
@@ -57,6 +61,7 @@ export class RecordReadonlyServiceAdapter
       .get(url, {
         headers: {
           cookie: this.cls.get('cookie'),
+          [IS_TEMPLATE_HEADER]: templateHeader,
         },
         params: {
           ids: recordIds,

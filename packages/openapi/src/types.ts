@@ -18,3 +18,5 @@ export enum ResourceType {
   App = 'app',
   Dashboard = 'dashboard',
 }
+
+export const IS_TEMPLATE_HEADER = 'X-Tea-Template';

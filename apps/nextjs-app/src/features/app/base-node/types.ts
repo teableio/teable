@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import type { IFieldVo, IRecord, IViewVo } from '@teable/core';
-import type { IGroupPointsVo } from '@teable/openapi';
+import type { IGetBaseVo, IGroupPointsVo } from '@teable/openapi';
 import type { GetServerSidePropsContext, GetServerSidePropsResult } from 'next';
 import type { SSRConfig } from 'next-i18next';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
@@ -22,6 +22,7 @@ export interface ISSRContext {
   baseId: string;
   ssrApi: SsrApi;
   getTranslationsProps: () => Promise<SSRConfig>;
+  base: IGetBaseVo;
 }
 
 export type SSRResult = GetServerSidePropsResult<IBaseNodePageProps>;

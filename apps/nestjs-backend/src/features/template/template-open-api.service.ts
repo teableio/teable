@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
@@ -14,6 +14,8 @@ import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
+import { PerformanceCacheService } from '../../performance-cache';
+import { generateTemplateCacheKeyByBaseId } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -21,13 +23,13 @@ import { BaseDuplicateService } from '../base/base-duplicate.service';
 
 @Injectable()
 export class TemplateOpenApiService {
-  private logger = new Logger(TemplateOpenApiService.name);
   constructor(
     private readonly prismaService: PrismaService,
     private readonly baseDuplicateService: BaseDuplicateService,
     private readonly cls: ClsService<IClsStore>,
     private readonly attachmentsStorageService: AttachmentsStorageService,
-    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
+    private readonly performanceCacheService: PerformanceCacheService
   ) {}
 
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
@@ -124,11 +126,18 @@ export class TemplateOpenApiService {
   }
 
   async deleteTemplate(templateId: string) {
-    return await this.prismaService.template.delete({
-      where: {
-        id: templateId,
-      },
-    });
+    return await this.prismaService.template
+      .delete({
+        where: {
+          id: templateId,
+        },
+      })
+      .then(async (res) => {
+        if (res.baseId) {
+          await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
+        }
+        return res;
+      });
   }
 
   async updateTemplate(templateId: string, updateTemplateRo: IUpdateTemplateRo) {
@@ -152,13 +161,20 @@ export class TemplateOpenApiService {
       );
     }
 
-    await this.prismaService.template.update({
-      where: { id: templateId },
-      data: {
-        ...updateTemplateRo,
-        cover: newCover as string | null | undefined,
-      },
-    });
+    await this.prismaService.template
+      .update({
+        where: { id: templateId },
+        data: {
+          ...updateTemplateRo,
+          cover: newCover as string | null | undefined,
+        },
+      })
+      .then(async (res) => {
+        if (res.baseId) {
+          await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
+        }
+        return res;
+      });
   }
 
   async createTemplateSnapshot(templateId: string) {
@@ -213,17 +229,24 @@ export class TemplateOpenApiService {
           });
         }
 
-        return await prisma.template.update({
-          where: { id: templateId },
-          data: {
-            snapshot: JSON.stringify({
-              baseId: id,
-              snapshotTime: new Date().toISOString(),
-              spaceId,
-              name,
-            }),
-          },
-        });
+        return await prisma.template
+          .update({
+            where: { id: templateId },
+            data: {
+              snapshot: JSON.stringify({
+                baseId: id,
+                snapshotTime: new Date().toISOString(),
+                spaceId,
+                name,
+              }),
+            },
+          })
+          .then(async (res) => {
+            if (res.baseId) {
+              await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
+            }
+            return res;
+          });
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -305,10 +328,17 @@ export class TemplateOpenApiService {
       });
     }
 
-    await this.prismaService.template.update({
-      where: { id: templateId },
-      data: { order: result._min.order - 1 },
-    });
+    await this.prismaService.template
+      .update({
+        where: { id: templateId },
+        data: { order: result._min.order - 1 },
+      })
+      .then(async (res) => {
+        if (res.baseId) {
+          await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
+        }
+        return res;
+      });
   }
 
   async deleteTemplateCategory(categoryId: string) {

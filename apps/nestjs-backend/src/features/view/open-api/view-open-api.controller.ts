@@ -55,12 +55,14 @@ import type {
 import { ZodValidationPipe } from '../../..//zod.validation.pipe';
 import { EmitControllerEvent } from '../../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../../event-emitter/events';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewService } from '../view.service';
 import { ViewOpenApiService } from './view-open-api.service';
 
 @Controller('api/table/:tableId/view')
+@AllowAnonymous()
 export class ViewOpenApiController {
   constructor(
     private readonly viewService: ViewService,

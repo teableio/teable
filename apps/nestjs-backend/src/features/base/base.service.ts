@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId, HttpErrorCode } from '@teable/core';
+import { ActionPrefix, actionPrefixMap, generateBaseId, HttpErrorCode, Role } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
@@ -44,9 +44,36 @@ export class BaseService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
-  async getBaseById(baseId: string) {
+  private async getRoleByBaseId(baseId: string, spaceId: string) {
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+
+    const collaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceId: { in: [baseId, spaceId] },
+        principalId: { in: [userId, ...(departmentIds || [])] },
+      },
+    });
+
+    if (!collaborators.length) {
+      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.base.cannotAccess',
+          context: {
+            baseId,
+          },
+        },
+      });
+    }
+    const role = getMaxLevelRole(collaborators);
+    const collaborator = collaborators.find((c) => c.roleName === role);
+    return {
+      role: role,
+      collaboratorType: collaborator?.resourceType as CollaboratorType,
+    };
+  }
+
+  async getBaseById(baseId: string) {
     const base = await this.prismaService.base
       .findFirstOrThrow({
         select: {
@@ -68,29 +95,18 @@ export class BaseService {
           },
         });
       });
-    const collaborators = await this.prismaService.collaborator.findMany({
-      where: {
-        resourceId: { in: [baseId, base.spaceId] },
-        principalId: { in: [userId, ...(departmentIds || [])] },
-      },
-    });
-
-    if (!collaborators.length) {
-      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
-        localization: {
-          i18nKey: 'httpErrors.base.cannotAccess',
-          context: {
-            baseId,
-          },
-        },
-      });
-    }
-    const role = getMaxLevelRole(collaborators);
-    const collaborator = collaborators.find((c) => c.roleName === role);
+    const template = await this.cls.get('template');
+    const { role, collaboratorType } = template
+      ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
+      : await this.getRoleByBaseId(baseId, base.spaceId);
     return {
       ...base,
-      role: role,
-      collaboratorType: collaborator?.resourceType as CollaboratorType,
+      role,
+      collaboratorType,
+      template:
+        template?.baseId === baseId
+          ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
+          : undefined,
     };
   }
 

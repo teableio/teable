@@ -1,6 +1,14 @@
 import { IdPrefix, ViewType } from '@teable/core';
-import { useConnection, useTableId, useView, useViews } from '@teable/sdk';
+import {
+  useConnection,
+  useIsTemplate,
+  usePersonalView,
+  useTableId,
+  useView,
+  useViews,
+} from '@teable/sdk';
 import { useTranslation } from 'next-i18next';
+import { useEffect } from 'react';
 import type { Query } from 'sharedb';
 import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarView } from './calendar/CalendarView';
@@ -18,6 +26,14 @@ export const View = (props: IViewBaseProps) => {
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { connection } = useConnection();
   const tableId = useTableId();
+  const isTemplate = useIsTemplate();
+  const { openPersonalView, isPersonalView } = usePersonalView();
+
+  useEffect(() => {
+    if (isTemplate && !isPersonalView) {
+      openPersonalView?.();
+    }
+  }, [isTemplate, openPersonalView, isPersonalView]);
 
   if (tableId && connection?.queries) {
     const query = Object.values(connection?.queries).find(

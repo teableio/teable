@@ -11,6 +11,7 @@ import {
   FieldCreateOrSelectModal,
   useTablePermission,
   CreateRecordModal,
+  useIsTemplate,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -21,7 +22,6 @@ import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { useKanbanStackCollapsedStore } from '../../kanban/store';
 import { ToolBarButton } from '../ToolBarButton';
 import { CoverFieldSelect } from './CoverFieldSelect';
-import { UndoRedoButtons } from './UndoRedoButtons';
 
 export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -33,7 +33,7 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
   const { onFilterChange, onSortChange } = useToolbarChange();
   const { setCollapsedStackMap } = useKanbanStackCollapsedStore();
   const dialogRef = useRef<IFieldCreateOrSelectModalRef>(null);
-
+  const isTemplate = useIsTemplate();
   const { stackFieldId, coverFieldId, isCoverFit, isEmptyStackHidden, isFieldNameHidden } =
     view?.options ?? {};
 
@@ -76,13 +76,17 @@ export const KanbanViewOperators: React.FC<{ disabled?: boolean }> = (props) => 
 
   return (
     <div className="flex items-center gap-1">
-      <CreateRecordModal>
-        <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-          <Plus className="size-4" />
-          {t('table:view.addRecord')}
-        </Button>
-      </CreateRecordModal>
-      <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
+      {!isTemplate && (
+        <>
+          <CreateRecordModal>
+            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
+              <Plus className="size-4" />
+              {t('table:view.addRecord')}
+            </Button>
+          </CreateRecordModal>
+          <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
+        </>
+      )}
       <FieldCreateOrSelectModal
         ref={dialogRef}
         title={t('table:kanban.toolbar.chooseStackingField')}

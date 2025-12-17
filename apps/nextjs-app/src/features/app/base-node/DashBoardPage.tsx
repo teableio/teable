@@ -10,7 +10,7 @@ export const getDashboardServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed
 ): Promise<SSRResult> => {
-  const { ssrApi, baseId, queryClient } = ctx;
+  const { ssrApi, baseId, queryClient, base } = ctx;
   if (parsed.resourceType !== BaseNodeResourceType.Dashboard) return { notFound: true };
 
   const { dashboardId } = parsed;
@@ -33,6 +33,7 @@ export const getDashboardServerSideProps = async (
       props: {
         ...(await ctx.getTranslationsProps()),
         dehydratedState: dehydrate(ctx.queryClient),
+        base,
       },
     };
   }
@@ -46,6 +47,7 @@ export const getDashboardServerSideProps = async (
     props: {
       ...(await ctx.getTranslationsProps()),
       dehydratedState: dehydrate(ctx.queryClient),
+      base,
     },
   };
 };

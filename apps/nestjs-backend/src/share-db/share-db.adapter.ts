@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import type {
   IFieldPropertyKey,
   IFieldVo,
@@ -111,13 +111,15 @@ export class ShareDbAdapter extends ShareDb.DB {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private getCookieAndShareId(options: any) {
+  private getAuthHeaders(options: any) {
     const cookie = options?.cookie || options?.agentCustom?.cookie;
     const shareId = options?.shareId || options?.agentCustom?.shareId;
-    if (!cookie && !shareId) {
+    const templateHeader = options?.templateHeader || options?.agentCustom?.templateHeader;
+    if (!cookie && !shareId && !templateHeader) {
       this.logger.error(`No cookie found in options agentCustom: ${JSON.stringify(options)}`);
+      throw new UnauthorizedException('Unauthorized request not authorized');
     }
-    return { cookie, shareId };
+    return { cookie, shareViewId: shareId, templateHeader };
   }
 
   async queryPoll(
@@ -128,13 +130,12 @@ export class ShareDbAdapter extends ShareDb.DB {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     callback: (error: any | null, ids: string[], extra?: any) => void
   ) {
-    const { cookie, shareId } = this.getCookieAndShareId(options);
     try {
+      const authHeaders = this.getAuthHeaders(options);
       await this.cls.runWith(
         {
           ...this.cls.get(),
-          cookie,
-          shareViewId: shareId,
+          ...authHeaders,
         },
         async () => {
           const [docType, collectionId] = collection.split('_');
@@ -199,12 +200,11 @@ export class ShareDbAdapter extends ShareDb.DB {
     try {
       const [docType, collectionId] = collection.split('_');
 
-      const { cookie, shareId } = this.getCookieAndShareId(options);
+      const authHeaders = this.getAuthHeaders(options);
       const snapshotData = await this.cls.runWith(
         {
           ...this.cls.get(),
-          cookie,
-          shareViewId: shareId,
+          ...authHeaders,
         },
         async () => {
           return this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(
@@ -244,24 +244,14 @@ export class ShareDbAdapter extends ShareDb.DB {
     options: any,
     callback: (err: unknown, data?: Snapshot) => void
   ) {
-    const { cookie, shareId } = this.getCookieAndShareId(options);
-    await this.cls.runWith(
-      {
-        ...this.cls.get(),
-        cookie,
-        shareViewId: shareId,
-      },
-      async () => {
-        return this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
-          if (err) {
-            callback(err);
-          } else {
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            callback(null, data![id]);
-          }
-        });
+    await this.getSnapshotBulk(collection, [id], projection, options, (err, data) => {
+      if (err) {
+        callback(err);
+      } else {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+        callback(null, data![id]);
       }
-    );
+    });
   }
 
   private async getSnapshotData(
@@ -279,12 +269,11 @@ export class ShareDbAdapter extends ShareDb.DB {
         ignoreDefaultViewId: true,
       });
     }
-    const { cookie, shareId } = this.getCookieAndShareId(options);
+    const authHeaders = this.getAuthHeaders(options);
     const snapshots = await this.cls.runWith(
       {
         ...this.cls.get(),
-        cookie,
-        shareViewId: shareId,
+        ...authHeaders,
       },
       async () => {
         return await this.getReadonlyService(docType as IdPrefix).getSnapshotBulk(

@@ -1093,7 +1093,8 @@
       "deniedByEnabledAuthorityMatrix": "Permission denied by enabled authority matrix",
       "invalidRequestPath": "Request path is not valid",
       "notAllowedOperation": "You don't have permission to perform this operation",
-      "notAllowedDepartment": "You are not allowed to access this department"
+      "notAllowedDepartment": "You are not allowed to access this department",
+      "templateHeaderInvalid": "Template header is invalid"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "Default role not found",

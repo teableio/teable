@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { isAnonymous } from '@teable/core';
 import { updateUserLang, userMe } from '@teable/openapi';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from '../app/i18n';
@@ -33,7 +34,7 @@ export const SessionProvider: React.FC<React.PropsWithChildren<ISessionProviderP
     queryFn: () => userMe().then((res) => res.data),
     enabled: !disabledApi,
     onSuccess: (data) => {
-      if (!data.lang && lang) {
+      if (!data.lang && lang && !isAnonymous(data.id)) {
         updateLang({ lang });
       }
     },

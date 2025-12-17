@@ -1,4 +1,4 @@
-import { useContext } from 'react';
+import { useCallback, useContext } from 'react';
 import { type IProxyPersonalView } from '../context';
 import { PersonalViewContext } from '../context/view/PersonalViewContext';
 import { usePersonalViewStore } from '../context/view/store';
@@ -17,11 +17,11 @@ export const usePersonalView = () => {
     removePersonalView(viewId);
   };
 
-  const openPersonalView = () => {
+  const openPersonalView = useCallback(() => {
     setPersonalViewMap(viewId, (prev) => {
       return { ...prev, ...generatePersonalViewProps(view) };
     });
-  };
+  }, [viewId, setPersonalViewMap, view]);
 
   const syncViewProperties = async () => {
     await (view as IProxyPersonalView)?.syncViewProperties?.();

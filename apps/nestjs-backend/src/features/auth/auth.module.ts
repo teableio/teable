@@ -16,10 +16,10 @@ import { SessionModule } from './session/session.module';
 import { SessionSerializer } from './session/session.serializer';
 import { SocialModule } from './social/social.module';
 import { AccessTokenStrategy } from './strategies/access-token.strategy';
+import { AnonymousStrategy } from './strategies/anonymous/anonymous.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { SessionStrategy } from './strategies/session.strategy';
 import { TurnstileModule } from './turnstile/turnstile.module';
-
 @Module({
   imports: [
     UserModule,
@@ -51,6 +51,7 @@ import { TurnstileModule } from './turnstile/turnstile.module';
     SessionStoreService,
     AccessTokenStrategy,
     JwtStrategy,
+    AnonymousStrategy,
   ],
   exports: [AuthService, AuthGuard],
   controllers: [AuthController],

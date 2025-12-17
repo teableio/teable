@@ -4,7 +4,8 @@ import { ChevronsLeft, ChevronDown, Menu } from '@teable/icons';
 import { CollaboratorType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
-import { Button, Input } from '@teable/ui-lib';
+import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
+import { Button, cn, Input } from '@teable/ui-lib';
 import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
@@ -19,7 +20,7 @@ export const BaseSidebarHeaderLeft = () => {
   const [baseName, setBaseName] = useState<string>(base.name);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
-
+  const isTemplate = useIsTemplate();
   const { mutateAsync: updateBaseMutator } = useMutation({
     mutationFn: updateBase,
     onSuccess: () => {
@@ -60,6 +61,9 @@ export const BaseSidebarHeaderLeft = () => {
   const hasMovePermission = hasPermission(base.role, 'space|create');
 
   const backSpace = () => {
+    if (isTemplate) {
+      return;
+    }
     if (base.collaboratorType === CollaboratorType.Base) {
       router.push({
         pathname: '/space/shared-base',
@@ -85,14 +89,25 @@ export const BaseSidebarHeaderLeft = () => {
         role="button"
         tabIndex={0}
       >
-        <div className="absolute top-0 size-6 transition-all group-hover/sidebar:opacity-0">
+        <div
+          className={cn('absolute top-0 size-6 transition-all group-hover/sidebar:opacity-0', {
+            'group-hover/sidebar:opacity-100': isTemplate,
+          })}
+        >
           {base.icon ? (
             <Emoji emoji={base.icon} size={'1.5rem'} />
           ) : (
             <TeableLogo className="size-6 text-black" />
           )}
         </div>
-        <ChevronsLeft className="absolute top-0 size-6 opacity-0 transition-all group-hover/sidebar:opacity-100" />
+        <ChevronsLeft
+          className={cn(
+            'absolute top-0 size-6 opacity-0 transition-all group-hover/sidebar:opacity-100',
+            {
+              'group-hover/sidebar:opacity-0': isTemplate,
+            }
+          )}
+        />
       </div>
       <div className="flex shrink grow items-center gap-1 overflow-hidden p-1">
         {renaming ? (
@@ -115,27 +130,31 @@ export const BaseSidebarHeaderLeft = () => {
             {base.name}
           </p>
         )}
-        <BaseActionTrigger
-          base={base}
-          showRename={hasUpdatePermission}
-          showDuplicate={hasUpdatePermission}
-          showDelete={hasDeletePermission}
-          showExport={hasUpdatePermission}
-          showMove={hasMovePermission}
-          onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
-          onRename={onRename}
-          align="start"
-        >
-          <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
-            <ChevronDown className="size-4" />
-          </Button>
-        </BaseActionTrigger>
+        {!isTemplate && (
+          <BaseActionTrigger
+            base={base}
+            showRename={hasUpdatePermission}
+            showDuplicate={hasUpdatePermission}
+            showDelete={hasDeletePermission}
+            showExport={hasUpdatePermission}
+            showMove={hasMovePermission}
+            onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
+            onRename={onRename}
+            align="start"
+          >
+            <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
+              <ChevronDown className="size-4" />
+            </Button>
+          </BaseActionTrigger>
+        )}
       </div>
-      <BaseListTrigger spaceId={base.spaceId} collaboratorType={base.collaboratorType}>
-        <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
-          <Menu className="size-4" />
-        </Button>
-      </BaseListTrigger>
+      {!isTemplate && (
+        <BaseListTrigger spaceId={base.spaceId} collaboratorType={base.collaboratorType}>
+          <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
+            <Menu className="size-4" />
+          </Button>
+        </BaseListTrigger>
+      )}
     </div>
   );
 };

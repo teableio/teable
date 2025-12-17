@@ -25,6 +25,7 @@ import type {
   IUpdateRecordsRo,
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
+  IRecordGetCollaboratorsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -89,6 +90,9 @@ export const ReactQueryKeys = {
     options
       ? (['base-collaborator-list-user', baseId, options] as const)
       : (['base-collaborator-list-user', baseId] as const),
+
+  recordCollaboratorList: (tableId: string, options: IRecordGetCollaboratorsRo) =>
+    ['record-collaborator-list', tableId, options] as const,
 
   notifyList: (filter: { status: NotificationStatesEnum }) =>
     ['notification', 'list', filter] as const,

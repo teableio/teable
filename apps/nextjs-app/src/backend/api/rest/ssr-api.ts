@@ -78,6 +78,8 @@ import { getAxios } from './axios';
 export class SsrApi {
   axios: AxiosInstance;
 
+  disableLastVisit: boolean = false;
+
   constructor() {
     this.axios = getAxios();
   }
@@ -268,6 +270,7 @@ export class SsrApi {
   }
 
   async getUserLastVisit(resourceType: LastVisitResourceType, parentResourceId: string) {
+    if (this.disableLastVisit) return undefined;
     return this.axios
       .get<IUserLastVisitVo | undefined>(GET_USER_LAST_VISIT, {
         params: { resourceType, parentResourceId },
@@ -276,12 +279,14 @@ export class SsrApi {
   }
 
   async getUserLastVisitBaseNode(params: IGetUserLastVisitBaseNodeRo) {
+    if (this.disableLastVisit) return undefined;
     return this.axios
       .get<IUserLastVisitBaseNodeVo | undefined>(GET_USER_LAST_VISIT_BASE_NODE, { params })
       .then(({ data }) => data);
   }
 
   async getBaseNodeList(baseId: string) {
+    console.log('xxxxxx getBaseNodeList', baseId);
     return this.axios
       .get<IBaseNodeListVo>(urlBuilder(GET_BASE_NODE_LIST, { baseId }))
       .then(({ data }) => data);

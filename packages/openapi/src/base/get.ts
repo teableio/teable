@@ -19,6 +19,12 @@ export const getBaseItemSchema = z.object({
   lastModifiedTime: z.string().nullable().optional(),
   createdTime: z.string().nullable().optional(),
   createdBy: z.string(),
+  template: z
+    .object({
+      id: z.string(),
+      headers: z.string(),
+    })
+    .optional(),
   createdUser: z
     .object({
       id: z.string(),

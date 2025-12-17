@@ -13,6 +13,11 @@ export interface IClsStore extends ClsStore {
     isAdmin?: boolean | null;
   };
   accessTokenId?: string;
+  // for template authentication
+  template?: {
+    id: string;
+    baseId: string;
+  };
   entry?: {
     type: string;
     id: string;

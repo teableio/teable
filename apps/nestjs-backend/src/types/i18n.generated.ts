@@ -243,6 +243,8 @@ export type I18nTranslations = {
             "expand": string;
             "deleteTip": string;
             "refresh": string;
+            "login": string;
+            "useTemplate": string;
         };
         "quickAction": {
             "title": string;
@@ -2373,6 +2375,7 @@ export type I18nTranslations = {
                 "invalidRequestPath": string;
                 "notAllowedOperation": string;
                 "notAllowedDepartment": string;
+                "templateHeaderInvalid": string;
             };
             "authorityMatrix": {
                 "defaultRoleNotFound": string;

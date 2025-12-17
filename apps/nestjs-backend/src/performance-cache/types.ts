@@ -32,6 +32,9 @@ export interface IPerformanceCacheStore {
 
   // base node list cache, format: base-node-list:base_id
   [key: `base-node-list:${string}`]: unknown;
+
+  // template cache, format: template:base:base_id
+  [key: `template:base:${string}`]: unknown;
 }
 
 /**

@@ -782,7 +782,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   return (
     <>
-      {isEditMode && (
+      {isEditMode && canCreateResource && (
         <div className="flex w-full flex-col px-4 pt-4">
           <BaseNodeAddResourceButton
             curdHooks={curdHooks}

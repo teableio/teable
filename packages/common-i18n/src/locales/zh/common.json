@@ -54,7 +54,12 @@
     "next": "下一页",
     "previous": "上一页",
     "select": "选择",
+<<<<<<< HEAD
     "refresh": "刷新"
+=======
+    "login": "登录",
+    "useTemplate": "使用模版"
+>>>>>>> df42096a5 (feat: template preview)
   },
   "quickAction": {
     "title": "快捷搜索...",

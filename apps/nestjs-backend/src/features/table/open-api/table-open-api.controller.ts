@@ -27,6 +27,7 @@ import {
   IDuplicateTableRo,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../../zod.validation.pipe';
+import { AllowAnonymous } from '../../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { TableIndexService } from '../table-index.service';
 import { TablePermissionService } from '../table-permission.service';
@@ -35,6 +36,7 @@ import { TableOpenApiService } from './table-open-api.service';
 import { TablePipe } from './table.pipe';
 
 @Controller('api/base/:baseId/table')
+@AllowAnonymous()
 export class TableController {
   constructor(
     private readonly tableService: TableService,
@@ -187,6 +189,7 @@ export class TableController {
   }
 
   @Post(':tableId/index')
+  @Permissions('table|update')
   async toggleIndex(
     @Param('baseId') baseId: string,
     @Param('tableId') tableId: string,
@@ -196,11 +199,13 @@ export class TableController {
   }
 
   @Get(':tableId/activated-index')
+  @Permissions('table|read')
   async getTableIndex(@Param('tableId') tableId: string): Promise<string[]> {
     return this.tableIndexService.getActivatedTableIndexes(tableId);
   }
 
   @Get(':tableId/abnormal-index')
+  @Permissions('table|read')
   async getAbnormalTableIndex(
     @Param('tableId') tableId: string,
     @Query('type') tableIndexType: TableIndex
@@ -209,6 +214,7 @@ export class TableController {
   }
 
   @Patch(':tableId/index/repair')
+  @Permissions('table|update')
   async repairIndex(
     @Param('tableId') tableId: string,
     @Query('type') tableIndexType: TableIndex

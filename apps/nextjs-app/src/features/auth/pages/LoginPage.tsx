@@ -27,9 +27,8 @@ export const LoginPage = (props: { children?: React.ReactNode | React.ReactNode[
   const signType = router.pathname.endsWith('/signup') ? 'signup' : 'signin';
   const { passwordLoginDisabled } = useEnv();
   const disallowSignUp = useDisallowSignUp();
-
   const onSuccess = useCallback(() => {
-    if (redirect && redirect.startsWith('/')) {
+    if (redirect) {
       router.push(redirect);
     } else {
       router.push({
