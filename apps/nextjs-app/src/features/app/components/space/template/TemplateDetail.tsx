@@ -1,17 +1,19 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from '@teable/icons';
+import type { BaseNodeResourceType } from '@teable/openapi';
 import {
   createBaseFromTemplate,
   getPublishedTemplateCategoryList,
   getTemplateDetail,
 } from '@teable/openapi';
-import { MarkdownPreview, useTables } from '@teable/sdk';
+import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { Spin } from '@teable/ui-lib/base';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
+import { getNodeUrl } from '../../../blocks/base/base-node/hooks';
 import { useSpaceId } from './hooks/use-space-id';
 interface ITemplateDetailProps {
   templateId: string;
@@ -40,7 +42,6 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   const router = useRouter();
   const spaceId = useSpaceId();
   const routerBaseId = router.query.baseId as string | undefined;
-  const tables = useTables();
 
   const { mutateAsync: createTemplateToBase, isLoading } = useMutation({
     mutationFn: () =>
@@ -51,12 +52,20 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         baseId: routerBaseId,
       }),
     onSuccess: (res) => {
-      const { id: baseId } = res.data;
-      if (routerBaseId && tables.length > 0) {
-        router.push(`/base/${baseId}/table/${tables[0].id}`);
-        return;
+      const { id: baseId, defaultActiveNodeId, defaultActiveNodeResourceType } = res.data;
+
+      // Priority 1: If defaultActiveNodeId is provided, navigate to that specific node
+      if (defaultActiveNodeId && defaultActiveNodeResourceType) {
+        const nodeUrl = getNodeUrl({
+          baseId,
+          resourceType: defaultActiveNodeResourceType as BaseNodeResourceType,
+          resourceId: defaultActiveNodeId,
+        });
+        if (nodeUrl) {
+          router.push(nodeUrl);
+          return;
+        }
       }
-      router.push(`/base/${baseId}`);
     },
   });
 

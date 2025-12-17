@@ -1,5 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
+import type { BaseNodeResourceType } from '@teable/openapi';
 import { createBaseFromTemplate, getSpaceList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import {
@@ -19,6 +20,7 @@ import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
 import { Selector } from '@/components/Selector';
 import { spaceConfig } from '@/features/i18n/space.config';
+import { getNodeUrl } from '../base-node/hooks';
 import { useTemplateCreateBaseStore } from './useTemplateCreateBaseStore';
 
 const TemplateBase = ({ templateId }: { templateId: string }) => {
@@ -37,9 +39,25 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
     mutationFn: createBaseFromTemplate,
     onSuccess: ({ data }) => {
       closeModal();
+      const { id: baseId, defaultActiveNodeId, defaultActiveNodeResourceType } = data;
+
+      // If defaultActiveNodeId is provided, navigate to that specific node
+      if (defaultActiveNodeId && defaultActiveNodeResourceType) {
+        const nodeUrl = getNodeUrl({
+          baseId,
+          resourceType: defaultActiveNodeResourceType as BaseNodeResourceType,
+          resourceId: defaultActiveNodeId,
+        });
+        if (nodeUrl) {
+          router.push(nodeUrl);
+          return;
+        }
+      }
+
+      // Otherwise, navigate to base home
       router.push({
         pathname: '/base/[baseId]',
-        query: { baseId: data.id },
+        query: { baseId },
       });
     },
   });

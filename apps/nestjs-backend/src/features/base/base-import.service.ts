@@ -310,9 +310,11 @@ export class BaseImportService {
     const { folderIdMap } = await this.createFolders(newBase.id, folders);
     this.logger.log(`base-duplicate-service: Duplicate base folders successfully`);
 
+    let nodeIdMap: Record<string, string> = {};
+
     // create base nodes
     if (!skipCreateBaseNodes) {
-      await this.createBaseNodes(newBase.id, structure.nodes, {
+      nodeIdMap = await this.createBaseNodes(newBase.id, structure.nodes, {
         folderIdMap,
         tableIdMap,
         dashboardIdMap,
@@ -328,6 +330,7 @@ export class BaseImportService {
       fkMap,
       folderIdMap,
       dashboardIdMap,
+      nodeIdMap,
     };
   }
 
@@ -524,7 +527,7 @@ export class BaseImportService {
     }
   ) {
     if (!Array.isArray(nodes) || nodes.length === 0) {
-      return;
+      return {} as Record<string, string>;
     }
 
     const prisma = this.prismaService.txClient();
@@ -649,6 +652,8 @@ export class BaseImportService {
 
       createdResourceKeys.add(resourceKey);
     }
+
+    return allNodeIdMap;
   }
 
   private async createPlugins(
