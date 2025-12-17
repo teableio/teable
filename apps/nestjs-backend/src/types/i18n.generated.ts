@@ -279,6 +279,10 @@ export type I18nTranslations = {
                 };
             };
             "aiGreeting": string;
+            "useTemplateDialog": {
+                "title": string;
+                "description": string;
+            };
         };
         "settings": {
             "title": string;
@@ -516,6 +520,7 @@ export type I18nTranslations = {
             "newAutomation": string;
             "newApp": string;
             "newFolder": string;
+            "template": string;
         };
         "level": {
             "free": string;

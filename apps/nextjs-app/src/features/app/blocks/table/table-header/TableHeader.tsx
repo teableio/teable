@@ -295,9 +295,11 @@ export const TableHeader: React.FC = () => {
         <div className="grow basis-0"></div>
         {!isTemplate && <RightList className="hidden gap-2 @md/view-header:flex" />}
         {!isTemplate && <RightMenu className="flex @md/view-header:hidden" />}
-        <div className="min-w-20">
-          <PublicOperateButton />
-        </div>
+        {isTemplate && (
+          <div className="min-w-20">
+            <PublicOperateButton />
+          </div>
+        )}
       </div>
       {tipVisible && <LockedViewTip />}
     </Fragment>

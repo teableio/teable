@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft } from '@teable/icons';
 import {
   createBaseFromTemplate,
   getPublishedTemplateCategoryList,
@@ -7,12 +6,17 @@ import {
 } from '@teable/openapi';
 import { MarkdownPreview, useTables } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
+import { useIsMobile } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Button } from '@teable/ui-lib/shadcn';
+import { Badge, Button } from '@teable/ui-lib/shadcn';
+import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { useSpaceId } from './hooks/use-space-id';
+import { TemplatePreview } from './TemplatePreview';
+import { TemplatePreviewSheet } from './TemplatePreviewSheet';
+
 interface ITemplateDetailProps {
   templateId: string;
   onBackToTemplateList?: () => void;
@@ -20,12 +24,13 @@ interface ITemplateDetailProps {
 export const TemplateDetail = (props: ITemplateDetailProps) => {
   const { templateId, onBackToTemplateList } = props;
   const { t } = useTranslation(['common']);
+  const isMobile = useIsMobile();
   const { data: templateDetail } = useQuery({
     queryKey: ReactQueryKeys.templateDetail(templateId),
     queryFn: () => getTemplateDetail(templateId).then((res) => res.data),
   });
 
-  const { cover, name, description, categoryId, markdownDescription } = templateDetail || {};
+  const { name, description, categoryId, markdownDescription, cover } = templateDetail || {};
 
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
@@ -59,58 +64,104 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     },
   });
 
-  return (
-    <div className="mx-6 mt-2 flex flex-1 items-start justify-center overflow-auto">
-      <div className="relative grid w-full grid-cols-8">
-        <div className="sticky top-0 col-span-8 flex flex-col self-start pb-12 pr-8 sm:col-span-2 sm:pb-0">
-          {onBackToTemplateList && (
-            <div
-              className="flex cursor-pointer items-center gap-1 pb-4 text-sm text-foreground transition-colors hover:text-foreground/80"
-              role="button"
-              tabIndex={0}
-              onClick={() => onBackToTemplateList?.()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  onBackToTemplateList?.();
-                }
-              }}
-            >
-              <ArrowLeft />
-              {t('common:settings.templateAdmin.backToTemplateList')}
-            </div>
-          )}
-          <h1 className="z-10 bg-background text-lg font-bold">{name}</h1>
-          <p className="overflow-hidden text-wrap break-words text-base text-gray-500">
-            {description}
-          </p>
-          <Button
-            size="sm"
-            className="my-3"
-            onClick={() => createTemplateToBase()}
-            disabled={isLoading}
-          >
-            {t('common:settings.templateAdmin.useTemplate')}
-            {isLoading && <Spin className="size-3" />}
+  if (isMobile) {
+    return (
+      <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
+        <div className="flex items-center gap-2 px-6 py-3 pr-9">
+          <Button className="h-auto p-0 font-normal" variant="link" onClick={onBackToTemplateList}>
+            <ChevronLeft className="size-6" />
           </Button>
-          {categoryName && <span className="py-1 text-sm text-gray-500"># {categoryName}</span>}
+          <h1 className="z-10 truncate bg-background text-lg font-bold">
+            {name}
+            {name}
+            {name}
+            {name}
+          </h1>
+          <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
+            {categoryName}
+          </Badge>
         </div>
-
-        <div className="col-span-8 border-t pt-4 sm:col-span-5 sm:border-l sm:border-t-0 sm:pl-6">
-          <div className="relative mb-8 max-w-screen-md overflow-hidden rounded-md shadow-xl sm:mb-14">
-            {cover?.presignedUrl && (
+        <div className="flex flex-col gap-3 overflow-y-auto px-6 pb-3">
+          <p className="text-base font-normal text-muted-foreground">{description}</p>
+          <div className="flex gap-2">
+            <TemplatePreviewSheet detail={templateDetail}>
+              <Button className="flex-1" variant="outline" size="xs">
+                <ArrowUpRight className="size-3" />
+                {t('common:settings.templateAdmin.actions.preview')}
+              </Button>
+            </TemplatePreviewSheet>
+            <Button
+              className="flex-1"
+              size="xs"
+              onClick={() => createTemplateToBase()}
+              disabled={isLoading}
+            >
+              {t('common:settings.templateAdmin.useTemplate')}
+              {isLoading && <Spin className="size-3" />}
+            </Button>
+          </div>
+          {cover?.presignedUrl && (
+            <div className="rounded-md border ">
               <img
                 src={cover?.presignedUrl}
                 alt={name}
-                className="relative w-full max-w-screen-md object-cover dark:drop-shadow-[0_0_0.3rem_#ffffff70]"
+                className="w-full rounded-md  object-contain"
               />
-            )}
-          </div>
+            </div>
+          )}
           <div className="flex flex-col gap-1 pb-2">
-            {markdownDescription && <MarkdownPreview>{markdownDescription}</MarkdownPreview>}
+            {markdownDescription && (
+              <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
+            )}
             {!markdownDescription && (
               <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
             )}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
+      <div className="flex px-6 py-3 pr-14">
+        <div className="flex flex-1 flex-col gap-1">
+          <div className="flex items-center gap-4">
+            <Button
+              className="h-auto p-0 font-normal"
+              variant="link"
+              onClick={onBackToTemplateList}
+            >
+              <ChevronLeft className="size-6" />
+            </Button>
+            <h1 className="z-10 bg-background text-lg font-bold">{name}</h1>
+            <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
+              {categoryName}
+            </Badge>
+          </div>
+          <p className="overflow-hidden text-wrap break-words pl-10 text-base font-normal text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="my-3"
+          onClick={() => createTemplateToBase()}
+          disabled={isLoading}
+        >
+          {t('common:settings.templateAdmin.useTemplate')}
+          {isLoading && <Spin className="size-3" />}
+        </Button>
+      </div>
+      <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6">
+        <TemplatePreview detail={templateDetail} />
+        <div className="flex flex-col gap-1 pb-2">
+          {markdownDescription && (
+            <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
+          )}
+          {!markdownDescription && (
+            <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
+          )}
         </div>
       </div>
     </div>

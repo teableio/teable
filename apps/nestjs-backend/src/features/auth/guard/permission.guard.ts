@@ -223,34 +223,35 @@ export class PermissionGuard {
     permissionCheck: () => Promise<boolean>
   ) {
     const templateHeader = this.getTemplateHeader(context);
-    const isTemplateEnabled = Boolean(templateHeader);
     const allowAnonymousType = this.reflector.getAllAndOverride<AllowAnonymousType | undefined>(
       IS_ALLOW_ANONYMOUS,
       [context.getHandler(), context.getClass()]
     );
-    const isAnonymous = this.isAnonymous();
-    // 1. user permission check
-    if (allowAnonymousType === AllowAnonymousType.USER) {
-      return true;
-    }
-    // 2. template permission check
-    if (isTemplateEnabled) {
+    // anonymous resource permission check
+    if (templateHeader && allowAnonymousType === AllowAnonymousType.RESOURCE) {
       return await this.templatePermissionCheck(context, templateHeader);
     }
-
-    // 3. anonymous user permission check
+    const isAnonymous = this.isAnonymous();
+    // anonymous user permission check
     if (isAnonymous) {
-      throw new UnauthorizedException();
+      if (!allowAnonymousType) {
+        throw new UnauthorizedException();
+      }
+      switch (allowAnonymousType) {
+        case AllowAnonymousType.PUBLIC:
+          return await this.templatePermissionCheck(context);
+        case AllowAnonymousType.RESOURCE:
+          throw new UnauthorizedException(
+            'Anonymous resource permission check failed, template header is required'
+          );
+        case AllowAnonymousType.USER:
+          return true;
+        default:
+          throw new UnauthorizedException('Invalid allow anonymous type');
+      }
     }
-    // 4. resource permission check
-    if (allowAnonymousType === AllowAnonymousType.RESOURCE) {
-      throw new ForbiddenException();
-    }
-    // 5. anonymous user permission check
-    if (allowAnonymousType === AllowAnonymousType.PUBLIC) {
-      return await this.templatePermissionCheck(context);
-    }
-    // 6. normal permission check
+
+    // normal permission check
     try {
       return await permissionCheck();
     } catch (normalError) {
