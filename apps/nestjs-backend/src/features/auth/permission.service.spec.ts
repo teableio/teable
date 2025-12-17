@@ -27,7 +27,6 @@ describe('PermissionService', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       imports: [GlobalModule, PermissionModule],
-      providers: [PermissionService],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaServiceMock)
