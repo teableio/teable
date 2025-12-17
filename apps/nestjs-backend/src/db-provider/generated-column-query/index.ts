@@ -7,5 +7,6 @@ export function createGeneratedColumnQuerySupportValidator(driver: DriverClient)
   return match(driver)
     .with(DriverClient.Pg, () => new GeneratedColumnQuerySupportValidatorPostgres())
     .with(DriverClient.Sqlite, () => new GeneratedColumnQuerySupportValidatorSqlite())
+    .with(DriverClient.Mysql, () => new GeneratedColumnQuerySupportValidatorPostgres()) // MySQL uses Postgres validator for now
     .exhaustive();
 }

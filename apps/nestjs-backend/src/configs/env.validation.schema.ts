@@ -15,6 +15,28 @@ export const envValidationSchema = Joi.object({
   // database_url
   PRISMA_DATABASE_URL: Joi.string().required(),
 
+  // MySQL writer connection (optional, used when driver is MySQL)
+  WRITER_DB_SCHEMA: Joi.string().optional(),
+  WRITER_DB_USERNAME: Joi.string().optional(),
+  WRITER_DB_PASSWORD: Joi.string().optional(),
+  WRITER_DB_HOSTNAME: Joi.string().optional(),
+  WRITER_DB_PORT: Joi.number().optional(),
+  WRITER_DB_POOL_MIN: Joi.number().optional(),
+  WRITER_DB_POOL_MAX: Joi.number().optional(),
+  WRITER_DB_POOL_ACQUIRE: Joi.number().optional(),
+  WRITER_DB_POOL_IDLE: Joi.number().optional(),
+
+  // MySQL reader connection (optional, for read/write splitting)
+  READER_DB_SCHEMA: Joi.string().optional(),
+  READER_DB_USERNAME: Joi.string().optional(),
+  READER_DB_PASSWORD: Joi.string().optional(),
+  READER_DB_HOSTNAME: Joi.string().optional(),
+  READER_DB_PORT: Joi.number().optional(),
+  READER_DB_POOL_MIN: Joi.number().optional(),
+  READER_DB_POOL_MAX: Joi.number().optional(),
+  READER_DB_POOL_ACQUIRE: Joi.number().optional(),
+  READER_DB_POOL_IDLE: Joi.number().optional(),
+
   STORAGE_PREFIX: Joi.string().uri().optional(),
 
   PUBLIC_ORIGIN: Joi.string().uri().required(),
