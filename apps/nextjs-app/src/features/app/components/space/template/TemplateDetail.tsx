@@ -8,7 +8,7 @@ import { MarkdownPreview, useTables } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Badge, Button } from '@teable/ui-lib/shadcn';
+import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -68,15 +68,16 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     return (
       <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
         <div className="flex items-center gap-2 px-6 py-3 pr-9">
-          <Button className="h-auto p-0 font-normal" variant="link" onClick={onBackToTemplateList}>
-            <ChevronLeft className="size-6" />
-          </Button>
-          <h1 className="z-10 truncate bg-background text-lg font-bold">
-            {name}
-            {name}
-            {name}
-            {name}
-          </h1>
+          {onBackToTemplateList && (
+            <Button
+              className="h-auto p-0 font-normal"
+              variant="link"
+              onClick={onBackToTemplateList}
+            >
+              <ChevronLeft className="size-6" />
+            </Button>
+          )}
+          <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
           <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
             {categoryName}
           </Badge>
@@ -124,22 +125,31 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   return (
     <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
-      <div className="flex px-6 py-3 pr-14">
-        <div className="flex flex-1 flex-col gap-1">
+      <div className="flex gap-3 px-6 py-3 pr-14">
+        <div className="flex flex-1 flex-col gap-1 overflow-hidden">
           <div className="flex items-center gap-4">
-            <Button
-              className="h-auto p-0 font-normal"
-              variant="link"
-              onClick={onBackToTemplateList}
-            >
-              <ChevronLeft className="size-6" />
-            </Button>
-            <h1 className="z-10 bg-background text-lg font-bold">{name}</h1>
+            {onBackToTemplateList && (
+              <Button
+                className="h-auto p-0 font-normal"
+                variant="link"
+                onClick={onBackToTemplateList}
+              >
+                <ChevronLeft className="size-6" />
+              </Button>
+            )}
+            <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
             <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
               {categoryName}
             </Badge>
           </div>
-          <p className="overflow-hidden text-wrap break-words pl-10 text-base font-normal text-muted-foreground">
+          <p
+            className={cn(
+              'overflow-hidden text-wrap break-words pl-10 text-base font-normal text-muted-foreground',
+              {
+                'pl-0': !onBackToTemplateList,
+              }
+            )}
+          >
             {description}
           </p>
         </div>
