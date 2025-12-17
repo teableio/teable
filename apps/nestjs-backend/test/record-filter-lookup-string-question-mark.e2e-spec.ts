@@ -27,9 +27,12 @@ describe('Record filter lookup string with question mark (e2e)', () => {
     });
     foreignTableId = foreign.id;
     const foreignUrlFieldId = foreign.fields?.find((f) => f.name === 'url')?.id;
+    if (!foreignTableId) throw new Error('foreignTableId not found');
+    if (!foreignUrlFieldId) throw new Error('foreignUrlFieldId not found');
 
     const foreignUrlRecordId = foreign.records?.[0]?.id;
     const foreignOtherRecordId = foreign.records?.[1]?.id;
+    if (!foreignUrlRecordId || !foreignOtherRecordId) throw new Error('foreign records not found');
 
     const main = await createTable(baseId, {
       name: `lookup_str_main_${Date.now()}`,
@@ -55,6 +58,8 @@ describe('Record filter lookup string with question mark (e2e)', () => {
     });
     mainTableId = main.id;
     const linkFieldId = main.fields?.find((f) => f.name === 'links')?.id;
+    if (!mainTableId) throw new Error('mainTableId not found');
+    if (!linkFieldId) throw new Error('linkFieldId not found');
 
     const lookupField = await createField(mainTableId, {
       name: 'lookup_url',

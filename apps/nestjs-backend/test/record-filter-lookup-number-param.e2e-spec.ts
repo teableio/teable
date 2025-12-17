@@ -31,10 +31,13 @@ describe('Record filter lookup multiple-number bindings (e2e)', () => {
     });
     foreignTableId = foreign.id;
     foreignNumberFieldId = foreign.fields?.find((f) => f.name === foreignNumberFieldName)?.id;
+    if (!foreignTableId) throw new Error('foreignTableId not found');
+    if (!foreignNumberFieldId) throw new Error('foreignNumberFieldId not found');
 
     const foreign9 = foreign.records?.[0]?.id;
     const foreign11 = foreign.records?.[1]?.id;
     const foreign1 = foreign.records?.[2]?.id;
+    if (!foreign9 || !foreign11 || !foreign1) throw new Error('foreign records not found');
 
     const main = await createTable(baseId, {
       name: `lookup_num_main_${Date.now()}`,
@@ -78,12 +81,13 @@ describe('Record filter lookup multiple-number bindings (e2e)', () => {
     });
     mainTableId = main.id;
     linkFieldId = main.fields?.find((f) => f.name === linkFieldName)?.id;
+    if (!mainTableId) throw new Error('mainTableId not found');
+    if (!linkFieldId) throw new Error('linkFieldId not found');
 
     const lookupFieldRes = await createField(mainTableId, {
       name: 'lookup_num',
       type: FieldType.Number,
       isLookup: true,
-      isMultipleCellValue: true,
       lookupOptions: {
         foreignTableId: foreignTableId,
         lookupFieldId: foreignNumberFieldId,
