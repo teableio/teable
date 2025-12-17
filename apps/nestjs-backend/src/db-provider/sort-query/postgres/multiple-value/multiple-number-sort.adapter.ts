@@ -12,10 +12,10 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
 
     const orderByColumn = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
       ASC NULLS FIRST,
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
       ASC NULLS FIRST
       `,
@@ -34,10 +34,10 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
 
     const orderByColumn = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
       DESC NULLS LAST,
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
       DESC NULLS LAST
       `,
@@ -57,10 +57,10 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
     return this.knex
       .raw(
         `
-        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
         FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
         ASC NULLS FIRST,
-        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
         FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
         ASC NULLS FIRST
         `,
@@ -79,10 +79,10 @@ export class MultipleNumberSortAdapter extends SortFunctionPostgres {
     return this.knex
       .raw(
         `
-        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
         FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem) ->> 0
         DESC NULLS LAST,
-        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+        (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
         FROM jsonb_array_elements_text(${this.columnName}::jsonb) as elem)
         DESC NULLS LAST
         `,

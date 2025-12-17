@@ -45,10 +45,12 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { options } = field;
     const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
     const column = this.knex.raw(
-      `ROUND(${columnName}::numeric, ?)::float as "${field.dbFieldName}"`,
+      `ROUND(${columnName}::numeric, ?::int)::float as "${field.dbFieldName}"`,
       [precision]
     );
-    const groupByColumn = this.knex.raw(`ROUND(${columnName}::numeric, ?)::float`, [precision]);
+    const groupByColumn = this.knex.raw(`ROUND(${columnName}::numeric, ?::int)::float`, [
+      precision,
+    ]);
 
     if (this.isDistinct) {
       return this.originQueryBuilder.countDistinct(groupByColumn);
@@ -160,14 +162,14 @@ export class GroupQueryPostgres extends AbstractGroupQuery {
     const { precision = 0 } = (options as INumberFieldOptions).formatting ?? {};
     const column = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${columnName}::jsonb) as elem) as "${field.dbFieldName}"
       `,
       [precision]
     );
     const groupByColumn = this.knex.raw(
       `
-      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?)))
+      (SELECT to_jsonb(array_agg(ROUND(elem::numeric, ?::int)))
       FROM jsonb_array_elements_text(${columnName}::jsonb) as elem)
       `,
       [precision]
