@@ -13,9 +13,11 @@ export interface IJwtAuthInfo {
 export enum JwtAuthInternalType {
   Automation = 'automation',
   App = 'app',
+  User = 'user',
 }
 
 export interface IJwtAuthInternalInfo {
   type: JwtAuthInternalType;
   baseId: string;
+  userId?: string; // Optional user ID for User type tokens
 }

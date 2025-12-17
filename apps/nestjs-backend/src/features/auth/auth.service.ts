@@ -7,7 +7,8 @@ import ms from 'ms';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { PermissionService } from './permission.service';
-import type { IJwtAuthInternalInfo, IJwtAuthInfo, JwtAuthInternalType } from './strategies/types';
+import { JwtAuthInternalType } from './strategies/types';
+import type { IJwtAuthInternalInfo, IJwtAuthInfo } from './strategies/types';
 
 @Injectable()
 export class AuthService {
@@ -50,9 +51,17 @@ export class AuthService {
   }
 
   async getTempInternalToken(baseId: string, type: JwtAuthInternalType, expiresIn: string = '10m') {
+    // For User type tokens, userId is required
+    const userId = this.cls.get('user.id');
+    if (type === JwtAuthInternalType.User && !userId) {
+      throw new UnauthorizedException('User identity is required for User type tokens');
+    }
+
     const payload: IJwtAuthInternalInfo = {
       type,
       baseId,
+      // Include userId for User type tokens to maintain user identity
+      ...(type === JwtAuthInternalType.User ? { userId } : {}),
     };
     return {
       accessToken: await this.jwtService.signAsync(payload, { expiresIn }),
