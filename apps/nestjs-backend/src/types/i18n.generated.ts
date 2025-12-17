@@ -1638,6 +1638,10 @@ export type I18nTranslations = {
                 "automationDelete": string;
                 "automationRead": string;
                 "automationUpdate": string;
+                "appCreate": string;
+                "appDelete": string;
+                "appRead": string;
+                "appUpdate": string;
                 "userProfileRead": string;
                 "userEmailRead": string;
                 "recordHistoryRead": string;
@@ -1646,10 +1650,6 @@ export type I18nTranslations = {
                 "instanceUpdate": string;
                 "enterpriseRead": string;
                 "enterpriseUpdate": string;
-                "appCreate": string;
-                "appDelete": string;
-                "appRead": string;
-                "appUpdate": string;
             };
         };
         "noun": {
@@ -1660,12 +1660,12 @@ export type I18nTranslations = {
             "field": string;
             "record": string;
             "automation": string;
+            "app": string;
             "user": string;
             "recordHistory": string;
             "you": string;
             "instance": string;
             "enterprise": string;
-            "app": string;
         };
         "formula": {
             "SUM": {
