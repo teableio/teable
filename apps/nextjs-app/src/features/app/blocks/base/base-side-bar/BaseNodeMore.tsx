@@ -165,9 +165,9 @@ export const WorkflowOperation = (props: IBaseNodeMoreProps) => {
 
 export const AppOperation = (props: IBaseNodeMoreProps) => {
   const permission = useBasePermission();
-  const canRename = Boolean(permission?.['base|update']);
+  const canRename = Boolean(permission?.['app|update']);
   const canDelete = false;
-  const canPermanentDelete = Boolean(permission?.['base|delete']);
+  const canPermanentDelete = Boolean(permission?.['app|delete']);
   const canDuplicate = false;
 
   return (

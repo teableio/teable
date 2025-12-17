@@ -144,7 +144,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateTable = Boolean(permission?.['table|create']);
   const canCreateDashboard = Boolean(permission?.['base|update'] && !disallowDashboard);
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
-  const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['base|update']);
+  const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
 
   const canCreateResource =

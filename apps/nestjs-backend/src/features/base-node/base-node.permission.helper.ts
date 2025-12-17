@@ -30,10 +30,10 @@ const map: Record<BaseNodeResourceType, Record<BaseNodeAction, string>> = {
     [BaseNodeAction.Delete]: 'automation|delete',
   },
   [BaseNodeResourceType.App]: {
-    [BaseNodeAction.Read]: 'base|read',
-    [BaseNodeAction.Create]: 'base|update',
-    [BaseNodeAction.Update]: 'base|update',
-    [BaseNodeAction.Delete]: 'base|update',
+    [BaseNodeAction.Read]: 'app|read',
+    [BaseNodeAction.Create]: 'app|create',
+    [BaseNodeAction.Update]: 'app|update',
+    [BaseNodeAction.Delete]: 'app|delete',
   },
 };
 

@@ -1646,6 +1646,10 @@ export type I18nTranslations = {
                 "instanceUpdate": string;
                 "enterpriseRead": string;
                 "enterpriseUpdate": string;
+                "appCreate": string;
+                "appDelete": string;
+                "appRead": string;
+                "appUpdate": string;
             };
         };
         "noun": {
@@ -1661,6 +1665,7 @@ export type I18nTranslations = {
             "you": string;
             "instance": string;
             "enterprise": string;
+            "app": string;
         };
         "formula": {
             "SUM": {

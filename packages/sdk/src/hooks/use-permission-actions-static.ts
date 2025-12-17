@@ -152,6 +152,18 @@ const actionsI18nMap: Record<
   'automation|update': {
     description: 'permission.actionDescription.automationUpdate',
   },
+  'app|create': {
+    description: 'permission.actionDescription.appCreate',
+  },
+  'app|delete': {
+    description: 'permission.actionDescription.appDelete',
+  },
+  'app|read': {
+    description: 'permission.actionDescription.appRead',
+  },
+  'app|update': {
+    description: 'permission.actionDescription.appUpdate',
+  },
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },
@@ -194,6 +206,9 @@ const actionPrefixI18nMap: Record<ActionPrefix, { title: TKey }> = {
   [ActionPrefix.Automation]: {
     title: 'noun.automation',
   },
+  [ActionPrefix.App]: {
+    title: 'noun.app',
+  },
   [ActionPrefix.User]: {
     title: 'noun.user',
   },
@@ -216,6 +231,7 @@ const ACTION_PREFIX_DISPLAY_ORDER: readonly ActionPrefix[] = [
   ActionPrefix.View,
   ActionPrefix.Base,
   ActionPrefix.Space,
+  ActionPrefix.App,
   ActionPrefix.User,
   ActionPrefix.TableRecordHistory,
   ActionPrefix.Automation,

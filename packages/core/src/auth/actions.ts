@@ -9,6 +9,7 @@ export enum ActionPrefix {
   Record = 'record',
   Field = 'field',
   Automation = 'automation',
+  App = 'app',
   User = 'user',
   TableRecordHistory = 'table_record_history',
   Instance = 'instance',
@@ -92,6 +93,10 @@ export const automationActions = [
 export const automationActionSchema = z.enum(automationActions);
 export type AutomationAction = z.infer<typeof automationActionSchema>;
 
+export const appActions = ['app|create', 'app|delete', 'app|read', 'app|update'] as const;
+export const appActionSchema = z.enum(appActions);
+export type AppAction = z.infer<typeof appActionSchema>;
+
 export const userActions = ['user|email_read'] as const;
 export const userActionSchema = z.enum(userActions);
 export type UserAction = z.infer<typeof userActionSchema>;
@@ -116,6 +121,7 @@ export type Action =
   | FieldAction
   | RecordAction
   | AutomationAction
+  | AppAction
   | UserAction
   | TableRecordHistoryAction
   | InstanceAction
@@ -129,6 +135,7 @@ export type ActionPrefixMap = {
   [ActionPrefix.Field]: FieldAction[];
   [ActionPrefix.Record]: RecordAction[];
   [ActionPrefix.Automation]: AutomationAction[];
+  [ActionPrefix.App]: AppAction[];
   [ActionPrefix.User]: UserAction[];
   [ActionPrefix.TableRecordHistory]: TableRecordHistoryAction[];
   [ActionPrefix.Instance]: InstanceAction[];
@@ -142,6 +149,7 @@ export const actionPrefixMap: ActionPrefixMap = {
   [ActionPrefix.Field]: [...fieldActions],
   [ActionPrefix.Record]: [...recordActions],
   [ActionPrefix.Automation]: [...automationActions],
+  [ActionPrefix.App]: [...appActions],
   [ActionPrefix.TableRecordHistory]: [...tableRecordHistoryActions],
   [ActionPrefix.User]: [...userActions],
   [ActionPrefix.Instance]: [...instanceActions],
