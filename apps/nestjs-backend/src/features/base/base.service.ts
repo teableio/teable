@@ -422,6 +422,7 @@ export class BaseService {
       ...actionPrefixMap[ActionPrefix.Table],
       ...actionPrefixMap[ActionPrefix.Base],
       ...actionPrefixMap[ActionPrefix.Automation],
+      ...actionPrefixMap[ActionPrefix.App],
       ...actionPrefixMap[ActionPrefix.TableRecordHistory],
     ].reduce((acc, action) => {
       acc[action] = permissions.includes(action);
