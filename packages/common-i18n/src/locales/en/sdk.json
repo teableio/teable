@@ -1330,7 +1330,8 @@
     "template": {
       "snapshotRequired": "This template could not be published due to missing snapshot",
       "sourceTemplateNotFound": "Source template not found",
-      "noMinOrderFound": "No minimum order found"
+      "noMinOrderFound": "No minimum order found",
+      "takeCountTooLarge": "The number of templates requested exceeds the maximum limit"
     },
     "department": {
       "parentNotFound": "Parent department not found",

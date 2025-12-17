@@ -10,9 +10,9 @@ export interface ITemplateBaseProps {
 }
 
 interface ITemplateMainProps extends ITemplateBaseProps {
-  currentCategoryId: string;
+  currentCategoryId: string | null;
   search: string;
-  onCategoryChange: (value: string) => void;
+  onCategoryChange: (value: string | null) => void;
   categoryMenuClassName?: string;
   categoryHeaderRender?: () => React.ReactNode;
   className?: string;

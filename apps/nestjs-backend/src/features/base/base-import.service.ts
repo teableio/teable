@@ -103,15 +103,17 @@ export class BaseImportService {
   }
 
   async importBase(importBaseRo: ImportBaseRo) {
+    const {
+      notify: { path },
+    } = importBaseRo;
+
     // 1. create base structure from json
-    // 2. upload attachments
-    // 3. create import table data task
     const structureStream = await this.storageAdapter.downloadFile(
       StorageAdapter.getBucket(UploadType.Import),
-      importBaseRo.notify.path
+      path
     );
 
-    const { base, tableIdMap, viewIdMap, fieldIdMap, structure, fkMap } =
+    const { base, tableIdMap, viewIdMap, fieldIdMap, fkMap, structure, ...rest } =
       await this.prismaService.$tx(
         async () => {
           return await this.processStructure(structureStream, importBaseRo);
@@ -121,12 +123,14 @@ export class BaseImportService {
         }
       );
 
-    this.uploadAttachments(importBaseRo.notify.path);
+    // 2. upload attachments
+    this.uploadAttachments(path);
 
-    await this.appendTableData(
+    // 3. create import table data task
+    this.appendTableData(
       base.id,
       importBaseRo,
-      importBaseRo.notify.path,
+      path,
       tableIdMap,
       fieldIdMap,
       viewIdMap,
@@ -139,6 +143,14 @@ export class BaseImportService {
       tableIdMap,
       fieldIdMap,
       viewIdMap,
+      ...rest,
+    } as {
+      base: ICreateBaseVo;
+      tableIdMap: Record<string, string>;
+      fieldIdMap: Record<string, string>;
+      viewIdMap: Record<string, string>;
+    } & {
+      [key: string]: Record<string, string>;
     };
   }
 
@@ -174,7 +186,7 @@ export class BaseImportService {
               }
 
               try {
-                const result = await this.createBaseStructure(spaceId, structureObject!);
+                const result = await this.createBaseStructure(spaceId, structureObject!, undefined);
                 resolve(result);
               } catch (error) {
                 reject(error);
@@ -281,6 +293,7 @@ export class BaseImportService {
       newBase.id,
       tables
     );
+
     this.logger.log(`base-duplicate-service: Duplicate base tables successfully`);
 
     // create plugins
@@ -578,6 +591,9 @@ export class BaseImportService {
       visit(node);
     }
 
+    // Deduplicate nodes by (resourceType, newResourceId) to avoid unique constraint violations
+    const createdResourceKeys = new Set<string>();
+
     for (const node of sortedNodes) {
       const { id, parentId, resourceId, resourceType, order } = node;
       const newId = allNodeIdMap[id];
@@ -592,6 +608,33 @@ export class BaseImportService {
         );
         continue;
       }
+
+      // Check if this (baseId, resourceType, resourceId) combination already exists in this batch
+      const resourceKey = `${baseId}:${resourceType}:${newResourceId}`;
+      if (createdResourceKeys.has(resourceKey)) {
+        this.logger.warn(
+          `base-import-service: skipping duplicate node in batch, baseId: ${baseId}, resourceType: ${resourceType}, resourceId: ${newResourceId}`
+        );
+        continue;
+      }
+
+      // Check if node already exists in database (could be created by listener)
+      const existingNode = await prisma.baseNode.findFirst({
+        where: {
+          baseId,
+          resourceType,
+          resourceId: newResourceId,
+        },
+      });
+
+      if (existingNode) {
+        this.logger.warn(
+          `base-import-service: node already exists in database, baseId: ${baseId}, resourceType: ${resourceType}, resourceId: ${newResourceId}`
+        );
+        createdResourceKeys.add(resourceKey);
+        continue;
+      }
+
       await prisma.baseNode.create({
         data: {
           id: newId,
@@ -603,6 +646,8 @@ export class BaseImportService {
           order,
         },
       });
+
+      createdResourceKeys.add(resourceKey);
     }
   }
 

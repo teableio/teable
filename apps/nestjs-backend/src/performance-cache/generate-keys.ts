@@ -49,3 +49,7 @@ export function generateBaseNodeListCacheKey(baseId: string) {
 export function generateTemplateCacheKeyByBaseId(baseId: string) {
   return `template:base:${baseId}` as const;
 }
+
+export function generateTemplateCategoryCacheKey() {
+  return `template:published-category-list` as const;
+}

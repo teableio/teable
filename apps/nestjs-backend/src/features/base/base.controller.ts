@@ -33,6 +33,8 @@ import {
   importBaseRoSchema,
   moveBaseRoSchema,
   IMoveBaseRo,
+  publishBaseRoSchema,
+  IPublishBaseRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -353,5 +355,14 @@ export class BaseController {
   @Get(':baseId/erd')
   async generateBaseErd(@Param('baseId') baseId: string): Promise<IBaseErdVo> {
     return await this.baseService.generateBaseErd(baseId);
+  }
+
+  @Permissions('base|update')
+  @Post(':baseId/publish')
+  async publishBase(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(publishBaseRoSchema)) publishBaseRo: IPublishBaseRo
+  ) {
+    return await this.baseService.publishBase(baseId, publishBaseRo);
   }
 }

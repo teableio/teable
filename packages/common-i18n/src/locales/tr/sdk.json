@@ -1318,7 +1318,8 @@
     "template": {
       "snapshotRequired": "Anlık görüntü eksik olduğu için bu şablon yayınlanamadı",
       "sourceTemplateNotFound": "Kaynak şablon bulunamadı",
-      "noMinOrderFound": "Minimum sıra bulunamadı"
+      "noMinOrderFound": "Minimum sıra bulunamadı",
+      "takeCountTooLarge": "İstenen şablon sayısı maksimum sınırı aşıyor"
     },
     "domainVerification": {
       "notFound": "Domain doğrulama kodu bulunamadı",

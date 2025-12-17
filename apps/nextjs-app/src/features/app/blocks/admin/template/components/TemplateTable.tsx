@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, ArrowUp } from '@teable/icons';
 import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
@@ -30,7 +30,7 @@ import {
 } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { BaseSelectPanel } from './BaseSelectPanel';
 import { MarkdownEditor } from './MarkdownEditor';
@@ -38,6 +38,8 @@ import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
 import { TemplateTooltips } from './TemplateTooltips';
 import { TextEditor } from './TextEditor';
+
+const PAGE_SIZE = 10;
 
 export const TemplateTable = () => {
   const { t } = useTranslation('common');
@@ -48,10 +50,25 @@ export const TemplateTable = () => {
 
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
-  const { data: templateData } = useQuery({
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.templateList(),
-    queryFn: () => getTemplateList().then((data) => data.data),
+    queryFn: ({ pageParam }) =>
+      getTemplateList({
+        skip: pageParam ?? 0,
+        take: PAGE_SIZE,
+      }).then((res) => res.data),
+    getNextPageParam: (lastPage, allPages) => {
+      if (lastPage.length < PAGE_SIZE) {
+        return undefined;
+      }
+      return allPages.length * PAGE_SIZE;
+    },
   });
+
+  // 当前显示的数据
+  const displayedData = useMemo(() => {
+    return data?.pages.flatMap((page) => page) ?? [];
+  }, [data]);
 
   const { data: baseList } = useQuery({
     queryKey: ReactQueryKeys.baseAll(),
@@ -92,6 +109,10 @@ export const TemplateTable = () => {
     updateTemplateFn({ templateId, updateRo: { isPublished } });
   };
 
+  const handleFeaturedTemplate = (templateId: string, featured: boolean) => {
+    updateTemplateFn({ templateId, updateRo: { featured } });
+  };
+
   const onChangeTemplateName = (templateId: string, name: string) => {
     updateTemplateFn({ templateId, updateRo: { name } });
   };
@@ -104,8 +125,8 @@ export const TemplateTable = () => {
     updateTemplateFn({ templateId, updateRo: { cover } });
   };
 
-  const onChangeTemplateCategory = (templateId: string, templateCategoryId: string) => {
-    updateTemplateFn({ templateId, updateRo: { categoryId: templateCategoryId } });
+  const onChangeTemplateCategory = (templateId: string, categoryId: string[]) => {
+    updateTemplateFn({ templateId, updateRo: { categoryId } });
   };
 
   const onChangeTemplateMarkdownDescription = (templateId: string, markdownDescription: string) => {
@@ -139,6 +160,9 @@ export const TemplateTable = () => {
               {t('settings.templateAdmin.header.isSystem')}
             </TableHead>
             <TableHead className="min-w-24 text-center">
+              {t('settings.templateAdmin.header.featured')}
+            </TableHead>
+            <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.status')}
             </TableHead>
             <TableHead className="w-32">
@@ -155,7 +179,7 @@ export const TemplateTable = () => {
         </TableHeader>
 
         <TableBody>
-          {templateData?.map((row) => (
+          {displayedData?.map((row) => (
             <TableRow key={row.id} className="max-h-24">
               <TableCell className="max-w-40">
                 <TemplateCover
@@ -193,7 +217,7 @@ export const TemplateTable = () => {
                 <TemplateCategorySelect
                   templateId={row.id}
                   value={row.categoryId}
-                  onChange={(name) => onChangeTemplateCategory(row.id, name)}
+                  onChange={(ids) => onChangeTemplateCategory(row.id, ids)}
                 />
               </TableCell>
               <TableCell className="text-center align-middle">
@@ -202,6 +226,21 @@ export const TemplateTable = () => {
                   defaultChecked={Boolean(row.isSystem)}
                   disabled={edition !== 'CLOUD'}
                 />
+              </TableCell>
+              <TableCell className="text-center align-middle">
+                <TemplateTooltips
+                  content={t('settings.templateAdmin.tips.needPublish')}
+                  disabled={!row.snapshot || !row.name || !row.description}
+                >
+                  <Switch
+                    className="scale-80"
+                    defaultChecked={Boolean(row.featured)}
+                    disabled={!row.isPublished}
+                    onCheckedChange={(checked: boolean) => {
+                      handleFeaturedTemplate(row?.id, checked);
+                    }}
+                  />
+                </TemplateTooltips>
               </TableCell>
               <TableCell className="text-center align-middle">
                 <TemplateTooltips
@@ -297,7 +336,7 @@ export const TemplateTable = () => {
             </TableRow>
           ))}
 
-          {templateData?.length === 0 && (
+          {displayedData?.length === 0 && (
             <TableRow>
               <TableCell colSpan={100} className="h-48 text-center">
                 {t('settings.templateAdmin.noData')}
@@ -306,6 +345,21 @@ export const TemplateTable = () => {
           )}
         </TableBody>
       </Table>
+
+      {/* Load more 按钮 */}
+      {hasNextPage && (
+        <div className="flex justify-center border-t py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex gap-2 px-4"
+            onClick={() => fetchNextPage()}
+            disabled={isFetchingNextPage}
+          >
+            {isFetchingNextPage ? <Spin className="size-4" /> : t('actions.loadMore')}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

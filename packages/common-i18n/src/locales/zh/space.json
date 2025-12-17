@@ -113,5 +113,37 @@
     "enter": "进入",
     "noTables": "暂无表",
     "empty": "暂无数据库"
+  },
+  "publishBase": {
+    "title": "发布 Base 到社区",
+    "description": "一键发布 base，灵感不再孤单！让更多人看到、使用和混音您的创意，共同构建更强大的业务",
+    "infoTitle": "基本信息",
+    "form": {
+      "title": "标题",
+      "description": "描述",
+      "security": "安全",
+      "includeNodes": "包含节点",
+      "advanced": "高级",
+      "publishNode": "发布节点",
+      "publishNodeTip": "选中的节点及其所有父文件夹都会被发布",
+      "includeData": "包含数据",
+      "defaultActiveNode": "默认活动节点",
+      "select": "请选择",
+      "descriptionPlaceholder": "请填写描述",
+      "titlePlaceholder": "请填写标题",
+      "toBeFilled": "待填写"
+    },
+    "publish": "发布",
+    "publishSuccess": "发布成功！",
+    "previewTips": "让世界看到你的作品",
+    "update": "更新",
+    "unPublish": "取消发布",
+    "unPublishSuccess": "取消发布成功！",
+    "usageCount": "使用次数：",
+    "uploadCover": "点击上传封面图片",
+    "changeCover": "点击更换封面",
+    "uploadSuccess": "图片上传成功",
+    "uploadFailed": "上传失败",
+    "invalidImageType": "请选择图片文件"
   }
 }

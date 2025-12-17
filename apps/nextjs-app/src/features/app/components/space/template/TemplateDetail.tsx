@@ -37,8 +37,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
   });
 
-  const categoryName = useMemo(() => {
-    return categoryList?.find((c) => c.id === categoryId)?.name;
+  const categoryNames = useMemo(() => {
+    if (!categoryId || categoryId.length === 0) return [];
+    return categoryList?.filter((c) => categoryId.includes(c.id)).map((c) => c.name) || [];
   }, [categoryList, categoryId]);
 
   const router = useRouter();
@@ -78,9 +79,16 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             </Button>
           )}
           <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
-          <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
-            {categoryName}
-          </Badge>
+          {categoryNames.length > 0 &&
+            categoryNames.map((name) => (
+              <Badge
+                variant="secondary"
+                className="text-xs font-normal text-muted-foreground"
+                key={name}
+              >
+                {name}
+              </Badge>
+            ))}
         </div>
         <div className="flex flex-col gap-3 overflow-y-auto px-6 pb-3">
           <p className="text-base font-normal text-muted-foreground">{description}</p>
@@ -138,9 +146,16 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
               </Button>
             )}
             <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
-            <Badge variant="secondary" className="text-xs font-normal text-muted-foreground">
-              {categoryName}
-            </Badge>
+            {categoryNames.length > 0 &&
+              categoryNames.map((name) => (
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-normal text-muted-foreground"
+                  key={name}
+                >
+                  {name}
+                </Badge>
+              ))}
           </div>
           <p
             className={cn(

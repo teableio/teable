@@ -7,15 +7,20 @@ import type {
   ITemplateCategoryListVo,
   ICreateTemplateCategoryRo,
   ICreateTemplateRo,
+  ITemplateListQueryRo,
   IUpdateTemplateCategoryRo,
   IUpdateTemplateRo,
+  ITemplateQueryRoSchema,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
-import { PerformanceCacheService } from '../../performance-cache';
-import { generateTemplateCacheKeyByBaseId } from '../../performance-cache/generate-keys';
+import { PerformanceCacheService, PerformanceCache } from '../../performance-cache';
+import {
+  generateTemplateCacheKeyByBaseId,
+  generateTemplateCategoryCacheKey,
+} from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
@@ -41,6 +46,7 @@ export class TemplateOpenApiService {
       },
     });
     const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
+
     return await this.prismaService.template.create({
       data: {
         id: templateId,
@@ -51,12 +57,23 @@ export class TemplateOpenApiService {
     });
   }
 
-  async getAllTemplateList() {
+  async getAllTemplateList(query?: ITemplateListQueryRo) {
+    const { skip = 0, take = 300 } = query ?? {};
+
+    if (take && take > 1000) {
+      throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.template.takeCountTooLarge',
+        },
+      });
+    }
+
     const res = await this.prismaService.template.findMany({
-      where: {},
       orderBy: {
         order: 'asc',
       },
+      skip,
+      take,
     });
 
     const previewUrlMap: Record<string, string> = {};
@@ -77,6 +94,7 @@ export class TemplateOpenApiService {
 
     return res.map((item) => ({
       ...item,
+      categoryId: item.categoryId,
       cover: item.cover
         ? {
             ...JSON.parse(item.cover),
@@ -87,14 +105,32 @@ export class TemplateOpenApiService {
     }));
   }
 
-  async getPublishedTemplateList() {
+  async getPublishedTemplateList(templateQuery?: ITemplateQueryRoSchema) {
+    const { skip = 0, take = 100 } = templateQuery ?? {};
+    const featured = templateQuery?.featured;
+    const categoryId = templateQuery?.categoryId;
+    const search = templateQuery?.search;
+
+    if (take && take > 1000) {
+      throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
+        localization: {
+          i18nKey: 'httpErrors.template.takeCountTooLarge',
+        },
+      });
+    }
+
     const res = await this.prismaService.template.findMany({
       where: {
         isPublished: true,
+        featured: featured,
+        categoryId: categoryId ? { has: categoryId } : undefined,
+        name: search ? { contains: search, mode: 'insensitive' } : undefined,
       },
       orderBy: {
         order: 'asc',
       },
+      skip,
+      take,
     });
 
     const previewUrlMap: Record<string, string> = {};
@@ -115,6 +151,7 @@ export class TemplateOpenApiService {
 
     return res.map((item) => ({
       ...item,
+      categoryId: item.categoryId,
       cover: item.cover
         ? {
             ...JSON.parse(item.cover),
@@ -166,6 +203,7 @@ export class TemplateOpenApiService {
         where: { id: templateId },
         data: {
           ...updateTemplateRo,
+          categoryId: updateTemplateRo.categoryId,
           cover: newCover as string | null | undefined,
         },
       })
@@ -208,7 +246,9 @@ export class TemplateOpenApiService {
     return await this.prismaService.$tx(
       async (prisma) => {
         // duplicate a base for template snapshot, not allow cross base field relative, all cross base link field will be duplicated as single text fields
-        const { id, spaceId, name } = await this.baseDuplicateService.duplicateBase(
+        const {
+          base: { id, spaceId, name },
+        } = await this.baseDuplicateService.duplicateBase(
           {
             fromBaseId: templateRaw.baseId!,
             spaceId: templateSpaceId.id,
@@ -265,6 +305,8 @@ export class TemplateOpenApiService {
 
     const finalOrder = isNumber(maxOrder._max.order) ? maxOrder._max.order + 1 : 1;
 
+    await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
+
     return await this.prismaService.templateCategory.create({
       data: {
         id: categoryId,
@@ -283,6 +325,11 @@ export class TemplateOpenApiService {
     });
   }
 
+  @PerformanceCache({
+    ttl: 60 * 60 * 24,
+    keyGenerator: generateTemplateCategoryCacheKey,
+    statsType: 'template',
+  })
   async getPublishedTemplateCategoryList() {
     const publishedTemplateCategoryIdsRaw = await this.prismaService.template.findMany({
       where: {
@@ -293,9 +340,11 @@ export class TemplateOpenApiService {
       },
     });
 
-    const publishedTemplateCategoryIds = publishedTemplateCategoryIdsRaw
-      .filter((item) => item.categoryId)
-      .map((item) => item.categoryId) as string[];
+    const publishedTemplateCategoryIds = Array.from(
+      new Set(
+        publishedTemplateCategoryIdsRaw.flatMap((item) => item.categoryId ?? []).filter((id) => id)
+      )
+    );
 
     if (!publishedTemplateCategoryIds.length) {
       return [] as ITemplateCategoryListVo[];
@@ -342,6 +391,7 @@ export class TemplateOpenApiService {
   }
 
   async deleteTemplateCategory(categoryId: string) {
+    await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
     await this.prismaService.templateCategory.delete({
       where: { id: categoryId },
     });
@@ -351,6 +401,7 @@ export class TemplateOpenApiService {
     categoryId: string,
     updateTemplateCategoryRo: IUpdateTemplateCategoryRo
   ) {
+    await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
     await this.prismaService.templateCategory.update({
       where: { id: categoryId },
       data: { ...updateTemplateCategoryRo },
@@ -380,10 +431,44 @@ export class TemplateOpenApiService {
 
     return {
       ...template,
+      categoryId: template.categoryId,
       cover: {
         ...newCover,
       },
       snapshot: template.snapshot ? JSON.parse(template.snapshot) : undefined,
+    };
+  }
+
+  async getTemplateByBaseId(baseId: string) {
+    const template = await this.prismaService.template.findFirst({
+      where: { baseId },
+    });
+
+    if (!template) {
+      return null;
+    }
+
+    const cover = template.cover ? JSON.parse(template.cover) : undefined;
+
+    const newCover = {
+      ...cover,
+      presignedUrl: undefined,
+    };
+
+    if (cover) {
+      const { path, token } = cover;
+      newCover.presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
+        StorageAdapter.getBucket(UploadType.Template),
+        path,
+        token
+      );
+    }
+
+    return {
+      ...template,
+      categoryId: template.categoryId,
+      cover: cover ? { ...newCover } : null,
+      snapshot: template.snapshot ? JSON.parse(template.snapshot) : null,
     };
   }
 }

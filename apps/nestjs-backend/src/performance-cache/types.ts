@@ -27,6 +27,9 @@ export interface IPerformanceCacheStore {
   // integration cache, format: integration:space_id
   [key: `integration:${string}`]: unknown;
 
+  // template cache
+  [key: `template:${string}`]: unknown;
+
   // instance setting cache, format: instance:setting
   'instance:setting': unknown;
 

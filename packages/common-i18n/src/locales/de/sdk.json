@@ -1326,7 +1326,8 @@
     "template": {
       "snapshotRequired": "Diese Vorlage konnte nicht veröffentlicht werden, da ein Snapshot fehlt",
       "sourceTemplateNotFound": "Quellvorlage nicht gefunden",
-      "noMinOrderFound": "Keine Minimalreihenfolge gefunden"
+      "noMinOrderFound": "Keine Minimalreihenfolge gefunden",
+      "takeCountTooLarge": "Die Anzahl der angeforderten Vorlagen überschreitet das Maximum"
     },
     "department": {
       "parentNotFound": "Übergeordnete Abteilung nicht gefunden",
