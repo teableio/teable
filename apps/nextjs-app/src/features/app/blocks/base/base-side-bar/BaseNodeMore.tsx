@@ -34,7 +34,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSetting } from '@/features/app/hooks/useSetting';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../../hooks/useDownLoad';
@@ -211,7 +211,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   const [importVisible, setImportVisible] = useState(false);
   const [duplicateSetting, setDuplicateSetting] = useState(false);
   const [importType, setImportType] = useState(SUPPORTEDTYPE.CSV);
-
+  const inputRef = useRef<HTMLInputElement>(null);
   const table = useMemo(() => tables.find((t) => t.id === resourceId), [tables, resourceId]);
   const { trigger } = useDownload({ downloadUrl: `/api/export/${resourceId}`, key: 'table' });
 
@@ -225,7 +225,6 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
   );
 
   const [duplicateOption, setDuplicateOption] = useState({
-    name: defaultTableName,
     includeRecords: true,
   });
 
@@ -393,13 +392,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
                 <Label>
                   {t('common:noun.table')} {t('common:name')}
                 </Label>
-                <Input
-                  defaultValue={defaultTableName}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setDuplicateOption((prev) => ({ ...prev, name: value }));
-                  }}
-                />
+                <Input ref={inputRef} defaultValue={defaultTableName} />
               </div>
               <div className="flex items-center gap-1">
                 <Switch
@@ -416,7 +409,7 @@ export const TableOperation = (props: IBaseNodeMoreProps) => {
           onCancel={() => setDuplicateSetting(false)}
           onConfirm={async () => {
             await duplicateTableFn({
-              name: duplicateOption.name,
+              name: inputRef.current?.value?.trim() || defaultTableName,
               includeRecords: duplicateOption.includeRecords,
             });
           }}
