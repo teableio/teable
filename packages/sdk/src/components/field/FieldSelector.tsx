@@ -101,7 +101,10 @@ export function FieldSelector(props: IFieldSelector) {
             role="combobox"
             tabIndex={-1}
             aria-expanded={open}
-            className={cn('h-9 max-w-[200px] px-3 flex items-center', className)}
+            className={cn(
+              'h-9 max-w-[200px] px-3 flex items-center dark:bg-[color-mix(in_oklab,white_10%,hsl(var(--background)))]',
+              className
+            )}
           >
             <div className="flex flex-1 items-center gap-1 truncate">
               <Icon className="size-4 shrink-0" />

@@ -54,11 +54,14 @@ export const SortBase = forwardRef<ISortBaseRef, ISortBaseProps>((props, sortBas
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
 
-      <PopoverContent side="bottom" align="start" className="relative w-fit max-w-screen-md p-0">
+      <PopoverContent
+        side="bottom"
+        align="start"
+        className="relative w-fit max-w-screen-md overflow-hidden rounded-lg p-0"
+      >
         <ReadOnlyTip />
-        <header className="mx-3">
-          <div className="border-b border-border-high py-3 text-[13px]">{t('sort.setTips')}</div>
-        </header>
+        <div className="px-4 pt-3 text-[13px]">{t('sort.setTips')}</div>
+
         <SortContent sortValues={sortObjs} onChange={onSortObjsChange} />
         {Boolean(sortObjs?.length) && !hiddenManual && (
           <SortConfig

@@ -1,5 +1,5 @@
 import { RowHeightLevel } from '@teable/core';
-import { DivideSquare, Menu, Square, StretchHorizontal } from '@teable/icons';
+import { RowExtralTall, RowMedium, RowTall, RowShort } from '@teable/icons';
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 
@@ -11,22 +11,22 @@ export const useRowHeightNodes = () => {
       {
         label: t('rowHeight.short'),
         value: RowHeightLevel.Short,
-        Icon: Menu,
+        Icon: RowShort,
       },
       {
         label: t('rowHeight.medium'),
         value: RowHeightLevel.Medium,
-        Icon: StretchHorizontal,
+        Icon: RowMedium,
       },
       {
         label: t('rowHeight.tall'),
         value: RowHeightLevel.Tall,
-        Icon: DivideSquare,
+        Icon: RowTall,
       },
       {
         label: t('rowHeight.extraTall'),
         value: RowHeightLevel.ExtraTall,
-        Icon: Square,
+        Icon: RowExtralTall,
       },
     ],
     [t]

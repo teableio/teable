@@ -36,7 +36,7 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
         <div className="flex gap-1">
           <DropdownMenu modal={false}>
             <DropdownMenuTrigger>
-              <Button size="xs" variant="ghost" className="size-7">
+              <Button variant="ghost" size={'icon'} className="size-8 text-muted-foreground">
                 <Plus />
               </Button>
             </DropdownMenuTrigger>
@@ -73,8 +73,9 @@ export const ConditionGroup = (props: IConditionGroupProps) => {
           </DropdownMenu>
 
           <Button
-            size="xs"
             variant="ghost"
+            size={'icon'}
+            className="size-8 text-muted-foreground"
             onClick={() => {
               onDelete(path, index);
             }}

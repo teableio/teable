@@ -27,8 +27,8 @@ function SortFieldAddButton(props: ISortFieldSelectProps) {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost">
-          <Plus></Plus>
+        <Button variant="outline" size={'sm'} className="ml-4">
+          <Plus className="size-4"></Plus>
           <span>{addBtnText ?? t('sort.addButton')}</span>
         </Button>
       </PopoverTrigger>

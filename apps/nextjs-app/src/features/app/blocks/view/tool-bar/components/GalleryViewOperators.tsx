@@ -57,13 +57,13 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
               onCheckedChange={onCoverFitChange}
               className="border-t"
             />
-            <div className="flex items-center justify-between border-t p-2">
+            <div className="flex h-9 items-center justify-between border-t px-4">
               <Label htmlFor="is-field-name-hidden" className="text-sm font-normal">
                 {t('table:kanban.toolbar.hideFieldName')}
               </Label>
               <Switch
                 id="is-field-name-hidden"
-                className="h-4 w-7"
+                size={'sm'}
                 classNameThumb="size-3 data-[state=checked]:translate-x-3"
                 checked={isFieldNameHidden}
                 onCheckedChange={onFieldNameHiddenChange}

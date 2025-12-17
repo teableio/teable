@@ -1,5 +1,5 @@
 import { verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { ChevronDown, DraggableHandle } from '@teable/icons';
+import { DraggableHandle } from '@teable/icons';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { useTablePermission, useViewId } from '@teable/sdk/hooks';
 import {
@@ -13,6 +13,7 @@ import {
   CommandItem,
   Command,
 } from '@teable/ui-lib/shadcn';
+import { List } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
@@ -43,7 +44,7 @@ export const ExpandViewList = () => {
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button className="size-7 shrink-0 px-0" size="xs" variant="ghost">
-          <ChevronDown className="size-4" />
+          <List className="size-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-auto max-w-[456px] p-1">

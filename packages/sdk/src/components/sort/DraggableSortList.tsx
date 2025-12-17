@@ -35,7 +35,12 @@ function DraggableItem(props: IDraggbleProps & ISortItemProps) {
     <>
       <SortItem value={value} index={index} onSelect={onSelect} selectedFields={selectedFields} />
 
-      <Button variant="outline" size="sm" onClick={() => deleteHandler(index)}>
+      <Button
+        variant="ghost"
+        size={'icon'}
+        className="size-8 text-muted-foreground"
+        onClick={() => deleteHandler(index)}
+      >
         <Trash2 className="size-4"></Trash2>
       </Button>
 
@@ -89,10 +94,7 @@ function DraggableSortList(props: IDraggableSortProps) {
                 <div
                   ref={setNodeRef}
                   style={style}
-                  className={cn(
-                    'flex items-center my-2 flex-nowrap',
-                    isDragging ? 'opacity-50' : null
-                  )}
+                  className={cn('flex items-center flex-nowrap', isDragging ? 'opacity-50' : null)}
                 >
                   <DraggableItem
                     value={sort}

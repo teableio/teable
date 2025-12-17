@@ -13,7 +13,7 @@ export const Condition = (props: IConditionProps) => {
   const { index, path, value, depth, conjunction } = props;
 
   return (
-    <div className="my-1 flex w-full items-start gap-2">
+    <div className="flex w-full items-start gap-2">
       <Conjunction index={index} path={[...path, 'conjunction']} value={conjunction} />
       {isConditionGroup(value) ? (
         <ConditionGroup path={[...path]} index={index} depth={depth + 1}>

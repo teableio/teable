@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Menu, Square, StretchHorizontal } from '@teable/icons';
+import { Line1, Line2, Line3 } from '@teable/icons';
 import { useMemo } from 'react';
 import { useTranslation } from '../../context/app/i18n';
 
@@ -11,17 +11,17 @@ export const useFieldNameDisplayLinesNodes = () => {
       {
         label: t('fieldNameConfig.displayLines', { count: 1 }),
         value: 1,
-        Icon: Square,
+        Icon: Line1,
       },
       {
         label: t('fieldNameConfig.displayLines', { count: 2 }),
         value: 2,
-        Icon: StretchHorizontal,
+        Icon: Line2,
       },
       {
         label: t('fieldNameConfig.displayLines', { count: 3 }),
         value: 3,
-        Icon: Menu,
+        Icon: Line3,
       },
     ],
     [t]

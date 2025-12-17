@@ -51,8 +51,8 @@ export function SortContent(props: ISortProps) {
   }
 
   return (
-    <div className="flex flex-col">
-      <div className="max-h-96 overflow-auto p-3">
+    <div className="flex flex-col items-start gap-3 py-4">
+      <div className="flex max-h-96 flex-col gap-2 overflow-auto px-4">
         <DraggableSortList
           sorts={sortValues}
           selectedFields={selectedFieldIds}

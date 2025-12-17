@@ -120,7 +120,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
           e.preventDefault();
         }
       }}
-      className={cn('flex justify-start gap-1', footerClassName)}
+      className={cn('flex justify-start gap-2', footerClassName)}
       onClick={(e) => {
         e.stopPropagation();
         e.preventDefault();
@@ -133,7 +133,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
       }}
     >
       <Button
-        variant="ghost"
+        variant="outline"
         size="xs"
         onClick={() => {
           setValue({
@@ -147,11 +147,11 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
           });
         }}
       >
-        <Plus />
+        <Plus className="size-4" />
         {t('filter.addCondition')}
       </Button>
       <Button
-        variant="ghost"
+        variant="outline"
         size="xs"
         onClick={() => {
           setValue({
@@ -160,7 +160,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
           });
         }}
       >
-        <Plus />
+        <Plus className="size-4" />
         {t('filter.addConditionGroup')}
       </Button>
     </div>
@@ -179,7 +179,7 @@ export const BaseFilter = <T extends IConditionItemProperty>(props: IBaseFilterP
     >
       {children.length > 0 && (
         <div
-          className={cn('flex flex-1 flex-col overflow-auto', contentClassName)}
+          className={cn('flex flex-1 gap-2 flex-col overflow-auto', contentClassName)}
           ref={filterContainerRef}
         >
           {children.map((condition, index) => (

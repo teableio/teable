@@ -236,10 +236,10 @@
     "medium": "Medium",
     "tall": "Tall",
     "extraTall": "Extra tall",
-    "title": "Row height configuration"
+    "title": "Row height"
   },
   "fieldNameConfig": {
-    "title": "Field name configuration",
+    "title": "Field name",
     "displayLines": "{{count}} lines"
   },
   "share": {

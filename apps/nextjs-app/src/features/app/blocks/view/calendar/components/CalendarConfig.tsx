@@ -98,11 +98,11 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
   return (
     <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="flex w-[272px] flex-col gap-y-2 p-4">
+      <PopoverContent side="bottom" align="start" className="flex w-[272px] flex-col gap-4 p-4">
         {fields.length > 0 ? (
           <Fragment>
             {dateSelects.map(({ label, key, value }) => (
-              <div key={key} className="flex flex-col gap-y-1">
+              <div key={key} className="flex flex-col gap-2">
                 <span className="text-xs text-muted-foreground">{label}</span>
                 <Select
                   value={value ?? undefined}
@@ -142,7 +142,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                 </Select>
               </div>
             ))}
-            <div className="flex flex-col gap-y-1">
+            <div className="flex flex-col gap-2">
               <span className="text-xs text-muted-foreground">
                 {t('table:calendar.toolbar.titleField')}
               </span>
@@ -172,7 +172,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex flex-col gap-y-1">
+            <div className="flex flex-col gap-2">
               <span className="text-xs text-muted-foreground">
                 {t('table:calendar.toolbar.colorType')}
               </span>
@@ -200,7 +200,7 @@ export const CalendarConfig: FC<PropsWithChildren> = (props) => {
               />
             )}
             {colorType === ColorConfigType.Field && (
-              <div className="flex flex-col gap-y-1">
+              <div className="flex flex-col gap-2">
                 <span className="text-xs text-muted-foreground">
                   {t('table:calendar.toolbar.colorField')}
                 </span>

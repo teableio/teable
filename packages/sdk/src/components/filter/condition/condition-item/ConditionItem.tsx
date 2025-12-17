@@ -27,9 +27,9 @@ export const ConditionItem = <T extends IConditionItemProperty>(props: IConditio
       <FieldValue path={[...path, 'value']} value={value.value} item={value} />
 
       <Button
-        size="xs"
-        variant="outline"
-        className="size-8 shrink-0"
+        variant="ghost"
+        size={'icon'}
+        className="size-8 text-muted-foreground"
         onClick={() => {
           onDelete(path, index);
         }}

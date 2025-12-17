@@ -55,8 +55,8 @@ export const BaseViewFilter = <T extends IConditionItemProperty = IViewFilterCon
         defaultItemValue={defaultItemValue}
         value={baseFilter}
         onChange={onChangeHandler}
-        footerClassName="p-2 pt-0"
-        contentClassName="py-2 px-3"
+        footerClassName=""
+        contentClassName="pt-2 pb-4"
         components={{
           FieldComponent: FieldSelect,
           OperatorComponent: operatorSelect ?? OperatorSelect,

@@ -37,11 +37,13 @@ export const Group = (props: IGroupProps) => {
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
       <PopoverTrigger asChild>{children?.(text, isActive)}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="relative w-fit max-w-screen-md p-0">
+      <PopoverContent
+        side="bottom"
+        align="start"
+        className="relative w-fit max-w-screen-md overflow-hidden rounded-lg p-0"
+      >
         <ReadOnlyTip />
-        <header className="mx-3">
-          <div className="border-b border-border-high py-3 text-[13px]">{t('group.setTips')}</div>
-        </header>
+        <div className="px-4 pt-3 text-[13px]">{t('group.setTips')}</div>
         <SortContent
           limit={3}
           sortValues={group ?? undefined}

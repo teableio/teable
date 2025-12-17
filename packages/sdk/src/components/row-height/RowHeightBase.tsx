@@ -32,37 +32,39 @@ export const RowHeightBase = (props: IRowHeightBaseProps) => {
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent side="bottom" align="start" className="relative w-52 p-0">
         <ReadOnlyTip />
-        <DropdownMenuLabel className="py-1 text-xs font-normal text-muted-foreground">
+        <DropdownMenuLabel className="px-4 py-2 text-xs font-normal text-muted-foreground">
           {t('rowHeight.title')}
         </DropdownMenuLabel>
+        <div className="flex flex-col px-2">
+          {rowHeightMenuItems.map(({ label, value: valueInner, Icon }) => (
+            <DropdownMenuCheckboxItem
+              className="cursor-pointer rounded-md hover:bg-accent"
+              key={valueInner}
+              checked={rowHeight === valueInner}
+              onClick={() => onChange?.('rowHeight', valueInner)}
+            >
+              <Icon className="pr-1 text-lg" />
+              {label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </div>
         <DropdownMenuSeparator />
-        {rowHeightMenuItems.map(({ label, value: valueInner, Icon }) => (
-          <DropdownMenuCheckboxItem
-            className="cursor-pointer"
-            key={valueInner}
-            checked={rowHeight === valueInner}
-            onClick={() => onChange?.('rowHeight', valueInner)}
-          >
-            <Icon className="pr-1 text-lg" />
-            {label}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel className="py-1 text-xs font-normal text-muted-foreground">
+        <DropdownMenuLabel className="px-4 py-2 text-xs font-normal text-muted-foreground">
           {t('fieldNameConfig.title')}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {fieldNameDisplayLinesMenuItems.map(({ label, value: valueInner, Icon }) => (
-          <DropdownMenuCheckboxItem
-            className="cursor-pointer"
-            key={valueInner}
-            checked={fieldNameDisplayLines === valueInner}
-            onClick={() => onChange?.('fieldNameDisplayLines', valueInner)}
-          >
-            <Icon className="pr-1 text-lg" />
-            {label}
-          </DropdownMenuCheckboxItem>
-        ))}
+        <div className="flex flex-col px-2">
+          {fieldNameDisplayLinesMenuItems.map(({ label, value: valueInner, Icon }) => (
+            <DropdownMenuCheckboxItem
+              className="cursor-pointer rounded-md hover:bg-accent"
+              key={valueInner}
+              checked={fieldNameDisplayLines === valueInner}
+              onClick={() => onChange?.('fieldNameDisplayLines', valueInner)}
+            >
+              <Icon className="pr-1 text-lg" />
+              {label}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
   );

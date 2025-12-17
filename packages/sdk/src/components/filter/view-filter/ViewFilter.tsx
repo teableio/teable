@@ -66,16 +66,16 @@ export const ViewFilter = (props: IViewFilterProps) => {
         side="bottom"
         align="start"
         className={cn(
-          'flex max-h-96 w-min min-w-[544px] max-w-screen-md flex-col overflow-hidden p-0 relative'
+          'flex max-h-96 w-min min-w-[544px] max-w-screen-md flex-col overflow-hidden rounded-lg p-4 relative'
         )}
       >
         <ReadOnlyTip />
         {contentHeader}
-        <div className="px-2 py-1 text-xs">
+        <div className="mb-2 text-[13px]">
           {filters?.filterSet?.length ? (
-            <div className="pt-2">{title}</div>
+            <div>{title}</div>
           ) : (
-            <div className="pt-2 text-muted-foreground">{emptyText}</div>
+            <div className="text-muted-foreground">{emptyText}</div>
           )}
         </div>
         <BaseViewFilter<IViewFilterConditionItem>

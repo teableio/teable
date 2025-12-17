@@ -110,14 +110,14 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   };
 
   const content = () => (
-    <div className="rounded-lg p-1">
+    <div className="rounded-lg">
       <Command filter={commandFilter}>
         <CommandInput
           placeholder={t('common.search.placeholder')}
-          className="h-8 text-xs"
+          className="h-10 text-xs"
           onValueChange={(value) => searchHandle(value)}
         />
-        <CommandList className="my-2 max-h-64">
+        <CommandList className="max-h-[280px] p-2">
           <CommandEmpty>{t('common.search.empty')}</CommandEmpty>
           <DndKitContext onDragEnd={dragEndHandler}>
             <Droppable items={innerFields.map(({ id }) => ({ id }))}>
@@ -135,7 +135,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                       <>
                         {
                           <CommandItem
-                            className="flex flex-1 p-0"
+                            className="flex flex-1 rounded-md p-0"
                             key={id}
                             value={id}
                             ref={setNodeRef}
@@ -147,14 +147,14 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div className="flex flex-1 items-center truncate p-0">
+                                  <div className="flex flex-1 cursor-pointer items-center truncate p-0">
                                     <Label
                                       htmlFor={id}
                                       className="flex flex-1 cursor-pointer items-center truncate p-2"
                                     >
                                       <Switch
                                         id={id}
-                                        className="scale-75"
+                                        size="sm"
                                         checked={statusMap[id]}
                                         onCheckedChange={(checked) => {
                                           switchChange(id, checked);
@@ -168,7 +168,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
                                     </Label>
                                     {/* forbid drag when search */}
                                     {dragEnabled && (
-                                      <div {...attributes} {...listeners} className="pr-1">
+                                      <div {...attributes} {...listeners} className="pr-2">
                                         <DraggableHandle></DraggableHandle>
                                       </div>
                                     )}
@@ -193,21 +193,11 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
         </CommandList>
       </Command>
       {dragHandleVisible && (
-        <div className="flex justify-between p-2">
-          <Button
-            variant="secondary"
-            size="xs"
-            className="w-32 text-muted-foreground hover:text-secondary-foreground"
-            onClick={showAll}
-          >
+        <div className="flex justify-between gap-3 border-t px-4 pb-4 pt-3">
+          <Button variant="outline" size="xs" className="w-32" onClick={showAll}>
             {t('hidden.showAll')}
           </Button>
-          <Button
-            variant="secondary"
-            size="xs"
-            className="w-32 text-muted-foreground hover:text-secondary-foreground"
-            onClick={hideAll}
-          >
+          <Button variant="outline" size="xs" className="w-32" onClick={hideAll}>
             {t('hidden.hideAll')}
           </Button>
         </div>
@@ -218,7 +208,7 @@ export const HideFieldsBase = (props: IHideFieldsBaseProps) => {
   return (
     <Popover modal>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
-      <PopoverContent side="bottom" align="start" className="relative p-0">
+      <PopoverContent side="bottom" align="start" className="relative rounded-lg p-0">
         <ReadOnlyTip />
         {content()}
         {footer}
