@@ -159,7 +159,10 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
                 variant="outline"
                 size="xs"
                 className="hidden h-7 w-0 shrink-0 gap-1 opacity-0 group-hover:w-auto sm:flex sm:group-hover:opacity-100"
-                onClick={onEnterBase}
+                onClick={(e) => {
+                  stopPropagation(e);
+                  onEnterBase?.();
+                }}
               >
                 <ArrowRight className="size-4" />
                 {t('space:baseList.enter')}
@@ -191,7 +194,15 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >
-        <Button variant="outline" size="xs" className="h-7 gap-1 sm:hidden" onClick={onEnterBase}>
+        <Button
+          variant="outline"
+          size="xs"
+          className="h-7 gap-1 sm:hidden"
+          onClick={(e) => {
+            stopPropagation(e);
+            onEnterBase?.();
+          }}
+        >
           <ArrowRight className="size-4" />
           {t('space:baseList.enter')}
         </Button>
