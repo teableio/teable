@@ -30,7 +30,10 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
+    builderClient.whereRaw(
+      `${this.tableColumnRef} BETWEEN ?::timestamptz AND ?::timestamptz`,
+      dateTimeRange
+    );
     return builderClient;
   }
 
@@ -55,7 +58,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
     // Wrap conditions in a nested `.whereRaw()` to ensure proper SQL grouping with parentheses,
     // generating `WHERE ("data" NOT BETWEEN ... OR "data" IS NULL) AND other_query`.
     builderClient.whereRaw(
-      `(${this.tableColumnRef} NOT BETWEEN ? AND ? OR ${this.tableColumnRef} IS NULL)`,
+      `(${this.tableColumnRef} NOT BETWEEN ?::timestamptz AND ?::timestamptz OR ${this.tableColumnRef} IS NULL)`,
       dateTimeRange
     );
     return builderClient;
@@ -78,7 +81,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} > ?`, [dateTimeRange[1]]);
+    builderClient.whereRaw(`${this.tableColumnRef} > ?::timestamptz`, [dateTimeRange[1]]);
     return builderClient;
   }
 
@@ -99,7 +102,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} >= ?`, [dateTimeRange[0]]);
+    builderClient.whereRaw(`${this.tableColumnRef} >= ?::timestamptz`, [dateTimeRange[0]]);
     return builderClient;
   }
 
@@ -120,7 +123,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} < ?`, [dateTimeRange[0]]);
+    builderClient.whereRaw(`${this.tableColumnRef} < ?::timestamptz`, [dateTimeRange[0]]);
     return builderClient;
   }
 
@@ -141,7 +144,7 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} <= ?`, [dateTimeRange[1]]);
+    builderClient.whereRaw(`${this.tableColumnRef} <= ?::timestamptz`, [dateTimeRange[1]]);
     return builderClient;
   }
 
@@ -161,7 +164,10 @@ export class DatetimeCellValueFilterAdapter extends CellValueFilterPostgres {
       options as IDateFieldOptions,
       value as IDateFilter
     );
-    builderClient.whereRaw(`${this.tableColumnRef} BETWEEN ? AND ?`, dateTimeRange);
+    builderClient.whereRaw(
+      `${this.tableColumnRef} BETWEEN ?::timestamptz AND ?::timestamptz`,
+      dateTimeRange
+    );
     return builderClient;
   }
 
