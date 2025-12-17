@@ -25,7 +25,9 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @> '[?]'::jsonb`, [Number(value)]);
+    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @> jsonb_build_array(?::numeric)`, [
+      Number(value),
+    ]);
     return builderClient;
   }
 
@@ -45,9 +47,10 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @> '[?]'::jsonb`, [
-      Number(value),
-    ]);
+    builderClient.whereRaw(
+      `NOT COALESCE(${this.tableColumnRef}, '[]')::jsonb @> jsonb_build_array(?::numeric)`,
+      [Number(value)]
+    );
     return builderClient;
   }
 
@@ -64,9 +67,16 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ > ?)'`, [
-      Number(value),
-    ]);
+    builderClient.whereRaw(
+      `
+      EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(${this.tableColumnRef}, '[]')::jsonb) as elem
+        WHERE elem::numeric > ?::numeric
+      )
+      `,
+      [Number(value)]
+    );
     return builderClient;
   }
 
@@ -83,9 +93,16 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ >= ?)'`, [
-      Number(value),
-    ]);
+    builderClient.whereRaw(
+      `
+      EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(${this.tableColumnRef}, '[]')::jsonb) as elem
+        WHERE elem::numeric >= ?::numeric
+      )
+      `,
+      [Number(value)]
+    );
     return builderClient;
   }
 
@@ -102,9 +119,16 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ < ?)'`, [
-      Number(value),
-    ]);
+    builderClient.whereRaw(
+      `
+      EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(${this.tableColumnRef}, '[]')::jsonb) as elem
+        WHERE elem::numeric < ?::numeric
+      )
+      `,
+      [Number(value)]
+    );
     return builderClient;
   }
 
@@ -121,9 +145,16 @@ export class MultipleNumberCellValueFilterAdapter extends CellValueFilterPostgre
       return builderClient;
     }
 
-    builderClient.whereRaw(`${this.tableColumnRef}::jsonb @\\? '$[*] \\? (@ <= ?)'`, [
-      Number(value),
-    ]);
+    builderClient.whereRaw(
+      `
+      EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements_text(COALESCE(${this.tableColumnRef}, '[]')::jsonb) as elem
+        WHERE elem::numeric <= ?::numeric
+      )
+      `,
+      [Number(value)]
+    );
     return builderClient;
   }
 
