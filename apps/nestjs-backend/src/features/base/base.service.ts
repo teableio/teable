@@ -12,6 +12,7 @@ import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
+  ICreateBaseFromTemplateVo,
   ICreateBaseRo,
   IDuplicateBaseRo,
   IGetBasePermissionVo,
@@ -167,10 +168,12 @@ export class BaseService {
         role,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: {
-          ...(createdUser ?? {}),
-          avatar: createdUser?.avatar && getPublicFullStorageUrl(createdUser.avatar),
-        },
+        createdUser: createdUser
+          ? {
+              ...createdUser,
+              avatar: createdUser.avatar && getPublicFullStorageUrl(createdUser.avatar),
+            }
+          : undefined,
       };
     });
   }
@@ -362,13 +365,16 @@ export class BaseService {
     }
   }
 
-  async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
+  async createBaseFromTemplate(
+    createBaseFromTemplateRo: ICreateBaseFromTemplateRo
+  ): Promise<ICreateBaseFromTemplateVo> {
     const { spaceId, templateId, withRecords, baseId } = createBaseFromTemplateRo;
     const template = await this.prismaService.template.findUniqueOrThrow({
       where: { id: templateId },
       select: {
         snapshot: true,
         name: true,
+        publishInfo: true,
       },
     });
 
@@ -426,6 +432,70 @@ export class BaseService {
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
+
+        // Get defaultActiveNodeId from publishInfo
+        const publishInfo = template.publishInfo as { snapshotActiveNodeId?: string } | null;
+        const defaultActiveNodeId = publishInfo?.snapshotActiveNodeId;
+
+        // If defaultActiveNodeId is empty, return without it
+        if (!defaultActiveNodeId) {
+          return res.base;
+        }
+
+        // Query the node in the original base to get its resourceId
+        const nodeInOriginalBase = await this.prismaService.txClient().baseNode.findFirst({
+          where: {
+            id: defaultActiveNodeId, // Use node.id, not resourceId
+          },
+          select: {
+            resourceId: true,
+            resourceType: true,
+          },
+        });
+
+        if (!nodeInOriginalBase) {
+          return res.base;
+        }
+
+        // Get the new resource ID from the appropriate ID map
+        const { resourceId: originalResourceId, resourceType } = nodeInOriginalBase;
+        const { tableIdMap, dashboardIdMap, workflowIdMap, appIdMap, folderIdMap } = res as {
+          base: { id: string; name: string; spaceId: string };
+          tableIdMap?: Record<string, string>;
+          dashboardIdMap?: Record<string, string>;
+          workflowIdMap?: Record<string, string>;
+          appIdMap?: Record<string, string>;
+          folderIdMap?: Record<string, string>;
+        };
+
+        let newResourceId: string | undefined;
+        switch (resourceType) {
+          case 'table':
+            newResourceId = tableIdMap?.[originalResourceId];
+            break;
+          case 'dashboard':
+            newResourceId = dashboardIdMap?.[originalResourceId];
+            break;
+          case 'workflow':
+            newResourceId = workflowIdMap?.[originalResourceId];
+            break;
+          case 'app':
+            newResourceId = appIdMap?.[originalResourceId];
+            break;
+          case 'folder':
+            newResourceId = folderIdMap?.[originalResourceId];
+            break;
+        }
+
+        // If we found the new resource ID, return it with the resource type
+        if (newResourceId) {
+          return {
+            ...res.base,
+            defaultActiveNodeId: newResourceId,
+            defaultActiveNodeResourceType: resourceType,
+          };
+        }
+
         return res.base;
       },
       {
@@ -554,7 +624,12 @@ export class BaseService {
             spaceId: snapshot.spaceId,
             name: snapshot.name,
           }),
-          publishInfo,
+          publishInfo: {
+            ...publishInfo,
+            snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
+              ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
+              : null,
+          },
         },
       });
       return;
@@ -586,6 +661,7 @@ export class BaseService {
 
     const {
       base: { id, spaceId, name },
+      nodeIdMap,
     } = await this.baseDuplicateService.duplicateBase(
       {
         fromBaseId: baseId,
@@ -616,6 +692,7 @@ export class BaseService {
       baseId: id,
       spaceId,
       name,
+      nodeIdMap,
     };
   }
 
@@ -625,6 +702,7 @@ export class BaseService {
       baseId: string;
       spaceId: string;
       name: string;
+      nodeIdMap: Record<string, string>;
     },
     publishBaseRo: IPublishBaseRo
   ) {
@@ -664,7 +742,12 @@ export class BaseService {
           spaceId,
           name,
         }),
-        publishInfo,
+        publishInfo: {
+          ...publishInfo,
+          snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
+            ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
+            : null,
+        },
       },
     });
   }

@@ -52,6 +52,7 @@ import type {
   ListBaseCollaboratorVo,
   ListBaseInvitationLinkVo,
   UpdateBaseInvitationLinkVo,
+  ICreateBaseFromTemplateVo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
@@ -117,7 +118,7 @@ export class BaseController {
   async createBaseFromTemplate(
     @Body(new ZodValidationPipe(createBaseFromTemplateRoSchema))
     createBaseFromTemplateRo: ICreateBaseFromTemplateRo
-  ): Promise<ICreateBaseVo> {
+  ): Promise<ICreateBaseFromTemplateVo> {
     return await this.baseService.createBaseFromTemplate(createBaseFromTemplateRo);
   }
 
