@@ -1330,7 +1330,8 @@
     "template": {
       "snapshotRequired": "Esta plantilla no se pudo publicar debido a la falta de instantánea",
       "sourceTemplateNotFound": "Plantilla de origen no encontrada",
-      "noMinOrderFound": "No se encontró el orden mínimo"
+      "noMinOrderFound": "No se encontró el orden mínimo",
+      "takeCountTooLarge": "La cantidad de plantillas solicitadas excede el límite máximo"
     },
     "domainVerification": {
       "notFound": "No se encontró código de verificación de dominio",

@@ -3,8 +3,9 @@ import type { ITemplateCategoryListVo } from '@teable/openapi';
 import { getPublishedTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
-import { cn } from '@teable/ui-lib/shadcn';
+import { cn, Toggle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { useState } from 'react';
 import { CategoryMenuItem } from './CategoryMenuItem';
 
 const CategoryGroupLabel = ({ label }: { label: string }) => {
@@ -12,8 +13,8 @@ const CategoryGroupLabel = ({ label }: { label: string }) => {
 };
 
 interface ICategoryMenuProps {
-  currentCategoryId: string;
-  onCategoryChange: (category: string) => void;
+  currentCategoryId: string | null;
+  onCategoryChange: (category: string | null) => void;
   className?: string;
   categoryHeaderRender?: () => React.ReactNode;
   serverPublishedTemplateCategoryList?: ITemplateCategoryListVo[];
@@ -33,6 +34,7 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
     initialData: serverPublishedTemplateCategoryList,
   });
+  const [isFeatured] = useState(true);
 
   const isMobile = useIsMobile();
 
@@ -48,13 +50,9 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
         {!isMobile && (
           <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
         )}
-        <CategoryMenuItem
-          key={'all'}
-          id={'all'}
-          category={t('settings.templateAdmin.category.menu.all')}
-          currentCategoryId={currentCategoryId}
-          onClickHandler={() => onCategoryChange('all')}
-        />
+        <Toggle className="flex items-center justify-start" pressed={isFeatured} disabled>
+          <span>{t('settings.templateAdmin.category.menu.recommended')}</span>
+        </Toggle>
       </div>
 
       {categoryList && categoryList.length > 0 && (
@@ -80,7 +78,13 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
                 category={name}
                 id={id}
                 currentCategoryId={currentCategoryId}
-                onClickHandler={() => onCategoryChange(id)}
+                onClickHandler={() => {
+                  if (currentCategoryId === id) {
+                    onCategoryChange(null);
+                  } else {
+                    onCategoryChange(id);
+                  }
+                }}
               />
             ))}
           </div>

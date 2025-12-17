@@ -52,3 +52,17 @@ export function replaceStringByMap(
 
   return returnJSONString ? newConfigStr : JSON.parse(newConfigStr);
 }
+
+export const mergeLinkFieldTableMaps = (
+  map1: Record<
+    string,
+    { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
+  >,
+  map2: Record<string, { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]>
+) => {
+  const merged = { ...map1 };
+  Object.entries(map2).forEach(([tableId, fields]) => {
+    merged[tableId] = [...(merged[tableId] || []), ...fields];
+  });
+  return merged;
+};

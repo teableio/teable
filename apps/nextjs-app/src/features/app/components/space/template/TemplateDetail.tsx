@@ -32,8 +32,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
   });
 
-  const categoryName = useMemo(() => {
-    return categoryList?.find((c) => c.id === categoryId)?.name;
+  const categoryNames = useMemo(() => {
+    if (!categoryId || categoryId.length === 0) return [];
+    return categoryList?.filter((c) => categoryId.includes(c.id)).map((c) => c.name) || [];
   }, [categoryList, categoryId]);
 
   const router = useRouter();
@@ -92,7 +93,16 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {t('common:settings.templateAdmin.useTemplate')}
             {isLoading && <Spin className="size-3" />}
           </Button>
-          {categoryName && <span className="py-1 text-sm text-gray-500"># {categoryName}</span>}
+          {categoryNames.length > 0 && (
+            <span className="py-1 text-sm text-gray-500">
+              {categoryNames.map((name, index) => (
+                <span key={index}>
+                  # {name}
+                  {index < categoryNames.length - 1 && ', '}
+                </span>
+              ))}
+            </span>
+          )}
         </div>
 
         <div className="col-span-8 border-t pt-4 sm:col-span-5 sm:border-l sm:border-t-0 sm:pl-6">

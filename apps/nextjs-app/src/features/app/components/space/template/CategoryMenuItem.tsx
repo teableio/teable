@@ -2,7 +2,7 @@ import { Button, cn } from '@teable/ui-lib/shadcn';
 
 interface CategoryMenuItemProps {
   category: string;
-  currentCategoryId: string;
+  currentCategoryId: string | null;
   id: string;
   onClickHandler: (id: string) => void;
 }

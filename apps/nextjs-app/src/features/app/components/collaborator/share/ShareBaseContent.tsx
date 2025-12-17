@@ -18,11 +18,12 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
-import { Badge } from '@teable/ui-lib/shadcn';
+import { Badge, Separator } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { BaseShare } from '../../../blocks/table/table-header/BaseShare';
 import { useFilteredRoleStatic } from '../../collaborator-manage/base/useFilteredRoleStatic';
 import { CollaboratorsDialog } from './CollaboratorsDialog';
 import { AuthorityTips } from './common/AuthorityTips';
@@ -353,6 +354,10 @@ export const ShareBaseContent = ({
           </CollaboratorsDialog>
         </div>
       </div>
+
+      <Separator />
+
+      <BaseShare />
     </div>
   );
 };

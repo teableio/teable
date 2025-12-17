@@ -1,5 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId, HttpErrorCode } from '@teable/core';
+import {
+  ActionPrefix,
+  actionPrefixMap,
+  generateBaseId,
+  generateTemplateId,
+  HttpErrorCode,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
@@ -9,10 +15,11 @@ import type {
   IDuplicateBaseRo,
   IGetBasePermissionVo,
   IMoveBaseRo,
+  IPublishBaseRo,
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { keyBy } from 'lodash';
+import { keyBy, isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -311,9 +318,8 @@ export class BaseService {
 
     return await this.prismaService.$tx(
       async () => {
-        const res = await this.baseDuplicateService.duplicateBase(duplicateBaseRo, true);
-        await this.baseDuplicateService.emitBaseDuplicateAuditLog(res.id, res.recordsLength);
-        return res;
+        const result = await this.baseDuplicateService.duplicateBase(duplicateBaseRo);
+        return result.base;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -403,12 +409,7 @@ export class BaseService {
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
-        await this.baseDuplicateService.emitBaseTemplateApplyAuditLog(
-          res.id,
-          createBaseFromTemplateRo,
-          res.recordsLength
-        );
-        return res;
+        return res.base;
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -430,9 +431,11 @@ export class BaseService {
     }, {} as IGetBasePermissionVo);
   }
 
-  async permanentDeleteBase(baseId: string) {
+  async permanentDeleteBase(baseId: string, ignorePermissionCheck: boolean = false) {
     const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
+    if (!ignorePermissionCheck) {
+      await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
+    }
 
     return await this.prismaService.$tx(
       async (prisma) => {
@@ -503,5 +506,149 @@ export class BaseService {
 
   async generateBaseErd(baseId: string): Promise<IBaseErdVo> {
     return await this.graphService.generateBaseErd(baseId);
+  }
+
+  async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
+    const prisma = this.prismaService.txClient();
+    const publishInfo = {
+      nodes: publishBaseRo.nodes,
+      includeData: publishBaseRo.includeData,
+      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+    };
+    const template = await prisma.template.findFirst({
+      where: { baseId },
+      select: { id: true },
+    });
+
+    // if already published, update template
+    if (template) {
+      const { title, description, cover, nodes, includeData } = publishBaseRo;
+      const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+
+      await prisma.template.update({
+        where: { id: template.id },
+        data: {
+          name: title,
+          description,
+          cover: cover ? JSON.stringify(cover) : undefined,
+          snapshot: JSON.stringify({
+            baseId: snapshot.baseId,
+            snapshotTime: new Date().toISOString(),
+            spaceId: snapshot.spaceId,
+            name: snapshot.name,
+          }),
+          publishInfo,
+        },
+      });
+      return;
+    }
+
+    // if the base is not published, create a template
+    const { nodes, includeData } = publishBaseRo;
+    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+    // publish snapshot
+    await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo);
+  }
+
+  private async createSnapshot(baseId: string, nodes?: string[], includeData?: boolean) {
+    const prisma = this.prismaService.txClient();
+    const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
+      where: {
+        isTemplate: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const base = await prisma.base.findUniqueOrThrow({
+      where: { id: baseId, deletedTime: null },
+      select: {
+        name: true,
+      },
+    });
+
+    const {
+      base: { id, spaceId, name },
+    } = await this.baseDuplicateService.duplicateBase(
+      {
+        fromBaseId: baseId,
+        spaceId: templateSpaceId,
+        withRecords: includeData ?? true,
+        name: base?.name,
+        nodes,
+      },
+      false
+    );
+
+    // if the base is already published, delete the former base
+    const template = await prisma.template.findUnique({
+      where: {
+        baseId: baseId,
+      },
+      select: {
+        snapshot: true,
+      },
+    });
+
+    if (template && template.snapshot) {
+      const { baseId } = JSON.parse(template.snapshot);
+      await this.permanentDeleteBase(baseId, true);
+    }
+
+    return {
+      baseId: id,
+      spaceId,
+      name,
+    };
+  }
+
+  private async createTemplateBySnapshot(
+    sourceBaseId: string,
+    snapshot: {
+      baseId: string;
+      spaceId: string;
+      name: string;
+    },
+    publishBaseRo: IPublishBaseRo
+  ) {
+    const { title, description, cover } = publishBaseRo;
+    const prisma = this.prismaService.txClient();
+    const publishInfo = {
+      nodes: publishBaseRo.nodes,
+      includeData: publishBaseRo.includeData,
+      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+    };
+    const templateId = generateTemplateId();
+    const { baseId, spaceId, name } = snapshot;
+
+    const order = await this.prismaService.template.aggregate({
+      _max: {
+        order: true,
+      },
+    });
+
+    const userId = this.cls.get('user.id');
+
+    const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
+
+    await prisma.template.create({
+      data: {
+        id: templateId,
+        name: title,
+        description,
+        cover: cover ? JSON.stringify(cover) : undefined,
+        createdBy: userId,
+        order: finalOrder,
+        isPublished: true,
+        baseId: sourceBaseId,
+        snapshot: JSON.stringify({
+          baseId: baseId,
+          snapshotTime: new Date().toISOString(),
+          spaceId,
+          name,
+        }),
+        publishInfo,
+      },
+    });
   }
 }

@@ -857,7 +857,8 @@ export class TableDuplicateService {
   async duplicateLinkJunction(
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
-    allowCrossBase: boolean = true
+    allowCrossBase: boolean = true,
+    disconnectedLinkFieldIds?: string[]
   ) {
     const prisma = this.prismaService.txClient();
     const sourceLinkFieldRaws = await prisma.field.findMany({
@@ -885,6 +886,12 @@ export class TableDuplicateService {
         }
         // if not allow cross base, filter out it.
         return !(field.options as ILinkFieldOptions).baseId;
+      })
+      .filter((field) => {
+        if (!disconnectedLinkFieldIds?.length) {
+          return true;
+        }
+        return !disconnectedLinkFieldIds.includes(field.id);
       });
     const targetFields = targetLinkFieldRaws.map((f) => createFieldInstanceByRaw(f));
 

@@ -42,7 +42,8 @@ export const ReactQueryKeys = {
 
   publishedTemplateCategoryList: () => ['published-template-category-list'] as const,
 
-  publishedTemplateList: () => ['published-template-list'] as const,
+  publishedTemplateList: (categoryId?: string | null, search?: string) =>
+    ['published-template-list', categoryId, search] as const,
 
   baseList: (spaceId: string) => ['base-list', spaceId] as const,
 

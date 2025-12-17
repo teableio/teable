@@ -103,6 +103,7 @@
       "tips": {
         "errorCategoryName": "Category does not exist or has been deleted",
         "needSnapshot": "Please create a snapshot before publishing, and the template name and description cannot be empty",
+        "needPublish": "Please publish the template before set featured",
         "needBaseSource": "Please select a base source before creating a snapshot",
         "forbiddenUpdateSystemTemplate": "System template cannot be modified",
         "addCategoryTips": "Please enter a category name in search input first."
@@ -110,6 +111,7 @@
       "category": {
         "menu": {
           "getStarted": "Get Started",
+          "recommended": "Recommended",
           "all": "All",
           "browseByCategory": "Browse by category"
         }
@@ -123,9 +125,10 @@
         "isSystem": "System",
         "source": "Source",
         "status": "Published",
-        "publishSnapshot": "Publish snapshot",
-        "snapshotTime": "Snapshot time",
-        "actions": "Actions"
+        "publishSnapshot": "Publish Snapshot",
+        "snapshotTime": "Snapshot Time",
+        "actions": "Actions",
+        "featured": "Featured"
       },
       "actions": {
         "title": "Actions",

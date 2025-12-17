@@ -436,6 +436,7 @@ export type I18nTranslations = {
                 "tips": {
                     "errorCategoryName": string;
                     "needSnapshot": string;
+                    "needPublish": string;
                     "needBaseSource": string;
                     "forbiddenUpdateSystemTemplate": string;
                     "addCategoryTips": string;
@@ -443,6 +444,7 @@ export type I18nTranslations = {
                 "category": {
                     "menu": {
                         "getStarted": string;
+                        "recommended": string;
                         "all": string;
                         "browseByCategory": string;
                     };
@@ -459,6 +461,7 @@ export type I18nTranslations = {
                     "publishSnapshot": string;
                     "snapshotTime": string;
                     "actions": string;
+                    "featured": string;
                 };
                 "actions": {
                     "title": string;
@@ -2609,6 +2612,7 @@ export type I18nTranslations = {
                 "snapshotRequired": string;
                 "sourceTemplateNotFound": string;
                 "noMinOrderFound": string;
+                "takeCountTooLarge": string;
             };
             "department": {
                 "parentNotFound": string;
@@ -2750,6 +2754,39 @@ export type I18nTranslations = {
             "enter": string;
             "noTables": string;
             "empty": string;
+        };
+        "publishBase": {
+            "title": string;
+            "description": string;
+            "infoTitle": string;
+            "form": {
+                "title": string;
+                "description": string;
+                "security": string;
+                "includeNodes": string;
+                "advanced": string;
+                "publishNode": string;
+                "includeData": string;
+                "defaultActiveNode": string;
+                "select": string;
+                "descriptionPlaceholder": string;
+                "titlePlaceholder": string;
+                "toBeFilled": string;
+                "publishNodeTip": string;
+            };
+            "publishToCommunity": string;
+            "publish": string;
+            "publishSuccess": string;
+            "previewTips": string;
+            "update": string;
+            "unPublish": string;
+            "unPublishSuccess": string;
+            "usageCount": string;
+            "uploadCover": string;
+            "changeCover": string;
+            "uploadSuccess": string;
+            "uploadFailed": string;
+            "invalidImageType": string;
         };
     };
     "system": {

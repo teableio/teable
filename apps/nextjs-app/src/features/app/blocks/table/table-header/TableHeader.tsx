@@ -1,4 +1,12 @@
-import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
+import {
+  HelpCircle,
+  History,
+  MoreHorizontal,
+  Settings,
+  Trash2,
+  UserPlus,
+  Share2,
+} from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
 import { useBase, useBasePermission, useIsHydrated, useTableId, useView } from '@teable/sdk/hooks';
 import {
@@ -117,6 +125,7 @@ const RightList = ({
           </a>
         </Button>
       </div>
+
       <ShareBasePopover
         base={{
           name: base.name,
@@ -126,8 +135,10 @@ const RightList = ({
         }}
       >
         <Button variant="default" size="xs" className="flex">
-          <UserPlus className="size-4" />{' '}
-          <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
+          <Share2 className="size-4" />{' '}
+          <span className="hidden @md/view-header:inline">
+            {t('table:toolbar.others.share.label')}
+          </span>
         </Button>
       </ShareBasePopover>
 

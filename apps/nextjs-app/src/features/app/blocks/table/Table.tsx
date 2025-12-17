@@ -95,7 +95,10 @@ export const Table: React.FC<ITableProps> = ({
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
             <div className="flex h-full grow basis-[500px]">
-              <div className="flex flex-1 flex-col overflow-hidden">
+              <div
+                className="flex flex-1 flex-col overflow-hidden"
+                data-screenshot-target="base-view"
+              >
                 <TableHeader />
                 <FieldProvider serverSideData={fieldServerData}>
                   <ErrorBoundary
