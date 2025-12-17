@@ -933,6 +933,7 @@
       "setupAutomationTrigger": "Setup automation trigger",
       "testAutomationNode": "Test automation node",
       "activateAutomation": "Activate automation",
+      "executeScript": "Execute script",
       "wait": "Wait",
       "initialize": "Initialize environment",
       "rename": "Generate app name",
@@ -987,7 +988,21 @@
       "active": "Active",
       "trigger": "Trigger",
       "actions": "{{count}} action(s)",
-      "moreActions": "... +{{count}} more action(s)"
+      "moreActions": "... +{{count}} more action(s)",
+      "getUserIntegrations": "Check integrations",
+      "connectedIntegrations": "Connected",
+      "availableToConnect": "Available to connect",
+      "connect": "Connect",
+      "noIntegrationsAvailable": "No integrations available"
+    },
+    "showUI": {
+      "connect": "Connect",
+      "connecting": "Connecting...",
+      "connected": "Connected",
+      "connectToUse": "Connect {{provider}} to use in automations",
+      "checkingConnection": "Checking connection status...",
+      "confirm": "Confirm",
+      "confirmed": "Confirmed"
     },
     "codeBlock": {
       "hiddenLines": "{{count}} lines hidden",
@@ -1065,6 +1080,11 @@
       "discardFailed": "Discard Failed",
       "scriptUpdated": "Script Updated",
       "scriptUpdateFailed": "Update Failed",
+      "scriptExecuted": "Script Executed",
+      "scriptExecutionFailed": "Execution Failed",
+      "generatingScript": "Generating script...",
+      "scriptReady": "Script ready",
+      "executingScript": "Executing script...",
       "waitedSeconds": "Waited {{seconds}}s",
       "waitFailed": "Wait failed"
     },

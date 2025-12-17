@@ -4,7 +4,7 @@ import { HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IAIConfig, IAiGenerateRo, LLMProvider, LLMProviderType } from '@teable/openapi';
 import { IntegrationType, SettingKey, Task } from '@teable/openapi';
-import type { LanguageModel } from 'ai';
+import type { ImageModel, LanguageModel } from 'ai';
 import { generateText, streamText } from 'ai';
 import type { Response } from 'express';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
@@ -72,7 +72,7 @@ export class AiService {
     modelKey: string,
     llmProviders: LLMProvider[] = [],
     isImageGeneration = false
-  ): Promise<ILanguageModelV2 | ReturnType<OpenAIProvider['image']>> {
+  ): Promise<ILanguageModelV2 | ImageModel> {
     const { type, model, baseUrl, apiKey } = await this.getModelConfig(modelKey, llmProviders);
 
     if (!baseUrl || !apiKey) {

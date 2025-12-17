@@ -3736,6 +3736,7 @@ export type I18nTranslations = {
                 "setupAutomationTrigger": string;
                 "testAutomationNode": string;
                 "activateAutomation": string;
+                "executeScript": string;
                 "wait": string;
                 "initialize": string;
                 "rename": string;
@@ -3791,6 +3792,20 @@ export type I18nTranslations = {
                 "trigger": string;
                 "actions": string;
                 "moreActions": string;
+                "getUserIntegrations": string;
+                "connectedIntegrations": string;
+                "availableToConnect": string;
+                "connect": string;
+                "noIntegrationsAvailable": string;
+            };
+            "showUI": {
+                "connect": string;
+                "connecting": string;
+                "connected": string;
+                "connectToUse": string;
+                "checkingConnection": string;
+                "confirm": string;
+                "confirmed": string;
             };
             "buildFlow": {
                 "progress": string;
@@ -3862,6 +3877,11 @@ export type I18nTranslations = {
                 "discardFailed": string;
                 "scriptUpdated": string;
                 "scriptUpdateFailed": string;
+                "scriptExecuted": string;
+                "scriptExecutionFailed": string;
+                "generatingScript": string;
+                "scriptReady": string;
+                "executingScript": string;
                 "waitedSeconds": string;
                 "waitFailed": string;
             };

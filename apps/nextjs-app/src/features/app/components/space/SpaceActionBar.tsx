@@ -1,17 +1,19 @@
-import { hasPermission } from '@teable/core';
+import { useMutation } from '@tanstack/react-query';
+import { getUniqName, hasPermission } from '@teable/core';
 import { MoreHorizontal, Plus, UserPlus } from '@teable/icons';
-import { type IGetSpaceVo } from '@teable/openapi';
+import { createBase, type IGetSpaceVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import type { ButtonProps } from '@teable/ui-lib';
 import { Button, cn } from '@teable/ui-lib';
+import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { GUIDE_CREATE_BASE } from '@/components/Guide';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { SpaceActionTrigger } from '../../blocks/space/component/SpaceActionTrigger';
 import { UploadPanelDialog } from '../../blocks/space/component/upload-panel';
+import { useBaseList } from '../../blocks/space/useBaseList';
 import { InviteSpacePopover } from '../collaborator/space/InviteSpacePopover';
-import { CreateBaseModalTrigger } from './CreateBaseModal';
 
 interface ActionBarProps {
   space: IGetSpaceVo;
@@ -40,24 +42,53 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
 
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const isMobile = useIsMobile();
+  const router = useRouter();
+  const bases = useBaseList();
+
+  const basesInSpace = useMemo(() => {
+    return bases?.filter((base) => base.spaceId === space.id);
+  }, [bases, space.id]);
+
+  const { mutate: createBaseMutator, isLoading: createBaseLoading } = useMutation({
+    mutationFn: createBase,
+    onSuccess: ({ data }) => {
+      router.push({
+        pathname: '/base/[baseId]',
+        query: { baseId: data.id },
+      });
+    },
+  });
+
+  const handleCreateBase = () => {
+    const name = getUniqName(t('common:noun.base'), basesInSpace?.map((base) => base.name) || []);
+    createBaseMutator({ spaceId: space.id, name });
+  };
 
   const canCreateBase = hasPermission(space.role, 'base|create');
 
   return (
     <div className={cn('flex shrink-0 items-center gap-2', className)}>
-      {canCreateBase && (
-        <CreateBaseModalTrigger spaceId={space.id}>
-          {isMobile ? (
-            <Button variant={'outline'} size="icon" className="size-7">
-              <Plus className="size-4" />
-            </Button>
-          ) : (
-            <Button className={GUIDE_CREATE_BASE} size={buttonSize}>
-              {t('space:action.createBase')}
-            </Button>
-          )}
-        </CreateBaseModalTrigger>
-      )}
+      {canCreateBase &&
+        (isMobile ? (
+          <Button
+            variant={'outline'}
+            size="icon"
+            className="size-7"
+            onClick={handleCreateBase}
+            disabled={createBaseLoading}
+          >
+            <Plus className="size-4" />
+          </Button>
+        ) : (
+          <Button
+            className={GUIDE_CREATE_BASE}
+            size={buttonSize}
+            onClick={handleCreateBase}
+            disabled={createBaseLoading}
+          >
+            {t('space:action.createBase')}
+          </Button>
+        ))}
       {!disallowSpaceInvitation && (
         <InviteSpacePopover space={space}>
           {isMobile ? (

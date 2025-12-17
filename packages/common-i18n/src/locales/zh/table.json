@@ -933,6 +933,7 @@
       "setupAutomationTrigger": "设置自动化触发器",
       "testAutomationNode": "测试自动化节点",
       "activateAutomation": "启用自动化",
+      "executeScript": "执行脚本",
       "wait": "等待",
       "getRelativeData": "获取相关数据",
       "getPreviousNodeOutputVariables": "获取其他节点输出变量",
@@ -987,7 +988,21 @@
       "active": "已启用",
       "trigger": "触发器",
       "actions": "{{count}} 个操作",
-      "moreActions": "... +{{count}} 个操作"
+      "moreActions": "... +{{count}} 个操作",
+      "getUserIntegrations": "检查集成",
+      "connectedIntegrations": "已连接",
+      "availableToConnect": "可连接",
+      "connect": "连接",
+      "noIntegrationsAvailable": "暂无可用集成"
+    },
+    "showUI": {
+      "connect": "连接",
+      "connecting": "连接中...",
+      "connected": "已连接",
+      "connectToUse": "连接 {{provider}} 以在自动化中使用",
+      "checkingConnection": "正在检查连接状态...",
+      "confirm": "确认",
+      "confirmed": "已确认"
     },
     "codeBlock": {
       "hiddenLines": "{{count}}行已隐藏",
@@ -1065,6 +1080,11 @@
       "discardFailed": "撤销失败",
       "scriptUpdated": "脚本已更新",
       "scriptUpdateFailed": "更新失败",
+      "scriptExecuted": "脚本已执行",
+      "scriptExecutionFailed": "执行失败",
+      "generatingScript": "正在生成脚本...",
+      "scriptReady": "脚本已准备好",
+      "executingScript": "正在执行脚本...",
       "waitedSeconds": "已等待 {{seconds}} 秒",
       "waitFailed": "等待失败"
     },

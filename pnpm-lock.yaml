@@ -58,41 +58,38 @@ importers:
   apps/nestjs-backend:
     dependencies:
       '@ai-sdk/amazon-bedrock':
-        specifier: 4.0.0-beta.85
-        version: 4.0.0-beta.85(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 4.0.0-beta.97
+        version: 4.0.0-beta.97(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/anthropic':
-        specifier: 3.0.0-beta.75
-        version: 3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.87
+        version: 3.0.0-beta.87(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/azure':
-        specifier: 3.0.0-beta.86
-        version: 3.0.0-beta.86(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.102
+        version: 3.0.0-beta.102(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/cohere':
-        specifier: 3.0.0-beta.44
-        version: 3.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.52
+        version: 3.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/deepseek':
-        specifier: 2.0.0-beta.46
-        version: 2.0.0-beta.46(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.54
+        version: 2.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/google':
-        specifier: 3.0.0-beta.65
-        version: 3.0.0-beta.65(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.77
+        version: 3.0.0-beta.77(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/mistral':
-        specifier: 3.0.0-beta.45
-        version: 3.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.53
+        version: 3.0.0-beta.53(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai':
-        specifier: 3.0.0-beta.84
-        version: 3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.100
+        version: 3.0.0-beta.100(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/openai-compatible':
-        specifier: 2.0.0-beta.44
-        version: 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider-utils':
-        specifier: 4.0.0-beta.43
-        version: 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.52
+        version: 2.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/togetherai':
-        specifier: 2.0.0-beta.45
-        version: 2.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 2.0.0-beta.53
+        version: 2.0.0-beta.53(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@ai-sdk/xai':
-        specifier: 3.0.0-beta.51
-        version: 3.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 3.0.0-beta.60
+        version: 3.0.0-beta.60(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@aws-sdk/client-s3':
         specifier: 3.609.0
         version: 3.609.0
@@ -152,7 +149,7 @@ importers:
         version: 10.3.5(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(reflect-metadata@0.2.1)(rxjs@7.8.1)
       '@openrouter/ai-sdk-provider':
         specifier: 1.2.3
-        version: 1.2.3(ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)
+        version: 1.2.3(ai@6.0.0-beta.156(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)
       '@opentelemetry/api':
         specifier: 1.9.0
         version: 1.9.0
@@ -223,8 +220,8 @@ importers:
         specifier: 1.3.0
         version: 1.3.0(valibot@1.1.0(typescript@5.4.3))
       ai:
-        specifier: 6.0.0-beta.137
-        version: 6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+        specifier: 6.0.0-beta.156
+        version: 6.0.0-beta.156(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       ajv:
         specifier: 8.12.0
         version: 8.12.0
@@ -340,8 +337,8 @@ importers:
         specifier: 2.2.2
         version: 2.2.2(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(@nestjs/swagger@7.3.0(@nestjs/common@10.3.5(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1))(@nestjs/core@10.3.5)(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1))(reflect-metadata@0.2.1)
       next:
-        specifier: 14.2.14
-        version: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 14.2.35
+        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       node-fetch:
         specifier: 2.7.0
         version: 2.7.0(encoding@0.1.13)
@@ -705,7 +702,7 @@ importers:
         version: 1.3.0(react@18.3.1)
       '@sentry/nextjs':
         specifier: 7.108.0
-        version: 7.108.0(encoding@0.1.13)(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))
+        version: 7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))
       '@sentry/react':
         specifier: 7.108.0
         version: 7.108.0(react@18.3.1)
@@ -803,17 +800,17 @@ importers:
         specifier: 0.363.0
         version: 0.363.0(react@18.3.1)
       next:
-        specifier: 14.2.14
-        version: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 14.2.35
+        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-i18next:
         specifier: 15.2.0
-        version: 15.2.0(i18next@23.10.1)(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+        version: 15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
       next-secure-headers:
         specifier: 2.2.0
         version: 2.2.0
       next-seo:
         specifier: 6.5.0
-        version: 6.5.0(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 6.5.0(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-transpile-modules:
         specifier: 10.0.1
         version: 10.0.1
@@ -2137,8 +2134,8 @@ importers:
         specifier: 0.363.0
         version: 0.363.0(react@18.3.1)
       next:
-        specifier: 14.2.14
-        version: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        specifier: 14.2.35
+        version: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       next-secure-headers:
         specifier: 2.2.0
         version: 2.2.0
@@ -2206,62 +2203,62 @@ packages:
   '@adobe/css-tools@4.4.1':
     resolution: {integrity: sha512-12WGKBQzjUAI4ayyF4IAtfw2QR/IDoqk6jTddXDhtYTJF9ASmoE1zst7cVtP0aL/F1jUJL5r+JxKXKEgHNbEUQ==}
 
-  '@ai-sdk/amazon-bedrock@4.0.0-beta.85':
-    resolution: {integrity: sha512-MFCzgfwUAES+k5NQuy+h8+1YT1IkjN+OcztotnNK4kSBOWuPkztWlI72vUnyGfOaEkCwd5UFYFdrfQcLi8ROIQ==}
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.97':
+    resolution: {integrity: sha512-OR/AeNV5zqj+7DOcbN4AaPgA8KSp6XiEOhSE3mMEpY11HsZdcUlpcjtjaSAO7u2KYOuVj1NtCucTYqCHTYBo5Q==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/anthropic@3.0.0-beta.75':
-    resolution: {integrity: sha512-bbKV82kekrjj5x1J7xxxxRGEArDpQgwScRGEHC2HYV8WCt2j6Y9NdxBz/p28UWdgUy5atYcefjgNOeENcoLqRQ==}
+  '@ai-sdk/anthropic@3.0.0-beta.87':
+    resolution: {integrity: sha512-EM8IgOG17E0lCoUjJsM142uPRuOrYCJ1r8ltQXKTinwv+EVyfebbdz4CxeJ4nPRzMRxXMNNM8+1ntrF/lS0ZVA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/azure@3.0.0-beta.86':
-    resolution: {integrity: sha512-3C+f9FsYNG55F192czrmAUt3/V9OAwMnxuRCKiB7/ZAVtA9mQL9BU6H6ZVvDNZKrfiQV/aW/myWa8JDN34KKSw==}
+  '@ai-sdk/azure@3.0.0-beta.102':
+    resolution: {integrity: sha512-uBsAtY9GD6968ddY6QPTvmLRTRNgmRBTCnGCl256qtX6aMhL/Jl6Zo5evHpS5NqXvD/MX2BVBlMID/WHNDmkXA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/cohere@3.0.0-beta.44':
-    resolution: {integrity: sha512-xXY8ZcueNUfPuIlBiMCGt9i2rlfUgGCR0DE+oMY2Q7E2kjdya19GLgMeAQCCKd6FC8eofdHYxVwNenWc/MIr/g==}
+  '@ai-sdk/cohere@3.0.0-beta.52':
+    resolution: {integrity: sha512-/1u/TjuVZtb+hbPyVt6KiA98d21Wh+bZxWpnB8AyhSPmO6SEXAs87ofCZBUTT1pMDsLuTi3kOc37/2PvBh0trQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/deepseek@2.0.0-beta.46':
-    resolution: {integrity: sha512-JijlFfig80tsCppFBbj1ua93LDjrans+zTo8fxOMWF3msAkRtjABeOcUPIqYfP/vQlIqzV4xUsUKjFrbp1Q6Jg==}
+  '@ai-sdk/deepseek@2.0.0-beta.54':
+    resolution: {integrity: sha512-sqd1OsZwh8X8VsjK563Hwwo5i6Iq0ve1D0j4dqv+tvYcS+qpYVf23XlAisYaovGIfA41nnjOabvhFdGKMpGUrA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/gateway@2.0.0-beta.72':
-    resolution: {integrity: sha512-5Lw5KoI6Xt51fiQcWUcgnQr1WssnqWcPoBHL3Urt2qDgayVZhVf4G5n232MzpSesJHCwoYSUprDaAKkzrYeDAQ==}
+  '@ai-sdk/gateway@2.0.0-beta.82':
+    resolution: {integrity: sha512-6HRrBVPvn1IC/vx6HYLnAeJsveucsXes2DQWu7R/uPaq/BWwNTboBDCXvOPi2963zbrq+iPelS1SlPfpkx7kDQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/google@3.0.0-beta.65':
-    resolution: {integrity: sha512-J/FCxTBTcGEv/VnPjtnOZA0F3/1RBv27Hh8lh7pLbQopUpijp2dOLLWUcpBF31I4KgigJEbY46A3UJ8PMPI7Bw==}
+  '@ai-sdk/google@3.0.0-beta.77':
+    resolution: {integrity: sha512-AM1O84B4rb2k+6MnngoQl8r8EH3aqxT8OlD46tFDM2QyjUp/WnHfIZ1a2B59NcnJgeq/43CKrJSXXg/0R22X3g==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/mistral@3.0.0-beta.45':
-    resolution: {integrity: sha512-sd15aOnnMYc4r2jhXM3aL3IYTVB02X80b82EEL3aT10VH9v/KEjDeeOwCAFwZM2J3PYU5vixmCi6+CdfqjP8/g==}
+  '@ai-sdk/mistral@3.0.0-beta.53':
+    resolution: {integrity: sha512-WHOvcdEUG2ma4/lINr5Cll32dxcDLhLo8pdPl8Q8NN2C1HR8OHpJVPIw7khz14gkOBwQ4H0JbkBsXBChvAFnYQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai-compatible@2.0.0-beta.44':
-    resolution: {integrity: sha512-CtJbw1FUPIJrNv5e5TQDs0MGvkTTq6vCOyyfXm+MJz/iqGaiAV7YRcCSfgGUmBNp6BeBomRJiyOjNKTsbp3ThA==}
+  '@ai-sdk/openai-compatible@2.0.0-beta.52':
+    resolution: {integrity: sha512-u5NITWSmhRpH7l7jGG4ZkPhh89QdMph3RkPPfxsf7SFCOIsOUy+d0nXAY+Q90fBleRa4dvD6cle+gVjhkZSKBQ==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/openai@3.0.0-beta.84':
-    resolution: {integrity: sha512-LS0/LyocNMZpKTZe6qdhSOwWWMQa1bt26R9BSwoT3fD2LVbX0YJhJm4LjLI8ku13HiQGIdbN0h7BtBhiyZq2Gg==}
+  '@ai-sdk/openai@3.0.0-beta.100':
+    resolution: {integrity: sha512-dhIqQ+uZJ2C5zaMF0iBx/x1Ebb2PWX3atylGit9upNQQZA3r2K5APk0XC/Yn1e45nvsBndjCfXl01FIGmiJsNg==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -2272,8 +2269,8 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/provider-utils@4.0.0-beta.43':
-    resolution: {integrity: sha512-Lp3G7mQ/ruwg9PnhPz5enR9zuE6sjPnczoZhdX+O8senHWdmiJ1vAY9Tqijd9DEbZV5J11DVowniVRBeQSXCiw==}
+  '@ai-sdk/provider-utils@4.0.0-beta.51':
+    resolution: {integrity: sha512-7NEGTKMRbOOI6n7Xm1w7XiFqHaDcNxORql3iUIjPyXgYhnvF48JaB8cxySmtdDqpeR1DD4d6B6Cbjhn45DVR0g==}
     engines: {node: '>=18'}
     peerDependencies:
       '@valibot/to-json-schema': ^1.3.0
@@ -2292,18 +2289,18 @@ packages:
     resolution: {integrity: sha512-6o7Y2SeO9vFKB8lArHXehNuusnpddKPk7xqL7T2/b+OvXMRIXUO1rR4wcv1hAFUAT9avGZshty3Wlua/XA7TvA==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/provider@3.0.0-beta.24':
-    resolution: {integrity: sha512-lYBjT2+8+2auq1mUs5oMrQs4O9COzHty/QukjrjBLRjkmeb9WeTQVVi0oeEGXf3yTdeY2eSwYOdz+H4zRHsacg==}
+  '@ai-sdk/provider@3.0.0-beta.26':
+    resolution: {integrity: sha512-UQyOlrpahFL1CZ/QA0ZpFhAkE32fw1XXBx+6gu23YWSCMJCjaf/fiJUPV7xUhp/nXqVO/IC+PIIfLomx55D16A==}
     engines: {node: '>=18'}
 
-  '@ai-sdk/togetherai@2.0.0-beta.45':
-    resolution: {integrity: sha512-KmTcPgFBDCpBXzZs3U0ccAR6Ivh5MyL6yrvikAAsUPsAE0P0ISPHkVqlX90CjHPvzRxby7l+7nG2ajVM9IyCPA==}
+  '@ai-sdk/togetherai@2.0.0-beta.53':
+    resolution: {integrity: sha512-kryJPEdP2mPw1AdM8g4bumctTmHKzrIULc84Ks98gii0f8HGfsdAtRhR9Rzc4eASy9hnQ2iLmSw0hcHm42rydA==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
 
-  '@ai-sdk/xai@3.0.0-beta.51':
-    resolution: {integrity: sha512-WmKnhBraIHQ4rc8KcxBcpYKHm0LvgSfROFr+blDR5ViL10biZl9usYuTrD3nf3ERrtuolVRKXqKf9U7HDUBQtg==}
+  '@ai-sdk/xai@3.0.0-beta.60':
+    resolution: {integrity: sha512-ffzsuYY2x8iBr10j6HVYjq4gd0qDnhMPb2m3zY3/RwtfkKlOSh3DOtUbxoMSvHa3NwbUdoHi/yzBJtAugD8c1w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -4993,59 +4990,62 @@ packages:
   '@next/env@14.2.14':
     resolution: {integrity: sha512-/0hWQfiaD5//LvGNgc8PjvyqV50vGK0cADYzaoOOGN8fxzBn3iAiaq3S0tCRnFBldq0LVveLcxCTi41ZoYgAgg==}
 
+  '@next/env@14.2.35':
+    resolution: {integrity: sha512-DuhvCtj4t9Gwrx80dmz2F4t/zKQ4ktN8WrMwOuVzkJfBilwAwGr6v16M5eI8yCuZ63H9TTuEU09Iu2HqkzFPVQ==}
+
   '@next/eslint-plugin-next@14.2.14':
     resolution: {integrity: sha512-kV+OsZ56xhj0rnTn6HegyTGkoa16Mxjrpk7pjWumyB2P8JVQb8S9qtkjy/ye0GnTr4JWtWG4x/2qN40lKZ3iVQ==}
 
-  '@next/swc-darwin-arm64@14.2.14':
-    resolution: {integrity: sha512-bsxbSAUodM1cjYeA4o6y7sp9wslvwjSkWw57t8DtC8Zig8aG8V6r+Yc05/9mDzLKcybb6EN85k1rJDnMKBd9Gw==}
+  '@next/swc-darwin-arm64@14.2.33':
+    resolution: {integrity: sha512-HqYnb6pxlsshoSTubdXKu15g3iivcbsMXg4bYpjL2iS/V6aQot+iyF4BUc2qA/J/n55YtvE4PHMKWBKGCF/+wA==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [darwin]
 
-  '@next/swc-darwin-x64@14.2.14':
-    resolution: {integrity: sha512-cC9/I+0+SK5L1k9J8CInahduTVWGMXhQoXFeNvF0uNs3Bt1Ub0Azb8JzTU9vNCr0hnaMqiWu/Z0S1hfKc3+dww==}
+  '@next/swc-darwin-x64@14.2.33':
+    resolution: {integrity: sha512-8HGBeAE5rX3jzKvF593XTTFg3gxeU4f+UWnswa6JPhzaR6+zblO5+fjltJWIZc4aUalqTclvN2QtTC37LxvZAA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [darwin]
 
-  '@next/swc-linux-arm64-gnu@14.2.14':
-    resolution: {integrity: sha512-RMLOdA2NU4O7w1PQ3Z9ft3PxD6Htl4uB2TJpocm+4jcllHySPkFaUIFacQ3Jekcg6w+LBaFvjSPthZHiPmiAUg==}
+  '@next/swc-linux-arm64-gnu@14.2.33':
+    resolution: {integrity: sha512-JXMBka6lNNmqbkvcTtaX8Gu5by9547bukHQvPoLe9VRBx1gHwzf5tdt4AaezW85HAB3pikcvyqBToRTDA4DeLw==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-arm64-musl@14.2.14':
-    resolution: {integrity: sha512-WgLOA4hT9EIP7jhlkPnvz49iSOMdZgDJVvbpb8WWzJv5wBD07M2wdJXLkDYIpZmCFfo/wPqFsFR4JS4V9KkQ2A==}
+  '@next/swc-linux-arm64-musl@14.2.33':
+    resolution: {integrity: sha512-Bm+QulsAItD/x6Ih8wGIMfRJy4G73tu1HJsrccPW6AfqdZd0Sfm5Imhgkgq2+kly065rYMnCOxTBvmvFY1BKfg==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [linux]
 
-  '@next/swc-linux-x64-gnu@14.2.14':
-    resolution: {integrity: sha512-lbn7svjUps1kmCettV/R9oAvEW+eUI0lo0LJNFOXoQM5NGNxloAyFRNByYeZKL3+1bF5YE0h0irIJfzXBq9Y6w==}
+  '@next/swc-linux-x64-gnu@14.2.33':
+    resolution: {integrity: sha512-FnFn+ZBgsVMbGDsTqo8zsnRzydvsGV8vfiWwUo1LD8FTmPTdV+otGSWKc4LJec0oSexFnCYVO4hX8P8qQKaSlg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-linux-x64-musl@14.2.14':
-    resolution: {integrity: sha512-7TcQCvLQ/hKfQRgjxMN4TZ2BRB0P7HwrGAYL+p+m3u3XcKTraUFerVbV3jkNZNwDeQDa8zdxkKkw2els/S5onQ==}
+  '@next/swc-linux-x64-musl@14.2.33':
+    resolution: {integrity: sha512-345tsIWMzoXaQndUTDv1qypDRiebFxGYx9pYkhwY4hBRaOLt8UGfiWKr9FSSHs25dFIf8ZqIFaPdy5MljdoawA==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [linux]
 
-  '@next/swc-win32-arm64-msvc@14.2.14':
-    resolution: {integrity: sha512-8i0Ou5XjTLEje0oj0JiI0Xo9L/93ghFtAUYZ24jARSeTMXLUx8yFIdhS55mTExq5Tj4/dC2fJuaT4e3ySvXU1A==}
+  '@next/swc-win32-arm64-msvc@14.2.33':
+    resolution: {integrity: sha512-nscpt0G6UCTkrT2ppnJnFsYbPDQwmum4GNXYTeoTIdsmMydSKFz9Iny2jpaRupTb+Wl298+Rh82WKzt9LCcqSQ==}
     engines: {node: '>= 10'}
     cpu: [arm64]
     os: [win32]
 
-  '@next/swc-win32-ia32-msvc@14.2.14':
-    resolution: {integrity: sha512-2u2XcSaDEOj+96eXpyjHjtVPLhkAFw2nlaz83EPeuK4obF+HmtDJHqgR1dZB7Gb6V/d55FL26/lYVd0TwMgcOQ==}
+  '@next/swc-win32-ia32-msvc@14.2.33':
+    resolution: {integrity: sha512-pc9LpGNKhJ0dXQhZ5QMmYxtARwwmWLpeocFmVG5Z0DzWq5Uf0izcI8tLc+qOpqxO1PWqZ5A7J1blrUIKrIFc7Q==}
     engines: {node: '>= 10'}
     cpu: [ia32]
     os: [win32]
 
-  '@next/swc-win32-x64-msvc@14.2.14':
-    resolution: {integrity: sha512-MZom+OvZ1NZxuRovKt1ApevjiUJTcU2PmdJKL66xUPaJeRywnbGGRWUlaAOwunD6dX+pm83vj979NTC8QXjGWg==}
+  '@next/swc-win32-x64-msvc@14.2.33':
+    resolution: {integrity: sha512-nOjfZMy8B94MdisuzZo9/57xuFVLHJaDj5e/xrduJp9CV2/HrfxTRH2fbyLe+K9QT41WBLUd4iXX3R7jBp0EUg==}
     engines: {node: '>= 10'}
     cpu: [x64]
     os: [win32]
@@ -9055,8 +9055,8 @@ packages:
     resolution: {integrity: sha512-4I7Td01quW/RpocfNayFdFVk1qSuoh0E7JrbRJ16nH01HhKFQ88INq9Sd+nd72zqRySlr9BmDA8xlEJ6vJMrYA==}
     engines: {node: '>=8'}
 
-  ai@6.0.0-beta.137:
-    resolution: {integrity: sha512-e9st1mGQeysHKZ9x4qf48mPNkvbi5EsFLcrABwUGTbcrkq/PGeuiL+yL8tBdcY23VHJ3IvJF4pKh+Ll79RVeig==}
+  ai@6.0.0-beta.156:
+    resolution: {integrity: sha512-7bkGbRw811f0Xa30EfNE3HqlgccUmUS/hqSCV3SuIf8cxRZ0Z73cQUmFTDXMe5OIhW/6G50qvs2D2KQFiFHm0w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4.1.8
@@ -14120,8 +14120,8 @@ packages:
   next-transpile-modules@10.0.1:
     resolution: {integrity: sha512-4VX/LCMofxIYAVV58UmD+kr8jQflpLWvas/BQ4Co0qWLWzVh06FoZkECkrX5eEZT6oJFqie6+kfbTA3EZCVtdQ==}
 
-  next@14.2.14:
-    resolution: {integrity: sha512-Q1coZG17MW0Ly5x76shJ4dkC23woLAhhnDnw+DfTc7EpZSGuWrlsZ3bZaO8t6u1Yu8FVfhkqJE+U8GC7E0GLPQ==}
+  next@14.2.35:
+    resolution: {integrity: sha512-KhYd2Hjt/O1/1aZVX3dCwGXM1QmOV4eNM2UTacK5gipDdPN/oHHK/4oVGy7X8GMfPMsUTUEmGlsy0EY1YGAkig==}
     engines: {node: '>=18.17.0'}
     hasBin: true
     peerDependencies:
@@ -18532,11 +18532,11 @@ snapshots:
 
   '@adobe/css-tools@4.4.1': {}
 
-  '@ai-sdk/amazon-bedrock@4.0.0-beta.85(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/amazon-bedrock@4.0.0-beta.97(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/anthropic': 3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/anthropic': 3.0.0-beta.87(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@smithy/eventstream-codec': 4.0.5
       '@smithy/util-utf8': 4.0.0
       aws4fetch: 1.0.20
@@ -18546,51 +18546,51 @@ snapshots:
       - arktype
       - effect
 
-  '@ai-sdk/anthropic@3.0.0-beta.75(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/anthropic@3.0.0-beta.87(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/azure@3.0.0-beta.86(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/azure@3.0.0-beta.102(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai': 3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai': 3.0.0-beta.100(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/cohere@3.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/cohere@3.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/deepseek@2.0.0-beta.46(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/deepseek@2.0.0-beta.54(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/gateway@2.0.0-beta.72(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/gateway@2.0.0-beta.82(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@vercel/oidc': 3.0.5
       zod: 4.1.8
     transitivePeerDependencies:
@@ -18598,40 +18598,40 @@ snapshots:
       - arktype
       - effect
 
-  '@ai-sdk/google@3.0.0-beta.65(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/google@3.0.0-beta.77(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/mistral@3.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/mistral@3.0.0-beta.53(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/openai-compatible@2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/openai-compatible@2.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/openai@3.0.0-beta.84(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/openai@3.0.0-beta.100(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
@@ -18645,9 +18645,9 @@ snapshots:
       eventsource-parser: 3.0.6
       zod: 4.1.8
 
-  '@ai-sdk/provider-utils@4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/provider-utils@4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/provider': 3.0.0-beta.24
+      '@ai-sdk/provider': 3.0.0-beta.26
       '@standard-schema/spec': 1.0.0
       eventsource-parser: 3.0.6
       zod: 4.1.8
@@ -18659,26 +18659,26 @@ snapshots:
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/provider@3.0.0-beta.24':
+  '@ai-sdk/provider@3.0.0-beta.26':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/togetherai@2.0.0-beta.45(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/togetherai@2.0.0-beta.53(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
       - arktype
       - effect
 
-  '@ai-sdk/xai@3.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
+  '@ai-sdk/xai@3.0.0-beta.60(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)':
     dependencies:
-      '@ai-sdk/openai-compatible': 2.0.0-beta.44(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/openai-compatible': 2.0.0-beta.52(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
     transitivePeerDependencies:
       - '@valibot/to-json-schema'
@@ -21812,35 +21812,37 @@ snapshots:
 
   '@next/env@14.2.14': {}
 
+  '@next/env@14.2.35': {}
+
   '@next/eslint-plugin-next@14.2.14':
     dependencies:
       glob: 10.3.10
 
-  '@next/swc-darwin-arm64@14.2.14':
+  '@next/swc-darwin-arm64@14.2.33':
     optional: true
 
-  '@next/swc-darwin-x64@14.2.14':
+  '@next/swc-darwin-x64@14.2.33':
     optional: true
 
-  '@next/swc-linux-arm64-gnu@14.2.14':
+  '@next/swc-linux-arm64-gnu@14.2.33':
     optional: true
 
-  '@next/swc-linux-arm64-musl@14.2.14':
+  '@next/swc-linux-arm64-musl@14.2.33':
     optional: true
 
-  '@next/swc-linux-x64-gnu@14.2.14':
+  '@next/swc-linux-x64-gnu@14.2.33':
     optional: true
 
-  '@next/swc-linux-x64-musl@14.2.14':
+  '@next/swc-linux-x64-musl@14.2.33':
     optional: true
 
-  '@next/swc-win32-arm64-msvc@14.2.14':
+  '@next/swc-win32-arm64-msvc@14.2.33':
     optional: true
 
-  '@next/swc-win32-ia32-msvc@14.2.14':
+  '@next/swc-win32-ia32-msvc@14.2.33':
     optional: true
 
-  '@next/swc-win32-x64-msvc@14.2.14':
+  '@next/swc-win32-x64-msvc@14.2.33':
     optional: true
 
   '@nodelib/fs.scandir@2.1.5':
@@ -21929,10 +21931,10 @@ snapshots:
 
   '@one-ini/wasm@0.1.1': {}
 
-  '@openrouter/ai-sdk-provider@1.2.3(ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)':
+  '@openrouter/ai-sdk-provider@1.2.3(ai@6.0.0-beta.156(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8))(zod@4.1.8)':
     dependencies:
       '@openrouter/sdk': 0.1.27
-      ai: 6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      ai: 6.0.0-beta.156(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       zod: 4.1.8
 
   '@openrouter/sdk@0.1.27':
@@ -23821,7 +23823,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@sentry/nextjs@7.108.0(encoding@0.1.13)(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))':
+  '@sentry/nextjs@7.108.0(encoding@0.1.13)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.91.0(@swc/core@1.13.3(@swc/helpers@0.5.17)))':
     dependencies:
       '@rollup/plugin-commonjs': 24.0.0(rollup@2.78.0)
       '@sentry/core': 7.108.0
@@ -23833,7 +23835,7 @@ snapshots:
       '@sentry/vercel-edge': 7.108.0
       '@sentry/webpack-plugin': 1.21.0(encoding@0.1.13)
       chalk: 3.0.0
-      next: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       resolve: 1.22.8
       rollup: 2.78.0
@@ -27224,11 +27226,11 @@ snapshots:
       clean-stack: 2.2.0
       indent-string: 4.0.0
 
-  ai@6.0.0-beta.137(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8):
+  ai@6.0.0-beta.156(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8):
     dependencies:
-      '@ai-sdk/gateway': 2.0.0-beta.72(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
-      '@ai-sdk/provider': 3.0.0-beta.24
-      '@ai-sdk/provider-utils': 4.0.0-beta.43(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/gateway': 2.0.0-beta.82(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
+      '@ai-sdk/provider': 3.0.0-beta.26
+      '@ai-sdk/provider-utils': 4.0.0-beta.51(@valibot/to-json-schema@1.3.0(valibot@1.1.0(typescript@5.4.3)))(effect@3.19.1)(zod@4.1.8)
       '@opentelemetry/api': 1.9.0
       zod: 4.1.8
     transitivePeerDependencies:
@@ -33628,7 +33630,7 @@ snapshots:
       express-handlebars: 5.3.5
       reflect-metadata: 0.2.1
 
-  next-i18next@15.2.0(i18next@23.10.1)(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
+  next-i18next@15.2.0(i18next@23.10.1)(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-i18next@14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1):
     dependencies:
       '@babel/runtime': 7.26.0
       '@types/hoist-non-react-statics': 3.3.6
@@ -33636,15 +33638,15 @@ snapshots:
       hoist-non-react-statics: 3.3.2
       i18next: 23.10.1
       i18next-fs-backend: 2.6.0
-      next: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-i18next: 14.1.0(i18next@23.10.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
 
   next-secure-headers@2.2.0: {}
 
-  next-seo@6.5.0(next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next-seo@6.5.0(next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      next: 14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      next: 14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
 
@@ -33652,9 +33654,9 @@ snapshots:
     dependencies:
       enhanced-resolve: 5.17.1
 
-  next@14.2.14(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  next@14.2.35(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.42.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
-      '@next/env': 14.2.14
+      '@next/env': 14.2.35
       '@swc/helpers': 0.5.5
       busboy: 1.6.0
       caniuse-lite: 1.0.30001689
@@ -33664,15 +33666,15 @@ snapshots:
       react-dom: 18.3.1(react@18.3.1)
       styled-jsx: 5.1.1(@babel/core@7.26.0)(react@18.3.1)
     optionalDependencies:
-      '@next/swc-darwin-arm64': 14.2.14
-      '@next/swc-darwin-x64': 14.2.14
-      '@next/swc-linux-arm64-gnu': 14.2.14
-      '@next/swc-linux-arm64-musl': 14.2.14
-      '@next/swc-linux-x64-gnu': 14.2.14
-      '@next/swc-linux-x64-musl': 14.2.14
-      '@next/swc-win32-arm64-msvc': 14.2.14
-      '@next/swc-win32-ia32-msvc': 14.2.14
-      '@next/swc-win32-x64-msvc': 14.2.14
+      '@next/swc-darwin-arm64': 14.2.33
+      '@next/swc-darwin-x64': 14.2.33
+      '@next/swc-linux-arm64-gnu': 14.2.33
+      '@next/swc-linux-arm64-musl': 14.2.33
+      '@next/swc-linux-x64-gnu': 14.2.33
+      '@next/swc-linux-x64-musl': 14.2.33
+      '@next/swc-win32-arm64-msvc': 14.2.33
+      '@next/swc-win32-ia32-msvc': 14.2.33
+      '@next/swc-win32-x64-msvc': 14.2.33
       '@opentelemetry/api': 1.9.0
       '@playwright/test': 1.42.1
     transitivePeerDependencies:
