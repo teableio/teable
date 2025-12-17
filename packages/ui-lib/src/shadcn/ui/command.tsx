@@ -43,9 +43,9 @@ const CommandInput = React.forwardRef<
     containerClassName?: string;
   }
 >(({ className, containerClassName, ...props }, ref) => (
-  // eslint-disable-next-line react/no-unknown-property
   <div
     className={cn('flex h-9 items-center gap-2 border-b py-2 px-4', containerClassName)}
+    // eslint-disable-next-line react/no-unknown-property
     cmdk-input-wrapper=""
   >
     <Search className="shrink-0 size-4 text-muted-foreground" />
