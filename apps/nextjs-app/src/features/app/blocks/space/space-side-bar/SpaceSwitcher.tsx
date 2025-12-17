@@ -220,11 +220,11 @@ export const SpaceSwitcher = () => {
               </CommandGroup>
             </CommandList>
 
-            <div className="px-2 pb-1">
+            <div className="w-full px-2 py-1">
               <Button
                 onClick={handleOpenCreateDialog}
                 variant="ghost"
-                className="flex h-8 items-center justify-start rounded-md p-2 text-blue-600 hover:text-blue-600"
+                className="flex h-8 w-full items-center justify-start rounded-md p-2 text-blue-600 hover:text-blue-600"
               >
                 <Plus className="size-4 shrink-0 " />
                 {t('space:action.createSpace')}
