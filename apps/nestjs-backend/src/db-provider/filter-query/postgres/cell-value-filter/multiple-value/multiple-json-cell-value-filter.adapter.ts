@@ -8,7 +8,7 @@ import type {
 import { FieldType, isFieldReferenceValue } from '@teable/core';
 import type { Knex } from 'knex';
 import { isUserOrLink } from '../../../../../utils/is-user-or-link';
-import { escapeJsonbRegex } from '../../../../../utils/postgres-regex-escape';
+import { escapeJsonbRegex, escapePostgresRegex } from '../../../../../utils/postgres-regex-escape';
 import type { IDbProvider } from '../../../../db.provider.interface';
 import { CellValueFilterPostgres } from '../cell-value-filter.postgres';
 
@@ -42,12 +42,13 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
 
       builderClient.whereRaw(`${this.tableColumnRef}::jsonb @> ?::jsonb`, [parseValue]);
     } else {
+      const escapedValue = escapePostgresRegex(String(literalValues[0]));
       builderClient.whereRaw(
         `EXISTS (
         SELECT 1 FROM jsonb_array_elements_text(${this.tableColumnRef}::jsonb) as elem
         WHERE elem ~* ?
       )`,
-        [`^${literalValues[0]}$`]
+        [`^${escapedValue}$`]
       );
     }
     return builderClient;
@@ -84,12 +85,13 @@ export class MultipleJsonCellValueFilterAdapter extends CellValueFilterPostgres 
         parseValue,
       ]);
     } else {
+      const escapedValue = escapePostgresRegex(String(literalValues[0]));
       builderClient.whereRaw(
         `NOT EXISTS (
           SELECT 1 FROM jsonb_array_elements_text(COALESCE(${this.tableColumnRef}, '[]')::jsonb) as elem
           WHERE elem ~* ?
         )`,
-        [`^${value}$`]
+        [`^${escapedValue}$`]
       );
     }
     return builderClient;
