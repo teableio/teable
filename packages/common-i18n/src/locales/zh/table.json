@@ -1105,7 +1105,7 @@
       "searchEmpty": "暂无匹配的上下文",
       "emptyContext": "暂无可添加的上下文"
     },
-    "inputPlaceholder": "用 Teable 构建您的商业应用",
+    "inputPlaceholder": "描述你想要做什么",
     "thought": "深度思考",
     "meta": {
       "timeCostUnit": "秒",
