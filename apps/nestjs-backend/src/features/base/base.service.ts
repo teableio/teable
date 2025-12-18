@@ -421,13 +421,17 @@ export class BaseService {
 
     return await this.prismaService.$tx(
       async () => {
-        const res = await this.baseDuplicateService.duplicateBase({
-          name: template.name!,
-          fromBaseId,
-          spaceId,
-          withRecords,
-          baseId,
-        });
+        const res = await this.baseDuplicateService.duplicateBase(
+          {
+            name: template.name!,
+            fromBaseId,
+            spaceId,
+            withRecords,
+            baseId,
+          },
+          false,
+          true
+        );
         await this.prismaService.txClient().template.update({
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
@@ -677,7 +681,8 @@ export class BaseService {
         name: base?.name,
         nodes,
       },
-      false
+      false,
+      true
     );
 
     // if the base is already published, delete the former base

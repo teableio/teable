@@ -40,7 +40,11 @@ export class BaseDuplicateService {
     private readonly eventEmitterService: EventEmitterService
   ) {}
 
-  async duplicateBase(duplicateBaseRo: IDuplicateBaseRo, allowCrossBase: boolean = true) {
+  async duplicateBase(
+    duplicateBaseRo: IDuplicateBaseRo,
+    allowCrossBase: boolean = true,
+    isTemplate: boolean = false
+  ) {
     const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
 
     const { base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = await this.duplicateStructure(

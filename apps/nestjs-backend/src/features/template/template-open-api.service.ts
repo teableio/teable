@@ -259,7 +259,8 @@ export class TemplateOpenApiService {
             withRecords: true,
             name: templateRaw?.name || 'template snapshot',
           },
-          false
+          false,
+          true
         );
 
         if (templateRaw.snapshot) {
