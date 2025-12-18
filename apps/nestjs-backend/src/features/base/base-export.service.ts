@@ -206,12 +206,10 @@ export class BaseExportService {
       }
     );
 
-    await this.pipeArchive(archive, baseId, includeData);
-
     try {
+      await this.pipeArchive(archive, baseId, includeData);
       archive.finalize();
       const uploadResult = await uploadPromise;
-      console.log('uploadResult', uploadResult);
       const { path } = uploadResult;
       const name = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
       const previewUrl = await this.storageAdapter.getPreviewUrl(
@@ -233,10 +231,12 @@ export class BaseExportService {
       };
       this.notifyExportResult(baseId, message, previewUrl);
     } catch (e) {
-      this.logger.error(
-        `export base zip error: ${e instanceof Error ? e.message : 'Unknown error'}`,
-        e instanceof Error ? e.stack : undefined
-      );
+      this.captureExportError(e, {
+        stage: 'processExport',
+        baseId,
+        baseName,
+        includeData,
+      });
       if (e instanceof Error) {
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
