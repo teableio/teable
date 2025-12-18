@@ -2,7 +2,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import { Injectable } from '@nestjs/common';
 import {
-  BillableRoles,
   canManageRole,
   getRandomString,
   HttpErrorCode,
@@ -438,10 +437,6 @@ export class CollaboratorService {
       orderBy?: 'desc' | 'asc';
     }
   ): Promise<CollaboratorItem[]> {
-    const isCommunityEdition =
-      process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() !== 'EE' &&
-      process.env.NEXT_BUILD_ENV_EDITION?.toUpperCase() !== 'CLOUD';
-
     const builder = this.knex.queryBuilder();
     builder.whereNotNull('users.id');
     const { baseMap } = await this.getSpaceCollaboratorBuilder(builder, spaceId, options);
@@ -461,27 +456,7 @@ export class CollaboratorService {
     >(builder.toQuery());
 
     // Get billable users if not community edition and includeBase is true
-    let billableUserIds = new Set<string>();
-    if (!isCommunityEdition && options?.includeBase) {
-      const billableBuilder = this.knex.queryBuilder();
-      await this.getSpaceCollaboratorBuilder(billableBuilder, spaceId, {
-        ...options,
-        includeBase: true,
-      });
-      billableBuilder.whereIn('collaborator.role_name', [...BillableRoles]);
-      billableBuilder.select({ user_id: 'users.id' });
-
-      const billableUsers = await this.prismaService
-        .txClient()
-        .$queryRawUnsafe<{ user_id: string }[]>(billableBuilder.toQuery());
-
-      billableUserIds = new Set(billableUsers.map((u) => u.user_id));
-    }
     return collaborators.map((collaborator) => {
-      const isBillable =
-        !isCommunityEdition &&
-        (BillableRoles.includes(collaborator.role_name as (typeof BillableRoles)[number]) ||
-          billableUserIds.has(collaborator.user_id));
       return {
         type: PrincipalType.User,
         resourceType: collaborator.resource_type as CollaboratorType,
@@ -492,7 +467,6 @@ export class CollaboratorService {
         role: collaborator.role_name as IRole,
         createdTime: collaborator.created_time.toISOString(),
         base: baseMap[collaborator.resource_id],
-        billable: isBillable,
       };
     });
   }
