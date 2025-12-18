@@ -236,10 +236,10 @@
     "medium": "mittel",
     "tall": "groß",
     "extraTall": "extra groß",
-    "title": "Zeilenhöhenkonfiguration"
+    "title": "Zeilenhöhe"
   },
   "fieldNameConfig": {
-    "title": "Feldname-Konfiguration",
+    "title": "Feldname",
     "displayLines": "{{count}} Zeilen"
   },
   "share": {

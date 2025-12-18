@@ -236,10 +236,10 @@
     "medium": "средний",
     "tall": "высокий",
     "extraTall": "очень высокий",
-    "title": "Настройка высоты строки"
+    "title": "высоты строки"
   },
   "fieldNameConfig": {
-    "title": "Настройка имени поля",
+    "title": "имени поля",
     "displayLines": "{{count}} строк"
   },
   "share": {

@@ -250,10 +250,10 @@
     "medium": "中等",
     "tall": "高",
     "extraTall": "超高",
-    "title": "行高配置"
+    "title": "行高"
   },
   "fieldNameConfig": {
-    "title": "列名配置",
+    "title": "字段名行数",
     "displayLines": "{{count}} 行"
   },
   "share": {

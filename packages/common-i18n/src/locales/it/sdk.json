@@ -236,10 +236,10 @@
     "medium": "medio",
     "tall": "alto",
     "extraTall": "extra alto",
-    "title": "Configurazione dell'altezza delle righe"
+    "title": "dell'altezza delle righe"
   },
   "fieldNameConfig": {
-    "title": "Configurazione del nome del campo",
+    "title": "del nome del campo",
     "displayLines": "{{count}} linee"
   },
   "share": {
