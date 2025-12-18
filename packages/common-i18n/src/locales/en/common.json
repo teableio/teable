@@ -54,12 +54,9 @@
     "next": "Next",
     "previous": "Previous",
     "select": "Select",
-<<<<<<< HEAD
-    "refresh": "Refresh"
-=======
+    "refresh": "Refresh",
     "login": "Login",
     "useTemplate": "Use template"
->>>>>>> df42096a5 (feat: template preview)
   },
   "quickAction": {
     "title": "Quick actions...",
