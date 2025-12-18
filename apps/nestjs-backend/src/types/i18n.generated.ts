@@ -2772,7 +2772,6 @@ export type I18nTranslations = {
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
                 "toBeFilled": string;
-                "publishNodeTip": string;
             };
             "publishToCommunity": string;
             "publish": string;
