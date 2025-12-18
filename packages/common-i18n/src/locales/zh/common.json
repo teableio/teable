@@ -109,6 +109,7 @@
       "tips": {
         "errorCategoryName": "分类不存在或已删除",
         "needSnapshot": "上架前，请先创建快照，并且模板名和描述不能为空",
+        "needPublish": "请先上架模板，再设置推荐",
         "needBaseSource": "创建快照前，请先选择模板来源",
         "forbiddenUpdateSystemTemplate": "系统模板禁止修改",
         "addCategoryTips": "请先在搜索框中输入分类名称。"
@@ -116,6 +117,7 @@
       "category": {
         "menu": {
           "getStarted": "开始",
+          "recommended": "推荐",
           "all": "全部",
           "browseByCategory": "按分类浏览"
         }
@@ -131,7 +133,8 @@
         "status": "上架",
         "publishSnapshot": "发布快照",
         "snapshotTime": "快照时间",
-        "actions": "操作"
+        "actions": "操作",
+        "featured": "推荐"
       },
       "actions": {
         "title": "操作",
