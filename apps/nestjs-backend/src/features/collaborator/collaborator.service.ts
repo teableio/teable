@@ -30,6 +30,7 @@ import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import {
   CollaboratorCreateEvent,
   CollaboratorDeleteEvent,
+  CollaboratorUpdateEvent,
   Events,
 } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
@@ -684,7 +685,7 @@ export class CollaboratorService {
       );
     }
 
-    return this.prismaService.txClient().collaborator.updateMany({
+    const res = await this.prismaService.txClient().collaborator.updateMany({
       where: {
         resourceId: resourceId,
         resourceType: resourceType,
@@ -696,6 +697,25 @@ export class CollaboratorService {
         lastModifiedBy: currentUserId,
       },
     });
+
+    let spaceId: string = '';
+    if (resourceType === CollaboratorType.Base) {
+      const space = await this.prismaService
+        .txClient()
+        .base.findUniqueOrThrow({ where: { id: resourceId }, select: { spaceId: true } });
+      spaceId = space.spaceId;
+    } else if (resourceType === CollaboratorType.Space) {
+      spaceId = resourceId;
+    }
+
+    if (spaceId) {
+      this.eventEmitterService.emitAsync(
+        Events.COLLABORATOR_UPDATE,
+        new CollaboratorUpdateEvent(spaceId)
+      );
+    }
+
+    return res;
   }
 
   async getCurrentUserCollaboratorsBaseAndSpaceArray(searchRoles?: IRole[]) {

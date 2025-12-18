@@ -65,6 +65,7 @@ export enum Events {
 
   COLLABORATOR_CREATE = 'collaborator.create',
   COLLABORATOR_DELETE = 'collaborator.delete',
+  COLLABORATOR_UPDATE = 'collaborator.update',
 
   BASE_FOLDER_CREATE = 'base.folder.create',
   BASE_FOLDER_DELETE = 'base.folder.delete',

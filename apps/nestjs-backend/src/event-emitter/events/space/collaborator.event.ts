@@ -11,3 +11,9 @@ export class CollaboratorDeleteEvent {
 
   constructor(public readonly spaceId: string) {}
 }
+
+export class CollaboratorUpdateEvent {
+  public readonly name = Events.COLLABORATOR_UPDATE;
+
+  constructor(public readonly spaceId: string) {}
+}
