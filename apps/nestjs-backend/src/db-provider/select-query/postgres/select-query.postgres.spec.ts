@@ -1,7 +1,7 @@
 /* eslint-disable sonarjs/no-duplicate-string */
+import { DbFieldType } from '@teable/core';
 import { describe, expect, it } from 'vitest';
 
-import { DbFieldType } from '@teable/core';
 import { getDefaultDatetimeParsePattern } from '../../utils/default-datetime-parse-pattern';
 import { SelectQueryPostgres } from './select-query.postgres';
 
