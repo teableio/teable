@@ -304,6 +304,35 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     return this.getExpressionFieldType(value) === DbFieldType.Text;
   }
 
+  private isNumericLikeExpression(value: string, metadataIndex?: number): boolean {
+    if (this.isNumericLiteral(value)) {
+      return true;
+    }
+
+    const paramInfo = metadataIndex != null ? this.getParamInfo(metadataIndex) : undefined;
+    if (paramInfo?.hasMetadata) {
+      if (
+        paramInfo.type === 'number' ||
+        isTrustedNumeric(paramInfo) ||
+        isBooleanLikeParam(paramInfo)
+      ) {
+        return true;
+      }
+      if (
+        paramInfo.fieldDbType === DbFieldType.Real ||
+        paramInfo.fieldDbType === DbFieldType.Integer
+      ) {
+        return true;
+      }
+      if (paramInfo.fieldCellValueType === 'number') {
+        return true;
+      }
+    }
+
+    const expressionFieldType = this.getExpressionFieldType(value);
+    return expressionFieldType === DbFieldType.Real || expressionFieldType === DbFieldType.Integer;
+  }
+
   private getExpressionFieldType(value: string): DbFieldType | undefined {
     const trimmed = this.stripOuterParentheses(value);
     const columnMatch = trimmed.match(/^"([^"]+)"$/) ?? trimmed.match(/^"[^"]+"\."([^"]+)"$/);
@@ -1460,6 +1489,7 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
     const falseIsText = this.isTextLikeExpression(valueIfFalse, 2);
     const trueIsHardText = this.isHardTextExpression(valueIfTrue);
     const falseIsHardText = this.isHardTextExpression(valueIfFalse);
+    const hasTextBranch = (trueIsText && !trueIsBlank) || (falseIsText && !falseIsBlank);
     const numericWithBlank =
       (trueIsBlank && !falseIsHardText && !falseIsText) ||
       (falseIsBlank && !trueIsHardText && !trueIsText);
@@ -1468,7 +1498,14 @@ export class SelectQueryPostgres extends SelectQueryAbstract {
       const falseBranchNumeric = falseIsBlank ? 'NULL' : this.toNumericSafe(valueIfFalse, 2);
       return `CASE WHEN (${truthinessScore}) = 1 THEN ${trueBranchNumeric} ELSE ${falseBranchNumeric} END`;
     }
-    const hasTextBranch = (trueIsText && !trueIsBlank) || (falseIsText && !falseIsBlank);
+    const targetIsNumeric = targetType === DbFieldType.Real || targetType === DbFieldType.Integer;
+    const hasNumericBranch =
+      this.isNumericLikeExpression(valueIfTrue, 1) || this.isNumericLikeExpression(valueIfFalse, 2);
+    if (targetIsNumeric || (hasNumericBranch && !hasTextBranch)) {
+      const trueBranchNumeric = trueIsBlank ? 'NULL' : this.toNumericSafe(valueIfTrue, 1);
+      const falseBranchNumeric = falseIsBlank ? 'NULL' : this.toNumericSafe(valueIfFalse, 2);
+      return `CASE WHEN (${truthinessScore}) = 1 THEN ${trueBranchNumeric} ELSE ${falseBranchNumeric} END`;
+    }
     const blankPresent = trueIsBlank || falseIsBlank;
     const hasTextAfterBlank = blankPresent ? false : hasTextBranch;
     const normalizeBlankAsNull = !hasTextAfterBlank && blankPresent;
