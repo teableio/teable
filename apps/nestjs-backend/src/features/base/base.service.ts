@@ -697,7 +697,7 @@ export class BaseService {
 
     if (template && template.snapshot) {
       const { baseId } = JSON.parse(template.snapshot);
-      await this.permanentDeleteBase(baseId, true);
+      await this.cleanTemplateRelatedData(baseId);
     }
 
     return {
@@ -706,6 +706,10 @@ export class BaseService {
       name,
       nodeIdMap,
     };
+  }
+
+  async cleanTemplateRelatedData(baseId: string) {
+    await this.permanentDeleteBase(baseId, true);
   }
 
   private async createTemplateBySnapshot(
