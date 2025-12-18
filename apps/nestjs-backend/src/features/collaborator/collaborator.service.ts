@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 /* eslint-disable sonarjs/no-duplicate-string */
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   BillableRoles,
   canManageRole,
@@ -477,8 +477,11 @@ export class CollaboratorService {
 
       billableUserIds = new Set(billableUsers.map((u) => u.user_id));
     }
-
     return collaborators.map((collaborator) => {
+      const isBillable =
+        !isCommunityEdition &&
+        (BillableRoles.includes(collaborator.role_name as (typeof BillableRoles)[number]) ||
+          billableUserIds.has(collaborator.user_id));
       return {
         type: PrincipalType.User,
         resourceType: collaborator.resource_type as CollaboratorType,
@@ -489,10 +492,7 @@ export class CollaboratorService {
         role: collaborator.role_name as IRole,
         createdTime: collaborator.created_time.toISOString(),
         base: baseMap[collaborator.resource_id],
-        billable:
-          !isCommunityEdition &&
-          (BillableRoles.includes(collaborator.role_name as (typeof BillableRoles)[number]) ||
-            billableUserIds.has(collaborator.user_id)),
+        billable: isBillable,
       };
     });
   }

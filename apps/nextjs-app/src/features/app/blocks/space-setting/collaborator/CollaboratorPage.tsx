@@ -38,9 +38,10 @@ export const CollaboratorPage = () => {
           components={{ b: <b /> }}
         />
       }
+      className="h-[calc(100%-70px)] overflow-hidden"
     >
       {isHydrated && !!space && (
-        <div className="w-full py-4">
+        <div className="size-full py-4">
           <Collaborators
             spaceId={spaceId}
             role={space.role}
