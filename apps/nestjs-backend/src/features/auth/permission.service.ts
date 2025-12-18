@@ -318,10 +318,8 @@ export class PermissionService {
   private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
-      return getPermissions('owner');
-    }
-    if (this.cls.get('template') || this.cls.get('template.baseId') === baseId) {
-      return getPermissions('viewer');
+      const template = await this.templateModel.getTemplateRawByBaseId(baseId);
+      return getPermissions(template ? 'viewer' : 'owner');
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(

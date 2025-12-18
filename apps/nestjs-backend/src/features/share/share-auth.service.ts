@@ -135,7 +135,6 @@ export class ShareAuthService {
         );
       }
     }
-
     if (templateHeader || isAnonymous(this.cls.get('user.id'))) {
       await this.permissionService.validTemplatePermissions(fieldRaw.tableId, [
         'table|read',

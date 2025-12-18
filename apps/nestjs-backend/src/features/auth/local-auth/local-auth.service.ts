@@ -1,12 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import {
-  BadRequestException,
-  ConflictException,
-  HttpException,
-  HttpStatus,
-  Injectable,
-  Logger,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { generateUserId, getRandomString, HttpErrorCode, RandomType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';

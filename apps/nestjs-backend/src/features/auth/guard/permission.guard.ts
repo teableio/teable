@@ -2,7 +2,6 @@ import type { ExecutionContext } from '@nestjs/common';
 import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { HttpErrorCode, isAnonymous, type Action } from '@teable/core';
-import { IS_TEMPLATE_HEADER } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
@@ -14,6 +13,7 @@ import type { IResourceMeta } from '../decorators/resource_meta.decorator';
 import { RESOURCE_META } from '../decorators/resource_meta.decorator';
 import { IS_TOKEN_ACCESS } from '../decorators/token.decorator';
 import { PermissionService } from '../permission.service';
+import { getTemplateHeader } from '../utils';
 
 @Injectable()
 export class PermissionGuard {
@@ -213,16 +213,11 @@ export class PermissionGuard {
     return isAnonymous(this.cls.get('user.id'));
   }
 
-  private getTemplateHeader(context: ExecutionContext) {
-    const req = context.switchToHttp().getRequest();
-    return req.headers[IS_TEMPLATE_HEADER.toLowerCase()] || req.headers[IS_TEMPLATE_HEADER];
-  }
-
   protected async permissionCheckWithPublicFallback(
     context: ExecutionContext,
     permissionCheck: () => Promise<boolean>
   ) {
-    const templateHeader = this.getTemplateHeader(context);
+    const templateHeader = getTemplateHeader(context.switchToHttp().getRequest());
     const allowAnonymousType = this.reflector.getAllAndOverride<AllowAnonymousType | undefined>(
       IS_ALLOW_ANONYMOUS,
       [context.getHandler(), context.getClass()]

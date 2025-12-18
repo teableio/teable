@@ -1,4 +1,4 @@
-import { useIsAnonymous, useTemplate } from '@teable/sdk/hooks';
+import { useIsAnonymous, useIsHydrated, useTemplate } from '@teable/sdk/hooks';
 import { Button } from '@teable/ui-lib/shadcn';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
@@ -15,8 +15,9 @@ export const PublicOperateButton = () => {
   const router = useRouter();
   const isInIframe = useIsInIframe();
   const ref = useRef<ITemplateSelectSpaceDialogRef>(null);
+  const isHydrated = useIsHydrated();
 
-  if (isInIframe) {
+  if (isInIframe || !isHydrated) {
     return <></>;
   }
 

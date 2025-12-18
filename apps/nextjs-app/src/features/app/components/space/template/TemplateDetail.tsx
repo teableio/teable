@@ -88,18 +88,21 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             </Button>
           )}
           <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
-          {categoryNames.length > 0 &&
-            categoryNames.map((name) => (
-              <Badge
-                variant="secondary"
-                className="text-xs font-normal text-muted-foreground"
-                key={name}
-              >
-                {name}
-              </Badge>
-            ))}
         </div>
         <div className="flex flex-col gap-3 overflow-y-auto px-6 pb-3">
+          {categoryNames.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {categoryNames.map((categoryName) => (
+                <Badge
+                  key={categoryName}
+                  variant="secondary"
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  {categoryName}
+                </Badge>
+              ))}
+            </div>
+          )}
           <p className="text-base font-normal text-muted-foreground">{description}</p>
           <div className="flex gap-2">
             <TemplatePreviewSheet detail={templateDetail}>
