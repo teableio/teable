@@ -139,6 +139,8 @@
     "update": "Update",
     "unPublish": "Unpublish",
     "unPublishSuccess": "Base unpublished successfully!",
+    "unPublishConfirmTitle": "Confirm unpublish",
+    "unPublishConfirmDescription": "Are you sure you want to unpublish this base? It will no longer be visible in the community template center.",
     "usageCount": "Usage count: ",
     "uploadCover": "Click to upload cover image",
     "changeCover": "Click to change cover",
@@ -146,7 +148,8 @@
     "uploadFailed": "Upload failed",
     "invalidImageType": "Please select an image file",
     "tips": {
-      "publishValidation": "title and description are required"
+      "publishValidation": "title and description are required",
+      "atLeastOneNode": "At least select one node to publish"
     }
   }
 }

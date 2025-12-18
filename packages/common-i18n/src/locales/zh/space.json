@@ -139,6 +139,8 @@
     "update": "更新",
     "unPublish": "取消发布",
     "unPublishSuccess": "取消发布成功！",
+    "unPublishConfirmTitle": "确认取消发布",
+    "unPublishConfirmDescription": "确定要取消发布此数据库吗？取消发布后，该数据库将不再在社区模板中心显示。",
     "usageCount": "使用次数：",
     "uploadCover": "点击上传封面图片",
     "changeCover": "点击更换封面",
@@ -146,7 +148,8 @@
     "uploadFailed": "上传失败",
     "invalidImageType": "请选择图片文件",
     "tips": {
-      "publishValidation": "标题和描述不能为空"
+      "publishValidation": "标题和描述不能为空",
+      "atLeastOneNode": "至少选择一个节点发布"
     }
   }
 }
