@@ -121,18 +121,17 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
 
           const computedFields =
             table?.fields
-              ?.filter(
-                ({ type, isLookup }) =>
-                  [
-                    FieldType.Formula,
-                    FieldType.Rollup,
-                    FieldType.ConditionalRollup,
-                    FieldType.CreatedTime,
-                    FieldType.LastModifiedTime,
-                    FieldType.CreatedBy,
-                    FieldType.LastModifiedBy,
-                    FieldType.AutoNumber,
-                  ].includes(type) || isLookup
+              ?.filter(({ type }) =>
+                [
+                  FieldType.Formula,
+                  FieldType.Rollup,
+                  // FieldType.ConditionalRollup,
+                  FieldType.CreatedTime,
+                  FieldType.LastModifiedTime,
+                  FieldType.CreatedBy,
+                  FieldType.LastModifiedBy,
+                  FieldType.AutoNumber,
+                ].includes(type)
               )
               .map(({ dbFieldName, id }) => ({
                 dbFieldName,
@@ -147,7 +146,6 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
             ...computedDbFieldNames,
           ];
 
-          console.log('excludeDbFieldNames', excludeDbFieldNames);
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
             totalRecordsCount += chunk.length;
             await this.handleChunk(
