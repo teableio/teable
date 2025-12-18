@@ -23,7 +23,10 @@ export const baseNodeTableResourceMetaSchema = defaultResourceMetaSchema.extend(
 
 export type IBaseNodeTableResourceMeta = z.infer<typeof baseNodeTableResourceMetaSchema>;
 
-export const baseNodeAppResourceMetaSchema = defaultResourceMetaSchema;
+export const baseNodeAppResourceMetaSchema = defaultResourceMetaSchema.extend({
+  publicUrl: z.string().nullable().optional(),
+  publishedVersion: z.number().nullable().optional(),
+});
 
 export type IBaseNodeAppResourceMeta = z.infer<typeof baseNodeAppResourceMetaSchema>;
 

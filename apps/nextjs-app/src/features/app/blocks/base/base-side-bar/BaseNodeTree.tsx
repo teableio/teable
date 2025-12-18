@@ -5,6 +5,7 @@ import type {
   IBaseNodeVo,
   IDuplicateBaseNodeRo,
   IBaseNodeWorkflowResourceMeta,
+  IBaseNodeAppResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { LocalStorageKeys, ReactQueryKeys } from '@teable/sdk/config';
@@ -578,6 +579,22 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     );
   };
 
+  const ItemStatus = ({ item }: { item: ItemInstance<TreeItemData> }) => {
+    const node = item.getItemData();
+    if (!node) return null;
+    const { resourceType, resourceMeta } = node;
+    const isWorkflowActive =
+      resourceType === BaseNodeResourceType.Workflow &&
+      (resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive;
+    const isAppPublished =
+      resourceType === BaseNodeResourceType.App &&
+      (resourceMeta as IBaseNodeAppResourceMeta)?.publicUrl;
+    if (isWorkflowActive || isAppPublished) {
+      return <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />;
+    }
+    return null;
+  };
+
   const renderEmpty = () => {
     if (isLoading) {
       return (
@@ -674,10 +691,8 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                             >
                               {item.getItemName()}
                             </span>
-                            {node.resourceType === BaseNodeResourceType.Workflow &&
-                              (node.resourceMeta as IBaseNodeWorkflowResourceMeta)?.isActive && (
-                                <span className="size-1.5 shrink-0 rounded-full bg-emerald-500" />
-                              )}
+
+                            <ItemStatus item={item} />
                           </div>
                           {
                             // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
