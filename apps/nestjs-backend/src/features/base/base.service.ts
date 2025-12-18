@@ -429,8 +429,7 @@ export class BaseService {
             withRecords,
             baseId,
           },
-          false,
-          true
+          false
         );
         await this.prismaService.txClient().template.update({
           where: { id: templateId },
