@@ -303,7 +303,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     }
 
     if (node.resourceType === BaseNodeResourceType.Table && icon) {
-      return <Emoji emoji={icon} size={'1rem'} className="shrink-0" />;
+      return <Emoji emoji={icon} size={16} className="size-4 shrink-0" />;
     }
 
     return <IconComponent className="size-4 shrink-0" />;
@@ -318,7 +318,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
         return (
           <>
             {selectedNode.resourceType === BaseNodeResourceType.Table && icon ? (
-              <Emoji emoji={icon} size={'1rem'} className="shrink-0" />
+              <Emoji emoji={icon} size={16} className="size-4 shrink-0" />
             ) : (
               <IconComponent className="size-5 shrink-0" />
             )}

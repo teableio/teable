@@ -77,6 +77,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const { data: templateDetail } = useQuery({
     queryKey: ['template-by-base', baseId],
     staleTime: 0,
+    refetchOnWindowFocus: false,
     queryFn: () => getTemplateByBaseId(baseId!).then((res) => res.data),
     onSuccess: (data) => {
       setTitle(data?.name || base?.name || '');

@@ -56,7 +56,7 @@ export const NodeSelect = (props: INodeSelectProps) => {
     const icon = getNodeIcon(node);
 
     if (node.resourceType === BaseNodeResourceType.Table && icon) {
-      return <Emoji emoji={icon} size={'1rem'} />;
+      return <Emoji emoji={icon} size={16} className="size-4 shrink-0" />;
     }
 
     return <IconComponent className="size-4 shrink-0" />;
