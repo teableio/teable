@@ -147,6 +147,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
   const canCreateWorkflow = !isCommunity && Boolean(permission?.['automation|create']);
   const canCreateApp = !isCommunity && Boolean(buildAppEnabled && permission?.['app|create']);
   const canCreateFolder = Boolean(permission?.['base|update']);
+  const canUpdateTable = Boolean(permission?.['table|update']);
 
   const canCreateResource =
     isEditMode &&
@@ -567,6 +568,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           <EmojiPicker
             className="flex size-full items-center justify-center hover:bg-muted-foreground/60"
             onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
+            disabled={!canUpdateTable}
           >
             {icon ? <Emoji emoji={icon} size="1rem" /> : <IconComponent className="size-full" />}
           </EmojiPicker>
