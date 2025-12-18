@@ -1,5 +1,5 @@
 import { getUniqName, ViewType } from '@teable/core';
-import { File, FileCsv, FileExcel } from '@teable/icons';
+import { File, FileCsv, FileExcel, Slack } from '@teable/icons';
 import { BaseNodeResourceType, SUPPORTEDTYPE } from '@teable/openapi';
 import { useTables } from '@teable/sdk';
 import {
@@ -87,12 +87,14 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
         | BaseNodeResourceType.Dashboard
         | BaseNodeResourceType.Folder;
       label: string;
+      trailingIcon?: React.ReactNode;
     }> = [];
 
     if (canCreateWorkflow) {
       list.push({
         resourceType: BaseNodeResourceType.Workflow,
         label: t('common:noun.newAutomation'),
+        trailingIcon: <Slack className="size-4" />,
       });
     }
     if (canCreateApp) {
@@ -120,12 +122,12 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
     }
 
     return list.map((item) => {
-      const { resourceType, label } = item;
+      const { resourceType, label, trailingIcon } = item;
       const IconComponent = BaseNodeResourceIconMap[resourceType];
       return (
         <DropdownMenuItem
           key={resourceType}
-          className="cursor-pointer"
+          className="flex cursor-pointer items-center"
           onClick={() => {
             curdHooks.createNode?.({
               resourceType,
@@ -138,6 +140,7 @@ export const BaseNodeAddResourceButton = (props: BaseNodeAddResourceButtonProps)
             <IconComponent className="size-4" />
             {label}
           </Button>
+          {trailingIcon}
         </DropdownMenuItem>
       );
     });

@@ -1105,7 +1105,7 @@
       "searchEmpty": "No matching context found",
       "emptyContext": "No context to add"
     },
-    "inputPlaceholder": "Build your business app with Teable",
+    "inputPlaceholder": "Describe what you want to do",
     "thought": "Thinking",
     "meta": {
       "timeCostUnit": "s",
