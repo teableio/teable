@@ -2,6 +2,8 @@ import { Injectable, Logger, type OnModuleInit } from '@nestjs/common';
 import { IdPrefix } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
+export const TEMPLATE_SPACE_ID = `${IdPrefix.Space}DefaultTempSpcId`;
+
 @Injectable()
 export class TemplateSpaceInitService implements OnModuleInit {
   private logger = new Logger(TemplateSpaceInitService.name);
@@ -11,7 +13,7 @@ export class TemplateSpaceInitService implements OnModuleInit {
   async onModuleInit() {
     const prisma = this.prismaService.txClient();
 
-    const initTemplateSpaceId = `${IdPrefix.Space}DefaultTempSpcId`;
+    const initTemplateSpaceId = TEMPLATE_SPACE_ID;
 
     await prisma.space.upsert({
       where: {
