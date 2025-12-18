@@ -122,7 +122,11 @@ export class TemplateOpenApiService {
     const res = await this.prismaService.template.findMany({
       where: {
         isPublished: true,
-        featured: featured,
+        ...(featured === true
+          ? { featured: true }
+          : featured === false
+            ? { OR: [{ featured: false }, { featured: null }] }
+            : {}),
         categoryId: categoryId ? { has: categoryId } : undefined,
         name: search ? { contains: search, mode: 'insensitive' } : undefined,
       },
