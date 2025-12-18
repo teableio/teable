@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 
+const getIsIframe = () => {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+};
+
 export const useIsInIframe = () => {
-  const [isInIframe, setIsInIframe] = useState(false);
+  const [isInIframe, setIsInIframe] = useState(getIsIframe);
 
   useEffect(() => {
-    try {
-      setIsInIframe(window.self !== window.top);
-    } catch (e) {
-      setIsInIframe(true);
-    }
+    setIsInIframe(getIsIframe());
   }, []);
-
   return isInIframe;
 };

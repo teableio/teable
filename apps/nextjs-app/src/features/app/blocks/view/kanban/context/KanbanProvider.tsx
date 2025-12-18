@@ -131,6 +131,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardDraggable: Boolean(
         permission['record|update'] && permission['view|update'] && stackFieldRecordEditable
       ),
+      cardCommentCreatable: Boolean(permission['record|comment']),
     };
   }, [permission, fieldPermission, stackFieldRecordEditable]);
 

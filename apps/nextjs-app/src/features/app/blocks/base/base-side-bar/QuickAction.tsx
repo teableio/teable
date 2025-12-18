@@ -2,7 +2,7 @@ import { LaptopIcon } from '@radix-ui/react-icons';
 import { Moon, Settings, Sun } from '@teable/icons';
 import { useTheme } from '@teable/next-themes';
 import { BaseNodeResourceType } from '@teable/openapi';
-import { useBaseId, useIsHydrated } from '@teable/sdk/hooks';
+import { useBaseId, useIsAnonymous, useIsHydrated, useIsTemplate } from '@teable/sdk/hooks';
 import {
   CommandDialog,
   CommandInput,
@@ -33,6 +33,8 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
   const router = useRouter();
   const theme = useTheme();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const isAnonymous = useIsAnonymous();
+  const isTemplate = useIsTemplate();
   const modKeyStr = useModKeyStr();
   useHotkeys(
     `mod+k`,
@@ -162,19 +164,21 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
-          <CommandGroup heading={t('common:settings.title')}>
-            <CommandItem
-              className="flex gap-2"
-              onSelect={() => {
-                setOpen(false);
-                setting.setOpen(true);
-              }}
-              value={t('common:settings.title')}
-            >
-              <Settings className="size-4" />
-              <span>{t('common:settings.title')}</span>
-            </CommandItem>
-          </CommandGroup>
+          {!isAnonymous && !isTemplate && (
+            <CommandGroup heading={t('common:settings.title')}>
+              <CommandItem
+                className="flex gap-2"
+                onSelect={() => {
+                  setOpen(false);
+                  setting.setOpen(true);
+                }}
+                value={t('common:settings.title')}
+              >
+                <Settings className="size-4" />
+                <span>{t('common:settings.title')}</span>
+              </CommandItem>
+            </CommandGroup>
+          )}
         </CommandList>
       </CommandDialog>
     </>

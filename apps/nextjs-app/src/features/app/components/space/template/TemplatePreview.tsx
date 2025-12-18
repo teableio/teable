@@ -21,14 +21,14 @@ export const TemplatePreview = (props: {
 
   return (
     <div className={cn('relative', className)} ref={isFull ? null : ref}>
+      <div style={{ height: isFull ? '100%' : `${height}px` }}></div>
       {url && (
         <iframe
-          className="rounded-sm border"
+          className="absolute inset-0 overflow-hidden rounded-sm border"
           src={url}
           title={name}
           width={isFull ? '100%' : width}
           height={isFull ? '100%' : height}
-          loading="lazy"
           onLoad={() => requestAnimationFrame(() => setIsLoading(false))}
         />
       )}

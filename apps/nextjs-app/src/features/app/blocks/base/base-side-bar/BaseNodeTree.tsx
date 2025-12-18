@@ -722,10 +722,12 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                                   </BaseNodeAddResourceButton>
                                 )}
                               </div>
-                              <BaseNodeStarButton
-                                resourceType={resourceType}
-                                resourceId={resourceId}
-                              />
+                              {
+                                <BaseNodeStarButton
+                                  resourceType={resourceType}
+                                  resourceId={resourceId}
+                                />
+                              }
                               <div className="opacity-0 group-hover:opacity-100 ">
                                 <BaseNodeMore
                                   resourceType={resourceType}

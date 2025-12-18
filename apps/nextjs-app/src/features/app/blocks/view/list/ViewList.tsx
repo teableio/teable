@@ -10,9 +10,10 @@ export const ViewList = () => {
   const activeViewId = useViewId();
   const isHydrated = useIsHydrated();
   const permission = useTablePermission();
+  const editable = permission['view|update'];
   const [editing, setEditing] = useState(false);
 
-  return isHydrated ? (
+  return isHydrated && editable ? (
     views.length ? (
       <DraggableWrapper strategy={horizontalListSortingStrategy}>
         {({ setNodeRef, attributes, listeners, style, isDragging, view }) => (
