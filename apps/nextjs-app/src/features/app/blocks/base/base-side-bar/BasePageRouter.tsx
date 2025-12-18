@@ -1,6 +1,6 @@
 import { Lock, MoreHorizontal, Settings, Trash2 } from '@teable/icons';
 import { BillingProductLevel } from '@teable/openapi';
-import { useBasePermission } from '@teable/sdk/hooks';
+import { useBasePermission, useIsTemplate } from '@teable/sdk/hooks';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -77,6 +77,7 @@ export const BasePageRouter = () => {
   const { baseId } = router.query;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const basePermission = useBasePermission();
+  const isTemplate = useIsTemplate();
 
   const pageRoutes: {
     href: string;
@@ -96,6 +97,14 @@ export const BasePageRouter = () => {
       ].filter((item) => !item.hidden),
     [baseId, basePermission, t]
   );
+
+  if (isTemplate) {
+    return (
+      <div className="flex flex-col px-4 py-2 pb-4">
+        <QuickAction>{t('common:quickAction.title')}</QuickAction>
+      </div>
+    );
+  }
 
   return (
     <>

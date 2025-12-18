@@ -5,3 +5,4 @@ export * from './types';
 export * from './table';
 export * from './constant';
 export * from './utils';
+export * from './template';

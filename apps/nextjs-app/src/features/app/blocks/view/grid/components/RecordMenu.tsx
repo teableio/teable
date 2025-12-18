@@ -23,7 +23,6 @@ import { useTranslation, Trans } from 'next-i18next';
 import { Fragment, useCallback, useRef, useState } from 'react';
 import { useClickAway } from 'react-use';
 import { tableConfig } from '@/features/i18n/table.config';
-import { PluginMenu } from './PluginMenu';
 
 export interface IMenuItemProps<T> {
   type: T;
@@ -216,7 +215,7 @@ export const RecordMenu = () => {
         type: MenuItemType.ViewHistory,
         name: t('sdk:expandRecord.recordHistory.showRecordHistory'),
         icon: <History className={iconClassName} />,
-        hidden: isMultipleSelected,
+        hidden: isMultipleSelected || !permission['record|update'],
         onClick: async () => {
           if (tableId && recordMenu?.viewRecordHistory) {
             await recordMenu.viewRecordHistory();
@@ -227,7 +226,7 @@ export const RecordMenu = () => {
         type: MenuItemType.AddComment,
         name: t('sdk:expandRecord.addRecordComment'),
         icon: <MessageSquare className={iconClassName} />,
-        hidden: isMultipleSelected,
+        hidden: isMultipleSelected || !permission['record|comment'],
         onClick: async () => {
           if (tableId && recordMenu?.addRecordComment) {
             await recordMenu.addRecordComment();

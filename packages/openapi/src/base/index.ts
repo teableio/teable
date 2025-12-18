@@ -21,6 +21,7 @@ export * from './permanent-delete';
 export * from './collaborator-add';
 export * from './collaborator-get-list-user';
 export * from './export';
+export * from './publish';
 export * from './import';
 export * from './move';
 export * from './erd';

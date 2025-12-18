@@ -21,6 +21,9 @@ export const duplicateBaseRoSchema = z.object({
     description: 'The name of the duplicated base',
   }),
   baseId: z.string().optional(),
+  nodes: z.array(z.string()).optional().meta({
+    description: 'The node IDs to include in the duplication',
+  }),
 });
 
 export type IDuplicateBaseRo = z.infer<typeof duplicateBaseRoSchema>;

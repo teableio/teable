@@ -1,5 +1,5 @@
 import { ChevronsLeft } from '@teable/icons';
-import { useIsMobile } from '@teable/sdk';
+import { useIsMobile, useIsTemplate } from '@teable/sdk';
 import { Button, cn } from '@teable/ui-lib';
 import type { FC, PropsWithChildren, ReactNode } from 'react';
 import { useEffect, useState } from 'react';
@@ -21,6 +21,7 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   const { headerLeft, children, className } = props;
   const isMobile = useIsMobile();
   const [leftVisible, setLeftVisible] = useState(true);
+  const isTemplate = useIsTemplate();
   const isLargeScreen = useMedia('(min-width: 1024px)');
   const { setVisible } = useSidebarStore();
 
@@ -37,8 +38,10 @@ export const Sidebar: FC<PropsWithChildren<ISidebarProps>> = (props) => {
   }, [leftVisible, setVisible]);
 
   useEffect(() => {
-    setLeftVisible(isLargeScreen);
-  }, [isLargeScreen]);
+    if (!isTemplate) {
+      setLeftVisible(isLargeScreen);
+    }
+  }, [isLargeScreen, isTemplate]);
 
   return (
     <>

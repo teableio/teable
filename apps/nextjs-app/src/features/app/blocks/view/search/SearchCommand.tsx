@@ -10,7 +10,14 @@ import {
   RecommendedIndexRow,
 } from '@teable/openapi';
 import { LocalStorageKeys } from '@teable/sdk/config';
-import { useBaseId, useFields, useFieldStaticGetter, useTableId, useView } from '@teable/sdk/hooks';
+import {
+  useBaseId,
+  useFields,
+  useFieldStaticGetter,
+  useTableId,
+  useTablePermission,
+  useView,
+} from '@teable/sdk/hooks';
 import {
   Command,
   CommandInput,
@@ -69,6 +76,8 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
   const fieldStaticGetter = useFieldStaticGetter();
   const baseId = useBaseId();
   const tableId = useTableId();
+  const permission = useTablePermission();
+  const editable = permission['table|update'];
 
   const selectedFields = useMemo(() => {
     return value.split(',');
@@ -302,7 +311,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         )}
       </div>
 
-      {!shareView && (
+      {!shareView && editable && (
         <div className="flex items-center justify-between pl-1">
           <div className="flex flex-1 items-center gap-1">
             <TooltipProvider>

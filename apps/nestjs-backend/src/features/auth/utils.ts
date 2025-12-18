@@ -1,5 +1,6 @@
 import type { Prisma } from '@teable/db-main-prisma';
-import { type IUserMeVo } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER, type IUserMeVo } from '@teable/openapi';
+import type { Request } from 'express';
 import { pick } from 'lodash';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 
@@ -18,4 +19,10 @@ export const pickUserMe = (user: IPickUserMe): IUserMeVo => {
         : user.avatar,
     hasPassword: user.password !== null,
   };
+};
+
+export const getTemplateHeader = (request: Request): string | undefined => {
+  const templateHeader =
+    request.headers[IS_TEMPLATE_HEADER.toLowerCase()] || request.headers[IS_TEMPLATE_HEADER];
+  return typeof templateHeader === 'string' ? templateHeader : undefined;
 };

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getUserLastVisitMap, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBaseId, useTables } from '@teable/sdk/hooks';
+import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
 import { useMemo } from 'react';
 
 export const useTableHref = (): {
@@ -10,6 +11,7 @@ export const useTableHref = (): {
 } => {
   const baseId = useBaseId();
   const tables = useTables();
+  const isTemplate = useIsTemplate();
   const { data: userLastVisitMap } = useQuery({
     queryKey: ReactQueryKeys.userLastVisitMap(baseId as string),
     queryFn: ({ queryKey }) =>
@@ -17,6 +19,7 @@ export const useTableHref = (): {
         resourceType: LastVisitResourceType.Table,
         parentResourceId: queryKey[1],
       }).then((res) => res.data),
+    enabled: !isTemplate,
   });
 
   return useMemo(() => {

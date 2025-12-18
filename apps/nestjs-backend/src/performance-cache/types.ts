@@ -27,11 +27,17 @@ export interface IPerformanceCacheStore {
   // integration cache, format: integration:space_id
   [key: `integration:${string}`]: unknown;
 
+  // template cache
+  [key: `template:${string}`]: unknown;
+
   // instance setting cache, format: instance:setting
   'instance:setting': unknown;
 
   // base node list cache, format: base-node-list:base_id
   [key: `base-node-list:${string}`]: unknown;
+
+  // template cache, format: template:base:base_id
+  [key: `template:base:${string}`]: unknown;
 }
 
 /**

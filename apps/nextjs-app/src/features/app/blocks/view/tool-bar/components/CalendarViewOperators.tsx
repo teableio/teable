@@ -1,6 +1,12 @@
 import { Filter as FilterIcon, Share2, Plus, EyeOff, Settings } from '@teable/icons';
 import type { CalendarView } from '@teable/sdk';
-import { ViewFilter, VisibleFields, useTablePermission, CreateRecordModal } from '@teable/sdk';
+import {
+  ViewFilter,
+  VisibleFields,
+  useTablePermission,
+  CreateRecordModal,
+  useIsTemplate,
+} from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
@@ -8,7 +14,6 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { CalendarConfig } from '../../calendar/components/CalendarConfig';
 import { useToolbarChange } from '../../hooks/useToolbarChange';
 import { ToolBarButton } from '../ToolBarButton';
-import { UndoRedoButtons } from './UndoRedoButtons';
 
 export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) => {
   const { disabled } = props;
@@ -16,18 +21,22 @@ export const CalendarViewOperators: React.FC<{ disabled?: boolean }> = (props) =
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange } = useToolbarChange();
-
+  const isTemplate = useIsTemplate();
   if (!view) return null;
 
   return (
     <div className="flex items-center gap-1">
-      <CreateRecordModal>
-        <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-          <Plus className="size-4" />
-          {t('table:view.addRecord')}
-        </Button>
-      </CreateRecordModal>
-      <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+      {!isTemplate && (
+        <>
+          <CreateRecordModal>
+            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
+              <Plus className="size-4" />
+              {t('table:view.addRecord')}
+            </Button>
+          </CreateRecordModal>
+          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+        </>
+      )}
       <CalendarConfig>
         <ToolBarButton
           disabled={disabled}

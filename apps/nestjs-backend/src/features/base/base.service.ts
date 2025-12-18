@@ -1,18 +1,27 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ActionPrefix, actionPrefixMap, generateBaseId, HttpErrorCode } from '@teable/core';
+import {
+  ActionPrefix,
+  actionPrefixMap,
+  generateBaseId,
+  HttpErrorCode,
+  Role,
+  generateTemplateId,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType, ResourceType } from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
+  ICreateBaseFromTemplateVo,
   ICreateBaseRo,
   IDuplicateBaseRo,
   IGetBasePermissionVo,
   IMoveBaseRo,
+  IPublishBaseRo,
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { keyBy } from 'lodash';
+import { keyBy, isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -44,9 +53,36 @@ export class BaseService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig
   ) {}
 
-  async getBaseById(baseId: string) {
+  private async getRoleByBaseId(baseId: string, spaceId: string) {
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
+
+    const collaborators = await this.prismaService.collaborator.findMany({
+      where: {
+        resourceId: { in: [baseId, spaceId] },
+        principalId: { in: [userId, ...(departmentIds || [])] },
+      },
+    });
+
+    if (!collaborators.length) {
+      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
+        localization: {
+          i18nKey: 'httpErrors.base.cannotAccess',
+          context: {
+            baseId,
+          },
+        },
+      });
+    }
+    const role = getMaxLevelRole(collaborators);
+    const collaborator = collaborators.find((c) => c.roleName === role);
+    return {
+      role: role,
+      collaboratorType: collaborator?.resourceType as CollaboratorType,
+    };
+  }
+
+  async getBaseById(baseId: string) {
     const base = await this.prismaService.base
       .findFirstOrThrow({
         select: {
@@ -68,29 +104,18 @@ export class BaseService {
           },
         });
       });
-    const collaborators = await this.prismaService.collaborator.findMany({
-      where: {
-        resourceId: { in: [baseId, base.spaceId] },
-        principalId: { in: [userId, ...(departmentIds || [])] },
-      },
-    });
-
-    if (!collaborators.length) {
-      throw new CustomHttpException('Cannot access base', HttpErrorCode.RESTRICTED_RESOURCE, {
-        localization: {
-          i18nKey: 'httpErrors.base.cannotAccess',
-          context: {
-            baseId,
-          },
-        },
-      });
-    }
-    const role = getMaxLevelRole(collaborators);
-    const collaborator = collaborators.find((c) => c.roleName === role);
+    const template = await this.cls.get('template');
+    const { role, collaboratorType } = template
+      ? { role: Role.Viewer, collaboratorType: CollaboratorType.Base }
+      : await this.getRoleByBaseId(baseId, base.spaceId);
     return {
       ...base,
-      role: role,
-      collaboratorType: collaborator?.resourceType as CollaboratorType,
+      role,
+      collaboratorType,
+      template:
+        template?.baseId === baseId
+          ? { id: template.id, headers: this.permissionService.generateTemplateHeader(template.id) }
+          : undefined,
     };
   }
 
@@ -143,10 +168,12 @@ export class BaseService {
         role,
         lastModifiedTime: base.lastModifiedTime?.toISOString(),
         createdTime: base.createdTime?.toISOString(),
-        createdUser: {
-          ...(createdUser ?? {}),
-          avatar: createdUser?.avatar && getPublicFullStorageUrl(createdUser.avatar),
-        },
+        createdUser: createdUser
+          ? {
+              ...createdUser,
+              avatar: createdUser.avatar && getPublicFullStorageUrl(createdUser.avatar),
+            }
+          : undefined,
       };
     });
   }
@@ -311,9 +338,8 @@ export class BaseService {
 
     return await this.prismaService.$tx(
       async () => {
-        const res = await this.baseDuplicateService.duplicateBase(duplicateBaseRo, true);
-        await this.baseDuplicateService.emitBaseDuplicateAuditLog(res.id, res.recordsLength);
-        return res;
+        const result = await this.baseDuplicateService.duplicateBase(duplicateBaseRo);
+        return result.base;
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
@@ -339,13 +365,16 @@ export class BaseService {
     }
   }
 
-  async createBaseFromTemplate(createBaseFromTemplateRo: ICreateBaseFromTemplateRo) {
+  async createBaseFromTemplate(
+    createBaseFromTemplateRo: ICreateBaseFromTemplateRo
+  ): Promise<ICreateBaseFromTemplateVo> {
     const { spaceId, templateId, withRecords, baseId } = createBaseFromTemplateRo;
     const template = await this.prismaService.template.findUniqueOrThrow({
       where: { id: templateId },
       select: {
         snapshot: true,
         name: true,
+        publishInfo: true,
       },
     });
 
@@ -392,23 +421,92 @@ export class BaseService {
 
     return await this.prismaService.$tx(
       async () => {
-        const res = await this.baseDuplicateService.duplicateBase({
-          name: template.name!,
-          fromBaseId,
-          spaceId,
-          withRecords,
-          baseId,
-        });
+        const res = await this.baseDuplicateService.duplicateBase(
+          {
+            name: template.name!,
+            fromBaseId,
+            spaceId,
+            withRecords,
+            baseId,
+          },
+          false
+        );
         await this.prismaService.txClient().template.update({
           where: { id: templateId },
           data: { usageCount: { increment: 1 } },
         });
+
+        // Emit template apply audit log
         await this.baseDuplicateService.emitBaseTemplateApplyAuditLog(
-          res.id,
+          res.base.id,
           createBaseFromTemplateRo,
           res.recordsLength
         );
-        return res;
+
+        // Get defaultActiveNodeId from publishInfo
+        const publishInfo = template.publishInfo as { snapshotActiveNodeId?: string } | null;
+        const defaultActiveNodeId = publishInfo?.snapshotActiveNodeId;
+
+        // If defaultActiveNodeId is empty, return without it
+        if (!defaultActiveNodeId) {
+          return res.base;
+        }
+
+        // Query the node in the original base to get its resourceId
+        const nodeInOriginalBase = await this.prismaService.txClient().baseNode.findFirst({
+          where: {
+            id: defaultActiveNodeId, // Use node.id, not resourceId
+          },
+          select: {
+            resourceId: true,
+            resourceType: true,
+          },
+        });
+
+        if (!nodeInOriginalBase) {
+          return res.base;
+        }
+
+        // Get the new resource ID from the appropriate ID map
+        const { resourceId: originalResourceId, resourceType } = nodeInOriginalBase;
+        const { tableIdMap, dashboardIdMap, workflowIdMap, appIdMap, folderIdMap } = res as {
+          base: { id: string; name: string; spaceId: string };
+          tableIdMap?: Record<string, string>;
+          dashboardIdMap?: Record<string, string>;
+          workflowIdMap?: Record<string, string>;
+          appIdMap?: Record<string, string>;
+          folderIdMap?: Record<string, string>;
+        };
+
+        let newResourceId: string | undefined;
+        switch (resourceType) {
+          case 'table':
+            newResourceId = tableIdMap?.[originalResourceId];
+            break;
+          case 'dashboard':
+            newResourceId = dashboardIdMap?.[originalResourceId];
+            break;
+          case 'workflow':
+            newResourceId = workflowIdMap?.[originalResourceId];
+            break;
+          case 'app':
+            newResourceId = appIdMap?.[originalResourceId];
+            break;
+          case 'folder':
+            newResourceId = folderIdMap?.[originalResourceId];
+            break;
+        }
+
+        // If we found the new resource ID, return it with the resource type
+        if (newResourceId) {
+          return {
+            ...res.base,
+            defaultActiveNodeId: newResourceId,
+            defaultActiveNodeResourceType: resourceType,
+          };
+        }
+
+        return res.base;
       },
       {
         timeout: this.thresholdConfig.bigTransactionTimeout,
@@ -430,9 +528,11 @@ export class BaseService {
     }, {} as IGetBasePermissionVo);
   }
 
-  async permanentDeleteBase(baseId: string) {
+  async permanentDeleteBase(baseId: string, ignorePermissionCheck: boolean = false) {
     const accessTokenId = this.cls.get('accessTokenId');
-    await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
+    if (!ignorePermissionCheck) {
+      await this.permissionService.validPermissions(baseId, ['base|delete'], accessTokenId, true);
+    }
 
     return await this.prismaService.$tx(
       async (prisma) => {
@@ -503,5 +603,167 @@ export class BaseService {
 
   async generateBaseErd(baseId: string): Promise<IBaseErdVo> {
     return await this.graphService.generateBaseErd(baseId);
+  }
+
+  async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
+    const prisma = this.prismaService.txClient();
+    const publishInfo = {
+      nodes: publishBaseRo.nodes,
+      includeData: publishBaseRo.includeData,
+      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+    };
+    const template = await prisma.template.findFirst({
+      where: { baseId },
+      select: { id: true },
+    });
+
+    // if already published, update template
+    if (template) {
+      const { title, description, cover, nodes, includeData } = publishBaseRo;
+      const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+
+      await prisma.template.update({
+        where: { id: template.id },
+        data: {
+          name: title,
+          description,
+          cover: cover ? JSON.stringify(cover) : undefined,
+          snapshot: JSON.stringify({
+            baseId: snapshot.baseId,
+            snapshotTime: new Date().toISOString(),
+            spaceId: snapshot.spaceId,
+            name: snapshot.name,
+          }),
+          publishInfo: {
+            ...publishInfo,
+            snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
+              ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
+              : null,
+          },
+        },
+      });
+      return;
+    }
+
+    // if the base is not published, create a template
+    const { nodes, includeData } = publishBaseRo;
+    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+    // publish snapshot
+    await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo);
+  }
+
+  private async createSnapshot(baseId: string, nodes?: string[], includeData?: boolean) {
+    const prisma = this.prismaService.txClient();
+    const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
+      where: {
+        isTemplate: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+    const base = await prisma.base.findUniqueOrThrow({
+      where: { id: baseId, deletedTime: null },
+      select: {
+        name: true,
+      },
+    });
+
+    const {
+      base: { id, spaceId, name },
+      nodeIdMap,
+    } = await this.baseDuplicateService.duplicateBase(
+      {
+        fromBaseId: baseId,
+        spaceId: templateSpaceId,
+        withRecords: includeData ?? true,
+        name: base?.name,
+        nodes,
+      },
+      false,
+      true
+    );
+
+    // if the base is already published, delete the former base
+    const template = await prisma.template.findUnique({
+      where: {
+        baseId: baseId,
+      },
+      select: {
+        snapshot: true,
+      },
+    });
+
+    if (template && template.snapshot) {
+      const { baseId } = JSON.parse(template.snapshot);
+      await this.cleanTemplateRelatedData(baseId);
+    }
+
+    return {
+      baseId: id,
+      spaceId,
+      name,
+      nodeIdMap,
+    };
+  }
+
+  async cleanTemplateRelatedData(baseId: string) {
+    await this.permanentDeleteBase(baseId, true);
+  }
+
+  private async createTemplateBySnapshot(
+    sourceBaseId: string,
+    snapshot: {
+      baseId: string;
+      spaceId: string;
+      name: string;
+      nodeIdMap: Record<string, string>;
+    },
+    publishBaseRo: IPublishBaseRo
+  ) {
+    const { title, description, cover } = publishBaseRo;
+    const prisma = this.prismaService.txClient();
+    const publishInfo = {
+      nodes: publishBaseRo.nodes,
+      includeData: publishBaseRo.includeData,
+      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+    };
+    const templateId = generateTemplateId();
+    const { baseId, spaceId, name } = snapshot;
+
+    const order = await this.prismaService.template.aggregate({
+      _max: {
+        order: true,
+      },
+    });
+
+    const userId = this.cls.get('user.id');
+
+    const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
+
+    await prisma.template.create({
+      data: {
+        id: templateId,
+        name: title,
+        description,
+        cover: cover ? JSON.stringify(cover) : undefined,
+        createdBy: userId,
+        order: finalOrder,
+        isPublished: true,
+        baseId: sourceBaseId,
+        snapshot: JSON.stringify({
+          baseId: baseId,
+          snapshotTime: new Date().toISOString(),
+          spaceId,
+          name,
+        }),
+        publishInfo: {
+          ...publishInfo,
+          snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
+            ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
+            : null,
+        },
+      },
+    });
   }
 }

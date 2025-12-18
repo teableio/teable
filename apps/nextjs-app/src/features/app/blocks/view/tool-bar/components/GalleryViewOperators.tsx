@@ -6,6 +6,7 @@ import {
   VisibleFields,
   useTablePermission,
   CreateRecordModal,
+  useIsTemplate,
 } from '@teable/sdk';
 import { useView } from '@teable/sdk/hooks/use-view';
 import { Button, Label, Switch, cn } from '@teable/ui-lib/shadcn';
@@ -21,7 +22,7 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
   const permission = useTablePermission();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const { onFilterChange, onSortChange } = useToolbarChange();
-
+  const isTemplate = useIsTemplate();
   const { coverFieldId, isCoverFit, isFieldNameHidden } = view?.options ?? {};
 
   const onCoverFieldChange = (fieldId: string | null) => {
@@ -40,13 +41,17 @@ export const GalleryViewOperators: React.FC<{ disabled?: boolean }> = (props) =>
 
   return (
     <div className="flex items-center gap-1">
-      <CreateRecordModal>
-        <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
-          <Plus className="size-4" />
-          {t('table:view.addRecord')}
-        </Button>
-      </CreateRecordModal>
-      <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+      {!isTemplate && (
+        <>
+          <CreateRecordModal>
+            <Button size={'xs'} variant={'outline'} disabled={!permission['record|create']}>
+              <Plus className="size-4" />
+              {t('table:view.addRecord')}
+            </Button>
+          </CreateRecordModal>
+          <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+        </>
+      )}
       <VisibleFields
         footer={
           <>

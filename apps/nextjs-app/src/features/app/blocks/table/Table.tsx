@@ -15,6 +15,7 @@ import {
   PersonalViewProvider,
   ReactQueryKeys,
   useTables,
+  useIsTemplate,
 } from '@teable/sdk';
 import { TablePermissionProvider } from '@teable/sdk/context/table-permission';
 import Head from 'next/head';
@@ -49,7 +50,7 @@ export const Table: React.FC<ITableProps> = ({
   const tables = useTables();
   const { undo, redo } = useUndoRedo();
   const queryClient = useQueryClient();
-
+  const isTemplate = useIsTemplate();
   const { baseId, tableId, viewId } = useBaseResource() as IBaseResourceTable;
 
   const table = tables.find((t) => t.id === tableId);
@@ -62,6 +63,7 @@ export const Table: React.FC<ITableProps> = ({
   const { brandName } = useBrand();
 
   useEffect(() => {
+    if (isTemplate) return;
     updateUserLastVisit({
       resourceId: tableId,
       childResourceId: viewId,
@@ -70,7 +72,7 @@ export const Table: React.FC<ITableProps> = ({
     }).then(() => {
       queryClient.invalidateQueries(ReactQueryKeys.userLastVisitMap(baseId));
     });
-  }, [tableId, viewId, baseId, queryClient]);
+  }, [tableId, viewId, baseId, queryClient, isTemplate]);
 
   useViewErrorHandler(baseId, tableId, viewId);
   useHotkeys(`mod+z`, () => undo(), {
@@ -95,7 +97,10 @@ export const Table: React.FC<ITableProps> = ({
         <ViewProvider serverData={viewServerData}>
           <PersonalViewProxy serverData={viewServerData}>
             <div className="flex h-full grow basis-[500px]">
-              <div className="flex flex-1 flex-col overflow-hidden">
+              <div
+                className="flex flex-1 flex-col overflow-hidden"
+                data-screenshot-target="base-view"
+              >
                 <TableHeader />
                 <FieldProvider serverSideData={fieldServerData}>
                   <ErrorBoundary

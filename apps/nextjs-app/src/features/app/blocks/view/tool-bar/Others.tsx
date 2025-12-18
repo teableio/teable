@@ -1,5 +1,5 @@
 import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
-import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
+import { useBaseId, useIsTemplate, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { SearchButton } from '../search/SearchButton';
 import { PersonalViewSwitch } from './components';
@@ -87,17 +87,22 @@ const OthersMenu = ({ className }: { className?: string }) => {
 };
 
 export const Others: React.FC = () => {
+  const isTemplate = useIsTemplate();
   return (
     <div className="flex flex-1 items-center justify-end @container/toolbar-others md:gap-0">
       <SearchButton />
-      <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-      <UndoRedoButtons />
-      <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
-      <OthersList
-        className="hidden @md/toolbar:flex"
-        classNames={{ textClassName: '@[300px]/toolbar-others:inline' }}
-      />
-      <OthersMenu className="@md/toolbar:hidden" />
+      {!isTemplate && (
+        <>
+          <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
+          <UndoRedoButtons />
+          <div className="mx-1 h-4 w-px shrink-0 bg-border"></div>
+          <OthersList
+            className="hidden @md/toolbar:flex"
+            classNames={{ textClassName: '@[300px]/toolbar-others:inline' }}
+          />
+          <OthersMenu className="@md/toolbar:hidden" />
+        </>
+      )}
     </div>
   );
 };

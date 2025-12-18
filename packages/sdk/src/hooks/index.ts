@@ -41,3 +41,6 @@ export * from './use-personal-view';
 export * from './use-field-operations';
 export * from './use-record-operations';
 export * from './use-button-click-status';
+export * from './use-is-anonymous';
+export * from './use-is-template';
+export * from './use-template';

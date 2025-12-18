@@ -118,9 +118,34 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
                 dbFieldName,
                 id,
               })) || [];
-          const buttonDbFieldNames = buttonFields.map(({ dbFieldName }) => dbFieldName);
 
-          const excludeDbFieldNames = [...EXCLUDE_SYSTEM_FIELDS, ...buttonDbFieldNames];
+          const computedFields =
+            table?.fields
+              ?.filter(({ type }) =>
+                [
+                  FieldType.Formula,
+                  FieldType.Rollup,
+                  // FieldType.ConditionalRollup,
+                  FieldType.CreatedTime,
+                  FieldType.LastModifiedTime,
+                  FieldType.CreatedBy,
+                  FieldType.LastModifiedBy,
+                  FieldType.AutoNumber,
+                ].includes(type)
+              )
+              .map(({ dbFieldName, id }) => ({
+                dbFieldName,
+                id,
+              })) || [];
+
+          const buttonDbFieldNames = buttonFields.map(({ dbFieldName }) => dbFieldName);
+          const computedDbFieldNames = computedFields.map(({ dbFieldName }) => dbFieldName);
+          const excludeDbFieldNames = [
+            ...EXCLUDE_SYSTEM_FIELDS,
+            ...buttonDbFieldNames,
+            ...computedDbFieldNames,
+          ];
+
           const batchProcessor = new BatchProcessor<Record<string, unknown>>(async (chunk) => {
             totalRecordsCount += chunk.length;
             await this.handleChunk(

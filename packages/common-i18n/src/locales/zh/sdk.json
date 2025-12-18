@@ -1093,7 +1093,8 @@
       "deniedByEnabledAuthorityMatrix": "权限矩阵已启用，操作被拒绝",
       "invalidRequestPath": "请求路径无效",
       "notAllowedOperation": "您没有权限执行此操作",
-      "notAllowedDepartment": "您没有权限访问此部门"
+      "notAllowedDepartment": "您没有权限访问此部门",
+      "templateHeaderInvalid": "模板头无效"
     },
     "authorityMatrix": {
       "defaultRoleNotFound": "默认角色未找到",
@@ -1329,7 +1330,8 @@
     "template": {
       "snapshotRequired": "此模板无法发布，因为缺少快照",
       "sourceTemplateNotFound": "源模板不存在",
-      "noMinOrderFound": "未找到最小排序值"
+      "noMinOrderFound": "未找到最小排序值",
+      "takeCountTooLarge": "请求的模板数量超过最大限制"
     },
     "department": {
       "parentNotFound": "父部门未找到",

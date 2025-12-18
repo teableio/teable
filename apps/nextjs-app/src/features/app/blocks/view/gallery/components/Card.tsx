@@ -53,7 +53,7 @@ export const Card = (props: IKanbanCardProps) => {
   } = useGallery();
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
-  const { cardCreatable, cardDeletable } = permission;
+  const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
     | IAttachmentCellValue
@@ -116,7 +116,7 @@ export const Card = (props: IKanbanCardProps) => {
     <ContextMenu>
       <ContextMenuTrigger>
         <div
-          className="size-full overflow-hidden rounded-md border border-input bg-card hover:border-primary/15 cursor-pointer"
+          className="size-full cursor-pointer overflow-hidden rounded-md border border-input bg-card hover:border-primary/15"
           onClick={onExpand}
         >
           {coverFieldId && (
@@ -133,7 +133,7 @@ export const Card = (props: IKanbanCardProps) => {
               )}
             </Fragment>
           )}
-          <div className="px-3 py-2 gap-1 flex flex-col">
+          <div className="flex flex-col gap-1 px-3 py-2">
             <div
               className="flex pb-2 text-base font-semibold"
               style={{ height: CARD_STYLE.titleHeight }}
@@ -202,14 +202,18 @@ export const Card = (props: IKanbanCardProps) => {
           <Link className="mr-2 size-4" />
           {t('sdk:expandRecord.copyRecordUrl')}
         </ContextMenuItem>
-        <ContextMenuItem onClick={onViewRecordHistory}>
-          <History className="mr-2 size-4" />
-          {t('sdk:expandRecord.viewRecordHistory')}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onAddRecordComment}>
-          <MessageSquare className="mr-2 size-4" />
-          {t('sdk:expandRecord.addRecordComment')}
-        </ContextMenuItem>
+        {cardEditable && (
+          <ContextMenuItem onClick={onViewRecordHistory}>
+            <History className="mr-2 size-4" />
+            {t('sdk:expandRecord.viewRecordHistory')}
+          </ContextMenuItem>
+        )}
+        {cardCommentCreatable && (
+          <ContextMenuItem onClick={onAddRecordComment}>
+            <MessageSquare className="mr-2 size-4" />
+            {t('sdk:expandRecord.addRecordComment')}
+          </ContextMenuItem>
+        )}
         {cardDeletable && (
           <>
             <ContextMenuSeparator />

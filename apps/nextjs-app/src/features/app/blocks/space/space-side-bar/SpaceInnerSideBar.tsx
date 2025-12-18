@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { getUniqName, hasPermission } from '@teable/core';
-import { Home, Plus, Settings, Trash2 } from '@teable/icons';
+import { Home, Plus, Settings, Trash2, LayoutTemplate } from '@teable/icons';
 import { createBase, getSpaceById } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { cn } from '@teable/ui-lib/shadcn';
@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { TemplateModal } from '@/features/app/components/space/template';
+import { TemplateContext } from '@/features/app/components/space/template/context';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
 import { PinList } from './PinList';
@@ -104,12 +106,29 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
                   <Link href={href} className="font-normal">
                     <Icon className="size-4 shrink-0" />
                     <p className="truncate">{text}</p>
-                    <div className="grow basis-0"></div>
                   </Link>
                 </Button>
               </li>
             );
           })}
+          <li key="template">
+            <TemplateContext.Provider value={{ spaceId }}>
+              <TemplateModal spaceId={spaceId}>
+                <Button
+                  variant="ghost"
+                  size={'xs'}
+                  asChild
+                  className={cn('w-full justify-start h-8 text-sm font-normal')}
+                >
+                  <div>
+                    <LayoutTemplate className="size-4 shrink-0" />
+                    <p className="truncate">{t('common:noun.template')}</p>
+                    <div className="grow basis-0"></div>
+                  </div>
+                </Button>
+              </TemplateModal>
+            </TemplateContext.Provider>
+          </li>
         </ul>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

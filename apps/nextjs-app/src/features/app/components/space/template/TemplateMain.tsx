@@ -1,6 +1,7 @@
 import type { ITemplateCategoryListVo, ITemplateVo } from '@teable/openapi';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { cn } from '@teable/ui-lib/shadcn';
+import { useState } from 'react';
 import { CategoryMenu } from './CategoryMenu';
 import { TemplateList } from './TemplateList';
 
@@ -10,9 +11,9 @@ export interface ITemplateBaseProps {
 }
 
 interface ITemplateMainProps extends ITemplateBaseProps {
-  currentCategoryId: string;
+  currentCategoryId: string | null;
   search: string;
-  onCategoryChange: (value: string) => void;
+  onCategoryChange: (value: string | null) => void;
   categoryMenuClassName?: string;
   categoryHeaderRender?: () => React.ReactNode;
   className?: string;
@@ -37,6 +38,7 @@ export const TemplateMain = (props: ITemplateMainProps) => {
     templateListClassName,
     serverData,
   } = props;
+  const [isFeatured, setIsFeatured] = useState(true);
   const { publishedTemplateList, publishedTemplateCategoryList } = serverData || {};
   return (
     <div
@@ -50,6 +52,8 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         className={categoryMenuClassName}
         categoryHeaderRender={categoryHeaderRender}
         serverPublishedTemplateCategoryList={publishedTemplateCategoryList}
+        isFeatured={isFeatured}
+        onFeaturedChange={setIsFeatured}
       />
       <TemplateList
         currentCategoryId={currentCategoryId}
@@ -58,6 +62,7 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onClickTemplateCardHandler={onClickTemplateCardHandler}
         className={templateListClassName}
         serverPublishedTemplateList={publishedTemplateList}
+        isFeatured={isFeatured}
       />
     </div>
   );

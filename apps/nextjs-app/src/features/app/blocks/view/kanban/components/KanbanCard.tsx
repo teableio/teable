@@ -59,7 +59,7 @@ export const KanbanCard = (props: IKanbanCardProps) => {
   } = useKanban() as Required<IKanbanContext>;
   const { copyRecordUrl, viewRecordHistory, addRecordComment } = useContextMenu();
 
-  const { cardCreatable, cardDeletable } = permission;
+  const { cardCreatable, cardDeletable, cardEditable, cardCommentCreatable } = permission;
   const { id: fieldId } = stackField;
   const coverFieldId = coverField?.id;
   const coverCellValue = card.getCellValue(coverFieldId as string) as
@@ -202,14 +202,18 @@ export const KanbanCard = (props: IKanbanCardProps) => {
           <Link className="mr-2 size-4" />
           {t('sdk:expandRecord.copyRecordUrl')}
         </ContextMenuItem>
-        <ContextMenuItem onClick={onViewRecordHistory}>
-          <History className="mr-2 size-4" />
-          {t('sdk:expandRecord.viewRecordHistory')}
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onAddRecordComment}>
-          <MessageSquare className="mr-2 size-4" />
-          {t('sdk:expandRecord.addRecordComment')}
-        </ContextMenuItem>
+        {cardEditable && (
+          <ContextMenuItem onClick={onViewRecordHistory}>
+            <History className="mr-2 size-4" />
+            {t('sdk:expandRecord.viewRecordHistory')}
+          </ContextMenuItem>
+        )}
+        {cardCommentCreatable && (
+          <ContextMenuItem onClick={onAddRecordComment}>
+            <MessageSquare className="mr-2 size-4" />
+            {t('sdk:expandRecord.addRecordComment')}
+          </ContextMenuItem>
+        )}
         {cardDeletable && !card.undeletable && (
           <>
             <ContextMenuSeparator />

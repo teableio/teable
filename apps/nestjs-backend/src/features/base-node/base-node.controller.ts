@@ -16,6 +16,7 @@ import { EmitControllerEvent } from '../../event-emitter/decorators/emit-control
 import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { BaseNodePermissions } from '../auth/decorators/base-node-permissions.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { BaseNodePermissionGuard } from '../auth/guard/base-node-permission.guard';
@@ -25,6 +26,7 @@ import { BaseNodeAction } from './types';
 
 @Controller('api/base/:baseId/node')
 @UseGuards(BaseNodePermissionGuard)
+@AllowAnonymous()
 export class BaseNodeController {
   constructor(
     private readonly baseNodeService: BaseNodeService,

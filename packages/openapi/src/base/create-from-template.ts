@@ -2,7 +2,6 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { axios } from '../axios';
 import { registerRoute } from '../utils';
 import { z } from '../zod';
-import type { ICreateBaseVo } from './create';
 import { createBaseVoSchema } from './create';
 
 export const CREATE_BASE_FROM_TEMPLATE = '/base/create-from-template';
@@ -15,6 +14,13 @@ export const createBaseFromTemplateRoSchema = z.object({
 });
 
 export type ICreateBaseFromTemplateRo = z.infer<typeof createBaseFromTemplateRoSchema>;
+
+export const createBaseFromTemplateVoSchema = createBaseVoSchema.extend({
+  defaultActiveNodeId: z.string().optional(),
+  defaultActiveNodeResourceType: z.string().optional(),
+});
+
+export type ICreateBaseFromTemplateVo = z.infer<typeof createBaseFromTemplateVoSchema>;
 
 export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
   method: 'post',
@@ -35,7 +41,7 @@ export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
       description: 'Returns information about a successfully created base.',
       content: {
         'application/json': {
-          schema: createBaseVoSchema,
+          schema: createBaseFromTemplateVoSchema,
         },
       },
     },
@@ -44,5 +50,5 @@ export const CreateBaseFromTemplateRoute: RouteConfig = registerRoute({
 });
 
 export const createBaseFromTemplate = async (createBaseRo: ICreateBaseFromTemplateRo) => {
-  return axios.post<ICreateBaseVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo);
+  return axios.post<ICreateBaseFromTemplateVo>(CREATE_BASE_FROM_TEMPLATE, createBaseRo);
 };

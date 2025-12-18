@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
 import type { Action } from '@teable/core';
@@ -13,6 +13,7 @@ import { mockDeep, mockReset } from 'vitest-mock-extended';
 import { getError } from '../../../test/utils/get-error';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
+import { PermissionModule } from './permission.module';
 import { PermissionService } from './permission.service';
 
 describe('PermissionService', () => {
@@ -25,8 +26,7 @@ describe('PermissionService', () => {
     clsServiceMock = mockDeep<ClsService<IClsStore>>();
 
     const module: TestingModule = await Test.createTestingModule({
-      imports: [GlobalModule],
-      providers: [PermissionService, PrismaService, ClsService],
+      imports: [GlobalModule, PermissionModule],
     })
       .overrideProvider(PrismaService)
       .useValue(prismaServiceMock)

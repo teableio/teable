@@ -19,7 +19,7 @@ export const TeableFooter = (props: ITeableHeaderProps) => {
         className
       )}
     >
-      <TeableLogo className="size-8" />
+      <TeableLogo className="size-8 rounded-full" />
       {brandName}
     </div>
   );

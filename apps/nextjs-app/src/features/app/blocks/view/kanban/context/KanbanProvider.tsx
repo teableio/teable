@@ -20,6 +20,7 @@ import {
   useFieldPermission,
   useBaseId,
   usePersonalView,
+  useIsTemplate,
 } from '@teable/sdk/hooks';
 import type { KanbanView, IFieldInstance, AttachmentField } from '@teable/sdk/model';
 import { useRouter } from 'next/router';
@@ -85,7 +86,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
   }, [stackFieldId, allFields]);
 
   const { type, isMultipleCellValue } = stackField ?? {};
-
+  const isTemplate = useIsTemplate();
   const { data: shareViewCollaborators } = useQuery({
     queryKey: ReactQueryKeys.shareViewCollaborators(shareId, {
       type: PrincipalType.User,
@@ -108,7 +109,8 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
     }),
     queryFn: ({ queryKey }) =>
       getBaseCollaboratorList(queryKey[1], queryKey[2]).then((data) => data.data),
-    enabled: !shareId && Boolean(baseId && type === FieldType.User && !isMultipleCellValue),
+    enabled:
+      !shareId && Boolean(baseId && type === FieldType.User && !isMultipleCellValue && !isTemplate),
   });
 
   const userList = shareId
@@ -129,6 +131,7 @@ export const KanbanProvider = ({ children }: { children: ReactNode }) => {
       cardDraggable: Boolean(
         permission['record|update'] && permission['view|update'] && stackFieldRecordEditable
       ),
+      cardCommentCreatable: Boolean(permission['record|comment']),
     };
   }, [permission, fieldPermission, stackFieldRecordEditable]);
 

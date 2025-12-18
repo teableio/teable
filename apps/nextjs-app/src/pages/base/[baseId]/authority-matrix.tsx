@@ -1,16 +1,16 @@
 import { dehydrate, QueryClient } from '@tanstack/react-query';
-import type { ITableVo } from '@teable/openapi';
+import { IS_TEMPLATE_HEADER, type ITableVo } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import type { GetServerSideProps } from 'next';
 import type { ReactElement } from 'react';
 import { AuthorityMatrixPage } from '@/features/app/blocks/AuthorityMatrix';
 import { BaseLayout } from '@/features/app/layouts/BaseLayout';
 import ensureLogin from '@/lib/ensureLogin';
+import handleBase from '@/lib/handleBase';
 import { getTranslationsProps } from '@/lib/i18n';
 import type { NextPageWithLayout } from '@/lib/type';
 import withAuthSSR from '@/lib/withAuthSSR';
 import withEnv from '@/lib/withEnv';
-
 const Node: NextPageWithLayout = () => <AuthorityMatrixPage />;
 
 export const getServerSideProps: GetServerSideProps = withEnv(
@@ -18,12 +18,11 @@ export const getServerSideProps: GetServerSideProps = withEnv(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId } = context.query;
       const queryClient = new QueryClient();
-
+      const base = await handleBase(baseId as string, ssrApi, queryClient);
       await Promise.all([
         queryClient.fetchQuery({
           queryKey: ReactQueryKeys.base(baseId as string),
-          queryFn: ({ queryKey }) =>
-            queryKey[1] ? ssrApi.getBaseById(baseId as string) : undefined,
+          queryFn: () => base,
         }),
 
         queryClient.fetchQuery({
@@ -31,6 +30,15 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           queryFn: ({ queryKey }) => ssrApi.getBasePermission(queryKey[1]),
         }),
       ]);
+
+      const templateHeader = base?.template?.headers;
+      if (templateHeader) {
+        ssrApi.disableLastVisit = true;
+        ssrApi.axios.interceptors.request.use((config) => {
+          config.headers[IS_TEMPLATE_HEADER] = templateHeader;
+          return config;
+        });
+      }
 
       return {
         props: {

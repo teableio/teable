@@ -1326,7 +1326,8 @@
     "template": {
       "snapshotRequired": "スナップショットがないため、このテンプレートを公開できませんでした",
       "sourceTemplateNotFound": "ソーステンプレートが見つかりません",
-      "noMinOrderFound": "最小順序が見つかりません"
+      "noMinOrderFound": "最小順序が見つかりません",
+      "takeCountTooLarge": "リクエストされたテンプレートの数が最大制限を超えています"
     },
     "department": {
       "parentNotFound": "親部門が見つかりません",

@@ -1,4 +1,5 @@
 import { BaseNodeResourceType, PinType } from '@teable/openapi';
+import { useIsAnonymous, useIsTemplate } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 import { StarButton } from '../../space/space-side-bar/StarButton';
 
@@ -9,6 +10,8 @@ interface IBaseNodeStarButtonProps {
 
 export const BaseNodeStarButton = (props: IBaseNodeStarButtonProps) => {
   const { resourceType, resourceId } = props;
+  const isAnonymous = useIsAnonymous();
+  const isTemplate = useIsTemplate();
   const pinType = useMemo(() => {
     switch (resourceType) {
       case BaseNodeResourceType.Table:
@@ -24,7 +27,7 @@ export const BaseNodeStarButton = (props: IBaseNodeStarButtonProps) => {
     }
   }, [resourceType]);
 
-  if (!pinType) {
+  if (!pinType || isAnonymous || isTemplate) {
     return null;
   }
 

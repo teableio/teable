@@ -7,6 +7,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AuthGuard } from '../../auth/guard/auth.guard';
+import { getTemplateHeader } from '../../auth/utils';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
 import { IS_SHARE_LINK_VIEW } from './link-view.decorator';
@@ -33,7 +34,8 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
 
     if (isShareLinkView && shareId.startsWith(IdPrefix.Field)) {
       const activate = (await this.authGuard.validate(context)) as boolean;
-      const shareInfo = await this.shareAuthService.getLinkViewInfo(shareId);
+      const templateHeader = getTemplateHeader(req);
+      const shareInfo = await this.shareAuthService.getLinkViewInfo(shareId, templateHeader);
       req.shareInfo = shareInfo;
       return activate;
     }

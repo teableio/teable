@@ -1,6 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import type { ExcludeAction, IRole, TableAction } from '@teable/core';
-import { ActionPrefix, actionPrefixMap, getPermissionMap, HttpErrorCode } from '@teable/core';
+import type { Action, ExcludeAction, TableAction } from '@teable/core';
+import {
+  ActionPrefix,
+  actionPrefixMap,
+  getPermissionMap,
+  HttpErrorCode,
+  TemplateRolePermission,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -30,6 +36,9 @@ export class TablePermissionService {
     baseId: string,
     tableIds?: string[]
   ): Promise<Record<string, Record<ExcludeAction<TableAction, 'table|create'>, boolean>>> {
+    if (this.cls.get('template')) {
+      return this.getTablePermissionMapByPermissions(baseId, TemplateRolePermission, tableIds);
+    }
     const userId = this.cls.get('user.id');
     const departmentIds = this.cls.get('organization.departments')?.map((d) => d.id);
     const base = await this.prismaService
@@ -58,17 +67,21 @@ export class TablePermissionService {
       });
     }
     const roleName = getMaxLevelRole(collaborators);
-    return this.getTablePermissionMapByRole(baseId, roleName, tableIds);
+    return this.getTablePermissionMapByPermissions(baseId, getPermissionMap(roleName), tableIds);
   }
 
-  async getTablePermissionMapByRole(baseId: string, roleName: IRole, tableIds?: string[]) {
+  private async getTablePermissionMapByPermissions(
+    baseId: string,
+    permissions: Record<Action, boolean>,
+    tableIds?: string[]
+  ) {
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: { baseId, deletedTime: null, id: { in: tableIds } },
     });
     return tables.reduce(
       (acc, table) => {
         acc[table.id] = pick(
-          getPermissionMap(roleName),
+          permissions,
           actionPrefixMap[ActionPrefix.Table].filter(
             (action) => action !== 'table|create'
           ) as ExcludeAction<TableAction, 'table|create'>[]

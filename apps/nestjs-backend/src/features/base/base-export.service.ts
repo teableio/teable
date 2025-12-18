@@ -1,11 +1,11 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { PassThrough, Readable } from 'stream';
+import { Readable, PassThrough } from 'stream';
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type { ILinkFieldOptions, ILocalization } from '@teable/core';
-import { FieldType, ViewType, getRandomString, isLinkLookupOptions } from '@teable/core';
+import { FieldType, getRandomString, ViewType, isLinkLookupOptions } from '@teable/core';
+import type { Field, View, TableMeta, Base } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
-import type { Base, Field, TableMeta, View } from '@teable/db-main-prisma';
 import { PluginPosition, UploadType } from '@teable/openapi';
 import type { BaseNodeResourceType, IBaseJson } from '@teable/openapi';
 import archiver from 'archiver';
@@ -14,7 +14,7 @@ import { Knex } from 'knex';
 import { omit, pick } from 'lodash';
 import { InjectModel } from 'nest-knexjs';
 import { ClsService } from 'nestjs-cls';
-import { type IStorageConfig, StorageConfig } from '../../configs/storage';
+import { IStorageConfig, StorageConfig } from '../../configs/storage';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
 import { EventEmitterService } from '../../event-emitter/event-emitter.service';
@@ -106,7 +106,7 @@ export class BaseExportService {
    * Download a single file and append it to archive with timeout and error handling
    * @returns true on success, false on failure
    */
-  private async appendFileToArchive(
+  async appendFileToArchive(
     archive: archiver.Archiver,
     bucket: string,
     s3Path: string,
@@ -166,35 +166,78 @@ export class BaseExportService {
       throw error;
     }
 
-    this.processExportBaseZip(baseId, includeData)
-      .then(async (result) => {
-        const { path, name } = result;
-        const previewUrl = await this.storageAdapter.getPreviewUrl(
-          StorageAdapter.getBucket(UploadType.ExportBase),
-          path,
-          second(this.storageConfig.tokenExpireIn),
-          {
-            // eslint-disable-next-line
-            'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
-          }
-        );
-        const message: ILocalization<I18nPath> = {
-          i18nKey: 'common.email.templates.notify.exportBase.success.message',
-          context: {
-            baseName,
-            previewUrl,
-            name,
-          },
-        };
-        this.notifyExportResult(baseId, message, previewUrl);
-      })
-      .catch(async (e) => {
-        this.captureExportError(e, {
-          stage: 'processExport',
-          baseId,
+    // create a stream pass through, ready to fill data
+    const passThrough = new PassThrough();
+
+    const archive = archiver('zip', {
+      zlib: { level: 9 },
+    });
+
+    archive.on('warning', function (err) {
+      if (err.code === 'ENOENT') {
+        // log warning
+      } else {
+        // throw error
+        throw err;
+      }
+    });
+
+    archive.on('error', function (err) {
+      passThrough.emit('error', err);
+      throw err;
+    });
+
+    archive.pipe(passThrough);
+
+    const token = this.generateExportFolderId();
+    const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
+    const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
+
+    // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
+    // If uploadFileStream is called after finalize(), large files will hang in append
+    // Note: This occupies sockets, recommend setting BACKEND_STORAGE_S3_UPLOAD_QUEUE_SIZE=1 to control upload concurrency to 1
+    const uploadPromise = this.storageAdapter.uploadFileStream(
+      bucket,
+      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
+      passThrough,
+      {
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        'Content-Type': 'application/zip',
+      }
+    );
+
+    try {
+      await this.pipeArchive(archive, baseId, includeData);
+      archive.finalize();
+      const uploadResult = await uploadPromise;
+      const { path } = uploadResult;
+      const name = `${baseName}.${BaseExportService.FILE_SUFFIX}`;
+      const previewUrl = await this.storageAdapter.getPreviewUrl(
+        StorageAdapter.getBucket(UploadType.ExportBase),
+        path,
+        second(this.storageConfig.tokenExpireIn),
+        {
+          // eslint-disable-next-line
+          'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+        }
+      );
+      const message: ILocalization<I18nPath> = {
+        i18nKey: 'common.email.templates.notify.exportBase.success.message',
+        context: {
           baseName,
-          includeData,
-        });
+          previewUrl,
+          name,
+        },
+      };
+      this.notifyExportResult(baseId, message, previewUrl);
+    } catch (e) {
+      this.captureExportError(e, {
+        stage: 'processExport',
+        baseId,
+        baseName,
+        includeData,
+      });
+      if (e instanceof Error) {
         const message: ILocalization<I18nPath> = {
           i18nKey: 'common.email.templates.notify.exportBase.failed.message',
           context: {
@@ -203,10 +246,15 @@ export class BaseExportService {
           },
         };
         this.notifyExportResult(baseId, message);
-      });
+      }
+    }
   }
 
-  private async processExportBaseZip(baseId: string, includeData: boolean) {
+  async pipeArchive(archive: archiver.Archiver, baseId: string, includeData: boolean) {
+    await this.processExportBaseZip(baseId, includeData, archive);
+  }
+
+  async processExportBaseZip(baseId: string, includeData: boolean, archive: archiver.Archiver) {
     const prisma = this.prismaService.txClient();
     //  1. get all raw info
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -245,29 +293,6 @@ export class BaseExportService {
       },
     });
 
-    // create a stream pass through, ready to fill data
-    const passThrough = new PassThrough();
-
-    const archive = archiver('zip', {
-      zlib: { level: 9 },
-    });
-
-    archive.on('warning', (err) => {
-      if (err.code === 'ENOENT') {
-        // log warning
-      } else {
-        // throw error
-        throw err;
-      }
-    });
-
-    archive.on('error', (err) => {
-      passThrough.emit('error', err);
-      throw err;
-    });
-
-    archive.pipe(passThrough);
-
     // 2. generate base structure json
     const structure = await this.generateBaseStructConfig({
       baseRaw,
@@ -280,23 +305,6 @@ export class BaseExportService {
 
     // 3. export structure json
     archive.append(jsonStream, { name: 'structure.json' });
-
-    const token = this.generateExportFolderId();
-    const bucket = StorageAdapter.getBucket(UploadType.ExportBase);
-    const pathDir = StorageAdapter.getDir(UploadType.ExportBase);
-
-    // Critical: Start upload first to ensure passThrough has a consumer, preventing backpressure blocking
-    // If uploadFileStream is called after finalize(), large files will hang in append
-    // Note: This occupies sockets, recommend setting BACKEND_STORAGE_S3_UPLOAD_QUEUE_SIZE=1 to control upload concurrency to 1
-    const uploadPromise = this.storageAdapter.uploadFileStream(
-      bucket,
-      `${pathDir}/${token}.${BaseExportService.FILE_SUFFIX}`,
-      passThrough,
-      {
-        // eslint-disable-next-line @typescript-eslint/naming-convention
-        'Content-Type': 'application/zip',
-      }
-    );
 
     // 4 export data
     if (includeData) {
@@ -369,17 +377,6 @@ export class BaseExportService {
 
       this.logger.log(`export base ${baseRaw.id}/${baseRaw.name}: End exporting table data csv`);
     }
-
-    archive.finalize();
-
-    // Wait for upload to complete (upload was started above)
-    const uploadResult = await uploadPromise;
-
-    return {
-      path: uploadResult.path,
-      token,
-      name: `${baseRaw.name}.${BaseExportService.FILE_SUFFIX}`,
-    };
   }
 
   async generateBaseStructConfig({
@@ -389,12 +386,25 @@ export class BaseExportService {
     viewRaws,
     // whether support cross base link fields
     allowCrossBase = false,
+    includeNodes,
+    includedFolderIds,
+    includedDashboardIds,
+    excludedTableIds,
+    // for enterprise version, do not delete these properties
+    includedAppIds,
+    includedWorkflowIds,
   }: {
     baseRaw: Base;
     tableRaws: TableMeta[];
     fieldRaws: Field[];
     viewRaws: View[];
     allowCrossBase?: boolean;
+    includeNodes?: string[];
+    includedFolderIds?: string[];
+    includedDashboardIds?: string[];
+    includedAppIds?: string[];
+    includedWorkflowIds?: string[];
+    excludedTableIds?: string[];
   }) {
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
     const tables = [] as IBaseJson['tables'];
@@ -408,14 +418,18 @@ export class BaseExportService {
         icon,
       } as IBaseJson['tables'][number];
       const currentTableFields = fieldRaws.filter(({ tableId }) => tableId === id);
-      tableObject.fields = this.generateFieldConfig(currentTableFields, allowCrossBase);
+      tableObject.fields = this.generateFieldConfig(
+        currentTableFields,
+        allowCrossBase,
+        excludedTableIds
+      );
       tableObject.views = this.generateViewConfig(viewRaws.filter(({ tableId }) => tableId === id));
       tables.push(tableObject);
     }
 
-    const plugins = await this.generatePluginConfig(baseId);
-    const folders = await this.generateFolderConfig(baseId);
-    const nodes = await this.generateNodeConfig(baseId);
+    const plugins = await this.generatePluginConfig(baseId, includedDashboardIds);
+    const folders = await this.generateFolderConfig(baseId, includedFolderIds);
+    const nodes = await this.generateNodeConfig(baseId, includeNodes);
 
     return {
       name: baseName,
@@ -819,7 +833,11 @@ export class BaseExportService {
   }
 
   // cross base link field and relative fields should convert to text as well
-  private generateFieldConfig(fieldRaws: Field[], allowCrossBase = false) {
+  private generateFieldConfig(
+    fieldRaws: Field[],
+    allowCrossBase = false,
+    excludedTableIds?: string[]
+  ) {
     const fields = fieldRaws.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
     const createdTimeMap = fieldRaws.reduce(
       (acc, field) => {
@@ -831,15 +849,107 @@ export class BaseExportService {
 
     const crossBaseRelativeFields = this.getCrossBaseFields(fieldRaws, allowCrossBase);
 
+    const disconnectedFields = this.getDisconnectedFields(
+      fieldRaws,
+      crossBaseRelativeFields.map(({ id }) => id),
+      excludedTableIds
+    );
+
     const otherFields = fields
-      .filter(({ id }) => !crossBaseRelativeFields.map(({ id }) => id).includes(id))
+      .filter(
+        ({ id }) =>
+          !crossBaseRelativeFields.map(({ id }) => id).includes(id) &&
+          !disconnectedFields.map(({ id }) => id).includes(id)
+      )
       .map((field, index) => ({
         ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
         createdTime: createdTimeMap[field.id],
         order: fieldRaws[index].order,
       }));
 
-    return [...otherFields, ...crossBaseRelativeFields] as IBaseJson['tables'][number]['fields'];
+    return [
+      ...otherFields,
+      ...crossBaseRelativeFields,
+      ...disconnectedFields,
+    ] as IBaseJson['tables'][number]['fields'];
+  }
+
+  private getDisconnectedFields(
+    fieldRaws: Field[],
+    crossBaseRelativeFields: string[],
+    excludedTableIds?: string[]
+  ) {
+    const restFields = fieldRaws.filter(({ id }) => !crossBaseRelativeFields?.includes(id));
+    if (!excludedTableIds?.length) {
+      return [];
+    }
+
+    const fields = restFields.map((fieldRaw) => createFieldInstanceByRaw(fieldRaw));
+    const createdTimeMap = restFields.reduce(
+      (acc, field) => {
+        acc[field.id] = field.createdTime.toISOString();
+        return acc;
+      },
+      {} as Record<string, string>
+    );
+
+    const disconnectedLinkFields = fields
+      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+      .filter(({ options }) =>
+        excludedTableIds.includes((options as ILinkFieldOptions)?.foreignTableId)
+      )
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+        };
+
+        return omit(res, [
+          'options',
+          'lookupOptions',
+          'isLookup',
+          'isConditionalLookup',
+          'isMultipleCellValue',
+        ]);
+      });
+
+    // fields which rely on the cross base link fields
+    const disconnectedRelativeFields = fields
+      .filter(
+        ({ type, isLookup }) =>
+          isLookup || type === FieldType.Rollup || type === FieldType.ConditionalRollup
+      )
+      .filter(({ lookupOptions }) => {
+        if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
+          return false;
+        }
+        return disconnectedLinkFields.map(({ id }) => id).includes(lookupOptions.linkFieldId);
+      })
+      .map((field, index) => {
+        const res = {
+          ...pick(field, BaseExportService.EXPORT_FIELD_COLUMNS),
+          type: FieldType.SingleLineText,
+          createdTime: createdTimeMap[field.id],
+          order: fieldRaws[index].order,
+          dbFieldType: 'TEXT',
+          cellValueType: 'string',
+        };
+
+        return omit(res, [
+          'options',
+          'lookupOptions',
+          'isLookup',
+          'isConditionalLookup',
+          'isMultipleCellValue',
+        ]);
+      });
+
+    return [
+      ...disconnectedLinkFields,
+      ...disconnectedRelativeFields,
+    ] as IBaseJson['tables'][number]['fields'];
   }
 
   private getCrossBaseFields(fieldRaws: Field[], allowCrossBase = false) {
@@ -936,11 +1046,22 @@ export class BaseExportService {
     );
   }
 
-  async generateFolderConfig(baseId: string): Promise<IBaseJson['folders']> {
+  async generateFolderConfig(
+    baseId: string,
+    includedFolderIds?: string[]
+  ): Promise<IBaseJson['folders']> {
+    // If includedFolderIds is an empty array, return empty array (user filtered but no folders selected)
+    if (includedFolderIds !== undefined && includedFolderIds.length === 0) {
+      return [];
+    }
+
     const prisma = this.prismaService.txClient();
     const folderRaws = await prisma.baseNodeFolder.findMany({
       where: {
         baseId,
+        ...(includedFolderIds && includedFolderIds.length > 0
+          ? { id: { in: includedFolderIds } }
+          : {}),
       },
       orderBy: {
         createdTime: 'asc',
@@ -957,11 +1078,17 @@ export class BaseExportService {
     }));
   }
 
-  async generateNodeConfig(baseId: string): Promise<IBaseJson['nodes']> {
+  async generateNodeConfig(baseId: string, includeNodes?: string[]): Promise<IBaseJson['nodes']> {
+    // If includeNodes is an empty array, return empty array (user filtered but no nodes selected)
+    if (includeNodes !== undefined && includeNodes.length === 0) {
+      return [];
+    }
+
     const prisma = this.prismaService.txClient();
     const nodeRaws = await prisma.baseNode.findMany({
       where: {
         baseId,
+        ...(includeNodes && includeNodes.length > 0 ? { id: { in: includeNodes } } : {}),
       },
       orderBy: {
         createdTime: 'asc',
@@ -984,10 +1111,13 @@ export class BaseExportService {
     }));
   }
 
-  async generatePluginConfig(baseId: string) {
+  async generatePluginConfig(baseId: string, includedDashboardIds?: string[]) {
     const pluginJson = {} as IBaseJson['plugins'];
 
-    pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(baseId);
+    pluginJson[PluginPosition.Dashboard] = await this.generateDashboard(
+      baseId,
+      includedDashboardIds
+    );
 
     pluginJson[PluginPosition.Panel] = await this.generatePluginPanel(baseId);
 
@@ -1115,11 +1245,19 @@ export class BaseExportService {
     });
   }
 
-  private async generateDashboard(baseId: string) {
+  private async generateDashboard(baseId: string, includedDashboardIds?: string[]) {
+    // If includedDashboardIds is an empty array, return empty array (user filtered but no dashboards selected)
+    if (includedDashboardIds !== undefined && includedDashboardIds.length === 0) {
+      return [];
+    }
+
     const prisma = this.prismaService.txClient();
     const dashboardRaws = await prisma.dashboard.findMany({
       where: {
         baseId,
+        ...(includedDashboardIds && includedDashboardIds.length > 0
+          ? { id: { in: includedDashboardIds } }
+          : {}),
       },
       orderBy: {
         createdTime: 'asc',

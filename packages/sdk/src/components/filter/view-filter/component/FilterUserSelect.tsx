@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { isMeTag, Me } from '@teable/core';
 import { User as UserIcon } from '@teable/icons';
-import { getUserCollaborators } from '@teable/openapi';
+import { getRecordGetCollaborators, getUserCollaborators } from '@teable/openapi';
 import { cn } from '@teable/ui-lib';
 import { useCallback, useMemo, useState } from 'react';
 import { ReactQueryKeys } from '../../../../config/react-query-keys';
 import { useTranslation } from '../../../../context/app/i18n';
+import { useIsTemplate } from '../../../../hooks';
 import { useBaseId } from '../../../../hooks/use-base-id';
 import { useSession } from '../../../../hooks/use-session';
 import type { UserField, CreatedByField, LastModifiedByField } from '../../../../model';
@@ -152,8 +153,10 @@ const defaultData = {
 };
 
 const FilterUserSelect = (props: IFilterUserProps) => {
+  const { field } = props;
   const baseId = useBaseId();
   const [search, setSearch] = useState('');
+  const isTemplate = useIsTemplate();
   const { data: collaboratorsData = defaultData } = useQuery({
     queryKey: ReactQueryKeys.baseCollaboratorListUser(baseId as string, {
       includeSystem: true,
@@ -163,19 +166,30 @@ const FilterUserSelect = (props: IFilterUserProps) => {
     }),
     queryFn: ({ queryKey }) =>
       getUserCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
+    enabled: !isTemplate,
   });
 
-  return (
-    <FilterUserSelectBase
-      {...props}
-      data={collaboratorsData?.users?.map((item) => ({
+  const { data: recordCollaboratorsData } = useQuery({
+    queryKey: ReactQueryKeys.recordCollaboratorList(field.tableId, {
+      fieldId: field.id,
+      skip: 0,
+      take: 150,
+      search,
+    }),
+    queryFn: ({ queryKey }) =>
+      getRecordGetCollaborators(queryKey[1], queryKey[2]).then((res) => res.data),
+    enabled: isTemplate,
+  });
+
+  const data = isTemplate
+    ? recordCollaboratorsData
+    : collaboratorsData?.users?.map((item) => ({
         userId: item.id,
         userName: item.name,
         avatar: item.avatar,
-      }))}
-      onSearch={setSearch}
-    />
-  );
+      }));
+
+  return <FilterUserSelectBase {...props} data={data} onSearch={setSearch} />;
 };
 
 export { FilterUserSelect, FilterUserSelectBase };

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@teable/db-main-prisma';
+import { IS_TEMPLATE_HEADER } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from '../../types/cls';
 import type { IShareDbReadonlyAdapterService, RawOpType } from '../interface';
 import { ReadonlyService } from './readonly.service';
+import type { IReadonlyServiceContext } from './types';
 
 @Injectable()
 export class TableReadonlyServiceAdapter
@@ -11,26 +12,30 @@ export class TableReadonlyServiceAdapter
   implements IShareDbReadonlyAdapterService
 {
   constructor(
-    private readonly cls: ClsService<IClsStore>,
+    private readonly cls: ClsService<IReadonlyServiceContext>,
     private readonly prismaService: PrismaService
   ) {
     super(cls);
   }
 
   getDocIdsByQuery(baseId: string) {
+    const templateHeader = this.cls.get('templateHeader');
     return this.axios
       .get(`/base/${baseId}/table/socket/doc-ids`, {
         headers: {
           cookie: this.cls.get('cookie'),
+          [IS_TEMPLATE_HEADER]: templateHeader,
         },
       })
       .then((res) => res.data);
   }
   getSnapshotBulk(baseId: string, ids: string[]) {
+    const templateHeader = this.cls.get('templateHeader');
     return this.axios
       .get(`/base/${baseId}/table/socket/snapshot-bulk`, {
         headers: {
           cookie: this.cls.get('cookie'),
+          [IS_TEMPLATE_HEADER]: templateHeader,
         },
         params: {
           ids,

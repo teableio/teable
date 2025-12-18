@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import type { IBaseRole, Action } from '@teable/core';
-import { HttpErrorCode, IdPrefix, getPermissions } from '@teable/core';
+import { HttpErrorCode, IdPrefix, TemplatePermissions, getPermissions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
@@ -9,13 +10,18 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { CollaboratorModel } from '../model/collaborator';
+import { TemplateModel } from '../model/template';
 
 @Injectable()
 export class PermissionService {
+  private readonly logger = new Logger(PermissionService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
-    private readonly collaboratorModel: CollaboratorModel
+    private readonly collaboratorModel: CollaboratorModel,
+    private readonly templateModel: TemplateModel,
+    private readonly jwtService: JwtService
   ) {}
 
   private getDepartmentIds() {
@@ -312,7 +318,8 @@ export class PermissionService {
   private async getPermissionByBaseId(baseId: string, includeInactiveResource?: boolean) {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
-      return getPermissions('owner');
+      const template = await this.templateModel.getTemplateRawByBaseId(baseId);
+      return getPermissions(template ? 'viewer' : 'owner');
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
@@ -406,5 +413,94 @@ export class PermissionService {
         },
       }
     );
+  }
+
+  async getTemplatePermissions(resourceId: string) {
+    const deniedResourceError = new CustomHttpException(
+      `Template access denied, template not found for ${resourceId}`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: 'httpErrors.base.templateNotFound',
+        },
+      }
+    );
+    if (resourceId.startsWith(IdPrefix.Base)) {
+      const template = await this.templateModel.getTemplateRawByBaseId(resourceId);
+      if (!template?.id) {
+        this.logger.error(`Template access denied, template not found for ${resourceId}`);
+        throw deniedResourceError;
+      }
+      this.cls.set('template', {
+        id: template.id,
+        baseId: template.snapshot.baseId,
+      });
+    } else if (resourceId.startsWith(IdPrefix.Table)) {
+      const table = await this.prismaService.txClient().tableMeta.findUnique({
+        where: {
+          id: resourceId,
+          deletedTime: null,
+          base: { deletedTime: null },
+        },
+        select: {
+          baseId: true,
+        },
+      });
+      if (!table) {
+        this.logger.error(`Template access denied, table not found for ${resourceId}`);
+        throw deniedResourceError;
+      }
+      const template = await this.templateModel.getTemplateRawByBaseId(table.baseId);
+      if (!template) {
+        this.logger.error(`Template access denied, template not found for ${resourceId}`);
+        throw deniedResourceError;
+      }
+      this.cls.set('template', {
+        id: template.id,
+        baseId: template.snapshot.baseId,
+      });
+    } else {
+      throw new CustomHttpException(
+        `Resource ${resourceId} is not valid for template`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.invalidResource',
+          },
+        }
+      );
+    }
+    return TemplatePermissions;
+  }
+
+  async validTemplatePermissions(resourceId: string, permissions: Action[]) {
+    const template = this.cls.get('template');
+    const templatePermissions = template
+      ? TemplatePermissions
+      : await this.getTemplatePermissions(resourceId);
+    if (permissions.every((permission) => templatePermissions.includes(permission))) {
+      return templatePermissions;
+    }
+    throw new CustomHttpException(
+      `Template access denied, not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      {
+        localization: {
+          i18nKey: 'httpErrors.permission.notAllowedOperation',
+        },
+      }
+    );
+  }
+
+  getTemplateIdByHeader(templateHeader: string) {
+    try {
+      return this.jwtService.verify<{ templateId: string }>(templateHeader).templateId;
+    } catch {
+      return null;
+    }
+  }
+
+  generateTemplateHeader(templateId: string) {
+    return this.jwtService.sign({ templateId }, { expiresIn: '1d' });
   }
 }

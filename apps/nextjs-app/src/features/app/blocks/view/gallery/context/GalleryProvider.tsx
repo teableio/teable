@@ -60,6 +60,7 @@ export const GalleryProvider = ({ children }: { children: ReactNode }) => {
       cardEditable: Boolean(permission['record|update']),
       cardDeletable: Boolean(permission['record|delete']),
       cardDraggable: Boolean(permission['record|update'] && permission['view|update']),
+      cardCommentCreatable: Boolean(permission['record|comment']),
     };
   }, [permission]);
 

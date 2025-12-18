@@ -1,11 +1,15 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Post, Body, Param, Patch, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
 import {
   createTemplateRoSchema,
   ICreateTemplateCategoryRo,
   ICreateTemplateRo,
+  ITemplateListQueryRo,
+  ITemplateQueryRoSchema,
   IUpdateTemplateCategoryRo,
   IUpdateTemplateRo,
+  templateListQueryRoSchema,
+  templateQueryRoSchema,
   updateTemplateCategoryRoSchema,
   updateTemplateRoSchema,
 } from '@teable/openapi';
@@ -19,14 +23,19 @@ export class TemplateOpenApiController {
   constructor(private readonly templateOpenApiService: TemplateOpenApiService) {}
 
   @Get()
-  async getTemplateList() {
-    return this.templateOpenApiService.getAllTemplateList();
+  @Permissions('instance|update')
+  async getTemplateList(
+    @Query(new ZodValidationPipe(templateListQueryRoSchema)) query?: ITemplateListQueryRo
+  ) {
+    return this.templateOpenApiService.getAllTemplateList(query);
   }
 
   @Public()
   @Get('/published')
-  async getPublishedTemplateList() {
-    return this.templateOpenApiService.getPublishedTemplateList();
+  async getPublishedTemplateList(
+    @Query(new ZodValidationPipe(templateQueryRoSchema)) templateQuery: ITemplateQueryRoSchema
+  ) {
+    return this.templateOpenApiService.getPublishedTemplateList(templateQuery);
   }
 
   @Post('/create')
@@ -98,6 +107,16 @@ export class TemplateOpenApiController {
       templateCategoryId,
       updateTemplateCategoryRo
     );
+  }
+
+  @Get('/by-base/:baseId')
+  async getTemplateByBaseId(@Param('baseId') baseId: string) {
+    return this.templateOpenApiService.getTemplateByBaseId(baseId);
+  }
+
+  @Delete('/unpublish/:templateId')
+  async unpublishTemplate(@Param('templateId') templateId: string) {
+    return this.templateOpenApiService.deleteTemplate(templateId);
   }
 
   @Public()

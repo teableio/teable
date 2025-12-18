@@ -33,6 +33,8 @@ import {
   importBaseRoSchema,
   moveBaseRoSchema,
   IMoveBaseRo,
+  publishBaseRoSchema,
+  IPublishBaseRo,
 } from '@teable/openapi';
 import type {
   CreateBaseInvitationLinkVo,
@@ -50,17 +52,18 @@ import type {
   ListBaseCollaboratorVo,
   ListBaseInvitationLinkVo,
   UpdateBaseInvitationLinkVo,
+  ICreateBaseFromTemplateVo,
 } from '@teable/openapi';
 import { EmitControllerEvent } from '../../event-emitter/decorators/emit-controller-event.decorator';
 import { Events } from '../../event-emitter/events';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { InvitationService } from '../invitation/invitation.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService } from './base-import.service';
-import { BaseQueryService } from './base-query/base-query.service';
 import { BaseService } from './base.service';
 import { DbConnectionService } from './db-connection.service';
 
@@ -72,7 +75,6 @@ export class BaseController {
     private readonly baseImportService: BaseImportService,
     private readonly dbConnectionService: DbConnectionService,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseQueryService: BaseQueryService,
     private readonly invitationService: InvitationService
   ) {}
 
@@ -116,7 +118,7 @@ export class BaseController {
   async createBaseFromTemplate(
     @Body(new ZodValidationPipe(createBaseFromTemplateRoSchema))
     createBaseFromTemplateRo: ICreateBaseFromTemplateRo
-  ): Promise<ICreateBaseVo> {
+  ): Promise<ICreateBaseFromTemplateVo> {
     return await this.baseService.createBaseFromTemplate(createBaseFromTemplateRo);
   }
 
@@ -147,6 +149,7 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId')
+  @AllowAnonymous(AllowAnonymousType.PUBLIC)
   async getBaseById(@Param('baseId') baseId: string): Promise<IGetBaseVo> {
     return await this.baseService.getBaseById(baseId);
   }
@@ -197,6 +200,7 @@ export class BaseController {
 
   @Permissions('base|read')
   @Get(':baseId/permission')
+  @AllowAnonymous(AllowAnonymousType.PUBLIC)
   async getPermission(): Promise<IGetBasePermissionVo> {
     return await this.baseService.getPermission();
   }
@@ -352,5 +356,14 @@ export class BaseController {
   @Get(':baseId/erd')
   async generateBaseErd(@Param('baseId') baseId: string): Promise<IBaseErdVo> {
     return await this.baseService.generateBaseErd(baseId);
+  }
+
+  @Permissions('base|update')
+  @Post(':baseId/publish')
+  async publishBase(
+    @Param('baseId') baseId: string,
+    @Body(new ZodValidationPipe(publishBaseRoSchema)) publishBaseRo: IPublishBaseRo
+  ) {
+    return await this.baseService.publishBase(baseId, publishBaseRo);
   }
 }

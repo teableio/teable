@@ -6,7 +6,6 @@ import { PrismaService } from '@teable/db-main-prisma';
 import {
   CreateRecordAction,
   type ICreateBaseFromTemplateRo,
-  type ICreateBaseVo,
   type IDuplicateBaseRo,
 } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -23,6 +22,7 @@ import { ComputedOrchestratorService } from '../record/computed/services/compute
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { BaseExportService } from './base-export.service';
 import { BaseImportService } from './base-import.service';
+import { mergeLinkFieldTableMaps } from './utils';
 
 @Injectable()
 export class BaseDuplicateService {
@@ -40,15 +40,20 @@ export class BaseDuplicateService {
     private readonly eventEmitterService: EventEmitterService
   ) {}
 
-  async duplicateBase(duplicateBaseRo: IDuplicateBaseRo, allowCrossBase: boolean = true) {
-    const { fromBaseId, spaceId, withRecords, name, baseId } = duplicateBaseRo;
+  async duplicateBase(
+    duplicateBaseRo: IDuplicateBaseRo,
+    allowCrossBase: boolean = true,
+    isTemplate: boolean = false
+  ) {
+    const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
 
-    const { base, tableIdMap, fieldIdMap, viewIdMap } = await this.duplicateStructure(
+    const { base, tableIdMap, fieldIdMap, viewIdMap, ...rest } = await this.duplicateStructure(
       fromBaseId,
       spaceId,
       name,
       allowCrossBase,
-      baseId
+      baseId,
+      nodes
     );
 
     const crossBaseLinkFieldTableMap = allowCrossBase
@@ -62,16 +67,38 @@ export class BaseDuplicateService {
         >)
       : await this.getCrossBaseLinkFieldTableMap(tableIdMap);
 
+    const disconnectedLinkFieldTableMap = await this.getDisconnectedLinkFieldTableMap(
+      tableIdMap,
+      fromBaseId,
+      nodes
+    );
+
+    const mergedLinkFieldTableMap = mergeLinkFieldTableMaps(
+      crossBaseLinkFieldTableMap,
+      disconnectedLinkFieldTableMap
+    );
+
+    const disconnectedLinkFieldIds = await this.getDisconnectedLinkFieldIds(
+      tableIdMap,
+      fromBaseId,
+      nodes
+    );
+
     let recordsLength = 0;
     if (withRecords) {
       recordsLength = await this.duplicateTableData(
         tableIdMap,
         fieldIdMap,
         viewIdMap,
-        crossBaseLinkFieldTableMap
+        mergedLinkFieldTableMap
       );
       await this.duplicateAttachments(tableIdMap, fieldIdMap);
-      await this.duplicateLinkJunction(tableIdMap, fieldIdMap, allowCrossBase);
+      await this.duplicateLinkJunction(
+        tableIdMap,
+        fieldIdMap,
+        allowCrossBase,
+        disconnectedLinkFieldIds
+      );
 
       // Persist computed/link/lookup/rollup columns for duplicated data so that
       // reads via useQueryModel (tableCache/raw table) return correct values.
@@ -79,7 +106,304 @@ export class BaseDuplicateService {
       await this.recomputeComputedColumnsForDuplicatedBase(tableIdMap);
     }
 
-    return { ...base, recordsLength } as ICreateBaseVo & { recordsLength?: number };
+    return { base, tableIdMap, fieldIdMap, viewIdMap, recordsLength, ...rest };
+  }
+
+  private async getDisconnectedLinkFieldIds(
+    tableIdMap: Record<string, string>,
+    fromBaseId: string,
+    nodes?: string[]
+  ) {
+    const { excludedTableIds } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+    if (!excludedTableIds?.length) {
+      return [];
+    }
+
+    const prisma = this.prismaService.txClient();
+    const allFieldRaws = await prisma.field.findMany({
+      where: {
+        tableId: { in: Object.keys(tableIdMap) },
+        deletedTime: null,
+      },
+    });
+
+    const fields = allFieldRaws.map((f) => createFieldInstanceByRaw(f));
+
+    return fields
+      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+      .filter((f) => excludedTableIds.includes((f.options as ILinkFieldOptions)?.foreignTableId))
+      .map((f) => f.id);
+  }
+
+  private async duplicateStructure(
+    fromBaseId: string,
+    spaceId: string,
+    baseName?: string,
+    allowCrossBase?: boolean,
+    baseId?: string,
+    nodes?: string[]
+  ) {
+    const prisma = this.prismaService.txClient();
+    const baseRaw = await prisma.base.findUniqueOrThrow({
+      where: {
+        id: fromBaseId,
+        deletedTime: null,
+      },
+    });
+    baseRaw.name = baseName || `${baseRaw.name} (Copy)`;
+
+    // Get included table IDs if includeNodes is provided
+    const {
+      finalIncludeNodes,
+      includedTableIds,
+      includedFolderIds,
+      includedDashboardIds,
+      includedWorkflowIds,
+      includedAppIds,
+      excludedTableIds,
+    } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+
+    const tableRaws = await prisma.tableMeta.findMany({
+      where: {
+        baseId: fromBaseId,
+        deletedTime: null,
+        ...(includedTableIds !== undefined ? { id: { in: includedTableIds } } : {}),
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+    const tableIds = tableRaws.map(({ id }) => id);
+    const fieldRaws = await prisma.field.findMany({
+      where: {
+        tableId: {
+          in: tableIds,
+        },
+        deletedTime: null,
+      },
+    });
+    const viewRaws = await prisma.view.findMany({
+      where: {
+        tableId: {
+          in: tableIds,
+        },
+        deletedTime: null,
+      },
+      orderBy: {
+        order: 'asc',
+      },
+    });
+
+    const structure = await this.baseExportService.generateBaseStructConfig({
+      baseRaw,
+      tableRaws,
+      fieldRaws,
+      viewRaws,
+      allowCrossBase,
+      includeNodes: finalIncludeNodes,
+      includedFolderIds,
+      includedDashboardIds,
+      includedWorkflowIds,
+      includedAppIds,
+      excludedTableIds,
+    });
+
+    this.logger.log(`base-duplicate-service: Start to getting base structure config successfully`);
+
+    const {
+      base: newBase,
+      tableIdMap,
+      fieldIdMap,
+      viewIdMap,
+      ...rest
+    } = await this.baseImportService.createBaseStructure(spaceId, structure, baseId);
+
+    return { base: newBase, tableIdMap, fieldIdMap, viewIdMap, ...rest };
+  }
+
+  /**
+   * Collect nodes and their resource IDs by type
+   * This method processes the selected nodes and collects all their parent nodes
+   * Then extracts resource IDs grouped by resource type
+   */
+  private async collectNodesAndResourceIds(fromBaseId: string, nodes: string[] | undefined) {
+    const prisma = this.prismaService.txClient();
+    let includedTableIds: string[] | undefined;
+    let includedFolderIds: string[] | undefined;
+    let includedDashboardIds: string[] | undefined;
+    let includedWorkflowIds: string[] | undefined;
+    let includedAppIds: string[] | undefined;
+    let finalIncludeNodes: string[] | undefined;
+
+    let excludedTableIds: string[] | undefined;
+    let excludedFolderIds: string[] | undefined;
+    let excludedDashboardIds: string[] | undefined;
+    let excludedWorkflowIds: string[] | undefined;
+    let excludedAppIds: string[] | undefined;
+
+    if (nodes && nodes.length > 0) {
+      // Get all nodes in the base to build parent-child relationships
+      const allNodes = await prisma.baseNode.findMany({
+        where: {
+          baseId: fromBaseId,
+        },
+        select: {
+          id: true,
+          parentId: true,
+          resourceId: true,
+          resourceType: true,
+        },
+      });
+
+      // Build a map for quick lookup
+      const nodeMap = new Map(allNodes.map((node) => [node.id, node]));
+
+      // Function to recursively collect parent nodes
+      const collectParentNodes = (nodeId: string, collected: Set<string>) => {
+        if (collected.has(nodeId)) return;
+        collected.add(nodeId);
+
+        const node = nodeMap.get(nodeId);
+        if (node?.parentId) {
+          collectParentNodes(node.parentId, collected);
+        }
+      };
+
+      // Collect selected nodes and all their parent nodes
+      const allIncludedNodeIds = new Set<string>();
+      for (const nodeId of nodes) {
+        collectParentNodes(nodeId, allIncludedNodeIds);
+      }
+
+      finalIncludeNodes = Array.from(allIncludedNodeIds);
+
+      // Extract resource IDs by type
+      const includedNodeDetails = allNodes.filter((node) => allIncludedNodeIds.has(node.id));
+
+      includedTableIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'table')
+        .map((node) => node.resourceId);
+
+      includedFolderIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'folder')
+        .map((node) => node.resourceId);
+
+      includedDashboardIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'dashboard')
+        .map((node) => node.resourceId);
+
+      includedWorkflowIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'workflow')
+        .map((node) => node.resourceId);
+
+      includedAppIds = includedNodeDetails
+        .filter((node) => node.resourceType === 'app')
+        .map((node) => node.resourceId);
+
+      excludedTableIds = allNodes
+        .filter((node) => !allIncludedNodeIds.has(node.id))
+        .map((node) => node.resourceId);
+      excludedFolderIds = allNodes
+        .filter((node) => !allIncludedNodeIds.has(node.id))
+        .map((node) => node.resourceId);
+      excludedDashboardIds = allNodes
+        .filter((node) => !allIncludedNodeIds.has(node.id))
+        .map((node) => node.resourceId);
+      excludedWorkflowIds = allNodes
+        .filter((node) => !allIncludedNodeIds.has(node.id))
+        .map((node) => node.resourceId);
+      excludedAppIds = allNodes
+        .filter((node) => !allIncludedNodeIds.has(node.id))
+        .map((node) => node.resourceId);
+    }
+
+    return {
+      finalIncludeNodes,
+      includedTableIds,
+      includedFolderIds,
+      includedDashboardIds,
+      includedWorkflowIds,
+      includedAppIds,
+
+      excludedTableIds,
+      excludedFolderIds,
+      excludedDashboardIds,
+      excludedWorkflowIds,
+      excludedAppIds,
+    };
+  }
+
+  private async getDisconnectedLinkFieldTableMap(
+    tableIdMap: Record<string, string>,
+    fromBaseId: string,
+    nodes?: string[]
+  ) {
+    const tableId2DbFieldNameMap: Record<
+      string,
+      { dbFieldName: string; selfKeyName: string; isMultipleCellValue: boolean }[]
+    > = {};
+    const { excludedTableIds } = await this.collectNodesAndResourceIds(fromBaseId, nodes);
+
+    if (!nodes?.length || !excludedTableIds?.length) {
+      return tableId2DbFieldNameMap;
+    }
+
+    const prisma = this.prismaService.txClient();
+    const allFieldRaws = await prisma.field.findMany({
+      where: {
+        tableId: { in: Object.keys(tableIdMap) },
+        deletedTime: null,
+      },
+    });
+
+    const disconnectedLinkFields = allFieldRaws
+      .filter(({ type, isLookup }) => type === FieldType.Link && !isLookup)
+      .map((f) => ({ ...createFieldInstanceByRaw(f), tableId: f.tableId }))
+      .filter((f) => excludedTableIds.includes((f.options as ILinkFieldOptions)?.foreignTableId));
+
+    // relative fields
+    // const disconnectedLinkRelativeFields = allFieldRaws
+    //   .map((f) => ({ ...createFieldInstanceByRaw(f), tableId: f.tableId }))
+    //   .filter(
+    //     ({ type, isLookup }) =>
+    //       isLookup || type === FieldType.Rollup || type === FieldType.ConditionalRollup
+    //   )
+    //   .filter(({ lookupOptions }) => {
+    //     if (!lookupOptions || !isLinkLookupOptions(lookupOptions)) {
+    //       return false;
+    //     }
+    //     return disconnectedLinkFields.map(({ id }) => id).includes(lookupOptions.linkFieldId);
+    //   });
+
+    const groupedDisconnectedLinkFields = groupBy([...disconnectedLinkFields], 'tableId');
+
+    Object.entries(groupedDisconnectedLinkFields).map(([tableId, fields]) => {
+      tableId2DbFieldNameMap[tableId] = fields.map(
+        ({ dbFieldName, options, isMultipleCellValue }) => {
+          return {
+            dbFieldName,
+            selfKeyName: (options as ILinkFieldOptions).selfKeyName,
+            isMultipleCellValue: !!isMultipleCellValue,
+          };
+        }
+      );
+
+      tableId2DbFieldNameMap[tableIdMap[tableId]] = fields.map(
+        ({ dbFieldName, options, isMultipleCellValue }) => {
+          return {
+            dbFieldName,
+            selfKeyName: (options as ILinkFieldOptions).selfKeyName,
+            isMultipleCellValue: !!isMultipleCellValue,
+          };
+        }
+      );
+
+      return {
+        tableId2DbFieldNameMap,
+      };
+    });
+
+    return tableId2DbFieldNameMap;
   }
 
   private async getCrossBaseLinkFieldTableMap(tableIdMap: Record<string, string>) {
@@ -124,71 +448,6 @@ export class BaseDuplicateService {
     });
 
     return tableId2DbFieldNameMap;
-  }
-
-  protected async duplicateStructure(
-    fromBaseId: string,
-    spaceId: string,
-    baseName?: string,
-    allowCrossBase?: boolean,
-    baseId?: string
-  ) {
-    const prisma = this.prismaService.txClient();
-    const baseRaw = await prisma.base.findUniqueOrThrow({
-      where: {
-        id: fromBaseId,
-        deletedTime: null,
-      },
-    });
-    baseRaw.name = baseName || `${baseRaw.name} (Copy)`;
-    const tableRaws = await prisma.tableMeta.findMany({
-      where: {
-        baseId: fromBaseId,
-        deletedTime: null,
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
-    const tableIds = tableRaws.map(({ id }) => id);
-    const fieldRaws = await prisma.field.findMany({
-      where: {
-        tableId: {
-          in: tableIds,
-        },
-        deletedTime: null,
-      },
-    });
-    const viewRaws = await prisma.view.findMany({
-      where: {
-        tableId: {
-          in: tableIds,
-        },
-        deletedTime: null,
-      },
-      orderBy: {
-        order: 'asc',
-      },
-    });
-
-    const structure = await this.baseExportService.generateBaseStructConfig({
-      baseRaw,
-      tableRaws,
-      fieldRaws,
-      viewRaws,
-      allowCrossBase,
-    });
-
-    this.logger.log(`base-duplicate-service: Start to getting base structure config successfully`);
-
-    const {
-      base: newBase,
-      tableIdMap,
-      fieldIdMap,
-      viewIdMap,
-    } = await this.baseImportService.createBaseStructure(spaceId, structure, baseId);
-
-    return { base: newBase, tableIdMap, fieldIdMap, viewIdMap };
   }
 
   private async duplicateTableData(
@@ -324,9 +583,15 @@ export class BaseDuplicateService {
   private async duplicateLinkJunction(
     tableIdMap: Record<string, string>,
     fieldIdMap: Record<string, string>,
-    allowCrossBase: boolean = true
+    allowCrossBase: boolean = true,
+    disconnectedLinkFieldIds?: string[]
   ) {
-    await this.tableDuplicateService.duplicateLinkJunction(tableIdMap, fieldIdMap, allowCrossBase);
+    await this.tableDuplicateService.duplicateLinkJunction(
+      tableIdMap,
+      fieldIdMap,
+      allowCrossBase,
+      disconnectedLinkFieldIds
+    );
   }
 
   /**

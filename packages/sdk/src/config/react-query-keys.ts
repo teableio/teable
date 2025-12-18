@@ -25,6 +25,7 @@ import type {
   IUpdateRecordsRo,
   IRecordInsertOrderRo,
   IUpdateRecordOrdersRo,
+  IRecordGetCollaboratorsRo,
 } from '@teable/openapi';
 
 export const ReactQueryKeys = {
@@ -42,7 +43,13 @@ export const ReactQueryKeys = {
 
   publishedTemplateCategoryList: () => ['published-template-category-list'] as const,
 
-  publishedTemplateList: () => ['published-template-list'] as const,
+  publishedTemplateList: (categoryId?: string | null, search?: string, isFeatured?: boolean) => {
+    const parts: (string | null)[] = ['published-template-list'];
+    if (categoryId !== undefined) parts.push(categoryId);
+    if (search !== undefined) parts.push(search);
+    if (isFeatured !== undefined) parts.push(isFeatured ? 'true' : 'false');
+    return parts;
+  },
 
   baseList: (spaceId: string) => ['base-list', spaceId] as const,
 
@@ -89,6 +96,9 @@ export const ReactQueryKeys = {
     options
       ? (['base-collaborator-list-user', baseId, options] as const)
       : (['base-collaborator-list-user', baseId] as const),
+
+  recordCollaboratorList: (tableId: string, options: IRecordGetCollaboratorsRo) =>
+    ['record-collaborator-list', tableId, options] as const,
 
   notifyList: (filter: { status: NotificationStatesEnum }) =>
     ['notification', 'list', filter] as const,

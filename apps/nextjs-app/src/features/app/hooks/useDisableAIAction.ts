@@ -1,15 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
 import { getAIDisableActions } from '@teable/openapi';
-import { useBaseId } from '@teable/sdk/hooks';
+import { useBaseId, useIsTemplate } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
 import { AIActions } from '../blocks/admin/setting/components/ai-config/AIControlCard';
 
 export const useDisableAIAction = () => {
   const baseId = useBaseId();
+  const isTemplate = useIsTemplate();
   const { data: { disableActions } = {} } = useQuery({
     queryKey: ['disable-ai-actions', baseId],
     queryFn: () => getAIDisableActions(baseId!).then((res) => res.data),
-    enabled: !!baseId,
+    enabled: !!baseId && !isTemplate,
   });
 
   return useMemo(() => {

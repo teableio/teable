@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 import { ViewType } from '@teable/core';
 import { Pencil, Trash2, Export, Copy, Lock, Star } from '@teable/icons';
 import { BaseNodeResourceType, duplicateView } from '@teable/openapi';
-import { useBaseId, useTableId, useTablePermission } from '@teable/sdk/hooks';
+import { useBaseId, useIsTemplate, useTableId, useTablePermission } from '@teable/sdk/hooks';
 import type { IViewInstance } from '@teable/sdk/model';
 import { Spin } from '@teable/ui-lib/base';
 import {
@@ -19,7 +19,8 @@ import { Unlock } from 'lucide-react';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, Fragment, useEffect } from 'react';
+import { useState, useRef, Fragment, useEffect, useCallback } from 'react';
+import { useIsInIframe } from '@/features/app/hooks/useIsInIframe';
 import { useDownload } from '../../../hooks/useDownLoad';
 import { getNodeUrl } from '../../base/base-node/hooks';
 import { usePinMap } from '../../space/usePinMap';
@@ -37,7 +38,7 @@ interface IProps {
 
 export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [open, setOpen] = useState(false);
+  const [open, _setOpen] = useState(false);
   const tableId = useTableId() as string;
   const baseId = useBaseId() as string;
   const router = useRouter();
@@ -48,6 +49,16 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
   const viewItemRef = useRef<HTMLDivElement>(null);
   const { highlightedViewId } = useGridSearchStore();
   const isHighlighted = highlightedViewId === view.id;
+  const isTemplate = useIsTemplate();
+  const setOpen = useCallback(
+    (value: boolean) => {
+      if (value && isTemplate) {
+        return;
+      }
+      _setOpen(value);
+    },
+    [isTemplate, _setOpen]
+  );
   const { mutateAsync: duplicateViewFn, isLoading: isDuplicateViewLoading } = useMutation({
     mutationFn: () => duplicateView(tableId, view.id),
     onSuccess: (data) => {
@@ -71,16 +82,17 @@ export const ViewListItem: React.FC<IProps> = ({ view, removable, isActive, onEd
     key: 'view',
   });
   const { resetSearchHandler } = useGridSearchStore();
+  const isInIframe = useIsInIframe();
 
   useEffect(() => {
-    if (isActive) {
+    if (isActive && !isInIframe) {
       setTimeout(() => {
         viewItemRef.current?.scrollIntoView({
           behavior: 'smooth',
         });
       }, 0);
     }
-  }, [isActive]);
+  }, [isActive, isInIframe]);
 
   const navigateHandler = () => {
     resetSearchHandler?.();

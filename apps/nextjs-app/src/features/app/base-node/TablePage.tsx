@@ -26,7 +26,7 @@ export const getTableServerSideProps = async (
   parsed: IBaseResourceParsed,
   queryParams?: Record<string, string | string[] | undefined>
 ): Promise<SSRResult> => {
-  const { ssrApi, baseId, queryClient } = ctx;
+  const { ssrApi, baseId, queryClient, base } = ctx;
   if (parsed.resourceType !== BaseNodeResourceType.Table) return { notFound: true };
   const { tableId, viewId } = parsed;
   const { recordId, fromNotify: notifyId } =
@@ -109,6 +109,7 @@ export const getTableServerSideProps = async (
       ...(recordServerData ? { recordServerData } : {}),
       ...(await ctx.getTranslationsProps()),
       dehydratedState: dehydrate(ctx.queryClient),
+      base,
     },
   };
 };

@@ -1,4 +1,5 @@
 import { ThemeProvider } from '@teable/next-themes';
+import type { IGetBaseVo } from '@teable/openapi';
 import { isObject, merge } from 'lodash';
 import { useMemo } from 'react';
 import { AppContext } from '../app/AppContext';
@@ -15,16 +16,20 @@ interface IAppProviderProps {
   locale?: ILocalePartial;
   dehydratedState?: unknown;
   disabledWs?: boolean;
+  template?: IGetBaseVo['template'];
 }
 
 export const AppProvider = (props: IAppProviderProps) => {
-  const { forcedTheme, children, wsPath, lang, locale, disabledWs, dehydratedState } = props;
-  const value = useMemo(() => {
-    return {
+  const { forcedTheme, children, wsPath, lang, locale, disabledWs, dehydratedState, template } =
+    props;
+  const value = useMemo(
+    () => ({
       lang,
       locale: isObject(locale) ? merge(defaultLocale, locale) : defaultLocale,
-    };
-  }, [lang, locale]);
+      template,
+    }),
+    [lang, locale, template]
+  );
 
   if (disabledWs) {
     return (

@@ -1,5 +1,5 @@
 import type { ParsedUrlQuery } from 'querystring';
-import { HttpError } from '@teable/core';
+import { HttpError, isAnonymous } from '@teable/core';
 import type {
   GetServerSidePropsContext,
   GetServerSidePropsResult,
@@ -25,13 +25,14 @@ export default function ensureLogin<P extends { [key: string]: any }>(
     const req = context.req;
     let props: { [key: string]: any } = {};
     try {
-      props['user'] = await getUserMe(req?.headers.cookie);
-
+      const user = await getUserMe(req?.headers.cookie);
+      props['user'] = user;
       // User is logged in, redirect to home page if on login page
-      if (isLoginPage) {
+      if (!isAnonymous(user?.id) && isLoginPage) {
+        const redirect = context.query.redirect;
         return {
           redirect: {
-            destination: '/space',
+            destination: typeof redirect === 'string' ? redirect : '/space',
             permanent: false,
           },
         };

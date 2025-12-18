@@ -10,6 +10,7 @@ import type {
   IRole,
   TableAction,
   ViewAction,
+  BasePermission,
 } from '@teable/core';
 import {
   ActionPrefix,
@@ -17,6 +18,7 @@ import {
   FieldType,
   HttpErrorCode,
   IdPrefix,
+  TemplateRolePermission,
   actionPrefixMap,
   getBasePermission,
   isLinkLookupOptions,
@@ -750,6 +752,11 @@ export class TableOpenApiService {
   }
 
   async getPermission(baseId: string, tableId: string): Promise<ITablePermissionVo> {
+    if (this.cls.get('template') || this.cls.get('template.baseId') === baseId) {
+      return this.getPermissionByPermissionMap(
+        TemplateRolePermission as Record<BasePermission, boolean>
+      );
+    }
     let role: IRole | null = await this.permissionService.getRoleByBaseId(baseId);
     if (!role) {
       const { spaceId } = await this.permissionService.getUpperIdByBaseId(baseId);
@@ -765,8 +772,7 @@ export class TableOpenApiService {
     return this.getPermissionByRole(tableId, role);
   }
 
-  async getPermissionByRole(tableId: string, role: IRole) {
-    const permissionMap = getBasePermission(role);
+  private async getPermissionByPermissionMap(permissionMap: Record<BasePermission, boolean>) {
     const tablePermission = actionPrefixMap[ActionPrefix.Table].reduce(
       (acc, action) => {
         acc[action] = permissionMap[action];
@@ -804,6 +810,11 @@ export class TableOpenApiService {
       record: recordPermission,
       view: viewPermission,
     };
+  }
+
+  async getPermissionByRole(tableId: string, role: IRole) {
+    const permissionMap = getBasePermission(role);
+    return this.getPermissionByPermissionMap(permissionMap);
   }
 
   private async emitDefaultRecordsAuditLog(tableId: string, ro: ICreateTableWithDefault) {

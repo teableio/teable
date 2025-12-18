@@ -1,10 +1,11 @@
 import type { ExecutionContext } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { HttpErrorCode, type Action } from '@teable/core';
+import { HttpErrorCode, isAnonymous, type Action } from '@teable/core';
 import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import { AllowAnonymousType, IS_ALLOW_ANONYMOUS } from '../decorators/allow-anonymous.decorator';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -12,9 +13,12 @@ import type { IResourceMeta } from '../decorators/resource_meta.decorator';
 import { RESOURCE_META } from '../decorators/resource_meta.decorator';
 import { IS_TOKEN_ACCESS } from '../decorators/token.decorator';
 import { PermissionService } from '../permission.service';
+import { getTemplateHeader } from '../utils';
 
 @Injectable()
 export class PermissionGuard {
+  private readonly logger = new Logger(PermissionGuard.name);
+
   constructor(
     private readonly reflector: Reflector,
     private readonly cls: ClsService<IClsStore>,
@@ -71,7 +75,49 @@ export class PermissionGuard {
     return true;
   }
 
-  protected async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
+  protected async templatePermissionCheck(context: ExecutionContext, templateHeader?: string) {
+    if (templateHeader) {
+      const templateId = this.permissionService.getTemplateIdByHeader(templateHeader);
+      if (!templateId) {
+        throw new CustomHttpException(
+          `Template header is invalid`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.templateHeaderInvalid',
+            },
+          }
+        );
+      }
+    }
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
+    if (!resourceId) {
+      throw new CustomHttpException(
+        `Template permission check ID does not exist`,
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.permission.checkIdNotExist',
+          },
+        }
+      );
+    }
+    const permissions = this.reflector.getAllAndOverride<Action[] | undefined>(PERMISSIONS_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (!permissions?.length) {
+      throw new ForbiddenException('Template permissions are required');
+    }
+    const ownPermissions = await this.permissionService.validTemplatePermissions(
+      resourceId,
+      permissions
+    );
+    this.cls.set('permissions', ownPermissions);
+    return true;
+  }
+
+  private async resourcePermission(resourceId: string | undefined, permissions: Action[]) {
     if (!resourceId) {
       throw new CustomHttpException(
         `Permission check ID does not exist`,
@@ -128,7 +174,7 @@ export class PermissionGuard {
       context.getHandler(),
       context.getClass(),
     ]);
-
+    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     const accessTokenId = this.cls.get('accessTokenId');
     if (accessTokenId && !permissions?.length) {
       // Pre-checking of tokens
@@ -155,13 +201,71 @@ export class PermissionGuard {
     if (permissions?.includes('base|read_all')) {
       return await this.permissionBaseReadAll();
     }
-    const resourceId = this.getResourceId(context) || this.defaultResourceId(context);
     if (!resourceId && permissions?.includes('space|read')) {
       return await this.permissionSpaceRead();
     }
 
     // resource permission check
     return await this.resourcePermission(resourceId, permissions);
+  }
+
+  private isAnonymous() {
+    return isAnonymous(this.cls.get('user.id'));
+  }
+
+  protected async permissionCheckWithPublicFallback(
+    context: ExecutionContext,
+    permissionCheck: () => Promise<boolean>
+  ) {
+    const templateHeader = getTemplateHeader(context.switchToHttp().getRequest());
+    const allowAnonymousType = this.reflector.getAllAndOverride<AllowAnonymousType | undefined>(
+      IS_ALLOW_ANONYMOUS,
+      [context.getHandler(), context.getClass()]
+    );
+    // anonymous resource permission check
+    if (templateHeader && allowAnonymousType === AllowAnonymousType.RESOURCE) {
+      return await this.templatePermissionCheck(context, templateHeader);
+    }
+    const isAnonymous = this.isAnonymous();
+    // anonymous user permission check
+    if (isAnonymous) {
+      if (!allowAnonymousType) {
+        throw new UnauthorizedException();
+      }
+      switch (allowAnonymousType) {
+        case AllowAnonymousType.PUBLIC:
+          return await this.templatePermissionCheck(context);
+        case AllowAnonymousType.RESOURCE:
+          throw new UnauthorizedException(
+            'Anonymous resource permission check failed, template header is required'
+          );
+        case AllowAnonymousType.USER:
+          return true;
+        default:
+          throw new UnauthorizedException('Invalid allow anonymous type');
+      }
+    }
+
+    // normal permission check
+    try {
+      return await permissionCheck();
+    } catch (normalError) {
+      // if not public type, not fallback to template permission check, throw normal error
+      if (allowAnonymousType !== AllowAnonymousType.PUBLIC) {
+        throw normalError;
+      }
+      this.logger.log('Fallback to template permission check');
+      try {
+        return await this.templatePermissionCheck(context);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } catch (templateError: any) {
+        this.logger.error(
+          `Template permission check failed: ${templateError.message}`,
+          templateError.stack
+        );
+        throw normalError;
+      }
+    }
   }
 
   /**
@@ -202,6 +306,8 @@ export class PermissionGuard {
       return true;
     }
 
-    return this.permissionCheck(context);
+    return await this.permissionCheckWithPublicFallback(context, async () => {
+      return await this.permissionCheck(context);
+    });
   }
 }

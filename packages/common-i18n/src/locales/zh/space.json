@@ -113,5 +113,43 @@
     "enter": "进入",
     "noTables": "暂无表",
     "empty": "暂无数据库"
+  },
+  "publishBase": {
+    "title": "发布数据库到社区",
+    "description": "一键发布数据库，灵感不再孤单！让更多人看到、使用和 Remix 你的创意，一起构建更强大的业务",
+    "infoTitle": "基本信息",
+    "form": {
+      "title": "名称",
+      "description": "描述",
+      "security": "安全",
+      "includeNodes": "包含节点",
+      "advanced": "高级",
+      "publishNode": "发布节点",
+      "includeData": "包含数据",
+      "defaultActiveNode": "默认节点",
+      "select": "请选择",
+      "descriptionPlaceholder": "描述",
+      "titlePlaceholder": "标题",
+      "toBeFilled": "...待填写"
+    },
+    "publishToCommunity": "发布到社区",
+    "publish": "发布",
+    "publishSuccess": "发布成功！",
+    "previewTips": "让世界看到你的作品",
+    "update": "更新",
+    "unPublish": "取消发布",
+    "unPublishSuccess": "取消发布成功！",
+    "unPublishConfirmTitle": "确认取消发布",
+    "unPublishConfirmDescription": "确定要取消发布此数据库吗？取消发布后，该数据库将不再在社区模板中心显示。",
+    "usageCount": "使用次数：",
+    "uploadCover": "点击上传封面图片",
+    "changeCover": "点击更换封面",
+    "uploadSuccess": "图片上传成功",
+    "uploadFailed": "上传失败",
+    "invalidImageType": "请选择图片文件",
+    "tips": {
+      "publishValidation": "标题和描述不能为空",
+      "atLeastOneNode": "至少选择一个节点发布"
+    }
   }
 }

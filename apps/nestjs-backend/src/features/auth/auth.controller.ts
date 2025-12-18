@@ -16,6 +16,7 @@ import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { DeleteUserService } from '../user/delete-user/delete-user.service';
 import { AuthService } from './auth.service';
+import { AllowAnonymous, AllowAnonymousType } from './decorators/allow-anonymous.decorator';
 import { TokenAccess } from './decorators/token.decorator';
 import { SessionService } from './session/session.service';
 
@@ -36,6 +37,7 @@ export class AuthController {
     res.clearCookie(AUTH_SESSION_COOKIE_NAME);
   }
 
+  @AllowAnonymous(AllowAnonymousType.USER)
   @Get('/user/me')
   async me(@Req() request: Express.Request) {
     return {

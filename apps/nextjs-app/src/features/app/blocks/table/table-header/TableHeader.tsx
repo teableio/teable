@@ -1,6 +1,21 @@
-import { HelpCircle, History, MoreHorizontal, Settings, Trash2, UserPlus } from '@teable/icons';
+import {
+  HelpCircle,
+  History,
+  MoreHorizontal,
+  Settings,
+  Trash2,
+  UserPlus,
+  Share2,
+} from '@teable/icons';
 import { RecordHistory } from '@teable/sdk/components/expand-record/RecordHistory';
-import { useBase, useBasePermission, useIsHydrated, useTableId, useView } from '@teable/sdk/hooks';
+import {
+  useBase,
+  useBasePermission,
+  useIsHydrated,
+  useIsTemplate,
+  useTableId,
+  useView,
+} from '@teable/sdk/hooks';
 import {
   Button,
   cn,
@@ -27,6 +42,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { Fragment, useState } from 'react';
 import { ShareBasePopover } from '@/features/app/components/collaborator/share/ShareBasePopover';
+import { PublicOperateButton } from '@/features/app/components/PublicOperateButton';
 import { tableConfig } from '@/features/i18n/table.config';
 import { TableTrash } from '../../trash/components/TableTrash';
 import { TableTrashDialog } from '../../trash/components/TableTrashDialog';
@@ -117,6 +133,7 @@ const RightList = ({
           </a>
         </Button>
       </div>
+
       <ShareBasePopover
         base={{
           name: base.name,
@@ -126,8 +143,10 @@ const RightList = ({
         }}
       >
         <Button variant="default" size="xs" className="flex">
-          <UserPlus className="size-4" />{' '}
-          <span className="hidden @md/view-header:inline">{t('space:action.invite')}</span>
+          <Share2 className="size-4" />{' '}
+          <span className="hidden @md/view-header:inline">
+            {t('table:toolbar.others.share.label')}
+          </span>
         </Button>
       </ShareBasePopover>
 
@@ -264,6 +283,7 @@ const RightMenu = ({ className }: { className?: string }) => {
 export const TableHeader: React.FC = () => {
   const view = useView();
   const { visible } = useLockedViewTipStore();
+  const isTemplate = useIsTemplate();
   const tipVisible = view?.isLocked && visible;
 
   return (
@@ -284,8 +304,13 @@ export const TableHeader: React.FC = () => {
         </ScrollArea>
         <AddView />
         <div className="grow basis-0"></div>
-        <RightList className="hidden gap-2 @md/view-header:flex" />
-        <RightMenu className="flex @md/view-header:hidden" />
+        {!isTemplate && <RightList className="hidden gap-2 @md/view-header:flex" />}
+        {!isTemplate && <RightMenu className="flex @md/view-header:hidden" />}
+        {isTemplate && (
+          <div className="min-w-20">
+            <PublicOperateButton />
+          </div>
+        )}
       </div>
       {tipVisible && <LockedViewTip />}
     </Fragment>

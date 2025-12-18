@@ -52,6 +52,7 @@ import type {
 } from '@teable/openapi';
 import { Response } from 'express';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
+import { AllowAnonymous } from '../auth/decorators/allow-anonymous.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { TqlPipe } from '../record/open-api/tql.pipe';
 import { ShareAuthGuard } from './guard/auth.guard';
@@ -88,6 +89,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/view')
   async getShareView(@Request() req?: any): Promise<ShareViewGetVo> {
     const shareInfo = req.shareInfo as IShareViewInfo;
@@ -107,6 +109,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/view/row-count')
   async getViewRowCount(
     @Request() req: any,
@@ -218,6 +221,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/view/snapshot-bulk')
   async getViewSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
@@ -226,6 +230,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/view/doc-ids')
   async getViewDocIds(@Request() req: any) {
     const shareInfo = req.shareInfo as IShareViewInfo;
@@ -234,6 +239,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/field/snapshot-bulk')
   async getFieldSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
@@ -242,6 +248,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/field/doc-ids')
   async getFieldDocIds(
     @Request() req: any,
@@ -254,6 +261,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Get('/:shareId/socket/record/snapshot-bulk')
   async getRecordSnapshotBulk(@Request() req: any, @Query('ids') ids: string[]) {
     const shareInfo = req.shareInfo as IShareViewInfo;
@@ -262,6 +270,7 @@ export class ShareController {
 
   @ShareLinkView()
   @UseGuards(ShareAuthGuard)
+  @AllowAnonymous()
   @Post('/:shareId/socket/record/doc-ids')
   async getRecordDocIds(
     @Request() req: any,

@@ -10,6 +10,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
 import { useState } from 'react';
+import { useDebounce } from 'react-use';
 import { TemplateDetail } from './TemplateDetail';
 import { TemplateMain } from './TemplateMain';
 
@@ -22,11 +23,21 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
   const { children } = props;
   const { t } = useTranslation(['space', 'common']);
 
-  const [currentCategoryId, setCurrentCategoryId] = useState<string>('all');
+  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
 
   const [search, setSearch] = useState<string>('');
+  const [inputValue, setInputValue] = useState<string>('');
 
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
+
+  // Debounce search input to avoid excessive updates
+  useDebounce(
+    () => {
+      setSearch(inputValue);
+    },
+    500,
+    [inputValue]
+  );
 
   return (
     <Sheet>
@@ -39,11 +50,11 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
                 <SheetTitle>{t('common:template.title')}</SheetTitle>
                 <Input
                   placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
-                  value={search}
+                  value={inputValue}
                   className={cn('h-8 flex-1', {
                     'opacity-0': currentTemplateId,
                   })}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => setInputValue(e.target.value)}
                 />
               </div>
               <SheetDescription className="text-start">

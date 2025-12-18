@@ -3,4 +3,5 @@ export interface IGalleryPermission {
   cardEditable: boolean;
   cardDeletable: boolean;
   cardDraggable: boolean;
+  cardCommentCreatable: boolean;
 }

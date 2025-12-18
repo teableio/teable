@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import type { IGetFieldsQuery } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { IS_TEMPLATE_HEADER } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
-import type { IClsStore } from '../../types/cls';
 import type { RawOpType, IShareDbReadonlyAdapterService } from '../interface';
 import { ReadonlyService } from './readonly.service';
+import type { IReadonlyServiceContext } from './types';
 
 @Injectable()
 export class FieldReadonlyServiceAdapter
@@ -12,7 +13,7 @@ export class FieldReadonlyServiceAdapter
   implements IShareDbReadonlyAdapterService
 {
   constructor(
-    private readonly cls: ClsService<IClsStore>,
+    private readonly cls: ClsService<IReadonlyServiceContext>,
     private readonly prismaService: PrismaService
   ) {
     super(cls);
@@ -20,6 +21,7 @@ export class FieldReadonlyServiceAdapter
 
   getDocIdsByQuery(tableId: string, query: IGetFieldsQuery = {}) {
     const shareId = this.cls.get('shareViewId');
+    const templateHeader = this.cls.get('templateHeader');
     const url = shareId
       ? `/share/${shareId}/socket/field/doc-ids`
       : `/table/${tableId}/field/socket/doc-ids`;
@@ -27,6 +29,7 @@ export class FieldReadonlyServiceAdapter
       .get(url, {
         headers: {
           cookie: this.cls.get('cookie'),
+          [IS_TEMPLATE_HEADER]: templateHeader,
         },
         params: query,
       })
@@ -34,6 +37,7 @@ export class FieldReadonlyServiceAdapter
   }
   getSnapshotBulk(tableId: string, ids: string[]) {
     const shareId = this.cls.get('shareViewId');
+    const templateHeader = this.cls.get('templateHeader');
     const url = shareId
       ? `/share/${shareId}/socket/field/snapshot-bulk`
       : `/table/${tableId}/field/socket/snapshot-bulk`;
@@ -41,6 +45,7 @@ export class FieldReadonlyServiceAdapter
       .get(url, {
         headers: {
           cookie: this.cls.get('cookie'),
+          [IS_TEMPLATE_HEADER]: templateHeader,
         },
         params: {
           ids,

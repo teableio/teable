@@ -1318,7 +1318,8 @@
     "template": {
       "snapshotRequired": "Questo modello non può essere pubblicato perché manca l'istantanea",
       "sourceTemplateNotFound": "Modello di origine non trovato",
-      "noMinOrderFound": "Nessun ordine minimo trovato"
+      "noMinOrderFound": "Nessun ordine minimo trovato",
+      "takeCountTooLarge": "Il numero di modelli richiesti supera il limite massimo"
     },
     "domainVerification": {
       "notFound": "Nessun codice di verifica del dominio trovato",

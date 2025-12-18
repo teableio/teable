@@ -49,6 +49,7 @@ import type {
   IGroupHeaderRef,
   IGroupPoint,
   IGroupPointsVo,
+  IRecordGetCollaboratorsRo,
   IRecordStatusVo,
   IRecordsVo,
   UpdateRecordAction,
@@ -76,6 +77,7 @@ import {
 import { Timing } from '../../utils/timing';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BatchService } from '../calculation/batch.service';
 import { DataLoaderService } from '../data-loader/data-loader.service';
 import type { IVisualTableDefaultField } from '../field/constant';
@@ -1836,7 +1838,6 @@ export class RecordService {
       },
       useQueryModel
     );
-
     // queryBuilder.select(this.knex.ref(`${selectDbTableName}.__id`));
 
     skip && queryBuilder.offset(skip);
@@ -2631,5 +2632,75 @@ export class RecordService {
         appId,
       },
     });
+  }
+
+  async getRecordsCollaborators(
+    tableId: string,
+    query: IRecordGetCollaboratorsRo & { filter?: IFilter | null }
+  ) {
+    const { fieldId, skip, take, search, filter } = query;
+    const [fieldRaw] = await this.dataLoaderService.field.load(tableId, {
+      id: [fieldId],
+    });
+    if (
+      !fieldRaw ||
+      ![FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(
+        fieldRaw.type as FieldType
+      )
+    ) {
+      throw new CustomHttpException(
+        'field type is not user-related field',
+        HttpErrorCode.RESTRICTED_RESOURCE,
+        {
+          localization: {
+            i18nKey: 'httpErrors.share.fieldNotUserRelatedField',
+          },
+        }
+      );
+    }
+    const { queryBuilder } = await this.buildFilterSortQuery(
+      tableId,
+      {
+        filter,
+      },
+      true
+    );
+    const collaboratorsQueryBuilder = this.knex.queryBuilder().with('table_records', queryBuilder);
+
+    const { dbFieldName, isMultipleCellValue } = fieldRaw;
+    collaboratorsQueryBuilder.whereNotNull(dbFieldName);
+    collaboratorsQueryBuilder.from('table_records');
+    this.dbProvider.shareFilterCollaboratorsQuery(
+      collaboratorsQueryBuilder,
+      dbFieldName,
+      isMultipleCellValue
+    );
+
+    const resQuery = this.knex('users')
+      .with('coll', collaboratorsQueryBuilder)
+      .select('id', 'email', 'name', 'avatar')
+      .from('coll')
+      .leftJoin('users', 'users.id', '=', 'coll.user_id')
+      .limit(take ?? 50)
+      .offset(skip ?? 0);
+    if (search) {
+      this.dbProvider.searchBuilder(resQuery, [
+        ['users.name', search],
+        ['users.email', search],
+      ]);
+    }
+    const users = await this.prismaService
+      .txClient()
+      // eslint-disable-next-line @typescript-eslint/naming-convention
+      .$queryRawUnsafe<{ id: string; email: string; name: string; avatar: string | null }[]>(
+        resQuery.toQuery()
+      );
+
+    return users.map(({ id, email, name, avatar }) => ({
+      userId: id,
+      email,
+      userName: name,
+      avatar: avatar && getPublicFullStorageUrl(avatar),
+    }));
   }
 }

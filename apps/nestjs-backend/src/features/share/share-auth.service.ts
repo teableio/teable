@@ -1,9 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { FieldType, HttpErrorCode } from '@teable/core';
+import { FieldType, HttpErrorCode, isAnonymous } from '@teable/core';
 import type { IViewVo, IShareViewMeta, ILinkFieldOptions } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
+import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
+import type { IClsStore } from '../../types/cls';
 import { PermissionService } from '../auth/permission.service';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { createViewVoByRaw } from '../view/model/factory';
@@ -26,7 +28,8 @@ export class ShareAuthService {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly prismaService: PrismaService,
-    private readonly jwtService: JwtService
+    private readonly jwtService: JwtService,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   async validateJwtToken(token: string) {
@@ -85,7 +88,7 @@ export class ShareAuthService {
     };
   }
 
-  async getLinkViewInfo(linkFieldId: string): Promise<IShareViewInfo> {
+  async getLinkViewInfo(linkFieldId: string, templateHeader?: string): Promise<IShareViewInfo> {
     const fieldRaw = await this.prismaService.field
       .findFirstOrThrow({
         where: {
@@ -118,12 +121,34 @@ export class ShareAuthService {
       );
     }
 
-    // make sure user has permission to access the table where the link field from
-    await this.permissionService.validPermissions(fieldRaw.tableId, [
-      'table|read',
-      'record|read',
-      'field|read',
-    ]);
+    if (templateHeader) {
+      const templateId = this.permissionService.getTemplateIdByHeader(templateHeader);
+      if (!templateId) {
+        throw new CustomHttpException(
+          `Template header is invalid`,
+          HttpErrorCode.RESTRICTED_RESOURCE,
+          {
+            localization: {
+              i18nKey: 'httpErrors.permission.templateHeaderInvalid',
+            },
+          }
+        );
+      }
+    }
+    if (templateHeader || isAnonymous(this.cls.get('user.id'))) {
+      await this.permissionService.validTemplatePermissions(fieldRaw.tableId, [
+        'table|read',
+        'record|read',
+        'field|read',
+      ]);
+    } else {
+      // make sure user has permission to access the table where the link field from
+      await this.permissionService.validPermissions(fieldRaw.tableId, [
+        'table|read',
+        'record|read',
+        'field|read',
+      ]);
+    }
 
     const { filterByViewId, visibleFieldIds, filter } = field.options;
 

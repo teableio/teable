@@ -11,6 +11,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useDebounce } from 'react-use';
 import { TemplateDetail } from './TemplateDetail';
 import { TemplateMain } from './TemplateMain';
 import { TemplateSheet } from './TemplateSheet';
@@ -23,13 +24,23 @@ export const TemplateModal = (props: TemplateModalProps) => {
   const { children, spaceId } = props;
   const { t } = useTranslation(['space', 'common']);
 
-  const [currentCategoryId, setCurrentCategoryId] = useState<string>('all');
+  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
 
   const [search, setSearch] = useState<string>('');
+  const [inputValue, setInputValue] = useState<string>('');
 
   const [currentTemplateId, setCurrentTemplateId] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
+
+  // Debounce search input to avoid excessive updates
+  useDebounce(
+    () => {
+      setSearch(inputValue);
+    },
+    500,
+    [inputValue]
+  );
 
   return isMobile ? (
     <TemplateSheet spaceId={spaceId}>{children}</TemplateSheet>
@@ -45,11 +56,11 @@ export const TemplateModal = (props: TemplateModalProps) => {
             </div>
             <Input
               placeholder={t('common:settings.templateAdmin.baseSelectPanel.search')}
-              value={search}
+              value={inputValue}
               className={cn('h-8 w-72', {
                 'opacity-0': currentTemplateId,
               })}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => setInputValue(e.target.value)}
             />
           </div>
         </DialogHeader>
