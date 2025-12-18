@@ -559,22 +559,19 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     }
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
-      <div className="cursor-pointer" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="flex size-4 shrink-0 cursor-pointer items-center justify-center"
+        onClick={(e) => e.stopPropagation()}
+      >
         {resourceType === BaseNodeResourceType.Table && (
           <EmojiPicker
-            className="flex size-4 items-center justify-center hover:bg-muted-foreground/60"
+            className="flex size-full items-center justify-center hover:bg-muted-foreground/60"
             onChange={(icon: string) => curdHooks.updateNode(nodeId, { icon })}
           >
-            {icon ? (
-              <Emoji emoji={icon} size={'1rem'} />
-            ) : (
-              <IconComponent className="size-4 shrink-0" />
-            )}
+            {icon ? <Emoji emoji={icon} size="1rem" /> : <IconComponent className="size-full" />}
           </EmojiPicker>
         )}
-        {resourceType !== BaseNodeResourceType.Table && (
-          <IconComponent className="size-4 shrink-0" />
-        )}
+        {resourceType !== BaseNodeResourceType.Table && <IconComponent className="size-full" />}
       </div>
     );
   };
