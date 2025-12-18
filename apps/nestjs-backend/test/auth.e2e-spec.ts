@@ -44,19 +44,18 @@ import {
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import axios from 'axios';
-import { ClsService } from 'nestjs-cls';
+import { vi } from 'vitest';
 import { AUTH_SESSION_COOKIE_NAME } from '../src/const';
 import { SettingService } from '../src/features/setting/setting.service';
-import type { IClsStore } from '../src/types/cls';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { getError } from './utils/get-error';
-import { initApp, runWithTestUser } from './utils/init-app';
+import { initApp } from './utils/init-app';
 
 describe('Auth Controller (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   let settingService: SettingService;
-  let clsService: ClsService<IClsStore>;
+
   const authTestEmail = 'auth@test-auth.com';
 
   beforeAll(async () => {
@@ -66,7 +65,6 @@ describe('Auth Controller (e2e)', () => {
 
     const appCtx = await initApp();
     app = appCtx.app;
-    clsService = app.get(ClsService);
     prismaService = app.get(PrismaService);
     settingService = app.get(SettingService);
   });
@@ -137,23 +135,18 @@ describe('Auth Controller (e2e)', () => {
   });
 
   describe('sign up with email verification', () => {
-    let preEnableEmailVerification: boolean | null | undefined;
     beforeEach(async () => {
-      await runWithTestUser(clsService, async () => {
-        const setting = await settingService.getSetting();
-        preEnableEmailVerification = setting.enableEmailVerification;
-        await settingService.updateSetting({
+      const originalGetSetting = settingService.getSetting.bind(settingService);
+      vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
+        return {
+          ...(await originalGetSetting()),
           enableEmailVerification: true,
-        });
+        };
       });
     });
 
-    afterEach(async () => {
-      await runWithTestUser(clsService, async () => {
-        await settingService.updateSetting({
-          enableEmailVerification: preEnableEmailVerification,
-        });
-      });
+    afterEach(() => {
+      vi.restoreAllMocks();
     });
 
     it('api/auth/signup - email verification is required', async () => {
