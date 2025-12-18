@@ -72,16 +72,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     return nodeIds;
   }, [treeItems]);
 
-  // Get all non-folder nodes for default active node selection
-  const allNonFolderNodeIds = useMemo(() => {
-    const nodeIds: string[] = [];
-    Object.entries(treeItems).forEach(([id, node]) => {
-      if (id !== ROOT_ID && node.resourceType !== BaseNodeResourceType.Folder) {
-        nodeIds.push(id);
-      }
-    });
-    return nodeIds;
-  }, [treeItems]);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
 
   const { data: templateDetail } = useQuery({
     queryKey: ['template-by-base', baseId],
@@ -95,18 +86,22 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         setScreenshotUrl(data?.cover?.presignedUrl || undefined);
       }
 
-      if (data?.publishInfo?.nodes && data.publishInfo.nodes.length > 0) {
-        setSelectedNodeIds(data.publishInfo.nodes);
-      } else {
-        setSelectedNodeIds(allNodeIds);
-      }
+      const savedNodes = data?.publishInfo?.nodes;
+      const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
+      setSelectedNodeIds(nodesToSelect);
       setIncludeData(data?.publishInfo?.includeData || false);
 
-      // Set default active node: use saved data if available, otherwise select the first non-folder node
-      if (data?.publishInfo?.defaultActiveNodeId) {
-        setDefaultActiveNodeId(data.publishInfo.defaultActiveNodeId);
-      } else if (allNonFolderNodeIds.length > 0) {
-        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
+      // Set default active node: use saved data if available and it's in selected nodes
+      const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
+      if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
+        setDefaultActiveNodeId(savedDefaultNodeId);
+      } else {
+        // Find first non-folder node in selected nodes
+        const firstNonFolderNode = nodesToSelect.find((id) => {
+          const node = treeItems[id];
+          return node && node.resourceType !== BaseNodeResourceType.Folder;
+        });
+        setDefaultActiveNodeId(firstNonFolderNode || null);
       }
 
       setHasLoadedTemplate(true);
@@ -174,28 +169,39 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       })
     | null
   >(null);
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(allNodeIds);
   const [includeData, setIncludeData] = useState(false);
   const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
   const { user } = useSession();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
 
+  // Initialize selected nodes on first load
   useEffect(() => {
     if (allNodeIds.length > 0 && !hasLoadedTemplate && selectedNodeIds.length === 0) {
       setSelectedNodeIds(allNodeIds);
-      // On first entry, select the first non-folder node as the default active node
-      if (!defaultActiveNodeId && allNonFolderNodeIds.length > 0) {
-        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
+    }
+  }, [allNodeIds, hasLoadedTemplate, selectedNodeIds.length]);
+
+  // Ensure defaultActiveNodeId is always within selectedNodeIds (selected non-folder nodes only)
+  useEffect(() => {
+    // Skip if template is still loading
+    if (!hasLoadedTemplate) return;
+
+    // Calculate selected non-folder nodes to avoid dependency on memoized array
+    const currentSelectedNonFolderNodes = selectedNodeIds.filter((id) => {
+      const node = treeItems[id];
+      return node && node.resourceType !== BaseNodeResourceType.Folder;
+    });
+
+    // If no default active node is set, or the current one is not in selected nodes, set the first selected non-folder node
+    if (!defaultActiveNodeId || !selectedNodeIds.includes(defaultActiveNodeId)) {
+      if (currentSelectedNonFolderNodes.length > 0) {
+        setDefaultActiveNodeId(currentSelectedNonFolderNodes[0]);
+      } else {
+        setDefaultActiveNodeId(null);
       }
     }
-  }, [
-    allNodeIds,
-    hasLoadedTemplate,
-    selectedNodeIds.length,
-    defaultActiveNodeId,
-    allNonFolderNodeIds,
-  ]);
+  }, [hasLoadedTemplate, defaultActiveNodeId, selectedNodeIds, treeItems]);
 
   useEffect(() => {
     if (!open) {
@@ -204,13 +210,8 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       setUploadProgress(0);
       setIsUploading(false);
       setHasLoadedTemplate(false);
-    } else {
-      // When dialog opens, if there's no default active node and there are selectable nodes, set the first non-folder node
-      if (!defaultActiveNodeId && allNonFolderNodeIds.length > 0) {
-        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
-      }
     }
-  }, [open, defaultActiveNodeId, allNonFolderNodeIds]);
+  }, [open]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
