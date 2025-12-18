@@ -38,6 +38,15 @@ export const getDashboardServerSideProps = async (
     };
   }
 
+  const dashboardList = await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.getDashboardList(baseId),
+    queryFn: () => ssrApi.getDashboardList(baseId),
+  });
+  const dashboardIds = dashboardList.map((d) => d.id);
+  if (!dashboardIds.includes(dashboardId) && dashboardIds[0]) {
+    return redirect(`/base/${baseId}/dashboard/${dashboardIds[0]}`);
+  }
+
   await queryClient.fetchQuery({
     queryKey: ReactQueryKeys.getDashboard(dashboardId),
     queryFn: () => ssrApi.getDashboard(baseId, dashboardId),
