@@ -273,7 +273,13 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               )}
               <Button
                 className="flex w-full items-center gap-2"
-                onClick={() => publishBaseMutate({ title, description: description || '' })}
+                onClick={() => {
+                  if (!title || !description) {
+                    toast.error(t('publishBase.tips.publishValidation'));
+                    return;
+                  }
+                  publishBaseMutate({ title, description: description || '' });
+                }}
                 disabled={publishBaseLoading}
               >
                 <Send className="size-4" />

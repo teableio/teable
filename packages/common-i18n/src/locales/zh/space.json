@@ -128,9 +128,9 @@
       "includeData": "包含数据",
       "defaultActiveNode": "默认节点",
       "select": "请选择",
-      "descriptionPlaceholder": "请填写描述",
-      "titlePlaceholder": "请填写标题",
-      "toBeFilled": "待填写"
+      "descriptionPlaceholder": "描述",
+      "titlePlaceholder": "标题",
+      "toBeFilled": "...待填写"
     },
     "publishToCommunity": "发布到社区",
     "publish": "发布",
@@ -144,6 +144,9 @@
     "changeCover": "点击更换封面",
     "uploadSuccess": "图片上传成功",
     "uploadFailed": "上传失败",
-    "invalidImageType": "请选择图片文件"
+    "invalidImageType": "请选择图片文件",
+    "tips": {
+      "publishValidation": "标题和描述不能为空"
+    }
   }
 }

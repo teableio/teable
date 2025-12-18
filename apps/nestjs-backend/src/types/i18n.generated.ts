@@ -2794,6 +2794,9 @@ export type I18nTranslations = {
             "uploadSuccess": string;
             "uploadFailed": string;
             "invalidImageType": string;
+            "tips": {
+                "publishValidation": string;
+            };
         };
     };
     "system": {
