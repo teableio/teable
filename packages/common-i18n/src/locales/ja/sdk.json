@@ -1334,6 +1334,19 @@
       "notFound": "部門が見つかりません",
       "cannotMoveToItself": "部門を自分自身に移動することはできません",
       "cannotMoveToSub": "部門をその子部門に移動することはできません"
+    },
+    "app": {
+      "notFound": "アプリが見つかりません",
+      "noFilesToUpdate": "更新するファイルがありません",
+      "noChatIdFound": "このアプリにチャットIDが見つかりません",
+      "noChatFound": "このアプリにチャットが見つかりません",
+      "versionNotFound": "バージョンが見つかりません",
+      "cannotRollbackToLatestVersion": "最新バージョンにロールバックできません",
+      "noChatOrProjectTokenFound": "チャットまたはプロジェクトトークンが見つかりません",
+      "apiKeyNotSet": "アプリビルダーAPIキーが設定されていません",
+      "cannotDeployAppBeforeInitialization": "初期化前にアプリをデプロイできません",
+      "noProjectOrVersionFound": "プロジェクトまたはバージョンが見つかりません",
+      "noDeploymentUrlAvailable": "デプロイURLが利用できません"
     }
   }
 }

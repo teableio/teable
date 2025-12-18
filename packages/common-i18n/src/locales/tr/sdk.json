@@ -1334,6 +1334,19 @@
       "notFound": "Departman bulunamadı",
       "cannotMoveToItself": "Departman kendisine taşınamaz",
       "cannotMoveToSub": "Departman alt departmanına taşınamaz"
+    },
+    "app": {
+      "notFound": "Uygulama bulunamadı",
+      "noFilesToUpdate": "Güncellenecek dosya yok",
+      "noChatIdFound": "Bu uygulama için sohbet ID'si bulunamadı",
+      "noChatFound": "Bu uygulama için sohbet bulunamadı",
+      "versionNotFound": "Sürüm bulunamadı",
+      "cannotRollbackToLatestVersion": "En son sürüme geri alınamaz",
+      "noChatOrProjectTokenFound": "Sohbet veya proje jetonu bulunamadı",
+      "apiKeyNotSet": "Uygulama oluşturucu API anahtarı ayarlanmamış",
+      "cannotDeployAppBeforeInitialization": "Başlatmadan önce uygulama dağıtılamaz",
+      "noProjectOrVersionFound": "Proje veya sürüm bulunamadı",
+      "noDeploymentUrlAvailable": "Dağıtım URL'si mevcut değil"
     }
   }
 }

@@ -1334,6 +1334,19 @@
       "notFound": "Отдел не найден",
       "cannotMoveToItself": "Невозможно переместить отдел в самого себя",
       "cannotMoveToSub": "Невозможно переместить отдел в его подотдел"
+    },
+    "app": {
+      "notFound": "Приложение не найдено",
+      "noFilesToUpdate": "Нет файлов для обновления",
+      "noChatIdFound": "ID чата для этого приложения не найден",
+      "noChatFound": "Чат для этого приложения не найден",
+      "versionNotFound": "Версия не найдена",
+      "cannotRollbackToLatestVersion": "Невозможно откатить к последней версии",
+      "noChatOrProjectTokenFound": "Чат или токен проекта не найден",
+      "apiKeyNotSet": "API-ключ конструктора приложений не установлен",
+      "cannotDeployAppBeforeInitialization": "Невозможно развернуть приложение до инициализации",
+      "noProjectOrVersionFound": "Проект или версия не найдены",
+      "noDeploymentUrlAvailable": "URL развертывания недоступен"
     }
   }
 }

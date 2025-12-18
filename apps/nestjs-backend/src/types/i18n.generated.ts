@@ -2628,6 +2628,19 @@ export type I18nTranslations = {
                 "cannotMoveToItself": string;
                 "cannotMoveToSub": string;
             };
+            "app": {
+                "notFound": string;
+                "noFilesToUpdate": string;
+                "noChatIdFound": string;
+                "noChatFound": string;
+                "versionNotFound": string;
+                "cannotRollbackToLatestVersion": string;
+                "noChatOrProjectTokenFound": string;
+                "apiKeyNotSet": string;
+                "cannotDeployAppBeforeInitialization": string;
+                "noProjectOrVersionFound": string;
+                "noDeploymentUrlAvailable": string;
+            };
         };
     };
     "setting": {

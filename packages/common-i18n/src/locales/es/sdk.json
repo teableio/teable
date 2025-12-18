@@ -1346,6 +1346,19 @@
       "notFound": "Departamento no encontrado",
       "cannotMoveToItself": "No se puede mover el departamento a sí mismo",
       "cannotMoveToSub": "No se puede mover el departamento a su sub-departamento"
+    },
+    "app": {
+      "notFound": "Aplicación no encontrada",
+      "noFilesToUpdate": "No hay archivos para actualizar",
+      "noChatIdFound": "No se encontró ID de chat para esta aplicación",
+      "noChatFound": "No se encontró chat para esta aplicación",
+      "versionNotFound": "Versión no encontrada",
+      "cannotRollbackToLatestVersion": "No se puede revertir a la última versión",
+      "noChatOrProjectTokenFound": "No se encontró chat o token de proyecto",
+      "apiKeyNotSet": "La clave API del constructor de aplicaciones no está configurada",
+      "cannotDeployAppBeforeInitialization": "No se puede implementar la aplicación antes de la inicialización",
+      "noProjectOrVersionFound": "No se encontró proyecto o versión",
+      "noDeploymentUrlAvailable": "No hay URL de implementación disponible"
     }
   }
 }

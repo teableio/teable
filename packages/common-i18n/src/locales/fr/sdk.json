@@ -1334,6 +1334,19 @@
       "notFound": "Département non trouvé",
       "cannotMoveToItself": "Impossible de déplacer le département vers lui-même",
       "cannotMoveToSub": "Impossible de déplacer le département vers son sous-département"
+    },
+    "app": {
+      "notFound": "Application non trouvée",
+      "noFilesToUpdate": "Aucun fichier à mettre à jour",
+      "noChatIdFound": "Aucun ID de chat trouvé pour cette application",
+      "noChatFound": "Aucun chat trouvé pour cette application",
+      "versionNotFound": "Version non trouvée",
+      "cannotRollbackToLatestVersion": "Impossible de revenir à la dernière version",
+      "noChatOrProjectTokenFound": "Aucun chat ou jeton de projet trouvé",
+      "apiKeyNotSet": "La clé API du constructeur d'applications n'est pas définie",
+      "cannotDeployAppBeforeInitialization": "Impossible de déployer l'application avant l'initialisation",
+      "noProjectOrVersionFound": "Aucun projet ou version trouvé",
+      "noDeploymentUrlAvailable": "Aucune URL de déploiement disponible"
     }
   }
 }
