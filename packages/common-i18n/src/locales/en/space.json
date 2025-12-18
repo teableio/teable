@@ -128,9 +128,9 @@
       "includeData": "Include data",
       "defaultActiveNode": "Default active node",
       "select": "please select",
-      "descriptionPlaceholder": "please fill in the description",
-      "titlePlaceholder": "please fill in the title",
-      "toBeFilled": "to be filled"
+      "descriptionPlaceholder": "description",
+      "titlePlaceholder": "title",
+      "toBeFilled": "...to be filled"
     },
     "publishToCommunity": "Publish to community",
     "publish": "Publish",
@@ -144,6 +144,9 @@
     "changeCover": "Click to change cover",
     "uploadSuccess": "Image uploaded successfully",
     "uploadFailed": "Upload failed",
-    "invalidImageType": "Please select an image file"
+    "invalidImageType": "Please select an image file",
+    "tips": {
+      "publishValidation": "title and description are required"
+    }
   }
 }
