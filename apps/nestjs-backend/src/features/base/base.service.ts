@@ -433,6 +433,13 @@ export class BaseService {
           data: { usageCount: { increment: 1 } },
         });
 
+        // Emit template apply audit log
+        await this.baseDuplicateService.emitBaseTemplateApplyAuditLog(
+          res.base.id,
+          createBaseFromTemplateRo,
+          res.recordsLength
+        );
+
         // Get defaultActiveNodeId from publishInfo
         const publishInfo = template.publishInfo as { snapshotActiveNodeId?: string } | null;
         const defaultActiveNodeId = publishInfo?.snapshotActiveNodeId;
