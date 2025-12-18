@@ -2788,6 +2788,8 @@ export type I18nTranslations = {
             "update": string;
             "unPublish": string;
             "unPublishSuccess": string;
+            "unPublishConfirmTitle": string;
+            "unPublishConfirmDescription": string;
             "usageCount": string;
             "uploadCover": string;
             "changeCover": string;
@@ -2796,6 +2798,7 @@ export type I18nTranslations = {
             "invalidImageType": string;
             "tips": {
                 "publishValidation": string;
+                "atLeastOneNode": string;
             };
         };
     };

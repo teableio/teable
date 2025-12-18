@@ -2,11 +2,26 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
 import { Plus } from '@teable/icons';
 import type { ITemplateCoverRo, INotifyVo } from '@teable/openapi';
-import { getTemplateByBaseId, publishBase, unpublishTemplate, UploadType } from '@teable/openapi';
+import {
+  getTemplateByBaseId,
+  publishBase,
+  unpublishTemplate,
+  UploadType,
+  BaseNodeResourceType,
+} from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
 import { useBase, useSession } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
   Avatar,
   AvatarFallback,
   AvatarImage,
@@ -26,7 +41,9 @@ import {
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { Camera, Send, SmilePlus } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { ROOT_ID } from '../../../base/base-node/hooks';
+import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
 import { NodeSelect } from './NodeSelect';
 import { NodeTreeSelect } from './NodeTreeSelect';
 
@@ -41,8 +58,30 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const { t } = useTranslation(['space', 'common']);
   const base = useBase();
   const baseId = base?.id;
+  const { treeItems } = useBaseNodeContext();
 
   const queryClient = useQueryClient();
+
+  const allNodeIds = useMemo(() => {
+    const nodeIds: string[] = [];
+    Object.entries(treeItems).forEach(([id]) => {
+      if (id !== ROOT_ID) {
+        nodeIds.push(id);
+      }
+    });
+    return nodeIds;
+  }, [treeItems]);
+
+  // Get all non-folder nodes for default active node selection
+  const allNonFolderNodeIds = useMemo(() => {
+    const nodeIds: string[] = [];
+    Object.entries(treeItems).forEach(([id, node]) => {
+      if (id !== ROOT_ID && node.resourceType !== BaseNodeResourceType.Folder) {
+        nodeIds.push(id);
+      }
+    });
+    return nodeIds;
+  }, [treeItems]);
 
   const { data: templateDetail } = useQuery({
     queryKey: ['template-by-base', baseId],
@@ -56,9 +95,21 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         setScreenshotUrl(data?.cover?.presignedUrl || undefined);
       }
 
-      setSelectedNodeIds(data?.publishInfo?.nodes || []);
+      if (data?.publishInfo?.nodes && data.publishInfo.nodes.length > 0) {
+        setSelectedNodeIds(data.publishInfo.nodes);
+      } else {
+        setSelectedNodeIds(allNodeIds);
+      }
       setIncludeData(data?.publishInfo?.includeData || false);
-      setDefaultActiveNodeId(data?.publishInfo?.defaultActiveNodeId);
+
+      // Set default active node: use saved data if available, otherwise select the first non-folder node
+      if (data?.publishInfo?.defaultActiveNodeId) {
+        setDefaultActiveNodeId(data.publishInfo.defaultActiveNodeId);
+      } else if (allNonFolderNodeIds.length > 0) {
+        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
+      }
+
+      setHasLoadedTemplate(true);
     },
   });
 
@@ -123,11 +174,28 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       })
     | null
   >(null);
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>(allNodeIds);
   const [includeData, setIncludeData] = useState(false);
   const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
   const { user } = useSession();
   const uploadRef = useRef<HTMLInputElement>(null);
+  const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
+
+  useEffect(() => {
+    if (allNodeIds.length > 0 && !hasLoadedTemplate && selectedNodeIds.length === 0) {
+      setSelectedNodeIds(allNodeIds);
+      // On first entry, select the first non-folder node as the default active node
+      if (!defaultActiveNodeId && allNonFolderNodeIds.length > 0) {
+        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
+      }
+    }
+  }, [
+    allNodeIds,
+    hasLoadedTemplate,
+    selectedNodeIds.length,
+    defaultActiveNodeId,
+    allNonFolderNodeIds,
+  ]);
 
   useEffect(() => {
     if (!open) {
@@ -135,8 +203,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       setUploadedCover(null);
       setUploadProgress(0);
       setIsUploading(false);
+      setHasLoadedTemplate(false);
+    } else {
+      // When dialog opens, if there's no default active node and there are selectable nodes, set the first non-folder node
+      if (!defaultActiveNodeId && allNonFolderNodeIds.length > 0) {
+        setDefaultActiveNodeId(allNonFolderNodeIds[0]);
+      }
     }
-  }, [open]);
+  }, [open, defaultActiveNodeId, allNonFolderNodeIds]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -261,15 +335,35 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
             <div className="absolute inset-x-0 bottom-0 flex w-full gap-1">
               {templateDetail && (
-                <Button
-                  className="flex w-full items-center gap-2"
-                  variant="outline"
-                  onClick={() => unpublishTemplateMutate()}
-                  disabled={unpublishTemplateLoading}
-                >
-                  {t('publishBase.unPublish')}
-                  {unpublishTemplateLoading && <Spin className="size-4" />}
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      className="flex w-full items-center gap-2"
+                      variant="outline"
+                      disabled={unpublishTemplateLoading}
+                    >
+                      {t('publishBase.unPublish')}
+                      {unpublishTemplateLoading && <Spin className="size-4" />}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('publishBase.unPublishConfirmTitle')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('publishBase.unPublishConfirmDescription')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={() => unpublishTemplateMutate()}
+                      >
+                        {t('common:actions.confirm')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
               <Button
                 className="flex w-full items-center gap-2"
@@ -278,6 +372,12 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     toast.error(t('publishBase.tips.publishValidation'));
                     return;
                   }
+
+                  if (selectedNodeIds.length === 0) {
+                    toast.error(t('publishBase.tips.atLeastOneNode'));
+                    return;
+                  }
+
                   publishBaseMutate({ title, description: description || '' });
                 }}
                 disabled={publishBaseLoading}

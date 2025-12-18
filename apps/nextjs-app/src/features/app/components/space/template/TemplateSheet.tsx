@@ -23,7 +23,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
   const { children } = props;
   const { t } = useTranslation(['space', 'common']);
 
-  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>('all');
+  const [currentCategoryId, setCurrentCategoryId] = useState<string | null>(null);
 
   const [search, setSearch] = useState<string>('');
   const [inputValue, setInputValue] = useState<string>('');
