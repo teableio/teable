@@ -5,7 +5,6 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { cn, Toggle } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
 import { CategoryMenuItem } from './CategoryMenuItem';
 
 const CategoryGroupLabel = ({ label }: { label: string }) => {
@@ -18,6 +17,8 @@ interface ICategoryMenuProps {
   className?: string;
   categoryHeaderRender?: () => React.ReactNode;
   serverPublishedTemplateCategoryList?: ITemplateCategoryListVo[];
+  isFeatured: boolean;
+  onFeaturedChange: (isFeatured: boolean) => void;
 }
 
 export const CategoryMenu = (props: ICategoryMenuProps) => {
@@ -27,6 +28,8 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
     className,
     categoryHeaderRender,
     serverPublishedTemplateCategoryList,
+    onFeaturedChange,
+    isFeatured,
   } = props;
   const { t } = useTranslation('common');
   const { data: categoryList } = useQuery({
@@ -34,7 +37,6 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
     initialData: serverPublishedTemplateCategoryList,
   });
-  const [isFeatured] = useState(true);
 
   const isMobile = useIsMobile();
 
@@ -50,7 +52,11 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
         {!isMobile && (
           <CategoryGroupLabel label={t('settings.templateAdmin.category.menu.getStarted')} />
         )}
-        <Toggle className="flex items-center justify-start" pressed={isFeatured} disabled>
+        <Toggle
+          className="flex items-center justify-start"
+          pressed={isFeatured}
+          onPressedChange={onFeaturedChange}
+        >
           <span>{t('settings.templateAdmin.category.menu.recommended')}</span>
         </Toggle>
       </div>

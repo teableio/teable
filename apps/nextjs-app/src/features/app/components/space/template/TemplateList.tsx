@@ -14,6 +14,7 @@ interface ITemplateListProps extends ITemplateBaseProps {
   search: string;
   className?: string;
   serverPublishedTemplateList?: ITemplateVo[];
+  isFeatured: boolean;
 }
 
 const PAGE_SIZE = 10;
@@ -26,18 +27,19 @@ export const TemplateList = (props: ITemplateListProps) => {
     onClickTemplateCardHandler,
     className,
     serverPublishedTemplateList,
+    isFeatured,
   } = props;
   const { t } = useTranslation(['common']);
 
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-    queryKey: ReactQueryKeys.publishedTemplateList(currentCategoryId, search),
+    queryKey: ReactQueryKeys.publishedTemplateList(currentCategoryId, search, isFeatured),
     queryFn: ({ pageParam }) =>
       getPublishedTemplateList({
         categoryId: currentCategoryId,
         search,
         skip: pageParam ?? 0,
         take: PAGE_SIZE,
-        featured: true,
+        featured: isFeatured,
       }).then((res) => res.data),
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < PAGE_SIZE) {

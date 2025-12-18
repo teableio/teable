@@ -8,7 +8,7 @@ import type { ITemplateVo } from './get';
 export const GET_PUBLISHED_TEMPLATE_LIST = '/template/published';
 
 export const templateQueryRoSchema = z.object({
-  featured: z.coerce.boolean().optional().meta({
+  featured: z.stringbool().optional().meta({
     default: true,
     example: true,
     description: 'Whether to get featured templates',
