@@ -190,7 +190,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           {isLoading && <Spin className="size-3" />}
         </Button>
       </div>
-      <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6 2xl:flex-row 2xl:overflow-hidden">
+      <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6 2xl:flex-row">
         <TemplatePreview detail={templateDetail} className="2xl:h-fit 2xl:min-w-0 2xl:flex-1" />
         <div className="flex flex-col gap-1 pb-2 2xl:w-1/3 2xl:shrink-0">
           {markdownDescription && (
