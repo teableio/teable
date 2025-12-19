@@ -163,6 +163,7 @@ export const pluginJsonSchema = z.object({
 });
 
 export const BaseJsonSchema = z.object({
+  id: z.string(),
   name: z.string(),
   icon: z.string().nullable(),
   tables: tableJsonSchema.array(),
