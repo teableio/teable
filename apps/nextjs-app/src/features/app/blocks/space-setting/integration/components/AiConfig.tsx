@@ -19,7 +19,10 @@ import { useIsEE } from '@/features/app/hooks/useIsEE';
 import { AIControlCard } from '../../../admin/setting/components/ai-config/AIControlCard';
 import { AIModelPreferencesCard } from '../../../admin/setting/components/ai-config/AIModelPreferencesCard';
 import { AIProviderCard } from '../../../admin/setting/components/ai-config/AIProviderCard';
-import { generateModelKeyList } from '../../../admin/setting/components/ai-config/utils';
+import {
+  generateModelKeyList,
+  parseModelKey,
+} from '../../../admin/setting/components/ai-config/utils';
 
 interface IAIConfigProps {
   config: IAIIntegrationConfig;
@@ -53,20 +56,25 @@ export const AIConfig = (props: IAIConfigProps) => {
   const isCloud = useIsCloud();
 
   const { mutateAsync: onTestChatModelAbility } = useMutation({
-    mutationFn: async (data: IAIIntegrationConfig['chatModel']) => {
-      const testModel = data?.lg;
-      if (!testModel) {
+    mutationFn: async (chatModel: IAIIntegrationConfig['chatModel']) => {
+      const testModelKey = chatModel?.lg;
+      if (!testModelKey) {
         return;
       }
-      const models = generateModelKeyList(llmProviders);
-      const testLLMIndex = models.findIndex((model) => model.modelKey.includes(testModel));
-      const testLLM = llmProviders[testLLMIndex] as Required<LLMProvider>;
-      if (!testLLM) {
+      const testModel = parseModelKey(testModelKey);
+      const testLLMIndex = llmProviders.findIndex(
+        (provider) =>
+          provider.type === testModel.type &&
+          provider.models.includes(testModel.model) &&
+          provider.name === testModel.name
+      );
+      const testLLMProvider = llmProviders[testLLMIndex] as Required<LLMProvider>;
+      if (!testLLMProvider) {
         return;
       }
       return testIntegrationLLM(spaceId, {
-        ...testLLM,
-        modelKey: testModel,
+        ...testLLMProvider,
+        modelKey: testModelKey,
         ability: chatModelAbilityType.options,
       }).then((res) => {
         if (res.success) {
