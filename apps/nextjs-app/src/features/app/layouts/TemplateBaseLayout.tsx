@@ -1,11 +1,11 @@
-import type { DehydratedState } from '@tanstack/react-query';
-import type { IGetBaseVo, ITableVo } from '@teable/openapi';
+import { type DehydratedState } from '@tanstack/react-query';
+import { incrementTemplateVisit, type IGetBaseVo, type ITableVo } from '@teable/openapi';
 import { SessionProvider, addQueryParamsToWebSocketUrl } from '@teable/sdk';
 import type { IUser } from '@teable/sdk/context';
 import { AnchorContext, AppProvider, BaseProvider, TableProvider } from '@teable/sdk/context';
 import { getWsPath } from '@teable/sdk/context/app/useConnection';
 import { useTranslation } from 'next-i18next';
-import React, { Fragment, useMemo } from 'react';
+import React, { Fragment, useEffect, useMemo } from 'react';
 import { AppLayout } from '@/features/app/layouts';
 import { BaseNodeProvider } from '../blocks/base/base-node/BaseNodeProvider';
 import { BaseSideBar } from '../blocks/base/base-side-bar/BaseSideBar';
@@ -46,6 +46,12 @@ export const TemplateBaseLayout = ({
     }
     return undefined;
   }, [templateHeader]);
+
+  useEffect(() => {
+    if (isTemplate && base?.template?.id) {
+      incrementTemplateVisit(base?.template?.id);
+    }
+  }, [isTemplate, base?.template?.id]);
 
   if (!isTemplate) {
     return children;

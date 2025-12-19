@@ -53,6 +53,7 @@ export const templateVoSchema = z.object({
       defaultActiveNodeId: z.string().optional().nullable(),
     })
     .optional(),
+  visitCount: z.number(),
 });
 
 export type ITemplateVo = z.infer<typeof templateVoSchema>;

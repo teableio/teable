@@ -1,7 +1,5 @@
-import { ArrowRight, Heart } from '@teable/icons';
+import { Eye } from '@teable/icons';
 import type { ITemplateVo } from '@teable/openapi';
-import { useTranslation } from 'next-i18next';
-import { useBrand } from '@/features/app/hooks/useBrand';
 import type { ITemplateBaseProps } from './TemplateMain';
 
 interface ITemplateCardProps extends ITemplateBaseProps {
@@ -9,10 +7,8 @@ interface ITemplateCardProps extends ITemplateBaseProps {
 }
 
 export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplateCardProps) => {
-  const { name, description, cover, usageCount, id: templateId } = template;
+  const { name, description, cover, visitCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
-  const { t } = useTranslation('common');
-  const { brandName } = useBrand();
 
   return (
     <div
@@ -47,8 +43,8 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
           </span>
 
           <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-            <Heart className="size-4" />
-            <span>{usageCount > 999 ? '999+' : usageCount}</span>
+            <Eye className="size-4" />
+            <span>{visitCount > 999 ? '999+' : visitCount}</span>
           </div>
         </h2>
         <p className="m-0 line-clamp-2 flex-1 overflow-hidden text-sm " title={description}>

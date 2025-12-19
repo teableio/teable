@@ -124,4 +124,10 @@ export class TemplateOpenApiController {
   async getTemplateById(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.getTemplateDetailById(templateId);
   }
+
+  @Public()
+  @Patch('/:templateId/visit')
+  async incrementTemplateVisitCount(@Param('templateId') templateId: string) {
+    return this.templateOpenApiService.incrementTemplateVisitCount(templateId);
+  }
 }
