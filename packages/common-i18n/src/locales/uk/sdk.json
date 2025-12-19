@@ -1334,6 +1334,19 @@
       "notFound": "Відділ не знайдено",
       "cannotMoveToItself": "Неможливо перемістити відділ в самого себе",
       "cannotMoveToSub": "Неможливо перемістити відділ в його підвідділ"
+    },
+    "app": {
+      "notFound": "Додаток не знайдено",
+      "noFilesToUpdate": "Немає файлів для оновлення",
+      "noChatIdFound": "ID чату для цього додатку не знайдено",
+      "noChatFound": "Чат для цього додатку не знайдено",
+      "versionNotFound": "Версію не знайдено",
+      "cannotRollbackToLatestVersion": "Неможливо відкотити до останньої версії",
+      "noChatOrProjectTokenFound": "Чат або токен проекту не знайдено",
+      "apiKeyNotSet": "API-ключ конструктора додатків не встановлено",
+      "cannotDeployAppBeforeInitialization": "Неможливо розгорнути додаток до ініціалізації",
+      "noProjectOrVersionFound": "Проект або версію не знайдено",
+      "noDeploymentUrlAvailable": "URL розгортання недоступний"
     }
   }
 }

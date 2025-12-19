@@ -7,39 +7,31 @@ import {
   joinWaitlist as joinWaitlistApi,
   signup,
 } from '@teable/openapi';
-import { ClsService } from 'nestjs-cls';
+import { vi } from 'vitest';
 import { SettingService } from '../src/features/setting/setting.service';
-import type { IClsStore } from '../src/types/cls';
-import { initApp, runWithTestUser } from './utils/init-app';
+import { initApp } from './utils/init-app';
 
 describe('Auth Controller (e2e) api/auth waitlist', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   let settingService: SettingService;
-  let clsService: ClsService<IClsStore>;
-  let enableWaitlist: boolean | null | undefined;
 
   beforeAll(async () => {
     const appCtx = await initApp();
     app = appCtx.app;
-    clsService = app.get(ClsService);
     prismaService = app.get(PrismaService);
     settingService = app.get(SettingService);
-    const setting = await settingService.getSetting();
-    enableWaitlist = setting.enableWaitlist;
-    await runWithTestUser(clsService, async () => {
-      await settingService.updateSetting({
+    const originalGetSetting = await settingService.getSetting();
+    vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
+      return {
+        ...originalGetSetting,
         enableWaitlist: true,
-      });
+      };
     });
   });
 
   afterAll(async () => {
-    await runWithTestUser(clsService, async () => {
-      await settingService.updateSetting({
-        enableWaitlist: enableWaitlist ?? false,
-      });
-    });
+    vi.restoreAllMocks();
     await app.close();
   });
 

@@ -1334,6 +1334,19 @@
       "notFound": "Abteilung nicht gefunden",
       "cannotMoveToItself": "Abteilung kann nicht zu sich selbst verschoben werden",
       "cannotMoveToSub": "Abteilung kann nicht zu ihrer Unterabteilung verschoben werden"
+    },
+    "app": {
+      "notFound": "App nicht gefunden",
+      "noFilesToUpdate": "Keine Dateien zum Aktualisieren",
+      "noChatIdFound": "Keine Chat-ID für diese App gefunden",
+      "noChatFound": "Kein Chat für diese App gefunden",
+      "versionNotFound": "Version nicht gefunden",
+      "cannotRollbackToLatestVersion": "Rollback auf die neueste Version nicht möglich",
+      "noChatOrProjectTokenFound": "Kein Chat oder Projekt-Token gefunden",
+      "apiKeyNotSet": "App Builder API-Schlüssel ist nicht festgelegt",
+      "cannotDeployAppBeforeInitialization": "App kann vor der Initialisierung nicht bereitgestellt werden",
+      "noProjectOrVersionFound": "Kein Projekt oder Version gefunden",
+      "noDeploymentUrlAvailable": "Keine Bereitstellungs-URL verfügbar"
     }
   }
 }

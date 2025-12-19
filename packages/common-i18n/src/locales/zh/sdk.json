@@ -1338,6 +1338,19 @@
       "notFound": "部门未找到",
       "cannotMoveToItself": "无法将部门移动到自身",
       "cannotMoveToSub": "无法将部门移动到其子部门"
+    },
+    "app": {
+      "notFound": "应用不存在",
+      "noFilesToUpdate": "没有文件需要更新",
+      "noChatIdFound": "此应用没有关联的对话 ID",
+      "noChatFound": "此应用没有关联的对话",
+      "versionNotFound": "版本不存在",
+      "cannotRollbackToLatestVersion": "无法回滚到最新版本",
+      "noChatOrProjectTokenFound": "没有找到对话或项目令牌",
+      "apiKeyNotSet": "应用构建器 API 密钥未设置",
+      "cannotDeployAppBeforeInitialization": "无法在初始化前部署应用",
+      "noProjectOrVersionFound": "没有找到项目或版本",
+      "noDeploymentUrlAvailable": "没有可用的部署 URL"
     }
   }
 }
