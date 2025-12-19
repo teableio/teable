@@ -6,32 +6,30 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { NumericPrecision } from './NumericPrecision';
+import { DateFormat } from './DateFormat';
 
-export class NumberField extends Field {
+export class DateField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
-    private readonly precision: NumericPrecision
+    private readonly format: DateFormat
   ) {
-    super(id, name, FieldType.number());
+    super(id, name, FieldType.date());
   }
 
   static create(params: {
     id: FieldId;
     name: FieldName;
-    precision?: NumericPrecision;
-  }): Result<NumberField, string> {
-    return ok(
-      new NumberField(params.id, params.name, params.precision ?? NumericPrecision.default())
-    );
+    format?: DateFormat;
+  }): Result<DateField, string> {
+    return ok(new DateField(params.id, params.name, params.format ?? DateFormat.dateTime()));
   }
 
-  numericPrecision(): NumericPrecision {
-    return this.precision;
+  dateFormat(): DateFormat {
+    return this.format;
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
-    return visitor.visitNumberField(this);
+    return visitor.visitDateField(this);
   }
 }

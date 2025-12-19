@@ -2,6 +2,7 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-postgres-state';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
 import { NoopEventPublisher, v2CoreTokens } from '@teable/v2-core';
+import { PostgresUnitOfWork } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 
@@ -31,6 +32,10 @@ export const registerV2NodePgDependencies = async (
 
   await registerV2PostgresDdlAdapter(c, {
     pg: { connectionString },
+  });
+
+  c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
+    lifecycle: Lifecycle.Singleton,
   });
 
   c.register(v2CoreTokens.eventPublisher, NoopEventPublisher, {

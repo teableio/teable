@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-identical-functions */
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -5,12 +6,21 @@ import type { BaseId } from '../base/BaseId';
 import type { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
+import { AttachmentField } from './fields/types/AttachmentField';
+import { ButtonField } from './fields/types/ButtonField';
+import { CheckboxField } from './fields/types/CheckboxField';
+import { DateField } from './fields/types/DateField';
+import { DateFormat } from './fields/types/DateFormat';
+import { LongTextField } from './fields/types/LongTextField';
+import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import { NumberField } from './fields/types/NumberField';
+import { NumericPrecision } from './fields/types/NumericPrecision';
 import { RatingField } from './fields/types/RatingField';
 import { RatingMax } from './fields/types/RatingMax';
 import type { SelectOptionName } from './fields/types/SelectOptionName';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import { SingleSelectField } from './fields/types/SingleSelectField';
+import { UserField } from './fields/types/UserField';
 import type { Table } from './Table';
 import { TableId } from './TableId';
 import type { TableName } from './TableName';
@@ -178,6 +188,10 @@ export class TableFieldBuilder {
     return new SingleLineTextFieldBuilder(this.parent, this.sink);
   }
 
+  longText(): LongTextFieldBuilder {
+    return new LongTextFieldBuilder(this.parent, this.sink);
+  }
+
   number(): NumberFieldBuilder {
     return new NumberFieldBuilder(this.parent, this.sink);
   }
@@ -188,6 +202,30 @@ export class TableFieldBuilder {
 
   singleSelect(): SingleSelectFieldBuilder {
     return new SingleSelectFieldBuilder(this.parent, this.sink);
+  }
+
+  multipleSelect(): MultipleSelectFieldBuilder {
+    return new MultipleSelectFieldBuilder(this.parent, this.sink);
+  }
+
+  checkbox(): CheckboxFieldBuilder {
+    return new CheckboxFieldBuilder(this.parent, this.sink);
+  }
+
+  attachment(): AttachmentFieldBuilder {
+    return new AttachmentFieldBuilder(this.parent, this.sink);
+  }
+
+  date(): DateFieldBuilder {
+    return new DateFieldBuilder(this.parent, this.sink);
+  }
+
+  user(): UserFieldBuilder {
+    return new UserFieldBuilder(this.parent, this.sink);
+  }
+
+  button(): ButtonFieldBuilder {
+    return new ButtonFieldBuilder(this.parent, this.sink);
   }
 }
 
@@ -228,8 +266,46 @@ export class SingleLineTextFieldBuilder {
   }
 }
 
+export class LongTextFieldBuilder {
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): LongTextFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  primary(): LongTextFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      LongTextField.create({ id, name }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
 export class NumberFieldBuilder {
   private name: FieldName | undefined;
+  private precision: NumericPrecision = NumericPrecision.default();
   private isPrimary = false;
 
   constructor(
@@ -239,6 +315,11 @@ export class NumberFieldBuilder {
 
   withName(name: FieldName): NumberFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withPrecision(precision: NumericPrecision): NumberFieldBuilder {
+    this.precision = precision;
     return this;
   }
 
@@ -255,7 +336,7 @@ export class NumberFieldBuilder {
     }
 
     const result = FieldId.generate().andThen((id) =>
-      NumberField.create({ id, name }).andThen((field) => {
+      NumberField.create({ id, name, precision: this.precision }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
@@ -268,6 +349,7 @@ export class NumberFieldBuilder {
 export class RatingFieldBuilder {
   private name: FieldName | undefined;
   private max: RatingMax = RatingMax.five();
+  private precision: NumericPrecision = NumericPrecision.integer();
   private isPrimary = false;
 
   constructor(
@@ -285,6 +367,11 @@ export class RatingFieldBuilder {
     return this;
   }
 
+  withPrecision(precision: NumericPrecision): RatingFieldBuilder {
+    this.precision = precision;
+    return this;
+  }
+
   primary(): RatingFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -298,10 +385,12 @@ export class RatingFieldBuilder {
     }
 
     const result = FieldId.generate().andThen((id) =>
-      RatingField.create({ id, name, max: this.max }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
-      })
+      RatingField.create({ id, name, max: this.max, precision: this.precision }).andThen(
+        (field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        }
+      )
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -342,6 +431,240 @@ export class SingleSelectFieldBuilder {
 
     const result = FieldId.generate().andThen((id) =>
       SingleSelectField.create({ id, name, options: this.options }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class MultipleSelectFieldBuilder {
+  private name: FieldName | undefined;
+  private options: ReadonlyArray<SelectOptionName> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): MultipleSelectFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withOptions(options: ReadonlyArray<SelectOptionName>): MultipleSelectFieldBuilder {
+    this.options = [...options];
+    return this;
+  }
+
+  primary(): MultipleSelectFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      MultipleSelectField.create({ id, name, options: this.options }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class CheckboxFieldBuilder {
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): CheckboxFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  primary(): CheckboxFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      CheckboxField.create({ id, name }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class AttachmentFieldBuilder {
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): AttachmentFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  primary(): AttachmentFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      AttachmentField.create({ id, name }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class DateFieldBuilder {
+  private name: FieldName | undefined;
+  private format: DateFormat = DateFormat.dateTime();
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): DateFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withFormat(format: DateFormat): DateFieldBuilder {
+    this.format = format;
+    return this;
+  }
+
+  primary(): DateFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      DateField.create({ id, name, format: this.format }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class UserFieldBuilder {
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): UserFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  primary(): UserFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      UserField.create({ id, name }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class ButtonFieldBuilder {
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): ButtonFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  primary(): ButtonFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = FieldId.generate().andThen((id) =>
+      ButtonField.create({ id, name }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })

@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
+import { match } from 'ts-pattern';
 
 import { BaseId } from '../domain/base/BaseId';
 import { FieldName } from '../domain/table/fields/FieldName';
@@ -22,6 +23,11 @@ export const createTableInputSchema = z.object({
           isPrimary: z.boolean().optional(),
         }),
         z.object({
+          type: z.literal('longText'),
+          name: z.string(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
           type: z.literal('number'),
           name: z.string(),
           isPrimary: z.boolean().optional(),
@@ -36,6 +42,37 @@ export const createTableInputSchema = z.object({
           type: z.literal('singleSelect'),
           name: z.string(),
           options: z.array(z.string()),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('multipleSelect'),
+          name: z.string(),
+          options: z.array(z.string()),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('checkbox'),
+          name: z.string(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('attachment'),
+          name: z.string(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('date'),
+          name: z.string(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('user'),
+          name: z.string(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('button'),
+          name: z.string(),
           isPrimary: z.boolean().optional(),
         }),
       ])
@@ -154,6 +191,27 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateLongTextFieldSpec {
+    return new CreateLongTextFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().longText().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateLongTextFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
 class CreateNumberFieldSpec implements ICreateTableFieldSpec {
   private constructor(private readonly name: FieldName) {}
 
@@ -235,6 +293,143 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly name: FieldName,
+    private readonly options: ReadonlyArray<SelectOptionName>
+  ) {}
+
+  static create(
+    name: FieldName,
+    options: ReadonlyArray<SelectOptionName>,
+    meta: { isPrimary: boolean }
+  ): CreateMultipleSelectFieldSpec {
+    return new CreateMultipleSelectFieldSpec(name, options).withPrimary(meta.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder
+      .field()
+      .multipleSelect()
+      .withName(this.name)
+      .withOptions(this.options);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateMultipleSelectFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateCheckboxFieldSpec {
+    return new CreateCheckboxFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().checkbox().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateCheckboxFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateAttachmentFieldSpec {
+    return new CreateAttachmentFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().attachment().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateAttachmentFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateDateFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateDateFieldSpec {
+    return new CreateDateFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().date().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateDateFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateUserFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateUserFieldSpec {
+    return new CreateUserFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().user().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateUserFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateButtonFieldSpec implements ICreateTableFieldSpec {
+  private constructor(private readonly name: FieldName) {}
+
+  static create(name: FieldName, options: { isPrimary: boolean }): CreateButtonFieldSpec {
+    return new CreateButtonFieldSpec(name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().button().withName(this.name);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateButtonFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
 const sequence = <T>(values: ReadonlyArray<Result<T, string>>): Result<ReadonlyArray<T>, string> =>
   values.reduce<Result<ReadonlyArray<T>, string>>(
     (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
@@ -285,20 +480,35 @@ export class CreateTableCommand {
     const specs = fieldsToUse.map((field, index) => {
       const isPrimary = index === primaryIndex;
       return FieldName.create(field.name).andThen((name) => {
-        switch (field.type) {
-          case 'singleLineText':
-            return ok(CreateSingleLineTextFieldSpec.create(name, { isPrimary }));
-          case 'number':
-            return ok(CreateNumberFieldSpec.create(name, { isPrimary }));
-          case 'rating':
-            return (
-              field.max === undefined ? ok(RatingMax.five()) : RatingMax.create(field.max)
-            ).map((max) => CreateRatingFieldSpec.create(name, max, { isPrimary }));
-          case 'singleSelect':
-            return sequence(field.options.map((o) => SelectOptionName.create(o))).map((options) =>
+        return match(field)
+          .with({ type: 'singleLineText' }, () =>
+            ok(CreateSingleLineTextFieldSpec.create(name, { isPrimary }))
+          )
+          .with({ type: 'longText' }, () => ok(CreateLongTextFieldSpec.create(name, { isPrimary })))
+          .with({ type: 'number' }, () => ok(CreateNumberFieldSpec.create(name, { isPrimary })))
+          .with({ type: 'rating' }, (field) =>
+            (field.max === undefined ? ok(RatingMax.five()) : RatingMax.create(field.max)).map(
+              (max) => CreateRatingFieldSpec.create(name, max, { isPrimary })
+            )
+          )
+          .with({ type: 'singleSelect' }, (field) =>
+            sequence(field.options.map((o) => SelectOptionName.create(o))).map((options) =>
               CreateSingleSelectFieldSpec.create(name, options, { isPrimary })
-            );
-        }
+            )
+          )
+          .with({ type: 'multipleSelect' }, (field) =>
+            sequence(field.options.map((o) => SelectOptionName.create(o))).map((options) =>
+              CreateMultipleSelectFieldSpec.create(name, options, { isPrimary })
+            )
+          )
+          .with({ type: 'checkbox' }, () => ok(CreateCheckboxFieldSpec.create(name, { isPrimary })))
+          .with({ type: 'attachment' }, () =>
+            ok(CreateAttachmentFieldSpec.create(name, { isPrimary }))
+          )
+          .with({ type: 'date' }, () => ok(CreateDateFieldSpec.create(name, { isPrimary })))
+          .with({ type: 'user' }, () => ok(CreateUserFieldSpec.create(name, { isPrimary })))
+          .with({ type: 'button' }, () => ok(CreateButtonFieldSpec.create(name, { isPrimary })))
+          .exhaustive();
       });
     });
 
@@ -311,45 +521,28 @@ export class CreateTableCommand {
     const viewsToUse =
       rawViews && rawViews.length > 0 ? rawViews : [{ type: 'grid' as const, name: 'Grid' }];
 
-    const defaultViewNameByType = (type: string): string => {
-      switch (type) {
-        case 'calendar':
-          return 'Calendar';
-        case 'kanban':
-          return 'Kanban';
-        case 'form':
-          return 'Form';
-        case 'gallery':
-          return 'Gallery';
-        case 'plugin':
-          return 'Plugin';
-        case 'grid':
-        default:
-          return 'Grid';
-      }
-    };
+    const defaultViewNameByType = (type: string): string =>
+      match(type)
+        .with('calendar', () => 'Calendar')
+        .with('kanban', () => 'Kanban')
+        .with('form', () => 'Form')
+        .with('gallery', () => 'Gallery')
+        .with('plugin', () => 'Plugin')
+        .otherwise(() => 'Grid');
 
     const specs = viewsToUse.map((view) => {
       const type = view.type ?? 'grid';
       const rawName = view.name ?? defaultViewNameByType(type);
 
       return ViewName.create(rawName).andThen((name) => {
-        switch (type) {
-          case 'grid':
-            return ok(CreateGridViewSpec.create(name));
-          case 'kanban':
-            return ok(CreateKanbanViewSpec.create(name));
-          case 'gallery':
-            return ok(CreateGalleryViewSpec.create(name));
-          case 'calendar':
-            return ok(CreateCalendarViewSpec.create(name));
-          case 'form':
-            return ok(CreateFormViewSpec.create(name));
-          case 'plugin':
-            return ok(CreatePluginViewSpec.create(name));
-          default:
-            return err('Unsupported view type');
-        }
+        return match(type)
+          .with('grid', () => ok(CreateGridViewSpec.create(name)))
+          .with('kanban', () => ok(CreateKanbanViewSpec.create(name)))
+          .with('gallery', () => ok(CreateGalleryViewSpec.create(name)))
+          .with('calendar', () => ok(CreateCalendarViewSpec.create(name)))
+          .with('form', () => ok(CreateFormViewSpec.create(name)))
+          .with('plugin', () => ok(CreatePluginViewSpec.create(name)))
+          .otherwise(() => err('Unsupported view type'));
       });
     });
 

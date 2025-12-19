@@ -8,22 +8,22 @@ import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import type { SelectOptionName } from './SelectOptionName';
 import { validateSelectOptions } from './SelectOptions';
 
-export class SingleSelectField extends Field {
+export class MultipleSelectField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
     private readonly options: ReadonlyArray<SelectOptionName>
   ) {
-    super(id, name, FieldType.singleSelect());
+    super(id, name, FieldType.multipleSelect());
   }
 
   static create(params: {
     id: FieldId;
     name: FieldName;
     options: ReadonlyArray<SelectOptionName>;
-  }): Result<SingleSelectField, string> {
+  }): Result<MultipleSelectField, string> {
     return validateSelectOptions(params.options).map(
-      (options) => new SingleSelectField(params.id, params.name, options)
+      (options) => new MultipleSelectField(params.id, params.name, options)
     );
   }
 
@@ -32,6 +32,6 @@ export class SingleSelectField extends Field {
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
-    return visitor.visitSingleSelectField(this);
+    return visitor.visitMultipleSelectField(this);
   }
 }

@@ -4,9 +4,16 @@ import type { Table } from '../../domain/table/Table';
 
 export type ITableFieldPersistenceDTO =
   | { id: string; name: string; type: 'singleLineText' }
+  | { id: string; name: string; type: 'longText' }
   | { id: string; name: string; type: 'number' }
   | { id: string; name: string; type: 'rating'; max: number }
-  | { id: string; name: string; type: 'singleSelect'; options: ReadonlyArray<string> };
+  | { id: string; name: string; type: 'singleSelect'; options: ReadonlyArray<string> }
+  | { id: string; name: string; type: 'multipleSelect'; options: ReadonlyArray<string> }
+  | { id: string; name: string; type: 'checkbox' }
+  | { id: string; name: string; type: 'attachment' }
+  | { id: string; name: string; type: 'date' }
+  | { id: string; name: string; type: 'user' }
+  | { id: string; name: string; type: 'button' };
 
 export type ITableViewPersistenceDTO =
   | { id: string; name: string; type: 'grid' }

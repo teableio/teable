@@ -1,5 +1,5 @@
 import type { IExecutionContext, ITableSchemaRepository, Table } from '@teable/v2-core';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
+import { resolvePostgresDb, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import { inject, injectable } from '@teable/v2-di';
 import type { ColumnDefinitionBuilder, CreateTableBuilder, Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -18,16 +18,17 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     private readonly db: Kysely<unknown>
   ) {}
 
-  async save(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async save(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
     const tableId = table.id().toString();
     let dbTableName: string;
+    const db = resolvePostgresDb(this.db, context);
 
     try {
       const tableMetaResult = await sql<{ dbTableName: string }>`
         select db_table_name as "dbTableName"
         from table_meta
         where id = ${tableId}
-      `.execute(this.db);
+      `.execute(db);
 
       dbTableName = tableMetaResult.rows[0]?.dbTableName ?? '';
     } catch (error) {
@@ -39,14 +40,14 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     const { schema, tableName } = splitDbTableName(dbTableName);
     if (schema && schema !== 'public') {
       try {
-        await this.db.schema.createSchema(schema).ifNotExists().execute();
+        await db.schema.createSchema(schema).ifNotExists().execute();
       } catch (error) {
         return err(`Failed to ensure table schema: ${describeError(error)}`);
       }
     }
 
     type ICreateTableBuilder = CreateTableBuilder<string, string>;
-    const schemaBuilder = schema ? this.db.schema.withSchema(schema) : this.db.schema;
+    const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
     let builder = schemaBuilder
       .createTable(tableName)
       .ifNotExists() as unknown as ICreateTableBuilder;
@@ -69,7 +70,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         from field
         where table_id = ${tableId}
           and deleted_time is null
-      `.execute(this.db);
+      `.execute(db);
       fieldDbNameById = new Map(fieldRows.rows.map((row) => [row.id, row.dbFieldName]));
     } catch (error) {
       return err(`Failed to load field metadata: ${describeError(error)}`);

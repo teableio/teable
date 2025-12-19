@@ -2,9 +2,9 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
 import type { ITableRepository } from '@teable/v2-core';
 import { BaseId, getRandomString, MemoryEventPublisher, v2CoreTokens } from '@teable/v2-core';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
+import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
-import { container } from '@teable/v2-di';
+import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
@@ -33,6 +33,10 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   });
 
   await registerV2PostgresDdlAdapter(c, { pg: { connectionString } });
+
+  c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
+    lifecycle: Lifecycle.Singleton,
+  });
 
   const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
   const eventPublisher = new MemoryEventPublisher();

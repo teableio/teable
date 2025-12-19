@@ -9,7 +9,11 @@ import type {
   Table,
 } from '@teable/v2-core';
 import { getRandomString } from '@teable/v2-core';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
+import {
+  getPostgresTransaction,
+  resolvePostgresDb,
+  v2PostgresDbTokens,
+} from '@teable/v2-db-postgres';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql } from 'kysely';
@@ -24,6 +28,10 @@ import {
   joinDbTableName,
   splitDbTableName,
 } from '../naming';
+import {
+  FieldStorageTypeVisitor,
+  type IFieldStorageType,
+} from './visitors/FieldStorageTypeVisitor';
 import { TableWhereVisitor } from './visitors/TableWhereVisitor';
 
 @injectable()
@@ -39,134 +47,149 @@ export class PostgresTableRepository implements ITableRepository {
     const dtoResult = this.tableMapper.toDTO(table);
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
+    const fieldStorageTypeResult = this.buildFieldStorageTypeById(table);
+    if (fieldStorageTypeResult.isErr()) return err(fieldStorageTypeResult.error);
+    const fieldStorageTypeById = fieldStorageTypeResult.value;
 
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = dto.baseId;
 
-    try {
-      await this.db.transaction().execute(async (trx) => {
-        const existing = await trx
+    const transaction = getPostgresTransaction<V1TeableDatabase>(context);
+    const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, string>> => {
+      const existing = await trx
+        .selectFrom('table_meta')
+        .select(['id', 'order', 'db_table_name'])
+        .where('id', '=', dto.id)
+        .executeTakeFirst();
+
+      const order: number =
+        existing?.order ??
+        (await trx
           .selectFrom('table_meta')
-          .select(['id', 'order', 'db_table_name'])
-          .where('id', '=', dto.id)
-          .executeTakeFirst();
+          .select(({ fn }) => fn.max('order').as('max_order'))
+          .where('base_id', '=', baseId)
+          .executeTakeFirst()
+          .then((row) => Number(row?.max_order ?? 0) + 1));
 
-        const order: number =
-          existing?.order ??
-          (await trx
-            .selectFrom('table_meta')
-            .select(({ fn }) => fn.max('order').as('max_order'))
-            .where('base_id', '=', baseId)
-            .executeTakeFirst()
-            .then((row) => Number(row?.max_order ?? 0) + 1));
+      const tableDbMeta = await this.buildTableDbMeta(
+        trx,
+        dto,
+        baseId,
+        existing?.db_table_name ?? null
+      );
 
-        const tableDbMeta = await this.buildTableDbMeta(
-          trx,
-          dto,
-          baseId,
-          existing?.db_table_name ?? null
-        );
-
-        await trx
-          .insertInto('table_meta')
-          .values({
-            id: dto.id,
-            base_id: baseId,
-            name: dto.name,
+      const fieldValuesResult = this.sequenceResults(
+        tableDbMeta.fields.map((f, i) => {
+          const storageType = fieldStorageTypeById.get(f.field.id);
+          if (!storageType) return err(`Missing storage type for field ${f.field.id}`);
+          return ok({
+            id: f.field.id,
+            name: f.field.name,
             description: null,
-            icon: null,
-            db_table_name: tableDbMeta.dbTableName,
-            db_view_name: null,
+            options: this.serializeFieldOptions(f.field),
+            meta: null,
+            ai_config: null,
+            type: f.field.type,
+            cell_value_type: storageType.cellValueType,
+            is_multiple_cell_value: null,
+            db_field_type: storageType.dbFieldType,
+            db_field_name: f.dbFieldName,
+            not_null: null,
+            unique: null,
+            is_primary: f.field.id === dto.primaryFieldId ? true : null,
+            is_computed: null,
+            is_lookup: null,
+            is_conditional_lookup: null,
+            is_pending: null,
+            has_error: null,
+            lookup_linked_field_id: null,
+            lookup_options: null,
+            table_id: dto.id,
+            order: i + 1,
             version: 1,
-            order,
             created_time: now,
             last_modified_time: now,
             deleted_time: null,
             created_by: actorId,
             last_modified_by: actorId,
+          });
+        })
+      );
+      if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
+
+      await trx
+        .insertInto('table_meta')
+        .values({
+          id: dto.id,
+          base_id: baseId,
+          name: dto.name,
+          description: null,
+          icon: null,
+          db_table_name: tableDbMeta.dbTableName,
+          db_view_name: null,
+          version: 1,
+          order,
+          created_time: now,
+          last_modified_time: now,
+          deleted_time: null,
+          created_by: actorId,
+          last_modified_by: actorId,
+        })
+        .onConflict((oc) =>
+          oc.column('id').doUpdateSet({
+            name: dto.name,
+            last_modified_time: now,
+            last_modified_by: actorId,
           })
-          .onConflict((oc) =>
-            oc.column('id').doUpdateSet({
-              name: dto.name,
+        )
+        .execute();
+
+      await trx.deleteFrom('field').where('table_id', '=', dto.id).execute();
+      if (fieldValuesResult.value.length > 0) {
+        await trx.insertInto('field').values(fieldValuesResult.value).execute();
+      }
+
+      await trx.deleteFrom('view').where('table_id', '=', dto.id).execute();
+      if (dto.views.length > 0) {
+        await trx
+          .insertInto('view')
+          .values(
+            dto.views.map((v, i) => ({
+              id: v.id,
+              name: v.name,
+              description: null,
+              table_id: dto.id,
+              type: v.type,
+              sort: null,
+              filter: null,
+              group: null,
+              options: null,
+              order: i + 1,
+              version: 1,
+              column_meta: '{}',
+              is_locked: null,
+              enable_share: null,
+              share_id: null,
+              share_meta: null,
+              created_time: now,
               last_modified_time: now,
+              deleted_time: null,
+              created_by: actorId,
               last_modified_by: actorId,
-            })
+            }))
           )
           .execute();
+      }
 
-        await trx.deleteFrom('field').where('table_id', '=', dto.id).execute();
-        if (tableDbMeta.fields.length > 0) {
-          await trx
-            .insertInto('field')
-            .values(
-              tableDbMeta.fields.map((f, i) => ({
-                id: f.field.id,
-                name: f.field.name,
-                description: null,
-                options: this.serializeFieldOptions(f.field),
-                meta: null,
-                ai_config: null,
-                type: f.field.type,
-                cell_value_type: this.getCellValueType(f.field.type),
-                is_multiple_cell_value: null,
-                db_field_type: this.getDbFieldType(f.field.type),
-                db_field_name: f.dbFieldName,
-                not_null: null,
-                unique: null,
-                is_primary: f.field.id === dto.primaryFieldId ? true : null,
-                is_computed: null,
-                is_lookup: null,
-                is_conditional_lookup: null,
-                is_pending: null,
-                has_error: null,
-                lookup_linked_field_id: null,
-                lookup_options: null,
-                table_id: dto.id,
-                order: i + 1,
-                version: 1,
-                created_time: now,
-                last_modified_time: now,
-                deleted_time: null,
-                created_by: actorId,
-                last_modified_by: actorId,
-              }))
-            )
-            .execute();
-        }
+      return ok(undefined);
+    };
 
-        await trx.deleteFrom('view').where('table_id', '=', dto.id).execute();
-        if (dto.views.length > 0) {
-          await trx
-            .insertInto('view')
-            .values(
-              dto.views.map((v, i) => ({
-                id: v.id,
-                name: v.name,
-                description: null,
-                table_id: dto.id,
-                type: v.type,
-                sort: null,
-                filter: null,
-                group: null,
-                options: null,
-                order: i + 1,
-                version: 1,
-                column_meta: '{}',
-                is_locked: null,
-                enable_share: null,
-                share_id: null,
-                share_meta: null,
-                created_time: now,
-                last_modified_time: now,
-                deleted_time: null,
-                created_by: actorId,
-                last_modified_by: actorId,
-              }))
-            )
-            .execute();
-        }
-      });
+    try {
+      const persistResult = transaction
+        ? await persist(transaction)
+        : await this.db.transaction().execute(async (trx) => persist(trx));
+      if (persistResult.isErr()) return err(persistResult.error);
     } catch (error) {
       return err(`Failed to save table: ${describeError(error)}`);
     }
@@ -174,7 +197,10 @@ export class PostgresTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
-  async findOne(_: IExecutionContext, spec: ISpecification<Table>): Promise<Result<Table, string>> {
+  async findOne(
+    context: IExecutionContext,
+    spec: ISpecification<Table>
+  ): Promise<Result<Table, string>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
@@ -184,7 +210,8 @@ export class PostgresTableRepository implements ITableRepository {
     const whereFactory = whereResult.value;
 
     try {
-      const baseQuery = this.db
+      const db = resolvePostgresDb(this.db, context);
+      const baseQuery = db
         .selectFrom('table_meta')
         .select(['id', 'name', 'base_id'])
         .where((eb) => whereFactory(eb));
@@ -192,7 +219,7 @@ export class PostgresTableRepository implements ITableRepository {
       const tableRow = await baseQuery.executeTakeFirst();
       if (!tableRow) return err('Not found');
 
-      const fieldRows = await this.db
+      const fieldRows = await db
         .selectFrom('field')
         .select(['id', 'name', 'type', 'options', 'is_primary'])
         .where('table_id', '=', tableRow.id)
@@ -200,7 +227,7 @@ export class PostgresTableRepository implements ITableRepository {
         .orderBy('order')
         .execute();
 
-      const viewRows = await this.db
+      const viewRows = await db
         .selectFrom('view')
         .select(['id', 'name', 'type'])
         .where('table_id', '=', tableRow.id)
@@ -237,12 +264,14 @@ export class PostgresTableRepository implements ITableRepository {
       case 'rating':
         return JSON.stringify({ max: field.max });
       case 'singleSelect':
+      case 'multipleSelect':
         return JSON.stringify({ options: field.options });
       default:
         return null;
     }
   }
 
+  // eslint-disable-next-line sonarjs/cognitive-complexity
   private deserializeFieldDto(row: {
     id: string;
     name: string;
@@ -261,7 +290,20 @@ export class PostgresTableRepository implements ITableRepository {
       return { id: row.id, name: row.name, type: 'singleSelect', options: parsed.options ?? [] };
     }
 
+    if (row.type === 'multipleSelect') {
+      const parsed = row.options
+        ? (JSON.parse(row.options) as { options?: ReadonlyArray<string> })
+        : {};
+      return { id: row.id, name: row.name, type: 'multipleSelect', options: parsed.options ?? [] };
+    }
+
     if (row.type === 'number') return { id: row.id, name: row.name, type: 'number' };
+    if (row.type === 'longText') return { id: row.id, name: row.name, type: 'longText' };
+    if (row.type === 'checkbox') return { id: row.id, name: row.name, type: 'checkbox' };
+    if (row.type === 'attachment') return { id: row.id, name: row.name, type: 'attachment' };
+    if (row.type === 'date') return { id: row.id, name: row.name, type: 'date' };
+    if (row.type === 'user') return { id: row.id, name: row.name, type: 'user' };
+    if (row.type === 'button') return { id: row.id, name: row.name, type: 'button' };
     return { id: row.id, name: row.name, type: 'singleLineText' };
   }
 
@@ -288,25 +330,13 @@ export class PostgresTableRepository implements ITableRepository {
     );
   }
 
-  private getCellValueType(type: string): string {
-    switch (type) {
-      case 'number':
-      case 'rating':
-        return 'number';
-      default:
-        return 'string';
-    }
-  }
-
-  private getDbFieldType(type: string): string {
-    switch (type) {
-      case 'number':
-        return 'numeric';
-      case 'rating':
-        return 'integer';
-      default:
-        return 'text';
-    }
+  private buildFieldStorageTypeById(
+    table: Table
+  ): Result<ReadonlyMap<string, IFieldStorageType>, string> {
+    const visitor = new FieldStorageTypeVisitor();
+    const applyResult = visitor.apply(table);
+    if (applyResult.isErr()) return err(applyResult.error);
+    return ok(visitor.typesById());
   }
 
   private async buildTableDbMeta(

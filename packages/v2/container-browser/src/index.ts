@@ -2,6 +2,7 @@ import {
   NoopEventPublisher,
   NoopTableRepository,
   NoopTableSchemaRepository,
+  NoopUnitOfWork,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -17,6 +18,9 @@ export const registerV2BrowserNoopDependencies = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.eventPublisher, NoopEventPublisher, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
   return c;

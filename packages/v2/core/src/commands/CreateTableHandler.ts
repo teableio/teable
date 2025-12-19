@@ -10,6 +10,7 @@ import type { IExecutionContext } from '../ports/ExecutionContext';
 import { ITableRepository } from '../ports/TableRepository';
 import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
+import { IUnitOfWork } from '../ports/UnitOfWork';
 import type { CreateTableCommand } from './CreateTableCommand';
 
 export class CreateTableResult {
@@ -31,7 +32,9 @@ export class CreateTableHandler {
     @inject(v2CoreTokens.tableSchemaRepository)
     private readonly tableSchemaRepository: ITableSchemaRepository,
     @inject(v2CoreTokens.eventPublisher)
-    private readonly eventPublisher: IEventPublisher
+    private readonly eventPublisher: IEventPublisher,
+    @inject(v2CoreTokens.unitOfWork)
+    private readonly unitOfWork: IUnitOfWork
   ) {}
 
   async handle(
@@ -42,21 +45,19 @@ export class CreateTableHandler {
     if (tableResult.isErr()) return err(tableResult.error);
     const table = tableResult.value;
 
-    let saveResult: Result<void, string>;
-    try {
-      saveResult = await this.tableRepository.save(context, table);
-    } catch {
-      return err('Unexpected tableRepository.save error');
-    }
-    if (saveResult.isErr()) return err(saveResult.error);
+    const transactionResult = await this.unitOfWork.withTransaction(
+      context,
+      async (transactionContext) => {
+        const saveResult = await this.tableRepository.save(transactionContext, table);
+        if (saveResult.isErr()) return err(saveResult.error);
 
-    let schemaResult: Result<void, string>;
-    try {
-      schemaResult = await this.tableSchemaRepository.save(context, table);
-    } catch {
-      return err('Unexpected tableSchemaRepository.save error');
-    }
-    if (schemaResult.isErr()) return err(schemaResult.error);
+        const schemaResult = await this.tableSchemaRepository.save(transactionContext, table);
+        if (schemaResult.isErr()) return err(schemaResult.error);
+
+        return ok(undefined);
+      }
+    );
+    if (transactionResult.isErr()) return err(transactionResult.error);
 
     const events = table.pullDomainEvents();
 

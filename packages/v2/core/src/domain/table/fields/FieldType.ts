@@ -4,7 +4,19 @@ import { z } from 'zod';
 
 import { ValueObject } from '../../shared/ValueObject';
 
-const fieldTypeSchema = z.enum(['singleLineText', 'number', 'rating', 'singleSelect']);
+const fieldTypeSchema = z.enum([
+  'singleLineText',
+  'longText',
+  'number',
+  'rating',
+  'singleSelect',
+  'multipleSelect',
+  'checkbox',
+  'attachment',
+  'date',
+  'user',
+  'button',
+]);
 type IFieldTypeLiteral = z.infer<typeof fieldTypeSchema>;
 
 export class FieldType extends ValueObject {
@@ -22,6 +34,10 @@ export class FieldType extends ValueObject {
     return new FieldType('singleLineText');
   }
 
+  static longText(): FieldType {
+    return new FieldType('longText');
+  }
+
   static number(): FieldType {
     return new FieldType('number');
   }
@@ -32,6 +48,30 @@ export class FieldType extends ValueObject {
 
   static singleSelect(): FieldType {
     return new FieldType('singleSelect');
+  }
+
+  static multipleSelect(): FieldType {
+    return new FieldType('multipleSelect');
+  }
+
+  static checkbox(): FieldType {
+    return new FieldType('checkbox');
+  }
+
+  static attachment(): FieldType {
+    return new FieldType('attachment');
+  }
+
+  static date(): FieldType {
+    return new FieldType('date');
+  }
+
+  static user(): FieldType {
+    return new FieldType('user');
+  }
+
+  static button(): FieldType {
+    return new FieldType('button');
   }
 
   equals(other: FieldType): boolean {

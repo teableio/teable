@@ -30,6 +30,7 @@
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",
+    "neverthrow": "8.2.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",

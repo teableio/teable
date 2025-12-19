@@ -1,12 +1,19 @@
 import type {
+  AttachmentField,
+  ButtonField,
+  CheckboxField,
+  DateField,
   Field,
   FieldId,
   IFieldVisitor,
+  LongTextField,
+  MultipleSelectField,
   NumberField,
   RatingField,
   SingleSelectField,
   Table,
   SingleLineTextField,
+  UserField,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -30,9 +37,16 @@ const baseFieldDtoSchema = z.object({
 
 export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({ type: z.literal('singleLineText') }),
+  baseFieldDtoSchema.extend({ type: z.literal('longText') }),
   baseFieldDtoSchema.extend({ type: z.literal('number') }),
   baseFieldDtoSchema.extend({ type: z.literal('rating'), max: z.number() }),
   baseFieldDtoSchema.extend({ type: z.literal('singleSelect'), options: z.array(z.string()) }),
+  baseFieldDtoSchema.extend({ type: z.literal('multipleSelect'), options: z.array(z.string()) }),
+  baseFieldDtoSchema.extend({ type: z.literal('checkbox') }),
+  baseFieldDtoSchema.extend({ type: z.literal('attachment') }),
+  baseFieldDtoSchema.extend({ type: z.literal('date') }),
+  baseFieldDtoSchema.extend({ type: z.literal('user') }),
+  baseFieldDtoSchema.extend({ type: z.literal('button') }),
 ]);
 
 export type IFieldDto = z.infer<typeof fieldDtoSchema>;
@@ -55,6 +69,15 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'singleLineText',
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitLongTextField(field: LongTextField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'longText',
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
@@ -84,6 +107,61 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       name: field.name().toString(),
       type: 'singleSelect',
       options: field.selectOptions().map((o) => o.toString()),
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'multipleSelect',
+      options: field.selectOptions().map((o) => o.toString()),
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitCheckboxField(field: CheckboxField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'checkbox',
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitAttachmentField(field: AttachmentField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'attachment',
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitDateField(field: DateField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'date',
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitUserField(field: UserField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'user',
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitButtonField(field: ButtonField): Result<IFieldDto, string> {
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'button',
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }

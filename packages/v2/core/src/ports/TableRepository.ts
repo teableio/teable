@@ -1,8 +1,8 @@
 import type { Result } from 'neverthrow';
 
-import type { IExecutionContext } from './ExecutionContext';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { Table } from '../domain/table/Table';
+import type { IExecutionContext } from './ExecutionContext';
 
 export interface ITableRepository {
   save(context: IExecutionContext, table: Table): Promise<Result<void, string>>;

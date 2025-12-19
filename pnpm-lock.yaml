@@ -636,7 +636,7 @@ importers:
         version: 1.4.4(@swc/core@1.13.3(@swc/helpers@0.5.17))(rollup@4.53.5)
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(terser@5.37.0)
@@ -1202,7 +1202,7 @@ importers:
         version: 5.4.3
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(terser@5.37.0)
@@ -1804,7 +1804,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@4.28.1)(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))
+        version: 4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
@@ -2265,6 +2265,9 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-db-postgres':
+        specifier: workspace:*
+        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2721,6 +2724,9 @@ importers:
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
+      ts-pattern:
+        specifier: 5.0.8
+        version: 5.0.8
       zod:
         specifier: 4.1.8
         version: 4.1.8
@@ -2761,12 +2767,18 @@ importers:
 
   packages/v2/db-postgres:
     dependencies:
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
       kysely:
         specifier: 0.28.9
         version: 0.28.9
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
       pg:
         specifier: 8.11.5
         version: 8.11.5
@@ -2958,6 +2970,9 @@ importers:
       eslint:
         specifier: 8.57.0
         version: 8.57.0
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
       prettier:
         specifier: 3.2.5
         version: 3.2.5
@@ -25977,14 +25992,6 @@ snapshots:
     optionalDependencies:
       rollup: 2.78.0
 
-  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
-    dependencies:
-      '@types/estree': 1.0.6
-      estree-walker: 2.0.2
-      picomatch: 4.0.2
-    optionalDependencies:
-      rollup: 2.79.2
-
   '@rollup/pluginutils@5.1.4(rollup@4.53.5)':
     dependencies:
       '@types/estree': 1.0.6
@@ -41253,9 +41260,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@4.28.1)(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0)):
+  vite-plugin-svgr@4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.28.1)
+      '@rollup/pluginutils': 5.1.4(rollup@4.53.5)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)

@@ -1,11 +1,18 @@
 import type {
+  AttachmentField,
+  ButtonField,
+  CheckboxField,
+  DateField,
   Field,
   IFieldVisitor,
+  LongTextField,
+  MultipleSelectField,
   NumberField,
   RatingField,
   SingleLineTextField,
   SingleSelectField,
   Table,
+  UserField,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
 import { err, ok } from 'neverthrow';
@@ -47,16 +54,44 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
     return this.addColumn(field.id().toString(), 'text');
   }
 
+  visitLongTextField(field: LongTextField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'text');
+  }
+
   visitNumberField(field: NumberField): Result<void, string> {
     return this.addColumn(field.id().toString(), 'numeric');
   }
 
   visitRatingField(field: RatingField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'integer');
+    return this.addColumn(field.id().toString(), 'numeric');
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<void, string> {
     return this.addColumn(field.id().toString(), 'text');
+  }
+
+  visitMultipleSelectField(field: MultipleSelectField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'jsonb');
+  }
+
+  visitCheckboxField(field: CheckboxField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'integer');
+  }
+
+  visitAttachmentField(field: AttachmentField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'jsonb');
+  }
+
+  visitDateField(field: DateField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'timestamptz');
+  }
+
+  visitUserField(field: UserField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'jsonb');
+  }
+
+  visitButtonField(field: ButtonField): Result<void, string> {
+    return this.addColumn(field.id().toString(), 'jsonb');
   }
 
   private addColumn(fieldId: string, dataType: ITableColumnDataType): Result<void, string> {

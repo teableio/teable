@@ -1,11 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {
+  AttachmentField,
+  ButtonField,
+  CheckboxField,
+  DateField,
   IFieldVisitor,
   ITableRepository,
+  LongTextField,
+  MultipleSelectField,
   NumberField,
   RatingField,
   SingleSelectField,
   SingleLineTextField,
+  UserField,
 } from '@teable/v2-core';
 import {
   ActorId,
@@ -32,13 +39,25 @@ import { convertNameToValidCharacter } from '../naming';
 
 type IFieldSnapshot =
   | { type: 'singleLineText'; name: string }
+  | { type: 'longText'; name: string }
   | { type: 'number'; name: string }
   | { type: 'rating'; name: string; max: number }
-  | { type: 'singleSelect'; name: string; options: ReadonlyArray<string> };
+  | { type: 'singleSelect'; name: string; options: ReadonlyArray<string> }
+  | { type: 'multipleSelect'; name: string; options: ReadonlyArray<string> }
+  | { type: 'checkbox'; name: string }
+  | { type: 'attachment'; name: string }
+  | { type: 'date'; name: string }
+  | { type: 'user'; name: string }
+  | { type: 'button'; name: string };
 
 class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitSingleLineTextField(field: SingleLineTextField) {
     const snapshot: IFieldSnapshot = { type: 'singleLineText', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitLongTextField(field: LongTextField) {
+    const snapshot: IFieldSnapshot = { type: 'longText', name: field.name().toString() };
     return ok(snapshot);
   }
 
@@ -62,6 +81,40 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
       name: field.name().toString(),
       options: field.selectOptions().map((o) => o.toString()),
     };
+    return ok(snapshot);
+  }
+
+  visitMultipleSelectField(field: MultipleSelectField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'multipleSelect',
+      name: field.name().toString(),
+      options: field.selectOptions().map((o) => o.toString()),
+    };
+    return ok(snapshot);
+  }
+
+  visitCheckboxField(field: CheckboxField) {
+    const snapshot: IFieldSnapshot = { type: 'checkbox', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitAttachmentField(field: AttachmentField) {
+    const snapshot: IFieldSnapshot = { type: 'attachment', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitDateField(field: DateField) {
+    const snapshot: IFieldSnapshot = { type: 'date', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitUserField(field: UserField) {
+    const snapshot: IFieldSnapshot = { type: 'user', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitButtonField(field: ButtonField) {
+    const snapshot: IFieldSnapshot = { type: 'button', name: field.name().toString() };
     return ok(snapshot);
   }
 }

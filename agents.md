@@ -10,6 +10,7 @@ This repo is introducing a new `packages/v2/*` architecture. Keep `v2` strict an
   - `neverthrow` for `Result`
   - `zod` for validation (`safeParse` only)
   - `nanoid` for ID generation
+  - `ts-pattern` for match pattern
   - `@teable/v2-di` is allowed only in `src/commands/**` (application wiring), not in domain
   - Pure TS/JS standard library
 - **Forbidden inside `v2/core`**
@@ -40,6 +41,13 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - Prefer constructor injection with explicit tokens for ports (interfaces).
 - Provide environment-level composition roots as separate packages (e.g. `@teable/v2-container-node`, `@teable/v2-container-browser`) that register all port implementations.
 
+## Unit of work (transactions)
+
+- Cross-repository workflows in commands must be wrapped in `IUnitOfWork.withTransaction(...)`.
+- Repositories should reuse `IExecutionContext.transaction` when present (do not start nested transactions).
+- Postgres implementation lives in `@teable/v2-db-postgres` (`PostgresUnitOfWork`, `PostgresUnitOfWorkTransaction`); register it in containers.
+- Publish domain events only after transactional work succeeds.
+
 ## Build tooling (v2)
 
 - v2 packages build with `tsdown` (not `tsc` emit). `tsc` is used only for `typecheck` (`--noEmit`).
@@ -63,9 +71,10 @@ Inside `v2/core` domain APIs:
 - Raw primitives are allowed only at the **outer boundary** (DTOs) and must be immediately validated and converted via factories/builders.
 
 Practical exceptions that are required by the architecture:
+
 - `neverthrow` error side uses strings (e.g. `Result<T, string>`).
 - The Specification interface requires `isSatisfiedBy(...): boolean`.
- - Value Objects may expose `toString()` / `toDate()` / `toNumber()` for adapter/serialization boundaries (avoid using these in domain logic).
+- Value Objects may expose `toString()` / `toDate()` / `toNumber()` for adapter/serialization boundaries (avoid using these in domain logic).
 
 ## Builders/factories (non-negotiable)
 
@@ -85,6 +94,11 @@ Repositories query via specifications, not ad-hoc filters.
 - Each spec targets a single attribute (e.g. `TableByNameSpec` only checks name). `BaseId` is its own spec and is composed via `and/or/not`.
 - `and` and `or` must be separated by nesting (use `andGroup`/`orGroup`); never mix them at the same level. BaseId specs are auto-included by the builder unless explicitly disabled.
 - Spec visitors rely on `visit(spec)` + type narrowing inside the visitor; avoid per-spec visitor interfaces or `isWith*` guards.
+
+## Visitor pattern (preferred)
+
+- For multi-type logic that already has a visitor (fields, specs, etc.), prefer a dedicated visitor file over switch/if chains.
+- Keep type-to-value mappings in visitors so new types require explicit visitor updates.
 
 ## Folder conventions (recommended)
 
@@ -129,9 +143,11 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 ### 1) Domain unit tests (`v2/core` domain)
 
 **Where**
+
 - `packages/v2/core/src/domain/**/*.spec.ts`
 
 **Focus**
+
 - Value Object validation (`.create(...)` + `zod.safeParse`)
 - Aggregate/entity behavior and invariants
 - Builder behavior (`Table.builder()...build()`), including default view behavior
@@ -139,10 +155,12 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 - Specification correctness for in-memory satisfaction (`isSatisfiedBy`)
 
 **Must NOT do**
+
 - No DI/container, no repositories/ports, no DB, no HTTP, no filesystem, no timeouts
 - No infrastructure DTOs (HTTP/persistence) and no framework code
 
 **What to assert**
+
 - `Result` is `ok/err` (never exceptions)
 - Invariants on returned domain objects (counts, names, IDs are nominal types, etc.)
 - Domain events are produced and contain essential info (do not snapshot the entire object)
@@ -150,18 +168,22 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 ### 2) Application/use-case tests (`v2/core` commands + DI)
 
 **Where**
+
 - Prefer `packages/v2/test-node/src/**/*.spec.ts` (a dedicated test package)
 
 **Focus**
+
 - Handler orchestration (build aggregate, call repository, publish events)
 - Correct `Result` behavior for ok/err paths
 - Command-level validation (invalid input → `err(...)`)
 - Correct wiring via DI (handlers resolved from container; do not `new Handler(...)` in tests)
 
 **Allowed**
+
 - Fakes/in-memory ports (recommended) OR the node-test container (pglite-backed) when you want a slightly higher-confidence integration without HTTP.
 
 **What to assert**
+
 - Handler returns expected status (`ok/err`) and minimal returned data (e.g. created table name)
 - Domain events were published (e.g. contains `TableCreated`)
 - Repository side-effect happened (either “save called” via fake, or “can be queried back” via `findOne(spec)`)
@@ -169,60 +191,74 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 ### 3) Adapter integration tests (persistence/infra adapters)
 
 **Where**
+
 - `packages/v2/adapter-*/src/**/*.spec.ts`
 
 **Focus**
+
 - Spec → query translation via Spec Visitors (no ad-hoc where parsing)
 - Mapper correctness (persistence DTO ↔︎ domain)
 - Repository behavior against a real DB driver
 
 **Allowed**
+
 - `pglite` for tests (fast, hermetic)
 
 **What to assert**
+
 - Round-trips: save → query by spec → domain object matches essentials
 - Visitor builds the expected query constraints (at least for supported specs)
 
 ### 4) Contract tests (`contract-http`)
 
 **Where**
+
 - `packages/v2/contract-http/src/**/*.spec.ts` (optional but recommended for mapping-heavy endpoints)
 
 **Focus**
+
 - DTO mappers and endpoint executors
 - Contract response shapes and status codes
 
 **What to assert**
+
 - `execute*Endpoint(...)` returns only the status codes declared in the contract
 - Response DTO structure matches schema intent (avoid deep snapshots)
 
 ### 5) Router adapter tests (Express/Fastify)
 
 **Where**
+
 - `packages/v2/contract-http-express/src/**/*.spec.ts`
 - `packages/v2/contract-http-fastify/src/**/*.spec.ts`
 
 **Focus**
+
 - Framework glue: request parsing, ts-rest integration, error mapping
 - Container creation is correct and lazy (don’t eagerly connect to PG when a custom container is injected)
 
 **What to assert**
+
 - Valid request → expected status/result
 - Invalid request → 400 (schema validation)
 
 ### 6) E2E tests (`v2/e2e`)
 
 **Where**
+
 - `packages/v2/e2e/src/**/*.e2e.spec.ts`
 
 **Focus**
+
 - “Over-the-wire” HTTP behavior using the generated ts-rest client
 - Cross-package integration: router + contract + container + repository adapter
 
 **Allowed**
+
 - Start an in-process server on an ephemeral port (no fixed ports)
 - Use the node-test container with `pglite` and ensure proper cleanup (`dispose`)
 
 **What to assert**
+
 - HTTP status codes and response DTOs (validate shape, not internal domain objects)
 - Minimal business outcome (e.g. table created, includes `TableCreated` event)
