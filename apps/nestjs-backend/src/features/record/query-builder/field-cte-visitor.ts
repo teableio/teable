@@ -1954,7 +1954,7 @@ export class FieldCteVisitor implements IFieldVisitor<ICteResult> {
           const direction = sort.order === SortFunc.Desc ? 'DESC' : 'ASC';
           const sortAlias = `__cl_sort_${sort.fieldId}_${field.id}`;
           aggregateBase.select(this.qb.client.raw(`${sortExpression} as "${sortAlias}"`));
-          orderByClause = `"${foreignAliasUsed}"."${sortAlias}" ${direction}`;
+          orderByClause = `"${sortAlias}" ${direction}`;
         }
       }
 
