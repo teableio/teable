@@ -8,4 +8,6 @@ ALTER TABLE "template" ADD COLUMN     "publish_info" JSON;
 -- CreateIndex
 CREATE UNIQUE INDEX "template_base_id_key" ON "template"("base_id");
 
+UPDATE "template" SET featured = true WHERE is_published = true;
+
 COMMIT;
