@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "@teable/v2-test-node",
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "target": "esnext",
+    "lib": ["esnext"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": false,
+    "incremental": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationDir": "dist",
+    "composite": true,
+    "rootDir": "../",
+    "outDir": "dist",
+    "paths": {
+      "@teable/v2-container-node-test": ["../container-node-test/src"],
+      "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
+      "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
+      "@teable/v2-core": ["../core/src"],
+      "@teable/v2-db-postgres": ["../db-postgres/src"],
+      "@teable/v2-di": ["../di/src"]
+    },
+    "types": ["vitest/globals"]
+  },
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "include": [
+    "vitest.setup.ts",
+    "src",
+    "../container-node-test/src",
+    "../adapter-postgres-ddl/src",
+    "../adapter-postgres-state/src",
+    "../core/src",
+    "../db-postgres/src",
+    "../di/src"
+  ]
+}

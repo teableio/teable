@@ -1,0 +1,21 @@
+{
+  "name": "@teable/v2-tsdown-config",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "devDependencies": {
+    "tsdown": "0.18.1"
+  }
+}

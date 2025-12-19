@@ -1,0 +1,38 @@
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { z } from 'zod';
+
+import { generatePrefixedId, prefixedIdRegex } from '../../shared/IdGenerator';
+import { ValueObject } from '../../shared/ValueObject';
+
+const viewIdPrefix = 'viw';
+const viewIdBodyLength = 16;
+const viewIdSchema = z.string().regex(prefixedIdRegex(viewIdPrefix, viewIdBodyLength));
+
+export class ViewId extends ValueObject {
+  private constructor(private readonly value: string) {
+    super();
+  }
+
+  static create(raw: unknown): Result<ViewId, string> {
+    const parsed = viewIdSchema.safeParse(raw);
+    if (!parsed.success) return err('Invalid ViewId');
+    return ok(new ViewId(parsed.data));
+  }
+
+  static generate(): Result<ViewId, string> {
+    try {
+      return ok(new ViewId(generatePrefixedId(viewIdPrefix, viewIdBodyLength)));
+    } catch {
+      return err('Failed to generate ViewId');
+    }
+  }
+
+  equals(other: ViewId): boolean {
+    return this.value === other.value;
+  }
+
+  toString(): string {
+    return this.value;
+  }
+}

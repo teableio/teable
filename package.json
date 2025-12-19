@@ -19,6 +19,7 @@
   "workspaces": [
     "apps/*",
     "packages/*",
+    "packages/v2/*",
     "plugins",
     "!apps/electron"
   ],

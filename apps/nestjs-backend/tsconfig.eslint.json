@@ -3,7 +3,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "target": "es6",
-    "moduleResolution": "Node",
+    "moduleResolution": "Node16",
     "module": "CommonJS",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,

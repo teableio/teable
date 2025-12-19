@@ -1,0 +1,45 @@
+import { DefaultTableMapper, v2CoreTokens } from '@teable/v2-core';
+import { registerV2PostgresDb, v2PostgresDbTokens } from '@teable/v2-db-postgres';
+import type { DependencyContainer } from '@teable/v2-di';
+import { Lifecycle, container } from '@teable/v2-di';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { Kysely } from 'kysely';
+
+import type { IV2PostgresStateAdapterConfig } from '../config';
+import { v2PostgresStateAdapterConfigSchema } from '../config';
+import { ensureV1MetaSchema } from '../db/schema';
+import { PostgresTableRepository } from '../repositories/PostgresTableRepository';
+import { v2PostgresStateTokens } from './tokens';
+
+export const registerV2PostgresStateAdapter = async (
+  c: DependencyContainer = container,
+  rawConfig: Partial<IV2PostgresStateAdapterConfig> = {}
+): Promise<DependencyContainer> => {
+  const parsed = v2PostgresStateAdapterConfigSchema.safeParse(rawConfig);
+  if (!parsed.success) {
+    throw new Error('Invalid v2 postgres state adapter config');
+  }
+
+  const config = parsed.data;
+
+  if (!c.isRegistered(v2PostgresDbTokens.db)) {
+    await registerV2PostgresDb(c, config);
+  }
+
+  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+  const ensureSchema = config.ensureSchema ?? false;
+  if (ensureSchema) {
+    await ensureV1MetaSchema(db);
+  }
+
+  c.registerInstance(v2PostgresStateTokens.config, config);
+
+  c.register(v2PostgresStateTokens.tableMapper, DefaultTableMapper, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRepository, PostgresTableRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
+  return c;
+};
