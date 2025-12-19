@@ -1085,6 +1085,192 @@ describe('OpenAPI Conditional Lookup field (e2e)', () => {
     });
   });
 
+  describe('date sort with isBefore filters', () => {
+    let foreign: ITableFullVo;
+    let host: ITableFullVo;
+    let lookupField: IFieldVo;
+    let foreignThicknessId: string;
+    let foreignWidthId: string;
+    let foreignLengthId: string;
+    let foreignDateId: string;
+    let foreignPriceId: string;
+    let hostThicknessId: string;
+    let hostWidthId: string;
+    let hostLengthId: string;
+    let hostDateId: string;
+    let hostRecordEarlyId: string;
+    let hostRecordMidId: string;
+    let hostRecordAltLengthId: string;
+
+    beforeAll(async () => {
+      const numberOptions = {
+        formatting: { precision: 2, type: NumberFormattingType.Decimal },
+      };
+      const dateOptions = {
+        formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'Asia/Shanghai' },
+      };
+
+      foreign = await createTable(baseId, {
+        name: 'ConditionalLookup_DateSort_Foreign',
+        fields: [
+          { name: 'Thickness', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Width', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Length', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Date', type: FieldType.Date, options: dateOptions } as IFieldRo,
+          { name: 'Price', type: FieldType.Number, options: numberOptions } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              Length: 3,
+              Date: '2024-01-05T12:00:00.000Z',
+              Price: 110,
+            },
+          },
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              Length: 3,
+              Date: '2024-01-01T12:00:00.000Z',
+              Price: 100,
+            },
+          },
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              Length: 3,
+              Date: '2024-01-10T12:00:00.000Z',
+              Price: 120,
+            },
+          },
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              Length: 4,
+              Date: '2024-01-03T12:00:00.000Z',
+              Price: 130,
+            },
+          },
+        ],
+      });
+
+      foreignThicknessId = foreign.fields.find((f) => f.name === 'Thickness')!.id;
+      foreignWidthId = foreign.fields.find((f) => f.name === 'Width')!.id;
+      foreignLengthId = foreign.fields.find((f) => f.name === 'Length')!.id;
+      foreignDateId = foreign.fields.find((f) => f.name === 'Date')!.id;
+      foreignPriceId = foreign.fields.find((f) => f.name === 'Price')!.id;
+
+      host = await createTable(baseId, {
+        name: 'ConditionalLookup_DateSort_Host',
+        fields: [
+          { name: 'Thickness', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Width', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Std Length', type: FieldType.Number, options: numberOptions } as IFieldRo,
+          { name: 'Date', type: FieldType.Date, options: dateOptions } as IFieldRo,
+        ],
+        records: [
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              'Std Length': 3,
+              Date: '2024-01-02T12:00:00.000Z',
+            },
+          },
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              'Std Length': 3,
+              Date: '2024-01-08T12:00:00.000Z',
+            },
+          },
+          {
+            fields: {
+              Thickness: 1.2,
+              Width: 2.5,
+              'Std Length': 4,
+              Date: '2024-01-04T12:00:00.000Z',
+            },
+          },
+        ],
+      });
+
+      hostThicknessId = host.fields.find((f) => f.name === 'Thickness')!.id;
+      hostWidthId = host.fields.find((f) => f.name === 'Width')!.id;
+      hostLengthId = host.fields.find((f) => f.name === 'Std Length')!.id;
+      hostDateId = host.fields.find((f) => f.name === 'Date')!.id;
+
+      hostRecordEarlyId = host.records[0].id;
+      hostRecordMidId = host.records[1].id;
+      hostRecordAltLengthId = host.records[2].id;
+
+      const filter: IFilter = {
+        conjunction: 'and',
+        filterSet: [
+          {
+            fieldId: foreignThicknessId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostThicknessId },
+          },
+          {
+            fieldId: foreignWidthId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostWidthId },
+          },
+          {
+            fieldId: foreignLengthId,
+            operator: 'is',
+            value: { type: 'field', fieldId: hostLengthId },
+          },
+          {
+            fieldId: foreignDateId,
+            operator: 'isBefore',
+            value: { type: 'field', fieldId: hostDateId },
+          },
+        ],
+      };
+
+      lookupField = await createField(host.id, {
+        name: 'Lookup Price',
+        type: FieldType.Number,
+        isLookup: true,
+        isConditionalLookup: true,
+        options: numberOptions,
+        lookupOptions: {
+          foreignTableId: foreign.id,
+          lookupFieldId: foreignPriceId,
+          filter,
+          sort: { fieldId: foreignDateId, order: SortFunc.Asc },
+          limit: 1,
+        } as ILookupOptionsRo,
+      } as IFieldRo);
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, host.id);
+      await permanentDeleteTable(baseId, foreign.id);
+    });
+
+    it('should sort and limit conditional lookup results by date', async () => {
+      const records = await getRecords(host.id, { fieldKeyType: FieldKeyType.Id });
+      const earlyRecord = records.records.find((record) => record.id === hostRecordEarlyId)!;
+      const midRecord = records.records.find((record) => record.id === hostRecordMidId)!;
+      const altLengthRecord = records.records.find(
+        (record) => record.id === hostRecordAltLengthId
+      )!;
+
+      expect(earlyRecord.fields[lookupField.id]).toEqual([100]);
+      expect(midRecord.fields[lookupField.id]).toEqual([100]);
+      expect(altLengthRecord.fields[lookupField.id]).toEqual([130]);
+    });
+  });
+
   describe('self-table field-reference lookups projecting alternate fields', () => {
     let table: ITableFullVo;
     let titleId: string;
