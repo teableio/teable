@@ -197,3 +197,6 @@ export { default as AmazonBedrock } from './components/AmazonBedrock';
 export { default as TeableAi } from './components/TeableAi';
 export { default as Compose } from './components/Compose';
 export { default as MousePointerClick } from './components/MousePointerClick';
+export { default as InIcon } from './components/InIcon';
+export { default as Discord } from './components/Discord';
+export { default as Twitter } from './components/Twitter';

@@ -134,7 +134,7 @@
     },
     "publishToCommunity": "Publish to community",
     "publish": "Publish",
-    "publishSuccess": "Base published successfully!",
+    "publishSuccess": "Publish success!",
     "previewTips": "Let the world see your work",
     "update": "Update",
     "unPublish": "Unpublish",
@@ -150,6 +150,10 @@
     "tips": {
       "publishValidation": "title and description are required",
       "atLeastOneNode": "At least select one node to publish"
-    }
+    },
+    "urlCopied": "URL copied to clipboard!",
+    "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
+    "publishSuccessDescription": "Share your work to the world",
+    "shareWith": "Share with"
   }
 }
