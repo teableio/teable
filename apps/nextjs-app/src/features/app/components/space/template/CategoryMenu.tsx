@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import type { ITemplateCategoryListVo } from '@teable/openapi';
 import { getPublishedTemplateCategoryList } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsMobile } from '@teable/sdk/hooks';
@@ -16,9 +15,9 @@ interface ICategoryMenuProps {
   onCategoryChange: (category: string | null) => void;
   className?: string;
   categoryHeaderRender?: () => React.ReactNode;
-  serverPublishedTemplateCategoryList?: ITemplateCategoryListVo[];
-  isFeatured: boolean;
-  onFeaturedChange: (isFeatured: boolean) => void;
+  isFeatured: boolean | undefined;
+  onFeaturedChange: (isFeatured: boolean | undefined) => void;
+  disabledFeaturedToggle: boolean;
 }
 
 export const CategoryMenu = (props: ICategoryMenuProps) => {
@@ -27,15 +26,14 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
     onCategoryChange,
     className,
     categoryHeaderRender,
-    serverPublishedTemplateCategoryList,
     onFeaturedChange,
     isFeatured,
+    disabledFeaturedToggle,
   } = props;
   const { t } = useTranslation('common');
   const { data: categoryList } = useQuery({
     queryKey: ReactQueryKeys.publishedTemplateCategoryList(),
     queryFn: () => getPublishedTemplateCategoryList().then((data) => data.data),
-    initialData: serverPublishedTemplateCategoryList,
   });
 
   const isMobile = useIsMobile();
@@ -54,8 +52,15 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
         )}
         <Toggle
           className="flex items-center justify-start"
-          pressed={isFeatured}
-          onPressedChange={onFeaturedChange}
+          pressed={!!isFeatured}
+          onPressedChange={(pressed) => {
+            if (pressed) {
+              onFeaturedChange(true);
+            } else {
+              onFeaturedChange(undefined);
+            }
+          }}
+          disabled={disabledFeaturedToggle}
         >
           <span>{t('settings.templateAdmin.category.menu.recommended')}</span>
         </Toggle>

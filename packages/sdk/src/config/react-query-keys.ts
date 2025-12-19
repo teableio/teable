@@ -43,11 +43,15 @@ export const ReactQueryKeys = {
 
   publishedTemplateCategoryList: () => ['published-template-category-list'] as const,
 
-  publishedTemplateList: (categoryId?: string | null, search?: string, isFeatured?: boolean) => {
+  publishedTemplateList: (categoryId: string | null, search: string, isFeatured?: boolean) => {
     const parts: (string | null)[] = ['published-template-list'];
     if (categoryId !== undefined) parts.push(categoryId);
     if (search !== undefined) parts.push(search);
-    if (isFeatured !== undefined) parts.push(isFeatured ? 'true' : 'false');
+    if (isFeatured !== undefined) {
+      parts.push(isFeatured.toString());
+    } else {
+      parts.push('undefined');
+    }
     return parts;
   },
 

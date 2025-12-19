@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
-import { Plus } from '@teable/icons';
+import { Heart, Plus } from '@teable/icons';
 import type { ITemplateCoverRo, INotifyVo } from '@teable/openapi';
 import {
   getTemplateByBaseId,
@@ -448,26 +448,18 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   )}
                 </div>
                 <div className="flex flex-1 flex-col gap-1 border-t bg-card p-4">
-                  <p
-                    className={cn(
-                      'text-sm font-semibold',
-                      title ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {title || t('publishBase.form.toBeFilled')}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="size-5">
-                        <AvatarImage src={user?.avatar || ''} />
-                        <AvatarFallback>{user?.name?.slice(0, 1)}</AvatarFallback>
-                      </Avatar>
-                      <p className="text-sm text-muted-foreground">{user?.name}</p>
-                    </div>
+                  <div className="flex items-center justify-between">
+                    <p
+                      className={cn(
+                        'text-sm font-semibold',
+                        title ? 'text-foreground' : 'text-muted-foreground'
+                      )}
+                    >
+                      {title || t('publishBase.form.toBeFilled')}
+                    </p>
 
                     <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <SmilePlus className="size-4" />
-                      {t('publishBase.usageCount')}
+                      <Heart className="size-4" />
                       {templateDetail?.usageCount || 0}
                     </div>
                   </div>

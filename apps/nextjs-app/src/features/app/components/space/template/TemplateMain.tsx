@@ -18,10 +18,7 @@ interface ITemplateMainProps extends ITemplateBaseProps {
   categoryHeaderRender?: () => React.ReactNode;
   className?: string;
   templateListClassName?: string;
-  serverData?: {
-    publishedTemplateList?: ITemplateVo[];
-    publishedTemplateCategoryList?: ITemplateCategoryListVo[];
-  };
+  disabledFeaturedToggle?: boolean;
 }
 
 export const TemplateMain = (props: ITemplateMainProps) => {
@@ -36,10 +33,9 @@ export const TemplateMain = (props: ITemplateMainProps) => {
     categoryHeaderRender,
     className,
     templateListClassName,
-    serverData,
+    disabledFeaturedToggle = true,
   } = props;
-  const [isFeatured, setIsFeatured] = useState(true);
-  const { publishedTemplateList, publishedTemplateCategoryList } = serverData || {};
+  const [isFeatured, setIsFeatured] = useState<boolean | undefined>(true);
   return (
     <div
       className={cn('flex flex-1 overflow-hidden', className, {
@@ -51,9 +47,9 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onCategoryChange={onCategoryChange}
         className={categoryMenuClassName}
         categoryHeaderRender={categoryHeaderRender}
-        serverPublishedTemplateCategoryList={publishedTemplateCategoryList}
         isFeatured={isFeatured}
         onFeaturedChange={setIsFeatured}
+        disabledFeaturedToggle={disabledFeaturedToggle}
       />
       <TemplateList
         currentCategoryId={currentCategoryId}
@@ -61,7 +57,6 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         onClickUseTemplateHandler={onClickUseTemplateHandler}
         onClickTemplateCardHandler={onClickTemplateCardHandler}
         className={templateListClassName}
-        serverPublishedTemplateList={publishedTemplateList}
         isFeatured={isFeatured}
       />
     </div>
