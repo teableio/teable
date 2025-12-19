@@ -601,7 +601,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           {props.skeleton ? (
             props.skeleton
           ) : (
-            <div className="flex w-full flex-col gap-2 px-2">
+            <div className="flex w-full flex-col gap-2 !border-none px-2">
               <Skeleton className="h-7 w-full" />
               <Skeleton className="h-7 w-full" />
               <Skeleton className="h-7 w-full" />
@@ -621,11 +621,72 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
     }
   };
 
-  const renderTree = () => {
+  const renderViewTree = () => {
     return (
       <ScrollArea
         viewportRef={viewportRef}
         className="flex w-full !border-none px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0"
+        scrollBar="none"
+      >
+        <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
+          <AssistiveTreeDescription tree={tree} />
+          {tree.getItems().map((item) => {
+            const nodeId = item.getId();
+            const node = item.getItemData();
+            if (!node || Object.keys(node).length === 0) return null;
+            const { resourceType, resourceId } = node;
+            const name = getNodeName(node);
+            const isPinned = pinMap?.[resourceId];
+            return (
+              <TreeItem asChild key={nodeId} item={item}>
+                <div className="h-8 w-full cursor-pointer">
+                  <TreeItemLabel className={cn('size-full min-w-0 py-0')}>
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <ItemIcon item={item} />
+                      <div className="flex min-w-0 grow items-center gap-1" title={name}>
+                        <span className="truncate text-left">{name}</span>
+
+                        <ItemStatus item={item} />
+                        {
+                          // eslint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events
+                          <div
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className={cn('flex shrink-0 cursor-pointer items-center', {
+                              'w-0 group-hover:w-auto': !isPinned,
+                            })}
+                          >
+                            <BaseNodeStarButton
+                              resourceType={resourceType}
+                              resourceId={resourceId}
+                            />
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  </TreeItemLabel>
+                </div>
+              </TreeItem>
+            );
+          })}
+          <TreeDragLine />
+        </Tree>
+        <ScrollBar className="z-30" />
+      </ScrollArea>
+    );
+  };
+
+  const renderEditTree = () => {
+    return (
+      <ScrollArea
+        viewportRef={viewportRef}
+        className={cn(
+          'flex w-full px-2 [&>[data-radix-scroll-area-viewport]>div]:!block [&>[data-radix-scroll-area-viewport]>div]:!min-w-0',
+          {
+            '!border-none': canCreateResource,
+          }
+        )}
         scrollBar="none"
       >
         <Tree indent={INDENTATION_WIDTH} tree={tree} className="py-1">
@@ -678,17 +739,14 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
                       ) : (
                         <>
                           <ItemIcon item={item} />
-                          <div
-                            className="flex min-w-0 grow items-center gap-1"
-                            title={item.getItemName()}
-                          >
+                          <div className="flex min-w-0 grow items-center gap-1" title={name}>
                             <span
                               className="truncate text-left"
                               onDoubleClick={() => {
                                 setEditingNodeId(nodeId);
                               }}
                             >
-                              {item.getItemName()}
+                              {name}
                             </span>
 
                             <ItemStatus item={item} />
@@ -784,7 +842,7 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
 
   return (
     <>
-      {isEditMode && canCreateResource && (
+      {canCreateResource && (
         <div className="flex w-full flex-col px-4 pt-4">
           <BaseNodeAddResourceButton
             curdHooks={curdHooks}
@@ -806,7 +864,11 @@ export const BaseNodeTree = (props: IBaseNodeTreeProps) => {
           </BaseNodeAddResourceButton>
         </div>
       )}
-      {Object.keys(treeItems).length === 0 ? renderEmpty() : renderTree()}
+      {Object.keys(treeItems).length === 0
+        ? renderEmpty()
+        : isEditMode
+          ? renderEditTree()
+          : renderViewTree()}
     </>
   );
 };

@@ -55,7 +55,8 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
       if (Array.isArray(slug) && slug.length > 0 && slug[0].startsWith(IdPrefix.Table)) {
         const queryString = new URLSearchParams(queryParams as Record<string, string>).toString();
         const tablePath = slug[1] ? `${slug[0]}/${slug[1]}` : slug[0];
-        return redirect(`/base/${baseId}/table/${tablePath}?${queryString}`);
+        const query = queryString ? `?${queryString}` : '';
+        return redirect(`/base/${baseId}/table/${tablePath}${query}`);
       }
 
       const parsed = parseBaseSlug(slug as string[]);
