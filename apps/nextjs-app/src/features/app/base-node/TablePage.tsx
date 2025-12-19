@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 import { dehydrate } from '@tanstack/react-query';
+import { ViewType } from '@teable/core';
 import { BaseNodeResourceType, LastVisitResourceType } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import dynamic from 'next/dynamic';
@@ -9,13 +10,27 @@ import { getViewPageServerData } from '@/lib/view-pages-data';
 import { redirect } from './helper';
 import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 
-export const getDefaultViewId = async (ssrApi: SsrApi, tableId: string) => {
+interface IQueryParams {
+  recordId?: string;
+  fromNotify?: string;
+}
+
+const getDefaultViewId = async (ssrApi: SsrApi, tableId: string, queryParams?: IQueryParams) => {
+  const { recordId } = queryParams ?? {};
   const [lastVisit, viewList] = await Promise.all([
     ssrApi.getUserLastVisit(LastVisitResourceType.View, tableId),
     ssrApi.getViewList(tableId),
   ]);
-  const viewIds = viewList.map((v) => v.id);
-  if (viewIds.length === 0) return undefined;
+  if (viewList.length === 0) {
+    return undefined;
+  }
+  let viewIds = viewList.map((v) => v.id);
+  if (recordId) {
+    const nonFormViews = viewList.filter((v) => v.type !== ViewType.Form);
+    if (nonFormViews.length > 0) {
+      viewIds = nonFormViews.map((v) => v.id);
+    }
+  }
   return lastVisit?.resourceId && viewIds.includes(lastVisit.resourceId)
     ? lastVisit.resourceId
     : viewIds[0]!;
@@ -34,6 +49,7 @@ export const getTableServerSideProps = async (
   const queryString = queryParams
     ? new URLSearchParams(queryParams as Record<string, string>).toString()
     : '';
+  const query = queryString ? `?${queryString}` : '';
 
   if (!tableId) {
     const [lastVisit, tableList] = await Promise.all([
@@ -56,9 +72,9 @@ export const getTableServerSideProps = async (
   }
 
   if (!viewId) {
-    const defaultViewId = await getDefaultViewId(ssrApi, tableId);
+    const defaultViewId = await getDefaultViewId(ssrApi, tableId, queryParams);
     if (defaultViewId) {
-      return redirect(`/base/${baseId}/table/${tableId}/${defaultViewId}?${queryString}`);
+      return redirect(`/base/${baseId}/table/${tableId}/${defaultViewId}${query}`);
     }
     return { notFound: true };
   }
@@ -89,7 +105,7 @@ export const getTableServerSideProps = async (
   const viewIds = viewList.map((v) => v.id);
   if (viewIds.length === 0) return { notFound: true };
   if (!viewIds.includes(viewId)) {
-    return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}?${queryString}`);
+    return redirect(`/base/${baseId}/table/${tableId}/${viewIds[0]}${query}`);
   }
 
   // handle recordId
