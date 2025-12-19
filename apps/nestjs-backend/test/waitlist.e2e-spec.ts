@@ -21,10 +21,10 @@ describe('Auth Controller (e2e) api/auth waitlist', () => {
     app = appCtx.app;
     prismaService = app.get(PrismaService);
     settingService = app.get(SettingService);
-    const originalGetSetting = settingService.getSetting.bind(settingService);
+    const originalGetSetting = await settingService.getSetting();
     vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
       return {
-        ...(await originalGetSetting()),
+        ...originalGetSetting,
         enableWaitlist: true,
       };
     });

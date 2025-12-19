@@ -13,6 +13,7 @@ import type {
   IGetTempTokenVo,
   ITableFullVo,
   IUserMeVo,
+  ISettingVo,
 } from '@teable/openapi';
 import {
   ADD_PIN,
@@ -55,6 +56,7 @@ describe('Auth Controller (e2e)', () => {
   let app: INestApplication;
   let prismaService: PrismaService;
   let settingService: SettingService;
+  let originalGetSetting: ISettingVo;
 
   const authTestEmail = 'auth@test-auth.com';
 
@@ -67,6 +69,7 @@ describe('Auth Controller (e2e)', () => {
     app = appCtx.app;
     prismaService = app.get(PrismaService);
     settingService = app.get(SettingService);
+    originalGetSetting = await settingService.getSetting();
   });
 
   afterAll(async () => {
@@ -136,10 +139,9 @@ describe('Auth Controller (e2e)', () => {
 
   describe('sign up with email verification', () => {
     beforeEach(async () => {
-      const originalGetSetting = settingService.getSetting.bind(settingService);
       vi.spyOn(settingService, 'getSetting').mockImplementation(async () => {
         return {
-          ...(await originalGetSetting()),
+          ...originalGetSetting,
           enableEmailVerification: true,
         };
       });
