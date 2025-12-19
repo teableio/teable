@@ -9,3 +9,4 @@ export * from './pin-top';
 export * from './get-template-detail';
 export * from './get-by-base-id';
 export * from './unpublish';
+export * from './increment-visit';

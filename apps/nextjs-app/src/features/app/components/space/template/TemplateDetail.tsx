@@ -134,9 +134,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {markdownDescription && (
               <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
             )}
-            {!markdownDescription && (
+            {/* {!markdownDescription && (
               <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
-            )}
+            )} */}
           </div>
         </div>
       </div>
@@ -196,9 +196,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           {markdownDescription && (
             <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
           )}
-          {!markdownDescription && (
+          {/* {!markdownDescription && (
             <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
-          )}
+          )} */}
         </div>
       </div>
     </div>

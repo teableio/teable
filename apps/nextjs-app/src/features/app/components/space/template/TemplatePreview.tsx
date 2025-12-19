@@ -1,4 +1,6 @@
 import type { ITemplateVo } from '@teable/openapi';
+import { useIsHydrated } from '@teable/sdk/hooks';
+import { Spin } from '@teable/ui-lib/base';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
@@ -16,6 +18,16 @@ export const TemplatePreview = (props: {
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useTranslation(['common']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
+  const isHydrated = useIsHydrated();
+
+  if (!isHydrated) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center rounded-sm border bg-background text-sm text-muted-foreground">
+        <Spin className="size-4" />
+      </div>
+    );
+  }
+
   const height = width * (640 / 1240);
   const url = snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '';
 

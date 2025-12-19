@@ -476,4 +476,11 @@ export class TemplateOpenApiService {
       snapshot: template.snapshot ? JSON.parse(template.snapshot) : null,
     };
   }
+
+  async incrementTemplateVisitCount(templateId: string) {
+    await this.prismaService.template.update({
+      where: { id: templateId },
+      data: { visitCount: { increment: 1 } },
+    });
+  }
 }

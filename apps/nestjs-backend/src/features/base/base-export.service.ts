@@ -432,6 +432,7 @@ export class BaseExportService {
     const nodes = await this.generateNodeConfig(baseId, includeNodes);
 
     return {
+      id: baseId,
       name: baseName,
       icon: baseIcon,
       version: process.env.NEXT_PUBLIC_BUILD_VERSION!,

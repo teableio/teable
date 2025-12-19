@@ -624,6 +624,7 @@ model Template {
   order               Float     @map("order")
   usageCount          Int       @default(0) @map("usage_count")
   publishInfo         Json?     @map("publish_info")
+  visitCount          Int       @default(0) @map("visit_count")
 
   @@unique([baseId])
   @@map("template")

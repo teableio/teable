@@ -321,6 +321,10 @@ export class BaseImportService {
       });
     }
 
+    const baseIdMap = {
+      [structure.id]: newBase.id,
+    };
+
     return {
       base: newBase,
       tableIdMap,
@@ -331,6 +335,7 @@ export class BaseImportService {
       folderIdMap,
       dashboardIdMap,
       nodeIdMap,
+      baseIdMap,
     };
   }
 
