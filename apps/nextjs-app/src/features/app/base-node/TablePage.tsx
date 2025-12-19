@@ -13,6 +13,7 @@ import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 interface IQueryParams {
   recordId?: string;
   fromNotify?: string;
+  [key: string]: unknown;
 }
 
 const getDefaultViewId = async (ssrApi: SsrApi, tableId: string, queryParams?: IQueryParams) => {
@@ -24,13 +25,10 @@ const getDefaultViewId = async (ssrApi: SsrApi, tableId: string, queryParams?: I
   if (viewList.length === 0) {
     return undefined;
   }
-  let viewIds = viewList.map((v) => v.id);
-  if (recordId) {
-    const nonFormViews = viewList.filter((v) => v.type !== ViewType.Form);
-    if (nonFormViews.length > 0) {
-      viewIds = nonFormViews.map((v) => v.id);
-    }
-  }
+  const nonFormViews = viewList.filter((v) => v.type !== ViewType.Form);
+  const candidateViews = recordId && nonFormViews.length > 0 ? nonFormViews : viewList;
+  const viewIds = candidateViews.map((v) => v.id);
+
   return lastVisit?.resourceId && viewIds.includes(lastVisit.resourceId)
     ? lastVisit.resourceId
     : viewIds[0]!;
@@ -39,13 +37,12 @@ const getDefaultViewId = async (ssrApi: SsrApi, tableId: string, queryParams?: I
 export const getTableServerSideProps = async (
   ctx: ISSRContext,
   parsed: IBaseResourceParsed,
-  queryParams?: Record<string, string | string[] | undefined>
+  queryParams?: IQueryParams
 ): Promise<SSRResult> => {
   const { ssrApi, baseId, queryClient, base } = ctx;
   if (parsed.resourceType !== BaseNodeResourceType.Table) return { notFound: true };
   const { tableId, viewId } = parsed;
-  const { recordId, fromNotify: notifyId } =
-    (queryParams as { recordId?: string; fromNotify?: string }) ?? {};
+  const { recordId, fromNotify: notifyId } = queryParams ?? {};
   const queryString = queryParams
     ? new URLSearchParams(queryParams as Record<string, string>).toString()
     : '';
