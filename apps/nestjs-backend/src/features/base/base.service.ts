@@ -616,12 +616,11 @@ export class BaseService {
       where: { baseId },
       select: { id: true },
     });
+    const { title, description, cover, nodes, includeData } = publishBaseRo;
 
+    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
     // if already published, update template
     if (template) {
-      const { title, description, cover, nodes, includeData } = publishBaseRo;
-      const snapshot = await this.createSnapshot(baseId, nodes, includeData);
-
       await prisma.template.update({
         where: { id: template.id },
         data: {
@@ -642,14 +641,18 @@ export class BaseService {
           },
         },
       });
-      return;
+      return {
+        baseId: snapshot.baseId,
+      };
     }
 
     // if the base is not published, create a template
-    const { nodes, includeData } = publishBaseRo;
-    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
     // publish snapshot
     await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo);
+
+    return {
+      baseId: snapshot.baseId,
+    };
   }
 
   private async createSnapshot(baseId: string, nodes?: string[], includeData?: boolean) {

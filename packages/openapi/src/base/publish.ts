@@ -43,7 +43,7 @@ export const PublishBaseRoute: RouteConfig = registerRoute({
 });
 
 export const publishBase = async (baseId: string, publishBaseRo: IPublishBaseRo) => {
-  return await axios.post<void>(
+  return await axios.post<{ baseId: string }>(
     urlBuilder(PUBLISH_BASE, {
       baseId,
     }),

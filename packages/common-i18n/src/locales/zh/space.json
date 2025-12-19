@@ -150,6 +150,10 @@
     "tips": {
       "publishValidation": "标题和描述不能为空",
       "atLeastOneNode": "至少选择一个节点发布"
-    }
+    },
+    "urlCopied": "链接已复制到剪贴板！",
+    "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
+    "publishSuccessDescription": "分享你的作品到世界",
+    "shareWith": "分享到"
   }
 }

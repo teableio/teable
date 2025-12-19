@@ -448,15 +448,13 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
                         paddingLeft: `${item.getItemMeta().level * INDENTATION_WIDTH + 8}px`,
                       }}
                     >
-                      {isFolder ? (
+                      {isFolder && (
                         <ChevronDown
                           className={cn(
                             'size-4 shrink-0 transition-transform',
                             !isExpanded && '-rotate-90'
                           )}
                         />
-                      ) : (
-                        <div className="size-4 shrink-0" />
                       )}
 
                       {renderNodeIcon(item)}

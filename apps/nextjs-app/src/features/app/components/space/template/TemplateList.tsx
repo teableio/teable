@@ -13,11 +13,10 @@ interface ITemplateListProps extends ITemplateBaseProps {
   currentCategoryId: string | null;
   search: string;
   className?: string;
-  serverPublishedTemplateList?: ITemplateVo[];
-  isFeatured: boolean;
+  isFeatured: boolean | undefined;
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 2 * 3 * 2;
 
 export const TemplateList = (props: ITemplateListProps) => {
   const {
@@ -26,7 +25,6 @@ export const TemplateList = (props: ITemplateListProps) => {
     onClickUseTemplateHandler,
     onClickTemplateCardHandler,
     className,
-    serverPublishedTemplateList,
     isFeatured,
   } = props;
   const { t } = useTranslation(['common']);
@@ -47,16 +45,10 @@ export const TemplateList = (props: ITemplateListProps) => {
       }
       return allPages.length * PAGE_SIZE;
     },
-    initialData: serverPublishedTemplateList
-      ? {
-          pages: [serverPublishedTemplateList],
-          pageParams: [undefined],
-        }
-      : undefined,
   });
 
   const currentTemplateList = useMemo(() => {
-    return data?.pages.flatMap((page) => page) ?? [];
+    return data?.pages?.flatMap((page) => page) ?? [];
   }, [data]);
 
   return (

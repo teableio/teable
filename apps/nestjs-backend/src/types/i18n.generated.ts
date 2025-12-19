@@ -2813,6 +2813,10 @@ export type I18nTranslations = {
                 "publishValidation": string;
                 "atLeastOneNode": string;
             };
+            "urlCopied": string;
+            "urlCopiedForDiscord": string;
+            "publishSuccessDescription": string;
+            "shareWith": string;
         };
     };
     "system": {

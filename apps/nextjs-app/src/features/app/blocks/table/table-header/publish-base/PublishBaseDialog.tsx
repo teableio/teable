@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
-import { Plus } from '@teable/icons';
+import { Discord, Heart, InIcon, Link, Plus, Twitter } from '@teable/icons';
 import type { ITemplateCoverRo, INotifyVo } from '@teable/openapi';
 import {
   getTemplateByBaseId,
@@ -10,7 +10,7 @@ import {
   BaseNodeResourceType,
 } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
-import { useBase, useSession } from '@teable/sdk/hooks';
+import { useBase } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import {
   AlertDialog,
@@ -22,9 +22,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
   Button,
   cn,
   Dialog,
@@ -39,9 +36,10 @@ import {
   Textarea,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Camera, Send, SmilePlus } from 'lucide-react';
+import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo } from 'react';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { ROOT_ID } from '../../../base/base-node/hooks';
 import { useBaseNodeContext } from '../../../base/base-node/hooks/useBaseNodeContext';
 import { NodeSelect } from './NodeSelect';
@@ -59,6 +57,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const base = useBase();
   const baseId = base?.id;
   const { treeItems } = useBaseNodeContext();
+  const isCloud = useIsCloud();
 
   const queryClient = useQueryClient();
 
@@ -149,11 +148,17 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         defaultActiveNodeId,
       }).then((res) => res.data);
     },
-    onSuccess: () => {
-      toast.success(t('publishBase.publishSuccess'));
+    onSuccess: (data) => {
+      const { baseId: templateBaseId } = data;
       queryClient.invalidateQueries({ queryKey: ['template-by-base', baseId] });
       // after publish success, clear the uploaded cover, use server data next time
       setUploadedCover(null);
+      // Close the publish dialog and show success dialog
+      setOpen(false);
+      // Generate share URL based on baseId
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      setShareUrl(`${origin}/base/${templateBaseId}`);
+      setSuccessDialogOpen(true);
     },
   });
 
@@ -172,9 +177,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   >(null);
   const [includeData, setIncludeData] = useState(false);
   const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
-  const { user } = useSession();
   const uploadRef = useRef<HTMLInputElement>(null);
   const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
+  const [successDialogOpen, setSuccessDialogOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   // Initialize selected nodes on first load
   useEffect(() => {
@@ -270,222 +276,314 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     }
   }, [selectedNodeIds, defaultActiveNodeId]);
 
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(shareUrl);
+    toast.success(t('publishBase.urlCopied'));
+  };
+
+  const handleOpenUrl = () => {
+    window.open(shareUrl, '_blank');
+  };
+
+  const handleShareToX = () => {
+    const text = encodeURIComponent(`Check out this template: ${title}`);
+    window.open(
+      `https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
+  };
+
+  const handleShareToLinkedIn = () => {
+    window.open(
+      `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+      '_blank'
+    );
+  };
+
+  const handleShareToDiscord = () => {
+    // Discord doesn't have a direct share URL, so we just copy the URL
+    navigator.clipboard.writeText(shareUrl);
+    toast.success(t('publishBase.urlCopiedForDiscord'));
+  };
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-[960px] gap-0">
-        <DialogHeader className="h-20">
-          <DialogTitle>{t('publishBase.title')}</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {t('publishBase.description')}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex w-full gap-10 overflow-x-hidden">
-          <div className="relative flex min-w-[358px] flex-1 flex-col gap-6 px-0.5">
-            <div className="flex flex-col gap-2">
-              <div className="text-sm font-semibold">{t('publishBase.infoTitle')}</div>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{children}</DialogTrigger>
+        <DialogContent className="max-w-[960px] gap-0">
+          <DialogHeader className="h-20">
+            <DialogTitle>{t('publishBase.title')}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {t('publishBase.description')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex w-full gap-10 overflow-x-hidden">
+            <div className="relative flex min-w-[358px] flex-1 flex-col gap-6 px-0.5">
               <div className="flex flex-col gap-2">
-                <span className="text-sm">{t('publishBase.form.title')}</span>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder={t('publishBase.form.titlePlaceholder')}
+                <div className="text-sm font-semibold">{t('publishBase.infoTitle')}</div>
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm">{t('publishBase.form.title')}</span>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder={t('publishBase.form.titlePlaceholder')}
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <span className="text-sm">{t('publishBase.form.description')}</span>
+                  <Textarea
+                    className="min-h-12 resize-y"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder={t('publishBase.form.descriptionPlaceholder')}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{t('publishBase.form.publishNode')}</span>
+                </div>
+                <NodeTreeSelect
+                  showCheckbox
+                  checkedItems={selectedNodeIds}
+                  onCheckedItemsChange={(ids) => setSelectedNodeIds(ids)}
+                  placeholder={t('common:actions.select')}
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <span className="text-sm">{t('publishBase.form.description')}</span>
-                <Textarea
-                  className="min-h-12 resize-y"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('publishBase.form.descriptionPlaceholder')}
+                <span className="text-sm">{t('publishBase.form.security')}</span>
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    id="include-data"
+                    checked={includeData}
+                    onCheckedChange={setIncludeData}
+                  />
+                  <Label htmlFor="include-data">{t('publishBase.form.includeData')}</Label>
+                  {/* <QuestionMarkCircledIcon className="size-4" /> */}
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                <span className="text-sm font-semibold">{t('publishBase.form.advanced')}</span>
+                <span className="text-sm">{t('publishBase.form.defaultActiveNode')}</span>
+                <NodeSelect
+                  nodeIds={selectedNodeIds}
+                  value={defaultActiveNodeId || ''}
+                  onChange={setDefaultActiveNodeId}
                 />
               </div>
-            </div>
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{t('publishBase.form.publishNode')}</span>
-              </div>
-              <NodeTreeSelect
-                showCheckbox
-                checkedItems={selectedNodeIds}
-                onCheckedItemsChange={(ids) => setSelectedNodeIds(ids)}
-                placeholder={t('common:actions.select')}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-sm">{t('publishBase.form.security')}</span>
-              <div className="flex items-center space-x-2">
-                <Switch id="include-data" checked={includeData} onCheckedChange={setIncludeData} />
-                <Label htmlFor="include-data">{t('publishBase.form.includeData')}</Label>
-                {/* <QuestionMarkCircledIcon className="size-4" /> */}
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <span className="text-sm font-semibold">{t('publishBase.form.advanced')}</span>
-              <span className="text-sm">{t('publishBase.form.defaultActiveNode')}</span>
-              <NodeSelect
-                nodeIds={selectedNodeIds}
-                value={defaultActiveNodeId || ''}
-                onChange={setDefaultActiveNodeId}
-              />
-            </div>
-
-            <div className="absolute inset-x-0 bottom-0 flex w-full gap-1">
-              {templateDetail && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      className="flex w-full items-center gap-2"
-                      variant="outline"
-                      disabled={unpublishTemplateLoading}
-                    >
-                      {t('publishBase.unPublish')}
-                      {unpublishTemplateLoading && <Spin className="size-4" />}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('publishBase.unPublishConfirmTitle')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('publishBase.unPublishConfirmDescription')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={() => unpublishTemplateMutate()}
+              <div className="absolute inset-x-0 bottom-0 flex w-full gap-1">
+                {templateDetail && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        className="flex w-full items-center gap-2"
+                        variant="outline"
+                        disabled={unpublishTemplateLoading}
                       >
-                        {t('common:actions.confirm')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-              <Button
-                className="flex w-full items-center gap-2"
-                onClick={() => {
-                  if (!title || !description) {
-                    toast.error(t('publishBase.tips.publishValidation'));
-                    return;
-                  }
+                        {t('publishBase.unPublish')}
+                        {unpublishTemplateLoading && <Spin className="size-4" />}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>
+                          {t('publishBase.unPublishConfirmTitle')}
+                        </AlertDialogTitle>
+                        <AlertDialogDescription>
+                          {t('publishBase.unPublishConfirmDescription')}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+                        <AlertDialogAction
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          onClick={() => unpublishTemplateMutate()}
+                        >
+                          {t('common:actions.confirm')}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                )}
+                <Button
+                  className="flex w-full items-center gap-2"
+                  onClick={() => {
+                    if (!title || !description) {
+                      toast.error(t('publishBase.tips.publishValidation'));
+                      return;
+                    }
 
-                  if (selectedNodeIds.length === 0) {
-                    toast.error(t('publishBase.tips.atLeastOneNode'));
-                    return;
-                  }
+                    if (selectedNodeIds.length === 0) {
+                      toast.error(t('publishBase.tips.atLeastOneNode'));
+                      return;
+                    }
 
-                  publishBaseMutate({ title, description: description || '' });
-                }}
-                disabled={publishBaseLoading}
-              >
-                <Send className="size-4" />
-                {templateDetail ? t('publishBase.update') : t('publishBase.publish')}
+                    publishBaseMutate({ title, description: description || '' });
+                  }}
+                  disabled={publishBaseLoading}
+                >
+                  <Send className="size-4" />
+                  {templateDetail ? t('publishBase.update') : t('publishBase.publish')}
 
-                {publishBaseLoading && <Spin className="size-4" />}
+                  {publishBaseLoading && <Spin className="size-4" />}
+                </Button>
+              </div>
+            </div>
+
+            <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
+              <input
+                ref={uploadRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              <div className="relative flex size-full flex-col items-center justify-center gap-3 p-5">
+                <div className="text-base font-semibold">{t('publishBase.previewTips')}</div>
+
+                <div className="flex min-h-[302px] w-[432px] flex-col overflow-hidden rounded-md border shadow-md">
+                  <div
+                    className="group relative h-[180px] cursor-pointer overflow-hidden"
+                    onClick={handleUploadClick}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        handleUploadClick();
+                      }
+                    }}
+                  >
+                    {screenshotUrl ? (
+                      <>
+                        <img
+                          src={screenshotUrl}
+                          className="size-full object-cover"
+                          alt="published base preview"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                          <div className="flex flex-col items-center gap-2">
+                            <Camera className="size-8 text-white" />
+                            <span className="text-sm text-white">
+                              {t('publishBase.changeCover')}
+                            </span>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex size-full flex-col items-center justify-center gap-4 bg-muted transition-colors hover:bg-muted/80">
+                        {isUploading ? (
+                          <>
+                            <Spin className="size-12" />
+                            <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="size-12 text-muted-foreground" />
+                            <span className="text-sm text-muted-foreground">
+                              {t('publishBase.uploadCover')}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-1 border-t bg-card p-4">
+                    <div className="flex items-center justify-between">
+                      <p
+                        className={cn(
+                          'text-sm font-semibold',
+                          title ? 'text-foreground' : 'text-muted-foreground'
+                        )}
+                      >
+                        {title || t('publishBase.form.toBeFilled')}
+                      </p>
+
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                        <Heart className="size-4" />
+                        {templateDetail?.usageCount || 0}
+                      </div>
+                    </div>
+                    <span
+                      className={cn(
+                        'line-clamp-3 text-wrap break-words text-sm',
+                        description ? 'text-foreground' : 'text-muted-foreground'
+                      )}
+                      title={description}
+                    >
+                      {description || t('publishBase.form.toBeFilled')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+        <DialogContent className="max-w-[512px] gap-0 p-0">
+          <DialogHeader className="flex h-[60px] flex-col justify-center px-6">
+            <DialogTitle className="text-left text-lg font-semibold">
+              {t('publishBase.publishSuccess')}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex w-full flex-col px-6 pb-4">
+            <span className="text-sm text-muted-foreground">
+              {t('publishBase.publishSuccessDescription')}
+            </span>
+
+            <div className="flex w-full items-center gap-2 py-2">
+              <div className="flex h-9 flex-1 items-center gap-2 truncate rounded-md border px-3 text-sm">
+                <Link className="size-4 shrink-0" />
+                <div className="flex-1 overflow-auto">{shareUrl}</div>
+              </div>
+              <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
+                <Copy className="size-4" />
+              </Button>
+              <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleOpenUrl}>
+                <ExternalLink className="size-4" />
               </Button>
             </div>
-          </div>
 
-          <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
-            <input
-              ref={uploadRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleFileSelect}
-            />
-            <div className="relative flex size-full flex-col items-center justify-center gap-3 p-5">
-              <div className="text-base font-semibold">{t('publishBase.previewTips')}</div>
-
-              <div className="flex min-h-[302px] w-[432px] flex-col overflow-hidden rounded-md border shadow-md">
-                <div
-                  className="group relative h-[180px] cursor-pointer overflow-hidden"
-                  onClick={handleUploadClick}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      handleUploadClick();
-                    }
-                  }}
-                >
-                  {screenshotUrl ? (
-                    <>
-                      <img
-                        src={screenshotUrl}
-                        className="size-full object-cover"
-                        alt="published base preview"
-                      />
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-                        <div className="flex flex-col items-center gap-2">
-                          <Camera className="size-8 text-white" />
-                          <span className="text-sm text-white">{t('publishBase.changeCover')}</span>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="flex size-full flex-col items-center justify-center gap-4 bg-muted transition-colors hover:bg-muted/80">
-                      {isUploading ? (
-                        <>
-                          <Spin className="size-12" />
-                          <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="size-12 text-muted-foreground" />
-                          <span className="text-sm text-muted-foreground">
-                            {t('publishBase.uploadCover')}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                <div className="flex flex-1 flex-col gap-1 border-t bg-card p-4">
-                  <p
-                    className={cn(
-                      'text-sm font-semibold',
-                      title ? 'text-foreground' : 'text-muted-foreground'
-                    )}
+            {isCloud && (
+              <div className="flex flex-col gap-3 pt-6">
+                <div className="text-sm font-medium">{t('publishBase.shareWith')}</div>
+                <div className="flex gap-3">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="size-9 rounded-lg p-0"
+                    onClick={handleShareToX}
                   >
-                    {title || t('publishBase.form.toBeFilled')}
-                  </p>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <Avatar className="size-5">
-                        <AvatarImage src={user?.avatar || ''} />
-                        <AvatarFallback>{user?.name?.slice(0, 1)}</AvatarFallback>
-                      </Avatar>
-                      <p className="text-sm text-muted-foreground">{user?.name}</p>
-                    </div>
-
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <SmilePlus className="size-4" />
-                      {t('publishBase.usageCount')}
-                      {templateDetail?.usageCount || 0}
-                    </div>
-                  </div>
-                  <span
-                    className={cn(
-                      'line-clamp-3 text-wrap break-words text-sm',
-                      description ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                    title={description}
+                    <Twitter className="size-6 p-0.5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="size-9 rounded-lg p-0"
+                    onClick={handleShareToLinkedIn}
                   >
-                    {description || t('publishBase.form.toBeFilled')}
-                  </span>
+                    <InIcon className="size-6 fill-[#0A66C2] p-0.5" />
+                  </Button>
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="size-9 rounded-lg p-0"
+                    onClick={handleShareToDiscord}
+                  >
+                    <Discord className="size-6 fill-[#5865F2] p-0.5" />
+                  </Button>
                 </div>
               </div>
-            </div>
+            )}
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
