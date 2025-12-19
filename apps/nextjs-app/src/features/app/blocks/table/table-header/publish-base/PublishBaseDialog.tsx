@@ -532,7 +532,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               {t('publishBase.publishSuccess')}
             </DialogTitle>
           </DialogHeader>
-          <div className="flex w-full flex-col px-6 pb-4">
+          <div className="flex w-full flex-col overflow-hidden px-6 pb-4">
             <span className="text-sm text-muted-foreground">
               {t('publishBase.publishSuccessDescription')}
             </span>
@@ -540,7 +540,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             <div className="flex w-full items-center gap-2 py-2">
               <div className="flex h-9 flex-1 items-center gap-2 truncate rounded-md border px-3 text-sm">
                 <Link className="size-4 shrink-0" />
-                <div className="flex-1 overflow-auto">{shareUrl}</div>
+                <div className="flex-1 overflow-auto">{shareUrl}1312312313</div>
               </div>
               <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
