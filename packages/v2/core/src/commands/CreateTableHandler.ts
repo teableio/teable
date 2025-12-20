@@ -61,10 +61,10 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     const transactionResult = await this.unitOfWork.withTransaction(
       context,
       async (transactionContext) => {
-        const saveResult = await this.tableRepository.save(transactionContext, table);
-        if (saveResult.isErr()) return err(saveResult.error);
+        const insertResult = await this.tableRepository.insert(transactionContext, table);
+        if (insertResult.isErr()) return err(insertResult.error);
 
-        const schemaResult = await this.tableSchemaRepository.save(transactionContext, table);
+        const schemaResult = await this.tableSchemaRepository.insert(transactionContext, table);
         if (schemaResult.isErr()) return err(schemaResult.error);
 
         return ok(undefined);

@@ -15,7 +15,7 @@ import type {
   IUserFieldOptionsDTO,
   IButtonFieldOptionsDTO,
 } from '@teable/v2-core';
-import { fieldColorValues, getRandomString } from '@teable/v2-core';
+import { fieldColorValues, getRandomString, TraceSpan } from '@teable/v2-core';
 import {
   getPostgresTransaction,
   resolvePostgresDb,
@@ -24,17 +24,13 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql } from 'kysely';
+import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { ITableDbFieldMeta, ITableDbMeta } from '../db/tableDbMeta';
 import { v2PostgresStateTokens } from '../di/tokens';
-import {
-  baseRecordColumnNames,
-  convertNameToValidCharacter,
-  joinDbTableName,
-  splitDbTableName,
-} from '../naming';
+import { baseRecordColumnNames, convertNameToValidCharacter, joinDbTableName } from '../naming';
 import {
   FieldStorageTypeVisitor,
   type IFieldStorageType,
@@ -50,7 +46,8 @@ export class PostgresTableRepository implements ITableRepository {
     private readonly tableMapper: ITableMapper
   ) {}
 
-  async save(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  @TraceSpan()
+  async insert(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
     const dtoResult = this.tableMapper.toDTO(table);
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
@@ -64,28 +61,14 @@ export class PostgresTableRepository implements ITableRepository {
 
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
     const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, string>> => {
-      const existing = await trx
-        .selectFrom('table_meta')
-        .select(['id', 'order', 'db_table_name'])
-        .where('id', '=', dto.id)
-        .executeTakeFirst();
-
-      const order: number =
-        existing?.order ??
-        (await trx
-          .selectFrom('table_meta')
-          .select(({ fn }) => fn.max('order').as('max_order'))
-          .where('base_id', '=', baseId)
-          .executeTakeFirst()
-          .then((row) => Number(row?.max_order ?? 0) + 1));
-
-      const tableDbMeta = await this.buildTableDbMeta(
-        trx,
-        dto,
-        baseId,
-        existing?.db_table_name ?? null
-      );
-
+      const order = sql<number>`
+        (
+          select coalesce(max("order"), 0) + 1
+          from table_meta
+          where base_id = ${baseId}
+        )
+      `;
+      const tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId);
       const fieldValuesResult = this.sequenceResults(
         tableDbMeta.fields.map((f, i) => {
           const storageType = fieldStorageTypeById.get(f.field.id);
@@ -125,69 +108,214 @@ export class PostgresTableRepository implements ITableRepository {
       );
       if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
 
-      await trx
-        .insertInto('table_meta')
-        .values({
-          id: dto.id,
-          base_id: baseId,
-          name: dto.name,
-          description: null,
-          icon: null,
-          db_table_name: tableDbMeta.dbTableName,
-          db_view_name: null,
-          version: 1,
-          order,
-          created_time: now,
-          last_modified_time: now,
-          deleted_time: null,
-          created_by: actorId,
-          last_modified_by: actorId,
-        })
-        .onConflict((oc) =>
-          oc.column('id').doUpdateSet({
-            name: dto.name,
-            last_modified_time: now,
-            last_modified_by: actorId,
-          })
-        )
-        .execute();
+      const fieldRows = fieldValuesResult.value;
+      const viewRows = dto.views.map((v, i) => ({
+        id: v.id,
+        name: v.name,
+        description: null,
+        table_id: dto.id,
+        type: v.type,
+        sort: null,
+        filter: null,
+        group: null,
+        options: null,
+        order: i + 1,
+        version: 1,
+        column_meta: '{}',
+        is_locked: null,
+        enable_share: null,
+        share_id: null,
+        share_meta: null,
+        created_time: now,
+        last_modified_time: now,
+        deleted_time: null,
+        created_by: actorId,
+        last_modified_by: actorId,
+      }));
 
-      await trx.deleteFrom('field').where('table_id', '=', dto.id).execute();
-      if (fieldValuesResult.value.length > 0) {
-        await trx.insertInto('field').values(fieldValuesResult.value).execute();
-      }
+      const tableMetaColumns = sql.join([
+        sql.ref('id'),
+        sql.ref('base_id'),
+        sql.ref('name'),
+        sql.ref('description'),
+        sql.ref('icon'),
+        sql.ref('db_table_name'),
+        sql.ref('db_view_name'),
+        sql.ref('version'),
+        sql.ref('order'),
+        sql.ref('created_time'),
+        sql.ref('last_modified_time'),
+        sql.ref('deleted_time'),
+        sql.ref('created_by'),
+        sql.ref('last_modified_by'),
+      ]);
+      const tableMetaValues = sql`(${sql.join([
+        dto.id,
+        baseId,
+        dto.name,
+        null,
+        null,
+        tableDbMeta.dbTableName,
+        null,
+        1,
+        order,
+        now,
+        now,
+        null,
+        actorId,
+        actorId,
+      ])})`;
 
-      await trx.deleteFrom('view').where('table_id', '=', dto.id).execute();
-      if (dto.views.length > 0) {
-        await trx
-          .insertInto('view')
-          .values(
-            dto.views.map((v, i) => ({
-              id: v.id,
-              name: v.name,
-              description: null,
-              table_id: dto.id,
-              type: v.type,
-              sort: null,
-              filter: null,
-              group: null,
-              options: null,
-              order: i + 1,
-              version: 1,
-              column_meta: '{}',
-              is_locked: null,
-              enable_share: null,
-              share_id: null,
-              share_meta: null,
-              created_time: now,
-              last_modified_time: now,
-              deleted_time: null,
-              created_by: actorId,
-              last_modified_by: actorId,
-            }))
+      const fieldColumns = sql.join([
+        sql.ref('id'),
+        sql.ref('name'),
+        sql.ref('description'),
+        sql.ref('options'),
+        sql.ref('meta'),
+        sql.ref('ai_config'),
+        sql.ref('type'),
+        sql.ref('cell_value_type'),
+        sql.ref('is_multiple_cell_value'),
+        sql.ref('db_field_type'),
+        sql.ref('db_field_name'),
+        sql.ref('not_null'),
+        sql.ref('unique'),
+        sql.ref('is_primary'),
+        sql.ref('is_computed'),
+        sql.ref('is_lookup'),
+        sql.ref('is_conditional_lookup'),
+        sql.ref('is_pending'),
+        sql.ref('has_error'),
+        sql.ref('lookup_linked_field_id'),
+        sql.ref('lookup_options'),
+        sql.ref('table_id'),
+        sql.ref('order'),
+        sql.ref('version'),
+        sql.ref('created_time'),
+        sql.ref('last_modified_time'),
+        sql.ref('deleted_time'),
+        sql.ref('created_by'),
+        sql.ref('last_modified_by'),
+      ]);
+      const fieldValues = fieldRows.length
+        ? sql.join(
+            fieldRows.map(
+              (row) =>
+                sql`(${sql.join([
+                  row.id,
+                  row.name,
+                  row.description,
+                  row.options,
+                  row.meta,
+                  row.ai_config,
+                  row.type,
+                  row.cell_value_type,
+                  row.is_multiple_cell_value,
+                  row.db_field_type,
+                  row.db_field_name,
+                  row.not_null,
+                  row.unique,
+                  row.is_primary,
+                  row.is_computed,
+                  row.is_lookup,
+                  row.is_conditional_lookup,
+                  row.is_pending,
+                  row.has_error,
+                  row.lookup_linked_field_id,
+                  row.lookup_options,
+                  row.table_id,
+                  row.order,
+                  row.version,
+                  row.created_time,
+                  row.last_modified_time,
+                  row.deleted_time,
+                  row.created_by,
+                  row.last_modified_by,
+                ])})`
+            )
           )
-          .execute();
-      }
+        : null;
+
+      const viewColumns = sql.join([
+        sql.ref('id'),
+        sql.ref('name'),
+        sql.ref('description'),
+        sql.ref('table_id'),
+        sql.ref('type'),
+        sql.ref('sort'),
+        sql.ref('filter'),
+        sql.ref('group'),
+        sql.ref('options'),
+        sql.ref('order'),
+        sql.ref('version'),
+        sql.ref('column_meta'),
+        sql.ref('is_locked'),
+        sql.ref('enable_share'),
+        sql.ref('share_id'),
+        sql.ref('share_meta'),
+        sql.ref('created_time'),
+        sql.ref('last_modified_time'),
+        sql.ref('deleted_time'),
+        sql.ref('created_by'),
+        sql.ref('last_modified_by'),
+      ]);
+      const viewValues = viewRows.length
+        ? sql.join(
+            viewRows.map(
+              (row) =>
+                sql`(${sql.join([
+                  row.id,
+                  row.name,
+                  row.description,
+                  row.table_id,
+                  row.type,
+                  row.sort,
+                  row.filter,
+                  row.group,
+                  row.options,
+                  row.order,
+                  row.version,
+                  row.column_meta,
+                  row.is_locked,
+                  row.enable_share,
+                  row.share_id,
+                  row.share_meta,
+                  row.created_time,
+                  row.last_modified_time,
+                  row.deleted_time,
+                  row.created_by,
+                  row.last_modified_by,
+                ])})`
+            )
+          )
+        : null;
+
+      const fieldInsert = fieldValues
+        ? sql`
+            , field_insert as (
+              insert into ${sql.ref('field')} (${fieldColumns})
+              values ${fieldValues}
+            )
+          `
+        : sql``;
+      const viewInsert = viewValues
+        ? sql`
+            , view_insert as (
+              insert into ${sql.ref('view')} (${viewColumns})
+              values ${viewValues}
+            )
+          `
+        : sql``;
+
+      await sql`
+        with table_insert as (
+          insert into ${sql.ref('table_meta')} (${tableMetaColumns})
+          values ${tableMetaValues}
+        )
+        ${fieldInsert}
+        ${viewInsert}
+        select 1
+      `.execute(trx);
 
       return ok(undefined);
     };
@@ -198,12 +326,13 @@ export class PostgresTableRepository implements ITableRepository {
         : await this.db.transaction().execute(async (trx) => persist(trx));
       if (persistResult.isErr()) return err(persistResult.error);
     } catch (error) {
-      return err(`Failed to save table: ${describeError(error)}`);
+      return err(`Failed to insert table: ${describeError(error)}`);
     }
 
     return ok(undefined);
   }
 
+  @TraceSpan()
   async findOne(
     context: IExecutionContext,
     spec: ISpecification<Table>
@@ -220,27 +349,45 @@ export class PostgresTableRepository implements ITableRepository {
       const db = resolvePostgresDb(this.db, context);
       const baseQuery = db
         .selectFrom('table_meta')
-        .select(['id', 'name', 'base_id'])
+        .select([
+          'table_meta.id',
+          'table_meta.name',
+          'table_meta.base_id',
+          jsonArrayFrom(
+            db
+              .selectFrom('field')
+              .select(['id', 'name', 'type', 'options', 'is_primary'])
+              .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
+              .where('deleted_time', 'is', null)
+              .orderBy('order')
+          ).as('fields'),
+          jsonArrayFrom(
+            db
+              .selectFrom('view')
+              .select(['id', 'name', 'type'])
+              .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
+              .where('deleted_time', 'is', null)
+              .orderBy('order')
+          ).as('views'),
+        ])
         .where((eb) => whereFactory(eb));
 
       const tableRow = await baseQuery.executeTakeFirst();
       if (!tableRow) return err('Not found');
 
-      const fieldRows = await db
-        .selectFrom('field')
-        .select(['id', 'name', 'type', 'options', 'is_primary'])
-        .where('table_id', '=', tableRow.id)
-        .where('deleted_time', 'is', null)
-        .orderBy('order')
-        .execute();
+      const fieldRows = Array.isArray(tableRow.fields)
+        ? (tableRow.fields as Array<{
+            id: string;
+            name: string;
+            type: string;
+            options: string | null;
+            is_primary: boolean | null;
+          }>)
+        : [];
 
-      const viewRows = await db
-        .selectFrom('view')
-        .select(['id', 'name', 'type'])
-        .where('table_id', '=', tableRow.id)
-        .where('deleted_time', 'is', null)
-        .orderBy('order')
-        .execute();
+      const viewRows = Array.isArray(tableRow.views)
+        ? (tableRow.views as Array<{ id: string; name: string; type: string }>)
+        : [];
 
       const primaryFieldId =
         fieldRows.find((f) => f.is_primary === true)?.id ?? fieldRows[0]?.id ?? '';
@@ -271,7 +418,6 @@ export class PostgresTableRepository implements ITableRepository {
     return JSON.stringify(field.options);
   }
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   private deserializeFieldDto(row: {
     id: string;
     name: string;
@@ -443,22 +589,18 @@ export class PostgresTableRepository implements ITableRepository {
   private async buildTableDbMeta(
     trx: Kysely<V1TeableDatabase>,
     dto: ITablePersistenceDTO,
-    baseId: string,
-    existingDbTableName: string | null
+    baseId: string
   ): Promise<ITableDbMeta> {
-    const dbTableName = await this.resolveDbTableName(trx, baseId, dto.name, existingDbTableName);
-    const fields = await this.buildDbFieldMeta(trx, dto, dbTableName);
+    const dbTableName = await this.resolveDbTableName(trx, baseId, dto.name);
+    const fields = this.buildDbFieldMeta(dto);
     return { tableId: dto.id, dbTableName, fields };
   }
 
   private async resolveDbTableName(
     trx: Kysely<V1TeableDatabase>,
     baseId: string,
-    tableName: string,
-    existingDbTableName: string | null
+    tableName: string
   ): Promise<string> {
-    if (existingDbTableName) return existingDbTableName;
-
     const validName = convertNameToValidCharacter(tableName, 40);
     let dbTableName = joinDbTableName(baseId, validName);
 
@@ -475,29 +617,10 @@ export class PostgresTableRepository implements ITableRepository {
     return dbTableName;
   }
 
-  private async buildDbFieldMeta(
-    trx: Kysely<V1TeableDatabase>,
-    dto: ITablePersistenceDTO,
-    dbTableName: string
-  ): Promise<ReadonlyArray<ITableDbFieldMeta>> {
-    const existingFields = await trx
-      .selectFrom('field')
-      .select(['id', 'db_field_name'])
-      .where('table_id', '=', dto.id)
-      .execute();
-
-    const existingById = new Map(existingFields.map((f) => [f.id, f.db_field_name]));
-    const reservedNames = await this.loadReservedColumnNames(trx, dbTableName);
-    for (const name of existingById.values()) {
-      reservedNames.add(name);
-    }
+  private buildDbFieldMeta(dto: ITablePersistenceDTO): ReadonlyArray<ITableDbFieldMeta> {
+    const reservedNames = new Set(baseRecordColumnNames);
 
     return dto.fields.map((field) => {
-      const existingName = existingById.get(field.id);
-      if (existingName) {
-        return { field, dbFieldName: existingName };
-      }
-
       const baseName = convertNameToValidCharacter(field.name, 40);
       const dbFieldName = this.ensureUniqueDbFieldName(baseName, reservedNames);
       reservedNames.add(dbFieldName);
@@ -508,36 +631,14 @@ export class PostgresTableRepository implements ITableRepository {
   private ensureUniqueDbFieldName(baseName: string, reservedNames: Set<string>): string {
     if (!reservedNames.has(baseName)) return baseName;
 
-    let candidate = baseName;
-    let attempts = 0;
+    let suffix = 2;
+    let candidate = `${baseName}_${suffix}`;
     while (reservedNames.has(candidate)) {
-      candidate = `${baseName}${Date.now()}`;
-      attempts += 1;
-      if (attempts > 5 && reservedNames.has(candidate)) {
-        candidate = `${baseName}${Date.now()}${getRandomString(4)}`;
-      }
+      suffix += 1;
+      candidate = `${baseName}_${suffix}`;
     }
 
     return candidate;
-  }
-
-  private async loadReservedColumnNames(
-    trx: Kysely<V1TeableDatabase>,
-    dbTableName: string
-  ): Promise<Set<string>> {
-    const { schema, table } = splitDbTableName(dbTableName);
-    const columnsResult = await sql<{ name: string }>`
-      select column_name as name
-      from information_schema.columns
-      where table_schema = ${schema}
-        and table_name = ${table}
-    `.execute(trx);
-
-    const reserved = new Set(baseRecordColumnNames);
-    for (const column of columnsResult.rows) {
-      reserved.add(column.name);
-    }
-    return reserved;
   }
 }
 

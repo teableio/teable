@@ -26,7 +26,8 @@
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "kysely": "0.28.9",
-    "neverthrow": "8.2.0"
+    "neverthrow": "8.2.0",
+    "transliteration": "2.3.5"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

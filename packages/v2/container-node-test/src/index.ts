@@ -7,6 +7,7 @@ import {
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
+  NoopTracer,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-db-postgres';
@@ -45,6 +46,9 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
     lifecycle: Lifecycle.Singleton,
   });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
+  c.register(v2CoreTokens.tracer, NoopTracer, {
+    lifecycle: Lifecycle.Singleton,
+  });
 
   const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
   const commandBus = new MemoryCommandBus(c);

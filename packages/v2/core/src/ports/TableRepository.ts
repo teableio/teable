@@ -5,6 +5,6 @@ import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 
 export interface ITableRepository {
-  save(context: IExecutionContext, table: Table): Promise<Result<void, string>>;
+  insert(context: IExecutionContext, table: Table): Promise<Result<void, string>>;
   findOne(context: IExecutionContext, spec: ISpecification<Table>): Promise<Result<Table, string>>;
 }

@@ -5,4 +5,5 @@ export const v2CoreTokens = {
   eventBus: Symbol('v2.core.eventBus'),
   unitOfWork: Symbol('v2.core.unitOfWork'),
   logger: Symbol('v2.core.logger'),
+  tracer: Symbol('v2.core.tracer'),
 } as const;

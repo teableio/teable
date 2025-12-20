@@ -1,6 +1,7 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
 export * from './commands/CommandHandler';
+export * from './commands/TraceSpan';
 
 export * from './domain/shared/ActorId';
 export * from './domain/shared/DomainEvent';
@@ -81,6 +82,7 @@ export * from './ports/EventHandler';
 export * from './ports/HandlerResolver';
 export * from './ports/ExecutionContext';
 export * from './ports/Logger';
+export * from './ports/Tracer';
 export * from './ports/TableRepository';
 export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';
@@ -101,3 +103,5 @@ export * from './domain/shared/specification/visitors/ISpecFilterVisitor';
 
 export * from './domain/table/specs/TableByBaseIdSpec';
 export * from './domain/table/specs/TableSpecBuilder';
+
+export { Result } from 'neverthrow';

@@ -20,22 +20,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start']>>;
 
 import { registerV2PostgresDdlAdapter } from '../di/register';
+import {
+  baseRecordColumnNames,
+  buildDbFieldNameMap,
+  convertNameToValidCharacter,
+  joinDbTableName,
+  splitDbTableName,
+} from '../naming';
 
 interface ITestTableMetaTable {
   id: string;
   db_table_name: string;
 }
 
-interface ITestFieldTable {
-  id: string;
-  table_id: string;
-  db_field_name: string;
-  deleted_time: Date | null;
-}
-
 interface ITestDatabase {
   table_meta: ITestTableMetaTable;
-  field: ITestFieldTable;
 }
 
 describe('PostgresTableSchemaRepository (pg)', () => {
@@ -106,6 +105,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       if (tableResult.isErr()) return;
       const table = tableResult.value;
 
+      const dbTableName = joinDbTableName(
+        baseId.toString(),
+        convertNameToValidCharacter(table.name().toString(), 40)
+      );
+      const fieldDbNameById = buildDbFieldNameMap(
+        table
+          .fields()
+          .map((field) => ({ id: field.id().toString(), name: field.name().toString() }))
+      );
+
       await db.schema
         .createTable('table_meta')
         .ifNotExists()
@@ -113,37 +122,9 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         .addColumn('db_table_name', 'text', (col) => col.notNull())
         .execute();
 
-      await db.schema
-        .createTable('field')
-        .ifNotExists()
-        .addColumn('id', 'text', (col) => col.primaryKey())
-        .addColumn('table_id', 'text', (col) => col.notNull())
-        .addColumn('db_field_name', 'text', (col) => col.notNull())
-        .addColumn('deleted_time', 'timestamptz')
-        .execute();
-
-      const dbTableName = `${baseId.toString()}.Project_Items`;
-      const fieldDbNames = [
-        { id: table.fields()[0].id().toString(), dbFieldName: 'Task_Name' },
-        { id: table.fields()[1].id().toString(), dbFieldName: 'Priority_Level' },
-        { id: table.fields()[2].id().toString(), dbFieldName: 'Status' },
-      ];
-
       await db
         .insertInto('table_meta')
         .values({ id: table.id().toString(), db_table_name: dbTableName })
-        .execute();
-
-      await db
-        .insertInto('field')
-        .values(
-          fieldDbNames.map((f) => ({
-            id: f.id,
-            table_id: table.id().toString(),
-            db_field_name: f.dbFieldName,
-            deleted_time: null,
-          }))
-        )
         .execute();
 
       const actorIdResult = ActorId.create('system');
@@ -151,22 +132,15 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       if (actorIdResult.isErr()) return;
       const context: IExecutionContext = { actorId: actorIdResult.value };
 
-      const saveResult = await repo.save(context, table);
-      expect(saveResult.isOk()).toBe(true);
-      if (saveResult.isErr()) return;
+      const insertResult = await repo.insert(context, table);
+      expect(insertResult.isOk()).toBe(true);
+      if (insertResult.isErr()) return;
 
-      const expectedBaseColumns = [
-        '__id',
-        '__auto_number',
-        '__created_time',
-        '__last_modified_time',
-        '__created_by',
-        '__last_modified_by',
-        '__version',
-      ];
-      const expectedFieldColumns = fieldDbNames.map((f) => f.dbFieldName);
+      const expectedBaseColumns = baseRecordColumnNames;
+      const expectedFieldColumns = [...fieldDbNameById.values()];
 
-      const [schemaName, tableName] = dbTableName.split('.');
+      const { schema, tableName } = splitDbTableName(dbTableName);
+      const schemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string }>`
         select column_name as "columnName"
         from information_schema.columns

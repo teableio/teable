@@ -16,7 +16,7 @@ module.exports = {
   ignorePatterns: [...getDefaultIgnorePatterns()],
   extends: [
     '@teable/eslint-config-bases/typescript',
-    '@teable/eslint-config-bases/sonar',
+    // '@teable/eslint-config-bases/sonar',
     '@teable/eslint-config-bases/regexp',
     '@teable/eslint-config-bases/jest',
     // Apply prettier and disable incompatible rules
@@ -24,6 +24,8 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/consistent-type-imports': 'off',
+    'no-duplicate-string': 'off',
+    '@typescript-eslint/naming-convention': 'off',
   },
   overrides: [],
 };

@@ -2149,6 +2149,9 @@ importers:
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0
+      transliteration:
+        specifier: 2.3.5
+        version: 2.3.5
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^

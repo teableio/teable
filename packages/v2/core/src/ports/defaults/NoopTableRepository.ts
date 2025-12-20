@@ -7,7 +7,7 @@ import type { IExecutionContext } from '../ExecutionContext';
 import type { ITableRepository } from '../TableRepository';
 
 export class NoopTableRepository implements ITableRepository {
-  async save(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+  async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
     return ok(undefined);
   }
 

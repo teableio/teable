@@ -164,6 +164,47 @@ describe('CreateTableHandler', () => {
     );
   });
 
+  it('creates tables with the same name without db table conflicts', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+
+    const context = { actorId: actorIdResult.value };
+    const commandResultOne = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Duplicate',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+    const commandResultTwo = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Duplicate',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+
+    expect(commandResultOne.isOk()).toBe(true);
+    expect(commandResultTwo.isOk()).toBe(true);
+    if (commandResultOne.isErr() || commandResultTwo.isErr()) return;
+
+    const resultOne = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResultOne.value
+    );
+    expect(resultOne.isOk()).toBe(true);
+    if (resultOne.isErr()) return;
+
+    const resultTwo = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResultTwo.value
+    );
+    expect(resultTwo.isOk()).toBe(true);
+    if (resultTwo.isErr()) return;
+
+    expect(resultOne.value.table.id().equals(resultTwo.value.table.id())).toBe(false);
+  });
+
   it('creates tables with all base field types', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
@@ -321,7 +362,7 @@ describe('CreateTableHandler', () => {
     const { container, tableRepository, baseId } = getV2NodeTestContainer();
 
     class FailingTableSchemaRepository implements ITableSchemaRepository {
-      async save(_: IExecutionContext, __: Table) {
+      async insert(_: IExecutionContext, __: Table) {
         return err('Forced schema failure');
       }
     }

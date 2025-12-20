@@ -13,10 +13,10 @@ export class MemoryTableRepository implements ITableRepository {
     return [...this.savedTables];
   }
 
-  async save(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    const existingIndex = this.savedTables.findIndex((t) => t.id().equals(table.id()));
-    if (existingIndex >= 0) this.savedTables.splice(existingIndex, 1, table);
-    else this.savedTables.push(table);
+  async insert(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+    const exists = this.savedTables.some((t) => t.id().equals(table.id()));
+    if (exists) return err('Table already exists');
+    this.savedTables.push(table);
     return ok(undefined);
   }
 

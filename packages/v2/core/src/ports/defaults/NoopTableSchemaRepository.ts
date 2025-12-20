@@ -7,7 +7,7 @@ import type { IExecutionContext } from '../ExecutionContext';
 import type { ITableSchemaRepository } from '../TableSchemaRepository';
 
 export class NoopTableSchemaRepository implements ITableSchemaRepository {
-  async save(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+  async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
     return ok(undefined);
   }
 }

@@ -5,8 +5,11 @@ import {
   MemoryCommandBus,
   MemoryEventBus,
   NoopLogger,
+  NoopTracer,
   v2CoreTokens,
+  type ICommandBusMiddleware,
   type ILogger,
+  type ITracer,
 } from '@teable/v2-core';
 import { PostgresUnitOfWork } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -17,6 +20,8 @@ export interface IV2NodePgContainerOptions {
   ensureSchema?: boolean;
   seed?: Partial<IV2PostgresStateAdapterConfig['seed']>;
   logger?: ILogger;
+  tracer?: ITracer;
+  commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
 }
 
 export const registerV2NodePgDependencies = async (
@@ -45,13 +50,24 @@ export const registerV2NodePgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
 
-  c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
+  c.registerInstance(
+    v2CoreTokens.commandBus,
+    new MemoryCommandBus(c, options.commandBusMiddlewares)
+  );
   c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
 
   if (options.logger) {
     c.registerInstance(v2CoreTokens.logger, options.logger);
   } else {
     c.register(v2CoreTokens.logger, NoopLogger, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (options.tracer) {
+    c.registerInstance(v2CoreTokens.tracer, options.tracer);
+  } else {
+    c.register(v2CoreTokens.tracer, NoopTracer, {
       lifecycle: Lifecycle.Singleton,
     });
   }

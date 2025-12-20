@@ -244,9 +244,9 @@ describe('PostgresTableRepository (pg)', () => {
       const table = tableResult.value;
       expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
 
-      const saveResult = await repo.save(context, table);
-      expect(saveResult.isOk()).toBe(true);
-      if (saveResult.isErr()) return;
+      const insertResult = await repo.insert(context, table);
+      expect(insertResult.isOk()).toBe(true);
+      if (insertResult.isErr()) return;
 
       const persistedFields = await db
         .selectFrom('field')

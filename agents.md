@@ -41,6 +41,13 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - Prefer constructor injection with explicit tokens for ports (interfaces).
 - Provide environment-level composition roots as separate packages (e.g. `@teable/v2-container-node`, `@teable/v2-container-browser`) that register all port implementations.
 
+## Tracing (DDD)
+
+- Tracing is an application/port concern; never use tracing decorators or tracer interfaces in `packages/v2/core/src/domain/**`.
+- Use `@TraceSpan(...)` only in `packages/v2/core/src/commands/**` (and other app handlers) to wrap spans.
+- Real tracing happens in adapters by supplying an `ITracer` implementation; core defaults should be no-op.
+- Keep span attributes minimal and avoid PII unless explicitly required.
+
 ## Command/Event mediator (bus)
 
 - Command handlers are registered via `@CommandHandler(Command)` and invoked through `ICommandBus.execute(...)`.

@@ -5,7 +5,9 @@ import { createV2NodePgContainer } from '@teable/v2-container-node';
 import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { PinoLogger } from 'nestjs-pino';
+import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
+import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
 @Injectable()
 export class V2ContainerService implements OnModuleDestroy {
@@ -20,7 +22,14 @@ export class V2ContainerService implements OnModuleDestroy {
     if (!this.containerPromise) {
       const connectionString = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
       const logger = new PinoLoggerAdapter(this.pinoLogger);
-      this.containerPromise = createV2NodePgContainer({ connectionString, logger });
+      const tracer = new OpenTelemetryTracer();
+      const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
+      this.containerPromise = createV2NodePgContainer({
+        connectionString,
+        logger,
+        tracer,
+        commandBusMiddlewares,
+      });
     }
 
     return this.containerPromise;
