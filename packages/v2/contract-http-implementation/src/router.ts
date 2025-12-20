@@ -1,10 +1,17 @@
+import { ORPCError, implement } from '@orpc/server';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { v2Contract } from '@teable/v2-contract-http';
-import { ActorId, type ICommandBus, type IExecutionContext, v2CoreTokens } from '@teable/v2-core';
-import { ORPCError, implement } from '@orpc/server';
+import {
+  ActorId,
+  type ICommandBus,
+  type IExecutionContext,
+  type IQueryBus,
+  v2CoreTokens,
+} from '@teable/v2-core';
 
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
+import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 
 export interface IV2OrpcRouterOptions {
   createContainer?: () => IHandlerResolver | Promise<IHandlerResolver>;
@@ -60,9 +67,43 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
   });
 
+  const tablesGetById = os.tables.getById.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: 'Failed to create container' });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: 'Failed to resolve execution context',
+      });
+    }
+
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeGetTableByIdEndpoint(executionContext, input, queryBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+  });
+
   return os.router({
     tables: {
       create: tablesCreate,
+      getById: tablesGetById,
     },
   });
 };

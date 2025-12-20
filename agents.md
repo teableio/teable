@@ -56,6 +56,13 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - `ICommandBus`/`IEventBus` are ports; default in-memory implementations live in `v2/core/src/ports/memory` and can be swapped by adapters (RxJS/Kafka/etc).
 - Containers must register `v2CoreTokens.commandBus` and `v2CoreTokens.eventBus`.
 
+## Query mediator (bus)
+
+- Query handlers are registered via `@QueryHandler(Query)` and invoked through `IQueryBus.execute(...)`.
+- Do not resolve query handlers directly from the container in business code or adapters; always go through the bus.
+- `IQueryBus` is a port; default in-memory implementations live in `v2/core/src/ports/memory`.
+- Containers must register `v2CoreTokens.queryBus`.
+
 ## Unit of work (transactions)
 
 - Cross-repository workflows in commands must be wrapped in `IUnitOfWork.withTransaction(...)`.
@@ -124,11 +131,13 @@ Inside `packages/v2/core/src`:
 - `specification/` — spec framework + visitors
 - `ports/` — interfaces/ports (repositories, event bus/publisher, mappers)
 - `commands/` — commands + handlers (application use-cases over domain)
+- `queries/` — queries + handlers (application read use-cases over domain)
 
 ## Naming conventions
 
 - Value Objects: `*Id`, `*Name` (e.g. `TableId`, `FieldName`)
 - Commands: `*Command`
+- Queries: `*Query`
 - Handlers/use-cases: `*Handler`
 - Domain events: past tense (e.g. `TableCreated`)
 - Specifications: `*Spec` (e.g. `TableByIdSpec`)

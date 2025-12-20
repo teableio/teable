@@ -362,29 +362,41 @@ export class PostgresTableRepository implements ITableRepository {
 
     try {
       const db = resolvePostgresDb(this.db, context);
-      const baseQuery = db
-        .selectFrom('table_meta')
-        .select([
-          'table_meta.id',
-          'table_meta.name',
-          'table_meta.base_id',
-          'table_meta.db_table_name',
+      const fieldsLateral = db
+        .selectNoFrom((eb) => [
           jsonArrayFrom(
-            db
+            eb
               .selectFrom('field')
               .select(['id', 'name', 'type', 'options', 'is_primary', 'db_field_name'])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
           ).as('fields'),
+        ])
+        .as('fields');
+      const viewsLateral = db
+        .selectNoFrom((eb) => [
           jsonArrayFrom(
-            db
+            eb
               .selectFrom('view')
               .select(['id', 'name', 'type'])
               .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
           ).as('views'),
+        ])
+        .as('views');
+      const baseQuery = db
+        .selectFrom('table_meta')
+        .leftJoinLateral(fieldsLateral, (join) => join.onTrue())
+        .leftJoinLateral(viewsLateral, (join) => join.onTrue())
+        .select([
+          'table_meta.id',
+          'table_meta.name',
+          'table_meta.base_id',
+          'table_meta.db_table_name',
+          'fields.fields',
+          'views.views',
         ])
         .where((eb) => whereFactory(eb));
 

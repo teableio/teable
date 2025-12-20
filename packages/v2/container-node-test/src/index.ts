@@ -7,6 +7,7 @@ import {
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
+  MemoryQueryBus,
   NoopTracer,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -52,9 +53,11 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
 
   const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
   const commandBus = new MemoryCommandBus(c);
+  const queryBus = new MemoryQueryBus(c);
   const eventBus = new MemoryEventBus(c);
 
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
   const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);

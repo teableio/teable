@@ -1,8 +1,12 @@
 import { Controller } from '@nestjs/common';
 import { Implement, implement, ORPCError } from '@orpc/nest';
 import { v2Contract } from '@teable/v2-contract-http';
-import { executeCreateTableEndpoint } from '@teable/v2-contract-http-implementation';
-import { ActorId, type ICommandBus, type ITracer, v2CoreTokens } from '@teable/v2-core';
+import {
+  executeCreateTableEndpoint,
+  executeGetTableByIdEndpoint,
+} from '@teable/v2-contract-http-implementation';
+import { ActorId, v2CoreTokens } from '@teable/v2-core';
+import type { IQueryBus, ICommandBus, ITracer } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
@@ -38,6 +42,32 @@ export class V2Controller {
         }
 
         throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+      }),
+      getById: implement(v2Contract.tables.getById).handler(async ({ input }) => {
+        const container = await this.v2Container.getContainer();
+        const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+        const tracer = container.resolve<ITracer>(v2CoreTokens.tracer);
+        const actorIdResult = ActorId.create(this.cls.get('user.id'));
+        if (actorIdResult.isErr()) {
+          throw new ORPCError('INTERNAL_SERVER_ERROR', { message: actorIdResult.error });
+        }
+        const result = await executeGetTableByIdEndpoint(
+          { actorId: actorIdResult.value, tracer },
+          input,
+          queryBus
+        );
+        if (result.status === 200) return result.body;
+
+        if (result.status === 400) {
+          throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+        }
+
+        if (result.status === 404) {
+          throw new ORPCError('NOT_FOUND', { message: result.body.error });
+        }
+
+        // Placeholder for actual implementation
+        throw new ORPCError('NOT_IMPLEMENTED', { message: 'Not implemented yet' });
       }),
     };
   }

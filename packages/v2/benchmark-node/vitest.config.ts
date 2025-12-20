@@ -2,6 +2,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, configDefaults } from 'vitest/config';
 
 const benchFiles = ['./src/**/*.bench.{js,ts}'];
+const isCI = Boolean(process.env.CI);
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
@@ -16,7 +17,8 @@ export default defineConfig({
       enabled: false,
     },
     pool: 'forks',
-    fileParallelism: false,
+    fileParallelism: isCI,
+    maxWorkers: isCI ? 2 : 1,
     clearMocks: true,
     mockReset: true,
     restoreMocks: true,

@@ -2,8 +2,8 @@
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { IExecutionContext } from '../ports/ExecutionContext';
-import type { ISpan, ITracer, SpanAttributes, SpanAttributeValue } from '../ports/Tracer';
+import type { IExecutionContext } from './ExecutionContext';
+import type { ISpan, ITracer, SpanAttributes, SpanAttributeValue } from './Tracer';
 
 type HandlerMethod<TResult> = (
   context: IExecutionContext,
@@ -79,7 +79,7 @@ export const TraceSpan =
       const handlerName =
         (this as { constructor?: { name?: string } }).constructor?.name ?? 'Handler';
       const payload = args[0];
-      const resolvedSpanName = spanName ?? `${handlerName}.${String(propertyKey)}`;
+      const resolvedSpanName = spanName ?? `teable.${handlerName}.${String(propertyKey)}`;
       const spanAttributes = resolveAttributes(handlerName, payload, context, attributes);
       const tracer = resolveTracer(context, this);
 

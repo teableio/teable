@@ -1,7 +1,11 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
 export * from './commands/CommandHandler';
-export * from './commands/TraceSpan';
+export * from './ports/TraceSpan';
+
+export * from './queries/GetTableByIdQuery';
+export * from './queries/GetTableByIdHandler';
+export * from './queries/QueryHandler';
 
 export * from './domain/shared/ActorId';
 export * from './domain/shared/DomainEvent';
@@ -80,6 +84,7 @@ export type { FormView } from './domain/table/views/types/FormView';
 export type { PluginView } from './domain/table/views/types/PluginView';
 
 export * from './ports/CommandBus';
+export * from './ports/QueryBus';
 export * from './ports/EventBus';
 export * from './ports/EventHandler';
 export * from './ports/HandlerResolver';

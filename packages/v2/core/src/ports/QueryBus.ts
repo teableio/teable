@@ -1,0 +1,23 @@
+import type { Result } from 'neverthrow';
+
+import type { IExecutionContext } from './ExecutionContext';
+
+export type QueryBusNext<TQuery, TResult> = (
+  context: IExecutionContext,
+  query: TQuery
+) => Promise<Result<TResult, string>>;
+
+export interface IQueryBusMiddleware {
+  handle<TQuery, TResult>(
+    context: IExecutionContext,
+    query: TQuery,
+    next: QueryBusNext<TQuery, TResult>
+  ): Promise<Result<TResult, string>>;
+}
+
+export interface IQueryBus {
+  execute<TQuery, TResult>(
+    context: IExecutionContext,
+    query: TQuery
+  ): Promise<Result<TResult, string>>;
+}

@@ -7,6 +7,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
+import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
 import { OpenTelemetryTracer } from './v2-tracer.adapter';
 
 @Injectable()
@@ -24,11 +25,13 @@ export class V2ContainerService implements OnModuleDestroy {
       const logger = new PinoLoggerAdapter(this.pinoLogger);
       const tracer = new OpenTelemetryTracer();
       const commandBusMiddlewares = [new CommandBusTracingMiddleware()];
+      const queryBusMiddlewares = [new QueryBusTracingMiddleware()];
       this.containerPromise = createV2NodePgContainer({
         connectionString,
         logger,
         tracer,
         commandBusMiddlewares,
+        queryBusMiddlewares,
       });
     }
 

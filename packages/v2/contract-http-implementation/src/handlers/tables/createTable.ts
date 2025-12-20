@@ -1,7 +1,7 @@
-import type { ICommandBus, IExecutionContext } from '@teable/v2-core';
-import { CreateTableCommand, type CreateTableResult } from '@teable/v2-core';
 import type { ICreateTableEndpointResult } from '@teable/v2-contract-http';
 import { mapCreateTableResultToDto } from '@teable/v2-contract-http';
+import { CreateTableCommand } from '@teable/v2-core';
+import type { CreateTableResult, ICommandBus, IExecutionContext } from '@teable/v2-core';
 
 export const executeCreateTableEndpoint = async (
   context: IExecutionContext,

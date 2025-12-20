@@ -4,10 +4,12 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-stat
 import {
   MemoryCommandBus,
   MemoryEventBus,
+  MemoryQueryBus,
   NoopLogger,
   NoopTracer,
   v2CoreTokens,
   type ICommandBusMiddleware,
+  type IQueryBusMiddleware,
   type ILogger,
   type ITracer,
 } from '@teable/v2-core';
@@ -22,6 +24,7 @@ export interface IV2NodePgContainerOptions {
   logger?: ILogger;
   tracer?: ITracer;
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
+  queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
 }
 
 export const registerV2NodePgDependencies = async (
@@ -54,6 +57,7 @@ export const registerV2NodePgDependencies = async (
     v2CoreTokens.commandBus,
     new MemoryCommandBus(c, options.commandBusMiddlewares)
   );
+  c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
   c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
 
   if (options.logger) {

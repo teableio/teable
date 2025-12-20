@@ -1,6 +1,7 @@
 import {
   MemoryCommandBus,
   MemoryEventBus,
+  MemoryQueryBus,
   NoopLogger,
   NoopTableRepository,
   NoopTableSchemaRepository,
@@ -20,6 +21,7 @@ export const registerV2BrowserNoopDependencies = (
     lifecycle: Lifecycle.Singleton,
   });
   c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
+  c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c));
   c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
   c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
