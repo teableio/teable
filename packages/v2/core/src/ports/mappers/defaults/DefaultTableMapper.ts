@@ -8,17 +8,37 @@ import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
+import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
+import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
+import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
+import { ButtonWorkflow } from '../../../domain/table/fields/types/ButtonWorkflow';
+import { CheckboxDefaultValue } from '../../../domain/table/fields/types/CheckboxDefaultValue';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
+import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
+import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
+import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
+import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
 import { NumberField } from '../../../domain/table/fields/types/NumberField';
+import { NumberFormatting } from '../../../domain/table/fields/types/NumberFormatting';
+import { NumberShowAs } from '../../../domain/table/fields/types/NumberShowAs';
+import { RatingColor } from '../../../domain/table/fields/types/RatingColor';
 import { RatingField } from '../../../domain/table/fields/types/RatingField';
+import { RatingIcon } from '../../../domain/table/fields/types/RatingIcon';
 import { RatingMax } from '../../../domain/table/fields/types/RatingMax';
-import { SelectOptionName } from '../../../domain/table/fields/types/SelectOptionName';
+import { SelectAutoNewOptions } from '../../../domain/table/fields/types/SelectAutoNewOptions';
+import { SelectDefaultValue } from '../../../domain/table/fields/types/SelectDefaultValue';
+import { SelectOption } from '../../../domain/table/fields/types/SelectOption';
 import { SingleLineTextField } from '../../../domain/table/fields/types/SingleLineTextField';
+import { SingleLineTextShowAs } from '../../../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../../../domain/table/fields/types/SingleSelectField';
+import { TextDefaultValue } from '../../../domain/table/fields/types/TextDefaultValue';
+import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefaultValue';
 import { UserField } from '../../../domain/table/fields/types/UserField';
+import { UserMultiplicity } from '../../../domain/table/fields/types/UserMultiplicity';
+import { UserNotification } from '../../../domain/table/fields/types/UserNotification';
 import type { IFieldVisitor } from '../../../domain/table/fields/visitors/IFieldVisitor';
 import type { Table } from '../../../domain/table/Table';
 import { Table as TableAggregate } from '../../../domain/table/Table';
@@ -35,6 +55,15 @@ import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import type { IViewVisitor } from '../../../domain/table/views/visitors/IViewVisitor';
 import type {
+  IButtonFieldOptionsDTO,
+  ICheckboxFieldOptionsDTO,
+  IDateFieldOptionsDTO,
+  ILongTextFieldOptionsDTO,
+  INumberFieldOptionsDTO,
+  IRatingFieldOptionsDTO,
+  ISelectFieldOptionsDTO,
+  ISingleLineTextFieldOptionsDTO,
+  IUserFieldOptionsDTO,
   ITableFieldPersistenceDTO,
   ITableMapper,
   ITablePersistenceDTO,
@@ -49,59 +78,119 @@ const sequenceResults = <T>(
     ok([])
   );
 
+const optional = <T>(
+  raw: unknown,
+  parser: (value: unknown) => Result<T, string>
+): Result<T | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  return parser(raw).map((value) => value);
+};
+
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
   visitSingleLineTextField(field: SingleLineTextField): Result<ITableFieldPersistenceDTO, string> {
+    const options: ISingleLineTextFieldOptionsDTO = {};
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'singleLineText',
+      options,
     });
   }
 
   visitLongTextField(field: LongTextField): Result<ITableFieldPersistenceDTO, string> {
+    const options: ILongTextFieldOptionsDTO = {};
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'longText',
+      options,
     });
   }
 
   visitNumberField(field: NumberField): Result<ITableFieldPersistenceDTO, string> {
-    return ok({ id: field.id().toString(), name: field.name().toString(), type: 'number' });
+    const options: INumberFieldOptionsDTO = {
+      formatting: field.formatting().toDto(),
+    };
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toNumber();
+
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'number',
+      options,
+    });
   }
 
   visitRatingField(field: RatingField): Result<ITableFieldPersistenceDTO, string> {
+    const options: IRatingFieldOptionsDTO = {
+      icon: field.ratingIcon().toString(),
+      color: field.ratingColor().toString(),
+      max: field.ratingMax().toNumber(),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'rating',
-      max: field.ratingMax().toNumber(),
+      options,
     });
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, string> {
+    const defaultValue = field.defaultValue();
+    const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const options: ISelectFieldOptionsDTO = {
+      choices: field.selectOptions().map((option) => option.toDto()),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+      ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'singleSelect',
-      options: field.selectOptions().map((o) => o.toString()),
+      options,
     });
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<ITableFieldPersistenceDTO, string> {
+    const defaultValue = field.defaultValue();
+    const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const options: ISelectFieldOptionsDTO = {
+      choices: field.selectOptions().map((option) => option.toDto()),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+      ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'multipleSelect',
-      options: field.selectOptions().map((o) => o.toString()),
+      options,
     });
   }
 
   visitCheckboxField(field: CheckboxField): Result<ITableFieldPersistenceDTO, string> {
+    const options: ICheckboxFieldOptionsDTO = {};
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toBoolean();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'checkbox',
+      options,
     });
   }
 
@@ -110,30 +199,58 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'attachment',
+      options: {},
     });
   }
 
   visitDateField(field: DateField): Result<ITableFieldPersistenceDTO, string> {
+    const options: IDateFieldOptionsDTO = {
+      formatting: field.formatting().toDto(),
+    };
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'date',
+      options,
     });
   }
 
   visitUserField(field: UserField): Result<ITableFieldPersistenceDTO, string> {
+    const defaultValue = field.defaultValue();
+    const options: IUserFieldOptionsDTO = {
+      isMultiple: field.multiplicity().toBoolean(),
+      shouldNotify: field.notification().toBoolean(),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'user',
+      options,
     });
   }
 
   visitButtonField(field: ButtonField): Result<ITableFieldPersistenceDTO, string> {
+    const maxCount = field.maxCount();
+    const resetCount = field.resetCount();
+    const workflow = field.workflow();
+    const options: IButtonFieldOptionsDTO = {
+      label: field.label().toString(),
+      color: field.color().toString(),
+      ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
+      ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
+      ...(workflow ? { workflow: workflow.toDto() } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'button',
+      options,
     });
   }
 }
@@ -212,27 +329,127 @@ export class DefaultTableMapper implements ITableMapper {
     return FieldId.create(dto.id).andThen((id) =>
       FieldName.create(dto.name).andThen((name) => {
         return match(dto)
-          .with({ type: 'singleLineText' }, () => SingleLineTextField.create({ id, name }))
-          .with({ type: 'longText' }, () => LongTextField.create({ id, name }))
-          .with({ type: 'number' }, () => NumberField.create({ id, name }))
-          .with({ type: 'rating' }, (dto) =>
-            RatingMax.create(dto.max).andThen((max) => RatingField.create({ id, name, max }))
-          )
-          .with({ type: 'singleSelect' }, (dto) =>
-            sequenceResults(dto.options.map((o) => SelectOptionName.create(o))).andThen((options) =>
-              SingleSelectField.create({ id, name, options })
-            )
-          )
-          .with({ type: 'multipleSelect' }, (dto) =>
-            sequenceResults(dto.options.map((o) => SelectOptionName.create(o))).andThen((options) =>
-              MultipleSelectField.create({ id, name, options })
-            )
-          )
-          .with({ type: 'checkbox' }, () => CheckboxField.create({ id, name }))
+          .with({ type: 'singleLineText' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+              optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+                SingleLineTextField.create({ id, name, showAs, defaultValue })
+              )
+            );
+          })
+          .with({ type: 'longText' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+              LongTextField.create({ id, name, defaultValue })
+            );
+          })
+          .with({ type: 'number' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.formatting, NumberFormatting.create).andThen((formatting) =>
+              optional(options.showAs, NumberShowAs.create).andThen((showAs) =>
+                optional(options.defaultValue, NumberDefaultValue.create).andThen((defaultValue) =>
+                  NumberField.create({ id, name, formatting, showAs, defaultValue })
+                )
+              )
+            );
+          })
+          .with({ type: 'rating' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.max, RatingMax.create).andThen((max) =>
+              optional(options.icon, RatingIcon.create).andThen((icon) =>
+                optional(options.color, RatingColor.create).andThen((color) =>
+                  RatingField.create({ id, name, max, icon, color })
+                )
+              )
+            );
+          })
+          .with({ type: 'singleSelect' }, (dto) => {
+            const optionsDto = dto.options ?? { choices: [] };
+            const choices = optionsDto.choices ?? [];
+            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+              (options) =>
+                optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
+                  (defaultValue) =>
+                    optional(optionsDto.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+                      (preventAutoNewOptions) =>
+                        SingleSelectField.create({
+                          id,
+                          name,
+                          options,
+                          defaultValue,
+                          preventAutoNewOptions,
+                        })
+                    )
+                )
+            );
+          })
+          .with({ type: 'multipleSelect' }, (dto) => {
+            const optionsDto = dto.options ?? { choices: [] };
+            const choices = optionsDto.choices ?? [];
+            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+              (options) =>
+                optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
+                  (defaultValue) =>
+                    optional(optionsDto.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+                      (preventAutoNewOptions) =>
+                        MultipleSelectField.create({
+                          id,
+                          name,
+                          options,
+                          defaultValue,
+                          preventAutoNewOptions,
+                        })
+                    )
+                )
+            );
+          })
+          .with({ type: 'checkbox' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.defaultValue, CheckboxDefaultValue.create).andThen(
+              (defaultValue) => CheckboxField.create({ id, name, defaultValue })
+            );
+          })
           .with({ type: 'attachment' }, () => AttachmentField.create({ id, name }))
-          .with({ type: 'date' }, () => DateField.create({ id, name }))
-          .with({ type: 'user' }, () => UserField.create({ id, name }))
-          .with({ type: 'button' }, () => ButtonField.create({ id, name }))
+          .with({ type: 'date' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
+              optional(options.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
+                DateField.create({ id, name, formatting, defaultValue })
+              )
+            );
+          })
+          .with({ type: 'user' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
+              optional(options.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
+                optional(options.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
+                  UserField.create({ id, name, isMultiple, shouldNotify, defaultValue })
+                )
+              )
+            );
+          })
+          .with({ type: 'button' }, (dto) => {
+            const options = dto.options ?? {};
+            return optional(options.label, ButtonLabel.create).andThen((label) =>
+              optional(options.color, FieldColor.create).andThen((color) =>
+                optional(options.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
+                  optional(options.resetCount, ButtonResetCount.create).andThen((resetCount) =>
+                    optional(options.workflow, ButtonWorkflow.create).andThen((workflow) =>
+                      ButtonField.create({
+                        id,
+                        name,
+                        label,
+                        color,
+                        maxCount,
+                        resetCount,
+                        workflow,
+                      })
+                    )
+                  )
+                )
+              )
+            );
+          })
           .exhaustive();
       })
     );

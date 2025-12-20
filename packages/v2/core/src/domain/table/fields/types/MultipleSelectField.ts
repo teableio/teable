@@ -5,14 +5,18 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import type { SelectOptionName } from './SelectOptionName';
+import { SelectAutoNewOptions } from './SelectAutoNewOptions';
+import type { SelectDefaultValue } from './SelectDefaultValue';
+import type { SelectOption } from './SelectOption';
 import { validateSelectOptions } from './SelectOptions';
 
 export class MultipleSelectField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
-    private readonly options: ReadonlyArray<SelectOptionName>
+    private readonly optionsValue: ReadonlyArray<SelectOption>,
+    private readonly defaultValueValue: SelectDefaultValue | undefined,
+    private readonly preventAutoNewOptionsValue: SelectAutoNewOptions
   ) {
     super(id, name, FieldType.multipleSelect());
   }
@@ -20,15 +24,32 @@ export class MultipleSelectField extends Field {
   static create(params: {
     id: FieldId;
     name: FieldName;
-    options: ReadonlyArray<SelectOptionName>;
+    options: ReadonlyArray<SelectOption>;
+    defaultValue?: SelectDefaultValue;
+    preventAutoNewOptions?: SelectAutoNewOptions;
   }): Result<MultipleSelectField, string> {
-    return validateSelectOptions(params.options).map(
-      (options) => new MultipleSelectField(params.id, params.name, options)
+    return validateSelectOptions(params.options, params.defaultValue, 'multiple').map(
+      (options) =>
+        new MultipleSelectField(
+          params.id,
+          params.name,
+          options,
+          params.defaultValue,
+          params.preventAutoNewOptions ?? SelectAutoNewOptions.allow()
+        )
     );
   }
 
-  selectOptions(): ReadonlyArray<SelectOptionName> {
-    return [...this.options];
+  selectOptions(): ReadonlyArray<SelectOption> {
+    return [...this.optionsValue];
+  }
+
+  defaultValue(): SelectDefaultValue | undefined {
+    return this.defaultValueValue;
+  }
+
+  preventAutoNewOptions(): SelectAutoNewOptions {
+    return this.preventAutoNewOptionsValue;
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {

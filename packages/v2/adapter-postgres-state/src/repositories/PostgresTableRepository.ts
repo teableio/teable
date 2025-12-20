@@ -7,8 +7,15 @@ import type {
   ITableViewPersistenceDTO,
   ISpecification,
   Table,
+  ISingleLineTextFieldOptionsDTO,
+  ILongTextFieldOptionsDTO,
+  INumberFieldOptionsDTO,
+  ICheckboxFieldOptionsDTO,
+  IDateFieldOptionsDTO,
+  IUserFieldOptionsDTO,
+  IButtonFieldOptionsDTO,
 } from '@teable/v2-core';
-import { getRandomString } from '@teable/v2-core';
+import { fieldColorValues, getRandomString } from '@teable/v2-core';
 import {
   getPostgresTransaction,
   resolvePostgresDb,
@@ -260,15 +267,8 @@ export class PostgresTableRepository implements ITableRepository {
   }
 
   private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
-    switch (field.type) {
-      case 'rating':
-        return JSON.stringify({ max: field.max });
-      case 'singleSelect':
-      case 'multipleSelect':
-        return JSON.stringify({ options: field.options });
-      default:
-        return null;
-    }
+    if (field.options === undefined) return null;
+    return JSON.stringify(field.options);
   }
 
   // eslint-disable-next-line sonarjs/cognitive-complexity
@@ -278,33 +278,134 @@ export class PostgresTableRepository implements ITableRepository {
     type: string;
     options: string | null;
   }): ITableFieldPersistenceDTO {
+    const parsed = this.parseOptions(row.options);
+    const hasOptions = Object.keys(parsed).length > 0;
+    const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
+
     if (row.type === 'rating') {
-      const parsed = row.options ? (JSON.parse(row.options) as { max?: number }) : {};
-      return { id: row.id, name: row.name, type: 'rating', max: parsed.max ?? 5 };
+      const options = {
+        icon: typeof parsed.icon === 'string' ? parsed.icon : 'star',
+        color: typeof parsed.color === 'string' ? parsed.color : 'yellowBright',
+        max: typeof parsed.max === 'number' ? parsed.max : 5,
+      };
+      return { id: row.id, name: row.name, type: 'rating', options };
     }
 
     if (row.type === 'singleSelect' || row.type === 'select') {
-      const parsed = row.options
-        ? (JSON.parse(row.options) as { options?: ReadonlyArray<string> })
-        : {};
-      return { id: row.id, name: row.name, type: 'singleSelect', options: parsed.options ?? [] };
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'singleSelect',
+        options: this.normalizeSelectOptions(parsed),
+      };
     }
 
     if (row.type === 'multipleSelect') {
-      const parsed = row.options
-        ? (JSON.parse(row.options) as { options?: ReadonlyArray<string> })
-        : {};
-      return { id: row.id, name: row.name, type: 'multipleSelect', options: parsed.options ?? [] };
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'multipleSelect',
+        options: this.normalizeSelectOptions(parsed),
+      };
     }
 
-    if (row.type === 'number') return { id: row.id, name: row.name, type: 'number' };
-    if (row.type === 'longText') return { id: row.id, name: row.name, type: 'longText' };
-    if (row.type === 'checkbox') return { id: row.id, name: row.name, type: 'checkbox' };
-    if (row.type === 'attachment') return { id: row.id, name: row.name, type: 'attachment' };
-    if (row.type === 'date') return { id: row.id, name: row.name, type: 'date' };
-    if (row.type === 'user') return { id: row.id, name: row.name, type: 'user' };
-    if (row.type === 'button') return { id: row.id, name: row.name, type: 'button' };
-    return { id: row.id, name: row.name, type: 'singleLineText' };
+    if (row.type === 'number') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'number',
+        options: asOptions<INumberFieldOptionsDTO>(),
+      };
+    }
+    if (row.type === 'longText') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'longText',
+        options: asOptions<ILongTextFieldOptionsDTO>(),
+      };
+    }
+    if (row.type === 'checkbox') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'checkbox',
+        options: asOptions<ICheckboxFieldOptionsDTO>(),
+      };
+    }
+    if (row.type === 'attachment') {
+      const options = hasOptions ? {} : undefined;
+      return { id: row.id, name: row.name, type: 'attachment', options };
+    }
+    if (row.type === 'date') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'date',
+        options: asOptions<IDateFieldOptionsDTO>(),
+      };
+    }
+    if (row.type === 'user') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'user',
+        options: asOptions<IUserFieldOptionsDTO>(),
+      };
+    }
+    if (row.type === 'button') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'button',
+        options: asOptions<IButtonFieldOptionsDTO>(),
+      };
+    }
+    return {
+      id: row.id,
+      name: row.name,
+      type: 'singleLineText',
+      options: asOptions<ISingleLineTextFieldOptionsDTO>(),
+    };
+  }
+
+  private parseOptions(raw: string | null): Record<string, unknown> {
+    if (!raw) return {};
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return {};
+    }
+    return {};
+  }
+
+  private normalizeSelectOptions(raw: Record<string, unknown>): {
+    choices: ReadonlyArray<{ id: string; name: string; color: string }>;
+    defaultValue?: string | ReadonlyArray<string>;
+    preventAutoNewOptions?: boolean;
+  } {
+    if (Array.isArray(raw.options)) {
+      const choices = raw.options.map((name, index) => ({
+        id: `cho${getRandomString(8)}`,
+        name: String(name),
+        color: fieldColorValues[index % fieldColorValues.length],
+      }));
+      return { choices };
+    }
+
+    const choices = Array.isArray(raw.choices) ? raw.choices : [];
+    const defaultValue = raw.defaultValue;
+    const preventAutoNewOptions =
+      typeof raw.preventAutoNewOptions === 'boolean' ? raw.preventAutoNewOptions : undefined;
+
+    return {
+      choices: choices as ReadonlyArray<{ id: string; name: string; color: string }>,
+      ...(defaultValue !== undefined ? { defaultValue: defaultValue as string | string[] } : {}),
+      ...(preventAutoNewOptions !== undefined ? { preventAutoNewOptions } : {}),
+    };
   }
 
   private deserializeViewDto(row: {

@@ -6,15 +6,17 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { NumericPrecision } from './NumericPrecision';
-import type { RatingMax } from './RatingMax';
+import { RatingColor } from './RatingColor';
+import { RatingIcon } from './RatingIcon';
+import { RatingMax } from './RatingMax';
 
 export class RatingField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
-    private readonly max: RatingMax,
-    private readonly precision: NumericPrecision
+    private readonly maxValue: RatingMax,
+    private readonly iconValue: RatingIcon,
+    private readonly colorValue: RatingColor
   ) {
     super(id, name, FieldType.rating());
   }
@@ -22,25 +24,31 @@ export class RatingField extends Field {
   static create(params: {
     id: FieldId;
     name: FieldName;
-    max: RatingMax;
-    precision?: NumericPrecision;
+    max?: RatingMax;
+    icon?: RatingIcon;
+    color?: RatingColor;
   }): Result<RatingField, string> {
     return ok(
       new RatingField(
         params.id,
         params.name,
-        params.max,
-        params.precision ?? NumericPrecision.integer()
+        params.max ?? RatingMax.five(),
+        params.icon ?? RatingIcon.star(),
+        params.color ?? RatingColor.yellowBright()
       )
     );
   }
 
   ratingMax(): RatingMax {
-    return this.max;
+    return this.maxValue;
   }
 
-  numericPrecision(): NumericPrecision {
-    return this.precision;
+  ratingIcon(): RatingIcon {
+    return this.iconValue;
+  }
+
+  ratingColor(): RatingColor {
+    return this.colorValue;
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {

@@ -5,12 +5,12 @@ import type { Result } from 'neverthrow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import { IEventPublisher } from '../ports/EventPublisher';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { ITableRepository } from '../ports/TableRepository';
-import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import type { IEventPublisher } from '../ports/EventPublisher';
+import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { IUnitOfWork } from '../ports/UnitOfWork';
+import type { IUnitOfWork } from '../ports/UnitOfWork';
 import type { CreateTableCommand } from './CreateTableCommand';
 
 export class CreateTableResult {

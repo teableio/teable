@@ -1,0 +1,91 @@
+import { err } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { z } from 'zod';
+
+import { ValueObject } from '../../../shared/ValueObject';
+import { TimeZone, type TimeZoneValue } from './TimeZone';
+
+export enum DateFormattingPreset {
+  US = 'M/D/YYYY',
+  European = 'D/M/YYYY',
+  Asian = 'YYYY/MM/DD',
+  ISO = 'YYYY-MM-DD',
+  YM = 'YYYY-MM',
+  MD = 'MM-DD',
+  Y = 'YYYY',
+  M = 'MM',
+  D = 'DD',
+}
+
+export enum TimeFormatting {
+  Hour24 = 'HH:mm',
+  Hour12 = 'hh:mm A',
+  None = 'None',
+}
+
+const dateTimeFormattingSchema = z.object({
+  date: z.string(),
+  time: z.enum([TimeFormatting.Hour24, TimeFormatting.Hour12, TimeFormatting.None]),
+  timeZone: z.string(),
+});
+
+export type DateTimeFormattingValue = {
+  date: string;
+  time: TimeFormatting;
+  timeZone: TimeZoneValue;
+};
+
+export class DateTimeFormatting extends ValueObject {
+  private constructor(
+    private readonly dateValue: string,
+    private readonly timeValue: TimeFormatting,
+    private readonly timeZoneValue: TimeZone
+  ) {
+    super();
+  }
+
+  static create(raw: unknown): Result<DateTimeFormatting, string> {
+    const parsed = dateTimeFormattingSchema.safeParse(raw);
+    if (!parsed.success) return err('Invalid DateTimeFormatting');
+
+    return TimeZone.create(parsed.data.timeZone).map(
+      (timeZone) => new DateTimeFormatting(parsed.data.date, parsed.data.time, timeZone)
+    );
+  }
+
+  static default(): DateTimeFormatting {
+    return new DateTimeFormatting(
+      DateFormattingPreset.ISO,
+      TimeFormatting.None,
+      TimeZone.default()
+    );
+  }
+
+  equals(other: DateTimeFormatting): boolean {
+    return (
+      this.dateValue === other.dateValue &&
+      this.timeValue === other.timeValue &&
+      this.timeZoneValue.equals(other.timeZoneValue)
+    );
+  }
+
+  date(): string {
+    return this.dateValue;
+  }
+
+  time(): TimeFormatting {
+    return this.timeValue;
+  }
+
+  timeZone(): TimeZone {
+    return this.timeZoneValue;
+  }
+
+  toDto(): DateTimeFormattingValue {
+    return {
+      date: this.dateValue,
+      time: this.timeValue,
+      timeZone: this.timeZoneValue.toString(),
+    };
+  }
+}

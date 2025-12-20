@@ -1,4 +1,4 @@
-import { BaseId, FieldName, RatingMax, SelectOptionName, Table, TableName } from '@teable/v2-core';
+import { BaseId, FieldName, RatingMax, SelectOption, Table, TableName } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -26,8 +26,8 @@ describe('FieldStorageTypeVisitor', () => {
     const dueDateName = unwrap(FieldName.create('Due Date'));
     const ownerName = unwrap(FieldName.create('Owner'));
     const actionName = unwrap(FieldName.create('Action'));
-    const todoOption = unwrap(SelectOptionName.create('Todo'));
-    const doneOption = unwrap(SelectOptionName.create('Done'));
+    const todoOption = unwrap(SelectOption.create({ name: 'Todo', color: 'blue' }));
+    const doneOption = unwrap(SelectOption.create({ name: 'Done', color: 'red' }));
 
     const builder = Table.builder().withBaseId(baseId).withName(tableName);
     builder.field().singleLineText().withName(titleName).done();

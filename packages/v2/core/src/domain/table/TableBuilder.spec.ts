@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../base/BaseId';
 import { FieldName } from './fields/FieldName';
 import { RatingMax } from './fields/types/RatingMax';
-import { SelectOptionName } from './fields/types/SelectOptionName';
+import { SelectOption } from './fields/types/SelectOption';
 import { Table } from './Table';
 import { TableName } from './TableName';
 
@@ -29,8 +29,8 @@ describe('TableBuilder', () => {
     )
       return;
 
-    const todoOptionResult = SelectOptionName.create('Todo');
-    const doneOptionResult = SelectOptionName.create('Done');
+    const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
+    const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
     expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
     if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
 
@@ -94,8 +94,8 @@ describe('TableBuilder', () => {
       actionName,
     ] = namesResult.map((r) => r._unsafeUnwrap());
 
-    const todoOptionResult = SelectOptionName.create('Todo');
-    const doneOptionResult = SelectOptionName.create('Done');
+    const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
+    const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
     expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
     if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
 

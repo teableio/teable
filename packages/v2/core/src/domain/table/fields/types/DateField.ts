@@ -6,13 +6,15 @@ import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
-import { DateFormat } from './DateFormat';
+import type { DateDefaultValue } from './DateDefaultValue';
+import { DateTimeFormatting } from './DateTimeFormatting';
 
 export class DateField extends Field {
   private constructor(
     id: FieldId,
     name: FieldName,
-    private readonly format: DateFormat
+    private readonly formattingValue: DateTimeFormatting,
+    private readonly defaultValueValue: DateDefaultValue | undefined
   ) {
     super(id, name, FieldType.date());
   }
@@ -20,13 +22,25 @@ export class DateField extends Field {
   static create(params: {
     id: FieldId;
     name: FieldName;
-    format?: DateFormat;
+    formatting?: DateTimeFormatting;
+    defaultValue?: DateDefaultValue;
   }): Result<DateField, string> {
-    return ok(new DateField(params.id, params.name, params.format ?? DateFormat.dateTime()));
+    return ok(
+      new DateField(
+        params.id,
+        params.name,
+        params.formatting ?? DateTimeFormatting.default(),
+        params.defaultValue
+      )
+    );
   }
 
-  dateFormat(): DateFormat {
-    return this.format;
+  formatting(): DateTimeFormatting {
+    return this.formattingValue;
+  }
+
+  defaultValue(): DateDefaultValue | undefined {
+    return this.defaultValueValue;
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {

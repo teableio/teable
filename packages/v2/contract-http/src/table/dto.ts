@@ -1,3 +1,14 @@
+import {
+  fieldColorValues,
+  ratingColorValues,
+  ratingIconValues,
+  singleLineTextShowAsValues,
+  NumberFormattingType,
+  MultiNumberDisplayType,
+  SingleNumberDisplayType,
+  TimeFormatting,
+  TIME_ZONE_LIST,
+} from '@teable/v2-core';
 import type {
   AttachmentField,
   ButtonField,
@@ -35,18 +46,166 @@ const baseFieldDtoSchema = z.object({
   isPrimary: z.boolean(),
 });
 
+const fieldColorSchema = z.enum(fieldColorValues);
+const ratingIconSchema = z.enum(ratingIconValues);
+const ratingColorSchema = z.enum(ratingColorValues);
+
+const singleLineTextShowAsSchema = z.object({
+  type: z.enum(singleLineTextShowAsValues),
+});
+
+const numberFormattingSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal(NumberFormattingType.Decimal),
+    precision: z.number(),
+  }),
+  z.object({
+    type: z.literal(NumberFormattingType.Percent),
+    precision: z.number(),
+  }),
+  z.object({
+    type: z.literal(NumberFormattingType.Currency),
+    precision: z.number(),
+    symbol: z.string(),
+  }),
+]);
+
+const numberShowAsSchema = z.union([
+  z.object({
+    type: z.enum([SingleNumberDisplayType.Bar, SingleNumberDisplayType.Ring]),
+    color: fieldColorSchema,
+    showValue: z.boolean(),
+    maxValue: z.number(),
+  }),
+  z.object({
+    type: z.enum([MultiNumberDisplayType.Bar, MultiNumberDisplayType.Line]),
+    color: fieldColorSchema,
+  }),
+]);
+
+const singleLineTextOptionsSchema = z.object({
+  showAs: singleLineTextShowAsSchema.optional(),
+  defaultValue: z.string().optional(),
+});
+
+const longTextOptionsSchema = z.object({
+  defaultValue: z.string().optional(),
+});
+
+const numberOptionsSchema = z.object({
+  formatting: numberFormattingSchema,
+  showAs: numberShowAsSchema.optional(),
+  defaultValue: z.number().optional(),
+});
+
+const ratingOptionsSchema = z.object({
+  icon: ratingIconSchema.optional(),
+  color: ratingColorSchema.optional(),
+  max: z.number().optional(),
+});
+
+const selectChoiceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  color: fieldColorSchema,
+});
+
+const selectOptionsSchema = z.object({
+  choices: z.array(selectChoiceSchema),
+  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+  preventAutoNewOptions: z.boolean().optional(),
+});
+
+const checkboxOptionsSchema = z.object({
+  defaultValue: z.boolean().optional(),
+});
+
+const dateFormattingSchema = z.object({
+  date: z.string(),
+  time: z.enum([TimeFormatting.Hour24, TimeFormatting.Hour12, TimeFormatting.None]),
+  timeZone: z.enum(TIME_ZONE_LIST),
+});
+
+const dateOptionsSchema = z.object({
+  formatting: dateFormattingSchema,
+  defaultValue: z.enum(['now']).optional(),
+});
+
+const userOptionsSchema = z.object({
+  isMultiple: z.boolean().optional(),
+  shouldNotify: z.boolean().optional(),
+  defaultValue: z.union([z.string(), z.array(z.string())]).optional(),
+});
+
+const buttonWorkflowSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().optional(),
+  isActive: z.boolean().optional(),
+});
+
+const buttonOptionsSchema = z.object({
+  label: z.string().optional(),
+  color: fieldColorSchema.optional(),
+  maxCount: z.number().optional(),
+  resetCount: z.boolean().optional(),
+  workflow: buttonWorkflowSchema.optional().nullable(),
+});
+
+type SingleLineTextOptionsDto = z.infer<typeof singleLineTextOptionsSchema>;
+type LongTextOptionsDto = z.infer<typeof longTextOptionsSchema>;
+type NumberOptionsDto = z.infer<typeof numberOptionsSchema>;
+type RatingOptionsDto = z.infer<typeof ratingOptionsSchema>;
+type SelectOptionsDto = z.infer<typeof selectOptionsSchema>;
+type CheckboxOptionsDto = z.infer<typeof checkboxOptionsSchema>;
+type DateOptionsDto = z.infer<typeof dateOptionsSchema>;
+type UserOptionsDto = z.infer<typeof userOptionsSchema>;
+type ButtonOptionsDto = z.infer<typeof buttonOptionsSchema>;
+
 export const fieldDtoSchema = z.discriminatedUnion('type', [
-  baseFieldDtoSchema.extend({ type: z.literal('singleLineText') }),
-  baseFieldDtoSchema.extend({ type: z.literal('longText') }),
-  baseFieldDtoSchema.extend({ type: z.literal('number') }),
-  baseFieldDtoSchema.extend({ type: z.literal('rating'), max: z.number() }),
-  baseFieldDtoSchema.extend({ type: z.literal('singleSelect'), options: z.array(z.string()) }),
-  baseFieldDtoSchema.extend({ type: z.literal('multipleSelect'), options: z.array(z.string()) }),
-  baseFieldDtoSchema.extend({ type: z.literal('checkbox') }),
-  baseFieldDtoSchema.extend({ type: z.literal('attachment') }),
-  baseFieldDtoSchema.extend({ type: z.literal('date') }),
-  baseFieldDtoSchema.extend({ type: z.literal('user') }),
-  baseFieldDtoSchema.extend({ type: z.literal('button') }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('singleLineText'),
+    options: singleLineTextOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('longText'),
+    options: longTextOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('number'),
+    options: numberOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('rating'),
+    options: ratingOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('singleSelect'),
+    options: selectOptionsSchema,
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('multipleSelect'),
+    options: selectOptionsSchema,
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('checkbox'),
+    options: checkboxOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('attachment'),
+    options: z.object({}).optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('date'),
+    options: dateOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('user'),
+    options: userOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('button'),
+    options: buttonOptionsSchema.optional(),
+  }),
 ]);
 
 export type IFieldDto = z.infer<typeof fieldDtoSchema>;
@@ -65,67 +224,115 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   constructor(private readonly primaryFieldId: FieldId) {}
 
   visitSingleLineTextField(field: SingleLineTextField): Result<IFieldDto, string> {
+    const options: SingleLineTextOptionsDto = {};
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'singleLineText',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitLongTextField(field: LongTextField): Result<IFieldDto, string> {
+    const options: LongTextOptionsDto = {};
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'longText',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitNumberField(field: NumberField): Result<IFieldDto, string> {
+    const options: NumberOptionsDto = {
+      formatting: field.formatting().toDto(),
+    };
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toNumber();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'number',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitRatingField(field: RatingField): Result<IFieldDto, string> {
+    const options: RatingOptionsDto = {
+      icon: field.ratingIcon().toString(),
+      color: field.ratingColor().toString(),
+      max: field.ratingMax().toNumber(),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'rating',
-      max: field.ratingMax().toNumber(),
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, string> {
+    const defaultValue = field.defaultValue();
+    const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const options: SelectOptionsDto = {
+      choices: field.selectOptions().map((option) => option.toDto()),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+      ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'singleSelect',
-      options: field.selectOptions().map((o) => o.toString()),
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, string> {
+    const defaultValue = field.defaultValue();
+    const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const options: SelectOptionsDto = {
+      choices: field.selectOptions().map((option) => option.toDto()),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+      ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'multipleSelect',
-      options: field.selectOptions().map((o) => o.toString()),
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitCheckboxField(field: CheckboxField): Result<IFieldDto, string> {
+    const options: CheckboxOptionsDto = {};
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toBoolean();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'checkbox',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
@@ -135,33 +342,61 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'attachment',
+      options: {},
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitDateField(field: DateField): Result<IFieldDto, string> {
+    const options: DateOptionsDto = {
+      formatting: field.formatting().toDto(),
+    };
+    const defaultValue = field.defaultValue();
+    if (defaultValue) options.defaultValue = defaultValue.toString();
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'date',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitUserField(field: UserField): Result<IFieldDto, string> {
+    const defaultValue = field.defaultValue();
+    const options: UserOptionsDto = {
+      isMultiple: field.multiplicity().toBoolean(),
+      shouldNotify: field.notification().toBoolean(),
+      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'user',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
   visitButtonField(field: ButtonField): Result<IFieldDto, string> {
+    const maxCount = field.maxCount();
+    const resetCount = field.resetCount();
+    const workflow = field.workflow();
+    const options: ButtonOptionsDto = {
+      label: field.label().toString(),
+      color: field.color().toString(),
+      ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
+      ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
+      ...(workflow ? { workflow: workflow.toDto() } : {}),
+    };
+
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
       type: 'button',
+      options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
   }

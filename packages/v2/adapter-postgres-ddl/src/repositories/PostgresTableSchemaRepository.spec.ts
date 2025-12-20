@@ -5,7 +5,7 @@ import {
   BaseId,
   FieldName,
   RatingMax,
-  SelectOptionName,
+  SelectOption,
   Table,
   TableName,
   v2CoreTokens,
@@ -85,8 +85,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       )
         return;
 
-      const todoOptionResult = SelectOptionName.create('Todo');
-      const doneOptionResult = SelectOptionName.create('Done');
+      const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
+      const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
       expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
       if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
 

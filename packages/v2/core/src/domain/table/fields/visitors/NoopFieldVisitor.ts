@@ -9,8 +9,8 @@ import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
-import type { SingleSelectField } from '../types/SingleSelectField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
+import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 import type { IFieldVisitor } from './IFieldVisitor';
 

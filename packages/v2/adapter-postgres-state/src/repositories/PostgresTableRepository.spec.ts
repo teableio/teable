@@ -18,8 +18,10 @@ import {
   ActorId,
   BaseId,
   FieldName,
+  RatingColor,
+  RatingIcon,
   RatingMax,
-  SelectOptionName,
+  SelectOption,
   Table,
   TableName,
   v2CoreTokens,
@@ -41,9 +43,13 @@ type IFieldSnapshot =
   | { type: 'singleLineText'; name: string }
   | { type: 'longText'; name: string }
   | { type: 'number'; name: string }
-  | { type: 'rating'; name: string; max: number }
-  | { type: 'singleSelect'; name: string; options: ReadonlyArray<string> }
-  | { type: 'multipleSelect'; name: string; options: ReadonlyArray<string> }
+  | { type: 'rating'; name: string; max: number; icon: string; color: string }
+  | { type: 'singleSelect'; name: string; options: ReadonlyArray<{ name: string; color: string }> }
+  | {
+      type: 'multipleSelect';
+      name: string;
+      options: ReadonlyArray<{ name: string; color: string }>;
+    }
   | { type: 'checkbox'; name: string }
   | { type: 'attachment'; name: string }
   | { type: 'date'; name: string }
@@ -71,6 +77,8 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
       type: 'rating',
       name: field.name().toString(),
       max: field.ratingMax().toNumber(),
+      icon: field.ratingIcon().toString(),
+      color: field.ratingColor().toString(),
     };
     return ok(snapshot);
   }
@@ -79,7 +87,10 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
     const snapshot: IFieldSnapshot = {
       type: 'singleSelect',
       name: field.name().toString(),
-      options: field.selectOptions().map((o) => o.toString()),
+      options: field.selectOptions().map((o) => ({
+        name: o.name().toString(),
+        color: o.color().toString(),
+      })),
     };
     return ok(snapshot);
   }
@@ -88,7 +99,10 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
     const snapshot: IFieldSnapshot = {
       type: 'multipleSelect',
       name: field.name().toString(),
-      options: field.selectOptions().map((o) => o.toString()),
+      options: field.selectOptions().map((o) => ({
+        name: o.name().toString(),
+        color: o.color().toString(),
+      })),
     };
     return ok(snapshot);
   }
@@ -189,10 +203,20 @@ describe('PostgresTableRepository (pg)', () => {
       )
         return;
 
-      const todoOptionResult = SelectOptionName.create('Todo');
-      const doneOptionResult = SelectOptionName.create('Done');
-      expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-      if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
+      const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
+      const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
+      const iconResult = RatingIcon.create('moon');
+      const colorResult = RatingColor.create('redBright');
+      expect(
+        [todoOptionResult, doneOptionResult, iconResult, colorResult].every((r) => r.isOk())
+      ).toBe(true);
+      if (
+        todoOptionResult.isErr() ||
+        doneOptionResult.isErr() ||
+        iconResult.isErr() ||
+        colorResult.isErr()
+      )
+        return;
 
       const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
       builder.field().singleLineText().withName(titleNameResult.value).done();
@@ -201,6 +225,8 @@ describe('PostgresTableRepository (pg)', () => {
         .rating()
         .withName(priorityNameResult.value)
         .withMax(RatingMax.five())
+        .withIcon(iconResult.value)
+        .withColor(colorResult.value)
         .primary()
         .done();
       builder
@@ -282,8 +308,15 @@ describe('PostgresTableRepository (pg)', () => {
 
       expect(fieldSnapshots.map((r) => r._unsafeUnwrap())).toEqual<IFieldSnapshot[]>([
         { type: 'singleLineText', name: 'Name' },
-        { type: 'rating', name: 'Priority', max: 5 },
-        { type: 'singleSelect', name: 'Status', options: ['Todo', 'Done'] },
+        { type: 'rating', name: 'Priority', max: 5, icon: 'moon', color: 'redBright' },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: [
+            { name: 'Todo', color: 'blue' },
+            { name: 'Done', color: 'red' },
+          ],
+        },
       ]);
 
       const byNameSpecResult = Table.specs(baseId).byName(table.name()).build();

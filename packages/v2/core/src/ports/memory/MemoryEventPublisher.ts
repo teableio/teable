@@ -2,8 +2,8 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
-import type { IExecutionContext } from '../ExecutionContext';
 import type { IEventPublisher } from '../EventPublisher';
+import type { IExecutionContext } from '../ExecutionContext';
 
 export class MemoryEventPublisher implements IEventPublisher {
   private readonly publishedEvents: IDomainEvent[] = [];
