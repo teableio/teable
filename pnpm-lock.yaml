@@ -636,7 +636,7 @@ importers:
         version: 1.4.4(@swc/core@1.13.3(@swc/helpers@0.5.17))(rollup@4.53.5)
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(terser@5.37.0)
@@ -1202,7 +1202,7 @@ importers:
         version: 5.4.3
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(terser@5.37.0))
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(terser@5.37.0)
@@ -1302,7 +1302,7 @@ importers:
         version: 9.1.0(eslint@8.57.0)
       eslint-import-resolver-typescript:
         specifier: 3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import:
         specifier: 2.29.1
         version: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
@@ -1804,7 +1804,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
@@ -2086,6 +2086,46 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/v2/adapter-logger-console:
+    dependencies:
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)
+
   packages/v2/adapter-postgres-ddl:
     dependencies:
       '@teable/v2-core':
@@ -2308,6 +2348,9 @@ importers:
 
   packages/v2/container-node-test:
     dependencies:
+      '@teable/v2-adapter-logger-console':
+        specifier: workspace:*
+        version: link:../adapter-logger-console
       '@teable/v2-adapter-postgres-ddl':
         specifier: workspace:*
         version: link:../adapter-postgres-ddl
@@ -25992,6 +26035,14 @@ snapshots:
     optionalDependencies:
       rollup: 2.78.0
 
+  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
+    dependencies:
+      '@types/estree': 1.0.6
+      estree-walker: 2.0.2
+      picomatch: 4.0.2
+    optionalDependencies:
+      rollup: 2.79.2
+
   '@rollup/pluginutils@5.1.4(rollup@4.53.5)':
     dependencies:
       '@types/estree': 1.0.6
@@ -32287,7 +32338,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.8.0(eslint@8.57.0)
       eslint-plugin-react: 7.34.1(eslint@8.57.0)
@@ -32310,7 +32361,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0):
+  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0):
     dependencies:
       debug: 4.4.0
       enhanced-resolve: 5.17.1
@@ -32355,7 +32406,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -41260,9 +41311,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)):
+  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.53.5)
+      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)

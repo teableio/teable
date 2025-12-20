@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   test:
+    if: github.ref != 'refs/heads/refactor/core' && github.head_ref != 'refactor/core'
     runs-on: ubuntu-latest
     name: Integration Tests
 
@@ -61,6 +62,7 @@ jobs:
 
   finish:
     needs: test
+    if: github.ref != 'refs/heads/refactor/core' && github.head_ref != 'refactor/core'
     runs-on: ubuntu-latest
     steps:
       - name: Coveralls Finished

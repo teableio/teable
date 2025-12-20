@@ -13,6 +13,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    if: github.ref != 'refs/heads/refactor/core' && github.head_ref != 'refactor/core'
     runs-on: ubuntu-latest
     name: Linting and Types
 

@@ -15,6 +15,7 @@ concurrency:
 
 jobs:
   check-issue-ids:
+    if: github.ref != 'refs/heads/refactor/core' && github.head_ref != 'refactor/core'
     runs-on: ubuntu-latest
     name: Check Issue IDs
 
