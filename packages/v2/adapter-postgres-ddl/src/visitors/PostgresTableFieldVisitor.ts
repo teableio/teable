@@ -75,7 +75,7 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   }
 
   visitCheckboxField(field: CheckboxField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'integer');
+    return this.addColumn(field.id().toString(), 'boolean');
   }
 
   visitAttachmentField(field: AttachmentField): Result<void, string> {

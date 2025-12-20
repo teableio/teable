@@ -69,7 +69,7 @@ describe('FieldStorageTypeVisitor', () => {
       { cellValueType: 'number', dbFieldType: 'REAL' },
       { cellValueType: 'string', dbFieldType: 'TEXT' },
       { cellValueType: 'string', dbFieldType: 'JSON' },
-      { cellValueType: 'boolean', dbFieldType: 'INTEGER' },
+      { cellValueType: 'boolean', dbFieldType: 'BOOLEAN' },
       { cellValueType: 'string', dbFieldType: 'JSON' },
       { cellValueType: 'dateTime', dbFieldType: 'DATETIME' },
       { cellValueType: 'string', dbFieldType: 'JSON' },

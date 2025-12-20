@@ -73,7 +73,7 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
   }
 
   visitCheckboxField(field: CheckboxField): Result<IFieldStorageType, string> {
-    return this.setType(field, { cellValueType: 'boolean', dbFieldType: 'INTEGER' });
+    return this.setType(field, { cellValueType: 'boolean', dbFieldType: 'BOOLEAN' });
   }
 
   visitAttachmentField(field: AttachmentField): Result<IFieldStorageType, string> {

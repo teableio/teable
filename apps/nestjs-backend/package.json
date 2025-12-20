@@ -159,6 +159,7 @@
     "@opentelemetry/instrumentation-express": "0.50.0",
     "@opentelemetry/instrumentation-http": "0.201.1",
     "@opentelemetry/instrumentation-nestjs-core": "0.49.0",
+    "@opentelemetry/instrumentation-pg": "0.49.0",
     "@opentelemetry/instrumentation-pino": "0.49.0",
     "@opentelemetry/resources": "2.0.1",
     "@opentelemetry/sdk-node": "0.201.1",

@@ -6,6 +6,7 @@ import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { ExpressInstrumentation, ExpressLayerType } from '@opentelemetry/instrumentation-express';
 import { HttpInstrumentation } from '@opentelemetry/instrumentation-http';
 import { NestInstrumentation } from '@opentelemetry/instrumentation-nestjs-core';
+import { PgInstrumentation } from '@opentelemetry/instrumentation-pg';
 import { PinoInstrumentation } from '@opentelemetry/instrumentation-pino';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import * as opentelemetry from '@opentelemetry/sdk-node';
@@ -124,6 +125,9 @@ const otelSDK = new opentelemetry.NodeSDK({
     }),
     new NestInstrumentation(),
     new PrismaInstrumentation(),
+    new PgInstrumentation({
+      enhancedDatabaseReporting: true, // Records SQL; ensure sensitive data is scrubbed.
+    }),
     new PinoInstrumentation(),
   ],
   resource: resourceFromAttributes({
