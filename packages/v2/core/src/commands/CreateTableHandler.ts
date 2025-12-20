@@ -46,7 +46,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     context: IExecutionContext,
     command: CreateTableCommand
   ): Promise<Result<CreateTableResult, string>> {
-    this.logger.info('CreateTableHandler.start', {
+    this.logger.debug('CreateTableHandler.start', {
       actorId: context.actorId.toString(),
       baseId: command.baseId.toString(),
       tableName: command.tableName.toString(),
@@ -77,7 +77,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     const publishResult = await this.eventBus.publishMany(context, events);
     if (publishResult.isErr()) return err(publishResult.error);
 
-    this.logger.info('CreateTableHandler.success', {
+    this.logger.debug('CreateTableHandler.success', {
       baseId: command.baseId.toString(),
       tableId: table.id().toString(),
       eventCount: events.length,

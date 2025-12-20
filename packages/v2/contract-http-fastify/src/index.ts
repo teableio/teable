@@ -1,6 +1,6 @@
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
-import { createV2OpenApiNodeHandler } from '@teable/v2-contract-http-openapi';
+import { createV2OpenApiFastifyHandler } from '@teable/v2-contract-http-openapi';
 import type { IExecutionContext } from '@teable/v2-core';
 import type { FastifyPluginCallback } from 'fastify';
 
@@ -16,15 +16,11 @@ export const createV2FastifyPlugin = (
     createContainer: options.createContainer,
     createExecutionContext: options.createExecutionContext,
   });
-  const handler = createV2OpenApiNodeHandler(orpcRouter);
+  const handler = createV2OpenApiFastifyHandler(orpcRouter);
 
   return (fastify, _opts, done) => {
-    fastify.addContentTypeParser('*', (_request, _payload, next) => {
-      next(null, undefined);
-    });
-
     fastify.all('/*', async (request, reply) => {
-      const result = await handler.handle(request.raw, reply.raw, { context: {} });
+      const result = await handler.handle(request, reply, { context: {} });
       if (result.matched) return;
       reply.status(404).send({ ok: false, error: 'Not found' });
     });

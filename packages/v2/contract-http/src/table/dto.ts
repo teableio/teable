@@ -273,8 +273,8 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
   visitRatingField(field: RatingField): Result<IFieldDto, string> {
     const options: RatingOptionsDto = {
-      icon: field.ratingIcon().toString(),
-      color: field.ratingColor().toString(),
+      icon: field.ratingIcon().toString() as RatingOptionsDto['icon'],
+      color: field.ratingColor().toString() as RatingOptionsDto['color'],
       max: field.ratingMax().toNumber(),
     };
 
@@ -290,8 +290,11 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, string> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const choices = field
+      .selectOptions()
+      .map((option) => option.toDto()) as SelectOptionsDto['choices'];
     const options: SelectOptionsDto = {
-      choices: field.selectOptions().map((option) => option.toDto()),
+      choices,
       ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
       ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
     };
@@ -308,8 +311,11 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, string> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
+    const choices = field
+      .selectOptions()
+      .map((option) => option.toDto()) as SelectOptionsDto['choices'];
     const options: SelectOptionsDto = {
-      choices: field.selectOptions().map((option) => option.toDto()),
+      choices,
       ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
       ...(preventAutoNewOptions ? { preventAutoNewOptions } : {}),
     };
@@ -349,7 +355,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
   visitDateField(field: DateField): Result<IFieldDto, string> {
     const options: DateOptionsDto = {
-      formatting: field.formatting().toDto(),
+      formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
     };
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
@@ -365,10 +371,14 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
 
   visitUserField(field: UserField): Result<IFieldDto, string> {
     const defaultValue = field.defaultValue();
+    const defaultValueDto = defaultValue?.toDto();
+    const normalizedDefaultValue = Array.isArray(defaultValueDto)
+      ? [...defaultValueDto]
+      : defaultValueDto;
     const options: UserOptionsDto = {
       isMultiple: field.multiplicity().toBoolean(),
       shouldNotify: field.notification().toBoolean(),
-      ...(defaultValue ? { defaultValue: defaultValue.toDto() } : {}),
+      ...(normalizedDefaultValue !== undefined ? { defaultValue: normalizedDefaultValue } : {}),
     };
 
     return ok({
@@ -386,7 +396,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const workflow = field.workflow();
     const options: ButtonOptionsDto = {
       label: field.label().toString(),
-      color: field.color().toString(),
+      color: field.color().toString() as ButtonOptionsDto['color'],
       ...(maxCount ? { maxCount: maxCount.toNumber() } : {}),
       ...(resetCount ? { resetCount: resetCount.toBoolean() } : {}),
       ...(workflow ? { workflow: workflow.toDto() } : {}),

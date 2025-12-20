@@ -24,7 +24,7 @@ describe('CreateTableHandler', () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
     try {
       const commandResult = CreateTableCommand.create({
         baseId: baseId.toString(),

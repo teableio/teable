@@ -1,19 +1,23 @@
-name: V2 Tests
+name: V2 Benchmarks
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - develop
+    paths:
+      - 'packages/v2/**'
+      - '.github/workflows/v2-benchmark-tests.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
+  bench:
     if: github.ref == 'refs/heads/refactor/core' || github.head_ref == 'refactor/core'
     runs-on: ubuntu-latest
-    name: V2 Tests
+    name: V2 Benchmarks
     env:
       CI: 1
       TESTCONTAINERS_REUSE_ENABLE: 'false'
@@ -33,6 +37,6 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
-      - name: 🧪 Run v2 vitest
+      - name: 🧪 Run v2 benchmarks
         run: |
-          pnpm -F "@teable/v2-*" -r --if-present --workspace-concurrency=1 test-unit-cover
+          pnpm -C packages/v2/benchmark-node bench
