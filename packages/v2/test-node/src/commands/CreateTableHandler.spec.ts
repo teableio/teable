@@ -3,22 +3,26 @@
 import {
   ActorId,
   CreateTableCommand,
-  CreateTableHandler,
+  type CreateTableResult,
+  EventHandler,
+  type IEventHandler,
+  type ICommandBus,
   type IExecutionContext,
   type ITableSchemaRepository,
   Table,
   TableCreated,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { err } from 'neverthrow';
+import { injectable } from '@teable/v2-di';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
 describe('CreateTableHandler', () => {
   it('returns ok and publishes TableCreated', async () => {
-    const { container, tableRepository, eventPublisher, baseId } = getV2NodeTestContainer();
-    const handler = container.resolve(CreateTableHandler);
+    const { container, tableRepository, eventBus, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
     try {
@@ -54,7 +58,10 @@ describe('CreateTableHandler', () => {
       if (actorIdResult.isErr()) return;
 
       const context = { actorId: actorIdResult.value };
-      const result = await handler.handle(context, commandResult.value);
+      const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        context,
+        commandResult.value
+      );
       expect(result.isOk()).toBe(true);
       if (result.isErr()) return;
 
@@ -77,7 +84,7 @@ describe('CreateTableHandler', () => {
         })
       );
 
-      expect(eventPublisher.events().some((e) => e instanceof TableCreated)).toBe(true);
+      expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
       expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
         true
       );
@@ -100,7 +107,7 @@ describe('CreateTableHandler', () => {
 
   it('supports non-text primary field', async () => {
     const { container, tableRepository, baseId } = getV2NodeTestContainer();
-    const handler = container.resolve(CreateTableHandler);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
     const commandResult = CreateTableCommand.create({
       baseId: baseId.toString(),
@@ -135,7 +142,10 @@ describe('CreateTableHandler', () => {
     if (actorIdResult.isErr()) return;
 
     const context = { actorId: actorIdResult.value };
-    const result = await handler.handle(context, commandResult.value);
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
 
@@ -156,7 +166,7 @@ describe('CreateTableHandler', () => {
 
   it('creates tables with all base field types', async () => {
     const { container, baseId } = getV2NodeTestContainer();
-    const handler = container.resolve(CreateTableHandler);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
     const commandResult = CreateTableCommand.create({
       baseId: baseId.toString(),
@@ -244,7 +254,10 @@ describe('CreateTableHandler', () => {
     if (actorIdResult.isErr()) return;
 
     const context = { actorId: actorIdResult.value };
-    const result = await handler.handle(context, commandResult.value);
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
 
@@ -265,7 +278,7 @@ describe('CreateTableHandler', () => {
 
   it('supports multiple view types', async () => {
     const { container, tableRepository, baseId } = getV2NodeTestContainer();
-    const handler = container.resolve(CreateTableHandler);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
     const commandResult = CreateTableCommand.create({
       baseId: baseId.toString(),
@@ -282,7 +295,10 @@ describe('CreateTableHandler', () => {
     if (actorIdResult.isErr()) return;
 
     const context = { actorId: actorIdResult.value };
-    const result = await handler.handle(context, commandResult.value);
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
 
@@ -315,7 +331,7 @@ describe('CreateTableHandler', () => {
       new FailingTableSchemaRepository()
     );
 
-    const handler = container.resolve(CreateTableHandler);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
     const tableName = `Rollback ${Date.now()}`;
     const commandResult = CreateTableCommand.create({
@@ -332,7 +348,10 @@ describe('CreateTableHandler', () => {
     if (actorIdResult.isErr()) return;
 
     const context = { actorId: actorIdResult.value };
-    const result = await handler.handle(context, commandResult.value);
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBe('Forced schema failure');
@@ -344,5 +363,47 @@ describe('CreateTableHandler', () => {
 
     const lookupResult = await tableRepository.findOne(context, specResult.value);
     expect(lookupResult.isErr()).toBe(true);
+  });
+
+  it('dispatches TableCreated event handlers', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+    const handledEvents: TableCreated[] = [];
+
+    @EventHandler(TableCreated)
+    @injectable()
+    class TestTableCreatedHandler implements IEventHandler<TableCreated> {
+      async handle(_: IExecutionContext, event: TableCreated) {
+        handledEvents.push(event);
+        return ok(undefined);
+      }
+    }
+
+    container.registerInstance(TestTableCreatedHandler, new TestTableCreatedHandler());
+
+    const commandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Events',
+      fields: [{ type: 'singleLineText', name: 'Name' }],
+    });
+
+    expect(commandResult.isOk()).toBe(true);
+    if (commandResult.isErr()) return;
+
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+
+    const context = { actorId: actorIdResult.value };
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    expect(handledEvents.length).toBe(1);
+    expect(handledEvents[0].tableId.equals(result.value.table.id())).toBe(true);
   });
 });

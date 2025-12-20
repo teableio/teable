@@ -1,19 +1,22 @@
-import type { IExecutionContext } from '@teable/v2-core';
-import { CreateTableCommand, type CreateTableHandler } from '@teable/v2-core';
+import type { ICommandBus, IExecutionContext } from '@teable/v2-core';
+import { CreateTableCommand, type CreateTableResult } from '@teable/v2-core';
 import type { ICreateTableEndpointResult } from '@teable/v2-contract-http';
 import { mapCreateTableResultToDto } from '@teable/v2-contract-http';
 
 export const executeCreateTableEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  handler: CreateTableHandler
+  commandBus: ICommandBus
 ): Promise<ICreateTableEndpointResult> => {
   const commandResult = CreateTableCommand.create(rawBody);
   if (commandResult.isErr()) {
     return { status: 400, body: { ok: false, error: commandResult.error } };
   }
 
-  const result = await handler.handle(context, commandResult.value);
+  const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+    context,
+    commandResult.value
+  );
   if (result.isErr()) {
     return { status: 500, body: { ok: false, error: result.error } };
   }

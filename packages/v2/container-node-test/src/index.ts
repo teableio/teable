@@ -2,7 +2,13 @@ import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
 import type { ITableRepository } from '@teable/v2-core';
-import { BaseId, getRandomString, MemoryEventPublisher, v2CoreTokens } from '@teable/v2-core';
+import {
+  BaseId,
+  getRandomString,
+  MemoryCommandBus,
+  MemoryEventBus,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -13,7 +19,7 @@ import type { Kysely } from 'kysely';
 export interface IV2NodeTestContainer {
   container: DependencyContainer;
   tableRepository: ITableRepository;
-  eventPublisher: MemoryEventPublisher;
+  eventBus: MemoryEventBus;
   baseId: BaseId;
   dispose(): Promise<void>;
 }
@@ -41,9 +47,11 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
 
   const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
-  const eventPublisher = new MemoryEventPublisher();
+  const commandBus = new MemoryCommandBus(c);
+  const eventBus = new MemoryEventBus(c);
 
-  c.registerInstance(v2CoreTokens.eventPublisher, eventPublisher);
+  c.registerInstance(v2CoreTokens.commandBus, commandBus);
+  c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
   const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
   const baseIdResult = BaseId.generate();
@@ -73,7 +81,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   return {
     container: c,
     tableRepository,
-    eventPublisher,
+    eventBus,
     baseId,
     dispose: async () => {
       try {

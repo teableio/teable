@@ -21,6 +21,7 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-container-node-test": ["../container-node-test/src"],
+      "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
       "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
       "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
       "@teable/v2-core": ["../core/src"],
@@ -34,6 +35,7 @@
     "vitest.setup.ts",
     "src",
     "../container-node-test/src",
+    "../adapter-logger-console/src",
     "../adapter-postgres-ddl/src",
     "../adapter-postgres-state/src",
     "../core/src",

@@ -5,14 +5,15 @@ import type { Result } from 'neverthrow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import { IEventPublisher } from '../ports/EventPublisher';
+import * as EventBusPort from '../ports/EventBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { ILogger } from '../ports/Logger';
-import { ITableRepository } from '../ports/TableRepository';
-import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import * as LoggerPort from '../ports/Logger';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { IUnitOfWork } from '../ports/UnitOfWork';
-import type { CreateTableCommand } from './CreateTableCommand';
+import * as UnitOfWorkPort from '../ports/UnitOfWork';
+import { CommandHandler, type ICommandHandler } from './CommandHandler';
+import { CreateTableCommand } from './CreateTableCommand';
 
 export class CreateTableResult {
   private constructor(
@@ -25,19 +26,20 @@ export class CreateTableResult {
   }
 }
 
+@CommandHandler(CreateTableCommand)
 @injectable()
-export class CreateTableHandler {
+export class CreateTableHandler implements ICommandHandler<CreateTableCommand, CreateTableResult> {
   constructor(
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
-    private readonly tableSchemaRepository: ITableSchemaRepository,
-    @inject(v2CoreTokens.eventPublisher)
-    private readonly eventPublisher: IEventPublisher,
+    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
+    @inject(v2CoreTokens.eventBus)
+    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.logger)
-    private readonly logger: ILogger,
+    private readonly logger: LoggerPort.ILogger,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
   async handle(
@@ -72,7 +74,7 @@ export class CreateTableHandler {
 
     const events = table.pullDomainEvents();
 
-    const publishResult = this.eventPublisher.publishMany(context, events);
+    const publishResult = await this.eventBus.publishMany(context, events);
     if (publishResult.isErr()) return err(publishResult.error);
 
     this.logger.info('CreateTableHandler.success', {

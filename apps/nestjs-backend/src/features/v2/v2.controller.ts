@@ -2,7 +2,7 @@ import { Controller } from '@nestjs/common';
 import { Implement, implement, ORPCError } from '@orpc/nest';
 import { v2Contract } from '@teable/v2-contract-http';
 import { executeCreateTableEndpoint } from '@teable/v2-contract-http-implementation';
-import { ActorId, CreateTableHandler } from '@teable/v2-core';
+import { ActorId, type ICommandBus, v2CoreTokens } from '@teable/v2-core';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';
@@ -19,7 +19,7 @@ export class V2Controller {
     return {
       create: implement(v2Contract.tables.create).handler(async ({ input }) => {
         const container = await this.v2Container.getContainer();
-        const handler = container.resolve(CreateTableHandler);
+        const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
         const actorIdResult = ActorId.create(this.cls.get('user.id'));
         if (actorIdResult.isErr()) {
           throw new ORPCError('INTERNAL_SERVER_ERROR', { message: actorIdResult.error });
@@ -27,7 +27,7 @@ export class V2Controller {
         const result = await executeCreateTableEndpoint(
           { actorId: actorIdResult.value },
           input,
-          handler
+          commandBus
         );
 
         if (result.status === 201) return result.body;

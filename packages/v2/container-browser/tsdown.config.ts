@@ -1,5 +1,4 @@
-import { defineConfig } from 'tsdown';
-
 import { v2TsdownBaseConfig } from '@teable/v2-tsdown-config';
+import { defineConfig } from 'tsdown';
 
 export default defineConfig(v2TsdownBaseConfig);

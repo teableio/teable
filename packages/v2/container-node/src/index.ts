@@ -1,7 +1,13 @@
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-postgres-state';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
-import { NoopEventPublisher, NoopLogger, v2CoreTokens, type ILogger } from '@teable/v2-core';
+import {
+  MemoryCommandBus,
+  MemoryEventBus,
+  NoopLogger,
+  v2CoreTokens,
+  type ILogger,
+} from '@teable/v2-core';
 import { PostgresUnitOfWork } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -39,9 +45,8 @@ export const registerV2NodePgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
 
-  c.register(v2CoreTokens.eventPublisher, NoopEventPublisher, {
-    lifecycle: Lifecycle.Singleton,
-  });
+  c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
+  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
 
   if (options.logger) {
     c.registerInstance(v2CoreTokens.logger, options.logger);

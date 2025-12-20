@@ -41,6 +41,14 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 - Prefer constructor injection with explicit tokens for ports (interfaces).
 - Provide environment-level composition roots as separate packages (e.g. `@teable/v2-container-node`, `@teable/v2-container-browser`) that register all port implementations.
 
+## Command/Event mediator (bus)
+
+- Command handlers are registered via `@CommandHandler(Command)` and invoked through `ICommandBus.execute(...)`.
+- Event handlers are registered via `@EventHandler(Event)` and invoked through `IEventBus.publish(...)`/`publishMany(...)`.
+- Do not resolve handlers directly from the container in business code or adapters; always go through the bus.
+- `ICommandBus`/`IEventBus` are ports; default in-memory implementations live in `v2/core/src/ports/memory` and can be swapped by adapters (RxJS/Kafka/etc).
+- Containers must register `v2CoreTokens.commandBus` and `v2CoreTokens.eventBus`.
+
 ## Unit of work (transactions)
 
 - Cross-repository workflows in commands must be wrapped in `IUnitOfWork.withTransaction(...)`.
@@ -262,3 +270,9 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 
 - HTTP status codes and response DTOs (validate shape, not internal domain objects)
 - Minimal business outcome (e.g. table created, includes `TableCreated` event)
+
+## Quality checks (required for big changes)
+
+- After substantial changes, run `pnpm -C packages/v2/<pkg> typecheck` and `pnpm -C packages/v2/<pkg> lint` for each affected package and report any failures.
+- Resolve any TypeScript errors before marking the task complete.
+- Run eslint with auto-fix (`pnpm -C packages/v2/<pkg> lint -- --fix` or `pnpm -C packages/v2/<pkg> fix-all-files`) and format the touched files before completion.

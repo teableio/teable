@@ -1,4 +1,4 @@
-export * from './NoopEventPublisher';
+export * from './NoopEventBus';
 export * from './NoopLogger';
 export * from './NoopTableRepository';
 export * from './NoopTableSchemaRepository';

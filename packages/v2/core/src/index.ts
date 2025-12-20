@@ -1,5 +1,6 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
+export * from './commands/CommandHandler';
 
 export * from './domain/shared/ActorId';
 export * from './domain/shared/DomainEvent';
@@ -74,7 +75,10 @@ export type { CalendarView } from './domain/table/views/types/CalendarView';
 export type { FormView } from './domain/table/views/types/FormView';
 export type { PluginView } from './domain/table/views/types/PluginView';
 
-export * from './ports/EventPublisher';
+export * from './ports/CommandBus';
+export * from './ports/EventBus';
+export * from './ports/EventHandler';
+export * from './ports/HandlerResolver';
 export * from './ports/ExecutionContext';
 export * from './ports/Logger';
 export * from './ports/TableRepository';

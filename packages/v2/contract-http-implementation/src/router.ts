@@ -1,7 +1,7 @@
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { v2Contract } from '@teable/v2-contract-http';
-import { ActorId, CreateTableHandler, type IExecutionContext } from '@teable/v2-core';
+import { ActorId, type ICommandBus, type IExecutionContext, v2CoreTokens } from '@teable/v2-core';
 import { ORPCError, implement } from '@orpc/server';
 
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
@@ -48,8 +48,8 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       });
     }
 
-    const handler = container.resolve(CreateTableHandler);
-    const result = await executeCreateTableEndpoint(executionContext, input, handler);
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeCreateTableEndpoint(executionContext, input, commandBus);
 
     if (result.status === 201) return result.body;
 

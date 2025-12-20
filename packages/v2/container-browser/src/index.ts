@@ -1,5 +1,6 @@
 import {
-  NoopEventPublisher,
+  MemoryCommandBus,
+  MemoryEventBus,
   NoopLogger,
   NoopTableRepository,
   NoopTableSchemaRepository,
@@ -18,9 +19,8 @@ export const registerV2BrowserNoopDependencies = (
   c.register(v2CoreTokens.tableSchemaRepository, NoopTableSchemaRepository, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.eventPublisher, NoopEventPublisher, {
-    lifecycle: Lifecycle.Singleton,
-  });
+  c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
+  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
   c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
