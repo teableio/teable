@@ -4,17 +4,23 @@ import { ConfigService } from '@nestjs/config';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
+import { PinoLogger } from 'nestjs-pino';
+import { PinoLoggerAdapter } from './v2-logger.adapter';
 
 @Injectable()
 export class V2ContainerService implements OnModuleDestroy {
   private containerPromise?: Promise<DependencyContainer>;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly pinoLogger: PinoLogger
+  ) {}
 
   async getContainer(): Promise<DependencyContainer> {
     if (!this.containerPromise) {
       const connectionString = this.configService.getOrThrow<string>('PRISMA_DATABASE_URL');
-      this.containerPromise = createV2NodePgContainer({ connectionString });
+      const logger = new PinoLoggerAdapter(this.pinoLogger);
+      this.containerPromise = createV2NodePgContainer({ connectionString, logger });
     }
 
     return this.containerPromise;

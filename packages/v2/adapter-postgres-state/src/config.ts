@@ -1,6 +1,5 @@
-import { z } from 'zod';
-
 import { v2PostgresDbConfigSchema } from '@teable/v2-db-postgres';
+import { z } from 'zod';
 
 export const v2PostgresStateAdapterConfigSchema = v2PostgresDbConfigSchema.extend({
   ensureSchema: z.boolean().optional(),

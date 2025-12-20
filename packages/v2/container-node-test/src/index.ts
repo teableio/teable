@@ -1,3 +1,4 @@
+import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
 import type { ITableRepository } from '@teable/v2-core';
@@ -37,6 +38,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
 
   const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
   const eventPublisher = new MemoryEventPublisher();

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+/* eslint-disable @typescript-eslint/no-empty-function */
 import {
   ActorId,
   CreateTableCommand,
@@ -9,7 +11,7 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import { err } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
@@ -18,57 +20,81 @@ describe('CreateTableHandler', () => {
     const { container, tableRepository, eventPublisher, baseId } = getV2NodeTestContainer();
     const handler = container.resolve(CreateTableHandler);
 
-    const commandResult = CreateTableCommand.create({
-      baseId: baseId.toString(),
-      name: 'Projects',
-      fields: [
-        { type: 'singleLineText', name: 'Name', options: { defaultValue: 'Project' } },
-        {
-          type: 'rating',
-          name: 'Priority',
-          options: { max: 5, icon: 'star', color: 'yellowBright' },
-        },
-        {
-          type: 'singleSelect',
-          name: 'Status',
-          options: {
-            choices: [
-              { name: 'Todo', color: 'blue' },
-              { name: 'Doing', color: 'yellow' },
-              { name: 'Done', color: 'green' },
-            ],
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    try {
+      const commandResult = CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Projects',
+        fields: [
+          { type: 'singleLineText', name: 'Name', options: { defaultValue: 'Project' } },
+          {
+            type: 'rating',
+            name: 'Priority',
+            options: { max: 5, icon: 'star', color: 'yellowBright' },
           },
-        },
-      ],
-    });
+          {
+            type: 'singleSelect',
+            name: 'Status',
+            options: {
+              choices: [
+                { name: 'Todo', color: 'blue' },
+                { name: 'Doing', color: 'yellow' },
+                { name: 'Done', color: 'green' },
+              ],
+            },
+          },
+        ],
+      });
 
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+      expect(commandResult.isOk()).toBe(true);
+      if (commandResult.isErr()) return;
 
-    const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
+      const actorIdResult = ActorId.create('system');
+      expect(actorIdResult.isOk()).toBe(true);
+      if (actorIdResult.isErr()) return;
 
-    const context = { actorId: actorIdResult.value };
-    const result = await handler.handle(context, commandResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+      const context = { actorId: actorIdResult.value };
+      const result = await handler.handle(context, commandResult.value);
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
 
-    expect(eventPublisher.events().some((e) => e instanceof TableCreated)).toBe(true);
-    expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
-      true
-    );
-    expect(result.value.table.baseId().equals(baseId)).toBe(true);
+      expect(infoSpy).toHaveBeenCalledWith(
+        'CreateTableHandler.start',
+        expect.objectContaining({
+          actorId: 'system',
+          baseId: baseId.toString(),
+          tableName: 'Projects',
+          fieldCount: 3,
+          viewCount: 1,
+        })
+      );
+      expect(infoSpy).toHaveBeenCalledWith(
+        'CreateTableHandler.success',
+        expect.objectContaining({
+          baseId: baseId.toString(),
+          tableId: result.value.table.id().toString(),
+          eventCount: result.value.events.length,
+        })
+      );
 
-    const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
-    expect(specResult.isOk()).toBe(true);
-    if (specResult.isErr()) return;
-    const savedResult = await tableRepository.findOne(context, specResult.value);
-    expect(savedResult.isOk()).toBe(true);
-    if (savedResult.isOk()) {
-      expect(savedResult.value.primaryFieldId().equals(result.value.table.primaryFieldId())).toBe(
+      expect(eventPublisher.events().some((e) => e instanceof TableCreated)).toBe(true);
+      expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
         true
       );
+      expect(result.value.table.baseId().equals(baseId)).toBe(true);
+
+      const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
+      expect(specResult.isOk()).toBe(true);
+      if (specResult.isErr()) return;
+      const savedResult = await tableRepository.findOne(context, specResult.value);
+      expect(savedResult.isOk()).toBe(true);
+      if (savedResult.isOk()) {
+        expect(savedResult.value.primaryFieldId().equals(result.value.table.primaryFieldId())).toBe(
+          true
+        );
+      }
+    } finally {
+      infoSpy.mockRestore();
     }
   });
 

@@ -20,6 +20,7 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
       "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
       "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
       "@teable/v2-core": ["../core/src"],
@@ -31,6 +32,7 @@
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": [
     "src",
+    "../adapter-logger-console/src",
     "../adapter-postgres-ddl/src",
     "../adapter-postgres-state/src",
     "../core/src",

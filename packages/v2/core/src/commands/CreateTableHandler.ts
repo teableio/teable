@@ -5,12 +5,13 @@ import type { Result } from 'neverthrow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
+import { IEventPublisher } from '../ports/EventPublisher';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import type { IEventPublisher } from '../ports/EventPublisher';
-import type { ITableRepository } from '../ports/TableRepository';
-import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import { ILogger } from '../ports/Logger';
+import { ITableRepository } from '../ports/TableRepository';
+import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import type { IUnitOfWork } from '../ports/UnitOfWork';
+import { IUnitOfWork } from '../ports/UnitOfWork';
 import type { CreateTableCommand } from './CreateTableCommand';
 
 export class CreateTableResult {
@@ -33,6 +34,8 @@ export class CreateTableHandler {
     private readonly tableSchemaRepository: ITableSchemaRepository,
     @inject(v2CoreTokens.eventPublisher)
     private readonly eventPublisher: IEventPublisher,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: ILogger,
     @inject(v2CoreTokens.unitOfWork)
     private readonly unitOfWork: IUnitOfWork
   ) {}
@@ -41,6 +44,14 @@ export class CreateTableHandler {
     context: IExecutionContext,
     command: CreateTableCommand
   ): Promise<Result<CreateTableResult, string>> {
+    this.logger.info('CreateTableHandler.start', {
+      actorId: context.actorId.toString(),
+      baseId: command.baseId.toString(),
+      tableName: command.tableName.toString(),
+      fieldCount: command.fields.length,
+      viewCount: command.views.length,
+    });
+
     const tableResult = this.buildTable(command);
     if (tableResult.isErr()) return err(tableResult.error);
     const table = tableResult.value;
@@ -63,6 +74,12 @@ export class CreateTableHandler {
 
     const publishResult = this.eventPublisher.publishMany(context, events);
     if (publishResult.isErr()) return err(publishResult.error);
+
+    this.logger.info('CreateTableHandler.success', {
+      baseId: command.baseId.toString(),
+      tableId: table.id().toString(),
+      eventCount: events.length,
+    });
 
     return ok(CreateTableResult.create(table, events));
   }

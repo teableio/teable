@@ -1,5 +1,5 @@
 {
-  "name": "@teable/v2-container-node-test",
+  "name": "@teable/v2-adapter-logger-console",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -14,26 +14,18 @@
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-container-node-test.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-adapter-logger-console.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "test-unit": "vitest run --silent",
     "test-unit-cover": "pnpm test-unit --coverage",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teable/v2-adapter-logger-console": "workspace:*",
-    "@teable/v2-adapter-postgres-ddl": "workspace:*",
-    "@teable/v2-adapter-postgres-state": "workspace:*",
-    "@teable/v2-core": "workspace:*",
-    "@teable/v2-db-postgres": "workspace:*",
-    "@teable/v2-di": "workspace:*",
-    "@teable/v2-postgres-schema": "workspace:*",
-    "kysely": "0.28.9",
-    "@testcontainers/postgresql": "11.10.0"
+    "@teable/v2-core": "workspace:*"
   },
   "devDependencies": {
-    "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
+    "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",

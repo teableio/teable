@@ -76,6 +76,7 @@ export type { PluginView } from './domain/table/views/types/PluginView';
 
 export * from './ports/EventPublisher';
 export * from './ports/ExecutionContext';
+export * from './ports/Logger';
 export * from './ports/TableRepository';
 export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';
