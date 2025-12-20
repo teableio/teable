@@ -1,8 +1,11 @@
+/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { IExecutionContext, ITableSchemaRepository } from '@teable/v2-core';
 import {
   ActorId,
   BaseId,
+  DbFieldName,
+  DbTableName,
   FieldName,
   RatingMax,
   SelectOption,
@@ -22,20 +25,10 @@ type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start'
 import { registerV2PostgresDdlAdapter } from '../di/register';
 import {
   baseRecordColumnNames,
-  buildDbFieldNameMap,
   convertNameToValidCharacter,
+  ensureUniqueDbFieldName,
   joinDbTableName,
-  splitDbTableName,
 } from '../naming';
-
-interface ITestTableMetaTable {
-  id: string;
-  db_table_name: string;
-}
-
-interface ITestDatabase {
-  table_meta: ITestTableMetaTable;
-}
 
 describe('PostgresTableSchemaRepository (pg)', () => {
   let pgContainer: StartedPostgreSqlContainer;
@@ -58,7 +51,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       pg: { connectionString: pgContainer.getConnectionUri() },
     });
 
-    const db = c.resolve<Kysely<ITestDatabase>>(v2PostgresDbTokens.db);
+    const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
@@ -109,23 +102,28 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         baseId.toString(),
         convertNameToValidCharacter(table.name().toString(), 40)
       );
-      const fieldDbNameById = buildDbFieldNameMap(
-        table
-          .fields()
-          .map((field) => ({ id: field.id().toString(), name: field.name().toString() }))
-      );
+      const reservedNames = new Set(baseRecordColumnNames);
+      const fieldDbNames: string[] = [];
 
-      await db.schema
-        .createTable('table_meta')
-        .ifNotExists()
-        .addColumn('id', 'text', (col) => col.primaryKey())
-        .addColumn('db_table_name', 'text', (col) => col.notNull())
-        .execute();
+      const dbTableNameResult = DbTableName.rehydrate(dbTableName);
+      expect(dbTableNameResult.isOk()).toBe(true);
+      if (dbTableNameResult.isErr()) return;
+      const setTableDbNameResult = table.setDbTableName(dbTableNameResult.value);
+      expect(setTableDbNameResult.isOk()).toBe(true);
+      if (setTableDbNameResult.isErr()) return;
 
-      await db
-        .insertInto('table_meta')
-        .values({ id: table.id().toString(), db_table_name: dbTableName })
-        .execute();
+      for (const field of table.fields()) {
+        const baseName = convertNameToValidCharacter(field.name().toString(), 40);
+        const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
+        reservedNames.add(dbFieldName);
+        fieldDbNames.push(dbFieldName);
+        const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
+        expect(dbFieldNameResult.isOk()).toBe(true);
+        if (dbFieldNameResult.isErr()) return;
+        const setFieldDbNameResult = field.setDbFieldName(dbFieldNameResult.value);
+        expect(setFieldDbNameResult.isOk()).toBe(true);
+        if (setFieldDbNameResult.isErr()) return;
+      }
 
       const actorIdResult = ActorId.create('system');
       expect(actorIdResult.isOk()).toBe(true);
@@ -137,9 +135,12 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       if (insertResult.isErr()) return;
 
       const expectedBaseColumns = baseRecordColumnNames;
-      const expectedFieldColumns = [...fieldDbNameById.values()];
+      const expectedFieldColumns = fieldDbNames;
 
-      const { schema, tableName } = splitDbTableName(dbTableName);
+      const splitResult = dbTableNameResult.value.split({ defaultSchema: 'public' });
+      expect(splitResult.isOk()).toBe(true);
+      if (splitResult.isErr()) return;
+      const { schema, tableName } = splitResult.value;
       const schemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string }>`
         select column_name as "columnName"

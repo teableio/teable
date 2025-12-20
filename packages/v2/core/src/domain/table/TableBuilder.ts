@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../base/BaseId';
+import type { DbTableName } from './DbTableName';
 import type { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
@@ -59,6 +60,7 @@ export interface ITableBuildProps {
   fields: ReadonlyArray<Field>;
   views: ReadonlyArray<View>;
   primaryFieldId: FieldId;
+  dbTableName?: DbTableName;
 }
 
 export type ITableFactory = (props: ITableBuildProps) => Table;

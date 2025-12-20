@@ -74,18 +74,27 @@ export type IButtonFieldOptionsDTO = {
   workflow?: IButtonWorkflowDTO | null;
 };
 
+export type ITableFieldBaseDTO = {
+  id: string;
+  name: string;
+  dbFieldName?: string;
+};
+
 export type ITableFieldPersistenceDTO =
-  | { id: string; name: string; type: 'singleLineText'; options?: ISingleLineTextFieldOptionsDTO }
-  | { id: string; name: string; type: 'longText'; options?: ILongTextFieldOptionsDTO }
-  | { id: string; name: string; type: 'number'; options?: INumberFieldOptionsDTO }
-  | { id: string; name: string; type: 'rating'; options?: IRatingFieldOptionsDTO }
-  | { id: string; name: string; type: 'singleSelect'; options: ISelectFieldOptionsDTO }
-  | { id: string; name: string; type: 'multipleSelect'; options: ISelectFieldOptionsDTO }
-  | { id: string; name: string; type: 'checkbox'; options?: ICheckboxFieldOptionsDTO }
-  | { id: string; name: string; type: 'attachment'; options?: Record<string, never> }
-  | { id: string; name: string; type: 'date'; options?: IDateFieldOptionsDTO }
-  | { id: string; name: string; type: 'user'; options?: IUserFieldOptionsDTO }
-  | { id: string; name: string; type: 'button'; options?: IButtonFieldOptionsDTO };
+  | (ITableFieldBaseDTO & {
+      type: 'singleLineText';
+      options?: ISingleLineTextFieldOptionsDTO;
+    })
+  | (ITableFieldBaseDTO & { type: 'longText'; options?: ILongTextFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'number'; options?: INumberFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'rating'; options?: IRatingFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'singleSelect'; options: ISelectFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'multipleSelect'; options: ISelectFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'checkbox'; options?: ICheckboxFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'attachment'; options?: Record<string, never> })
+  | (ITableFieldBaseDTO & { type: 'date'; options?: IDateFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'user'; options?: IUserFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO });
 
 export type ITableViewPersistenceDTO =
   | { id: string; name: string; type: 'grid' }
@@ -99,6 +108,7 @@ export type ITablePersistenceDTO = {
   id: string;
   baseId: string;
   name: string;
+  dbTableName?: string;
   primaryFieldId: string;
   fields: ReadonlyArray<ITableFieldPersistenceDTO>;
   views: ReadonlyArray<ITableViewPersistenceDTO>;

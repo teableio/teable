@@ -8,7 +8,7 @@
     "moduleResolution": "Node16",
     "declaration": true,
     "declarationDir": "./dist",
-    "module": "CommonJS",
+    "module": "Node16",
     "noEmit": false,
     "sourceMap": true,
     "allowJs": false,

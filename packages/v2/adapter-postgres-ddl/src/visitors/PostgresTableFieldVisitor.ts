@@ -26,10 +26,7 @@ export interface ICreateTableBuilderRef {
 }
 
 export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
-  constructor(
-    private readonly builderRef: ICreateTableBuilderRef,
-    private readonly fieldDbNameById: Map<string, string>
-  ) {}
+  constructor(private readonly builderRef: ICreateTableBuilderRef) {}
 
   private static isFieldArray(value: Table | ReadonlyArray<Field>): value is ReadonlyArray<Field> {
     return Array.isArray(value);
@@ -51,52 +48,57 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   }
 
   visitSingleLineTextField(field: SingleLineTextField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'text');
+    return this.addColumn(field, 'text');
   }
 
   visitLongTextField(field: LongTextField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'text');
+    return this.addColumn(field, 'text');
   }
 
   visitNumberField(field: NumberField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'numeric');
+    return this.addColumn(field, 'numeric');
   }
 
   visitRatingField(field: RatingField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'numeric');
+    return this.addColumn(field, 'numeric');
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'text');
+    return this.addColumn(field, 'text');
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'jsonb');
+    return this.addColumn(field, 'jsonb');
   }
 
   visitCheckboxField(field: CheckboxField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'boolean');
+    return this.addColumn(field, 'boolean');
   }
 
   visitAttachmentField(field: AttachmentField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'jsonb');
+    return this.addColumn(field, 'jsonb');
   }
 
   visitDateField(field: DateField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'timestamptz');
+    return this.addColumn(field, 'timestamptz');
   }
 
   visitUserField(field: UserField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'jsonb');
+    return this.addColumn(field, 'jsonb');
   }
 
   visitButtonField(field: ButtonField): Result<void, string> {
-    return this.addColumn(field.id().toString(), 'jsonb');
+    return this.addColumn(field, 'jsonb');
   }
 
-  private addColumn(fieldId: string, dataType: ITableColumnDataType): Result<void, string> {
-    const columnName = this.fieldDbNameById.get(fieldId);
-    if (!columnName) return err(`Missing db field name for field ${fieldId}`);
+  private addColumn(field: Field, dataType: ITableColumnDataType): Result<void, string> {
+    const columnNameResult = field.dbFieldName().andThen((name) => name.value());
+    if (columnNameResult.isErr()) {
+      return err(
+        `Missing db field name for field ${field.id().toString()}: ${columnNameResult.error}`
+      );
+    }
+    const columnName = columnNameResult.value;
     this.builderRef.builder = this.builderRef.builder.addColumn(
       columnName,
       dataType

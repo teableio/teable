@@ -90,6 +90,7 @@ Practical exceptions that are required by the architecture:
 - `neverthrow` error side uses strings (e.g. `Result<T, string>`).
 - The Specification interface requires `isSatisfiedBy(...): boolean`.
 - Value Objects may expose `toString()` / `toDate()` / `toNumber()` for adapter/serialization boundaries (avoid using these in domain logic).
+- Rehydration-only Value Objects (e.g. `DbTableName`, `DbFieldName`) must extend `RehydratedValueObject`; create empty placeholders in domain, set real values only via repository rehydrate, and return `err(...)` when accessed before rehydrate.
 
 ## Builders/factories (non-negotiable)
 

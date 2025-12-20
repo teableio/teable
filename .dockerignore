@@ -45,6 +45,8 @@ tmp
 
 # other
 **/db
+!packages/v2/adapter-postgres-state/src/db
+!packages/v2/adapter-postgres-state/src/db/**
 **/.assets
 **/.temporary
 **.DS_Store

@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
 
+import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
@@ -15,6 +16,8 @@ import type { View } from './views/View';
 import type { ViewId } from './views/ViewId';
 
 export class Table extends AggregateRoot<TableId> {
+  private dbTableNameValue: DbTableName;
+
   private constructor(
     id: TableId,
     private readonly baseIdValue: BaseId,
@@ -37,6 +40,7 @@ export class Table extends AggregateRoot<TableId> {
         })
       );
     }
+    this.dbTableNameValue = DbTableName.empty();
   }
 
   static builder(): TableBuilder {
@@ -64,19 +68,24 @@ export class Table extends AggregateRoot<TableId> {
     if (!props.fields.some((f) => f.id().equals(props.primaryFieldId)))
       return err('Primary Field must exist in Table fields');
 
-    return ok(
-      new Table(
-        props.id,
-        props.baseId,
-        props.name,
-        props.fields,
-        props.views,
-        props.primaryFieldId,
-        {
-          emitCreatedEvent: false,
-        }
-      )
+    const table = new Table(
+      props.id,
+      props.baseId,
+      props.name,
+      props.fields,
+      props.views,
+      props.primaryFieldId,
+      {
+        emitCreatedEvent: false,
+      }
     );
+
+    if (props.dbTableName) {
+      const setResult = table.setDbTableName(props.dbTableName);
+      if (setResult.isErr()) return err(setResult.error);
+    }
+
+    return ok(table);
   }
 
   baseId(): BaseId {
@@ -85,6 +94,26 @@ export class Table extends AggregateRoot<TableId> {
 
   name(): TableName {
     return this.nameValue;
+  }
+
+  dbTableName(): Result<DbTableName, string> {
+    const valueResult = this.dbTableNameValue.value();
+    if (valueResult.isErr()) return err(valueResult.error);
+    return ok(this.dbTableNameValue);
+  }
+
+  setDbTableName(dbTableName: DbTableName): Result<void, string> {
+    const nextValue = dbTableName.value();
+    if (nextValue.isErr()) return err(nextValue.error);
+
+    const currentValue = this.dbTableNameValue.value();
+    if (currentValue.isOk()) {
+      if (currentValue.value !== nextValue.value) return err('DbTableName already set');
+      return ok(undefined);
+    }
+
+    this.dbTableNameValue = dbTableName;
+    return ok(undefined);
   }
 
   fields(): ReadonlyArray<Field> {

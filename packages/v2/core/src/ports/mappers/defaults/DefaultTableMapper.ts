@@ -3,6 +3,8 @@ import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import { BaseId } from '../../../domain/base/BaseId';
+import { DbTableName } from '../../../domain/table/DbTableName';
+import { DbFieldName } from '../../../domain/table/fields/DbFieldName';
 import type { Field } from '../../../domain/table/fields/Field';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
@@ -42,6 +44,7 @@ import { UserNotification } from '../../../domain/table/fields/types/UserNotific
 import type { IFieldVisitor } from '../../../domain/table/fields/visitors/IFieldVisitor';
 import type { Table } from '../../../domain/table/Table';
 import { Table as TableAggregate } from '../../../domain/table/Table';
+import type { ITableBuildProps } from '../../../domain/table/TableBuilder';
 import { TableId } from '../../../domain/table/TableId';
 import { TableName } from '../../../domain/table/TableName';
 import { CalendarView } from '../../../domain/table/views/types/CalendarView';
@@ -309,6 +312,7 @@ export class DefaultTableMapper implements ITableMapper {
 
     const fieldsResult = sequenceResults(dto.fields.map((f) => this.mapFieldToDomain(f)));
     const viewsResult = sequenceResults(dto.views.map((v) => this.mapViewToDomain(v)));
+    const dbTableNameResult = optional(dto.dbTableName, DbTableName.rehydrate);
 
     return idResult.andThen((id) =>
       baseIdResult.andThen((baseId) =>
@@ -316,7 +320,18 @@ export class DefaultTableMapper implements ITableMapper {
           primaryFieldIdResult.andThen((primaryFieldId) =>
             fieldsResult.andThen((fields) =>
               viewsResult.andThen((views) =>
-                TableAggregate.rehydrate({ id, baseId, name, primaryFieldId, fields, views })
+                dbTableNameResult.andThen((dbTableName) => {
+                  const props: ITableBuildProps = {
+                    id,
+                    baseId,
+                    name,
+                    primaryFieldId,
+                    fields,
+                    views,
+                    ...(dbTableName ? { dbTableName } : {}),
+                  };
+                  return TableAggregate.rehydrate(props);
+                })
               )
             )
           )
@@ -326,52 +341,56 @@ export class DefaultTableMapper implements ITableMapper {
   }
 
   private mapFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, string> {
-    return FieldId.create(dto.id).andThen((id) =>
-      FieldName.create(dto.name).andThen((name) => {
-        return match(dto)
-          .with({ type: 'singleLineText' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
-              optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
-                SingleLineTextField.create({ id, name, showAs, defaultValue })
-              )
-            );
-          })
-          .with({ type: 'longText' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
-              LongTextField.create({ id, name, defaultValue })
-            );
-          })
-          .with({ type: 'number' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.formatting, NumberFormatting.create).andThen((formatting) =>
-              optional(options.showAs, NumberShowAs.create).andThen((showAs) =>
-                optional(options.defaultValue, NumberDefaultValue.create).andThen((defaultValue) =>
-                  NumberField.create({ id, name, formatting, showAs, defaultValue })
+    return FieldId.create(dto.id)
+      .andThen((id) =>
+        FieldName.create(dto.name).andThen((name) => {
+          return match(dto)
+            .with({ type: 'singleLineText' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+                optional(options.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+                  SingleLineTextField.create({ id, name, showAs, defaultValue })
                 )
-              )
-            );
-          })
-          .with({ type: 'rating' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.max, RatingMax.create).andThen((max) =>
-              optional(options.icon, RatingIcon.create).andThen((icon) =>
-                optional(options.color, RatingColor.create).andThen((color) =>
-                  RatingField.create({ id, name, max, icon, color })
+              );
+            })
+            .with({ type: 'longText' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.defaultValue, TextDefaultValue.create).andThen(
+                (defaultValue) => LongTextField.create({ id, name, defaultValue })
+              );
+            })
+            .with({ type: 'number' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.formatting, NumberFormatting.create).andThen((formatting) =>
+                optional(options.showAs, NumberShowAs.create).andThen((showAs) =>
+                  optional(options.defaultValue, NumberDefaultValue.create).andThen(
+                    (defaultValue) =>
+                      NumberField.create({ id, name, formatting, showAs, defaultValue })
+                  )
                 )
-              )
-            );
-          })
-          .with({ type: 'singleSelect' }, (dto) => {
-            const optionsDto = dto.options ?? { choices: [] };
-            const choices = optionsDto.choices ?? [];
-            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
-              (options) =>
-                optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
-                  (defaultValue) =>
-                    optional(optionsDto.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-                      (preventAutoNewOptions) =>
+              );
+            })
+            .with({ type: 'rating' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.max, RatingMax.create).andThen((max) =>
+                optional(options.icon, RatingIcon.create).andThen((icon) =>
+                  optional(options.color, RatingColor.create).andThen((color) =>
+                    RatingField.create({ id, name, max, icon, color })
+                  )
+                )
+              );
+            })
+            .with({ type: 'singleSelect' }, (dto) => {
+              const optionsDto = dto.options ?? { choices: [] };
+              const choices = optionsDto.choices ?? [];
+              return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+                (options) =>
+                  optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
+                    (defaultValue) =>
+                      optional(
+                        optionsDto.preventAutoNewOptions,
+                        SelectAutoNewOptions.create
+                      ).andThen((preventAutoNewOptions) =>
                         SingleSelectField.create({
                           id,
                           name,
@@ -379,19 +398,21 @@ export class DefaultTableMapper implements ITableMapper {
                           defaultValue,
                           preventAutoNewOptions,
                         })
-                    )
-                )
-            );
-          })
-          .with({ type: 'multipleSelect' }, (dto) => {
-            const optionsDto = dto.options ?? { choices: [] };
-            const choices = optionsDto.choices ?? [];
-            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
-              (options) =>
-                optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
-                  (defaultValue) =>
-                    optional(optionsDto.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-                      (preventAutoNewOptions) =>
+                      )
+                  )
+              );
+            })
+            .with({ type: 'multipleSelect' }, (dto) => {
+              const optionsDto = dto.options ?? { choices: [] };
+              const choices = optionsDto.choices ?? [];
+              return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+                (options) =>
+                  optional(optionsDto.defaultValue, SelectDefaultValue.create).andThen(
+                    (defaultValue) =>
+                      optional(
+                        optionsDto.preventAutoNewOptions,
+                        SelectAutoNewOptions.create
+                      ).andThen((preventAutoNewOptions) =>
                         MultipleSelectField.create({
                           id,
                           name,
@@ -399,60 +420,61 @@ export class DefaultTableMapper implements ITableMapper {
                           defaultValue,
                           preventAutoNewOptions,
                         })
-                    )
+                      )
+                  )
+              );
+            })
+            .with({ type: 'checkbox' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.defaultValue, CheckboxDefaultValue.create).andThen(
+                (defaultValue) => CheckboxField.create({ id, name, defaultValue })
+              );
+            })
+            .with({ type: 'attachment' }, () => AttachmentField.create({ id, name }))
+            .with({ type: 'date' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
+                optional(options.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
+                  DateField.create({ id, name, formatting, defaultValue })
                 )
-            );
-          })
-          .with({ type: 'checkbox' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.defaultValue, CheckboxDefaultValue.create).andThen(
-              (defaultValue) => CheckboxField.create({ id, name, defaultValue })
-            );
-          })
-          .with({ type: 'attachment' }, () => AttachmentField.create({ id, name }))
-          .with({ type: 'date' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
-              optional(options.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
-                DateField.create({ id, name, formatting, defaultValue })
-              )
-            );
-          })
-          .with({ type: 'user' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
-              optional(options.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
-                optional(options.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
-                  UserField.create({ id, name, isMultiple, shouldNotify, defaultValue })
+              );
+            })
+            .with({ type: 'user' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
+                optional(options.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
+                  optional(options.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
+                    UserField.create({ id, name, isMultiple, shouldNotify, defaultValue })
+                  )
                 )
-              )
-            );
-          })
-          .with({ type: 'button' }, (dto) => {
-            const options = dto.options ?? {};
-            return optional(options.label, ButtonLabel.create).andThen((label) =>
-              optional(options.color, FieldColor.create).andThen((color) =>
-                optional(options.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-                  optional(options.resetCount, ButtonResetCount.create).andThen((resetCount) =>
-                    optional(options.workflow, ButtonWorkflow.create).andThen((workflow) =>
-                      ButtonField.create({
-                        id,
-                        name,
-                        label,
-                        color,
-                        maxCount,
-                        resetCount,
-                        workflow,
-                      })
+              );
+            })
+            .with({ type: 'button' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.label, ButtonLabel.create).andThen((label) =>
+                optional(options.color, FieldColor.create).andThen((color) =>
+                  optional(options.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
+                    optional(options.resetCount, ButtonResetCount.create).andThen((resetCount) =>
+                      optional(options.workflow, ButtonWorkflow.create).andThen((workflow) =>
+                        ButtonField.create({
+                          id,
+                          name,
+                          label,
+                          color,
+                          maxCount,
+                          resetCount,
+                          workflow,
+                        })
+                      )
                     )
                   )
                 )
-              )
-            );
-          })
-          .exhaustive();
-      })
-    );
+              );
+            })
+            .exhaustive();
+        })
+      )
+      .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName));
   }
 
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, string> {
@@ -467,6 +489,13 @@ export class DefaultTableMapper implements ITableMapper {
           .with('plugin', () => PluginView.create({ id, name }))
           .exhaustive();
       })
+    );
+  }
+
+  private applyDbFieldName(field: Field, dbFieldName: string | undefined): Result<Field, string> {
+    if (!dbFieldName) return ok(field);
+    return DbFieldName.rehydrate(dbFieldName).andThen((value) =>
+      field.setDbFieldName(value).map(() => field)
     );
   }
 }

@@ -247,6 +247,7 @@ describe('PostgresTableRepository (pg)', () => {
       const insertResult = await repo.insert(context, table);
       expect(insertResult.isOk()).toBe(true);
       if (insertResult.isErr()) return;
+      const persistedTable = insertResult.value;
 
       const persistedFields = await db
         .selectFrom('field')
@@ -263,6 +264,11 @@ describe('PostgresTableRepository (pg)', () => {
         table.name().toString(),
         40
       )}`;
+      const dbTableNameResult = persistedTable.dbTableName().andThen((name) => name.value());
+      expect(dbTableNameResult.isOk()).toBe(true);
+      if (dbTableNameResult.isErr()) return;
+      expect(dbTableNameResult.value).toBe(expectedDbTableName);
+
       const tableMetaRow = await db
         .selectFrom('table_meta')
         .select(['db_table_name', 'base_id'])
@@ -274,6 +280,15 @@ describe('PostgresTableRepository (pg)', () => {
       const expectedDbFieldNames = table
         .fields()
         .map((field) => convertNameToValidCharacter(field.name().toString(), 40));
+      const dbFieldNameResults = persistedTable
+        .fields()
+        .map((field) => field.dbFieldName().andThen((name) => name.value()));
+      expect(dbFieldNameResults.every((result) => result.isOk())).toBe(true);
+      if (dbFieldNameResults.some((result) => result.isErr())) return;
+      expect(dbFieldNameResults.map((result) => result._unsafeUnwrap())).toEqual(
+        expectedDbFieldNames
+      );
+
       const dbFieldRows = await db
         .selectFrom('field')
         .select(['db_field_name'])
@@ -294,6 +309,10 @@ describe('PostgresTableRepository (pg)', () => {
       expect(loaded.id().toString()).toBe(table.id().toString());
       expect(loaded.name().toString()).toBe(table.name().toString());
       expect(loaded.primaryFieldId().equals(table.primaryFieldId())).toBe(true);
+      const loadedDbTableNameResult = loaded.dbTableName().andThen((name) => name.value());
+      expect(loadedDbTableNameResult.isOk()).toBe(true);
+      if (loadedDbTableNameResult.isErr()) return;
+      expect(loadedDbTableNameResult.value).toBe(expectedDbTableName);
       expect(
         loaded.views().map((v) => ({ name: v.name().toString(), type: v.type().toString() }))
       ).toEqual([

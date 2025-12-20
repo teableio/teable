@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
 import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '../Tracer';
 
 const noopSpan: ISpan = {

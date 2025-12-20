@@ -15,7 +15,13 @@ import type {
   IUserFieldOptionsDTO,
   IButtonFieldOptionsDTO,
 } from '@teable/v2-core';
-import { fieldColorValues, getRandomString, TraceSpan } from '@teable/v2-core';
+import {
+  DbFieldName,
+  DbTableName,
+  fieldColorValues,
+  getRandomString,
+  TraceSpan,
+} from '@teable/v2-core';
 import {
   getPostgresTransaction,
   resolvePostgresDb,
@@ -47,7 +53,7 @@ export class PostgresTableRepository implements ITableRepository {
   ) {}
 
   @TraceSpan()
-  async insert(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async insert(context: IExecutionContext, table: Table): Promise<Result<Table, string>> {
     const dtoResult = this.tableMapper.toDTO(table);
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
@@ -59,6 +65,7 @@ export class PostgresTableRepository implements ITableRepository {
     const actorId = context.actorId.toString();
     const baseId = dto.baseId;
 
+    let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
     const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, string>> => {
       const order = sql<number>`
@@ -68,9 +75,11 @@ export class PostgresTableRepository implements ITableRepository {
           where base_id = ${baseId}
         )
       `;
-      const tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId);
+      tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId);
+      const tableDbMetaValue = tableDbMeta;
+      if (!tableDbMetaValue) return err('Missing table db metadata');
       const fieldValuesResult = this.sequenceResults(
-        tableDbMeta.fields.map((f, i) => {
+        tableDbMetaValue.fields.map((f, i) => {
           const storageType = fieldStorageTypeById.get(f.field.id);
           if (!storageType) return err(`Missing storage type for field ${f.field.id}`);
           return ok({
@@ -155,7 +164,7 @@ export class PostgresTableRepository implements ITableRepository {
         dto.name,
         null,
         null,
-        tableDbMeta.dbTableName,
+        tableDbMetaValue.dbTableName,
         null,
         1,
         order,
@@ -329,7 +338,13 @@ export class PostgresTableRepository implements ITableRepository {
       return err(`Failed to insert table: ${describeError(error)}`);
     }
 
-    return ok(undefined);
+    const tableDbMetaValue = tableDbMeta;
+    if (!tableDbMetaValue) return err('Missing table db metadata');
+
+    const applyDbMetaResult = this.applyDbMeta(table, tableDbMetaValue);
+    if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
+
+    return ok(table);
   }
 
   @TraceSpan()
@@ -353,10 +368,11 @@ export class PostgresTableRepository implements ITableRepository {
           'table_meta.id',
           'table_meta.name',
           'table_meta.base_id',
+          'table_meta.db_table_name',
           jsonArrayFrom(
             db
               .selectFrom('field')
-              .select(['id', 'name', 'type', 'options', 'is_primary'])
+              .select(['id', 'name', 'type', 'options', 'is_primary', 'db_field_name'])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
@@ -382,6 +398,7 @@ export class PostgresTableRepository implements ITableRepository {
             type: string;
             options: string | null;
             is_primary: boolean | null;
+            db_field_name: string | null;
           }>)
         : [];
 
@@ -399,6 +416,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: tableRow.id,
         baseId: tableRow.base_id,
         name: tableRow.name,
+        dbTableName: tableRow.db_table_name ?? undefined,
         primaryFieldId,
         fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
         views: [...viewsResult.value],
@@ -423,10 +441,12 @@ export class PostgresTableRepository implements ITableRepository {
     name: string;
     type: string;
     options: string | null;
+    db_field_name: string | null;
   }): ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
+    const dbFieldName = row.db_field_name ?? undefined;
 
     if (row.type === 'rating') {
       const options = {
@@ -434,7 +454,7 @@ export class PostgresTableRepository implements ITableRepository {
         color: typeof parsed.color === 'string' ? parsed.color : 'yellowBright',
         max: typeof parsed.max === 'number' ? parsed.max : 5,
       };
-      return { id: row.id, name: row.name, type: 'rating', options };
+      return { id: row.id, name: row.name, type: 'rating', options, dbFieldName };
     }
 
     if (row.type === 'singleSelect' || row.type === 'select') {
@@ -443,6 +463,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'singleSelect',
         options: this.normalizeSelectOptions(parsed),
+        dbFieldName,
       };
     }
 
@@ -452,6 +473,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'multipleSelect',
         options: this.normalizeSelectOptions(parsed),
+        dbFieldName,
       };
     }
 
@@ -461,6 +483,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'number',
         options: asOptions<INumberFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     if (row.type === 'longText') {
@@ -469,6 +492,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'longText',
         options: asOptions<ILongTextFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     if (row.type === 'checkbox') {
@@ -477,11 +501,12 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'checkbox',
         options: asOptions<ICheckboxFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     if (row.type === 'attachment') {
       const options = hasOptions ? {} : undefined;
-      return { id: row.id, name: row.name, type: 'attachment', options };
+      return { id: row.id, name: row.name, type: 'attachment', options, dbFieldName };
     }
     if (row.type === 'date') {
       return {
@@ -489,6 +514,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'date',
         options: asOptions<IDateFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     if (row.type === 'user') {
@@ -497,6 +523,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'user',
         options: asOptions<IUserFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     if (row.type === 'button') {
@@ -505,6 +532,7 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'button',
         options: asOptions<IButtonFieldOptionsDTO>(),
+        dbFieldName,
       };
     }
     return {
@@ -512,6 +540,7 @@ export class PostgresTableRepository implements ITableRepository {
       name: row.name,
       type: 'singleLineText',
       options: asOptions<ISingleLineTextFieldOptionsDTO>(),
+      dbFieldName,
     };
   }
 
@@ -575,6 +604,25 @@ export class PostgresTableRepository implements ITableRepository {
       (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
       ok([])
     );
+  }
+
+  private applyDbMeta(table: Table, tableDbMeta: ITableDbMeta): Result<void, string> {
+    const dbTableNameResult = DbTableName.rehydrate(tableDbMeta.dbTableName);
+    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+
+    const setTableNameResult = table.setDbTableName(dbTableNameResult.value);
+    if (setTableNameResult.isErr()) return err(setTableNameResult.error);
+
+    const fieldsById = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const fieldResults = tableDbMeta.fields.map((meta) => {
+      const field = fieldsById.get(meta.field.id);
+      if (!field) return err(`Missing field for db name ${meta.field.id}`);
+      return DbFieldName.rehydrate(meta.dbFieldName).andThen((dbFieldName) =>
+        field.setDbFieldName(dbFieldName)
+      );
+    });
+
+    return this.sequenceResults(fieldResults).map(() => undefined);
   }
 
   private buildFieldStorageTypeById(

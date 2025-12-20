@@ -13,11 +13,11 @@ export class MemoryTableRepository implements ITableRepository {
     return [...this.savedTables];
   }
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, string>> {
     const exists = this.savedTables.some((t) => t.id().equals(table.id()));
     if (exists) return err('Table already exists');
     this.savedTables.push(table);
-    return ok(undefined);
+    return ok(table);
   }
 
   async findOne(_: IExecutionContext, spec: ISpecification<Table>): Promise<Result<Table, string>> {

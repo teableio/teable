@@ -11,7 +11,6 @@ import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { buildDbFieldNameMap, splitDbTableName } from '../naming';
 import {
   PostgresTableFieldVisitor,
   type ICreateTableBuilderRef,
@@ -26,27 +25,12 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    const tableId = table.id().toString();
-    let dbTableName: string;
-    const fieldDbNameById = buildDbFieldNameMap(
-      table.fields().map((field) => ({ id: field.id().toString(), name: field.name().toString() }))
-    );
+    const dbTableNameResult = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }));
+    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+    const { schema, tableName } = dbTableNameResult.value;
     const db = resolvePostgresDb(this.db, context);
-    try {
-      const tableMetaResult = await sql<{ dbTableName: string }>`
-        select db_table_name as "dbTableName"
-        from table_meta
-        where id = ${tableId}
-      `.execute(db);
-
-      dbTableName = tableMetaResult.rows[0]?.dbTableName ?? '';
-    } catch (error) {
-      return err(`Failed to load table metadata: ${describeError(error)}`);
-    }
-
-    if (!dbTableName) return err('Missing db table name');
-
-    const { schema, tableName } = splitDbTableName(dbTableName);
 
     type ICreateTableBuilder = CreateTableBuilder<string, string>;
     const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
@@ -64,7 +48,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
 
     const builderRef: ICreateTableBuilderRef = { builder };
-    const visitor = new PostgresTableFieldVisitor(builderRef, fieldDbNameById);
+    const visitor = new PostgresTableFieldVisitor(builderRef);
     const applyResult = visitor.apply(table);
     if (applyResult.isErr()) return err(applyResult.error);
 

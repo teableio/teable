@@ -63,14 +63,19 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       async (transactionContext) => {
         const insertResult = await this.tableRepository.insert(transactionContext, table);
         if (insertResult.isErr()) return err(insertResult.error);
+        const persistedTable = insertResult.value;
 
-        const schemaResult = await this.tableSchemaRepository.insert(transactionContext, table);
+        const schemaResult = await this.tableSchemaRepository.insert(
+          transactionContext,
+          persistedTable
+        );
         if (schemaResult.isErr()) return err(schemaResult.error);
 
-        return ok(undefined);
+        return ok(persistedTable);
       }
     );
     if (transactionResult.isErr()) return err(transactionResult.error);
+    const persistedTable = transactionResult.value;
 
     const events = table.pullDomainEvents();
 
@@ -83,7 +88,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       eventCount: events.length,
     });
 
-    return ok(CreateTableResult.create(table, events));
+    return ok(CreateTableResult.create(persistedTable, events));
   }
 
   private buildTable(command: CreateTableCommand): Result<Table, string> {
