@@ -7,14 +7,15 @@ import {
   getTableByIdOkResponseSchema,
 } from './table/getTableById';
 
-const TABLES_PATH = '/tables';
+const TABLES_CREATE_PATH = '/tables/create';
+const TABLES_GET_PATH = '/tables/get';
 
 export const v2Contract = {
   tables: {
     create: oc
       .route({
         method: 'POST',
-        path: TABLES_PATH,
+        path: TABLES_CREATE_PATH,
         successStatus: 201,
         summary: 'Create table',
         tags: ['tables'],
@@ -24,7 +25,7 @@ export const v2Contract = {
     getById: oc
       .route({
         method: 'GET',
-        path: TABLES_PATH,
+        path: TABLES_GET_PATH,
         successStatus: 200,
         summary: 'Get table by id',
         tags: ['tables'],

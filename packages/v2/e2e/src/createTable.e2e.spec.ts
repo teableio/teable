@@ -52,7 +52,7 @@ describe('v2 http createTable (e2e)', () => {
       ],
     };
 
-    const response = await fetch(`${baseUrl}/tables`, {
+    const response = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),

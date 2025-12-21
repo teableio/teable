@@ -43,7 +43,7 @@ describe('v2 http getTableById (e2e)', () => {
       fields: [{ type: 'singleLineText', name: 'Name' }],
     };
 
-    const response = await fetch(`${baseUrl}/tables`, {
+    const response = await fetch(`${baseUrl}/tables/create`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -69,7 +69,7 @@ describe('v2 http getTableById (e2e)', () => {
   });
 
   it('returns 200 ok (fetch)', async () => {
-    const response = await fetch(`${baseUrl}/tables?baseId=${baseId}&tableId=${tableId}`, {
+    const response = await fetch(`${baseUrl}/tables/get?baseId=${baseId}&tableId=${tableId}`, {
       method: 'GET',
     });
 

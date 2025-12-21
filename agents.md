@@ -25,6 +25,7 @@ Future adapters live in their own workspace packages under `packages/v2/*` and d
 For HTTP-ish integrations, keep framework-independent contracts/mappers in `packages/v2/contract-http`:
 
 - Define API paths (e.g. `/tables`) as constants.
+- Use action-style paths with camelCase action names (e.g. `/tables/create`, `/tables/get`, `/tables/rename`); avoid RESTful nested resources like `/bases/{baseId}/tables/{tableId}`.
 - Re-export command input schemas (zod) for route-level validation if needed.
 - Keep DTO types + domain-to-DTO mappers here.
 - Router packages (e.g. `@teable/v2-contract-http-express`, `@teable/v2-contract-http-fastify`) should be thin adapters that only:
