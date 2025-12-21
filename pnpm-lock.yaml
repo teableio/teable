@@ -2257,6 +2257,73 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)
 
+  packages/v2/benchmark-bun:
+    dependencies:
+      '@orpc/client':
+        specifier: 1.13.0
+        version: 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/contract':
+        specifier: 1.13.0
+        version: 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/server':
+        specifier: 1.13.0
+        version: 1.13.0(@opentelemetry/api@1.9.0)(ws@8.18.0)
+      '@teable/v2-container-bun-test':
+        specifier: workspace:*
+        version: link:../container-bun-test
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../contract-http
+      '@teable/v2-contract-http-implementation':
+        specifier: workspace:*
+        version: link:../contract-http-implementation
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-db-postgres':
+        specifier: workspace:*
+        version: link:../db-postgres
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      tinybench:
+        specifier: 2.9.0
+        version: 2.9.0
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+
   packages/v2/benchmark-node:
     dependencies:
       '@hono/node-server':
@@ -2335,6 +2402,125 @@ importers:
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)
+
+  packages/v2/container-bun:
+    dependencies:
+      '@teable/v2-adapter-postgres-ddl':
+        specifier: workspace:*
+        version: link:../adapter-postgres-ddl
+      '@teable/v2-adapter-postgres-state':
+        specifier: workspace:*
+        version: link:../adapter-postgres-state
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-db-postgres':
+        specifier: workspace:*
+        version: link:../db-postgres
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.4.1)(terser@5.37.0)(yaml@2.8.2)
+
+  packages/v2/container-bun-test:
+    dependencies:
+      '@teable/v2-adapter-logger-console':
+        specifier: workspace:*
+        version: link:../adapter-logger-console
+      '@teable/v2-adapter-postgres-ddl':
+        specifier: workspace:*
+        version: link:../adapter-postgres-ddl
+      '@teable/v2-adapter-postgres-state':
+        specifier: workspace:*
+        version: link:../adapter-postgres-state
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-db-postgres':
+        specifier: workspace:*
+        version: link:../db-postgres
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
+      '@testcontainers/postgresql':
+        specifier: 11.10.0
+        version: 11.10.0
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      testcontainers:
+        specifier: 11.10.0
+        version: 11.10.0
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
