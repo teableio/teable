@@ -1,3 +1,5 @@
+import { createTanstackQueryUtils } from '@orpc/tanstack-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import {
@@ -18,9 +20,25 @@ import type {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInput,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuBadge,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  SidebarProvider,
+  SidebarRail,
+  SidebarSeparator,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -35,13 +53,9 @@ import {
   PLAYGROUND_BASE_NAME,
   PLAYGROUND_TABLE_ID_STORAGE_KEY,
 } from '@/lib/playground/constants';
+import { NumberFormattingType, SingleNumberDisplayType } from '@teable/v2-core';
 
 export const Route = createFileRoute('/')({ component: Playground });
-
-const fallbackTimeZone = 'utc';
-const fieldColors = ['blue', 'green', 'yellow'] as const;
-const ratingIcon = 'star' as const;
-const ratingColor = 'yellowBright' as const;
 
 const basicTableInput: ICreateTableRequestDto = {
   baseId: PLAYGROUND_BASE_ID,
@@ -57,8 +71,13 @@ const basicTableInput: ICreateTableRequestDto = {
       type: 'number',
       name: 'Amount',
       options: {
-        formatting: { type: 'currency', precision: 2, symbol: '$' },
-        showAs: { type: 'bar', color: 'teal', showValue: true, maxValue: 100 },
+        formatting: { type: NumberFormattingType.Currency, precision: 2, symbol: '$' },
+        showAs: {
+          type: SingleNumberDisplayType.Bar,
+          color: 'teal',
+          showValue: true,
+          maxValue: 100,
+        },
         defaultValue: 10,
       },
     },
@@ -185,98 +204,152 @@ const formatFieldOptions = (field: IFieldDto): string => {
 
 const formatViewLabel = (view: IViewDto): string => `${view.name} (${view.type})`;
 
+const getErrorMessage = (error: unknown, fallback: string): string => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  return fallback;
+};
+
+type PlaygroundSidebarProps = {
+  table: ITableDto | null;
+  hasTable: boolean;
+  isInitialLoading: boolean;
+};
+
+function PlaygroundSidebar({ table, hasTable, isInitialLoading }: PlaygroundSidebarProps) {
+  return (
+    <Sidebar collapsible="icon">
+      <SidebarHeader className="gap-3 px-4 pt-5 pb-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <LayoutGrid className="h-4 w-4" />
+          Tables
+        </div>
+        <SidebarInput placeholder="Search tables" disabled aria-label="Search tables" />
+      </SidebarHeader>
+      <SidebarSeparator className="-translate-x-2.5" />
+      <SidebarContent className="px-2 pb-4">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            {isInitialLoading ? (
+              <SidebarMenu>
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <SidebarMenuItem key={`table-skeleton-${index}`}>
+                    <SidebarMenuSkeleton showIcon />
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            ) : hasTable ? (
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton isActive className="gap-3">
+                    <TableIcon className="h-4 w-4" />
+                    <span className="flex-1 truncate font-medium">{table?.name}</span>
+                  </SidebarMenuButton>
+                  <SidebarMenuBadge>{table?.fields.length}</SidebarMenuBadge>
+                </SidebarMenuItem>
+              </SidebarMenu>
+            ) : (
+              <div className="rounded-lg border border-dashed border-sidebar-border p-4 text-sm text-muted-foreground">
+                No tables yet. Create your first one.
+              </div>
+            )}
+          </SidebarGroupContent>
+        </SidebarGroup>
+      </SidebarContent>
+      <SidebarRail />
+    </Sidebar>
+  );
+}
+
 function Playground() {
-  const [table, setTable] = useState<ITableDto | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreating, setIsCreating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [tableId, setTableId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
+  });
+  const [hasCheckedStorage, setHasCheckedStorage] = useState(() => typeof window !== 'undefined');
   const [eventCount, setEventCount] = useState<number | null>(null);
 
-  const loadTable = async (tableId: string, silent = false) => {
-    if (!silent) setIsLoading(true);
-    setError(null);
-    try {
-      const client = getOrpcClient();
-      const response = await client.tables.getById({
-        baseId: PLAYGROUND_BASE_ID,
-        tableId,
-      });
-      setTable(response.data.table);
-      localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, tableId);
-    } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : 'Failed to load table';
-      setError(message);
-    } finally {
-      if (!silent) setIsLoading(false);
-    }
-  };
+  const orpc = createTanstackQueryUtils(getOrpcClient());
+  const queryClient = useQueryClient();
 
-  const handleCreate = async () => {
-    setIsCreating(true);
-    setError(null);
-    try {
-      const client = getOrpcClient();
-      const response = await client.tables.create({
-        ...basicTableInput,
-        name: `Playground Table ${Date.now()}`,
-      });
-      const created = response.data.table;
-      setEventCount(response.data.events.length);
-      await loadTable(created.id, true);
-    } catch (createError) {
-      const message = createError instanceof Error ? createError.message : 'Failed to create table';
-      setError(message);
-    } finally {
-      setIsCreating(false);
-    }
-  };
+  const tableQuery = useQuery(
+    orpc.tables.getById.queryOptions({
+      input: {
+        baseId: PLAYGROUND_BASE_ID,
+        tableId: tableId ?? '',
+      },
+      enabled: Boolean(tableId),
+      select: (response) => response.data.table,
+    })
+  );
+
+  const createTableMutation = useMutation(
+    orpc.tables.create.mutationOptions({
+      onSuccess: (response) => {
+        const created = response.data.table;
+        setEventCount(response.data.events.length);
+        setTableId(created.id);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, created.id);
+        }
+        queryClient.setQueryData(
+          orpc.tables.getById.queryKey({
+            input: {
+              baseId: PLAYGROUND_BASE_ID,
+              tableId: created.id,
+            },
+          }),
+          created
+        );
+      },
+    })
+  );
 
   useEffect(() => {
     const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-    if (storedTableId) {
-      void loadTable(storedTableId);
+    if (storedTableId && !tableId) {
+      setTableId(storedTableId);
     }
-  }, []);
+    setHasCheckedStorage(true);
+  }, [tableId]);
 
+  const table = tableQuery.data ?? null;
   const hasTable = Boolean(table);
+  const isInitialLoading = !hasTable && (!hasCheckedStorage || tableQuery.isLoading);
+  const isLoading = tableQuery.isFetching;
+  const isCreating = createTableMutation.isPending;
+  const errorMessage = (() => {
+    if (tableQuery.error) {
+      return getErrorMessage(tableQuery.error, 'Failed to load table');
+    }
+    if (createTableMutation.error) {
+      return getErrorMessage(createTableMutation.error, 'Failed to create table');
+    }
+    return null;
+  })();
+
+  const handleCreate = () => {
+    createTableMutation.reset();
+    createTableMutation.mutate({
+      ...basicTableInput,
+      name: `Playground Table ${Date.now()}`,
+    });
+  };
+
+  const handleRefresh = () => {
+    if (!tableId) return;
+    void tableQuery.refetch();
+  };
+
   const viewLabels = table?.views.map(formatViewLabel) ?? [];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="flex min-h-screen">
-        <aside className="w-72 shrink-0 border-r border-border bg-background">
-          <div className="p-5">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              <LayoutGrid className="h-4 w-4" />
-              Tables
-            </div>
-            <div className="mt-4">
-              <Input placeholder="Search tables" disabled aria-label="Search tables" />
-            </div>
-          </div>
-          <Separator />
-          <ScrollArea className="h-[calc(100vh-170px)] px-4 pb-6">
-            <div className="mt-4 space-y-3">
-              {hasTable ? (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-left text-sm transition hover:bg-muted/50"
-                >
-                  <TableIcon className="h-4 w-4 text-muted-foreground" />
-                  <span className="flex-1 truncate font-medium">{table?.name}</span>
-                  <Badge variant="secondary">{table?.fields.length}</Badge>
-                </button>
-              ) : (
-                <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-                  No tables yet. Create your first one.
-                </div>
-              )}
-            </div>
-          </ScrollArea>
-        </aside>
-
-        <div className="flex min-h-screen flex-1 flex-col">
-          <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
+    <SidebarProvider>
+      <PlaygroundSidebar table={table} hasTable={hasTable} isInitialLoading={isInitialLoading} />
+      <SidebarInset>
+        <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
+          <div className="flex flex-wrap items-center gap-3">
+            <SidebarTrigger className="shrink-0" />
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                 Base
@@ -288,143 +361,196 @@ function Playground() {
                 {eventCount !== null ? <Badge variant="outline">events {eventCount}</Badge> : null}
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <Button
-                variant="secondary"
-                disabled={!table || isLoading}
-                onClick={() => (table ? void loadTable(table.id) : undefined)}
-              >
-                <RefreshCcw className="mr-2 h-4 w-4" />
-                Refresh
-              </Button>
-              <Button disabled={isCreating} onClick={handleCreate}>
-                <Plus className="mr-2 h-4 w-4" />
-                {isCreating ? 'Creating...' : 'Create basic table'}
-              </Button>
-            </div>
-          </header>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button variant="secondary" disabled={!table || isLoading} onClick={handleRefresh}>
+              <RefreshCcw className="mr-2 h-4 w-4" />
+              Refresh
+            </Button>
+            <Button disabled={isCreating} onClick={handleCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              {isCreating ? 'Creating...' : 'Create basic table'}
+            </Button>
+          </div>
+        </header>
 
-          <main className="flex-1 space-y-6 px-6 py-8">
-            {error ? (
-              <Card className="border-destructive/40 bg-destructive/10">
-                <CardHeader className="flex flex-row items-center gap-3">
-                  <TriangleAlert className="h-4 w-4 text-destructive" />
-                  <CardTitle className="text-base text-destructive">{error}</CardTitle>
-                </CardHeader>
-              </Card>
-            ) : null}
+        <section className="flex-1 space-y-6 px-6 py-8">
+          {errorMessage ? (
+            <Card className="border-destructive/40 bg-destructive/10">
+              <CardHeader className="flex flex-row items-center gap-3">
+                <TriangleAlert className="h-4 w-4 text-destructive" />
+                <CardTitle className="text-base text-destructive">{errorMessage}</CardTitle>
+              </CardHeader>
+            </Card>
+          ) : null}
 
-            {!hasTable ? (
+          {isInitialLoading ? (
+            <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-lg">Build a table in seconds</CardTitle>
+                  <CardTitle className="flex items-center gap-3 text-lg">
+                    <Skeleton className="h-5 w-5 rounded-full" />
+                    <Skeleton className="h-5 w-44" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4 text-sm text-muted-foreground">
-                  <p>
-                    This playground uses Teable v2 core with a fixed base and user. Click the button
-                    to create a table with all basic field types, then view its schema immediately.
-                  </p>
-                  <Button disabled={isCreating} onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    {isCreating ? 'Creating...' : 'Create table'}
-                  </Button>
+                <CardContent className="space-y-3">
+                  <div className="grid grid-cols-5 gap-3">
+                    {Array.from({ length: 5 }).map((_, index) => (
+                      <Skeleton key={`header-skeleton-${index}`} className="h-4 w-full" />
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    {Array.from({ length: 6 }).map((_, rowIndex) => (
+                      <div key={`row-skeleton-${rowIndex}`} className="grid grid-cols-5 gap-3">
+                        {Array.from({ length: 5 }).map((_, colIndex) => (
+                          <Skeleton
+                            key={`cell-skeleton-${rowIndex}-${colIndex}`}
+                            className="h-4 w-full"
+                          />
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+
+              <div className="space-y-6">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-3 text-lg">
-                      <TableIcon className="h-5 w-5 text-muted-foreground" />
-                      {table?.name}
-                      <Badge variant="secondary">{table?.fields.length} fields</Badge>
-                    </CardTitle>
+                    <CardTitle className="text-base">Views</CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>DB Field</TableHead>
-                          <TableHead>Primary</TableHead>
-                          <TableHead>Options</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {table?.fields.map((field) => (
-                          <TableRow key={field.id}>
-                            <TableCell className="font-medium">{field.name}</TableCell>
-                            <TableCell>{fieldTypeLabels[field.type]}</TableCell>
-                            <TableCell className="font-mono text-xs text-muted-foreground">
-                              {field.dbFieldName ?? '-'}
-                            </TableCell>
-                            <TableCell>
-                              {field.isPrimary ? (
-                                <Badge variant="outline">Primary</Badge>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">-</span>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs text-muted-foreground">
-                              {formatFieldOptions(field)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
+                  <CardContent className="space-y-2">
+                    <Skeleton className="h-4 w-28" />
+                    <Skeleton className="h-4 w-40" />
                   </CardContent>
                 </Card>
 
-                <div className="space-y-6">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Views</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                      {viewLabels.length ? (
-                        <div className="flex flex-wrap gap-2">
-                          {viewLabels.map((viewLabel) => (
-                            <Badge key={viewLabel} variant="secondary">
-                              {viewLabel}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-sm text-muted-foreground">No views defined.</div>
-                      )}
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">Connection</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm text-muted-foreground">
-                      <div className="flex items-center justify-between">
-                        <span>Base ID</span>
-                        <code className="text-xs text-foreground">{PLAYGROUND_BASE_ID}</code>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Connection</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {Array.from({ length: 4 }).map((_, index) => (
+                      <div key={`connection-skeleton-${index}`} className="flex items-center gap-3">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="ml-auto h-4 w-32" />
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>Table ID</span>
-                        <code className="text-xs text-foreground">{table?.id}</code>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>DB Table</span>
-                        <code className="text-xs text-foreground">{table?.dbTableName ?? '-'}</code>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Status</span>
-                        <Badge variant="outline">{isLoading ? 'loading' : 'ready'}</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
+                    ))}
+                  </CardContent>
+                </Card>
               </div>
-            )}
-          </main>
-        </div>
-      </div>
-    </div>
+            </div>
+          ) : !hasTable ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Build a table in seconds</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4 text-sm text-muted-foreground">
+                <p>
+                  This playground uses Teable v2 core with a fixed base and user. Click the button
+                  to create a table with all basic field types, then view its schema immediately.
+                </p>
+                <Button disabled={isCreating} onClick={handleCreate}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {isCreating ? 'Creating...' : 'Create table'}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-3 text-lg">
+                    <TableIcon className="h-5 w-5 text-muted-foreground" />
+                    {table?.name}
+                    <Badge variant="secondary">{table?.fields.length} fields</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>DB Field</TableHead>
+                        <TableHead>Primary</TableHead>
+                        <TableHead>Options</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {table?.fields.map((field) => (
+                        <TableRow key={field.id}>
+                          <TableCell className="font-medium">{field.name}</TableCell>
+                          <TableCell>{fieldTypeLabels[field.type]}</TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {field.dbFieldName ?? '-'}
+                          </TableCell>
+                          <TableCell>
+                            {field.isPrimary ? (
+                              <Badge variant="outline">Primary</Badge>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs text-muted-foreground">
+                            {formatFieldOptions(field)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Views</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {viewLabels.length ? (
+                      <div className="flex flex-wrap gap-2">
+                        {viewLabels.map((viewLabel) => (
+                          <Badge key={viewLabel} variant="secondary">
+                            {viewLabel}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground">No views defined.</div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Connection</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center justify-between">
+                      <span>Base ID</span>
+                      <code className="text-xs text-foreground">{PLAYGROUND_BASE_ID}</code>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Table ID</span>
+                      <code className="text-xs text-foreground">{table?.id}</code>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>DB Table</span>
+                      <code className="text-xs text-foreground">{table?.dbTableName ?? '-'}</code>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Status</span>
+                      <Badge variant="outline">{isLoading ? 'loading' : 'ready'}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+        </section>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

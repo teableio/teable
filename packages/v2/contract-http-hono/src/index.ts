@@ -1,6 +1,6 @@
 import type { IHandlerResolver } from '@teable/v2-contract-http';
-import { createV2OpenApiFetchHandler } from '@teable/v2-contract-http-openapi';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
+import { createV2OpenApiFetchHandler } from '@teable/v2-contract-http-openapi';
 import type { IExecutionContext } from '@teable/v2-core';
 import { Hono } from 'hono';
 import type { Context, Next } from 'hono';

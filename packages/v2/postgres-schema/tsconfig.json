@@ -3,8 +3,8 @@
   "display": "@teable/v2-postgres-schema",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "target": "esnext",
     "lib": ["esnext"],
     "esModuleInterop": true,

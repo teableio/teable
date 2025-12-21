@@ -1,8 +1,9 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Kysely, PostgresDialect } from 'kysely';
-import { Pool } from 'pg';
-
+import pkg from 'pg';
 import type { IV2PostgresDbConfig } from './config';
+
+const { Pool } = pkg;
 
 const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> => {
   const connectionString = config.pg.connectionString;

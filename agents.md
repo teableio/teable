@@ -75,7 +75,7 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 
 - v2 packages build with `tsdown` (not `tsc` emit). `tsc` is used only for `typecheck` (`--noEmit`).
 - Each v2 package has a local `tsdown.config.ts` that extends the shared base config from `@teable/v2-tsdown-config`.
-- Outputs are written to `dist/` (CommonJS `.js` + `.d.ts`), and workspace deps (`@teable/v2-*`) are kept external (no bundling across packages).
+- Outputs are written to `dist/` (ESM `.js` + `.d.ts`), and workspace deps (`@teable/v2-*`) are kept external (no bundling across packages).
 
 ## Error handling (non-negotiable)
 
