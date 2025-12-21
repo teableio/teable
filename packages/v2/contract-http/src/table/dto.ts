@@ -43,6 +43,7 @@ export type IViewDto = z.infer<typeof viewDtoSchema>;
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
+  dbFieldName: z.string().optional(),
   isPrimary: z.boolean(),
 });
 
@@ -214,6 +215,7 @@ export const tableDtoSchema = z.object({
   id: z.string(),
   baseId: z.string(),
   name: z.string(),
+  dbTableName: z.string().optional(),
   fields: z.array(fieldDtoSchema),
   views: z.array(viewDtoSchema),
 });
@@ -222,6 +224,11 @@ export type ITableDto = z.infer<typeof tableDtoSchema>;
 
 class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
   constructor(private readonly primaryFieldId: FieldId) {}
+
+  private optionalDbFieldName(field: Field): string | undefined {
+    const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+    return dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined;
+  }
 
   visitSingleLineTextField(field: SingleLineTextField): Result<IFieldDto, string> {
     const options: SingleLineTextOptionsDto = {};
@@ -233,6 +240,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'singleLineText',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -247,6 +255,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'longText',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -265,6 +274,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'number',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -281,6 +291,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'rating',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -302,6 +313,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'singleSelect',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -323,6 +335,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'multipleSelect',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -337,6 +350,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'checkbox',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -347,6 +361,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'attachment',
       options: {},
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -363,6 +378,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'date',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -384,6 +400,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'user',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -405,6 +422,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return ok({
       id: field.id().toString(),
       name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
       type: 'button',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
@@ -417,11 +435,14 @@ export const mapFieldToDto = (field: Field, primaryFieldId: FieldId): Result<IFi
 
 export const mapTableToDto = (table: Table): Result<ITableDto, string> => {
   const primaryFieldId = table.primaryFieldId();
+  const dbTableNameResult = table.dbTableName().andThen((name) => name.value());
+  const dbTableName = dbTableNameResult.isOk() ? dbTableNameResult.value : undefined;
   return sequenceResults(table.fields().map((f) => mapFieldToDto(f, primaryFieldId))).map(
     (fields) => ({
       id: table.id().toString(),
       baseId: table.baseId().toString(),
       name: table.name().toString(),
+      dbTableName,
       fields: [...fields],
       views: table.views().map((v) => ({
         id: v.id().toString(),
