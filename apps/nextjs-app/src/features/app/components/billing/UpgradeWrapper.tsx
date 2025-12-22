@@ -1,6 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { Role } from '@teable/core';
-import { BillingProductLevel } from '@teable/openapi';
+import { BillingProductLevel, getSpaceById } from '@teable/openapi';
 import { UsageLimitModalType, useUsageLimitModalStore } from '@teable/sdk/components/billing/store';
+import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import type { Base } from '@teable/sdk/model';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
@@ -59,21 +61,25 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const { openModal } = useUsageLimitModalStore();
   spaceId = base?.spaceId ?? spaceId;
   const baseId = base?.id;
-  // EE starts from pro level
+  // EE starts from business level
   targetBillingLevel =
     targetBillingLevel === BillingProductLevel.Business && isEE
-      ? BillingProductLevel.Pro
+      ? BillingProductLevel.Business
       : targetBillingLevel;
 
   const currentLevel = useBillingLevel(baseId ? { baseId } : { spaceId });
+
+  const { data: space } = useQuery({
+    queryKey: ReactQueryKeys.space(spaceId as string),
+    queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
+    enabled: !!spaceId,
+  });
 
   const isLevelSufficientMemo = useMemo(() => {
     return isLevelSufficient(currentLevel, targetBillingLevel);
   }, [currentLevel, targetBillingLevel]);
 
-  const isSpaceOwner = useMemo(() => {
-    return base?.role === Role.Owner;
-  }, [base?.role]);
+  const isSpaceOwner = space?.role === Role.Owner;
 
   const needsUpgrade =
     currentLevel && !isLevelSufficientMemo && !!targetBillingLevel && !isCommunity;

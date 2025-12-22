@@ -93,7 +93,7 @@ export const BasePageRouter = () => {
           label: t('common:noun.authorityMatrix'),
           Icon: Lock,
           hidden: !basePermission?.['base|authority_matrix_config'],
-          billingLevel: BillingProductLevel.Pro,
+          billingLevel: BillingProductLevel.Business,
         },
       ].filter((item) => !item.hidden),
     [baseId, basePermission, t]

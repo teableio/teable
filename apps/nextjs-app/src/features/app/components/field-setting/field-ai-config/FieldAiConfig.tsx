@@ -144,7 +144,7 @@ export const FieldAiConfig: React.FC<FieldAiConfigProps> = ({ field, onChange })
       </div>
     </div>
   ) : (
-    <UpgradeWrapper targetBillingLevel={BillingProductLevel.Business}>
+    <UpgradeWrapper targetBillingLevel={BillingProductLevel.Pro}>
       {({ badge }) => (
         <div className="group flex cursor-pointer select-none items-center justify-between rounded-sm px-3 py-2">
           <div className="flex items-center gap-x-1">
