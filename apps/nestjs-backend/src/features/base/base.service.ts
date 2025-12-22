@@ -649,6 +649,7 @@ export class BaseService {
       });
       return {
         baseId: snapshot.baseId,
+        defaultUrl,
       };
     }
 
@@ -658,6 +659,7 @@ export class BaseService {
 
     return {
       baseId: snapshot.baseId,
+      defaultUrl,
     };
   }
 

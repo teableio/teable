@@ -156,7 +156,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       }).then((res) => res.data);
     },
     onSuccess: (data) => {
-      const { baseId: templateBaseId } = data;
+      const { baseId: templateBaseId, defaultUrl } = data;
       queryClient.invalidateQueries({ queryKey: ['template-by-base', baseId] });
       // after publish success, clear the uploaded cover, use server data next time
       setUploadedCover(null);
@@ -164,7 +164,8 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       setOpen(false);
       // Generate share URL based on baseId
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      setShareUrl(`${origin}/base/${templateBaseId}`);
+      const url = defaultUrl || `/base/${templateBaseId}`;
+      setShareUrl(`${origin}${url}`);
       setSuccessDialogOpen(true);
       // Trigger fireworks effect
       fireConfetti();
