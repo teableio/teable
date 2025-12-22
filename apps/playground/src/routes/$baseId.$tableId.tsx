@@ -2,12 +2,11 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
-import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
+import { mapTableDtoToDomain, type ICreateTableRequestDto } from '@teable/v2-contract-http';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { getOrpcClient } from '@/lib/orpcClient';
 import { PLAYGROUND_BASE_NAME, PLAYGROUND_TABLE_ID_STORAGE_KEY } from '@/lib/playground/constants';
-import { mapTableDtoToDomain } from '@/lib/playground/mapTableDtoToDomain';
 
 export const Route = createFileRoute('/$baseId/$tableId')({ component: PlaygroundTableRoute });
 
