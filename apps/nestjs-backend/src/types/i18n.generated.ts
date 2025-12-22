@@ -537,6 +537,7 @@ export type I18nTranslations = {
             "plus": string;
             "pro": string;
             "enterprise": string;
+            "business": string;
         };
         "noResult": string;
         "untitled": string;

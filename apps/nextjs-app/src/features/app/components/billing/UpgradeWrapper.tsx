@@ -32,7 +32,8 @@ const getBillingLevelWeight = (level?: BillingProductLevel): number => {
     [BillingProductLevel.Free]: 1,
     [BillingProductLevel.Plus]: 2,
     [BillingProductLevel.Pro]: 3,
-    [BillingProductLevel.Enterprise]: 4,
+    [BillingProductLevel.Business]: 4,
+    [BillingProductLevel.Enterprise]: 5,
   };
   return level ? levelMap[level] : 0;
 };
@@ -61,7 +62,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const baseId = base?.id;
   // EE starts from pro level
   targetBillingLevel =
-    targetBillingLevel === BillingProductLevel.Plus && isEE
+    targetBillingLevel === BillingProductLevel.Business && isEE
       ? BillingProductLevel.Pro
       : targetBillingLevel;
 
