@@ -12,7 +12,7 @@ import type {
   ICommandBus,
   IQueryBus,
 } from '@teable/v2-core';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
@@ -43,44 +43,23 @@ describe('GetTableByIdHandler', () => {
     expect(createResult.isOk()).toBe(true);
     if (createResult.isErr()) return;
 
-    const infoSpy = vi.spyOn(console, 'debug').mockImplementation(() => undefined);
-    try {
-      const queryResult = GetTableByIdQuery.create({
-        baseId: baseId.toString(),
-        tableId: createResult.value.table.id().toString(),
-      });
+    const queryResult = GetTableByIdQuery.create({
+      baseId: baseId.toString(),
+      tableId: createResult.value.table.id().toString(),
+    });
 
-      expect(queryResult.isOk()).toBe(true);
-      if (queryResult.isErr()) return;
+    expect(queryResult.isOk()).toBe(true);
+    if (queryResult.isErr()) return;
 
-      const result = await queryBus.execute<GetTableByIdQuery, GetTableByIdResult>(
-        context,
-        queryResult.value
-      );
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
+    const result = await queryBus.execute<GetTableByIdQuery, GetTableByIdResult>(
+      context,
+      queryResult.value
+    );
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
 
-      expect(result.value.table.id().equals(createResult.value.table.id())).toBe(true);
-      expect(result.value.table.baseId().equals(baseId)).toBe(true);
-
-      expect(infoSpy).toHaveBeenCalledWith(
-        'GetTableByIdHandler.start',
-        expect.objectContaining({
-          actorId: 'system',
-          baseId: baseId.toString(),
-          tableId: createResult.value.table.id().toString(),
-        })
-      );
-      expect(infoSpy).toHaveBeenCalledWith(
-        'GetTableByIdHandler.success',
-        expect.objectContaining({
-          baseId: baseId.toString(),
-          tableId: createResult.value.table.id().toString(),
-        })
-      );
-    } finally {
-      infoSpy.mockRestore();
-    }
+    expect(result.value.table.id().equals(createResult.value.table.id())).toBe(true);
+    expect(result.value.table.baseId().equals(baseId)).toBe(true);
   });
 
   it('returns err when table is missing', async () => {

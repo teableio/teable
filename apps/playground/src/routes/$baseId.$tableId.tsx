@@ -138,6 +138,11 @@ function PlaygroundTableRoute() {
           }),
           { ok: true, data: { table: created } }
         );
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({
+            input: { baseId },
+          }),
+        });
         void navigate({
           to: '/$baseId/$tableId',
           params: { baseId, tableId: created.id },

@@ -4,5 +4,6 @@ export * from './shared/domainEvent';
 export * from './shared/http';
 export * from './table/createTable';
 export * from './table/getTableById';
+export * from './table/listTables';
 export * from './table/dto';
 export * from './table/mapTableDtoToDomain';

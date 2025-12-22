@@ -18,12 +18,18 @@ import {
   ActorId,
   BaseId,
   FieldName,
+  OffsetPagination,
+  PageLimit,
+  PageOffset,
   RatingColor,
   RatingIcon,
   RatingMax,
   SelectOption,
+  Sort,
+  SortDirection,
   Table,
   TableName,
+  TableSortKey,
   v2CoreTokens,
 } from '@teable/v2-core';
 import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
@@ -343,6 +349,112 @@ describe('PostgresTableRepository (pg)', () => {
       if (byNameSpecResult.isErr()) return;
       const byNameResult = await repo.findOne(context, byNameSpecResult.value);
       expect(byNameResult.isOk()).toBe(true);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('finds tables with sort and pagination', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const otherBaseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      expect([baseIdResult, otherBaseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || otherBaseIdResult.isErr() || actorIdResult.isErr()) return;
+
+      const baseId = baseIdResult.value;
+      const otherBaseId = otherBaseIdResult.value;
+      const actorId = actorIdResult.value;
+      const context = { actorId };
+
+      const spaceId = `spc${'b'.repeat(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Sort Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'List Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: otherBaseId.toString(),
+          space_id: spaceId,
+          name: 'Other Base',
+          order: 2,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const buildAndInsert = async (targetBaseId: BaseId, name: string) => {
+        const tableNameResult = TableName.create(name);
+        const fieldNameResult = FieldName.create('Name');
+        expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+        if (tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
+
+        const builder = Table.builder().withBaseId(targetBaseId).withName(tableNameResult.value);
+        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        builder.view().defaultGrid().done();
+        const tableResult = builder.build();
+        expect(tableResult.isOk()).toBe(true);
+        if (tableResult.isErr()) return undefined;
+
+        const insertResult = await repo.insert(context, tableResult.value);
+        expect(insertResult.isOk()).toBe(true);
+        if (insertResult.isErr()) return undefined;
+        return insertResult.value;
+      };
+
+      await buildAndInsert(baseId, 'Alpha');
+      await buildAndInsert(baseId, 'Beta');
+      await buildAndInsert(baseId, 'Gamma');
+      await buildAndInsert(otherBaseId, 'Delta');
+
+      const specResult = Table.specs(baseId).build();
+      expect(specResult.isOk()).toBe(true);
+      if (specResult.isErr()) return;
+
+      const sortResult = Sort.create([
+        { key: TableSortKey.name(), direction: SortDirection.desc() },
+      ]);
+      expect(sortResult.isOk()).toBe(true);
+      if (sortResult.isErr()) return;
+
+      const limitResult = PageLimit.create(2);
+      const offsetResult = PageOffset.create(1);
+      expect([limitResult, offsetResult].every((r) => r.isOk())).toBe(true);
+      if (limitResult.isErr() || offsetResult.isErr()) return;
+
+      const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
+      const findResult = await repo.find(context, specResult.value, {
+        sort: sortResult.value,
+        pagination,
+      });
+      expect(findResult.isOk()).toBe(true);
+      if (findResult.isErr()) return;
+
+      const names = findResult.value.map((table) => table.name().toString());
+      expect(names).toEqual(['Beta', 'Alpha']);
+      expect(findResult.value.every((table) => table.baseId().equals(baseId))).toBe(true);
     } finally {
       await db.destroy();
     }

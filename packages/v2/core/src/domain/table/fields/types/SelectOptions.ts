@@ -25,8 +25,6 @@ export const validateSelectOptions = (
   if (defaultValue) {
     if (mode === 'single' && defaultValue.isMultiple())
       return err('SelectField defaultValue must be a single option');
-    if (mode === 'multiple' && !defaultValue.isMultiple())
-      return err('SelectField defaultValue must be an array of options');
 
     const names = new Set(options.map((option) => option.name().toString()));
     const defaults = defaultValue.toDto();

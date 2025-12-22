@@ -12,4 +12,14 @@ describe('SingleLineTextShowAs', () => {
   it('rejects unsupported showAs types', () => {
     expect(SingleLineTextShowAs.create({ type: 'link' }).isErr()).toBe(true);
   });
+
+  it('compares showAs values and maps to dto', () => {
+    const left = SingleLineTextShowAs.create({ type: 'url' });
+    const right = SingleLineTextShowAs.create({ type: 'url' });
+    expect([left, right].every((r) => r.isOk())).toBe(true);
+    if (left.isErr() || right.isErr()) return;
+    expect(left.value.equals(right.value)).toBe(true);
+    expect(left.value.type()).toBe('url');
+    expect(left.value.toDto()).toEqual({ type: 'url' });
+  });
 });

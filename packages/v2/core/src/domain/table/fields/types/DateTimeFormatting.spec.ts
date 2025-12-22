@@ -20,4 +20,26 @@ describe('DateTimeFormatting', () => {
     });
     expect(result.isErr()).toBe(true);
   });
+
+  it('supports defaults and dto mapping', () => {
+    const defaultFormatting = DateTimeFormatting.default();
+    const dto = defaultFormatting.toDto();
+    expect(dto.date).toBeTruthy();
+    expect(dto.time).toBe(TimeFormatting.None);
+    expect(dto.timeZone).toBeTruthy();
+
+    const custom = DateTimeFormatting.create({
+      date: 'YYYY/MM/DD',
+      time: TimeFormatting.Hour24,
+      timeZone: 'utc',
+    });
+    expect(custom.isOk()).toBe(true);
+    if (custom.isErr()) return;
+    expect(custom.value.equals(custom.value)).toBe(true);
+    expect(custom.value.toDto()).toEqual({
+      date: 'YYYY/MM/DD',
+      time: TimeFormatting.Hour24,
+      timeZone: 'utc',
+    });
+  });
 });

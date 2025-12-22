@@ -17,4 +17,12 @@ describe('DateFormat', () => {
     expect(DateFormat.date().toString()).toBe('date');
     expect(DateFormat.dateTime().toString()).toBe('dateTime');
   });
+
+  it('compares formats by value', () => {
+    const left = DateFormat.create('date');
+    const right = DateFormat.create('date');
+    expect([left, right].every((r) => r.isOk())).toBe(true);
+    if (left.isErr() || right.isErr()) return;
+    expect(left.value.equals(right.value)).toBe(true);
+  });
 });

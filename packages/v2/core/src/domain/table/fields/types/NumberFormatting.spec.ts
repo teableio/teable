@@ -37,4 +37,25 @@ describe('NumberFormatting', () => {
     });
     expect(missingSymbolResult.isErr()).toBe(true);
   });
+
+  it('exposes defaults and dto mapping', () => {
+    const defaultFormatting = NumberFormatting.default();
+    expect(defaultFormatting.type()).toBe(NumberFormattingType.Decimal);
+    expect(defaultFormatting.toDto()).toEqual({ type: NumberFormattingType.Decimal, precision: 2 });
+
+    const currencyResult = NumberFormatting.create({
+      type: NumberFormattingType.Currency,
+      precision: 2,
+      symbol: '€',
+    });
+    expect(currencyResult.isOk()).toBe(true);
+    if (currencyResult.isErr()) return;
+    expect(currencyResult.value.symbol()).toBe('€');
+    expect(currencyResult.value.toDto()).toEqual({
+      type: NumberFormattingType.Currency,
+      precision: 2,
+      symbol: '€',
+    });
+    expect(currencyResult.value.equals(currencyResult.value)).toBe(true);
+  });
 });

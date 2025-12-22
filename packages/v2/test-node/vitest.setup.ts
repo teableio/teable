@@ -1,6 +1,6 @@
-import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import { afterEach, beforeEach } from 'vitest';
 
+import { createV2NodeTestContainer } from './src/testkit/createV2NodeTestContainer';
 import {
   getV2NodeTestContainer,
   resetV2NodeTestContainer,

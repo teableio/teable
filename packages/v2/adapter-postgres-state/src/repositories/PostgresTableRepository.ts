@@ -4,9 +4,11 @@ import type {
   ITableRepository,
   ITablePersistenceDTO,
   IExecutionContext,
+  IFindOptions,
   ITableViewPersistenceDTO,
   ISpecification,
   Table,
+  TableSortKey,
   ISingleLineTextFieldOptionsDTO,
   ILongTextFieldOptionsDTO,
   INumberFieldOptionsDTO,
@@ -403,44 +405,142 @@ export class PostgresTableRepository implements ITableRepository {
       const tableRow = await baseQuery.executeTakeFirst();
       if (!tableRow) return err('Not found');
 
-      const fieldRows = Array.isArray(tableRow.fields)
-        ? (tableRow.fields as Array<{
-            id: string;
-            name: string;
-            type: string;
-            options: string | null;
-            is_primary: boolean | null;
-            db_field_name: string | null;
-          }>)
-        : [];
+      const tableResult = this.mapTableRow(tableRow);
+      if (tableResult.isErr()) return err(tableResult.error);
 
-      const viewRows = Array.isArray(tableRow.views)
-        ? (tableRow.views as Array<{ id: string; name: string; type: string }>)
-        : [];
-
-      const primaryFieldId =
-        fieldRows.find((f) => f.is_primary === true)?.id ?? fieldRows[0]?.id ?? '';
-
-      const viewsResult = this.sequenceResults(viewRows.map((v) => this.deserializeViewDto(v)));
-      if (viewsResult.isErr()) return err(viewsResult.error);
-
-      const dto: ITablePersistenceDTO = {
-        id: tableRow.id,
-        baseId: tableRow.base_id,
-        name: tableRow.name,
-        dbTableName: tableRow.db_table_name ?? undefined,
-        primaryFieldId,
-        fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
-        views: [...viewsResult.value],
-      };
-
-      const domainResult = this.tableMapper.toDomain(dto);
-      if (domainResult.isErr()) return err(domainResult.error);
-
-      return ok(domainResult.value);
+      return ok(tableResult.value);
     } catch (error) {
       return err(`Failed to load table: ${describeError(error)}`);
     }
+  }
+
+  @TraceSpan()
+  async find(
+    context: IExecutionContext,
+    spec: ISpecification<Table>,
+    options?: IFindOptions<TableSortKey>
+  ): Promise<Result<ReadonlyArray<Table>, string>> {
+    const visitor = new TableWhereVisitor();
+    const acceptResult = spec.accept(visitor);
+    if (acceptResult.isErr()) return err(acceptResult.error);
+
+    const whereResult = visitor.where();
+    if (whereResult.isErr()) return err(whereResult.error);
+    const whereFactory = whereResult.value;
+
+    try {
+      const db = resolvePostgresDb(this.db, context);
+      const fieldsLateral = db
+        .selectNoFrom((eb) => [
+          jsonArrayFrom(
+            eb
+              .selectFrom('field')
+              .select(['id', 'name', 'type', 'options', 'is_primary', 'db_field_name'])
+              .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
+              .where('deleted_time', 'is', null)
+              .orderBy('order')
+          ).as('fields'),
+        ])
+        .as('fields');
+      const viewsLateral = db
+        .selectNoFrom((eb) => [
+          jsonArrayFrom(
+            eb
+              .selectFrom('view')
+              .select(['id', 'name', 'type'])
+              .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
+              .where('deleted_time', 'is', null)
+              .orderBy('order')
+          ).as('views'),
+        ])
+        .as('views');
+      let baseQuery = db
+        .selectFrom('table_meta')
+        .leftJoinLateral(fieldsLateral, (join) => join.onTrue())
+        .leftJoinLateral(viewsLateral, (join) => join.onTrue())
+        .select([
+          'table_meta.id',
+          'table_meta.name',
+          'table_meta.base_id',
+          'table_meta.db_table_name',
+          'fields.fields',
+          'views.views',
+        ])
+        .where((eb) => whereFactory(eb));
+
+      const sort = options?.sort;
+      if (sort && !sort.isEmpty()) {
+        for (const field of sort.fields()) {
+          baseQuery = baseQuery.orderBy(
+            this.resolveSortColumn(field.key),
+            field.direction.toString()
+          );
+        }
+      }
+
+      const pagination = options?.pagination;
+      if (pagination) {
+        baseQuery = baseQuery.limit(pagination.limit().toNumber());
+        baseQuery = baseQuery.offset(pagination.offset().toNumber());
+      }
+
+      const rows = await baseQuery.execute();
+      const tablesResult = this.sequenceResults(rows.map((row) => this.mapTableRow(row)));
+      if (tablesResult.isErr()) return err(tablesResult.error);
+
+      return ok(tablesResult.value);
+    } catch (error) {
+      return err(`Failed to load tables: ${describeError(error)}`);
+    }
+  }
+
+  private mapTableRow(row: {
+    id: string;
+    name: string;
+    base_id: string;
+    db_table_name: string | null;
+    fields: unknown;
+    views: unknown;
+  }): Result<Table, string> {
+    const fieldRows = Array.isArray(row.fields)
+      ? (row.fields as Array<{
+          id: string;
+          name: string;
+          type: string;
+          options: string | null;
+          is_primary: boolean | null;
+          db_field_name: string | null;
+        }>)
+      : [];
+
+    const viewRows = Array.isArray(row.views)
+      ? (row.views as Array<{ id: string; name: string; type: string }>)
+      : [];
+
+    const primaryFieldId =
+      fieldRows.find((f) => f.is_primary === true)?.id ?? fieldRows[0]?.id ?? '';
+
+    const viewsResult = this.sequenceResults(viewRows.map((v) => this.deserializeViewDto(v)));
+    if (viewsResult.isErr()) return err(viewsResult.error);
+
+    const dto: ITablePersistenceDTO = {
+      id: row.id,
+      baseId: row.base_id,
+      name: row.name,
+      dbTableName: row.db_table_name ?? undefined,
+      primaryFieldId,
+      fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
+      views: [...viewsResult.value],
+    };
+
+    const domainResult = this.tableMapper.toDomain(dto);
+    if (domainResult.isErr()) return err(domainResult.error);
+
+    return ok(domainResult.value);
+  }
+
+  private resolveSortColumn(key: TableSortKey): 'name' | 'id' {
+    return key.toString() === 'name' ? 'name' : 'id';
   }
 
   private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {

@@ -1,6 +1,15 @@
-import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
+import type { BaseId, MemoryEventBus, ITableRepository } from '@teable/v2-core';
+import type { DependencyContainer } from '@teable/v2-di';
 
 let current: IV2NodeTestContainer | undefined;
+
+export interface IV2NodeTestContainer {
+  container: DependencyContainer;
+  tableRepository: ITableRepository;
+  eventBus: MemoryEventBus;
+  baseId: BaseId;
+  dispose(): Promise<void>;
+}
 
 export const setV2NodeTestContainer = (container: IV2NodeTestContainer): void => {
   current = container;

@@ -5,12 +5,19 @@ export * from './ports/TraceSpan';
 
 export * from './queries/GetTableByIdQuery';
 export * from './queries/GetTableByIdHandler';
+export * from './queries/ListTablesQuery';
+export * from './queries/ListTablesHandler';
 export * from './queries/QueryHandler';
 
 export * from './domain/shared/ActorId';
 export * from './domain/shared/DomainEvent';
 export * from './domain/shared/IdGenerator';
 export * from './domain/shared/RehydratedValueObject';
+export * from './domain/shared/pagination/OffsetPagination';
+export * from './domain/shared/pagination/PageLimit';
+export * from './domain/shared/pagination/PageOffset';
+export * from './domain/shared/sort/Sort';
+export * from './domain/shared/sort/SortDirection';
 
 export * from './domain/base/BaseId';
 
@@ -19,6 +26,7 @@ export * from './domain/table/TableBuilder';
 export * from './domain/table/DbTableName';
 export * from './domain/table/TableId';
 export * from './domain/table/TableName';
+export * from './domain/table/TableSortKey';
 export * from './domain/table/events/TableCreated';
 export * from './domain/table/specs/TableByIdSpec';
 export * from './domain/table/specs/TableByNameSpec';
@@ -91,6 +99,7 @@ export * from './ports/HandlerResolver';
 export * from './ports/ExecutionContext';
 export * from './ports/Logger';
 export * from './ports/Tracer';
+export * from './ports/RepositoryQuery';
 export * from './ports/TableRepository';
 export * from './ports/TableSchemaRepository';
 export * from './ports/UnitOfWork';

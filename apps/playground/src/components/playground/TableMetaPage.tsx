@@ -1,34 +1,10 @@
 import type { Field, Table as TableAggregate, View } from '@teable/v2-core';
-import {
-  Database,
-  LayoutGrid,
-  Plus,
-  RefreshCcw,
-  Table as TableIcon,
-  TriangleAlert,
-} from 'lucide-react';
+import { Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarInput,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuBadge,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSkeleton,
-  SidebarProvider,
-  SidebarRail,
-  SidebarSeparator,
-  SidebarTrigger,
-} from '@/components/ui/sidebar';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table as UITable,
@@ -83,89 +59,33 @@ export function TableMetaPage({
   const hasTable = !!table;
 
   return (
-    <SidebarProvider>
-      <PlaygroundSidebar table={table} isInitialLoading={isInitialLoading} />
-      <SidebarInset>
-        <PlaygroundHeader
-          baseName={baseName}
-          eventCount={eventCount}
-          table={table}
-          isLoading={isLoading}
-          isCreating={isCreating}
-          onRefresh={onRefresh}
-          onCreate={onCreate}
-        />
-        <section className="flex-1 space-y-6 px-6 py-8">
-          {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
+    <>
+      <PlaygroundHeader
+        baseName={baseName}
+        eventCount={eventCount}
+        table={table}
+        isLoading={isLoading}
+        isCreating={isCreating}
+        onRefresh={onRefresh}
+        onCreate={onCreate}
+      />
+      <section className="flex-1 space-y-6 px-6 py-8">
+        {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
 
-          {isInitialLoading ? (
-            <PlaygroundLoadingState />
-          ) : !hasTable ? (
-            <PlaygroundEmptyState isCreating={isCreating} onCreate={onCreate} />
-          ) : (
-            <PlaygroundMetaLayout
-              table={table}
-              baseId={baseId}
-              tableId={tableId}
-              isLoading={isLoading}
-            />
-          )}
-        </section>
-      </SidebarInset>
-    </SidebarProvider>
-  );
-}
-
-type PlaygroundSidebarProps = {
-  table: TableAggregate | null;
-  isInitialLoading: boolean;
-};
-
-function PlaygroundSidebar({ table, isInitialLoading }: PlaygroundSidebarProps) {
-  const hasTable = Boolean(table);
-  const fieldCount = table ? table.fields().length : 0;
-
-  return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader className="gap-3 px-4 pt-5 pb-4">
-        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-          <LayoutGrid className="h-4 w-4" />
-          Tables
-        </div>
-        <SidebarInput placeholder="Search tables" disabled aria-label="Search tables" />
-      </SidebarHeader>
-      <SidebarSeparator className="-translate-x-2.5" />
-      <SidebarContent className="px-2 pb-4">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            {isInitialLoading ? (
-              <SidebarMenu>
-                {Array.from({ length: 3 }).map((_, index) => (
-                  <SidebarMenuItem key={`table-skeleton-${index}`}>
-                    <SidebarMenuSkeleton showIcon />
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
-            ) : hasTable ? (
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton isActive className="gap-3">
-                    <TableIcon className="h-4 w-4" />
-                    <span className="flex-1 truncate font-medium">{table?.name().toString()}</span>
-                  </SidebarMenuButton>
-                  <SidebarMenuBadge>{fieldCount}</SidebarMenuBadge>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            ) : (
-              <div className="rounded-lg border border-dashed border-sidebar-border p-4 text-sm text-muted-foreground">
-                No tables yet. Create your first one.
-              </div>
-            )}
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-      <SidebarRail />
-    </Sidebar>
+        {isInitialLoading ? (
+          <PlaygroundLoadingState />
+        ) : !hasTable ? (
+          <PlaygroundEmptyState isCreating={isCreating} onCreate={onCreate} />
+        ) : (
+          <PlaygroundMetaLayout
+            table={table}
+            baseId={baseId}
+            tableId={tableId}
+            isLoading={isLoading}
+          />
+        )}
+      </section>
+    </>
   );
 }
 

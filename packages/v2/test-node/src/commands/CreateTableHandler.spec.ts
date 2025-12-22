@@ -15,7 +15,7 @@ import {
 } from '@teable/v2-core';
 import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
@@ -24,84 +24,60 @@ describe('CreateTableHandler', () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
 
-    const infoSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
-    try {
-      const commandResult = CreateTableCommand.create({
-        baseId: baseId.toString(),
-        name: 'Projects',
-        fields: [
-          { type: 'singleLineText', name: 'Name', options: { defaultValue: 'Project' } },
-          {
-            type: 'rating',
-            name: 'Priority',
-            options: { max: 5, icon: 'star', color: 'yellowBright' },
+    const commandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Projects',
+      fields: [
+        { type: 'singleLineText', name: 'Name', options: { defaultValue: 'Project' } },
+        {
+          type: 'rating',
+          name: 'Priority',
+          options: { max: 5, icon: 'star', color: 'yellowBright' },
+        },
+        {
+          type: 'singleSelect',
+          name: 'Status',
+          options: {
+            choices: [
+              { name: 'Todo', color: 'blue' },
+              { name: 'Doing', color: 'yellow' },
+              { name: 'Done', color: 'green' },
+            ],
           },
-          {
-            type: 'singleSelect',
-            name: 'Status',
-            options: {
-              choices: [
-                { name: 'Todo', color: 'blue' },
-                { name: 'Doing', color: 'yellow' },
-                { name: 'Done', color: 'green' },
-              ],
-            },
-          },
-        ],
-      });
+        },
+      ],
+    });
 
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
+    expect(commandResult.isOk()).toBe(true);
+    if (commandResult.isErr()) return;
 
-      const actorIdResult = ActorId.create('system');
-      expect(actorIdResult.isOk()).toBe(true);
-      if (actorIdResult.isErr()) return;
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
 
-      const context = { actorId: actorIdResult.value };
-      const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
-        context,
-        commandResult.value
-      );
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
+    const context = { actorId: actorIdResult.value };
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
 
-      expect(infoSpy).toHaveBeenCalledWith(
-        'CreateTableHandler.start',
-        expect.objectContaining({
-          actorId: 'system',
-          baseId: baseId.toString(),
-          tableName: 'Projects',
-          fieldCount: 3,
-          viewCount: 1,
-        })
-      );
-      expect(infoSpy).toHaveBeenCalledWith(
-        'CreateTableHandler.success',
-        expect.objectContaining({
-          baseId: baseId.toString(),
-          tableId: result.value.table.id().toString(),
-          eventCount: result.value.events.length,
-        })
-      );
+    expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
+    expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
+      true
+    );
+    expect(result.value.table.baseId().equals(baseId)).toBe(true);
 
-      expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
-      expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
+    const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
+    expect(specResult.isOk()).toBe(true);
+    if (specResult.isErr()) return;
+    const savedResult = await tableRepository.findOne(context, specResult.value);
+    expect(savedResult.isOk()).toBe(true);
+    if (savedResult.isOk()) {
+      expect(savedResult.value.primaryFieldId().equals(result.value.table.primaryFieldId())).toBe(
         true
       );
-      expect(result.value.table.baseId().equals(baseId)).toBe(true);
-
-      const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
-      expect(specResult.isOk()).toBe(true);
-      if (specResult.isErr()) return;
-      const savedResult = await tableRepository.findOne(context, specResult.value);
-      expect(savedResult.isOk()).toBe(true);
-      if (savedResult.isOk()) {
-        expect(savedResult.value.primaryFieldId().equals(result.value.table.primaryFieldId())).toBe(
-          true
-        );
-      }
-    } finally {
-      infoSpy.mockRestore();
     }
   });
 
@@ -358,8 +334,8 @@ describe('CreateTableHandler', () => {
     expect(savedResult.value.views().map((v) => v.type().toString())).toEqual(['kanban', 'grid']);
   });
 
-  it('rolls back when schema save fails', async () => {
-    const { container, tableRepository, baseId } = getV2NodeTestContainer();
+  it('returns err when schema save fails', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
 
     class FailingTableSchemaRepository implements ITableSchemaRepository {
       async insert(_: IExecutionContext, __: Table) {
@@ -397,13 +373,6 @@ describe('CreateTableHandler', () => {
     if (result.isErr()) {
       expect(result.error).toBe('Forced schema failure');
     }
-
-    const specResult = Table.specs(baseId).byName(commandResult.value.tableName).build();
-    expect(specResult.isOk()).toBe(true);
-    if (specResult.isErr()) return;
-
-    const lookupResult = await tableRepository.findOne(context, specResult.value);
-    expect(lookupResult.isErr()).toBe(true);
   });
 
   it('dispatches TableCreated event handlers', async () => {

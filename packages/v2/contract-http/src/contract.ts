@@ -1,14 +1,20 @@
 import { oc } from '@orpc/contract';
-import { createTableInputSchema, getTableByIdInputSchema } from '@teable/v2-core';
+import {
+  createTableInputSchema,
+  getTableByIdInputSchema,
+  listTablesInputSchema,
+} from '@teable/v2-core';
 
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
 import {
   getTableByIdErrorResponseSchema,
   getTableByIdOkResponseSchema,
 } from './table/getTableById';
+import { listTablesOkResponseSchema } from './table/listTables';
 
 const TABLES_CREATE_PATH = '/tables/create';
 const TABLES_GET_PATH = '/tables/get';
+const TABLES_LIST_PATH = '/tables/list';
 
 export const v2Contract = {
   tables: {
@@ -32,6 +38,16 @@ export const v2Contract = {
       })
       .input(getTableByIdInputSchema)
       .output(getTableByIdOkResponseSchema),
+    list: oc
+      .route({
+        method: 'GET',
+        path: TABLES_LIST_PATH,
+        successStatus: 200,
+        summary: 'List tables',
+        tags: ['tables'],
+      })
+      .input(listTablesInputSchema)
+      .output(listTablesOkResponseSchema),
   },
 } as const;
 
