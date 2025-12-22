@@ -30,10 +30,9 @@ interface IUpgradeWrapperProps {
 const getBillingLevelWeight = (level?: BillingProductLevel): number => {
   const levelMap: Record<BillingProductLevel, number> = {
     [BillingProductLevel.Free]: 1,
-    [BillingProductLevel.Plus]: 2,
-    [BillingProductLevel.Pro]: 3,
-    [BillingProductLevel.Business]: 4,
-    [BillingProductLevel.Enterprise]: 5,
+    [BillingProductLevel.Pro]: 2,
+    [BillingProductLevel.Business]: 3,
+    [BillingProductLevel.Enterprise]: 4,
   };
   return level ? levelMap[level] : 0;
 };

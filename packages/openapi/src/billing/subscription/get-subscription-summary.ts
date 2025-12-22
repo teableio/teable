@@ -11,7 +11,6 @@ export enum RecurringIntervalType {
 
 export enum BillingProductLevel {
   Free = 'free',
-  Plus = 'plus',
   Pro = 'pro',
   Business = 'business',
   Enterprise = 'enterprise',
