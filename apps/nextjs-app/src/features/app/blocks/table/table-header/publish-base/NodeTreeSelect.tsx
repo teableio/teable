@@ -35,6 +35,8 @@ interface INodeSelectProps {
   showCheckbox?: boolean;
   checkedItems?: string[];
   onCheckedItemsChange?: (checkedItems: string[]) => void;
+  // Total node count for "All Nodes" display
+  totalNodeCount?: number;
 }
 
 const INDENTATION_WIDTH = 16;
@@ -50,6 +52,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     showCheckbox = false,
     checkedItems: externalCheckedItems,
     onCheckedItemsChange,
+    totalNodeCount,
   } = props;
   const { t } = useTranslation(['common']);
   const [open, setOpen] = useState(false);
@@ -333,6 +336,17 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
       );
     }
 
+    // If all nodes are selected, show "All Nodes"
+    if (totalNodeCount && checkedItems.length === totalNodeCount) {
+      return (
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <div className="flex items-center rounded-md bg-secondary px-2 py-1">
+            <span className="text-sm font-medium">{t('common:allNodes')}</span>
+          </div>
+        </div>
+      );
+    }
+
     // multi-select mode: show first 2, remaining show +N
     const maxShow = 2;
     const selectedNodes = checkedItems
@@ -367,7 +381,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
         )}
       </div>
     );
-  }, [showCheckbox, checkedItems, selectedNode, treeItems, placeholder, t]);
+  }, [showCheckbox, checkedItems, selectedNode, treeItems, placeholder, t, totalNodeCount]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>

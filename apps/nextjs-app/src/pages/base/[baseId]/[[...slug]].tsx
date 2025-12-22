@@ -48,7 +48,7 @@ export const getServerSideProps: GetServerSideProps<IBaseNodePageProps> = withEn
   ensureLogin(
     withAuthSSR(async (context, ssrApi) => {
       const { baseId, slug, ...queryParams } = context.query;
-      context.res.setHeader('Content-Security-Policy', "frame-ancestors 'self';");
+      context.res.setHeader('Content-Security-Policy', 'frame-ancestors *;');
       const queryClient = new QueryClient();
       const base = await handleBase(baseId as string, ssrApi, queryClient);
       // Redirect legacy table URLs: /base/xxx/tbl1/viw1 → /base/xxx/table/tbl1/viw1

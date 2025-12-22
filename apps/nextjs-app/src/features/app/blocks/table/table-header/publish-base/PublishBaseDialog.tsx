@@ -92,7 +92,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       const savedNodes = data?.publishInfo?.nodes;
       const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
       setSelectedNodeIds(nodesToSelect);
-      setIncludeData(data?.publishInfo?.includeData || false);
+      setIncludeData(data?.publishInfo?.includeData ?? true);
 
       // Set default active node: use saved data if available and it's in selected nodes
       const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
@@ -184,7 +184,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       })
     | null
   >(null);
-  const [includeData, setIncludeData] = useState(false);
+  const [includeData, setIncludeData] = useState(true);
   const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [hasLoadedTemplate, setHasLoadedTemplate] = useState(false);
@@ -245,10 +245,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
     const attachmentId = generateAttachmentId();
     const fileName = file.name;
+    const toastId = toast.loading(t('publishBase.uploading'));
 
     attachmentManager.upload(
       [{ id: attachmentId, instance: file }],
-      UploadType.Table,
+      UploadType.Template,
       {
         successCallback: (_, result: INotifyVo) => {
           setScreenshotUrl(result.presignedUrl);
@@ -258,11 +259,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             name: fileName,
           });
           setIsUploading(false);
-          toast.success(t('publishBase.uploadSuccess'));
+          toast.success(t('publishBase.uploadSuccess'), { id: toastId });
         },
         errorCallback: (_, error) => {
           setIsUploading(false);
-          toast.error(error || t('publishBase.uploadFailed'));
+          toast.error(error || t('publishBase.uploadFailed'), { id: toastId });
         },
         progressCallback: (_, progress) => {
           setUploadProgress(progress);
@@ -367,6 +368,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                   checkedItems={selectedNodeIds}
                   onCheckedItemsChange={(ids) => setSelectedNodeIds(ids)}
                   placeholder={t('common:actions.select')}
+                  totalNodeCount={allNodeIds.length}
                 />
               </div>
 

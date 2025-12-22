@@ -144,6 +144,7 @@
     "usageCount": "使用次数：",
     "uploadCover": "点击上传封面图片",
     "changeCover": "点击更换封面",
+    "uploading": "图片上传中...",
     "uploadSuccess": "图片上传成功",
     "uploadFailed": "上传失败",
     "invalidImageType": "请选择图片文件",

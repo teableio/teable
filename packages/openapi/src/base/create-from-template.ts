@@ -16,8 +16,7 @@ export const createBaseFromTemplateRoSchema = z.object({
 export type ICreateBaseFromTemplateRo = z.infer<typeof createBaseFromTemplateRoSchema>;
 
 export const createBaseFromTemplateVoSchema = createBaseVoSchema.extend({
-  defaultActiveNodeId: z.string().optional(),
-  defaultActiveNodeResourceType: z.string().optional(),
+  defaultUrl: z.string().optional(),
 });
 
 export type ICreateBaseFromTemplateVo = z.infer<typeof createBaseFromTemplateVoSchema>;

@@ -1083,6 +1083,7 @@ export type I18nTranslations = {
         "base": {
             "deleteTip": string;
         };
+        "allNodes": string;
         "noDescription": string;
         "noPermissionToCreateBase": string;
         "app": {
@@ -2806,6 +2807,7 @@ export type I18nTranslations = {
             "usageCount": string;
             "uploadCover": string;
             "changeCover": string;
+            "uploading": string;
             "uploadSuccess": string;
             "uploadFailed": string;
             "invalidImageType": string;

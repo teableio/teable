@@ -1,5 +1,4 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import type { BaseNodeResourceType } from '@teable/openapi';
 import {
   createBaseFromTemplate,
   getPublishedTemplateCategoryList,
@@ -14,7 +13,6 @@ import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
-import { getNodeUrl } from '../../../blocks/base/base-node/hooks';
 import { useSpaceId } from './hooks/use-space-id';
 import { TemplatePreview } from './TemplatePreview';
 import { TemplatePreviewSheet } from './TemplatePreviewSheet';
@@ -57,20 +55,19 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
         baseId: routerBaseId,
       }),
     onSuccess: (res) => {
-      const { id: baseId, defaultActiveNodeId, defaultActiveNodeResourceType } = res.data;
+      const { id: baseId, defaultUrl } = res.data;
 
-      // Priority 1: If defaultActiveNodeId is provided, navigate to that specific node
-      if (defaultActiveNodeId && defaultActiveNodeResourceType) {
-        const nodeUrl = getNodeUrl({
-          baseId,
-          resourceType: defaultActiveNodeResourceType as BaseNodeResourceType,
-          resourceId: defaultActiveNodeId,
-        });
-        if (nodeUrl) {
-          router.push(nodeUrl);
-          return;
-        }
+      // If defaultUrl is provided, navigate to it directly
+      if (defaultUrl) {
+        router.push(defaultUrl);
+        return;
       }
+
+      // Otherwise, navigate to base home
+      router.push({
+        pathname: '/base/[baseId]',
+        query: { baseId },
+      });
     },
   });
 

@@ -51,6 +51,7 @@ export const templateVoSchema = z.object({
       nodes: z.array(z.string()).optional(),
       includeData: z.boolean().optional(),
       defaultActiveNodeId: z.string().optional().nullable(),
+      defaultUrl: z.string().optional(), // URL for the default active node
     })
     .optional(),
   visitCount: z.number(),

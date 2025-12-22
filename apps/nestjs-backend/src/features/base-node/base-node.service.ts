@@ -18,8 +18,8 @@ import type {
   ICreateTableRo,
   IBaseNodePresenceCreatePayload,
   IBaseNodePresenceDeletePayload,
-  IBaseNodePresenceFlushPayload,
   IBaseNodePresenceUpdatePayload,
+  IBaseNodeTableResourceMeta,
 } from '@teable/openapi';
 import { BaseNodeResourceType } from '@teable/openapi';
 import { Knex } from 'knex';
@@ -96,26 +96,59 @@ export class BaseNodeService {
     };
   }
 
+  private generateDefaultUrl(
+    baseId: string,
+    resourceType: BaseNodeResourceType,
+    resourceId: string,
+    resourceMeta?: IBaseNodeResourceMeta
+  ): string {
+    switch (resourceType) {
+      case BaseNodeResourceType.Table: {
+        const tableMeta = resourceMeta as IBaseNodeTableResourceMeta | undefined;
+        const viewId = tableMeta?.defaultViewId;
+        if (viewId) {
+          return `/base/${baseId}/table/${resourceId}/${viewId}`;
+        }
+        return `/base/${baseId}/table/${resourceId}`;
+      }
+      case BaseNodeResourceType.Dashboard:
+        return `/base/${baseId}/dashboard/${resourceId}`;
+      case BaseNodeResourceType.Workflow:
+        return `/base/${baseId}/automation/${resourceId}`;
+      case BaseNodeResourceType.App:
+        return `/base/${baseId}/app/${resourceId}`;
+      case BaseNodeResourceType.Folder:
+        return `/base/${baseId}`;
+      default:
+        return `/base/${baseId}`;
+    }
+  }
+
   private async entry2vo(
     entry: IBaseNodeEntry,
     resource?: IBaseNodeResourceMeta
   ): Promise<IBaseNodeVo> {
-    if (resource) {
-      return {
-        ...entry,
-        resourceType: entry.resourceType as BaseNodeResourceType,
-        resourceMeta: resource,
-      };
-    }
-    const { resourceType, resourceId } = entry;
-    const list = await this.getNodeResource(entry.baseId, resourceType as BaseNodeResourceType, [
-      resourceId,
-    ]);
-    const resourceMeta = list[0];
+    const resourceMeta =
+      resource ||
+      (
+        await this.getNodeResource(entry.baseId, entry.resourceType as BaseNodeResourceType, [
+          entry.resourceId,
+        ])
+      )[0];
+    const resourceMetaWithoutId = resource ? resource : omit(resourceMeta, 'id');
+
+    const defaultUrl = this.generateDefaultUrl(
+      entry.baseId,
+      entry.resourceType as BaseNodeResourceType,
+      entry.resourceId,
+      resourceMetaWithoutId
+    );
+
     return {
       ...entry,
-      resourceType: resourceType as BaseNodeResourceType,
-      resourceMeta: omit(resourceMeta, 'id'),
+      resourceType: entry.resourceType as BaseNodeResourceType,
+      resourceMeta: resourceMetaWithoutId,
+      defaultUrl,
     };
   }
 
@@ -215,10 +248,18 @@ export class BaseNodeService {
       return nodes.map((entry) => {
         const key = `${entry.resourceType}_${entry.resourceId}`;
         const resource = resourceMap[key];
+        const resourceMeta = omit(resource, 'id');
+        const defaultUrl = this.generateDefaultUrl(
+          baseId,
+          entry.resourceType as BaseNodeResourceType,
+          entry.resourceId,
+          resourceMeta
+        );
         return {
           ...entry,
           resourceType: entry.resourceType as BaseNodeResourceType,
-          resourceMeta: omit(resource, 'id'),
+          resourceMeta,
+          defaultUrl,
         };
       });
     }

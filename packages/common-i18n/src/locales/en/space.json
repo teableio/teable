@@ -144,6 +144,7 @@
     "usageCount": "Usage count: ",
     "uploadCover": "Click to upload cover image",
     "changeCover": "Click to change cover",
+    "uploading": "Uploading image...",
     "uploadSuccess": "Image uploaded successfully",
     "uploadFailed": "Upload failed",
     "invalidImageType": "Please select an image file",

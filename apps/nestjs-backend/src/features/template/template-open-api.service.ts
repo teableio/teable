@@ -24,6 +24,7 @@ import {
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import StorageAdapter from '../attachments/plugins/adapter';
+import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
 
 @Injectable()
@@ -83,13 +84,9 @@ export class TemplateOpenApiService {
         continue;
       }
 
-      const { path, token } = cover;
-      const previewUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        StorageAdapter.getBucket(UploadType.Template),
-        path,
-        token
-      );
-      previewUrlMap[item.id] = previewUrl;
+      const { path } = cover;
+      // Template cover is stored in publicBucket, no need for signed URL
+      previewUrlMap[item.id] = getPublicFullStorageUrl(path);
     }
 
     return res.map((item) => ({
@@ -101,7 +98,8 @@ export class TemplateOpenApiService {
             presignedUrl: previewUrlMap[item.id],
           }
         : undefined,
-      snapshot: item.snapshot ? JSON.parse(item.snapshot) : undefined,
+      snapshot: item.snapshot ? JSON.parse(item.snapshot as string) : undefined,
+      publishInfo: item.publishInfo ?? undefined,
     }));
   }
 
@@ -144,13 +142,9 @@ export class TemplateOpenApiService {
         continue;
       }
 
-      const { path, token } = cover;
-      const previewUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        StorageAdapter.getBucket(UploadType.Template),
-        path,
-        token
-      );
-      previewUrlMap[item.id] = previewUrl;
+      const { path } = cover;
+      // Template cover is stored in publicBucket, no need for signed URL
+      previewUrlMap[item.id] = getPublicFullStorageUrl(path);
     }
 
     return res.map((item) => ({
@@ -162,7 +156,8 @@ export class TemplateOpenApiService {
             presignedUrl: previewUrlMap[item.id],
           }
         : undefined,
-      snapshot: item.snapshot ? JSON.parse(item.snapshot) : undefined,
+      snapshot: item.snapshot ? JSON.parse(item.snapshot as string) : undefined,
+      publishInfo: item.publishInfo ?? undefined,
     }));
   }
 
@@ -426,12 +421,9 @@ export class TemplateOpenApiService {
     };
 
     if (cover) {
-      const { path, token } = cover;
-      newCover.presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        StorageAdapter.getBucket(UploadType.Template),
-        path,
-        token
-      );
+      const { path } = cover;
+      // Template cover is stored in publicBucket, no need for signed URL
+      newCover.presignedUrl = getPublicFullStorageUrl(path);
     }
 
     return {
@@ -440,7 +432,8 @@ export class TemplateOpenApiService {
       cover: {
         ...newCover,
       },
-      snapshot: template.snapshot ? JSON.parse(template.snapshot) : undefined,
+      snapshot: template.snapshot ? JSON.parse(template.snapshot as string) : undefined,
+      publishInfo: template.publishInfo ?? undefined,
     };
   }
 
@@ -461,19 +454,17 @@ export class TemplateOpenApiService {
     };
 
     if (cover) {
-      const { path, token } = cover;
-      newCover.presignedUrl = await this.attachmentsStorageService.getPreviewUrlByPath(
-        StorageAdapter.getBucket(UploadType.Template),
-        path,
-        token
-      );
+      const { path } = cover;
+      // Template cover is stored in publicBucket, no need for signed URL
+      newCover.presignedUrl = getPublicFullStorageUrl(path);
     }
 
     return {
       ...template,
       categoryId: template.categoryId,
       cover: cover ? { ...newCover } : null,
-      snapshot: template.snapshot ? JSON.parse(template.snapshot) : null,
+      snapshot: template.snapshot ? JSON.parse(template.snapshot as string) : null,
+      publishInfo: template.publishInfo ?? null,
     };
   }
 

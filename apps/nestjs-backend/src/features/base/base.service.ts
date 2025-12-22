@@ -8,7 +8,7 @@ import {
   generateTemplateId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, ResourceType } from '@teable/openapi';
+import { CollaboratorType, ResourceType, BaseNodeResourceType } from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -443,66 +443,16 @@ export class BaseService {
           res.recordsLength
         );
 
-        // Get defaultActiveNodeId from publishInfo
-        const publishInfo = template.publishInfo as { snapshotActiveNodeId?: string } | null;
-        const defaultActiveNodeId = publishInfo?.snapshotActiveNodeId;
+        // Get defaultUrl from publishInfo
+        const publishInfo = template.publishInfo as { defaultUrl?: string } | null;
+        const defaultUrl = publishInfo?.defaultUrl;
 
-        // If defaultActiveNodeId is empty, return without it
-        if (!defaultActiveNodeId) {
-          return res.base;
-        }
-
-        // Query the node in the original base to get its resourceId
-        const nodeInOriginalBase = await this.prismaService.txClient().baseNode.findFirst({
-          where: {
-            id: defaultActiveNodeId, // Use node.id, not resourceId
-          },
-          select: {
-            resourceId: true,
-            resourceType: true,
-          },
-        });
-
-        if (!nodeInOriginalBase) {
-          return res.base;
-        }
-
-        // Get the new resource ID from the appropriate ID map
-        const { resourceId: originalResourceId, resourceType } = nodeInOriginalBase;
-        const { tableIdMap, dashboardIdMap, workflowIdMap, appIdMap, folderIdMap } = res as {
-          base: { id: string; name: string; spaceId: string };
-          tableIdMap?: Record<string, string>;
-          dashboardIdMap?: Record<string, string>;
-          workflowIdMap?: Record<string, string>;
-          appIdMap?: Record<string, string>;
-          folderIdMap?: Record<string, string>;
-        };
-
-        let newResourceId: string | undefined;
-        switch (resourceType) {
-          case 'table':
-            newResourceId = tableIdMap?.[originalResourceId];
-            break;
-          case 'dashboard':
-            newResourceId = dashboardIdMap?.[originalResourceId];
-            break;
-          case 'workflow':
-            newResourceId = workflowIdMap?.[originalResourceId];
-            break;
-          case 'app':
-            newResourceId = appIdMap?.[originalResourceId];
-            break;
-          case 'folder':
-            newResourceId = folderIdMap?.[originalResourceId];
-            break;
-        }
-
-        // If we found the new resource ID, return it with the resource type
-        if (newResourceId) {
+        // If defaultUrl exists, replace the snapshot baseId with the new baseId
+        if (defaultUrl) {
+          const newDefaultUrl = defaultUrl.replace(`/base/${fromBaseId}`, `/base/${res.base.id}`);
           return {
             ...res.base,
-            defaultActiveNodeId: newResourceId,
-            defaultActiveNodeResourceType: resourceType,
+            defaultUrl: newDefaultUrl,
           };
         }
 
@@ -605,13 +555,59 @@ export class BaseService {
     return await this.graphService.generateBaseErd(baseId);
   }
 
+  private async generateDefaultUrlForNode(
+    snapshotBaseId: string,
+    snapshotNodeId: string | null
+  ): Promise<string | null> {
+    if (!snapshotNodeId) {
+      return null;
+    }
+
+    const prisma = this.prismaService.txClient();
+
+    const node = await prisma.baseNode.findFirst({
+      where: { baseId: snapshotBaseId, id: snapshotNodeId },
+      select: { resourceType: true, resourceId: true },
+    });
+
+    if (!node) {
+      return null;
+    }
+
+    const { resourceType, resourceId } = node;
+
+    switch (resourceType) {
+      case BaseNodeResourceType.Table: {
+        const table = await prisma.tableMeta.findFirst({
+          where: { id: resourceId, deletedTime: null },
+          select: { id: true },
+        });
+        if (!table) {
+          return `/base/${snapshotBaseId}`;
+        }
+        const defaultView = await prisma.view.findFirst({
+          where: { tableId: resourceId, deletedTime: null },
+          orderBy: { order: 'asc' },
+          select: { id: true },
+        });
+        if (defaultView) {
+          return `/base/${snapshotBaseId}/table/${resourceId}/${defaultView.id}`;
+        }
+        return `/base/${snapshotBaseId}/table/${resourceId}`;
+      }
+      case BaseNodeResourceType.Dashboard:
+        return `/base/${snapshotBaseId}/dashboard/${resourceId}`;
+      case BaseNodeResourceType.Workflow:
+        return `/base/${snapshotBaseId}/automation/${resourceId}`;
+      case BaseNodeResourceType.App:
+        return `/base/${snapshotBaseId}/app/${resourceId}`;
+      default:
+        return `/base/${snapshotBaseId}`;
+    }
+  }
+
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
     const prisma = this.prismaService.txClient();
-    const publishInfo = {
-      nodes: publishBaseRo.nodes,
-      includeData: publishBaseRo.includeData,
-      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
-    };
     const template = await prisma.template.findFirst({
       where: { baseId },
       select: { id: true },
@@ -619,6 +615,21 @@ export class BaseService {
     const { title, description, cover, nodes, includeData } = publishBaseRo;
 
     const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+
+    // Calculate snapshotActiveNodeId and defaultUrl
+    const snapshotActiveNodeId = publishBaseRo.defaultActiveNodeId
+      ? snapshot.nodeIdMap?.[publishBaseRo.defaultActiveNodeId] || null
+      : null;
+    const defaultUrl = await this.generateDefaultUrlForNode(snapshot.baseId, snapshotActiveNodeId);
+
+    const publishInfo = {
+      nodes: publishBaseRo.nodes,
+      includeData: publishBaseRo.includeData,
+      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+      snapshotActiveNodeId,
+      defaultUrl,
+    };
+
     // if already published, update template
     if (template) {
       await prisma.template.update({
@@ -633,12 +644,7 @@ export class BaseService {
             spaceId: snapshot.spaceId,
             name: snapshot.name,
           }),
-          publishInfo: {
-            ...publishInfo,
-            snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
-              ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
-              : null,
-          },
+          publishInfo,
         },
       });
       return {
@@ -648,7 +654,7 @@ export class BaseService {
 
     // if the base is not published, create a template
     // publish snapshot
-    await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo);
+    await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo, publishInfo);
 
     return {
       baseId: snapshot.baseId,
@@ -722,15 +728,17 @@ export class BaseService {
       name: string;
       nodeIdMap: Record<string, string>;
     },
-    publishBaseRo: IPublishBaseRo
+    publishBaseRo: IPublishBaseRo,
+    publishInfo: {
+      nodes?: string[];
+      includeData?: boolean;
+      defaultActiveNodeId?: string | null;
+      snapshotActiveNodeId: string | null;
+      defaultUrl: string | null;
+    }
   ) {
     const { title, description, cover } = publishBaseRo;
     const prisma = this.prismaService.txClient();
-    const publishInfo = {
-      nodes: publishBaseRo.nodes,
-      includeData: publishBaseRo.includeData,
-      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
-    };
     const templateId = generateTemplateId();
     const { baseId, spaceId, name } = snapshot;
 
@@ -760,12 +768,7 @@ export class BaseService {
           spaceId,
           name,
         }),
-        publishInfo: {
-          ...publishInfo,
-          snapshotActiveNodeId: publishInfo?.defaultActiveNodeId
-            ? snapshot.nodeIdMap?.[publishInfo.defaultActiveNodeId] || null
-            : null,
-        },
+        publishInfo,
       },
     });
   }

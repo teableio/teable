@@ -57,6 +57,7 @@ const baseNodeBaseSchema = z.object({
   parentId: z.string().nullable(),
   resourceId: z.string(),
   order: z.number(),
+  defaultUrl: z.string().optional(),
   parent: z
     .object({
       id: z.string(),
