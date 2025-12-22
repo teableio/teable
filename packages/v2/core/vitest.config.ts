@@ -17,8 +17,7 @@ export default defineConfig({
     fileParallelism: false,
     coverage: {
       provider: 'v8',
-      extension: ['.js', '.ts'],
-      include: ['src/**/*'],
+      include: ['src/**/*.{js,jsx,ts,tsx}'],
     },
     clearMocks: true,
     mockReset: true,

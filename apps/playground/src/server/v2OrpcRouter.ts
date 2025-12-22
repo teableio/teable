@@ -1,3 +1,4 @@
+import { v2Tracer } from './otel';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
 import { ActorId, type IExecutionContext } from '@teable/v2-core';
 
@@ -12,6 +13,7 @@ const playgroundActorId = actorIdResult.value;
 
 const createExecutionContext = (): IExecutionContext => ({
   actorId: playgroundActorId,
+  tracer: v2Tracer,
 });
 
 warmPlaygroundContainer();

@@ -81,6 +81,19 @@
     "typescript": "5.4.3",
     "zx": "8.8.5"
   },
+  "pnpm": {
+    "overrides": {
+      "@types/react-hammerjs>@types/react": "18.2.69",
+      "@teable/app>react": "18.3.1",
+      "@teable/app>react-dom": "18.3.1",
+      "@teable/app>@types/react": "18.2.69",
+      "@teable/app>@types/react-dom": "18.2.22",
+      "playground>react": "19.2.3",
+      "playground>react-dom": "19.2.3",
+      "playground>@types/react": "19.2.7",
+      "playground>@types/react-dom": "19.2.3"
+    }
+  },
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=9.13.0",

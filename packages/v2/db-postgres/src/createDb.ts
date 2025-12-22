@@ -1,15 +1,20 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Kysely, PostgresDialect } from 'kysely';
-import pkg from 'pg';
 import type { IV2PostgresDbConfig } from './config';
 
-const { Pool } = pkg;
+const resolvePgPool = async () => {
+  const pgModule = await import('pg');
+  const pg = (pgModule.default ?? pgModule) as typeof import('pg');
+  return pg.Pool;
+};
 
 const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> => {
   const connectionString = config.pg.connectionString;
   if (!connectionString) {
     throw new Error('Missing pg.connectionString');
   }
+
+  const Pool = await resolvePgPool();
 
   return new Kysely<DB>({
     dialect: new PostgresDialect({

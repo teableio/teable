@@ -1,3 +1,4 @@
+import { v2Tracer } from './otel';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -73,6 +74,7 @@ export const createPlaygroundContainer = async (): Promise<DependencyContainer> 
       const container = await createV2NodePgContainer({
         ensureSchema: true,
         connectionString,
+        tracer: v2Tracer,
       });
       await ensurePlaygroundSeed(container);
       return container;

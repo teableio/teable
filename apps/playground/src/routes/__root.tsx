@@ -9,6 +9,10 @@ interface MyRouterContext {
   queryClient: QueryClient;
 }
 
+if (!import.meta.env.SSR) {
+  void import('../integrations/otel/client').then((mod) => mod.initClientOtel());
+}
+
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   head: () => ({
     meta: [
