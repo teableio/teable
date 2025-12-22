@@ -36,6 +36,7 @@ import {
   Textarea,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import confetti from 'canvas-confetti';
 import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo } from 'react';
@@ -49,10 +50,12 @@ const attachmentManager = new AttachmentManager(1);
 
 interface IPublishBaseDialogProps {
   children: React.ReactNode;
+  onClose: () => void;
+  closeOnSuccess?: boolean;
 }
 
 export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
-  const { children } = props;
+  const { children, onClose, closeOnSuccess = false } = props;
   const { t } = useTranslation(['space', 'common']);
   const base = useBase();
   const baseId = base?.id;
@@ -159,6 +162,12 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       const origin = typeof window !== 'undefined' ? window.location.origin : '';
       setShareUrl(`${origin}/base/${templateBaseId}`);
       setSuccessDialogOpen(true);
+      // Trigger fireworks effect
+      fireConfetti();
+      // Close parent dialog if closeOnSuccess is true
+      if (closeOnSuccess) {
+        onClose();
+      }
     },
   });
 
@@ -304,6 +313,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     // Discord doesn't have a direct share URL, so we just copy the URL
     navigator.clipboard.writeText(shareUrl);
     toast.success(t('publishBase.urlCopiedForDiscord'));
+  };
+
+  const fireConfetti = () => {
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 },
+    });
   };
 
   return (
@@ -525,7 +542,17 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={successDialogOpen} onOpenChange={setSuccessDialogOpen}>
+      <Dialog
+        open={successDialogOpen}
+        onOpenChange={(open) => {
+          setSuccessDialogOpen(open);
+          // When success dialog closes and closeOnSuccess is false (Popover version),
+          // close the parent component
+          if (!open && !closeOnSuccess) {
+            onClose();
+          }
+        }}
+      >
         <DialogContent className="max-w-[512px] gap-0 p-0">
           <DialogHeader className="flex h-[60px] flex-col justify-center px-6">
             <DialogTitle className="text-left text-lg font-semibold">
@@ -540,7 +567,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             <div className="flex w-full items-center gap-2 py-2">
               <div className="flex h-9 flex-1 items-center gap-2 truncate rounded-md border px-3 text-sm">
                 <Link className="size-4 shrink-0" />
-                <div className="flex-1 overflow-auto">{shareUrl}1312312313</div>
+                <div className="flex-1 overflow-auto">{shareUrl}</div>
               </div>
               <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
                 <Copy className="size-4" />

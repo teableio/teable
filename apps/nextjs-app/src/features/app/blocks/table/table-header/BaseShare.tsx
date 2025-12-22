@@ -3,10 +3,10 @@ import { ChevronRight, Send } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { PublishBaseDialog } from './publish-base/PublishBaseDialog';
 
-export const BaseShare = () => {
+export const BaseShare = ({ onClose }: { onClose: () => void }) => {
   const { t } = useTranslation(['table', 'common', 'space']);
   return (
-    <PublishBaseDialog>
+    <PublishBaseDialog onClose={onClose} closeOnSuccess={false}>
       <Button
         variant="outline"
         className="flex h-10 w-full items-center gap-2 bg-muted px-3 py-[10px]"

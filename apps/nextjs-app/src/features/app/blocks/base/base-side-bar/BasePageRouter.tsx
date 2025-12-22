@@ -14,6 +14,7 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useMemo } from 'react';
 import { UpgradeWrapper } from '@/features/app/components/billing/UpgradeWrapper';
+import { ShareBaseDialog } from '@/features/app/components/collaborator/share/ShareBaseDialog';
 import { tableConfig } from '@/features/i18n/table.config';
 import { QuickAction } from './QuickAction';
 
@@ -143,6 +144,7 @@ export const BasePageRouter = () => {
               </UpgradeWrapper>
             );
           })}
+          <ShareBaseDialog />
           <MoreMenu />
         </ul>
       </div>

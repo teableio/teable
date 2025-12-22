@@ -18,8 +18,9 @@ import {
 } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useSession } from '@teable/sdk/hooks';
-import { Badge, Separator } from '@teable/ui-lib/shadcn';
+import { Badge, Button, Separator } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { ChevronRight, Send } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { Trans, useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
@@ -45,16 +46,18 @@ export const ShareBaseContent = ({
   role: userRole,
   enabledAuthority,
   onClose,
+  onPublishBase,
 }: {
   baseId: string;
   baseName: string;
   role: IRole;
   enabledAuthority?: boolean;
   onClose: () => void;
+  onPublishBase?: () => void;
 }) => {
   const router = useRouter();
   const { user } = useSession();
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common', 'space']);
 
   const [tabType, setTabType] = useState<
     'email' | 'link' | 'collaborators' | 'organization' | undefined
@@ -357,7 +360,23 @@ export const ShareBaseContent = ({
 
       <Separator />
 
-      <BaseShare />
+      {onPublishBase ? (
+        <Button
+          variant="outline"
+          className="flex h-10 w-full items-center gap-2 bg-muted px-3 py-[10px]"
+          onClick={() => {
+            onPublishBase();
+          }}
+        >
+          <div className="flex-start flex flex-1 items-center gap-2">
+            <Send className="size-4" />
+            {t('publishBase.publishToCommunity', { ns: 'space' })}
+          </div>
+          <ChevronRight className="size-4 shrink-0" />
+        </Button>
+      ) : (
+        <BaseShare onClose={onClose} />
+      )}
     </div>
   );
 };
