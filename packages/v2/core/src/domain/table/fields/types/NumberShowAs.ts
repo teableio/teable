@@ -5,15 +5,21 @@ import { z } from 'zod';
 import { ValueObject } from '../../../shared/ValueObject';
 import { fieldColorSchema } from './FieldColor';
 
-export enum SingleNumberDisplayType {
-  Bar = 'bar',
-  Ring = 'ring',
-}
+export const SingleNumberDisplayType = {
+  Bar: 'bar',
+  Ring: 'ring',
+} as const;
 
-export enum MultiNumberDisplayType {
-  Bar = 'bar',
-  Line = 'line',
-}
+export type SingleNumberDisplayType =
+  (typeof SingleNumberDisplayType)[keyof typeof SingleNumberDisplayType];
+
+export const MultiNumberDisplayType = {
+  Bar: 'bar',
+  Line: 'line',
+} as const;
+
+export type MultiNumberDisplayType =
+  (typeof MultiNumberDisplayType)[keyof typeof MultiNumberDisplayType];
 
 const singleNumberShowAsSchema = z.object({
   type: z.enum([SingleNumberDisplayType.Bar, SingleNumberDisplayType.Ring]),

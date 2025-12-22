@@ -1,9 +1,11 @@
 import { customAlphabet } from 'nanoid';
 
-export enum RandomType {
-  String = 'string',
-  Number = 'number',
-}
+export const RandomType = {
+  String: 'string',
+  Number: 'number',
+} as const;
+
+export type RandomType = (typeof RandomType)[keyof typeof RandomType];
 
 const alphaNumericChars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 const numericChars = '0123456789';

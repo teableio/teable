@@ -5,11 +5,13 @@ import { z } from 'zod';
 import { ValueObject } from '../../../shared/ValueObject';
 import { NumericPrecision } from './NumericPrecision';
 
-export enum NumberFormattingType {
-  Decimal = 'decimal',
-  Percent = 'percent',
-  Currency = 'currency',
-}
+export const NumberFormattingType = {
+  Decimal: 'decimal',
+  Percent: 'percent',
+  Currency: 'currency',
+} as const;
+
+export type NumberFormattingType = (typeof NumberFormattingType)[keyof typeof NumberFormattingType];
 
 const baseFormattingSchema = z.object({
   precision: z.number().min(0).max(5),

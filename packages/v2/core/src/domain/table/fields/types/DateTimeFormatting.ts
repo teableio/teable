@@ -5,23 +5,27 @@ import { z } from 'zod';
 import { ValueObject } from '../../../shared/ValueObject';
 import { TimeZone, type TimeZoneValue } from './TimeZone';
 
-export enum DateFormattingPreset {
-  US = 'M/D/YYYY',
-  European = 'D/M/YYYY',
-  Asian = 'YYYY/MM/DD',
-  ISO = 'YYYY-MM-DD',
-  YM = 'YYYY-MM',
-  MD = 'MM-DD',
-  Y = 'YYYY',
-  M = 'MM',
-  D = 'DD',
-}
+export const DateFormattingPreset = {
+  US: 'M/D/YYYY',
+  European: 'D/M/YYYY',
+  Asian: 'YYYY/MM/DD',
+  ISO: 'YYYY-MM-DD',
+  YM: 'YYYY-MM',
+  MD: 'MM-DD',
+  Y: 'YYYY',
+  M: 'MM',
+  D: 'DD',
+} as const;
 
-export enum TimeFormatting {
-  Hour24 = 'HH:mm',
-  Hour12 = 'hh:mm A',
-  None = 'None',
-}
+export type DateFormattingPreset = (typeof DateFormattingPreset)[keyof typeof DateFormattingPreset];
+
+export const TimeFormatting = {
+  Hour24: 'HH:mm',
+  Hour12: 'hh:mm A',
+  None: 'None',
+} as const;
+
+export type TimeFormatting = (typeof TimeFormatting)[keyof typeof TimeFormatting];
 
 const dateTimeFormattingSchema = z.object({
   date: z.string(),

@@ -53,7 +53,6 @@ import {
   PLAYGROUND_BASE_NAME,
   PLAYGROUND_TABLE_ID_STORAGE_KEY,
 } from '@/lib/playground/constants';
-import { NumberFormattingType, SingleNumberDisplayType } from '@teable/v2-core';
 
 export const Route = createFileRoute('/')({ component: Playground });
 
@@ -71,9 +70,9 @@ const basicTableInput: ICreateTableRequestDto = {
       type: 'number',
       name: 'Amount',
       options: {
-        formatting: { type: NumberFormattingType.Currency, precision: 2, symbol: '$' },
+        formatting: { type: 'currency', precision: 2, symbol: '$' },
         showAs: {
-          type: SingleNumberDisplayType.Bar,
+          type: 'bar',
           color: 'teal',
           showValue: true,
           maxValue: 100,
@@ -299,7 +298,7 @@ function Playground() {
               tableId: created.id,
             },
           }),
-          created
+          { ok: true, data: { table: created } }
         );
       },
     })
