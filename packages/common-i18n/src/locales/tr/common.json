@@ -44,7 +44,10 @@
     "exit": "Çıkış",
     "next": "Sonraki",
     "previous": "Önceki",
-    "select": "Seç"
+    "select": "Seç",
+    "view": "Görüntüle",
+    "preview": "Önizleme",
+    "viewAndEdit": "Görüntüle ve düzenle"
   },
   "quickAction": {
     "title": "Hızlı İşlemler...",
@@ -177,6 +180,24 @@
       "revokeDesc": "{{name}} artık Teable API'sine erişemeyecek. Bu işlem geri alınamaz.",
       "scopeTitle": "İzinler",
       "scopeDesc": "Bu uygulama aşağıdaki kapsamlara erişebilecek:"
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "Kapak",
+        "name": "Ad",
+        "description": "Açıklama",
+        "markdownDescription": "Markdown Açıklama",
+        "category": "Kategori",
+        "isSystem": "Sistem",
+        "source": "Kaynak",
+        "status": "Yayınlandı",
+        "publishSnapshot": "Anlık görüntü yayınla",
+        "snapshotTime": "Anlık görüntü zamanı",
+        "actions": "İşlemler",
+        "featured": "Öne çıkan",
+        "createdBy": "Oluşturan",
+        "userNonExistent": "Kullanıcı mevcut değil"
+      }
     }
   },
   "noun": {
@@ -222,6 +243,7 @@
   "name": "İsim",
   "description": "Açıklama",
   "required": "Zorunlu",
+  "characters": "karakter",
   "atLeastOne": "En az bir {{noun}} bulunmalıdır",
   "guide": {
     "prev": "Önceki",

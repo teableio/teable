@@ -40,7 +40,10 @@
     "exit": "ログアウト",
     "next": "次へ",
     "previous": "前へ",
-    "select": "選択"
+    "select": "選択",
+    "view": "表示",
+    "preview": "プレビュー",
+    "viewAndEdit": "表示と編集"
   },
   "quickAction": {
     "title": "クイックアクション...",
@@ -173,6 +176,24 @@
       "revokeDesc": "{{name}}はTeable APIにアクセスできなくなります。この操作を元に戻すことはできません。",
       "scopeTitle": "権限",
       "scopeDesc": "このアプリケーションは、次のスコープを取得できます："
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "カバー",
+        "name": "名前",
+        "description": "説明",
+        "markdownDescription": "マークダウン説明",
+        "category": "カテゴリ",
+        "isSystem": "システム",
+        "source": "ソース",
+        "status": "公開済み",
+        "publishSnapshot": "スナップショットを公開",
+        "snapshotTime": "スナップショット時刻",
+        "actions": "アクション",
+        "featured": "おすすめ",
+        "createdBy": "作成者",
+        "userNonExistent": "ユーザーが存在しません"
+      }
     }
   },
   "noun": {
@@ -218,6 +239,7 @@
   "name": "名称",
   "description": "説明",
   "required": "必須",
+  "characters": "文字",
   "guide": {
     "prev": "前へ",
     "next": "次へ",

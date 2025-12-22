@@ -47,6 +47,9 @@
     "hideNotMatchRow": "仅显示匹配行",
     "more": "更多",
     "expand": "展开",
+    "view": "查看",
+    "preview": "预览",
+    "viewAndEdit": "查看和编辑",
     "deleteTip": "确定要删除 \"{{name}}\" 吗？",
     "move": "移动至",
     "turnOn": "开启",
@@ -134,7 +137,9 @@
         "publishSnapshot": "发布快照",
         "snapshotTime": "快照时间",
         "actions": "操作",
-        "featured": "推荐"
+        "featured": "推荐",
+        "createdBy": "创建者",
+        "userNonExistent": "用户不存在"
       },
       "actions": {
         "title": "操作",
@@ -340,6 +345,7 @@
   "name": "名称",
   "description": "描述",
   "required": "必填",
+  "characters": "字符",
   "atLeastOne": "至少保留一个{{noun}}",
   "guide": {
     "prev": "上一步",

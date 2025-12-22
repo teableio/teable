@@ -48,7 +48,10 @@
     "exit": "Cerrar sesión",
     "next": "Siguiente",
     "previous": "Anterior",
-    "select": "Seleccionar"
+    "select": "Seleccionar",
+    "view": "Ver",
+    "preview": "Vista previa",
+    "viewAndEdit": "Ver y editar"
   },
   "quickAction": {
     "title": "Acciones Rápidas...",
@@ -171,6 +174,24 @@
       "revokeTitle": "¿Estás seguro de que quieres revocar la autorización?",
       "scopeTitle": "Permisos",
       "scopeDesc": "Esta aplicación podrá obtener los siguientes ámbitos:"
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "Portada",
+        "name": "Nombre",
+        "description": "Descripción",
+        "markdownDescription": "Descripción Markdown",
+        "category": "Categoría",
+        "isSystem": "Sistema",
+        "source": "Fuente",
+        "status": "Publicado",
+        "publishSnapshot": "Publicar instantánea",
+        "snapshotTime": "Hora de instantánea",
+        "actions": "Acciones",
+        "featured": "Destacado",
+        "createdBy": "Creado por",
+        "userNonExistent": "Usuario no existe"
+      }
     }
   },
   "noun": {
@@ -216,6 +237,7 @@
   "name": "Nombre",
   "description": "Descripción",
   "required": "Requerido",
+  "characters": "caracteres",
   "guide": {
     "prev": "Anterior",
     "next": "Siguiente",

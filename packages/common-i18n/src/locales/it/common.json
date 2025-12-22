@@ -48,7 +48,10 @@
     "exit": "Esci",
     "next": "Successivo",
     "previous": "Precedente",
-    "select": "Seleziona"
+    "select": "Seleziona",
+    "view": "Visualizza",
+    "preview": "Anteprima",
+    "viewAndEdit": "Visualizza e modifica"
   },
   "quickAction": {
     "title": "Azioni rapide...",
@@ -175,6 +178,24 @@
       "revokeDesc": "{{name}} non sarà più in grado di accedere all'API di Teable. Non puoi annullare questa azione.",
       "scopeTitle": "Permessi",
       "scopeDesc": "Questa applicazione sarà in grado di ottenere i seguenti ambiti:"
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "Copertina",
+        "name": "Nome",
+        "description": "Descrizione",
+        "markdownDescription": "Descrizione Markdown",
+        "category": "Categoria",
+        "isSystem": "Sistema",
+        "source": "Fonte",
+        "status": "Pubblicato",
+        "publishSnapshot": "Pubblica istantanea",
+        "snapshotTime": "Orario istantanea",
+        "actions": "Azioni",
+        "featured": "In evidenza",
+        "createdBy": "Creato da",
+        "userNonExistent": "Utente inesistente"
+      }
     }
   },
   "noun": {
@@ -220,6 +241,7 @@
   "name": "Nome",
   "description": "Descrizione",
   "required": "Obbligatorio",
+  "characters": "caratteri",
   "atLeastOne": "Riserva almeno un {{noun}}",
   "guide": {
     "prev": "Precedente",

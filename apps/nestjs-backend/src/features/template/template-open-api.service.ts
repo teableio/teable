@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
-import { UploadType } from '@teable/openapi';
 import type {
   ITemplateCategoryListVo,
   ICreateTemplateCategoryRo,
@@ -23,7 +22,6 @@ import {
 } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
-import StorageAdapter from '../attachments/plugins/adapter';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
 
@@ -41,14 +39,15 @@ export class TemplateOpenApiService {
   async createTemplate(createTemplateRo: ICreateTemplateRo) {
     const userId = this.cls.get('user.id');
     const templateId = generateTemplateId();
-    const order = await this.prismaService.template.aggregate({
+    const prisma = this.prismaService.txClient();
+    const order = await prisma.template.aggregate({
       _max: {
         order: true,
       },
     });
     const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
 
-    return await this.prismaService.template.create({
+    return await prisma.template.create({
       data: {
         id: templateId,
         ...createTemplateRo,
@@ -60,6 +59,7 @@ export class TemplateOpenApiService {
 
   async getAllTemplateList(query?: ITemplateListQueryRo) {
     const { skip = 0, take = 300 } = query ?? {};
+    const prisma = this.prismaService.txClient();
 
     if (take && take > 1000) {
       throw new CustomHttpException('Take count is too large', HttpErrorCode.VALIDATION_ERROR, {
@@ -69,15 +69,34 @@ export class TemplateOpenApiService {
       });
     }
 
-    const res = await this.prismaService.template.findMany({
+    const res = await prisma.template.findMany({
       orderBy: {
         order: 'asc',
       },
       skip,
       take,
+      select: {
+        id: true,
+        name: true,
+        cover: true,
+        snapshot: true,
+        createdBy: true,
+        categoryId: true,
+        isSystem: true,
+        featured: true,
+        isPublished: true,
+        description: true,
+        baseId: true,
+        usageCount: true,
+        markdownDescription: true,
+        publishInfo: true,
+        visitCount: true,
+      },
     });
 
     const previewUrlMap: Record<string, string> = {};
+    const userIds = res.map((item) => item.createdBy).filter((id) => !!id);
+    const userMap = await this.getSpecifiedUserInfoByUserId(userIds);
     for (const item of res) {
       const cover = item.cover ? JSON.parse(item.cover) : undefined;
       if (!cover) {
@@ -89,22 +108,25 @@ export class TemplateOpenApiService {
       previewUrlMap[item.id] = getPublicFullStorageUrl(path);
     }
 
-    return res.map((item) => ({
-      ...item,
-      categoryId: item.categoryId,
-      cover: item.cover
-        ? {
-            ...JSON.parse(item.cover),
-            presignedUrl: previewUrlMap[item.id],
-          }
-        : undefined,
-      snapshot: item.snapshot ? JSON.parse(item.snapshot as string) : undefined,
-      publishInfo: item.publishInfo ?? undefined,
-    }));
+    return res.map((item) => {
+      const creator = userMap?.[item.createdBy];
+      return {
+        ...item,
+        cover: item.cover
+          ? {
+              ...JSON.parse(item.cover),
+              presignedUrl: previewUrlMap[item.id],
+            }
+          : undefined,
+        snapshot: item.snapshot ? JSON.parse(item.snapshot) : undefined,
+        createdBy: creator ?? null,
+      };
+    });
   }
 
   async getPublishedTemplateList(templateQuery?: ITemplateQueryRoSchema) {
     const { skip = 0, take = 100 } = templateQuery ?? {};
+    const prisma = this.prismaService.txClient();
     const featured = templateQuery?.featured;
     const categoryId = templateQuery?.categoryId;
     const search = templateQuery?.search;
@@ -117,7 +139,7 @@ export class TemplateOpenApiService {
       });
     }
 
-    const res = await this.prismaService.template.findMany({
+    const res = await prisma.template.findMany({
       where: {
         isPublished: true,
         ...(featured === true
@@ -136,6 +158,8 @@ export class TemplateOpenApiService {
     });
 
     const previewUrlMap: Record<string, string> = {};
+    const userIds = res.map((item) => item.createdBy).filter((id) => !!id);
+    const userMap = await this.getSpecifiedUserInfoByUserId(userIds);
     for (const item of res) {
       const cover = item.cover ? JSON.parse(item.cover) : undefined;
       if (!cover) {
@@ -147,23 +171,26 @@ export class TemplateOpenApiService {
       previewUrlMap[item.id] = getPublicFullStorageUrl(path);
     }
 
-    return res.map((item) => ({
-      ...item,
-      categoryId: item.categoryId,
-      cover: item.cover
-        ? {
-            ...JSON.parse(item.cover),
-            presignedUrl: previewUrlMap[item.id],
-          }
-        : undefined,
-      snapshot: item.snapshot ? JSON.parse(item.snapshot as string) : undefined,
-      publishInfo: item.publishInfo ?? undefined,
-    }));
+    return res.map((item) => {
+      const creator = userMap?.[item.createdBy];
+      return {
+        ...item,
+        cover: item.cover
+          ? {
+              ...JSON.parse(item.cover),
+              presignedUrl: previewUrlMap[item.id],
+            }
+          : undefined,
+        snapshot: item.snapshot ? JSON.parse(item.snapshot) : undefined,
+        createdBy: creator ?? null,
+      };
+    });
   }
 
   async deleteTemplate(templateId: string) {
-    return await this.prismaService.template
-      .delete({
+    return await this.prismaService
+      .txClient()
+      .template.delete({
         where: {
           id: templateId,
         },
@@ -177,11 +204,12 @@ export class TemplateOpenApiService {
   }
 
   async updateTemplate(templateId: string, updateTemplateRo: IUpdateTemplateRo) {
+    const prisma = this.prismaService.txClient();
     const newCover = updateTemplateRo?.cover
       ? JSON.stringify(updateTemplateRo.cover)
       : updateTemplateRo?.cover;
 
-    const originalTemplate = await this.prismaService.template.findUniqueOrThrow({
+    const originalTemplate = await prisma.template.findUniqueOrThrow({
       where: { id: templateId },
     });
 
@@ -197,7 +225,7 @@ export class TemplateOpenApiService {
       );
     }
 
-    await this.prismaService.template
+    await prisma.template
       .update({
         where: { id: templateId },
         data: {
@@ -295,9 +323,10 @@ export class TemplateOpenApiService {
   }
 
   async createTemplateCategory(createTemplateCategoryRo: ICreateTemplateCategoryRo) {
+    const prisma = this.prismaService.txClient();
     const userId = this.cls.get('user.id');
     const categoryId = generateTemplateCategoryId();
-    const maxOrder = await this.prismaService.templateCategory.aggregate({
+    const maxOrder = await prisma.templateCategory.aggregate({
       _max: {
         order: true,
       },
@@ -307,7 +336,7 @@ export class TemplateOpenApiService {
 
     await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
 
-    return await this.prismaService.templateCategory.create({
+    return await prisma.templateCategory.create({
       data: {
         id: categoryId,
         ...createTemplateCategoryRo,
@@ -318,7 +347,7 @@ export class TemplateOpenApiService {
   }
 
   async getTemplateCategoryList() {
-    return await this.prismaService.templateCategory.findMany({
+    return await this.prismaService.txClient().templateCategory.findMany({
       orderBy: {
         order: 'asc',
       },
@@ -331,7 +360,8 @@ export class TemplateOpenApiService {
     statsType: 'template',
   })
   async getPublishedTemplateCategoryList() {
-    const publishedTemplateCategoryIdsRaw = await this.prismaService.template.findMany({
+    const prisma = this.prismaService.txClient();
+    const publishedTemplateCategoryIdsRaw = await prisma.template.findMany({
       where: {
         isPublished: true,
       },
@@ -350,7 +380,7 @@ export class TemplateOpenApiService {
       return [] as ITemplateCategoryListVo[];
     }
 
-    return await this.prismaService.templateCategory.findMany({
+    return await prisma.templateCategory.findMany({
       where: {
         id: {
           in: publishedTemplateCategoryIds,
@@ -363,7 +393,8 @@ export class TemplateOpenApiService {
   }
 
   async pinTopTemplate(templateId: string) {
-    const result = await this.prismaService.template.aggregate({
+    const prisma = this.prismaService.txClient();
+    const result = await prisma.template.aggregate({
       _min: {
         order: true,
       },
@@ -377,7 +408,7 @@ export class TemplateOpenApiService {
       });
     }
 
-    await this.prismaService.template
+    await prisma.template
       .update({
         where: { id: templateId },
         data: { order: result._min.order - 1 },
@@ -392,7 +423,7 @@ export class TemplateOpenApiService {
 
   async deleteTemplateCategory(categoryId: string) {
     await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
-    await this.prismaService.templateCategory.delete({
+    await this.prismaService.txClient().templateCategory.delete({
       where: { id: categoryId },
     });
   }
@@ -402,14 +433,15 @@ export class TemplateOpenApiService {
     updateTemplateCategoryRo: IUpdateTemplateCategoryRo
   ) {
     await this.performanceCacheService.del(generateTemplateCategoryCacheKey());
-    await this.prismaService.templateCategory.update({
+    await this.prismaService.txClient().templateCategory.update({
       where: { id: categoryId },
       data: { ...updateTemplateCategoryRo },
     });
   }
 
   async getTemplateDetailById(templateId: string) {
-    const template = await this.prismaService.template.findUniqueOrThrow({
+    const prisma = this.prismaService.txClient();
+    const template = await prisma.template.findUniqueOrThrow({
       where: { id: templateId },
     });
 
@@ -426,20 +458,40 @@ export class TemplateOpenApiService {
       newCover.presignedUrl = getPublicFullStorageUrl(path);
     }
 
+    const userMap = await this.getSpecifiedUserInfoByUserId([template.createdBy]);
+    const creator = userMap?.[template.createdBy];
+
     return {
       ...template,
-      categoryId: template.categoryId,
       cover: {
         ...newCover,
       },
-      snapshot: template.snapshot ? JSON.parse(template.snapshot as string) : undefined,
-      publishInfo: template.publishInfo ?? undefined,
+      snapshot: template.snapshot ? JSON.parse(template.snapshot) : undefined,
+      createdBy: creator,
     };
   }
 
   async getTemplateByBaseId(baseId: string) {
-    const template = await this.prismaService.template.findFirst({
+    const prisma = this.prismaService.txClient();
+    const template = await prisma.template.findUnique({
       where: { baseId },
+      select: {
+        id: true,
+        name: true,
+        categoryId: true,
+        isSystem: true,
+        featured: true,
+        isPublished: true,
+        description: true,
+        baseId: true,
+        cover: true,
+        usageCount: true,
+        markdownDescription: true,
+        publishInfo: true,
+        visitCount: true,
+        createdBy: true,
+        snapshot: true,
+      },
     });
 
     if (!template) {
@@ -459,19 +511,51 @@ export class TemplateOpenApiService {
       newCover.presignedUrl = getPublicFullStorageUrl(path);
     }
 
+    const userMap = await this.getSpecifiedUserInfoByUserId([template.createdBy]);
+
+    const creator = userMap?.[template.createdBy];
+
     return {
       ...template,
-      categoryId: template.categoryId,
       cover: cover ? { ...newCover } : null,
-      snapshot: template.snapshot ? JSON.parse(template.snapshot as string) : null,
-      publishInfo: template.publishInfo ?? null,
+      snapshot: template.snapshot ? JSON.parse(template.snapshot) : null,
+      createdBy: creator ?? null,
     };
   }
 
   async incrementTemplateVisitCount(templateId: string) {
-    await this.prismaService.template.update({
+    await this.prismaService.txClient().template.update({
       where: { id: templateId },
       data: { visitCount: { increment: 1 } },
     });
+  }
+
+  private async getSpecifiedUserInfoByUserId(userIds: string[]) {
+    const prisma = this.prismaService.txClient();
+    const users = await prisma.user.findMany({
+      where: {
+        id: { in: userIds },
+        deletedTime: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        avatar: true,
+        email: true,
+      },
+    });
+
+    return users.reduce(
+      (acc, user) => {
+        acc[user.id] = {
+          id: user.id,
+          name: user.name,
+          avatar: user.avatar ? getPublicFullStorageUrl(user.avatar) : undefined,
+          email: user.email,
+        };
+        return acc;
+      },
+      {} as Record<string, { id: string; name: string; avatar: string | undefined; email: string }>
+    );
   }
 }
