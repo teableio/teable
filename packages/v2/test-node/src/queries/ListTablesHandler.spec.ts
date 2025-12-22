@@ -104,4 +104,36 @@ describe('ListTablesHandler', () => {
     const names = result.value.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Beta']);
   });
+
+  it('filters tables by name query', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+    const actorId = actorIdResult.value;
+
+    await createTable(commandBus, baseId, 'Alpha', actorId);
+    await createTable(commandBus, baseId, 'Beta', actorId);
+    await createTable(commandBus, baseId, 'Gamma', actorId);
+
+    const queryResult = ListTablesQuery.create({
+      baseId: baseId.toString(),
+      q: 'Al',
+    });
+    expect(queryResult.isOk()).toBe(true);
+    if (queryResult.isErr()) return;
+
+    const result = await queryBus.execute<ListTablesQuery, ListTablesResult>(
+      { actorId },
+      queryResult.value
+    );
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const names = result.value.tables.map((table) => table.name().toString());
+    expect(names).toEqual(['Alpha']);
+  });
 });

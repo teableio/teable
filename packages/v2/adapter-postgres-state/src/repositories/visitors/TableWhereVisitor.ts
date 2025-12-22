@@ -3,6 +3,7 @@ import {
   type ISpecification,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByNameLikeSpec,
   TableByNameSpec,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -29,6 +30,9 @@ export class TableWhereVisitor extends AbstractSpecFilterVisitor<ITableMetaWhere
     }
     if (spec instanceof TableByNameSpec) {
       return this.withName(spec).map(() => undefined);
+    }
+    if (spec instanceof TableByNameLikeSpec) {
+      return this.withNameLike(spec).map(() => undefined);
     }
     return ok(undefined);
   }
@@ -61,6 +65,12 @@ export class TableWhereVisitor extends AbstractSpecFilterVisitor<ITableMetaWhere
 
   private withName(spec: TableByNameSpec): Result<ITableMetaWhere, string> {
     const cond: ITableMetaWhere = (eb) => eb.eb('name', '=', spec.tableName().toString());
+    return this.addCond(cond).map(() => cond);
+  }
+
+  private withNameLike(spec: TableByNameLikeSpec): Result<ITableMetaWhere, string> {
+    const pattern = `%${spec.tableName().toString()}%`;
+    const cond: ITableMetaWhere = (eb) => eb.eb('name', 'like', pattern);
     return this.addCond(cond).map(() => cond);
   }
 }

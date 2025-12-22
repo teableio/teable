@@ -38,7 +38,11 @@ export class ListTablesHandler implements IQueryHandler<ListTablesQuery, ListTab
       baseId: query.baseId.toString(),
     });
 
-    const specResult = TableAggregate.specs(query.baseId).build();
+    const specBuilder = TableAggregate.specs(query.baseId);
+    if (query.nameQuery) {
+      specBuilder.byNameLike(query.nameQuery);
+    }
+    const specResult = specBuilder.build();
     if (specResult.isErr()) return err(specResult.error);
 
     const tablesResult = await this.tableRepository.find(context, specResult.value, {

@@ -108,4 +108,31 @@ describe('v2 http listTables (e2e)', () => {
     const names = body.data.tables.map((table) => table.name);
     expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
   });
+
+  it('filters tables by name query', async () => {
+    const params = new URLSearchParams({
+      baseId,
+      q: 'Al',
+      sortBy: 'name',
+      sortDirection: 'asc',
+    });
+
+    const response = await fetch(`${baseUrl}/tables/list?${params.toString()}`, {
+      method: 'GET',
+    });
+
+    expect(response.status).toBe(200);
+
+    const rawBody = await response.json();
+    const parsed = listTablesOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const names = body.data.tables.map((table) => table.name);
+    expect(names).toEqual(['Alpha']);
+  });
 });

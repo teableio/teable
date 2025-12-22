@@ -102,4 +102,32 @@ describe('TableSpecBuilder', () => {
     expect(specResult.value.isSatisfiedBy(table)).toBe(false);
     expect(specResult.value.isSatisfiedBy(otherTable)).toBe(true);
   });
+
+  it('supports name like specs', () => {
+    const baseIdResult = BaseId.create(`bse${'g'.repeat(16)}`);
+    const nameResult = TableName.create('Projects');
+    const otherNameResult = TableName.create('Tasks');
+    const queryNameResult = TableName.create('Pro');
+    expect(
+      [baseIdResult, nameResult, otherNameResult, queryNameResult].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      nameResult.isErr() ||
+      otherNameResult.isErr() ||
+      queryNameResult.isErr()
+    )
+      return;
+
+    const table = buildTable(baseIdResult.value, nameResult.value);
+    const otherTable = buildTable(baseIdResult.value, otherNameResult.value);
+    if (!table || !otherTable) return;
+
+    const specResult = Table.specs(baseIdResult.value).byNameLike(queryNameResult.value).build();
+    expect(specResult.isOk()).toBe(true);
+    if (specResult.isErr()) return;
+
+    expect(specResult.value.isSatisfiedBy(table)).toBe(true);
+    expect(specResult.value.isSatisfiedBy(otherTable)).toBe(false);
+  });
 });

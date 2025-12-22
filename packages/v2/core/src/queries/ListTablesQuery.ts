@@ -8,10 +8,12 @@ import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
 import { Sort } from '../domain/shared/sort/Sort';
 import { SortDirection, sortDirectionSchema } from '../domain/shared/sort/SortDirection';
+import { TableName } from '../domain/table/TableName';
 import { TableSortKey, tableSortKeySchema } from '../domain/table/TableSortKey';
 
 export const listTablesInputSchema = z.object({
   baseId: z.string(),
+  q: z.string().trim().min(1).max(255).optional(),
   sortBy: tableSortKeySchema.optional(),
   sortDirection: sortDirectionSchema.optional(),
   limit: z.coerce.number().int().positive().optional(),
@@ -25,7 +27,8 @@ export class ListTablesQuery {
   private constructor(
     readonly baseId: BaseId,
     readonly sort: Sort<TableSortKey>,
-    readonly pagination?: OffsetPagination
+    readonly pagination?: OffsetPagination,
+    readonly nameQuery?: TableName
   ) {}
 
   static create(raw: unknown): Result<ListTablesQuery, string> {
@@ -34,8 +37,10 @@ export class ListTablesQuery {
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       this.buildSort(parsed.data).andThen((sort) =>
-        this.buildPagination(parsed.data).map(
-          (pagination) => new ListTablesQuery(baseId, sort, pagination)
+        this.buildPagination(parsed.data).andThen((pagination) =>
+          this.buildNameQuery(parsed.data).map(
+            (nameQuery) => new ListTablesQuery(baseId, sort, pagination, nameQuery)
+          )
         )
       )
     );
@@ -66,5 +71,12 @@ export class ListTablesQuery {
     return PageLimit.create(data.limit).andThen((limit) =>
       PageOffset.create(data.offset ?? 0).map((offset) => OffsetPagination.create(limit, offset))
     );
+  }
+
+  private static buildNameQuery(
+    data: IListTablesQueryOutput
+  ): Result<TableName | undefined, string> {
+    if (!data.q) return ok(undefined);
+    return TableName.create(data.q);
   }
 }

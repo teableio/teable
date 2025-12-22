@@ -127,14 +127,28 @@ describe('Table', () => {
     const tableIdResult = createTableId('c');
     const tableNameResult = TableName.create('Invalid');
     const fieldIdResult = createFieldId('b');
+    const otherFieldIdResult = createFieldId('c');
+    const viewIdResult = createViewId('b');
+    const viewNameResult = ViewName.create('Grid');
     expect(
-      [baseIdResult, tableIdResult, tableNameResult, fieldIdResult].every((r) => r.isOk())
+      [
+        baseIdResult,
+        tableIdResult,
+        tableNameResult,
+        fieldIdResult,
+        otherFieldIdResult,
+        viewIdResult,
+        viewNameResult,
+      ].every((r) => r.isOk())
     ).toBe(true);
     if (
       baseIdResult.isErr() ||
       tableIdResult.isErr() ||
       tableNameResult.isErr() ||
-      fieldIdResult.isErr()
+      fieldIdResult.isErr() ||
+      otherFieldIdResult.isErr() ||
+      viewIdResult.isErr() ||
+      viewNameResult.isErr()
     )
       return;
 
@@ -152,9 +166,16 @@ describe('Table', () => {
       id: tableIdResult.value,
       baseId: baseIdResult.value,
       name: tableNameResult.value,
-      fields: [],
-      views: [],
-      primaryFieldId: fieldIdResult.value,
+      fields: [
+        SingleLineTextField.create({
+          id: fieldIdResult.value,
+          name: FieldName.create('Title')._unsafeUnwrap(),
+        })._unsafeUnwrap(),
+      ],
+      views: [
+        GridView.create({ id: viewIdResult.value, name: viewNameResult.value })._unsafeUnwrap(),
+      ],
+      primaryFieldId: otherFieldIdResult.value,
     });
     expect(missingPrimary.isErr()).toBe(true);
   });

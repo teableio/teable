@@ -10,6 +10,7 @@ import type { TableId } from '../TableId';
 import type { TableName } from '../TableName';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
+import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 
 export class TableSpecBuilder extends SpecBuilder<Table, ISpecVisitor, TableSpecBuilder> {
@@ -46,6 +47,11 @@ export class TableSpecBuilder extends SpecBuilder<Table, ISpecVisitor, TableSpec
 
   byName(tableName: TableName): TableSpecBuilder {
     this.addSpec(TableByNameSpec.create(tableName));
+    return this;
+  }
+
+  byNameLike(tableName: TableName): TableSpecBuilder {
+    this.addSpec(TableByNameLikeSpec.create(tableName));
     return this;
   }
 

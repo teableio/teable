@@ -69,6 +69,14 @@ class TestHandler {
   ): Promise<Result<string, string>> {
     throw new Error('boom');
   }
+
+  @TraceSpan()
+  async throwObject(
+    _context: IExecutionContext,
+    _message: PayloadMessage
+  ): Promise<Result<string, string>> {
+    throw { code: 'boom' };
+  }
 }
 
 const createContext = (tracer?: ITracer): IExecutionContext => {
@@ -118,6 +126,21 @@ describe('TraceSpan', () => {
     }
     const span = tracer.spans[0].span;
     expect(span.errors[0]).toContain('boom');
+  });
+
+  it('handles unknown payload names and non-Error throws', async () => {
+    const tracer = new FakeTracer();
+    const handler = new TestHandler();
+    const context = createContext(tracer);
+
+    const handleResult = await handler.handle(context, null as unknown as PayloadMessage);
+    expect(handleResult.isOk()).toBe(true);
+    expect(tracer.spans[0]?.attributes?.message).toBe('unknown');
+
+    const crashResult = await handler.throwObject(context, new PayloadMessage());
+    expect(crashResult.isErr()).toBe(true);
+    const span = tracer.spans[1]?.span;
+    expect(span?.errors[0]).toContain('boom');
   });
 
   it('falls back to noop span when tracer fails', async () => {

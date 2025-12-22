@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
+import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { RatingMax } from './fields/types/RatingMax';
 import { SelectOption } from './fields/types/SelectOption';
 import { Table } from './Table';
+import { TableId } from './TableId';
 import { TableName } from './TableName';
+import { ViewName } from './views/ViewName';
+
+const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
+const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
+const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
 describe('TableBuilder', () => {
   it('builds a table with fields and a view', () => {
@@ -265,5 +272,176 @@ describe('TableBuilder', () => {
     expect(buildResult.isErr()).toBe(true);
     if (buildResult.isOk()) return;
     expect(buildResult.error).toContain('BaseId is required');
+  });
+
+  it('requires a table name', () => {
+    const baseIdResult = createBaseId('f');
+    const fieldNameResult = FieldName.create('Title');
+    expect([baseIdResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+    if (baseIdResult.isErr() || fieldNameResult.isErr()) return;
+
+    const buildResult = Table.builder()
+      .withBaseId(baseIdResult.value)
+      .field()
+      .singleLineText()
+      .withName(fieldNameResult.value)
+      .done()
+      .view()
+      .defaultGrid()
+      .done()
+      .build();
+
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('TableName is required');
+  });
+
+  it('requires at least one view', () => {
+    const baseIdResult = createBaseId('g');
+    const tableNameResult = TableName.create('No Views');
+    const fieldNameResult = FieldName.create('Title');
+    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+
+    const buildResult = Table.builder()
+      .withBaseId(baseIdResult.value)
+      .withName(tableNameResult.value)
+      .field()
+      .singleLineText()
+      .withName(fieldNameResult.value)
+      .done()
+      .build();
+
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('at least one View');
+  });
+
+  it('rejects duplicate field names', () => {
+    const baseIdResult = createBaseId('h');
+    const tableNameResult = TableName.create('Duplicate Fields');
+    const fieldNameResult = FieldName.create('Title');
+    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.field().number().withName(fieldNameResult.value).done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('Field names must be unique');
+  });
+
+  it('rejects duplicate view names', () => {
+    const baseIdResult = createBaseId('i');
+    const tableNameResult = TableName.create('Duplicate Views');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    expect(
+      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr() ||
+      viewNameResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().grid().withName(viewNameResult.value).done();
+    builder.view().kanban().withName(viewNameResult.value).done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('View names must be unique');
+  });
+
+  it('captures missing field and view names', () => {
+    const baseIdResult = createBaseId('j');
+    const tableNameResult = TableName.create('Missing Names');
+    const fieldNameResult = FieldName.create('Title');
+    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().number().done();
+    builder.view().grid().done();
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('FieldName is required');
+    expect(buildResult.error).toContain('ViewName is required');
+  });
+
+  it('uses provided table id and validates primary field existence', () => {
+    const baseIdResult = createBaseId('k');
+    const tableIdResult = createTableId('k');
+    const tableNameResult = TableName.create('Explicit Id');
+    const fieldNameResult = FieldName.create('Title');
+    const missingPrimaryIdResult = createFieldId('x');
+    expect(
+      [baseIdResult, tableIdResult, tableNameResult, fieldNameResult, missingPrimaryIdResult].every(
+        (r) => r.isOk()
+      )
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr() ||
+      missingPrimaryIdResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder()
+      .withId(tableIdResult.value)
+      .withBaseId(baseIdResult.value)
+      .withName(tableNameResult.value);
+    builder.markPrimaryFieldId(missingPrimaryIdResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isErr()).toBe(true);
+    if (buildResult.isOk()) return;
+    expect(buildResult.error).toContain('Primary Field must exist');
+  });
+
+  it('honors explicit table id on successful build', () => {
+    const baseIdResult = createBaseId('l');
+    const tableIdResult = createTableId('l');
+    const tableNameResult = TableName.create('Explicit Table');
+    const fieldNameResult = FieldName.create('Title');
+    expect(
+      [baseIdResult, tableIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder()
+      .withId(tableIdResult.value)
+      .withBaseId(baseIdResult.value)
+      .withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+    expect(buildResult.value.id().equals(tableIdResult.value)).toBe(true);
   });
 });

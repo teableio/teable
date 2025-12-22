@@ -1,9 +1,7 @@
+import { Formula, FormulaErrorListener, FormulaLexer } from '@teable/formula';
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import type { FieldCore } from '../models/field/field';
 import type { IRecord } from '../models/record';
-import { FormulaErrorListener } from './error.listener';
-import { Formula } from './parser/Formula';
-import { FormulaLexer } from './parser/FormulaLexer';
 import type { TypedValue } from './typed-value';
 import { EvalVisitor } from './visitor';
 

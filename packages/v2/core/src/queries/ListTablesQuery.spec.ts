@@ -43,6 +43,21 @@ describe('ListTablesQuery', () => {
     expect(query.pagination?.offset().toNumber()).toBe(5);
   });
 
+  it('accepts name search query', () => {
+    const baseIdResult = BaseId.generate();
+    expect(baseIdResult.isOk()).toBe(true);
+    if (baseIdResult.isErr()) return;
+
+    const queryResult = ListTablesQuery.create({
+      baseId: baseIdResult.value.toString(),
+      q: '  Alpha  ',
+    });
+    expect(queryResult.isOk()).toBe(true);
+    if (queryResult.isErr()) return;
+
+    expect(queryResult.value.nameQuery?.toString()).toBe('Alpha');
+  });
+
   it('rejects invalid inputs', () => {
     expect(ListTablesQuery.create({ baseId: 'bad' }).isErr()).toBe(true);
     expect(
@@ -51,5 +66,6 @@ describe('ListTablesQuery', () => {
     expect(ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), offset: 1 }).isErr()).toBe(
       true
     );
+    expect(ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), q: '' }).isErr()).toBe(true);
   });
 });

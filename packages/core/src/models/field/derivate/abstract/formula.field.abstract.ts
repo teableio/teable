@@ -1,10 +1,8 @@
+import { Formula, FormulaErrorListener, FormulaLexer } from '@teable/formula';
+import type { RootContext } from '@teable/formula';
 import { CharStreams, CommonTokenStream } from 'antlr4ts';
 import { z } from 'zod';
 import { assertNever } from '../../../../asserts';
-import { FormulaErrorListener } from '../../../../formula/error.listener';
-import type { RootContext } from '../../../../formula/parser/Formula';
-import { Formula } from '../../../../formula/parser/Formula';
-import { FormulaLexer } from '../../../../formula/parser/FormulaLexer';
 import { EvalVisitor } from '../../../../formula/visitor';
 import type { IRecord } from '../../../record';
 import { CellValueType } from '../../constant';

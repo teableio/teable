@@ -116,4 +116,19 @@ describe('NoopUnitOfWork', () => {
       expect(result.error).toContain('Unexpected unit of work error');
     }
   });
+
+  it('reports non-Error throws', async () => {
+    const unit = new NoopUnitOfWork();
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+    const context = { actorId: actorIdResult.value };
+    const result = await unit.withTransaction(context, async () => {
+      throw 'boom';
+    });
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toContain('boom');
+    }
+  });
 });

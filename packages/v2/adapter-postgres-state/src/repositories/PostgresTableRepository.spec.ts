@@ -459,4 +459,89 @@ describe('PostgresTableRepository (pg)', () => {
       await db.destroy();
     }
   });
+
+  it('filters tables by name like spec', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+
+      const baseId = baseIdResult.value;
+      const actorId = actorIdResult.value;
+      const context = { actorId };
+      const spaceId = `spc${'c'.repeat(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Search Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Search Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const buildAndInsert = async (name: string) => {
+        const tableNameResult = TableName.create(name);
+        const fieldNameResult = FieldName.create('Name');
+        expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+        if (tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
+        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        builder.view().defaultGrid().done();
+        const tableResult = builder.build();
+        expect(tableResult.isOk()).toBe(true);
+        if (tableResult.isErr()) return undefined;
+
+        const insertResult = await repo.insert(context, tableResult.value);
+        expect(insertResult.isOk()).toBe(true);
+        if (insertResult.isErr()) return undefined;
+        return insertResult.value;
+      };
+
+      await buildAndInsert('Alpha');
+      await buildAndInsert('Beta');
+      await buildAndInsert('Gamma');
+
+      const queryNameResult = TableName.create('Al');
+      expect(queryNameResult.isOk()).toBe(true);
+      if (queryNameResult.isErr()) return;
+
+      const specResult = Table.specs(baseId).byNameLike(queryNameResult.value).build();
+      expect(specResult.isOk()).toBe(true);
+      if (specResult.isErr()) return;
+
+      const sortResult = Sort.create([
+        { key: TableSortKey.name(), direction: SortDirection.asc() },
+      ]);
+      expect(sortResult.isOk()).toBe(true);
+      if (sortResult.isErr()) return;
+
+      const findResult = await repo.find(context, specResult.value, { sort: sortResult.value });
+      expect(findResult.isOk()).toBe(true);
+      if (findResult.isErr()) return;
+
+      const names = findResult.value.map((table) => table.name().toString());
+      expect(names).toEqual(['Alpha']);
+    } finally {
+      await db.destroy();
+    }
+  });
 });

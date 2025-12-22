@@ -29,6 +29,7 @@ export * from './domain/table/TableName';
 export * from './domain/table/TableSortKey';
 export * from './domain/table/events/TableCreated';
 export * from './domain/table/specs/TableByIdSpec';
+export * from './domain/table/specs/TableByNameLikeSpec';
 export * from './domain/table/specs/TableByNameSpec';
 export type { Field } from './domain/table/fields/Field';
 export * from './domain/table/fields/DbFieldName';

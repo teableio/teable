@@ -7,9 +7,15 @@ import { ActorId } from '../../domain/shared/ActorId';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { DomainEventName } from '../../domain/shared/DomainEventName';
 import { OccurredAt } from '../../domain/shared/OccurredAt';
+import { OffsetPagination } from '../../domain/shared/pagination/OffsetPagination';
+import { PageLimit } from '../../domain/shared/pagination/PageLimit';
+import { PageOffset } from '../../domain/shared/pagination/PageOffset';
+import { Sort } from '../../domain/shared/sort/Sort';
+import { SortDirection } from '../../domain/shared/sort/SortDirection';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
+import { TableSortKey } from '../../domain/table/TableSortKey';
 import { QueryHandler, type IQueryHandler } from '../../queries/QueryHandler';
 import type { ICommandBusMiddleware } from '../CommandBus';
 import { EventHandler, type IEventHandler } from '../EventHandler';
@@ -303,5 +309,76 @@ describe('MemoryTableRepository', () => {
       accept: () => ok(undefined),
     });
     expect(missResult.isErr()).toBe(true);
+  });
+
+  it('sorts and paginates results', async () => {
+    const baseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
+    const tableNameA = TableName.create('Alpha');
+    const tableNameB = TableName.create('Beta');
+    const fieldNameResult = FieldName.create('Title');
+    expect([baseIdResult, tableNameA, tableNameB, fieldNameResult].every((r) => r.isOk())).toBe(
+      true
+    );
+    if (baseIdResult.isErr() || tableNameA.isErr() || tableNameB.isErr() || fieldNameResult.isErr())
+      return;
+
+    const buildTable = (name: TableName) => {
+      const builder = Table.builder().withBaseId(baseIdResult.value).withName(name);
+      builder.field().singleLineText().withName(fieldNameResult.value).done();
+      builder.view().defaultGrid().done();
+      const result = builder.build();
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return undefined;
+      return result.value;
+    };
+
+    const tableA = buildTable(tableNameA.value);
+    const tableB = buildTable(tableNameB.value);
+    if (!tableA || !tableB) return;
+
+    const repo = new MemoryTableRepository();
+    const context = createContext();
+    await repo.insert(context, tableA);
+    await repo.insert(context, tableB);
+
+    const sortResult = Sort.create([{ key: TableSortKey.name(), direction: SortDirection.desc() }]);
+    expect(sortResult.isOk()).toBe(true);
+    if (sortResult.isErr()) return;
+
+    const limitResult = PageLimit.create(1);
+    const offsetResult = PageOffset.create(1);
+    expect([limitResult, offsetResult].every((r) => r.isOk())).toBe(true);
+    if (limitResult.isErr() || offsetResult.isErr()) return;
+
+    const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
+
+    const allSpec = {
+      isSatisfiedBy: () => true,
+      mutate: (table: Table) => ok(table),
+      accept: () => ok(undefined),
+    };
+
+    const sortedResult = await repo.find(context, allSpec, {
+      sort: sortResult.value,
+      pagination,
+    });
+    expect(sortedResult.isOk()).toBe(true);
+    if (sortedResult.isErr()) return;
+    expect(sortedResult.value.length).toBe(1);
+    expect(sortedResult.value[0]?.name().toString()).toBe('Alpha');
+
+    const bogusSortResult = Sort.create([
+      {
+        key: { toString: () => 'unknown' } as unknown as TableSortKey,
+        direction: SortDirection.asc(),
+      },
+    ]);
+    expect(bogusSortResult.isOk()).toBe(true);
+    if (bogusSortResult.isErr()) return;
+
+    const bogusResult = await repo.find(context, allSpec, { sort: bogusSortResult.value });
+    expect(bogusResult.isOk()).toBe(true);
+    if (bogusResult.isErr()) return;
+    expect(bogusResult.value.map((table) => table.name().toString())).toEqual(['Alpha', 'Beta']);
   });
 });

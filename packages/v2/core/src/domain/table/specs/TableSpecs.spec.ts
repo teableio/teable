@@ -9,6 +9,7 @@ import { Table } from '../Table';
 import { TableName } from '../TableName';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
+import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 
 class SpyVisitor implements ISpecVisitor {
@@ -78,5 +79,34 @@ describe('Table specs', () => {
     expect(byName.accept(visitor).isOk()).toBe(true);
     expect(visitor.calls).toContain('TableByIdSpec');
     expect(visitor.calls).toContain('TableByNameSpec');
+  });
+
+  it('evaluates name like specs', () => {
+    const baseIdResult = BaseId.create(`bse${'e'.repeat(16)}`);
+    const nameResult = TableName.create('Projects');
+    const queryNameResult = TableName.create('Pro');
+    const otherNameResult = TableName.create('Tasks');
+    expect(
+      [baseIdResult, nameResult, queryNameResult, otherNameResult].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      nameResult.isErr() ||
+      queryNameResult.isErr() ||
+      otherNameResult.isErr()
+    )
+      return;
+
+    const table = buildTable(baseIdResult.value, nameResult.value);
+    const otherTable = buildTable(baseIdResult.value, otherNameResult.value);
+    if (!table || !otherTable) return;
+
+    const spec = TableByNameLikeSpec.create(queryNameResult.value);
+    expect(spec.isSatisfiedBy(table)).toBe(true);
+    expect(spec.isSatisfiedBy(otherTable)).toBe(false);
+
+    const visitor = new SpyVisitor();
+    expect(spec.accept(visitor).isOk()).toBe(true);
+    expect(visitor.calls).toContain('TableByNameLikeSpec');
   });
 });

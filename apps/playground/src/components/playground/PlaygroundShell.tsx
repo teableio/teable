@@ -27,6 +27,8 @@ type PlaygroundShellProps = {
   tables: ReadonlyArray<ITableDto>;
   isInitialLoading: boolean;
   errorMessage: string | null;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
   children: ReactNode;
 };
 
@@ -36,6 +38,8 @@ export function PlaygroundShell({
   tables,
   isInitialLoading,
   errorMessage,
+  searchValue,
+  onSearchChange,
   children,
 }: PlaygroundShellProps) {
   return (
@@ -46,6 +50,8 @@ export function PlaygroundShell({
         tables={tables}
         isInitialLoading={isInitialLoading}
         errorMessage={errorMessage}
+        searchValue={searchValue}
+        onSearchChange={onSearchChange}
       />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
@@ -58,6 +64,8 @@ type PlaygroundSidebarProps = {
   tables: ReadonlyArray<ITableDto>;
   isInitialLoading: boolean;
   errorMessage: string | null;
+  searchValue: string;
+  onSearchChange: (value: string) => void;
 };
 
 function PlaygroundSidebar({
@@ -66,6 +74,8 @@ function PlaygroundSidebar({
   tables,
   isInitialLoading,
   errorMessage,
+  searchValue,
+  onSearchChange,
 }: PlaygroundSidebarProps) {
   return (
     <Sidebar collapsible="icon">
@@ -74,7 +84,14 @@ function PlaygroundSidebar({
           <LayoutGrid className="h-4 w-4" />
           Tables
         </div>
-        <SidebarInput placeholder="Search tables" disabled aria-label="Search tables" />
+        <SidebarInput
+          type="search"
+          placeholder="Search tables"
+          value={searchValue}
+          onChange={(event) => onSearchChange(event.target.value)}
+          maxLength={255}
+          aria-label="Search tables"
+        />
       </SidebarHeader>
       <SidebarSeparator className="-translate-x-2.5" />
       <SidebarContent className="px-2 pb-4">
@@ -100,7 +117,11 @@ function PlaygroundSidebar({
                   return (
                     <SidebarMenuItem key={table.id}>
                       <SidebarMenuButton asChild isActive={isActive} className="gap-3">
-                        <Link to="/$baseId/$tableId" params={{ baseId, tableId: table.id }}>
+                        <Link
+                          to="/$baseId/$tableId"
+                          params={{ baseId, tableId: table.id }}
+                          search={searchValue ? { q: searchValue } : {}}
+                        >
                           <TableIcon className="h-4 w-4" />
                           <span className="flex-1 truncate font-medium">{table.name}</span>
                         </Link>
