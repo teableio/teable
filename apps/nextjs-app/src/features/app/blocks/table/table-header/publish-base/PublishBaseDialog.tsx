@@ -81,6 +81,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     staleTime: 0,
     refetchOnWindowFocus: false,
     queryFn: () => getTemplateByBaseId(baseId!).then((res) => res.data),
+    enabled: !!baseId,
     onSuccess: (data) => {
       setTitle(data?.name || base?.name || '');
       setDescription(data?.description);
@@ -91,23 +92,26 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
       const savedNodes = data?.publishInfo?.nodes;
       const nodesToSelect = savedNodes && savedNodes.length > 0 ? savedNodes : allNodeIds;
-      setSelectedNodeIds(nodesToSelect);
-      setIncludeData(data?.publishInfo?.includeData ?? true);
+      if (nodesToSelect.length > 0) {
+        setSelectedNodeIds(nodesToSelect);
 
-      // Set default active node: use saved data if available and it's in selected nodes
-      const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
-      if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
-        setDefaultActiveNodeId(savedDefaultNodeId);
-      } else {
-        // Find first non-folder node in selected nodes
-        const firstNonFolderNode = nodesToSelect.find((id) => {
-          const node = treeItems[id];
-          return node && node.resourceType !== BaseNodeResourceType.Folder;
-        });
-        setDefaultActiveNodeId(firstNonFolderNode || null);
+        // Set default active node: use saved data if available and it's in selected nodes
+        const savedDefaultNodeId = data?.publishInfo?.defaultActiveNodeId;
+        if (savedDefaultNodeId && nodesToSelect.includes(savedDefaultNodeId)) {
+          setDefaultActiveNodeId(savedDefaultNodeId);
+        } else {
+          // Find first non-folder node in selected nodes
+          const firstNonFolderNode = nodesToSelect.find((id) => {
+            const node = treeItems[id];
+            return node && node.resourceType !== BaseNodeResourceType.Folder;
+          });
+          setDefaultActiveNodeId(firstNonFolderNode || null);
+        }
+
+        // Only mark as loaded when nodes are actually set
+        setHasLoadedTemplate(true);
       }
-
-      setHasLoadedTemplate(true);
+      setIncludeData(data?.publishInfo?.includeData ?? true);
     },
   });
 
@@ -195,13 +199,21 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   useEffect(() => {
     if (allNodeIds.length > 0 && !hasLoadedTemplate && selectedNodeIds.length === 0) {
       setSelectedNodeIds(allNodeIds);
+
+      // Also set default active node when initializing selected nodes
+      const firstNonFolderNode = allNodeIds.find((id) => {
+        const node = treeItems[id];
+        return node && node.resourceType !== BaseNodeResourceType.Folder;
+      });
+      setDefaultActiveNodeId(firstNonFolderNode || null);
+      setHasLoadedTemplate(true);
     }
-  }, [allNodeIds, hasLoadedTemplate, selectedNodeIds.length]);
+  }, [allNodeIds, hasLoadedTemplate, selectedNodeIds.length, treeItems]);
 
   // Ensure defaultActiveNodeId is always within selectedNodeIds (selected non-folder nodes only)
   useEffect(() => {
-    // Skip if template is still loading
-    if (!hasLoadedTemplate) return;
+    // Skip if no selected nodes
+    if (selectedNodeIds.length === 0) return;
 
     // Calculate selected non-folder nodes to avoid dependency on memoized array
     const currentSelectedNonFolderNodes = selectedNodeIds.filter((id) => {
@@ -217,7 +229,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         setDefaultActiveNodeId(null);
       }
     }
-  }, [hasLoadedTemplate, defaultActiveNodeId, selectedNodeIds, treeItems]);
+  }, [defaultActiveNodeId, selectedNodeIds, treeItems]);
 
   useEffect(() => {
     if (!open) {
@@ -366,7 +378,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 <NodeTreeSelect
                   showCheckbox
                   checkedItems={selectedNodeIds}
-                  onCheckedItemsChange={(ids) => setSelectedNodeIds(ids)}
+                  onCheckedItemsChange={(ids) => {
+                    setSelectedNodeIds(ids);
+                  }}
                   placeholder={t('common:actions.select')}
                   totalNodeCount={allNodeIds.length}
                 />

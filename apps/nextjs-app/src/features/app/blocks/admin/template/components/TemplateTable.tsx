@@ -153,10 +153,10 @@ export const TemplateTable = () => {
         <TableHeader className="z-50 bg-background">
           <TableRow className="sticky top-0 z-10 h-16 border-none bg-background">
             <TableHead>{t('settings.templateAdmin.header.cover')}</TableHead>
-            <TableHead className="w-80 shrink-0">
+            <TableHead className="min-w-48 shrink-0">
               {t('settings.templateAdmin.header.name')}
             </TableHead>
-            <TableHead className="min-w-[400px] shrink-0">
+            <TableHead className="w-48 shrink-0">
               {t('settings.templateAdmin.header.description')}
             </TableHead>
             <TableHead className="w-32 shrink-0">
@@ -209,7 +209,7 @@ export const TemplateTable = () => {
                   maxLength={50}
                 />
               </TableCell>
-              <TableCell className="min-w-[400px]">
+              <TableCell className="max-w-80">
                 <TextEditorDialog
                   value={row.description}
                   onChange={(value) => {
