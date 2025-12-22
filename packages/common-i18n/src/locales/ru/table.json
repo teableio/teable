@@ -141,7 +141,11 @@
         "resetCount": "Разрешить сброс счетчика кликов",
         "maxCount": "Максимальное количество кликов",
         "automation": "Автоматизация",
-        "customAutomation": "Настраиваемая автоматизация"
+        "customAutomation": "Настраиваемая автоматизация",
+        "clickConfirm": "Подтвердить перед кликом",
+        "confirmTitle": "Заголовок",
+        "confirmDescription": "Описание",
+        "confirmButtonText": "Текст кнопки подтверждения"
       },
       "formula": {
         "title": "Вычисление",

@@ -345,6 +345,12 @@
     "link": {
       "oneWay": "One way",
       "twoWay": "Two way"
+    },
+    "button": {
+      "confirm": {
+        "title": "Operation confirmation",
+        "description": "Are you sure you want to perform this button operation?"
+      }
     }
   },
   "permission": {

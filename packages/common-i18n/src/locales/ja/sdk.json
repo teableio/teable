@@ -345,6 +345,12 @@
     "link": {
       "oneWay": "一方向",
       "twoWay": "双方向"
+    },
+    "button": {
+      "confirm": {
+        "title": "操作確認",
+        "description": "この操作を実行してもよろしいですか？"
+      }
     }
   },
   "permission": {

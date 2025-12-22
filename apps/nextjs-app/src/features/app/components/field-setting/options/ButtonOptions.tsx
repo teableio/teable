@@ -1,5 +1,8 @@
-import { Colors, ColorUtils } from '@teable/core';
+import { Colors, ColorUtils, FieldType } from '@teable/core';
 import type { IButtonFieldOptions } from '@teable/core';
+import { Plus } from '@teable/icons';
+import { FieldSelector } from '@teable/sdk/components';
+import { useFields } from '@teable/sdk/hooks';
 import {
   Button,
   Input,
@@ -14,11 +17,12 @@ import {
   TooltipTrigger,
 } from '@teable/ui-lib/shadcn';
 import { PencilIcon, PlusIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWorkFlowPanelStore } from '@/features/app/automation/workflow-panel/useWorkFlowPaneStore';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { tableConfig } from '@/features/i18n/table.config';
+import { PromptEditor, type EditorViewRef } from '../field-ai-config/components/prompt-editor';
 import { ColorPicker } from './SelectOptions';
 
 const AutomationTooltip = (props: { children: React.ReactNode }) => {
@@ -33,6 +37,136 @@ const AutomationTooltip = (props: { children: React.ReactNode }) => {
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
+  );
+};
+
+const ConfirmEditor = (props: {
+  options?: Partial<IButtonFieldOptions>;
+  onChange?: (options: Partial<IButtonFieldOptions>) => void;
+}) => {
+  const { options, onChange } = props;
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const fields = useFields({ withHidden: true, withDenied: true });
+  const titleEditorViewRef = useRef(null) as EditorViewRef;
+  const descEditorViewRef = useRef(null) as EditorViewRef;
+
+  const confirmEnabled = Boolean(options?.confirm);
+  const confirm = options?.confirm;
+
+  const excludedFieldIds = useMemo(() => {
+    return fields.filter((field) => field.type === FieldType.Attachment).map((field) => field.id);
+  }, [fields]);
+
+  const onFieldSelect = (fieldId: string, editorViewRef: EditorViewRef) => {
+    const formatValue = `{${fieldId}}`;
+    const view = editorViewRef.current;
+
+    if (view) {
+      const { from, to } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, to, insert: formatValue },
+        selection: { anchor: from + formatValue.length },
+      });
+      view.focus();
+    }
+  };
+
+  const updateConfirm = (key: keyof NonNullable<typeof confirm>, value: string) => {
+    onChange?.({
+      ...options,
+      confirm: {
+        ...confirm,
+        [key]: value,
+      },
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex h-8 items-center gap-2">
+        <Switch
+          checked={confirmEnabled}
+          onCheckedChange={(checked) => {
+            onChange?.({
+              ...options,
+              confirm: checked ? { title: '', description: '', confirmText: '' } : null,
+            });
+          }}
+        />
+        <Label className="text-sm font-normal">
+          {t('table:field.default.button.clickConfirm')}
+        </Label>
+      </div>
+
+      {confirmEnabled && (
+        <div className="flex flex-col gap-2 rounded-md border-muted bg-muted p-3">
+          {/* Title */}
+          <div className="flex flex-col gap-1">
+            <div className="flex h-6 items-center justify-between">
+              <Label className="text-xs text-muted-foreground">
+                {t('table:field.default.button.confirmTitle')}
+              </Label>
+              <FieldSelector
+                excludedIds={excludedFieldIds}
+                onSelect={(fieldId) => onFieldSelect(fieldId, titleEditorViewRef)}
+                modal
+              >
+                <Button variant="ghost" size="xs">
+                  <Plus className="size-4" />
+                </Button>
+              </FieldSelector>
+            </div>
+            <PromptEditor
+              themeOptions={{ height: 'auto', content: { padding: '6px 0px' } }}
+              value={confirm?.title ?? ''}
+              placeholder={t('sdk:field.button.confirm.title')}
+              editorViewRef={titleEditorViewRef}
+              onChange={(value) => updateConfirm('title', value)}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="flex flex-col gap-1">
+            <div className="flex h-6 items-center justify-between">
+              <Label className="text-xs text-muted-foreground">
+                {t('table:field.default.button.confirmDescription')}
+              </Label>
+              <FieldSelector
+                excludedIds={excludedFieldIds}
+                onSelect={(fieldId) => onFieldSelect(fieldId, descEditorViewRef)}
+                modal
+              >
+                <Button variant="ghost" size="xs">
+                  <Plus className="size-4" />
+                </Button>
+              </FieldSelector>
+            </div>
+            <PromptEditor
+              themeOptions={{ content: { padding: '6px 0px' } }}
+              value={confirm?.description ?? ''}
+              placeholder={t('sdk:field.button.confirm.description')}
+              editorViewRef={descEditorViewRef}
+              onChange={(value) => updateConfirm('description', value)}
+            />
+          </div>
+
+          {/* Confirm Button Text */}
+          <div className="flex flex-col gap-1">
+            <div className="flex h-6 items-center justify-between">
+              <Label className="text-xs text-muted-foreground">
+                {t('table:field.default.button.confirmButtonText')}
+              </Label>
+            </div>
+            <Input
+              className="h-8 bg-transparent"
+              value={confirm?.confirmText ?? ''}
+              placeholder={t('common:actions.confirm')}
+              onChange={(e) => updateConfirm('confirmText', e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 
@@ -163,6 +297,8 @@ export const ButtonOptions = (props: {
                 />
               </div>
             )}
+
+            <ConfirmEditor options={options} onChange={onChange} />
           </div>
         </div>
       )}

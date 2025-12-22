@@ -48,6 +48,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
     className,
     context,
     buttonClickStatusHook,
+    record,
   } = props;
   const tableId = useTableId();
   const { id: fieldId, type, options } = field;
@@ -219,6 +220,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
           onChange={onChange}
           readonly={readonly}
           statusHook={buttonClickStatusHook}
+          record={record}
         />
       );
     }

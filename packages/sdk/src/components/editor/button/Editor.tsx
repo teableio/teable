@@ -13,6 +13,7 @@ import { type FC, useMemo } from 'react';
 import colors from 'tailwindcss/colors';
 import { useTranslation } from '../../../context/app/i18n';
 import type { IButtonClickStatusHook } from '../../../hooks';
+import type { Record } from '../../../model';
 import type { ButtonField } from '../../../model/field/button.field';
 import type { ICellEditor } from '../type';
 
@@ -20,11 +21,12 @@ interface IButtonEditor extends ICellEditor<IButtonFieldCellValue> {
   field: ButtonField;
   recordId?: string;
   statusHook?: IButtonClickStatusHook;
+  record?: Record;
 }
 
 export const ButtonEditor: FC<IButtonEditor> = (props) => {
   const { t } = useTranslation();
-  const { className, field, recordId, value, statusHook } = props;
+  const { className, field, recordId, value, statusHook, record } = props;
 
   const { options: fieldOptions, isLookup } = field;
   const { tableId, id: fieldId } = field;
@@ -71,6 +73,8 @@ export const ButtonEditor: FC<IButtonEditor> = (props) => {
                   recordId,
                   fieldId,
                   name: button.label,
+                  confirm: fieldOptions.confirm,
+                  record,
                 });
               }}
               className={cn('flex w-24 h-6', className)}

@@ -143,7 +143,11 @@
         "resetCount": "Allow reset",
         "maxCount": "Max clicks",
         "automation": "Automation",
-        "customAutomation": "Custom automation"
+        "customAutomation": "Custom automation",
+        "clickConfirm": "Confirm before clicking",
+        "confirmTitle": "Title",
+        "confirmDescription": "Content",
+        "confirmButtonText": "Confirm button text"
       },
       "formula": {
         "title": "Calculation",

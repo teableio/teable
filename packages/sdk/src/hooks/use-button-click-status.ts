@@ -1,14 +1,28 @@
 import { useMutation } from '@tanstack/react-query';
+import type { IButtonFieldOptions } from '@teable/core';
 import { getTableButtonClickChannel } from '@teable/core';
 import {
   buttonClick as buttonClickApi,
   shareViewButtonClick as shareViewButtonClickApi,
 } from '@teable/openapi';
-import { sonner } from '@teable/ui-lib';
+import { sonner, useConfirm } from '@teable/ui-lib';
 import { isEmpty, get } from 'lodash';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../context/app/i18n';
+import type { Record as IRecord } from '../model';
 import { useConnection } from './use-connection';
+
+// Resolve field variables in template string
+// e.g., "Hello {fldXXX}" => "Hello World" (where fldXXX field value is "World")
+const resolveFieldVariables = (template: string, record?: IRecord): string => {
+  if (!template || !record) return template;
+  return template.replace(/\{([^}]+)\}/g, (match, fieldId) => {
+    const value = record.fields[fieldId];
+    if (value === null || value === undefined) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  });
+};
 export interface IButtonClickStatus {
   runId: string;
   recordId: string;
@@ -29,6 +43,7 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
   const [statusMap, setStatusMap] = useState<Record<string, IButtonClickStatus>>({});
   const toastMapRef = useRef<Record<string, number | string | undefined>>({});
   const complatedMapRef = useRef<Record<string, boolean>>({});
+  const { confirm } = useConfirm();
   const { t } = useTranslation();
 
   const { mutateAsync: buttonClickFn } = useMutation({
@@ -166,7 +181,31 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
   }, [connection, presence, channel, setComplated]);
 
   const buttonClick = useCallback(
-    (ro: { tableId: string; recordId: string; fieldId: string; name: string }) => {
+    async (ro: {
+      tableId: string;
+      recordId: string;
+      fieldId: string;
+      name: string;
+      confirm?: IButtonFieldOptions['confirm'];
+      record?: IRecord;
+    }) => {
+      if (ro.confirm) {
+        const { title, description, confirmText } = ro.confirm;
+        const resolvedTitle =
+          resolveFieldVariables(title ?? '', ro.record) || t('field.button.confirm.title');
+        const resolvedDescription =
+          resolveFieldVariables(description ?? '', ro.record) ||
+          t('field.button.confirm.description');
+
+        const confirmed = await confirm({
+          title: resolvedTitle,
+          description: resolvedDescription,
+          cancelText: t('common.cancel'),
+          confirmText: confirmText || t('common.confirm'),
+        });
+        if (!confirmed) return;
+      }
+
       setRunning({
         runId: '',
         recordId: ro.recordId,
@@ -176,7 +215,7 @@ export const useButtonClickStatus = (tableId: string, shareId?: string) => {
       });
       return buttonClickFn(ro);
     },
-    [buttonClickFn, setRunning]
+    [buttonClickFn, setRunning, confirm, t]
   );
 
   return useMemo(() => {

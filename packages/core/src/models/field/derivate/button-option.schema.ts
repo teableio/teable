@@ -16,6 +16,15 @@ export const buttonFieldOptionsSchema = z.object({
     .optional()
     .nullable()
     .meta({ description: 'Workflow' }),
+  confirm: z
+    .object({
+      title: z.string().optional(),
+      description: z.string().optional(),
+      confirmText: z.string().optional(),
+    })
+    .optional()
+    .nullable()
+    .meta({ description: 'Confirm config before click' }),
 });
 
 export type IButtonFieldOptions = z.infer<typeof buttonFieldOptionsSchema>;

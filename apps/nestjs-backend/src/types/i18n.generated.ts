@@ -1644,6 +1644,12 @@ export type I18nTranslations = {
                 "oneWay": string;
                 "twoWay": string;
             };
+            "button": {
+                "confirm": {
+                    "title": string;
+                    "description": string;
+                };
+            };
         };
         "permission": {
             "actionDescription": {
@@ -2993,6 +2999,10 @@ export type I18nTranslations = {
                     "maxCount": string;
                     "automation": string;
                     "customAutomation": string;
+                    "clickConfirm": string;
+                    "confirmTitle": string;
+                    "confirmDescription": string;
+                    "confirmButtonText": string;
                 };
                 "formula": {
                     "title": string;

@@ -345,6 +345,12 @@
     "link": {
       "oneWay": "Einfach",
       "twoWay": "Doppelt"
+    },
+    "button": {
+      "confirm": {
+        "title": "Aktion bestätigen",
+        "description": "Sind Sie sicher, dass Sie diese Aktion ausführen möchten?"
+      }
     }
   },
   "permission": {

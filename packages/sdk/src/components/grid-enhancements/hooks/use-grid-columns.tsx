@@ -536,6 +536,7 @@ export const useCreateCellValue2GridDisplay = (
                 cellValue: cellValue as IButtonFieldCellValue,
                 fieldOptions: field.options,
                 statusHook: buttonClickStatusHook,
+                record,
               },
             };
           }

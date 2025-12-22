@@ -143,7 +143,11 @@
         "resetCount": "Tıklama sayısını sıfırlamaya izin ver",
         "maxCount": "Maksimum tıklama sayısı",
         "automation": "Otomasyon",
-        "customAutomation": "Özel otomasyon"
+        "customAutomation": "Özel otomasyon",
+        "clickConfirm": "Tıklamadan önce onayla",
+        "confirmTitle": "Başlık",
+        "confirmDescription": "Açıklama",
+        "confirmButtonText": "Onay düğmesi metni"
       },
       "formula": {
         "title": "Hesaplama",

@@ -32,7 +32,7 @@ const clickHandler = (cell: IButtonCell) => {
   const { id = '', data, readonly } = cell;
   if (readonly) return;
 
-  const { tableId, statusHook, fieldOptions } = data;
+  const { tableId, statusHook, fieldOptions, record } = data;
   const [recordId = '', fieldId = ''] = id.split('-');
   if (!statusHook) return;
   const isLoading = statusHook.checkLoading?.(fieldId, recordId) ?? false;
@@ -42,6 +42,8 @@ const clickHandler = (cell: IButtonCell) => {
     recordId,
     fieldId,
     name: fieldOptions.label,
+    confirm: fieldOptions.confirm,
+    record,
   });
 };
 

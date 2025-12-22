@@ -49,6 +49,7 @@ export const RecordEditorItem = (props: {
         field={field}
         recordId={record?.id}
         readonly={!record || readonly}
+        record={record}
         buttonClickStatusHook={buttonClickStatusHook}
       />
     </div>

@@ -62,9 +62,11 @@ export const ConfirmModalProvider: React.FC<{ children: React.ReactNode }> = ({ 
           onClick={(e) => e.stopPropagation()}
         >
           {(options.title || options.description) && (
-            <DialogHeader>
-              {options.title && <DialogTitle>{options.title}</DialogTitle>}
-              {options.description && <DialogDescription>{options.description}</DialogDescription>}
+            <DialogHeader className="overflow-hidden">
+              {options.title && <DialogTitle className="break-all">{options.title}</DialogTitle>}
+              {options.description && (
+                <DialogDescription className="break-all">{options.description}</DialogDescription>
+              )}
             </DialogHeader>
           )}
           <DialogFooter>

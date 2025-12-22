@@ -1,16 +1,18 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { EditorView } from '@codemirror/view';
+import type { CSSProperties } from 'react';
 import colors from 'tailwindcss/colors';
 
-interface IEditorThemeOptions {
+export interface IEditorThemeOptions {
   height?: string;
+  content?: CSSProperties;
 }
 
 const createEditorThemeBase = (options?: IEditorThemeOptions) => ({
   '&': {
-    height: options?.height || '120px',
-    fontSize: '14px',
+    height: options?.height ?? '120px',
     maxHeight: '320px',
+    fontSize: '14px',
     backgroundColor: 'transparent',
   },
   '.cm-scroller': {
@@ -28,18 +30,22 @@ const createEditorThemeBase = (options?: IEditorThemeOptions) => ({
 const EDITOR_LIGHT_THEME = (options?: IEditorThemeOptions) => ({
   ...createEditorThemeBase(options),
   '.cm-content': {
-    padding: '8px 4px',
-    minHeight: options?.height || '120px',
+    ...(options?.content ?? { padding: '8px 4px' }),
     caretColor: colors.black,
+  },
+  '.cm-placeholder': {
+    paddingLeft: 'unset',
   },
 });
 
 const EDITOR_DARK_THEME = (options?: IEditorThemeOptions) => ({
   ...createEditorThemeBase(options),
   '.cm-content': {
-    padding: '8px 4px',
-    minHeight: options?.height || '120px',
+    ...(options?.content ?? { padding: '8px 4px' }),
     caretColor: colors.white,
+  },
+  '.cm-placeholder': {
+    paddingLeft: 'unset',
   },
 });
 

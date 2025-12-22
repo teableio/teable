@@ -345,6 +345,12 @@
     "link": {
       "oneWay": "Tek yönlü",
       "twoWay": "Çift yönlü"
+    },
+    "button": {
+      "confirm": {
+        "title": "Eylem onayı",
+        "description": "Bu eylemi gerçekleştirmek istediğinize emin misiniz?"
+      }
     }
   },
   "permission": {

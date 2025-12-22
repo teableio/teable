@@ -345,6 +345,12 @@
     "link": {
       "oneWay": "Unidirectionnel",
       "twoWay": "Bidirectionnel"
+    },
+    "button": {
+      "confirm": {
+        "title": "Confirmation d'action",
+        "description": "Êtes-vous sûr de vouloir exécuter cette action?"
+      }
     }
   },
   "permission": {

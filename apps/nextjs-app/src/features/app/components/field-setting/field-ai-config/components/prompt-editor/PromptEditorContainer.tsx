@@ -93,7 +93,11 @@ export const PromptEditorContainer = (props: IPromptEditorContainerProps) => {
             {fieldSelector}
           </DialogHeader>
           <div className="flex-1">
-            <PromptEditor {...props} height="280px" editorViewRef={dialogEditorViewRef} />
+            <PromptEditor
+              {...props}
+              themeOptions={{ height: '280px' }}
+              editorViewRef={dialogEditorViewRef}
+            />
           </div>
 
           <DialogFooter>

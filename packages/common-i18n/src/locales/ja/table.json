@@ -141,7 +141,11 @@
         "resetCount": "クリック数のリセットを許可",
         "maxCount": "最大クリック数",
         "automation": "自動化",
-        "customAutomation": "カスタマイズされた自動化"
+        "customAutomation": "カスタマイズされた自動化",
+        "clickConfirm": "クリック前に確認",
+        "confirmTitle": "タイトル",
+        "confirmDescription": "内容",
+        "confirmButtonText": "確認ボタンテキスト"
       },
       "formula": {
         "title": "計算",

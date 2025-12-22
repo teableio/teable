@@ -143,7 +143,11 @@
         "resetCount": "Consenti reimpostazione conteggio clic",
         "maxCount": "Massimo di clic",
         "automation": "Automazione",
-        "customAutomation": "Automazione personalizzata"
+        "customAutomation": "Automazione personalizzata",
+        "clickConfirm": "Conferma prima di cliccare",
+        "confirmTitle": "Titolo",
+        "confirmDescription": "Contenuto",
+        "confirmButtonText": "Testo del pulsante di conferma"
       },
       "formula": {
         "title": "Calcolo",

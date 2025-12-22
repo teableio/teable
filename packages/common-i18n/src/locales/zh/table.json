@@ -143,7 +143,11 @@
         "resetCount": "允许重置点击计数",
         "maxCount": "最大点击计数",
         "automation": "自动化",
-        "customAutomation": "自定义自动化"
+        "customAutomation": "自定义自动化",
+        "clickConfirm": "点击前需要确认",
+        "confirmTitle": "标题",
+        "confirmDescription": "内容",
+        "confirmButtonText": "确认按钮文字"
       },
       "formula": {
         "title": "计算",

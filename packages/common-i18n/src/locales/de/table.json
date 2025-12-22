@@ -143,7 +143,11 @@
         "resetCount": "Zurücksetzen des Klickzählers erlauben",
         "maxCount": "Maximale Klickzahl",
         "automation": "Automatisierung",
-        "customAutomation": "Benutzerdefinierte Automatisierung"
+        "customAutomation": "Benutzerdefinierte Automatisierung",
+        "clickConfirm": "Klicken Sie vor dem Klicken bestätigen",
+        "confirmTitle": "Titel",
+        "confirmDescription": "Inhalt",
+        "confirmButtonText": "Bestätigungstext der Schaltfläche"
       },
       "formula": {
         "title": "Berechnung",

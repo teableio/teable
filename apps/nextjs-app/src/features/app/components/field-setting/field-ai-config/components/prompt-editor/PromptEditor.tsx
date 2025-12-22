@@ -2,17 +2,19 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, defaultHighlightStyle } from '@codemirror/language';
 import { EditorState, StateField, StateEffect } from '@codemirror/state';
 import type { DecorationSet } from '@codemirror/view';
-import { EditorView, keymap, Decoration } from '@codemirror/view';
+import { EditorView, keymap, Decoration, placeholder as cmPlaceholder } from '@codemirror/view';
 import { useTheme } from '@teable/next-themes';
 import { useFields } from '@teable/sdk/hooks';
+import { cn } from '@teable/ui-lib/shadcn';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { darkTheme, FieldVariable, FieldVariableNavigation, lightTheme } from './extensions';
+import type { IEditorThemeOptions } from './extensions/theme';
 
 export interface IPromptEditorProps {
   value: string;
-  height?: string;
   className?: string;
   placeholder?: string;
+  themeOptions?: IEditorThemeOptions;
   onChange: (value: string) => void;
 }
 
@@ -27,7 +29,8 @@ export type EditorViewRef = { current: EditorView | null };
 
 export const PromptEditor = ({
   value,
-  height,
+  themeOptions,
+  className,
   placeholder,
   editorViewRef,
   onChange,
@@ -138,13 +141,13 @@ export const PromptEditor = ({
           decorateFields(update.view);
         }
       }),
-      isLightTheme ? lightTheme({ height }) : darkTheme({ height }),
+      isLightTheme ? lightTheme(themeOptions) : darkTheme(themeOptions),
       EditorView.lineWrapping,
       EditorState.allowMultipleSelections.of(true),
-      placeholder ? EditorView.contentAttributes.of({ 'data-placeholder': placeholder }) : [],
+      placeholder ? cmPlaceholder(placeholder) : [],
       EditorState.tabSize.of(2),
     ];
-  }, [fieldDecorationsState, isLightTheme, height, placeholder, onChange, decorateFields]);
+  }, [fieldDecorationsState, isLightTheme, themeOptions, placeholder, onChange, decorateFields]);
 
   const createEditorView = useCallback(
     (parent: HTMLElement) => {
@@ -197,7 +200,7 @@ export const PromptEditor = ({
   }, [value, editorView, decorateFields]);
 
   return (
-    <div className="h-full">
+    <div className={cn('h-full', className)}>
       <div ref={editorRef} className="h-full cursor-text rounded-lg border shadow-sm" />
     </div>
   );

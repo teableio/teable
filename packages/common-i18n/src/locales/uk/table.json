@@ -143,7 +143,11 @@
         "resetCount": "Дозволити скидання лічильника кліків",
         "maxCount": "Максимальна кількість кліків",
         "automation": "Автоматизація",
-        "customAutomation": "Налаштована автоматизація"
+        "customAutomation": "Налаштована автоматизація",
+        "clickConfirm": "Підтвердити перед кліком",
+        "confirmTitle": "Заголовок",
+        "confirmDescription": "Опис",
+        "confirmButtonText": "Текст кнопки підтвердження"
       },
       "formula": {
         "title": "Обчислення",
