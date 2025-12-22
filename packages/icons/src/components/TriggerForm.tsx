@@ -9,7 +9,7 @@ const TriggerForm = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <rect width="24" height="24" fill="#FFEDD5" fillOpacity="0.1" />
+    <rect width="24" height="24" fill="#F97316" fillOpacity="0.1" />
     <path
       fillRule="evenodd"
       clipRule="evenodd"

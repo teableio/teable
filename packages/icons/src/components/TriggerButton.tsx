@@ -9,7 +9,7 @@ const TriggerButton = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <rect width="24" height="24" fill="#DBEAFE" fillOpacity="0.1" />
+    <rect width="24" height="24" fill="#3B82F6" fillOpacity="0.1" />
     <path
       fillRule="evenodd"
       clipRule="evenodd"
