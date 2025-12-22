@@ -13,13 +13,17 @@ export abstract class Field extends Entity<FieldId> {
     id: FieldId,
     private readonly nameValue: FieldName,
     private readonly typeValue: FieldType,
-    dbFieldName?: DbFieldName
+    dbFieldName?: DbFieldName,
+    dependencies: ReadonlyArray<FieldId> = []
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
+    this.dependenciesValue = [...dependencies];
   }
 
   private dbFieldNameValue: DbFieldName;
+  private dependenciesValue: ReadonlyArray<FieldId>;
+  private dependentsValue: ReadonlyArray<FieldId> | undefined;
 
   name(): FieldName {
     return this.nameValue;
@@ -47,6 +51,37 @@ export abstract class Field extends Entity<FieldId> {
 
     this.dbFieldNameValue = dbFieldName;
     return ok(undefined);
+  }
+
+  dependencies(): ReadonlyArray<FieldId> {
+    return [...this.dependenciesValue];
+  }
+
+  setDependencies(dependencies: ReadonlyArray<FieldId>): Result<void, string> {
+    if (Field.hasSameFieldIds(this.dependenciesValue, dependencies)) return ok(undefined);
+    if (this.dependenciesValue.length > 0) return err('Field dependencies already set');
+    this.dependenciesValue = [...dependencies];
+    return ok(undefined);
+  }
+
+  dependents(): ReadonlyArray<FieldId> {
+    return [...(this.dependentsValue ?? [])];
+  }
+
+  setDependents(dependents: ReadonlyArray<FieldId>): Result<void, string> {
+    if (Field.hasSameFieldIds(this.dependentsValue ?? [], dependents)) return ok(undefined);
+    if (this.dependentsValue && this.dependentsValue.length > 0)
+      return err('Field dependents already set');
+    this.dependentsValue = [...dependents];
+    return ok(undefined);
+  }
+
+  private static hasSameFieldIds(
+    left: ReadonlyArray<FieldId>,
+    right: ReadonlyArray<FieldId>
+  ): boolean {
+    if (left.length !== right.length) return false;
+    return left.every((id, index) => id.equals(right[index]!));
   }
 
   abstract accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string>;

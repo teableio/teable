@@ -2,6 +2,7 @@
 import {
   ActorId,
   CreateTableCommand,
+  FieldValueTypeVisitor,
   GetTableByIdQuery,
   TableId,
   v2CoreTokens,
@@ -22,10 +23,28 @@ describe('GetTableByIdHandler', () => {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
 
+    const amountId = `fld${'a'.repeat(16)}`;
+    const scoreId = `fld${'b'.repeat(16)}`;
+    const scoreLabelId = `fld${'c'.repeat(16)}`;
     const commandResult = CreateTableCommand.create({
       baseId: baseId.toString(),
       name: 'Projects',
-      fields: [{ type: 'singleLineText', name: 'Name' }],
+      fields: [
+        { type: 'singleLineText', name: 'Name' },
+        { type: 'number', id: amountId, name: 'Amount' },
+        {
+          type: 'formula',
+          id: scoreId,
+          name: 'Score',
+          options: { expression: `{${amountId}} * 2` },
+        },
+        {
+          type: 'formula',
+          id: scoreLabelId,
+          name: 'Score Label',
+          options: { expression: `CONCATENATE("Score: ", {${scoreId}})` },
+        },
+      ],
     });
 
     expect(commandResult.isOk()).toBe(true);
@@ -60,6 +79,25 @@ describe('GetTableByIdHandler', () => {
 
     expect(result.value.table.id().equals(createResult.value.table.id())).toBe(true);
     expect(result.value.table.baseId().equals(baseId)).toBe(true);
+
+    const table = result.value.table;
+    const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const scoreField = byId.get(scoreId);
+    const scoreLabelField = byId.get(scoreLabelId);
+    expect(scoreField).toBeTruthy();
+    expect(scoreLabelField).toBeTruthy();
+    if (!scoreField || !scoreLabelField) return;
+
+    const valueTypeVisitor = new FieldValueTypeVisitor();
+    const scoreType = scoreField.accept(valueTypeVisitor);
+    expect(scoreType.isOk()).toBe(true);
+    if (scoreType.isErr()) return;
+    expect(scoreType.value.cellValueType.toString()).toBe('number');
+
+    const scoreLabelType = scoreLabelField.accept(valueTypeVisitor);
+    expect(scoreLabelType.isOk()).toBe(true);
+    if (scoreLabelType.isErr()) return;
+    expect(scoreLabelType.value.cellValueType.toString()).toBe('string');
   });
 
   it('returns err when table is missing', async () => {

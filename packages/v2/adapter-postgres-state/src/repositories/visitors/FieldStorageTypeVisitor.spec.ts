@@ -1,4 +1,14 @@
-import { BaseId, FieldName, RatingMax, SelectOption, Table, TableName } from '@teable/v2-core';
+import {
+  BaseId,
+  FieldId,
+  FieldName,
+  FormulaExpression,
+  RatingMax,
+  SelectOption,
+  Table,
+  TableName,
+  resolveFormulaFields,
+} from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
@@ -19,6 +29,7 @@ describe('FieldStorageTypeVisitor', () => {
     const descriptionName = unwrap(FieldName.create('Description'));
     const amountName = unwrap(FieldName.create('Amount'));
     const ratingName = unwrap(FieldName.create('Rating'));
+    const scoreName = unwrap(FieldName.create('Score'));
     const statusName = unwrap(FieldName.create('Status'));
     const tagsName = unwrap(FieldName.create('Tags'));
     const doneName = unwrap(FieldName.create('Done'));
@@ -28,11 +39,14 @@ describe('FieldStorageTypeVisitor', () => {
     const actionName = unwrap(FieldName.create('Action'));
     const todoOption = unwrap(SelectOption.create({ name: 'Todo', color: 'blue' }));
     const doneOption = unwrap(SelectOption.create({ name: 'Done', color: 'red' }));
+    const amountId = unwrap(FieldId.create(`fld${'a'.repeat(16)}`));
+    const formulaExpression = unwrap(FormulaExpression.create(`{${amountId.toString()}} * 2`));
 
     const builder = Table.builder().withBaseId(baseId).withName(tableName);
     builder.field().singleLineText().withName(titleName).done();
     builder.field().longText().withName(descriptionName).done();
-    builder.field().number().withName(amountName).done();
+    builder.field().number().withName(amountName).withId(amountId).done();
+    builder.field().formula().withName(scoreName).withExpression(formulaExpression).done();
     builder.field().rating().withName(ratingName).withMax(RatingMax.five()).done();
     builder
       .field()
@@ -54,6 +68,9 @@ describe('FieldStorageTypeVisitor', () => {
     builder.view().defaultGrid().done();
 
     const table = unwrap(builder.build());
+    const resolveResult = resolveFormulaFields(table);
+    expect(resolveResult.isOk()).toBe(true);
+    if (resolveResult.isErr()) return;
     const visitor = new FieldStorageTypeVisitor();
     const applyResult = visitor.apply(table);
     expect(applyResult.isOk()).toBe(true);
@@ -63,17 +80,18 @@ describe('FieldStorageTypeVisitor', () => {
     const storageTypes = table.fields().map((field) => typesById.get(field.id().toString()));
 
     expect(storageTypes).toEqual([
-      { cellValueType: 'string', dbFieldType: 'TEXT' },
-      { cellValueType: 'string', dbFieldType: 'TEXT' },
-      { cellValueType: 'number', dbFieldType: 'REAL' },
-      { cellValueType: 'number', dbFieldType: 'REAL' },
-      { cellValueType: 'string', dbFieldType: 'TEXT' },
-      { cellValueType: 'string', dbFieldType: 'JSON' },
-      { cellValueType: 'boolean', dbFieldType: 'BOOLEAN' },
-      { cellValueType: 'string', dbFieldType: 'JSON' },
-      { cellValueType: 'dateTime', dbFieldType: 'DATETIME' },
-      { cellValueType: 'string', dbFieldType: 'JSON' },
-      { cellValueType: 'string', dbFieldType: 'JSON' },
+      { cellValueType: 'string', dbFieldType: 'TEXT', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'TEXT', isMultipleCellValue: false },
+      { cellValueType: 'number', dbFieldType: 'REAL', isMultipleCellValue: false },
+      { cellValueType: 'number', dbFieldType: 'REAL', isMultipleCellValue: false },
+      { cellValueType: 'number', dbFieldType: 'REAL', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'TEXT', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: true },
+      { cellValueType: 'boolean', dbFieldType: 'BOOLEAN', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: true },
+      { cellValueType: 'dateTime', dbFieldType: 'DATETIME', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
     ]);
   });
 });

@@ -1,0 +1,175 @@
+import type {
+  BinaryOpContext,
+  BooleanLiteralContext,
+  BracketsContext,
+  DecimalLiteralContext,
+  FieldReferenceCurlyContext,
+  FunctionCallContext,
+  IntegerLiteralContext,
+  LeftWhitespaceOrCommentsContext,
+  RightWhitespaceOrCommentsContext,
+  RootContext,
+  StringLiteralContext,
+  UnaryOpContext,
+  FormulaVisitor,
+} from '@teable/formula';
+import { extractFieldReferenceId, AbstractParseTreeVisitor } from '@teable/formula';
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import { CellValueType } from './CellValueType';
+import type { FormulaFieldReference } from './FormulaFieldReference';
+import { normalizeFunctionNameAlias } from './function-aliases';
+import { FunctionName } from './functions/common';
+import { FUNCTIONS } from './functions/factory';
+import { TypedValue } from './typed-value';
+import { TypedValueConverter } from './typed-value-converter';
+
+export class FormulaTypeVisitor
+  extends AbstractParseTreeVisitor<Result<TypedValue, string>>
+  implements FormulaVisitor<Result<TypedValue, string>>
+{
+  private readonly converter = new TypedValueConverter();
+
+  constructor(private readonly dependencies: Readonly<Record<string, FormulaFieldReference>>) {
+    super();
+  }
+
+  protected defaultResult(): Result<TypedValue, string> {
+    return ok(new TypedValue(null, CellValueType.String));
+  }
+
+  visitRoot(ctx: RootContext): Result<TypedValue, string> {
+    return ctx.expr().accept(this);
+  }
+
+  visitStringLiteral(_ctx: StringLiteralContext): Result<TypedValue, string> {
+    return ok(new TypedValue(null, CellValueType.String));
+  }
+
+  visitIntegerLiteral(_ctx: IntegerLiteralContext): Result<TypedValue, string> {
+    return ok(new TypedValue(null, CellValueType.Number));
+  }
+
+  visitDecimalLiteral(_ctx: DecimalLiteralContext): Result<TypedValue, string> {
+    return ok(new TypedValue(null, CellValueType.Number));
+  }
+
+  visitBooleanLiteral(_ctx: BooleanLiteralContext): Result<TypedValue, string> {
+    return ok(new TypedValue(null, CellValueType.Boolean));
+  }
+
+  visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): Result<TypedValue, string> {
+    return ctx.expr().accept(this);
+  }
+
+  visitRightWhitespaceOrComments(
+    ctx: RightWhitespaceOrCommentsContext
+  ): Result<TypedValue, string> {
+    return ctx.expr().accept(this);
+  }
+
+  visitBrackets(ctx: BracketsContext): Result<TypedValue, string> {
+    return ctx.expr().accept(this);
+  }
+
+  visitUnaryOp(ctx: UnaryOpContext): Result<TypedValue, string> {
+    const exprResult = ctx.expr().accept(this);
+    if (exprResult.isErr()) return err(exprResult.error);
+    return ok(new TypedValue(null, CellValueType.Number));
+  }
+
+  visitBinaryOp(ctx: BinaryOpContext): Result<TypedValue, string> {
+    const leftResult = ctx.expr(0).accept(this);
+    if (leftResult.isErr()) return err(leftResult.error);
+    const rightResult = ctx.expr(1).accept(this);
+    if (rightResult.isErr()) return err(rightResult.error);
+
+    const valueType = this.getBinaryOpValueType(ctx, leftResult.value, rightResult.value);
+    return ok(new TypedValue(null, valueType));
+  }
+
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, string> {
+    const fieldId = extractFieldReferenceId(ctx);
+    if (!fieldId) {
+      return err('FieldId {} is a invalid field id');
+    }
+
+    const field = this.dependencies[fieldId];
+    if (!field) {
+      return err(`FieldId ${fieldId} is a invalid field id`);
+    }
+    return ok(new TypedValue(null, field.cellValueType, field.isMultipleCellValue, field));
+  }
+
+  visitFunctionCall(ctx: FunctionCallContext): Result<TypedValue, string> {
+    const rawName = ctx.func_name().text.toUpperCase();
+    const normalized = normalizeFunctionNameAlias(rawName) as FunctionName;
+    const func = FUNCTIONS[normalized];
+    if (!func) {
+      return err(`Function name ${rawName} is not found`);
+    }
+
+    if (normalized === FunctionName.Blank) {
+      return ok(new TypedValue(null, CellValueType.String, false, undefined, true));
+    }
+
+    const params: TypedValue[] = [];
+    for (const exprCtx of ctx.expr()) {
+      const paramResult = exprCtx.accept(this);
+      if (paramResult.isErr()) {
+        if (normalized === FunctionName.IsError) {
+          params.push(new TypedValue(null, CellValueType.String));
+          continue;
+        }
+        return err(paramResult.error);
+      }
+
+      const convertedResult = this.converter.convertTypedValue(paramResult.value, func);
+      if (convertedResult.isErr()) return err(convertedResult.error);
+      params.push(convertedResult.value);
+    }
+
+    const returnResult = func.getReturnType(params);
+    if (returnResult.isErr()) return err(returnResult.error);
+
+    return ok(new TypedValue(null, returnResult.value.type, returnResult.value.isMultiple));
+  }
+
+  private getBinaryOpValueType(
+    ctx: BinaryOpContext,
+    left: TypedValue,
+    right: TypedValue
+  ): CellValueType {
+    switch (true) {
+      case Boolean(ctx.PLUS()): {
+        if (left.type === CellValueType.Number && right.type === CellValueType.Number) {
+          return CellValueType.Number;
+        }
+        return CellValueType.String;
+      }
+      case Boolean(ctx.MINUS()):
+      case Boolean(ctx.STAR()):
+      case Boolean(ctx.PERCENT()):
+      case Boolean(ctx.SLASH()): {
+        return CellValueType.Number;
+      }
+      case Boolean(ctx.PIPE_PIPE()):
+      case Boolean(ctx.AMP_AMP()):
+      case Boolean(ctx.EQUAL()):
+      case Boolean(ctx.BANG_EQUAL()):
+      case Boolean(ctx.GT()):
+      case Boolean(ctx.GTE()):
+      case Boolean(ctx.LT()):
+      case Boolean(ctx.LTE()): {
+        return CellValueType.Boolean;
+      }
+      case Boolean(ctx.AMP()): {
+        return CellValueType.String;
+      }
+      default: {
+        return CellValueType.String;
+      }
+    }
+  }
+}

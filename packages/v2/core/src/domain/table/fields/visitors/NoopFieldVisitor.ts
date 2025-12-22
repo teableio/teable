@@ -5,6 +5,7 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
 import type { DateField } from '../types/DateField';
+import type { FormulaField } from '../types/FormulaField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
@@ -28,6 +29,10 @@ export class NoopFieldVisitor implements IFieldVisitor {
   }
 
   visitRatingField(_: RatingField): Result<void, string> {
+    return ok(undefined);
+  }
+
+  visitFormulaField(_: FormulaField): Result<void, string> {
     return ok(undefined);
   }
 

@@ -74,6 +74,31 @@ export type IButtonFieldOptionsDTO = {
   workflow?: IButtonWorkflowDTO | null;
 };
 
+export type IFormulaFieldFormattingDTO =
+  | INumberFormattingDTO
+  | {
+      date: string;
+      time: string;
+      timeZone: string;
+    };
+
+export type IFormulaFieldShowAsDTO =
+  | INumberShowAsDTO
+  | {
+      type: string;
+    };
+
+export type IFormulaFieldOptionsDTO = {
+  expression: string;
+  timeZone?: string;
+  formatting?: IFormulaFieldFormattingDTO;
+  showAs?: IFormulaFieldShowAsDTO;
+};
+
+export type IFormulaFieldMetaDTO = {
+  persistedAsGeneratedColumn?: boolean;
+};
+
 export type ITableFieldBaseDTO = {
   id: string;
   name: string;
@@ -88,6 +113,13 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'longText'; options?: ILongTextFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'number'; options?: INumberFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'rating'; options?: IRatingFieldOptionsDTO })
+  | (ITableFieldBaseDTO & {
+      type: 'formula';
+      options: IFormulaFieldOptionsDTO;
+      meta?: IFormulaFieldMetaDTO;
+      cellValueType?: string;
+      isMultipleCellValue?: boolean;
+    })
   | (ITableFieldBaseDTO & { type: 'singleSelect'; options: ISelectFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'multipleSelect'; options: ISelectFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'checkbox'; options?: ICheckboxFieldOptionsDTO })

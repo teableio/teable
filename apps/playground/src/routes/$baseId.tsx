@@ -5,9 +5,9 @@ import { TableByNameLikeSpec, TableName } from '@teable/v2-core';
 import { mapTableDtoToDomain, type ITableDto } from '@teable/v2-contract-http';
 import { debounce, useQueryState } from 'nuqs';
 import { useEffect, useOptimistic, useState } from 'react';
+import { useDebounceValue } from 'usehooks-ts';
 
 import { PlaygroundShell } from '@/components/playground/PlaygroundShell';
-import { useDebouncedValue } from '@/hooks/use-debounced-value';
 import { getOrpcClient } from '@/lib/orpcClient';
 
 export const Route = createFileRoute('/$baseId')({ component: PlaygroundBaseLayout });
@@ -41,7 +41,7 @@ function PlaygroundBaseLayout() {
   const [search, setSearch] = useQueryState('q', {
     limitUrlUpdates: debounce(300),
   });
-  const debouncedSearch = useDebouncedValue(search, 300);
+  const [debouncedSearch] = useDebounceValue(search, 300);
   const searchValue = search ?? '';
   const trimmedSearch = searchValue.trim();
   const hasSearch = trimmedSearch.length > 0;

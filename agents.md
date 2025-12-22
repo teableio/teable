@@ -11,11 +11,14 @@ This repo is introducing a new `packages/v2/*` architecture. Keep `v2` strict an
   - `zod` for validation (`safeParse` only)
   - `nanoid` for ID generation
   - `ts-pattern` for match pattern
+  - `@teable/formula` for formula parsing utilities
   - `@teable/v2-di` is allowed only in `src/commands/**` (application wiring), not in domain
   - Pure TS/JS standard library
 - **Forbidden inside `v2/core`**
   - No NestJS, Prisma, HTTP, queues, DB clients, file system, env access
   - No direct infrastructure code
+  - No dependency on v1 core (`packages/core` / `@teable/core`)
+  - No direct `antlr4ts` imports (use `@teable/formula` re-exports)
   - No `throw` / exceptions for control flow
 
 Future adapters live in their own workspace packages under `packages/v2/*` and depend on `@teable/v2-core` (never the other way around).
@@ -133,6 +136,11 @@ Inside `packages/v2/core/src`:
 - `ports/` — interfaces/ports (repositories, event bus/publisher, mappers)
 - `commands/` — commands + handlers (application use-cases over domain)
 - `queries/` — queries + handlers (application read use-cases over domain)
+
+## Architecture docs (required)
+
+- When adding or changing a significant folder/module, create or update its `ARCHITECTURE.md`.
+- If subfolders change, also update the parent `ARCHITECTURE.md` to keep the folder map accurate.
 
 ## Naming conventions
 

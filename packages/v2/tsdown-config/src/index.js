@@ -2,7 +2,7 @@ export const v2TsdownBaseConfig = {
   entry: ['src/index.ts'],
   outDir: 'dist',
   format: ['esm'],
-  external: [/^@teable\/v2-/],
+  external: [/^@teable\/v2-/, /^@teable\/formula$/],
   dts: {
     sourcemap: true,
   },

@@ -1,4 +1,4 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
@@ -20,6 +20,9 @@ import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefault
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
+import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
+import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
+import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
@@ -37,6 +40,7 @@ import { SingleLineTextField } from '../../../domain/table/fields/types/SingleLi
 import { SingleLineTextShowAs } from '../../../domain/table/fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from '../../../domain/table/fields/types/SingleSelectField';
 import { TextDefaultValue } from '../../../domain/table/fields/types/TextDefaultValue';
+import { TimeZone } from '../../../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefaultValue';
 import { UserField } from '../../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../../domain/table/fields/types/UserMultiplicity';
@@ -61,6 +65,8 @@ import type {
   IButtonFieldOptionsDTO,
   ICheckboxFieldOptionsDTO,
   IDateFieldOptionsDTO,
+  IFormulaFieldMetaDTO,
+  IFormulaFieldOptionsDTO,
   ILongTextFieldOptionsDTO,
   INumberFieldOptionsDTO,
   IRatingFieldOptionsDTO,
@@ -87,6 +93,28 @@ const optional = <T>(
 ): Result<T | undefined, string> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
+};
+
+const parseFormulaFormatting = (
+  raw: unknown
+): Result<NumberFormatting | DateTimeFormatting | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberFormatting.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const dateResult = DateTimeFormatting.create(raw);
+  if (dateResult.isOk()) return ok(dateResult.value);
+  return err('Invalid FormulaFormatting');
+};
+
+const parseFormulaShowAs = (
+  raw: unknown
+): Result<NumberShowAs | SingleLineTextShowAs | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberShowAs.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const textResult = SingleLineTextShowAs.create(raw);
+  if (textResult.isOk()) return ok(textResult.value);
+  return err('Invalid FormulaShowAs');
 };
 
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
@@ -148,6 +176,38 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       type: 'rating',
       options,
     });
+  }
+
+  visitFormulaField(field: FormulaField): Result<ITableFieldPersistenceDTO, string> {
+    const expression = field.expression().toString();
+    const options: IFormulaFieldOptionsDTO = { expression };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const meta = field.meta();
+
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field.isMultipleCellValue().map((isMultipleCellValue) => ({
+          cellValueType,
+          isMultipleCellValue,
+        }))
+      )
+      .andThen(({ cellValueType, isMultipleCellValue }) =>
+        (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
+          id: field.id().toString(),
+          name: field.name().toString(),
+          type: 'formula' as const,
+          options,
+          ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
+          cellValueType: cellValueType.toString(),
+          isMultipleCellValue: isMultipleCellValue.toBoolean(),
+        }))
+      );
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, string> {
@@ -376,6 +436,28 @@ export class DefaultTableMapper implements ITableMapper {
                 optional(options.icon, RatingIcon.create).andThen((icon) =>
                   optional(options.color, RatingColor.create).andThen((color) =>
                     RatingField.create({ id, name, max, icon, color })
+                  )
+                )
+              );
+            })
+            .with({ type: 'formula' }, (dto) => {
+              const options = dto.options;
+              return FormulaExpression.create(options.expression).andThen((expression) =>
+                optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                      optional(dto.meta, FormulaMeta.rehydrate).andThen((meta) =>
+                        FormulaField.create({
+                          id,
+                          name,
+                          expression,
+                          timeZone,
+                          formatting,
+                          showAs,
+                          meta,
+                        })
+                      )
+                    )
                   )
                 )
               );

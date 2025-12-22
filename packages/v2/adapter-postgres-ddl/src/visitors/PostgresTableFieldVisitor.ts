@@ -1,3 +1,4 @@
+import { FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   AttachmentField,
   ButtonField,
@@ -13,6 +14,7 @@ import type {
   SingleSelectField,
   Table,
   UserField,
+  FormulaField,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
 import { err, ok } from 'neverthrow';
@@ -32,6 +34,8 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
     return Array.isArray(value);
   }
 
+  private readonly valueTypeVisitor = new FieldValueTypeVisitor();
+
   apply(table: Table): Result<void, string>;
   apply(fields: ReadonlyArray<Field>): Result<void, string>;
   apply(tableOrFields: Table | ReadonlyArray<Field>): Result<void, string> {
@@ -48,47 +52,63 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   }
 
   visitSingleLineTextField(field: SingleLineTextField): Result<void, string> {
-    return this.addColumn(field, 'text');
+    return this.addColumnFromValueType(field);
   }
 
   visitLongTextField(field: LongTextField): Result<void, string> {
-    return this.addColumn(field, 'text');
+    return this.addColumnFromValueType(field);
   }
 
   visitNumberField(field: NumberField): Result<void, string> {
-    return this.addColumn(field, 'numeric');
+    return this.addColumnFromValueType(field);
   }
 
   visitRatingField(field: RatingField): Result<void, string> {
-    return this.addColumn(field, 'numeric');
+    return this.addColumnFromValueType(field);
+  }
+
+  visitFormulaField(field: FormulaField): Result<void, string> {
+    return this.addColumnFromValueType(field);
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<void, string> {
-    return this.addColumn(field, 'text');
+    return this.addColumnFromValueType(field);
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<void, string> {
-    return this.addColumn(field, 'jsonb');
+    return this.addColumnFromValueType(field);
   }
 
   visitCheckboxField(field: CheckboxField): Result<void, string> {
-    return this.addColumn(field, 'boolean');
+    return this.addColumnFromValueType(field);
   }
 
   visitAttachmentField(field: AttachmentField): Result<void, string> {
-    return this.addColumn(field, 'jsonb');
+    return this.addColumnFromValueType(field);
   }
 
   visitDateField(field: DateField): Result<void, string> {
-    return this.addColumn(field, 'timestamptz');
+    return this.addColumnFromValueType(field);
   }
 
   visitUserField(field: UserField): Result<void, string> {
-    return this.addColumn(field, 'jsonb');
+    return this.addColumnFromValueType(field);
   }
 
   visitButtonField(field: ButtonField): Result<void, string> {
-    return this.addColumn(field, 'jsonb');
+    return this.addColumnFromValueType(field);
+  }
+
+  private addColumnFromValueType(field: Field): Result<void, string> {
+    const valueTypeResult = field.accept(this.valueTypeVisitor);
+    if (valueTypeResult.isErr()) return err(valueTypeResult.error);
+    const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
+    const dataType = resolveColumnType(
+      field.type().toString(),
+      cellValueType.toString(),
+      isMultipleCellValue.toBoolean()
+    );
+    return this.addColumn(field, dataType);
   }
 
   private addColumn(field: Field, dataType: ITableColumnDataType): Result<void, string> {
@@ -106,3 +126,24 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
     return ok(undefined);
   }
 }
+
+const resolveColumnType = (
+  fieldType: string,
+  cellValueType: string,
+  isMultipleCellValue: boolean
+): ITableColumnDataType => {
+  if (isMultipleCellValue) return 'jsonb';
+  if (['attachment', 'user', 'button'].includes(fieldType)) return 'jsonb';
+
+  switch (cellValueType) {
+    case 'number':
+      return 'numeric';
+    case 'dateTime':
+      return 'timestamptz';
+    case 'boolean':
+      return 'boolean';
+    case 'string':
+    default:
+      return 'text';
+  }
+};

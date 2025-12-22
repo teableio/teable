@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-duplicate-string */
 import { describe, expect, it } from 'vitest';
 
 import { FieldId } from './fields/FieldId';

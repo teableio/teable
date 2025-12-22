@@ -9,12 +9,17 @@ import type { ButtonLabel } from './types/ButtonLabel';
 import type { ButtonMaxCount } from './types/ButtonMaxCount';
 import type { ButtonResetCount } from './types/ButtonResetCount';
 import type { ButtonWorkflow } from './types/ButtonWorkflow';
+import type { CellValueMultiplicity } from './types/CellValueMultiplicity';
+import type { CellValueType } from './types/CellValueType';
 import type { CheckboxDefaultValue } from './types/CheckboxDefaultValue';
 import { CheckboxField } from './types/CheckboxField';
 import type { DateDefaultValue } from './types/DateDefaultValue';
 import { DateField } from './types/DateField';
 import type { DateTimeFormatting } from './types/DateTimeFormatting';
 import type { FieldColor } from './types/FieldColor';
+import type { FormulaExpression } from './types/FormulaExpression';
+import { FormulaField, type FormulaFormatting, type FormulaShowAs } from './types/FormulaField';
+import type { FormulaMeta } from './types/FormulaMeta';
 import { LongTextField } from './types/LongTextField';
 import { MultipleSelectField } from './types/MultipleSelectField';
 import type { NumberDefaultValue } from './types/NumberDefaultValue';
@@ -32,6 +37,7 @@ import { SingleLineTextField } from './types/SingleLineTextField';
 import type { SingleLineTextShowAs } from './types/SingleLineTextShowAs';
 import { SingleSelectField } from './types/SingleSelectField';
 import type { TextDefaultValue } from './types/TextDefaultValue';
+import type { TimeZone } from './types/TimeZone';
 import type { UserDefaultValue } from './types/UserDefaultValue';
 import { UserField } from './types/UserField';
 import type { UserMultiplicity } from './types/UserMultiplicity';
@@ -67,6 +73,18 @@ export const createRatingField = (params: {
   icon?: RatingIcon;
   color?: RatingColor;
 }): Result<Field, string> => RatingField.create(params);
+
+export const createFormulaField = (params: {
+  id: FieldId;
+  name: FieldName;
+  expression: FormulaExpression;
+  timeZone?: TimeZone;
+  formatting?: FormulaFormatting;
+  showAs?: FormulaShowAs;
+  meta?: FormulaMeta;
+  resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
+  dependencies?: ReadonlyArray<FieldId>;
+}): Result<Field, string> => FormulaField.create(params);
 
 export const createSelectField = (params: {
   id: FieldId;

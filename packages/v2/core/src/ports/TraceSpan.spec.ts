@@ -3,7 +3,8 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { ActorId } from '../domain/shared/ActorId';
-import { IExecutionContext } from './ExecutionContext';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import type { IExecutionContext } from './ExecutionContext';
 import type { ISpan, ITracer, SpanAttributes } from './Tracer';
 import { TraceSpan } from './TraceSpan';
 

@@ -25,10 +25,15 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DateTimeFormatting.spec.ts` - Role: value object tests; Purpose: validate date/time formatting.
 - `DateTimeFormatting.ts` - Role: value object; Purpose: date/time/timezone formatting.
 - `FieldColor.ts` - Role: value object; Purpose: field color enum wrapper.
+- `FormulaExpression.ts` - Role: value object; Purpose: formula expression parsing + type inference.
+- `FormulaField.ts` - Role: field subtype; Purpose: formula field entity.
+- `FormulaMeta.ts` - Role: value object; Purpose: formula persistence meta (rehydrated).
 - `FieldTypes.spec.ts` - Role: type tests; Purpose: verify field subtype creation.
 - `FieldValueObjects.spec.ts` - Role: value object tests; Purpose: verify field value objects.
 - `LongTextField.ts` - Role: field subtype; Purpose: long text field entity.
 - `MultipleSelectField.ts` - Role: field subtype; Purpose: multiple select field entity.
+- `CellValueMultiplicity.ts` - Role: value object; Purpose: single/multiple cell multiplicity.
+- `CellValueType.ts` - Role: value object; Purpose: formula result type wrapper.
 - `NumberDefaultValue.ts` - Role: value object; Purpose: number default config.
 - `NumberField.ts` - Role: field subtype; Purpose: number field entity.
 - `NumberFormatting.spec.ts` - Role: value object tests; Purpose: validate number formatting.

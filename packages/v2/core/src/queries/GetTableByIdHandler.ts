@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { resolveFormulaFields } from '../application/formula/resolveFormulaFields';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -47,6 +48,8 @@ export class GetTableByIdHandler implements IQueryHandler<GetTableByIdQuery, Get
       if (tableResult.error === 'Not found') return err('Table not found');
       return err(tableResult.error);
     }
+    const resolveResult = resolveFormulaFields(tableResult.value);
+    if (resolveResult.isErr()) return err(resolveResult.error);
 
     this.logger.debug('GetTableByIdHandler.success', {
       baseId: query.baseId.toString(),

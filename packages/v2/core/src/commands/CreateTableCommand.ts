@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
@@ -16,6 +17,8 @@ import {
   TimeFormatting,
 } from '../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor, fieldColorValues } from '../domain/table/fields/types/FieldColor';
+import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
+import type { FormulaFormatting, FormulaShowAs } from '../domain/table/fields/types/FormulaField';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
 import {
   NumberFormatting,
@@ -37,7 +40,7 @@ import {
   singleLineTextShowAsValues,
 } from '../domain/table/fields/types/SingleLineTextShowAs';
 import { TextDefaultValue } from '../domain/table/fields/types/TextDefaultValue';
-import { TIME_ZONE_LIST } from '../domain/table/fields/types/TimeZone';
+import { TIME_ZONE_LIST, TimeZone } from '../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
@@ -151,6 +154,19 @@ const buttonOptionsSchema = z.object({
   workflow: buttonWorkflowSchema.optional().nullable(),
 });
 
+const formulaFormattingSchema = z.union([numberFormattingSchema, dateFormattingSchema]);
+
+const formulaShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSchema]);
+
+const formulaResultTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
+
+const formulaOptionsSchema = z.object({
+  expression: z.string(),
+  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  formatting: formulaFormattingSchema.optional(),
+  showAs: formulaShowAsSchema.optional(),
+});
+
 export const createTableInputSchema = z.object({
   baseId: z.string(),
   name: z.string(),
@@ -159,24 +175,28 @@ export const createTableInputSchema = z.object({
       z.discriminatedUnion('type', [
         z.object({
           type: z.literal('singleLineText'),
+          id: z.string().optional(),
           name: z.string(),
           options: singleLineTextOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('longText'),
+          id: z.string().optional(),
           name: z.string(),
           options: longTextOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('number'),
+          id: z.string().optional(),
           name: z.string(),
           options: numberOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('rating'),
+          id: z.string().optional(),
           name: z.string(),
           max: z.number().optional(),
           options: ratingOptionsSchema.optional(),
@@ -184,43 +204,59 @@ export const createTableInputSchema = z.object({
         }),
         z.object({
           type: z.literal('singleSelect'),
+          id: z.string().optional(),
           name: z.string(),
           options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('multipleSelect'),
+          id: z.string().optional(),
           name: z.string(),
           options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('checkbox'),
+          id: z.string().optional(),
           name: z.string(),
           options: checkboxOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('attachment'),
+          id: z.string().optional(),
           name: z.string(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('date'),
+          id: z.string().optional(),
           name: z.string(),
           options: dateOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('user'),
+          id: z.string().optional(),
           name: z.string(),
           options: userOptionsSchema.optional(),
           isPrimary: z.boolean().optional(),
         }),
         z.object({
           type: z.literal('button'),
+          id: z.string().optional(),
           name: z.string(),
           options: buttonOptionsSchema.optional(),
+          isPrimary: z.boolean().optional(),
+        }),
+        z.object({
+          type: z.literal('formula'),
+          id: z.string().optional(),
+          name: z.string(),
+          options: formulaOptionsSchema,
+          cellValueType: formulaResultTypeSchema.optional(),
+          isMultipleCellValue: z.boolean().optional(),
           isPrimary: z.boolean().optional(),
         }),
       ])
@@ -320,12 +356,14 @@ class CreatePluginViewSpec implements ICreateTableViewSpec {
 
 class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly showAs: SingleLineTextShowAs | undefined,
     private readonly defaultValue: TextDefaultValue | undefined
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -334,6 +372,7 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateSingleLineTextFieldSpec {
     return new CreateSingleLineTextFieldSpec(
+      id,
       name,
       options.showAs,
       options.defaultValue
@@ -342,6 +381,7 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().singleLineText().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
@@ -358,19 +398,24 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
 
 class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly defaultValue: TextDefaultValue | undefined
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: { isPrimary: boolean; defaultValue?: TextDefaultValue }
   ): CreateLongTextFieldSpec {
-    return new CreateLongTextFieldSpec(name, options.defaultValue).withPrimary(options.isPrimary);
+    return new CreateLongTextFieldSpec(id, name, options.defaultValue).withPrimary(
+      options.isPrimary
+    );
   }
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().longText().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
@@ -386,6 +431,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
 
 class CreateNumberFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly formatting: NumberFormatting | undefined,
     private readonly showAs: NumberShowAs | undefined,
@@ -393,6 +439,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -402,6 +449,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateNumberFieldSpec {
     return new CreateNumberFieldSpec(
+      id,
       name,
       options.formatting,
       options.showAs,
@@ -411,6 +459,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().number().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
@@ -428,6 +477,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
 
 class CreateRatingFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly max: RatingMax | undefined,
     private readonly icon: RatingIcon | undefined,
@@ -435,6 +485,7 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -443,13 +494,18 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
       color?: RatingColor;
     }
   ): CreateRatingFieldSpec {
-    return new CreateRatingFieldSpec(name, options.max, options.icon, options.color).withPrimary(
-      options.isPrimary
-    );
+    return new CreateRatingFieldSpec(
+      id,
+      name,
+      options.max,
+      options.icon,
+      options.color
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().rating().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.max) fieldBuilder.withMax(this.max);
     if (this.icon) fieldBuilder.withIcon(this.icon);
     if (this.color) fieldBuilder.withColor(this.color);
@@ -465,8 +521,62 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly expression: FormulaExpression,
+    private readonly timeZone: TimeZone | undefined,
+    private readonly formatting: FormulaFormatting | undefined,
+    private readonly showAs: FormulaShowAs | undefined
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      expression: FormulaExpression;
+      timeZone?: TimeZone;
+      formatting?: FormulaFormatting;
+      showAs?: FormulaShowAs;
+    }
+  ): CreateFormulaFieldSpec {
+    return new CreateFormulaFieldSpec(
+      id,
+      name,
+      options.expression,
+      options.timeZone,
+      options.formatting,
+      options.showAs
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder
+      .field()
+      .formula()
+      .withName(this.name)
+      .withExpression(this.expression);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.timeZone) fieldBuilder.withTimeZone(this.timeZone);
+    if (this.formatting) fieldBuilder.withFormatting(this.formatting);
+    if (this.showAs) fieldBuilder.withShowAs(this.showAs);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateFormulaFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
 class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly options: ReadonlyArray<SelectOption>,
     private readonly defaultValue: SelectDefaultValue | undefined,
@@ -474,6 +584,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: ReadonlyArray<SelectOption>,
     meta: {
@@ -483,6 +594,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateSingleSelectFieldSpec {
     return new CreateSingleSelectFieldSpec(
+      id,
       name,
       options,
       meta.defaultValue,
@@ -496,6 +608,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       .singleSelect()
       .withName(this.name)
       .withOptions(this.options);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.preventAutoNewOptions) {
       fieldBuilder.withPreventAutoNewOptions(this.preventAutoNewOptions);
@@ -514,6 +627,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
 
 class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly options: ReadonlyArray<SelectOption>,
     private readonly defaultValue: SelectDefaultValue | undefined,
@@ -521,6 +635,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: ReadonlyArray<SelectOption>,
     meta: {
@@ -530,6 +645,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateMultipleSelectFieldSpec {
     return new CreateMultipleSelectFieldSpec(
+      id,
       name,
       options,
       meta.defaultValue,
@@ -543,6 +659,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       .multipleSelect()
       .withName(this.name)
       .withOptions(this.options);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.preventAutoNewOptions) {
       fieldBuilder.withPreventAutoNewOptions(this.preventAutoNewOptions);
@@ -561,19 +678,24 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
 
 class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly defaultValue: CheckboxDefaultValue | undefined
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: { isPrimary: boolean; defaultValue?: CheckboxDefaultValue }
   ): CreateCheckboxFieldSpec {
-    return new CreateCheckboxFieldSpec(name, options.defaultValue).withPrimary(options.isPrimary);
+    return new CreateCheckboxFieldSpec(id, name, options.defaultValue).withPrimary(
+      options.isPrimary
+    );
   }
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().checkbox().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
@@ -588,14 +710,22 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
 }
 
 class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
-  private constructor(private readonly name: FieldName) {}
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName
+  ) {}
 
-  static create(name: FieldName, options: { isPrimary: boolean }): CreateAttachmentFieldSpec {
-    return new CreateAttachmentFieldSpec(name).withPrimary(options.isPrimary);
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: { isPrimary: boolean }
+  ): CreateAttachmentFieldSpec {
+    return new CreateAttachmentFieldSpec(id, name).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().attachment().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
@@ -610,12 +740,14 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
 
 class CreateDateFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly formatting: DateTimeFormatting | undefined,
     private readonly defaultValue: DateDefaultValue | undefined
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -623,13 +755,14 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
       defaultValue?: DateDefaultValue;
     }
   ): CreateDateFieldSpec {
-    return new CreateDateFieldSpec(name, options.formatting, options.defaultValue).withPrimary(
+    return new CreateDateFieldSpec(id, name, options.formatting, options.defaultValue).withPrimary(
       options.isPrimary
     );
   }
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().date().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
@@ -646,6 +779,7 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
 
 class CreateUserFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly multiplicity: UserMultiplicity | undefined,
     private readonly notification: UserNotification | undefined,
@@ -653,6 +787,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -662,6 +797,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateUserFieldSpec {
     return new CreateUserFieldSpec(
+      id,
       name,
       options.isMultiple,
       options.shouldNotify,
@@ -671,6 +807,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().user().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.multiplicity) fieldBuilder.withMultiplicity(this.multiplicity);
     if (this.notification) fieldBuilder.withNotification(this.notification);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
@@ -688,6 +825,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
 
 class CreateButtonFieldSpec implements ICreateTableFieldSpec {
   private constructor(
+    private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly label: ButtonLabel | undefined,
     private readonly color: FieldColor | undefined,
@@ -697,6 +835,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
   ) {}
 
   static create(
+    id: FieldId | undefined,
     name: FieldName,
     options: {
       isPrimary: boolean;
@@ -708,6 +847,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
     }
   ): CreateButtonFieldSpec {
     return new CreateButtonFieldSpec(
+      id,
       name,
       options.label,
       options.color,
@@ -719,6 +859,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
 
   applyTo(builder: TableBuilder): void {
     const fieldBuilder = builder.field().button().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
     if (this.label) fieldBuilder.withLabel(this.label);
     if (this.color) fieldBuilder.withColor(this.color);
     if (this.maxCount) fieldBuilder.withMaxCount(this.maxCount);
@@ -791,6 +932,24 @@ const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, string> =
   );
 };
 
+const parseFormulaFormatting = (raw: unknown): Result<FormulaFormatting | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberFormatting.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const dateResult = DateTimeFormatting.create(raw);
+  if (dateResult.isOk()) return ok(dateResult.value);
+  return err('Invalid FormulaFormatting');
+};
+
+const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberShowAs.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const textResult = SingleLineTextShowAs.create(raw);
+  if (textResult.isOk()) return ok(textResult.value);
+  return err('Invalid FormulaShowAs');
+};
+
 export class CreateTableCommand {
   private constructor(
     readonly baseId: BaseId,
@@ -834,119 +993,143 @@ export class CreateTableCommand {
 
     const specs = fieldsToUse.map((field, index) => {
       const isPrimary = index === primaryIndex;
-      return FieldName.create(field.name).andThen((name) => {
-        return match(field)
-          .with({ type: 'singleLineText' }, (field) =>
-            optional(field.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+      return optional(field.id, FieldId.create).andThen((id) =>
+        FieldName.create(field.name).andThen((name) => {
+          return match(field)
+            .with({ type: 'singleLineText' }, (field) =>
+              optional(field.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+                optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
+                  CreateSingleLineTextFieldSpec.create(id, name, {
+                    isPrimary,
+                    showAs,
+                    defaultValue,
+                  })
+                )
+              )
+            )
+            .with({ type: 'longText' }, (field) =>
               optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
-                CreateSingleLineTextFieldSpec.create(name, { isPrimary, showAs, defaultValue })
+                CreateLongTextFieldSpec.create(id, name, { isPrimary, defaultValue })
               )
             )
-          )
-          .with({ type: 'longText' }, (field) =>
-            optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
-              CreateLongTextFieldSpec.create(name, { isPrimary, defaultValue })
-            )
-          )
-          .with({ type: 'number' }, (field) =>
-            optional(field.options?.formatting, NumberFormatting.create).andThen((formatting) =>
-              optional(field.options?.showAs, NumberShowAs.create).andThen((showAs) =>
-                optional(field.options?.defaultValue, NumberDefaultValue.create).map(
-                  (defaultValue) =>
-                    CreateNumberFieldSpec.create(name, {
-                      isPrimary,
-                      formatting,
-                      showAs,
-                      defaultValue,
-                    })
-                )
-              )
-            )
-          )
-          .with({ type: 'rating' }, (field) => {
-            const maxRaw = field.options?.max ?? field.max;
-            return optional(maxRaw, RatingMax.create).andThen((max) =>
-              optional(field.options?.icon, RatingIcon.create).andThen((icon) =>
-                optional(field.options?.color, RatingColor.create).map((color) =>
-                  CreateRatingFieldSpec.create(name, { isPrimary, max, icon, color })
-                )
-              )
-            );
-          })
-          .with({ type: 'singleSelect' }, (field) =>
-            parseSelectOptions(field.options).map(
-              ({ options, defaultValue, preventAutoNewOptions }) =>
-                CreateSingleSelectFieldSpec.create(name, options, {
-                  isPrimary,
-                  defaultValue,
-                  preventAutoNewOptions,
-                })
-            )
-          )
-          .with({ type: 'multipleSelect' }, (field) =>
-            parseSelectOptions(field.options).map(
-              ({ options, defaultValue, preventAutoNewOptions }) =>
-                CreateMultipleSelectFieldSpec.create(name, options, {
-                  isPrimary,
-                  defaultValue,
-                  preventAutoNewOptions,
-                })
-            )
-          )
-          .with({ type: 'checkbox' }, (field) =>
-            optional(field.options?.defaultValue, CheckboxDefaultValue.create).map((defaultValue) =>
-              CreateCheckboxFieldSpec.create(name, { isPrimary, defaultValue })
-            )
-          )
-          .with({ type: 'attachment' }, () =>
-            ok(CreateAttachmentFieldSpec.create(name, { isPrimary }))
-          )
-          .with({ type: 'date' }, (field) =>
-            optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
-              optional(field.options?.defaultValue, DateDefaultValue.create).map((defaultValue) =>
-                CreateDateFieldSpec.create(name, { isPrimary, formatting, defaultValue })
-              )
-            )
-          )
-          .with({ type: 'user' }, (field) =>
-            optional(field.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
-              optional(field.options?.shouldNotify, UserNotification.create).andThen(
-                (shouldNotify) =>
-                  optional(field.options?.defaultValue, UserDefaultValue.create).map(
+            .with({ type: 'number' }, (field) =>
+              optional(field.options?.formatting, NumberFormatting.create).andThen((formatting) =>
+                optional(field.options?.showAs, NumberShowAs.create).andThen((showAs) =>
+                  optional(field.options?.defaultValue, NumberDefaultValue.create).map(
                     (defaultValue) =>
-                      CreateUserFieldSpec.create(name, {
+                      CreateNumberFieldSpec.create(id, name, {
                         isPrimary,
-                        isMultiple,
-                        shouldNotify,
+                        formatting,
+                        showAs,
                         defaultValue,
                       })
                   )
+                )
               )
             )
-          )
-          .with({ type: 'button' }, (field) =>
-            optional(field.options?.label, ButtonLabel.create).andThen((label) =>
-              optional(field.options?.color, FieldColor.create).andThen((color) =>
-                optional(field.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-                  optional(field.options?.resetCount, ButtonResetCount.create).andThen(
-                    (resetCount) =>
-                      optional(field.options?.workflow, ButtonWorkflow.create).map((workflow) =>
-                        CreateButtonFieldSpec.create(name, {
-                          isPrimary,
-                          label,
-                          color,
-                          maxCount,
-                          resetCount,
-                          workflow,
-                        })
-                      )
+            .with({ type: 'rating' }, (field) => {
+              const maxRaw = field.options?.max ?? field.max;
+              return optional(maxRaw, RatingMax.create).andThen((max) =>
+                optional(field.options?.icon, RatingIcon.create).andThen((icon) =>
+                  optional(field.options?.color, RatingColor.create).map((color) =>
+                    CreateRatingFieldSpec.create(id, name, { isPrimary, max, icon, color })
+                  )
+                )
+              );
+            })
+            .with({ type: 'formula' }, (field) =>
+              FormulaExpression.create(field.options.expression).andThen((expression) =>
+                optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                      CreateFormulaFieldSpec.create(id, name, {
+                        isPrimary,
+                        expression,
+                        timeZone,
+                        formatting,
+                        showAs,
+                      })
+                    )
                   )
                 )
               )
             )
-          )
-          .exhaustive();
-      });
+            .with({ type: 'singleSelect' }, (field) =>
+              parseSelectOptions(field.options).map(
+                ({ options, defaultValue, preventAutoNewOptions }) =>
+                  CreateSingleSelectFieldSpec.create(id, name, options, {
+                    isPrimary,
+                    defaultValue,
+                    preventAutoNewOptions,
+                  })
+              )
+            )
+            .with({ type: 'multipleSelect' }, (field) =>
+              parseSelectOptions(field.options).map(
+                ({ options, defaultValue, preventAutoNewOptions }) =>
+                  CreateMultipleSelectFieldSpec.create(id, name, options, {
+                    isPrimary,
+                    defaultValue,
+                    preventAutoNewOptions,
+                  })
+              )
+            )
+            .with({ type: 'checkbox' }, (field) =>
+              optional(field.options?.defaultValue, CheckboxDefaultValue.create).map(
+                (defaultValue) =>
+                  CreateCheckboxFieldSpec.create(id, name, { isPrimary, defaultValue })
+              )
+            )
+            .with({ type: 'attachment' }, () =>
+              ok(CreateAttachmentFieldSpec.create(id, name, { isPrimary }))
+            )
+            .with({ type: 'date' }, (field) =>
+              optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+                optional(field.options?.defaultValue, DateDefaultValue.create).map((defaultValue) =>
+                  CreateDateFieldSpec.create(id, name, { isPrimary, formatting, defaultValue })
+                )
+              )
+            )
+            .with({ type: 'user' }, (field) =>
+              optional(field.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
+                optional(field.options?.shouldNotify, UserNotification.create).andThen(
+                  (shouldNotify) =>
+                    optional(field.options?.defaultValue, UserDefaultValue.create).map(
+                      (defaultValue) =>
+                        CreateUserFieldSpec.create(id, name, {
+                          isPrimary,
+                          isMultiple,
+                          shouldNotify,
+                          defaultValue,
+                        })
+                    )
+                )
+              )
+            )
+            .with({ type: 'button' }, (field) =>
+              optional(field.options?.label, ButtonLabel.create).andThen((label) =>
+                optional(field.options?.color, FieldColor.create).andThen((color) =>
+                  optional(field.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
+                    optional(field.options?.resetCount, ButtonResetCount.create).andThen(
+                      (resetCount) =>
+                        optional(field.options?.workflow, ButtonWorkflow.create).map((workflow) =>
+                          CreateButtonFieldSpec.create(id, name, {
+                            isPrimary,
+                            label,
+                            color,
+                            maxCount,
+                            resetCount,
+                            workflow,
+                          })
+                        )
+                    )
+                  )
+                )
+              )
+            )
+            .exhaustive();
+        })
+      );
     });
 
     return sequence(specs);

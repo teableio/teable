@@ -11,12 +11,16 @@ import { ButtonLabel } from './ButtonLabel';
 import { ButtonMaxCount } from './ButtonMaxCount';
 import { ButtonResetCount } from './ButtonResetCount';
 import { ButtonWorkflow } from './ButtonWorkflow';
+import { CellValueMultiplicity } from './CellValueMultiplicity';
+import { CellValueType } from './CellValueType';
 import { CheckboxDefaultValue } from './CheckboxDefaultValue';
 import { CheckboxField } from './CheckboxField';
 import { DateDefaultValue } from './DateDefaultValue';
 import { DateField } from './DateField';
 import { DateTimeFormatting } from './DateTimeFormatting';
 import { FieldColor } from './FieldColor';
+import { FormulaExpression } from './FormulaExpression';
+import { FormulaField } from './FormulaField';
 import { LongTextField } from './LongTextField';
 import { MultipleSelectField } from './MultipleSelectField';
 import { NumberDefaultValue } from './NumberDefaultValue';
@@ -53,6 +57,9 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   }
   visitRatingField(): ReturnType<IFieldVisitor<string>['visitRatingField']> {
     return ok('rating');
+  }
+  visitFormulaField(): ReturnType<IFieldVisitor<string>['visitFormulaField']> {
+    return ok('formula');
   }
   visitSingleSelectField(): ReturnType<IFieldVisitor<string>['visitSingleSelectField']> {
     return ok('singleSelect');
@@ -120,6 +127,7 @@ describe('Field types', () => {
       name: 'Deploy',
       isActive: true,
     });
+    const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
 
     expect(
       [
@@ -147,6 +155,7 @@ describe('Field types', () => {
         buttonMaxResult,
         buttonResetResult,
         buttonWorkflowResult,
+        formulaExpressionResult,
       ].every((r) => r.isOk())
     ).toBe(true);
     if (
@@ -173,7 +182,8 @@ describe('Field types', () => {
       buttonColorResult.isErr() ||
       buttonMaxResult.isErr() ||
       buttonResetResult.isErr() ||
-      buttonWorkflowResult.isErr()
+      buttonWorkflowResult.isErr() ||
+      formulaExpressionResult.isErr()
     )
       return;
 
@@ -240,6 +250,22 @@ describe('Field types', () => {
     expect(ratingAccept.isOk()).toBe(true);
     if (ratingAccept.isErr()) return;
     expect(ratingAccept.value).toBe('rating');
+
+    const formula = FormulaField.create({
+      id,
+      name,
+      expression: formulaExpressionResult.value,
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    });
+    expect(formula.isOk()).toBe(true);
+    if (formula.isErr()) return;
+    const formulaAccept = formula.value.accept(visitor);
+    expect(formulaAccept.isOk()).toBe(true);
+    if (formulaAccept.isErr()) return;
+    expect(formulaAccept.value).toBe('formula');
 
     const singleSelect = SingleSelectField.create({
       id,

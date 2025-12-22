@@ -21,6 +21,7 @@ import type {
   MultipleSelectField,
   NumberField,
   RatingField,
+  FormulaField,
   SingleSelectField,
   Table,
   SingleLineTextField,
@@ -152,6 +153,19 @@ const buttonOptionsSchema = z.object({
   workflow: buttonWorkflowSchema.optional().nullable(),
 });
 
+const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
+
+const formulaFormattingSchema = z.union([numberFormattingSchema, dateFormattingSchema]);
+
+const formulaShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSchema]);
+
+const formulaOptionsSchema = z.object({
+  expression: z.string(),
+  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  formatting: formulaFormattingSchema.optional(),
+  showAs: formulaShowAsSchema.optional(),
+});
+
 type SingleLineTextOptionsDto = z.infer<typeof singleLineTextOptionsSchema>;
 type LongTextOptionsDto = z.infer<typeof longTextOptionsSchema>;
 type NumberOptionsDto = z.infer<typeof numberOptionsSchema>;
@@ -161,6 +175,7 @@ type CheckboxOptionsDto = z.infer<typeof checkboxOptionsSchema>;
 type DateOptionsDto = z.infer<typeof dateOptionsSchema>;
 type UserOptionsDto = z.infer<typeof userOptionsSchema>;
 type ButtonOptionsDto = z.infer<typeof buttonOptionsSchema>;
+type FormulaOptionsDto = z.infer<typeof formulaOptionsSchema>;
 
 export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
@@ -178,6 +193,12 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
     type: z.literal('rating'),
     options: ratingOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('formula'),
+    options: formulaOptionsSchema,
+    cellValueType: cellValueTypeSchema.optional(),
+    isMultipleCellValue: z.boolean().optional(),
   }),
   baseFieldDtoSchema.extend({
     type: z.literal('singleSelect'),
@@ -296,6 +317,36 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
+  }
+
+  visitFormulaField(field: FormulaField): Result<IFieldDto, string> {
+    const options: FormulaOptionsDto = {
+      expression: field.expression().toString(),
+    };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field.isMultipleCellValue().map((isMultipleCellValue) => ({
+          cellValueType,
+          isMultipleCellValue,
+        }))
+      )
+      .map(({ cellValueType, isMultipleCellValue }) => ({
+        id: field.id().toString(),
+        name: field.name().toString(),
+        dbFieldName: this.optionalDbFieldName(field),
+        type: 'formula',
+        options,
+        cellValueType: cellValueType.toString(),
+        isMultipleCellValue: isMultipleCellValue.toBoolean(),
+        isPrimary: field.id().equals(this.primaryFieldId),
+      }));
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, string> {

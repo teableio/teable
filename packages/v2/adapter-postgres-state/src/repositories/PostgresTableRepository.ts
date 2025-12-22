@@ -16,6 +16,8 @@ import type {
   IDateFieldOptionsDTO,
   IUserFieldOptionsDTO,
   IButtonFieldOptionsDTO,
+  IFormulaFieldOptionsDTO,
+  IFormulaFieldMetaDTO,
 } from '@teable/v2-core';
 import {
   DbFieldName,
@@ -89,11 +91,11 @@ export class PostgresTableRepository implements ITableRepository {
             name: f.field.name,
             description: null,
             options: this.serializeFieldOptions(f.field),
-            meta: null,
+            meta: this.serializeFieldMeta(f.field),
             ai_config: null,
             type: f.field.type,
             cell_value_type: storageType.cellValueType,
-            is_multiple_cell_value: null,
+            is_multiple_cell_value: storageType.isMultipleCellValue,
             db_field_type: storageType.dbFieldType,
             db_field_name: f.dbFieldName,
             not_null: null,
@@ -369,7 +371,17 @@ export class PostgresTableRepository implements ITableRepository {
           jsonArrayFrom(
             eb
               .selectFrom('field')
-              .select(['id', 'name', 'type', 'options', 'is_primary', 'db_field_name'])
+              .select([
+                'id',
+                'name',
+                'type',
+                'options',
+                'meta',
+                'cell_value_type',
+                'is_multiple_cell_value',
+                'is_primary',
+                'db_field_name',
+              ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
@@ -435,7 +447,17 @@ export class PostgresTableRepository implements ITableRepository {
           jsonArrayFrom(
             eb
               .selectFrom('field')
-              .select(['id', 'name', 'type', 'options', 'is_primary', 'db_field_name'])
+              .select([
+                'id',
+                'name',
+                'type',
+                'options',
+                'meta',
+                'cell_value_type',
+                'is_multiple_cell_value',
+                'is_primary',
+                'db_field_name',
+              ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
@@ -508,6 +530,9 @@ export class PostgresTableRepository implements ITableRepository {
           name: string;
           type: string;
           options: string | null;
+          meta: string | null;
+          cell_value_type: string | null;
+          is_multiple_cell_value: boolean | null;
           is_primary: boolean | null;
           db_field_name: string | null;
         }>)
@@ -548,17 +573,30 @@ export class PostgresTableRepository implements ITableRepository {
     return JSON.stringify(field.options);
   }
 
+  private serializeFieldMeta(field: ITableFieldPersistenceDTO): string | null {
+    if ('meta' in field && field.meta !== undefined) {
+      return JSON.stringify(field.meta);
+    }
+    return null;
+  }
+
   private deserializeFieldDto(row: {
     id: string;
     name: string;
     type: string;
     options: string | null;
+    meta: string | null;
+    cell_value_type: string | null;
+    is_multiple_cell_value: boolean | null;
     db_field_name: string | null;
   }): ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
     const dbFieldName = row.db_field_name ?? undefined;
+    const metaParsed = this.parseOptions(row.meta);
+    const hasMeta = Object.keys(metaParsed).length > 0;
+    const asMeta = <T>(): T | undefined => (hasMeta ? (metaParsed as T) : undefined);
 
     if (row.type === 'rating') {
       const options = {
@@ -595,6 +633,18 @@ export class PostgresTableRepository implements ITableRepository {
         name: row.name,
         type: 'number',
         options: asOptions<INumberFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'formula') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'formula',
+        options: asOptions<IFormulaFieldOptionsDTO>() ?? { expression: '' },
+        meta: asMeta<IFormulaFieldMetaDTO>(),
+        cellValueType: row.cell_value_type ?? undefined,
+        isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
         dbFieldName,
       };
     }

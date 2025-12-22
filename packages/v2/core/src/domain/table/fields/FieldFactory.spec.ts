@@ -5,6 +5,7 @@ import {
   createButtonField,
   createCheckboxField,
   createDateField,
+  createFormulaField,
   createLongTextField,
   createMultipleSelectField,
   createNumberField,
@@ -20,10 +21,13 @@ import { ButtonLabel } from './types/ButtonLabel';
 import { ButtonMaxCount } from './types/ButtonMaxCount';
 import { ButtonResetCount } from './types/ButtonResetCount';
 import { ButtonWorkflow } from './types/ButtonWorkflow';
+import { CellValueMultiplicity } from './types/CellValueMultiplicity';
+import { CellValueType } from './types/CellValueType';
 import { CheckboxDefaultValue } from './types/CheckboxDefaultValue';
 import { DateDefaultValue } from './types/DateDefaultValue';
 import { DateTimeFormatting } from './types/DateTimeFormatting';
 import { FieldColor } from './types/FieldColor';
+import { FormulaExpression } from './types/FormulaExpression';
 import { NumberDefaultValue } from './types/NumberDefaultValue';
 import { NumberFormatting } from './types/NumberFormatting';
 import { NumberShowAs } from './types/NumberShowAs';
@@ -85,6 +89,7 @@ describe('FieldFactory', () => {
       name: 'Deploy',
       isActive: true,
     });
+    const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
 
     expect(
       [
@@ -112,6 +117,7 @@ describe('FieldFactory', () => {
         buttonMaxResult,
         buttonResetResult,
         buttonWorkflowResult,
+        formulaExpressionResult,
       ].every((r) => r.isOk())
     ).toBe(true);
     if (
@@ -138,7 +144,8 @@ describe('FieldFactory', () => {
       buttonColorResult.isErr() ||
       buttonMaxResult.isErr() ||
       buttonResetResult.isErr() ||
-      buttonWorkflowResult.isErr()
+      buttonWorkflowResult.isErr() ||
+      formulaExpressionResult.isErr()
     )
       return;
 
@@ -185,6 +192,17 @@ describe('FieldFactory', () => {
     expect(rating.isOk()).toBe(true);
     if (rating.isErr()) return;
     expect(rating.value.type().toString()).toBe('rating');
+
+    const formula = createFormulaField({
+      id,
+      name,
+      expression: formulaExpressionResult.value,
+      resultType: {
+        cellValueType: CellValueType.number(),
+        isMultipleCellValue: CellValueMultiplicity.single(),
+      },
+    });
+    expect(formula.isOk()).toBe(true);
 
     const singleSelect = createSingleSelectField({
       id,

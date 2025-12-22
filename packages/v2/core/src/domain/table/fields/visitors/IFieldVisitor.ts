@@ -4,6 +4,7 @@ import type { AttachmentField } from '../types/AttachmentField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
 import type { DateField } from '../types/DateField';
+import type { FormulaField } from '../types/FormulaField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
@@ -17,6 +18,7 @@ export interface IFieldVisitor<T = void> {
   visitLongTextField(field: LongTextField): Result<T, string>;
   visitNumberField(field: NumberField): Result<T, string>;
   visitRatingField(field: RatingField): Result<T, string>;
+  visitFormulaField(field: FormulaField): Result<T, string>;
   visitSingleSelectField(field: SingleSelectField): Result<T, string>;
   visitMultipleSelectField(field: MultipleSelectField): Result<T, string>;
   visitCheckboxField(field: CheckboxField): Result<T, string>;

@@ -8,5 +8,8 @@ export { FormulaLexer } from './parser/FormulaLexer';
 export * from './parser/Formula';
 export type { FormulaVisitor } from './parser/FormulaVisitor';
 
-export { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-export type { RuleNode } from 'antlr4ts/tree/RuleNode';
+export { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor.js';
+export type { RuleNode } from 'antlr4ts/tree/RuleNode.js';
+export { CharStreams, CommonTokenStream } from 'antlr4ts';
+export type { ANTLRErrorListener, Recognizer, RecognitionException, Token } from 'antlr4ts';
+export type { ATNSimulator } from 'antlr4ts/atn/ATNSimulator.js';

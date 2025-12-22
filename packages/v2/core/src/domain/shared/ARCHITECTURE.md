@@ -7,6 +7,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Shared domain base classes and common value objects.
 - Core abstractions like DomainEvent, AggregateRoot, ValueObject.
 
+## Subfolders
+
+- `graph/` - Graph utilities for domain ordering (topological sort).
+
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain shared domain abstractions.

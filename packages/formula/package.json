@@ -16,16 +16,23 @@
     "url": "https://github.com/tea-artist"
   },
   "sideEffects": false,
-  "main": "dist/index.js",
-  "module": "dist/index.js",
-  "types": "src/index.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    }
+  },
   "files": [
     "dist",
     "src"
   ],
   "scripts": {
-    "build": "tsc --project ./tsconfig.build.json",
-    "dev": "tsc --watch",
+    "build": "tsdown --tsconfig tsconfig.build.json",
+    "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../.cache/eslint/formula.eslintcache",
     "antlr4ts": "antlr4ts -visitor -no-listener src/parser/*.g4",
@@ -46,6 +53,7 @@
     "eslint": "8.57.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
+    "tsdown": "0.18.1",
     "typescript": "5.4.3",
     "vite-tsconfig-paths": "4.3.2",
     "vitest": "2.1.5"

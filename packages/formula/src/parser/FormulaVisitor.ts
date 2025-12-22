@@ -1,6 +1,6 @@
 // Generated from src/formula/parser/Formula.g4 by ANTLR 4.9.0-SNAPSHOT
 
-import { ParseTreeVisitor } from 'antlr4ts/tree/ParseTreeVisitor';
+import { ParseTreeVisitor } from 'antlr4ts/tree/ParseTreeVisitor.js';
 
 import { StringLiteralContext } from './Formula';
 import { IntegerLiteralContext } from './Formula';

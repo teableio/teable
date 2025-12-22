@@ -46,6 +46,9 @@ describe('CreateTableCommand', () => {
     expect(baseIdResult.isOk()).toBe(true);
     if (baseIdResult.isErr()) return;
 
+    const amountFieldId = 'fldaaaaaaaaaaaaaaaa';
+    const formulaFieldId = 'fldbbbbbbbbbbbbbbbb';
+
     const commandResult = CreateTableCommand.create({
       baseId: baseIdResult.value.toString(),
       name: 'Complex Table',
@@ -63,6 +66,7 @@ describe('CreateTableCommand', () => {
         },
         {
           type: 'number',
+          id: amountFieldId,
           name: 'Amount',
           options: {
             formatting: { type: 'currency', precision: 2, symbol: '$' },
@@ -125,6 +129,15 @@ describe('CreateTableCommand', () => {
             workflow: { id: 'wfl123', name: 'Flow', isActive: true },
           },
         },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Total',
+          options: {
+            expression: `{${amountFieldId}} + 1`,
+            formatting: { type: 'decimal', precision: 2 },
+          },
+        },
       ],
       views: [
         { type: 'grid', name: 'Main' },
@@ -155,6 +168,7 @@ describe('CreateTableCommand', () => {
       'date',
       'user',
       'button',
+      'formula',
     ]);
     expect(table.views().map((view) => view.type().toString())).toEqual([
       'grid',

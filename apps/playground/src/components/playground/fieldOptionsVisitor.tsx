@@ -12,6 +12,7 @@ import {
   type NumberField,
   type NumberFormatting,
   type NumberShowAs,
+  type FormulaField,
   type RatingField,
   type Result,
   type SingleLineTextField,
@@ -100,6 +101,34 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'max', field.ratingMax().toNumber());
     pushToken(tokens, 'icon', field.ratingIcon().toString());
     pushToken(tokens, 'color', field.ratingColor().toString());
+    return ok(formatTokens(tokens));
+  }
+
+  visitFormulaField(field: FormulaField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'expr', field.expression().toString());
+    const timeZone = field.timeZone();
+    if (timeZone) pushToken(tokens, 'tz', timeZone.toString());
+    const formatting = field.formatting();
+    if (formatting) {
+      const dto = formatting.toDto();
+      if ('precision' in dto) {
+        tokens.push(...formatNumberFormattingTokens(formatting as NumberFormatting));
+      } else {
+        pushToken(tokens, 'date', dto.date);
+        pushToken(tokens, 'time', dto.time);
+        pushToken(tokens, 'tz', dto.timeZone);
+      }
+    }
+    const showAs = field.showAs();
+    if (showAs) {
+      const dto = showAs.toDto();
+      if ('color' in dto) {
+        tokens.push(...formatNumberShowAsTokens(showAs as NumberShowAs));
+      } else {
+        pushToken(tokens, 'showAs', dto.type);
+      }
+    }
     return ok(formatTokens(tokens));
   }
 

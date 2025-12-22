@@ -4,6 +4,7 @@ import type {
   ButtonField,
   CheckboxField,
   DateField,
+  FormulaField,
   IFieldVisitor,
   ITableRepository,
   LongTextField,
@@ -17,13 +18,16 @@ import type {
 import {
   ActorId,
   BaseId,
+  FieldId,
   FieldName,
+  FormulaExpression,
   OffsetPagination,
   PageLimit,
   PageOffset,
   RatingColor,
   RatingIcon,
   RatingMax,
+  resolveFormulaFields,
   SelectOption,
   Sort,
   SortDirection,
@@ -60,7 +64,8 @@ type IFieldSnapshot =
   | { type: 'attachment'; name: string }
   | { type: 'date'; name: string }
   | { type: 'user'; name: string }
-  | { type: 'button'; name: string };
+  | { type: 'button'; name: string }
+  | { type: 'formula'; name: string; expression: string };
 
 class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitSingleLineTextField(field: SingleLineTextField) {
@@ -85,6 +90,15 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
       max: field.ratingMax().toNumber(),
       icon: field.ratingIcon().toString(),
       color: field.ratingColor().toString(),
+    };
+    return ok(snapshot);
+  }
+
+  visitFormulaField(field: FormulaField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'formula',
+      name: field.name().toString(),
+      expression: field.expression().toString(),
     };
     return ok(snapshot);
   }
@@ -195,16 +209,22 @@ describe('PostgresTableRepository (pg)', () => {
       const tableNameResult = TableName.create('Projects');
       const titleNameResult = FieldName.create('Name');
       const priorityNameResult = FieldName.create('Priority');
+      const scoreNameResult = FieldName.create('Score');
       const statusNameResult = FieldName.create('Status');
       expect(
-        [tableNameResult, titleNameResult, priorityNameResult, statusNameResult].every((r) =>
-          r.isOk()
-        )
+        [
+          tableNameResult,
+          titleNameResult,
+          priorityNameResult,
+          scoreNameResult,
+          statusNameResult,
+        ].every((r) => r.isOk())
       ).toBe(true);
       if (
         tableNameResult.isErr() ||
         titleNameResult.isErr() ||
         priorityNameResult.isErr() ||
+        scoreNameResult.isErr() ||
         statusNameResult.isErr()
       )
         return;
@@ -224,16 +244,30 @@ describe('PostgresTableRepository (pg)', () => {
       )
         return;
 
+      const priorityId = FieldId.create(`fld${'b'.repeat(16)}`);
+      expect(priorityId.isOk()).toBe(true);
+      if (priorityId.isErr()) return;
+      const formulaExpression = FormulaExpression.create(`{${priorityId.value.toString()}} + 1`);
+      expect(formulaExpression.isOk()).toBe(true);
+      if (formulaExpression.isErr()) return;
+
       const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
       builder.field().singleLineText().withName(titleNameResult.value).done();
       builder
         .field()
         .rating()
         .withName(priorityNameResult.value)
+        .withId(priorityId.value)
         .withMax(RatingMax.five())
         .withIcon(iconResult.value)
         .withColor(colorResult.value)
         .primary()
+        .done();
+      builder
+        .field()
+        .formula()
+        .withName(scoreNameResult.value)
+        .withExpression(formulaExpression.value)
         .done();
       builder
         .field()
@@ -248,6 +282,9 @@ describe('PostgresTableRepository (pg)', () => {
       expect(tableResult.isOk()).toBe(true);
       if (tableResult.isErr()) return;
       const table = tableResult.value;
+      const resolveResult = resolveFormulaFields(table);
+      expect(resolveResult.isOk()).toBe(true);
+      if (resolveResult.isErr()) return;
       expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
 
       const insertResult = await repo.insert(context, table);
@@ -334,6 +371,7 @@ describe('PostgresTableRepository (pg)', () => {
       expect(fieldSnapshots.map((r) => r._unsafeUnwrap())).toEqual<IFieldSnapshot[]>([
         { type: 'singleLineText', name: 'Name' },
         { type: 'rating', name: 'Priority', max: 5, icon: 'moon', color: 'redBright' },
+        { type: 'formula', name: 'Score', expression: `{${priorityId.value.toString()}} + 1` },
         {
           type: 'singleSelect',
           name: 'Status',

@@ -1,4 +1,3 @@
-/* eslint-disable sonarjs/no-identical-functions */
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -13,12 +12,21 @@ import { ButtonLabel } from './fields/types/ButtonLabel';
 import type { ButtonMaxCount } from './fields/types/ButtonMaxCount';
 import type { ButtonResetCount } from './fields/types/ButtonResetCount';
 import type { ButtonWorkflow } from './fields/types/ButtonWorkflow';
+import type { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
+import type { CellValueType } from './fields/types/CellValueType';
 import type { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
 import type { DateDefaultValue } from './fields/types/DateDefaultValue';
 import { DateField } from './fields/types/DateField';
 import { DateTimeFormatting } from './fields/types/DateTimeFormatting';
 import { FieldColor } from './fields/types/FieldColor';
+import type { FormulaExpression } from './fields/types/FormulaExpression';
+import {
+  FormulaField,
+  type FormulaFormatting,
+  type FormulaShowAs,
+} from './fields/types/FormulaField';
+import type { FormulaMeta } from './fields/types/FormulaMeta';
 import { LongTextField } from './fields/types/LongTextField';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import type { NumberDefaultValue } from './fields/types/NumberDefaultValue';
@@ -36,6 +44,7 @@ import { SingleLineTextField } from './fields/types/SingleLineTextField';
 import type { SingleLineTextShowAs } from './fields/types/SingleLineTextShowAs';
 import { SingleSelectField } from './fields/types/SingleSelectField';
 import type { TextDefaultValue } from './fields/types/TextDefaultValue';
+import type { TimeZone } from './fields/types/TimeZone';
 import type { UserDefaultValue } from './fields/types/UserDefaultValue';
 import { UserField } from './fields/types/UserField';
 import { UserMultiplicity } from './fields/types/UserMultiplicity';
@@ -73,6 +82,7 @@ export interface ITableBuilderSink {
 
 const fieldNameRequiredError = 'FieldName is required';
 const viewNameRequiredError = 'ViewName is required';
+const formulaExpressionRequiredError = 'Formula expression is required';
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -83,6 +93,9 @@ const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): b
   }
   return true;
 };
+
+const resolveFieldId = (id?: FieldId): Result<FieldId, string> =>
+  id ? ok(id) : FieldId.generate();
 
 export class TableBuilder {
   private tableId: TableId | undefined;
@@ -220,6 +233,10 @@ export class TableFieldBuilder {
     return new RatingFieldBuilder(this.parent, this.sink);
   }
 
+  formula(): FormulaFieldBuilder {
+    return new FormulaFieldBuilder(this.parent, this.sink);
+  }
+
   singleSelect(): SingleSelectFieldBuilder {
     return new SingleSelectFieldBuilder(this.parent, this.sink);
   }
@@ -250,6 +267,7 @@ export class TableFieldBuilder {
 }
 
 export class SingleLineTextFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private showAs: SingleLineTextShowAs | undefined;
   private defaultValue: TextDefaultValue | undefined;
@@ -262,6 +280,11 @@ export class SingleLineTextFieldBuilder {
 
   withName(name: FieldName): SingleLineTextFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): SingleLineTextFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -287,7 +310,7 @@ export class SingleLineTextFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       SingleLineTextField.create({
         id,
         name,
@@ -304,6 +327,7 @@ export class SingleLineTextFieldBuilder {
 }
 
 export class LongTextFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private defaultValue: TextDefaultValue | undefined;
   private isPrimary = false;
@@ -315,6 +339,11 @@ export class LongTextFieldBuilder {
 
   withName(name: FieldName): LongTextFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): LongTextFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -335,7 +364,7 @@ export class LongTextFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       LongTextField.create({ id, name, defaultValue: this.defaultValue }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
@@ -347,6 +376,7 @@ export class LongTextFieldBuilder {
 }
 
 export class NumberFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private formatting: NumberFormatting = NumberFormatting.default();
   private showAs: NumberShowAs | undefined;
@@ -360,6 +390,11 @@ export class NumberFieldBuilder {
 
   withName(name: FieldName): NumberFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): NumberFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -390,7 +425,7 @@ export class NumberFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       NumberField.create({
         id,
         name,
@@ -408,6 +443,7 @@ export class NumberFieldBuilder {
 }
 
 export class RatingFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private max: RatingMax = RatingMax.five();
   private icon: RatingIcon = RatingIcon.star();
@@ -421,6 +457,11 @@ export class RatingFieldBuilder {
 
   withName(name: FieldName): RatingFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): RatingFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -451,7 +492,7 @@ export class RatingFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       RatingField.create({ id, name, max: this.max, icon: this.icon, color: this.color }).andThen(
         (field) => {
           if (!this.isPrimary) return ok(field);
@@ -464,7 +505,113 @@ export class RatingFieldBuilder {
   }
 }
 
+export class FormulaFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private expression: FormulaExpression | undefined;
+  private timeZone: TimeZone | undefined;
+  private formatting: FormulaFormatting | undefined;
+  private showAs: FormulaShowAs | undefined;
+  private meta: FormulaMeta | undefined;
+  private resultType:
+    | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
+    | undefined;
+  private dependencies: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): FormulaFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): FormulaFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withExpression(expression: FormulaExpression): FormulaFieldBuilder {
+    this.expression = expression;
+    return this;
+  }
+
+  withTimeZone(timeZone: TimeZone): FormulaFieldBuilder {
+    this.timeZone = timeZone;
+    return this;
+  }
+
+  withFormatting(formatting: FormulaFormatting): FormulaFieldBuilder {
+    this.formatting = formatting;
+    return this;
+  }
+
+  withShowAs(showAs: FormulaShowAs): FormulaFieldBuilder {
+    this.showAs = showAs;
+    return this;
+  }
+
+  withMeta(meta: FormulaMeta): FormulaFieldBuilder {
+    this.meta = meta;
+    return this;
+  }
+
+  withResultType(
+    cellValueType: CellValueType,
+    isMultipleCellValue: CellValueMultiplicity
+  ): FormulaFieldBuilder {
+    this.resultType = { cellValueType, isMultipleCellValue };
+    return this;
+  }
+
+  withDependencies(dependencies: ReadonlyArray<FieldId>): FormulaFieldBuilder {
+    this.dependencies = [...dependencies];
+    return this;
+  }
+
+  primary(): FormulaFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const expression = this.expression;
+    if (!expression) {
+      this.sink.addError(formulaExpressionRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      FormulaField.create({
+        id,
+        name,
+        expression,
+        timeZone: this.timeZone,
+        formatting: this.formatting,
+        showAs: this.showAs,
+        meta: this.meta,
+        dependencies: this.dependencies,
+        ...(this.resultType ? { resultType: this.resultType } : {}),
+      }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
 export class SingleSelectFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private options: ReadonlyArray<SelectOption> = [];
   private defaultValue: SelectDefaultValue | undefined;
@@ -478,6 +625,11 @@ export class SingleSelectFieldBuilder {
 
   withName(name: FieldName): SingleSelectFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): SingleSelectFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -508,7 +660,7 @@ export class SingleSelectFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       SingleSelectField.create({
         id,
         name,
@@ -526,6 +678,7 @@ export class SingleSelectFieldBuilder {
 }
 
 export class MultipleSelectFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private options: ReadonlyArray<SelectOption> = [];
   private defaultValue: SelectDefaultValue | undefined;
@@ -539,6 +692,11 @@ export class MultipleSelectFieldBuilder {
 
   withName(name: FieldName): MultipleSelectFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): MultipleSelectFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -571,7 +729,7 @@ export class MultipleSelectFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       MultipleSelectField.create({
         id,
         name,
@@ -589,6 +747,7 @@ export class MultipleSelectFieldBuilder {
 }
 
 export class CheckboxFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private defaultValue: CheckboxDefaultValue | undefined;
   private isPrimary = false;
@@ -600,6 +759,11 @@ export class CheckboxFieldBuilder {
 
   withName(name: FieldName): CheckboxFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): CheckboxFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -620,7 +784,7 @@ export class CheckboxFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       CheckboxField.create({ id, name, defaultValue: this.defaultValue }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
@@ -632,6 +796,7 @@ export class CheckboxFieldBuilder {
 }
 
 export class AttachmentFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private isPrimary = false;
 
@@ -642,6 +807,11 @@ export class AttachmentFieldBuilder {
 
   withName(name: FieldName): AttachmentFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): AttachmentFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -657,7 +827,7 @@ export class AttachmentFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       AttachmentField.create({ id, name }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
@@ -669,6 +839,7 @@ export class AttachmentFieldBuilder {
 }
 
 export class DateFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private formatting: DateTimeFormatting = DateTimeFormatting.default();
   private defaultValue: DateDefaultValue | undefined;
@@ -681,6 +852,11 @@ export class DateFieldBuilder {
 
   withName(name: FieldName): DateFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): DateFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -706,7 +882,7 @@ export class DateFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       DateField.create({
         id,
         name,
@@ -723,6 +899,7 @@ export class DateFieldBuilder {
 }
 
 export class UserFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private multiplicity: UserMultiplicity = UserMultiplicity.single();
   private notification: UserNotification = UserNotification.enabled();
@@ -736,6 +913,11 @@ export class UserFieldBuilder {
 
   withName(name: FieldName): UserFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): UserFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -766,7 +948,7 @@ export class UserFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       UserField.create({
         id,
         name,
@@ -784,6 +966,7 @@ export class UserFieldBuilder {
 }
 
 export class ButtonFieldBuilder {
+  private id: FieldId | undefined;
   private name: FieldName | undefined;
   private label: ButtonLabel = ButtonLabel.default();
   private color: FieldColor = FieldColor.from('teal');
@@ -799,6 +982,11 @@ export class ButtonFieldBuilder {
 
   withName(name: FieldName): ButtonFieldBuilder {
     this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): ButtonFieldBuilder {
+    this.id = id;
     return this;
   }
 
@@ -839,7 +1027,7 @@ export class ButtonFieldBuilder {
       return this.parent;
     }
 
-    const result = FieldId.generate().andThen((id) =>
+    const result = resolveFieldId(this.id).andThen((id) =>
       ButtonField.create({
         id,
         name,

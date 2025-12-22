@@ -1,4 +1,4 @@
-import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
+import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor.js';
 import { extractFieldReferenceId } from './field-reference.util';
 import type { FieldReferenceCurlyContext } from './parser/Formula';
 import type { FormulaVisitor } from './parser/FormulaVisitor';

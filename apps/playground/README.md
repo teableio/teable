@@ -1,5 +1,11 @@
 Welcome to your new TanStack app!
 
+## Playground Hook Notes (AI)
+
+- Prefer hooks from `usehooks-ts` before writing custom hooks.
+- Clipboard: use `useCopyToClipboard`.
+- Debounce: use `useDebounceValue` or `useDebounceCallback`.
+
 # Getting Started
 
 To run this application:

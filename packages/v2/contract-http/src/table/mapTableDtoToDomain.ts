@@ -12,6 +12,10 @@ import {
   FieldColor,
   FieldId,
   FieldName,
+  type FormulaField,
+  FormulaExpression,
+  CellValueMultiplicity,
+  CellValueType,
   NumberDefaultValue,
   NumberFormatting,
   NumberShowAs,
@@ -45,16 +49,20 @@ import {
   createNumberField,
   createPluginView,
   createRatingField,
+  createFormulaField,
   createSingleLineTextField,
   createSingleSelectField,
   createUserField,
   type Field,
   type View,
+  TimeZone,
 } from '@teable/v2-core';
 
 import { err, ok, type Result } from 'neverthrow';
 import { sequenceResults } from '../shared/neverthrow';
 import type { IFieldDto, ITableDto, IViewDto } from './dto';
+
+type FormulaFieldDto = Extract<IFieldDto, { type: 'formula' }>;
 
 const optional = <T>(
   raw: unknown,
@@ -64,10 +72,45 @@ const optional = <T>(
   return parser(raw).map((value) => value);
 };
 
+const parseFormulaFormatting = (
+  raw: unknown
+): Result<NumberFormatting | DateTimeFormatting | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberFormatting.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const dateResult = DateTimeFormatting.create(raw);
+  if (dateResult.isOk()) return ok(dateResult.value);
+  return err('Invalid FormulaFormatting');
+};
+
+const parseFormulaShowAs = (
+  raw: unknown
+): Result<NumberShowAs | SingleLineTextShowAs | undefined, string> => {
+  if (raw == null) return ok(undefined);
+  const numberResult = NumberShowAs.create(raw);
+  if (numberResult.isOk()) return ok(numberResult.value);
+  const textResult = SingleLineTextShowAs.create(raw);
+  if (textResult.isOk()) return ok(textResult.value);
+  return err('Invalid FormulaShowAs');
+};
+
 const applyDbFieldName = (field: Field, dbFieldName?: string): Result<Field, string> => {
   if (!dbFieldName) return ok(field);
   return DbFieldName.rehydrate(dbFieldName).andThen((value) =>
     field.setDbFieldName(value).map(() => field)
+  );
+};
+
+const applyFormulaResultType = (
+  field: FormulaField,
+  cellValueType?: FormulaFieldDto['cellValueType'],
+  isMultipleCellValue?: FormulaFieldDto['isMultipleCellValue']
+): Result<FormulaField, string> => {
+  if (cellValueType == null || isMultipleCellValue == null) return ok(field);
+  return CellValueType.create(cellValueType).andThen((cellValueTypeValue) =>
+    CellValueMultiplicity.create(isMultipleCellValue).andThen((isMultipleCellValueValue) =>
+      field.setResultType(cellValueTypeValue, isMultipleCellValueValue).map(() => field)
+    )
   );
 };
 
@@ -104,6 +147,31 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
               optional(dto.options?.icon, RatingIcon.create).andThen((icon) =>
                 optional(dto.options?.color, RatingColor.create).andThen((color) =>
                   createRatingField({ id, name, max, icon, color })
+                )
+              )
+            );
+          }
+          case 'formula': {
+            const options = dto.options;
+            return FormulaExpression.create(options.expression).andThen((expression) =>
+              optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                  parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                    createFormulaField({
+                      id,
+                      name,
+                      expression,
+                      timeZone,
+                      formatting,
+                      showAs,
+                    }).andThen((field) =>
+                      applyFormulaResultType(
+                        field as FormulaField,
+                        dto.cellValueType,
+                        dto.isMultipleCellValue
+                      ).map(() => field)
+                    )
+                  )
                 )
               )
             );

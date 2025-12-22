@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { mapTableDtoToDomain, type ICreateTableRequestDto } from '@teable/v2-contract-http';
+import { FieldId } from '@teable/v2-core';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { getOrpcClient } from '@/lib/orpcClient';
@@ -10,89 +11,120 @@ import { PLAYGROUND_BASE_NAME, PLAYGROUND_TABLE_ID_STORAGE_KEY } from '@/lib/pla
 
 export const Route = createFileRoute('/$baseId/$tableId')({ component: PlaygroundTableRoute });
 
-const basicTableFields: ICreateTableRequestDto['fields'] = [
-  {
-    type: 'singleLineText',
-    name: 'Name',
-    options: { showAs: { type: 'email' }, defaultValue: 'owner@example.com' },
-  },
-  { type: 'longText', name: 'Description', options: { defaultValue: 'Details' } },
-  {
-    type: 'number',
-    name: 'Amount',
-    options: {
-      formatting: { type: 'currency', precision: 2, symbol: '$' },
-      showAs: {
-        type: 'bar',
-        color: 'teal',
-        showValue: true,
-        maxValue: 100,
+const createFieldId = (): string => {
+  const result = FieldId.generate();
+  if (result.isOk()) return result.value.toString();
+  const fallback = Math.random().toString(36).slice(2).padEnd(16, '0').slice(0, 16);
+  return `fld${fallback}`;
+};
+
+const buildBasicTableFields = (): ICreateTableRequestDto['fields'] => {
+  const amountFieldId = createFieldId();
+  const scoreFieldId = createFieldId();
+  const scoreLabelFieldId = createFieldId();
+
+  return [
+    {
+      type: 'singleLineText',
+      name: 'Name',
+      options: { showAs: { type: 'email' }, defaultValue: 'owner@example.com' },
+    },
+    { type: 'longText', name: 'Description', options: { defaultValue: 'Details' } },
+    {
+      type: 'number',
+      id: amountFieldId,
+      name: 'Amount',
+      options: {
+        formatting: { type: 'currency', precision: 2, symbol: '$' },
+        showAs: {
+          type: 'bar',
+          color: 'teal',
+          showValue: true,
+          maxValue: 100,
+        },
+        defaultValue: 10,
       },
-      defaultValue: 10,
     },
-  },
-  {
-    type: 'rating',
-    name: 'Priority',
-    options: { max: 5, icon: 'star', color: 'yellowBright' },
-  },
-  {
-    type: 'singleSelect',
-    name: 'Status',
-    options: {
-      choices: [
-        { name: 'Todo', color: 'blue' },
-        { name: 'Doing', color: 'yellow' },
-        { name: 'Done', color: 'green' },
-      ],
-      defaultValue: 'Todo',
-      preventAutoNewOptions: true,
+    {
+      type: 'formula',
+      id: scoreFieldId,
+      name: 'Score',
+      options: {
+        expression: `{${amountFieldId}} * 2`,
+        formatting: { type: 'decimal', precision: 0 },
+      },
     },
-  },
-  {
-    type: 'multipleSelect',
-    name: 'Tags',
-    options: {
-      choices: [
-        { name: 'Frontend', color: 'purple' },
-        { name: 'Backend', color: 'orange' },
-        { name: 'Bug', color: 'red' },
-      ],
-      defaultValue: ['Frontend', 'Bug'],
+    {
+      type: 'formula',
+      id: scoreLabelFieldId,
+      name: 'Score Label',
+      options: {
+        expression: `CONCATENATE("Score: ", {${scoreFieldId}})`,
+      },
     },
-  },
-  { type: 'checkbox', name: 'Done', options: { defaultValue: true } },
-  { type: 'attachment', name: 'Files' },
-  {
-    type: 'date',
-    name: 'Due Date',
-    options: {
-      formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
-      defaultValue: 'now',
+    {
+      type: 'rating',
+      name: 'Priority',
+      options: { max: 5, icon: 'star', color: 'yellowBright' },
     },
-  },
-  {
-    type: 'user',
-    name: 'Owner',
-    options: { isMultiple: true, shouldNotify: false, defaultValue: ['me'] },
-  },
-  {
-    type: 'button',
-    name: 'Action',
-    options: {
-      label: 'Run',
-      color: 'teal',
-      maxCount: 3,
-      resetCount: true,
-      workflow: { id: 'wflaaaaaaaaaaaaaaaa', name: 'Deploy', isActive: true },
+    {
+      type: 'singleSelect',
+      name: 'Status',
+      options: {
+        choices: [
+          { name: 'Todo', color: 'blue' },
+          { name: 'Doing', color: 'yellow' },
+          { name: 'Done', color: 'green' },
+        ],
+        defaultValue: 'Todo',
+        preventAutoNewOptions: true,
+      },
     },
-  },
-];
+    {
+      type: 'multipleSelect',
+      name: 'Tags',
+      options: {
+        choices: [
+          { name: 'Frontend', color: 'purple' },
+          { name: 'Backend', color: 'orange' },
+          { name: 'Bug', color: 'red' },
+        ],
+        defaultValue: ['Frontend', 'Bug'],
+      },
+    },
+    { type: 'checkbox', name: 'Done', options: { defaultValue: true } },
+    { type: 'attachment', name: 'Files' },
+    {
+      type: 'date',
+      name: 'Due Date',
+      options: {
+        formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+        defaultValue: 'now',
+      },
+    },
+    {
+      type: 'user',
+      name: 'Owner',
+      options: { isMultiple: true, shouldNotify: false, defaultValue: ['me'] },
+    },
+    {
+      type: 'button',
+      name: 'Action',
+      options: {
+        label: 'Run',
+        color: 'teal',
+        maxCount: 3,
+        resetCount: true,
+        workflow: { id: 'wflaaaaaaaaaaaaaaaa', name: 'Deploy', isActive: true },
+      },
+    },
+  ];
+};
 
 const buildBasicTableInput = (baseId: string, name: string): ICreateTableRequestDto => ({
   baseId,
   name,
-  fields: basicTableFields,
+  fields: buildBasicTableFields(),
 });
 
 const getErrorMessage = (error: unknown, fallback: string): string => {

@@ -22,6 +22,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
+    "@teable/formula": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "nanoid": "3.3.7",
     "neverthrow": "8.2.0",

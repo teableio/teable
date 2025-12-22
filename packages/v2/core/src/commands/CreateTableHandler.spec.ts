@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { ActorId } from '../domain/shared/ActorId';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { FormulaField } from '../domain/table/fields/types/FormulaField';
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
@@ -154,6 +155,55 @@ describe('CreateTableHandler', () => {
     expect(eventBus.published.length).toBeGreaterThan(0);
     expect(unitOfWork.transactions.length).toBe(1);
     expect(tableRepository.lastContext?.transaction?.kind).toBe('unitOfWorkTransaction');
+  });
+
+  it('resolves formula dependencies and types', async () => {
+    const numberFieldId = 'fld1111111111111111';
+    const formulaFieldId = 'fld2222222222222222';
+    const commandResult = CreateTableCommand.create({
+      baseId: `bse${'f'.repeat(16)}`,
+      name: 'Formula Table',
+      fields: [
+        { type: 'number', id: numberFieldId, name: 'Amount' },
+        {
+          type: 'formula',
+          id: formulaFieldId,
+          name: 'Total',
+          options: { expression: `{${numberFieldId}}` },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    expect(commandResult.isOk()).toBe(true);
+    if (commandResult.isErr()) return;
+
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const logger = new FakeLogger();
+    const unitOfWork = new FakeUnitOfWork();
+    const handler = new CreateTableHandler(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      logger,
+      unitOfWork
+    );
+
+    const result = await handler.handle(createContext(), commandResult.value);
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const table = result.value.table;
+    const formulaField = table.fields().find((field) => field.type().toString() === 'formula') as
+      | FormulaField
+      | undefined;
+    expect(formulaField).toBeDefined();
+    if (!formulaField) return;
+
+    expect(formulaField.dependencies().map((id) => id.toString())).toEqual([numberFieldId]);
+    const typeResult = formulaField.cellValueType();
+    expect(typeResult.isOk()).toBe(true);
   });
 
   it('returns errors from repositories and event bus', async () => {

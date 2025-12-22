@@ -1,9 +1,12 @@
+import { mapTableToDto } from '@teable/v2-contract-http';
 import type { Field, Table as TableAggregate, View } from '@teable/v2-core';
-import { Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
+import { Copy, Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
+import { toast } from 'sonner';
+import { useCopyToClipboard } from 'usehooks-ts';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -155,7 +158,7 @@ function PlaygroundErrorState({ message }: PlaygroundErrorStateProps) {
 
 function PlaygroundLoadingState() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-lg">
@@ -165,15 +168,15 @@ function PlaygroundLoadingState() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid grid-cols-5 gap-3">
-            {Array.from({ length: 5 }).map((_, index) => (
+          <div className="grid grid-cols-6 gap-3">
+            {Array.from({ length: 6 }).map((_, index) => (
               <Skeleton key={`header-skeleton-${index}`} className="h-4 w-full" />
             ))}
           </div>
           <div className="space-y-3">
             {Array.from({ length: 6 }).map((_, rowIndex) => (
-              <div key={`row-skeleton-${rowIndex}`} className="grid grid-cols-5 gap-3">
-                {Array.from({ length: 5 }).map((_, colIndex) => (
+              <div key={`row-skeleton-${rowIndex}`} className="grid grid-cols-6 gap-3">
+                {Array.from({ length: 6 }).map((_, colIndex) => (
                   <Skeleton key={`cell-skeleton-${rowIndex}-${colIndex}`} className="h-4 w-full" />
                 ))}
               </div>
@@ -245,7 +248,7 @@ type PlaygroundMetaLayoutProps = {
 
 function PlaygroundMetaLayout({ table, baseId, tableId, isLoading }: PlaygroundMetaLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
+    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
       <TableSchemaCard table={table} />
       <div className="space-y-6">
         <TableViewsCard views={table.views()} />
@@ -267,6 +270,21 @@ type TableSchemaCardProps = {
 function TableSchemaCard({ table }: TableSchemaCardProps) {
   const fields = table.fields();
   const primaryFieldId = table.primaryFieldId();
+  const [, copyToClipboard] = useCopyToClipboard();
+  const handleCopyTableJson = async () => {
+    const tableDtoResult = mapTableToDto(table);
+    if (tableDtoResult.isErr()) {
+      toast.error('Unable to prepare table JSON', { description: tableDtoResult.error });
+      return;
+    }
+
+    const didCopy = await copyToClipboard(JSON.stringify(tableDtoResult.value, null, 2));
+    if (didCopy) {
+      toast.success('Copied table JSON');
+    } else {
+      toast.error('Copy failed');
+    }
+  };
 
   return (
     <Card>
@@ -276,12 +294,19 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
           {table.name().toString()}
           <Badge variant="secondary">{fields.length} fields</Badge>
         </CardTitle>
+        <CardAction>
+          <Button variant="outline" size="sm" onClick={() => void handleCopyTableJson()}>
+            <Copy className="h-4 w-4" />
+            Copy JSON
+          </Button>
+        </CardAction>
       </CardHeader>
       <CardContent>
         <UITable>
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Field ID</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>DB Field</TableHead>
               <TableHead>Primary</TableHead>
@@ -295,6 +320,9 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
               return (
                 <TableRow key={field.id().toString()}>
                   <TableCell className="font-medium">{field.name().toString()}</TableCell>
+                  <TableCell className="break-all font-mono text-xs text-muted-foreground">
+                    {field.id().toString()}
+                  </TableCell>
                   <TableCell>{field.type().toString()}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {dbFieldName ?? '-'}

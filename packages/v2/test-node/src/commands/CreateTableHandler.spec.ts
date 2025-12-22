@@ -9,6 +9,7 @@ import {
   type ICommandBus,
   type IExecutionContext,
   type ITableSchemaRepository,
+  FieldValueTypeVisitor,
   Table,
   TableCreated,
   v2CoreTokens,
@@ -372,6 +373,124 @@ describe('CreateTableHandler', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBe('Forced schema failure');
+    }
+  });
+
+  it('creates formula fields and resolves dependencies', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+    const amountId = `fld${'a'.repeat(16)}`;
+    const scoreId = `fld${'b'.repeat(16)}`;
+    const scoreLabelId = `fld${'c'.repeat(16)}`;
+
+    const commandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Metrics',
+      fields: [
+        { type: 'singleLineText', name: 'Name' },
+        { type: 'number', id: amountId, name: 'Amount' },
+        {
+          type: 'formula',
+          id: scoreId,
+          name: 'Score',
+          options: { expression: `{${amountId}} * 2` },
+        },
+        {
+          type: 'formula',
+          id: scoreLabelId,
+          name: 'Score Label',
+          options: { expression: `CONCATENATE("Score: ", {${scoreId}})` },
+        },
+      ],
+    });
+
+    expect(commandResult.isOk()).toBe(true);
+    if (commandResult.isErr()) return;
+
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+
+    const context = { actorId: actorIdResult.value };
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
+    expect(result.isOk()).toBe(true);
+    if (result.isErr()) return;
+
+    const table = result.value.table;
+    const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const scoreField = byId.get(scoreId);
+    const scoreLabelField = byId.get(scoreLabelId);
+    const amountField = byId.get(amountId);
+    expect(scoreField).toBeTruthy();
+    expect(scoreLabelField).toBeTruthy();
+    expect(amountField).toBeTruthy();
+    if (!scoreField || !scoreLabelField || !amountField) return;
+
+    expect(scoreField.dependencies().map((id) => id.toString())).toEqual([amountId]);
+    expect(scoreLabelField.dependencies().map((id) => id.toString())).toEqual([scoreId]);
+    expect(amountField.dependents().map((id) => id.toString())).toEqual([scoreId]);
+    expect(scoreField.dependents().map((id) => id.toString())).toEqual([scoreLabelId]);
+
+    const valueTypeVisitor = new FieldValueTypeVisitor();
+    const scoreType = scoreField.accept(valueTypeVisitor);
+    expect(scoreType.isOk()).toBe(true);
+    if (scoreType.isErr()) return;
+    expect(scoreType.value.cellValueType.toString()).toBe('number');
+    expect(scoreType.value.isMultipleCellValue.toBoolean()).toBe(false);
+
+    const scoreLabelType = scoreLabelField.accept(valueTypeVisitor);
+    expect(scoreLabelType.isOk()).toBe(true);
+    if (scoreLabelType.isErr()) return;
+    expect(scoreLabelType.value.cellValueType.toString()).toBe('string');
+    expect(scoreLabelType.value.isMultipleCellValue.toBoolean()).toBe(false);
+  });
+
+  it('rejects formula cycles', async () => {
+    const { container, baseId } = getV2NodeTestContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+    const formulaAId = `fld${'a'.repeat(16)}`;
+    const formulaBId = `fld${'b'.repeat(16)}`;
+
+    const commandResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Cycle Table',
+      fields: [
+        { type: 'singleLineText', name: 'Name' },
+        {
+          type: 'formula',
+          id: formulaAId,
+          name: 'A',
+          options: { expression: `{${formulaBId}} + 1` },
+        },
+        {
+          type: 'formula',
+          id: formulaBId,
+          name: 'B',
+          options: { expression: `{${formulaAId}} + 1` },
+        },
+      ],
+    });
+
+    expect(commandResult.isOk()).toBe(true);
+    if (commandResult.isErr()) return;
+
+    const actorIdResult = ActorId.create('system');
+    expect(actorIdResult.isOk()).toBe(true);
+    if (actorIdResult.isErr()) return;
+
+    const context = { actorId: actorIdResult.value };
+    const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      commandResult.value
+    );
+    expect(result.isErr()).toBe(true);
+    if (result.isErr()) {
+      expect(result.error).toContain('Formula field dependency cycle detected');
     }
   });
 

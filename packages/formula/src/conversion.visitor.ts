@@ -1,5 +1,5 @@
-import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor';
-import type { TerminalNode } from 'antlr4ts/tree/TerminalNode';
+import { AbstractParseTreeVisitor } from 'antlr4ts/tree/AbstractParseTreeVisitor.js';
+import type { TerminalNode } from 'antlr4ts/tree/TerminalNode.js';
 import { extractFieldReferenceId } from './field-reference.util';
 import type { FieldReferenceCurlyContext } from './parser/Formula';
 

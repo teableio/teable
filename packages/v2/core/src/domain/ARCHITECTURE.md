@@ -12,6 +12,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `shared/` - Common domain base classes and shared value objects/spec framework.
 - `base/` - Base domain concepts.
 - `table/` - Table aggregate with fields/views/specs/events.
+- `formula/` - Formula parsing/type inference helpers for domain use.
 
 ## Files
 

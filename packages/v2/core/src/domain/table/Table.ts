@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
 
+import { topologicalSort } from '../shared/graph/topologicalSort';
 import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
 import type { Field } from './fields/Field';
@@ -132,6 +133,24 @@ export class Table extends AggregateRoot<TableId> {
 
   views(): ReadonlyArray<View> {
     return [...this.viewsValue];
+  }
+
+  fieldsByDependencies(): {
+    ordered: ReadonlyArray<Field>;
+    cycles: ReadonlyArray<ReadonlyArray<FieldId>>;
+  } {
+    const nodes = this.fieldsValue.map((field) => ({
+      id: field.id(),
+      dependencies: field.dependencies(),
+    }));
+    const result = topologicalSort(nodes);
+    const fieldById = new Map(
+      this.fieldsValue.map((field) => [field.id().toString(), field] as const)
+    );
+    return {
+      ordered: result.order.map((id) => fieldById.get(id.toString())!),
+      cycles: result.cycles,
+    };
   }
 
   fieldIds(): ReadonlyArray<FieldId> {

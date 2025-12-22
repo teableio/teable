@@ -1,5 +1,6 @@
 import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from '@tanstack/react-router';
 import { NuqsAdapter } from 'nuqs/adapters/tanstack-router';
+import { Toaster } from 'sonner';
 
 import appCss from '../styles.css?url';
 
@@ -51,6 +52,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         {children}
+        <Toaster
+          position="top-center"
+          richColors
+          closeButton
+          toastOptions={{
+            classNames: {
+              toast: 'bg-popover text-foreground border border-border shadow-sm',
+              title: 'text-sm font-medium',
+              description: 'text-xs text-muted-foreground',
+            },
+          }}
+        />
         <Scripts />
       </body>
     </html>

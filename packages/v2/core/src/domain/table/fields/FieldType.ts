@@ -9,6 +9,7 @@ const fieldTypeSchema = z.enum([
   'longText',
   'number',
   'rating',
+  'formula',
   'singleSelect',
   'multipleSelect',
   'checkbox',
@@ -44,6 +45,10 @@ export class FieldType extends ValueObject {
 
   static rating(): FieldType {
     return new FieldType('rating');
+  }
+
+  static formula(): FieldType {
+    return new FieldType('formula');
   }
 
   static singleSelect(): FieldType {
