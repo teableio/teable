@@ -14,7 +14,8 @@ export const TemplatePreview = (props: {
   isFull?: boolean;
 }) => {
   const { detail, hidePreviewButton, className, isFull } = props;
-  const { snapshot, name } = detail || {};
+  const { snapshot, name, publishInfo = {} } = detail || {};
+  const defaultUrl = publishInfo?.defaultUrl;
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useTranslation(['common']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
@@ -29,7 +30,8 @@ export const TemplatePreview = (props: {
   }
 
   const height = width * (640 / 1240);
-  const url = snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '';
+  const url =
+    defaultUrl || (snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '');
 
   return (
     <div className={cn('relative', className)} ref={isFull ? null : ref}>
