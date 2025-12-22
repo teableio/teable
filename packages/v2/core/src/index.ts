@@ -112,4 +112,4 @@ export * from './domain/shared/specification/visitors/ISpecFilterVisitor';
 export * from './domain/table/specs/TableByBaseIdSpec';
 export * from './domain/table/specs/TableSpecBuilder';
 
-export { Result } from 'neverthrow';
+export * from 'neverthrow';
