@@ -9,7 +9,7 @@ const ActionHttpRequest = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <rect width="24" height="24" fill="#FEE2E2" />
+    <rect width="24" height="24" fill="#FEE2E2" fillOpacity="0.1" />
     <path
       fillRule="evenodd"
       clipRule="evenodd"
