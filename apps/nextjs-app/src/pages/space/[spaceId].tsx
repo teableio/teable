@@ -39,8 +39,13 @@ export const getServerSideProps: GetServerSideProps = withEnv(
       const basesInSpace = baseList.filter((base) => base.spaceId === spaceId);
       const isOwner = space.role === Role.Owner;
 
+      // Check if this is a template apply request - skip auto-create if so
+      const { action, tid } = context.query;
+      const isTemplateApply = action === 'createFromTemplate' && tid;
+
       // If owner enters an empty space, auto-create a base and redirect
-      if (isOwner && basesInSpace.length === 0) {
+      // Skip auto-create if template apply is requested
+      if (isOwner && basesInSpace.length === 0 && !isTemplateApply) {
         const newBase = await ssrApi.createBase({
           spaceId: spaceId as string,
         });

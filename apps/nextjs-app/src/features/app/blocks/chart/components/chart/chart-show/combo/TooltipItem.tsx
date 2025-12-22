@@ -20,7 +20,7 @@ export const TooltipItem = (props: {
         <div className="grid gap-1.5">
           <span className="text-muted-foreground">{label}</span>
         </div>
-        <span className="text-foreground font-mono font-medium tabular-nums">{children}</span>
+        <span className="font-mono font-medium tabular-nums text-foreground">{children}</span>
       </div>
     </>
   );

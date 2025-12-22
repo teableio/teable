@@ -33,9 +33,12 @@ export const getServerSideProps: GetServerSideProps = withEnv(
           ? userLastVisitSpace?.resourceId
           : spaceIds[0];
       if (spaceId) {
+        // Preserve query parameters when redirecting (e.g., action=createFromTemplate&tid=xxx)
+        const queryString = context.req.url?.split('?')[1];
+        const destination = queryString ? `/space/${spaceId}?${queryString}` : `/space/${spaceId}`;
         return {
           redirect: {
-            destination: `/space/${spaceId}`,
+            destination,
             permanent: false,
           },
         };

@@ -14,6 +14,7 @@ import {
   Switch,
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
+import { Loader } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useState } from 'react';
@@ -21,19 +22,27 @@ import { Selector } from '@/components/Selector';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useTemplateCreateBaseStore } from './useTemplateCreateBaseStore';
 
-const TemplateBase = ({ templateId }: { templateId: string }) => {
+const TemplateBase = ({
+  templateId,
+  fixedSpaceId,
+}: {
+  templateId: string;
+  fixedSpaceId?: string;
+}) => {
   const { closeModal } = useTemplateCreateBaseStore();
   const [withRecords, setWithRecords] = useState(true);
-  const [targetSpaceId, setTargetSpaceId] = useState<string>();
+  const [targetSpaceId, setTargetSpaceId] = useState<string | undefined>(fixedSpaceId);
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
+  // Only fetch space list if no fixed spaceId provided
   const { data: spaceList } = useQuery({
     queryKey: ReactQueryKeys.spaceList(),
     queryFn: () => getSpaceList().then((data) => data.data),
+    enabled: !fixedSpaceId,
   });
 
-  const { mutateAsync: templateCreateBaseMutator } = useMutation({
+  const { mutateAsync: templateCreateBaseMutator, isLoading } = useMutation({
     mutationFn: createBaseFromTemplate,
     onSuccess: ({ data }) => {
       closeModal();
@@ -58,18 +67,16 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
   }, [spaceList]);
 
   useEffect(() => {
-    if (!targetSpaceId) {
+    if (!fixedSpaceId && !targetSpaceId) {
       setTargetSpaceId(editableSpaceList[0]?.id);
     }
-  }, [editableSpaceList, targetSpaceId, templateId]);
+  }, [editableSpaceList, targetSpaceId, fixedSpaceId]);
 
   const onSubmit = () => {
     if (!targetSpaceId) {
       toast.error(t('space:baseModal.missTargetTip'));
       return;
     }
-
-    toast.message(t('space:baseModal.copyingTemplate'));
 
     templateCreateBaseMutator({
       templateId,
@@ -90,28 +97,32 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
             id="duplicate-records-mode"
             checked={withRecords}
             onCheckedChange={(v) => setWithRecords(v)}
+            disabled={isLoading}
           />
         </div>
-        <div className="flex items-center gap-4">
-          <Label htmlFor="username" className="text-right">
-            {t('space:baseModal.toSpace')}
-          </Label>
-          <Selector
-            className="min-w-40"
-            candidates={editableSpaceList}
-            selectedId={targetSpaceId}
-            onChange={(id) => setTargetSpaceId(id)}
-          />
-        </div>
+        {/* Only show space selector if no fixed spaceId */}
+        {!fixedSpaceId && (
+          <div className="flex items-center gap-4">
+            <Label htmlFor="username" className="text-right">
+              {t('space:baseModal.toSpace')}
+            </Label>
+            <Selector
+              className="min-w-40"
+              candidates={editableSpaceList}
+              selectedId={targetSpaceId}
+              onChange={(id) => setTargetSpaceId(id)}
+            />
+          </div>
+        )}
       </div>
       <DialogFooter className="mt-4">
         <DialogClose asChild>
-          <Button size="sm" type="button" variant="ghost">
+          <Button size="sm" type="button" variant="ghost" disabled={isLoading}>
             {t('common:actions.cancel')}
           </Button>
         </DialogClose>
-        <Button size="sm" type="submit" onClick={() => onSubmit()}>
-          {t('common:actions.confirm')}
+        <Button size="sm" type="submit" onClick={() => onSubmit()} disabled={isLoading}>
+          {isLoading ? <Loader className="size-4 animate-spin" /> : t('common:actions.confirm')}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -119,10 +130,10 @@ const TemplateBase = ({ templateId }: { templateId: string }) => {
 };
 
 export const TemplateCreateBaseModal = () => {
-  const { templateId, closeModal } = useTemplateCreateBaseStore();
+  const { templateId, spaceId, closeModal } = useTemplateCreateBaseStore();
   return (
     <Dialog open={Boolean(templateId)} onOpenChange={(isOpen) => !isOpen && closeModal()}>
-      {templateId && <TemplateBase templateId={templateId} />}
+      {templateId && <TemplateBase templateId={templateId} fixedSpaceId={spaceId} />}
     </Dialog>
   );
 };

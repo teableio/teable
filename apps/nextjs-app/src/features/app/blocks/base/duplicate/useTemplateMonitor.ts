@@ -4,12 +4,25 @@ import { useTemplateCreateBaseStore } from './useTemplateCreateBaseStore';
 
 export const useTemplateMonitor = () => {
   const router = useRouter();
-  const { tid, action } = router.query as { tid: string; action: string };
+  const { tid, action, spaceId } = router.query as {
+    tid: string;
+    action: string;
+    spaceId?: string;
+  };
   const { openModal } = useTemplateCreateBaseStore();
+
   useMount(() => {
-    if (action === 'createFromTemplate' && tid) {
-      openModal(tid);
-      router.push(router.pathname, undefined, { shallow: true });
+    if (action === 'createFromTemplate' && tid && spaceId) {
+      openModal(tid, spaceId);
+      // Clear URL params while preserving spaceId
+      router.push(
+        {
+          pathname: router.pathname,
+          query: { spaceId },
+        },
+        undefined,
+        { shallow: true }
+      );
     }
   });
 };
