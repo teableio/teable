@@ -33,8 +33,13 @@ const EDITOR_LIGHT_THEME = (options?: IEditorThemeOptions) => ({
     ...(options?.content ?? { padding: '8px 4px' }),
     caretColor: colors.black,
   },
+  '.cm-line': {
+    position: 'relative',
+  },
   '.cm-placeholder': {
+    position: 'absolute',
     paddingLeft: 'unset',
+    pointerEvents: 'none',
   },
 });
 
@@ -44,8 +49,13 @@ const EDITOR_DARK_THEME = (options?: IEditorThemeOptions) => ({
     ...(options?.content ?? { padding: '8px 4px' }),
     caretColor: colors.white,
   },
+  '.cm-line': {
+    position: 'relative',
+  },
   '.cm-placeholder': {
+    position: 'absolute',
     paddingLeft: 'unset',
+    pointerEvents: 'none',
   },
 });
 

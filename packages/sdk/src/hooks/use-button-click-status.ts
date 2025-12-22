@@ -17,10 +17,7 @@ import { useConnection } from './use-connection';
 const resolveFieldVariables = (template: string, record?: IRecord): string => {
   if (!template || !record) return template;
   return template.replace(/\{([^}]+)\}/g, (match, fieldId) => {
-    const value = record.fields[fieldId];
-    if (value === null || value === undefined) return '';
-    if (typeof value === 'object') return JSON.stringify(value);
-    return String(value);
+    return record.getCellValueAsString(fieldId);
   });
 };
 export interface IButtonClickStatus {
