@@ -1,6 +1,11 @@
 import * as React from 'react';
 import type { SVGProps } from 'react';
-const ActionHttpRequest = (props: SVGProps<SVGSVGElement>) => (
+
+interface ActionHttpRequestProps extends SVGProps<SVGSVGElement> {
+  withBackground?: boolean;
+}
+
+const ActionHttpRequest = ({ withBackground = true, ...props }: ActionHttpRequestProps) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="1em"
@@ -9,7 +14,7 @@ const ActionHttpRequest = (props: SVGProps<SVGSVGElement>) => (
     viewBox="0 0 24 24"
     {...props}
   >
-    <rect width="24" height="24" fill="#FEE2E2" fillOpacity="0.1" />
+    {withBackground && <rect width={24} height={24} fill="#FEE2E2" fillOpacity="0.1" />}
     <path
       fillRule="evenodd"
       clipRule="evenodd"
