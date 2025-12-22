@@ -41,7 +41,10 @@
     "exit": "Выйти",
     "next": "Следующая",
     "previous": "Предыдущая",
-    "select": "Выбрать"
+    "select": "Выбрать",
+    "view": "Просмотр",
+    "preview": "Предпросмотр",
+    "viewAndEdit": "Просмотр и редактирование"
   },
   "quickAction": {
     "title": "Быстрые действия...",
@@ -174,6 +177,24 @@
       "revokeDesc": "{{name}} больше не сможет использовать API Teable. Это действие невозможно отменить.",
       "scopeTitle": "Разрешения",
       "scopeDesc": "Это приложение сможет получить следующие разрешения:"
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "Обложка",
+        "name": "Название",
+        "description": "Описание",
+        "markdownDescription": "Markdown описание",
+        "category": "Категория",
+        "isSystem": "Система",
+        "source": "Источник",
+        "status": "Опубликовано",
+        "publishSnapshot": "Опубликовать снимок",
+        "snapshotTime": "Время снимка",
+        "actions": "Действия",
+        "featured": "Рекомендуемое",
+        "createdBy": "Создано",
+        "userNonExistent": "Пользователь не существует"
+      }
     }
   },
   "noun": {
@@ -219,6 +240,7 @@
   "name": "Имя",
   "description": "Описание",
   "required": "Обязательно",
+  "characters": "символов",
   "guide": {
     "prev": "Назад",
     "next": "Далее",

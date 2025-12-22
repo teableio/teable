@@ -237,6 +237,9 @@ export type I18nTranslations = {
             "next": string;
             "previous": string;
             "select": string;
+            "view": string;
+            "preview": string;
+            "viewAndEdit": string;
             "continue": string;
             "export": string;
             "import": string;
@@ -432,6 +435,22 @@ export type I18nTranslations = {
                 };
             };
             "templateAdmin": {
+                "header": {
+                    "cover": string;
+                    "name": string;
+                    "description": string;
+                    "markdownDescription": string;
+                    "category": string;
+                    "isSystem": string;
+                    "source": string;
+                    "status": string;
+                    "publishSnapshot": string;
+                    "snapshotTime": string;
+                    "actions": string;
+                    "featured": string;
+                    "createdBy": string;
+                    "userNonExistent": string;
+                };
                 "title": string;
                 "noData": string;
                 "importing": string;
@@ -454,20 +473,6 @@ export type I18nTranslations = {
                         "all": string;
                         "browseByCategory": string;
                     };
-                };
-                "header": {
-                    "cover": string;
-                    "name": string;
-                    "description": string;
-                    "markdownDescription": string;
-                    "category": string;
-                    "isSystem": string;
-                    "source": string;
-                    "status": string;
-                    "publishSnapshot": string;
-                    "snapshotTime": string;
-                    "actions": string;
-                    "featured": string;
                 };
                 "actions": {
                     "title": string;
@@ -536,6 +541,7 @@ export type I18nTranslations = {
         "name": string;
         "description": string;
         "required": string;
+        "characters": string;
         "atLeastOne": string;
         "guide": {
             "prev": string;

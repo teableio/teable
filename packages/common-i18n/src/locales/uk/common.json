@@ -41,7 +41,10 @@
     "exit": "Вийти",
     "next": "Наступна",
     "previous": "Попередня",
-    "select": "Вибрати"
+    "select": "Вибрати",
+    "view": "Переглянути",
+    "preview": "Попередній перегляд",
+    "viewAndEdit": "Переглянути та редагувати"
   },
   "quickAction": {
     "title": "Швидкі дії...",
@@ -172,6 +175,24 @@
       "revokeDesc": "{{name}} більше не матиме доступу до Teable API. Ви не можете скасувати цю дію.",
       "scopeTitle": "Дозволи",
       "scopeDesc": "Ця програма зможе отримати наступні області:"
+    },
+    "templateAdmin": {
+      "header": {
+        "cover": "Обкладинка",
+        "name": "Назва",
+        "description": "Опис",
+        "markdownDescription": "Markdown опис",
+        "category": "Категорія",
+        "isSystem": "Система",
+        "source": "Джерело",
+        "status": "Опубліковано",
+        "publishSnapshot": "Опублікувати знімок",
+        "snapshotTime": "Час знімка",
+        "actions": "Дії",
+        "featured": "Рекомендовано",
+        "createdBy": "Створено",
+        "userNonExistent": "Користувач не існує"
+      }
     }
   },
   "noun": {
@@ -217,6 +238,7 @@
   "name": "Назва",
   "description": "Опис",
   "required": "Обов'язково",
+  "characters": "символів",
   "atLeastOne": "Принаймні зарезервуйте {{noun}}",
   "guide": {
     "prev": "Попер.",

@@ -164,6 +164,168 @@ describe('Template Open API Controller (e2e)', () => {
     expect(res2.data.length).toBe(0);
   });
 
+  describe('Template List Pagination', () => {
+    it('should paginate template list with skip and take', async () => {
+      // Create 5 templates
+      await Promise.all([
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+      ]);
+
+      // Get all templates for verification
+      const allTemplates = await getTemplateList();
+      const allTemplateIds = allTemplates.data.map((t) => t.id);
+      expect(allTemplateIds.length).toBe(5);
+
+      // Get first 2 templates
+      const res1 = await getTemplateList({ skip: 0, take: 2 });
+      expect(res1.status).toBe(200);
+      expect(res1.data.length).toBe(2);
+      const res1Ids = res1.data.map((t) => t.id);
+
+      // Skip 2, get next 2 templates
+      const res2 = await getTemplateList({ skip: 2, take: 2 });
+      expect(res2.status).toBe(200);
+      expect(res2.data.length).toBe(2);
+      const res2Ids = res2.data.map((t) => t.id);
+
+      // Skip 4, get last 1 template
+      const res3 = await getTemplateList({ skip: 4, take: 2 });
+      expect(res3.status).toBe(200);
+      expect(res3.data.length).toBe(1);
+      const res3Ids = res3.data.map((t) => t.id);
+
+      // Verify all returned IDs are in the total list
+      const paginatedIds = [...res1Ids, ...res2Ids, ...res3Ids];
+      expect(paginatedIds.every((id) => allTemplateIds.includes(id))).toBe(true);
+
+      // Verify pagination results have no duplicates
+      expect(new Set(paginatedIds).size).toBe(5);
+
+      // Verify pagination results cover all templates
+      expect(paginatedIds.sort()).toEqual(allTemplateIds.sort());
+    });
+
+    it('should handle skip beyond total count', async () => {
+      // Create 3 templates
+      await Promise.all([createTemplate({}), createTemplate({}), createTemplate({})]);
+
+      // Skip 10 (beyond total count)
+      const res = await getTemplateList({ skip: 10, take: 5 });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(0);
+    });
+
+    it('should handle take with 0', async () => {
+      // Create 3 templates
+      await Promise.all([createTemplate({}), createTemplate({}), createTemplate({})]);
+
+      // Take is 0
+      const res = await getTemplateList({ skip: 0, take: 0 });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(0);
+    });
+
+    it('should return all templates when skip and take not provided', async () => {
+      // Create 5 templates
+      await Promise.all([
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+        createTemplate({}),
+      ]);
+
+      const res = await getTemplateList();
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(5);
+    });
+  });
+
+  describe('Published Template List Pagination', () => {
+    const publishedBases: string[] = [];
+
+    beforeEach(async () => {
+      // Create separate base for each template because base_id has unique constraint
+      for (let i = 0; i < 5; i++) {
+        const base = await createBase({
+          name: `test base ${i}`,
+          spaceId,
+        });
+        publishedBases.push(base.data.id);
+
+        const template = await createTemplate({});
+        await updateTemplate(template.data.id, {
+          name: `test Template ${i}`,
+          description: `test Template description ${i}`,
+          baseId: base.data.id,
+        });
+        await createTemplateSnapshot(template.data.id);
+        await updateTemplate(template.data.id, {
+          isPublished: true,
+        });
+      }
+    });
+
+    afterEach(async () => {
+      // Clean up created bases
+      for (const publishedBaseId of publishedBases) {
+        await deleteBase(publishedBaseId);
+      }
+      publishedBases.length = 0;
+    });
+
+    it('should paginate published template list with skip and take', async () => {
+      // Get first 2 templates
+      const res1 = await getPublishedTemplateList({ skip: 0, take: 2 });
+      expect(res1.status).toBe(200);
+      expect(res1.data.length).toBe(2);
+
+      // Skip 2, get next 2 templates
+      const res2 = await getPublishedTemplateList({ skip: 2, take: 2 });
+      expect(res2.status).toBe(200);
+      expect(res2.data.length).toBe(2);
+
+      // Skip 4, get last 1 template
+      const res3 = await getPublishedTemplateList({ skip: 4, take: 2 });
+      expect(res3.status).toBe(200);
+      expect(res3.data.length).toBe(1);
+    });
+
+    it('should handle skip beyond total published count', async () => {
+      // Skip 50 (beyond total count)
+      const res = await getPublishedTemplateList({ skip: 50, take: 5 });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(0);
+    });
+
+    it('should only return published templates with pagination', async () => {
+      // Create an unpublished template (without baseId to avoid unique constraint conflict)
+      const unpublishedTemplate = await createTemplate({});
+      await updateTemplate(unpublishedTemplate.data.id, {
+        name: 'unpublished template',
+        description: 'unpublished description',
+      });
+
+      // Get all published templates
+      const res = await getPublishedTemplateList({ skip: 0, take: 50 });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(5); // Should only have 5 published templates
+      expect(res.data.every((t) => t.id !== unpublishedTemplate.data.id)).toBe(true);
+    });
+
+    it('should paginate with search parameter', async () => {
+      // Search for templates containing 'Template 2'
+      const res = await getPublishedTemplateList({ skip: 0, take: 10, search: 'Template 2' });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBe(1);
+      expect(res.data[0].name).toBe('test Template 2');
+    });
+  });
+
   describe('Template Category', () => {
     it('should create template category', async () => {
       const res = await createTemplateCategory({

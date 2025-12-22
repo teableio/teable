@@ -14,7 +14,6 @@ import { ReactQueryKeys } from '@teable/sdk/config';
 import {
   Spin,
   Button,
-  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuGroup,
@@ -27,22 +26,31 @@ import {
   TableHeader,
   TableRow,
   Switch,
+  Avatar,
+  AvatarImage,
+  AvatarFallback,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+  TooltipPortal,
 } from '@teable/ui-lib';
 import dayjs from 'dayjs';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { useEnv } from '@/features/app/hooks/useEnv';
 import { BaseSelectPanel } from './BaseSelectPanel';
-import { MarkdownEditor } from './MarkdownEditor';
+import { MarkdownPreviewButton } from './MarkdownPreviewButton';
 import { TemplateCategorySelect } from './TemplateCategorySelect';
 import { TemplateCover } from './TemplateCover';
 import { TemplateTooltips } from './TemplateTooltips';
 import { TextEditor } from './TextEditor';
+import { TextEditorDialog } from './TextEditorDialog';
 
 const PAGE_SIZE = 10;
 
 export const TemplateTable = () => {
-  const { t } = useTranslation('common');
+  const { t } = useTranslation(['common']);
 
   const env = useEnv();
 
@@ -146,19 +154,19 @@ export const TemplateTable = () => {
         <TableHeader className="z-50 bg-background">
           <TableRow className="sticky top-0 z-10 h-16 border-none bg-background">
             <TableHead>{t('settings.templateAdmin.header.cover')}</TableHead>
-            <TableHead className="w-40 shrink-0">
+            <TableHead className="w-80 shrink-0">
               {t('settings.templateAdmin.header.name')}
             </TableHead>
-            <TableHead className="w-52 max-w-52 shrink-0">
+            <TableHead className="min-w-[400px] shrink-0">
               {t('settings.templateAdmin.header.description')}
             </TableHead>
-            <TableHead className="w-52 max-w-52 shrink-0">
+            <TableHead className="w-32 shrink-0">
               {t('settings.templateAdmin.header.markdownDescription')}
             </TableHead>
             <TableHead>{t('settings.templateAdmin.header.category')}</TableHead>
-            <TableHead className="min-w-24 text-center">
+            {/* <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.isSystem')}
-            </TableHead>
+            </TableHead> */}
             <TableHead className="min-w-24 text-center">
               {t('settings.templateAdmin.header.featured')}
             </TableHead>
@@ -173,6 +181,9 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead className="text-center">
               {t('settings.templateAdmin.header.source')}
+            </TableHead>
+            <TableHead className="min-w-32">
+              {t('settings.templateAdmin.header.createdBy')}
             </TableHead>
             <TableHead>{t('settings.templateAdmin.header.actions')}</TableHead>
           </TableRow>
@@ -189,24 +200,28 @@ export const TemplateTable = () => {
                   }}
                 />
               </TableCell>
-              <TableCell className="max-w-40">
+              <TableCell className="max-w-80">
                 <TextEditor
                   value={row.name}
                   onChange={(value) => {
                     onChangeTemplateName(row.id, value);
                   }}
+                  singleLine
+                  maxLength={50}
                 />
               </TableCell>
-              <TableCell className="max-w-48">
-                <TextEditor
+              <TableCell className="min-w-[400px]">
+                <TextEditorDialog
                   value={row.description}
                   onChange={(value) => {
                     onChangeTemplateDescription(row.id, value);
                   }}
+                  title={t('settings.templateAdmin.header.description')}
+                  maxLines={2}
                 />
               </TableCell>
-              <TableCell className="max-w-48">
-                <MarkdownEditor
+              <TableCell>
+                <MarkdownPreviewButton
                   value={row.markdownDescription}
                   onChange={(value) => {
                     onChangeTemplateMarkdownDescription(row.id, value);
@@ -220,13 +235,13 @@ export const TemplateTable = () => {
                   onChange={(ids) => onChangeTemplateCategory(row.id, ids)}
                 />
               </TableCell>
-              <TableCell className="text-center align-middle">
+              {/* <TableCell className="text-center align-middle">
                 <Checkbox
                   id="terms"
                   defaultChecked={Boolean(row.isSystem)}
                   disabled={edition !== 'CLOUD'}
                 />
-              </TableCell>
+              </TableCell> */}
               <TableCell className="text-center align-middle">
                 <TemplateTooltips
                   content={t('settings.templateAdmin.tips.needPublish')}
@@ -299,6 +314,39 @@ export const TemplateTable = () => {
                 </TemplateTooltips>
               </TableCell>
               <TableCell>
+                {row.createdBy?.userName ? (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex cursor-pointer items-center gap-2">
+                          <Avatar className="size-6">
+                            <AvatarImage
+                              src={row.createdBy.avatarUrl}
+                              alt={row.createdBy.userName}
+                            />
+                            <AvatarFallback className="text-xs">
+                              {row.createdBy.userName.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm">{row.createdBy.userName}</span>
+                        </div>
+                      </TooltipTrigger>
+                      {row.createdBy.email && (
+                        <TooltipPortal>
+                          <TooltipContent>
+                            <p>{row.createdBy.email}</p>
+                          </TooltipContent>
+                        </TooltipPortal>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
+                ) : (
+                  <span className="text-gray-500">
+                    {t('settings.templateAdmin.header.userNonExistent')}
+                  </span>
+                )}
+              </TableCell>
+              <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size={'xs'}>
@@ -346,7 +394,7 @@ export const TemplateTable = () => {
         </TableBody>
       </Table>
 
-      {/* Load more 按钮 */}
+      {/* Load more  */}
       {hasNextPage && (
         <div className="flex justify-center border-t py-4">
           <Button

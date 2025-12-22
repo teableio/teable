@@ -47,6 +47,9 @@
     "hideNotMatchRow": "Hide not match row",
     "more": "More",
     "expand": "Expand",
+    "view": "View",
+    "preview": "Preview",
+    "viewAndEdit": "View and edit",
     "deleteTip": "Are you sure you want to delete \"{{name}}\"?",
     "move": "Move to",
     "turnOn": "Turn on",
@@ -134,7 +137,9 @@
         "publishSnapshot": "Publish Snapshot",
         "snapshotTime": "Snapshot Time",
         "actions": "Actions",
-        "featured": "Featured"
+        "featured": "Featured",
+        "createdBy": "Created by",
+        "userNonExistent": "User non-existent"
       },
       "actions": {
         "title": "Actions",
@@ -340,6 +345,7 @@
   "name": "Name",
   "description": "Description",
   "required": "Required",
+  "characters": "characters",
   "atLeastOne": "At least reserve a {{noun}}",
   "guide": {
     "prev": "Prev",
