@@ -25,7 +25,7 @@ import { tableConfig } from '@/features/i18n/table.config';
 import { PromptEditor, type EditorViewRef } from '../field-ai-config/components/prompt-editor';
 import { ColorPicker } from './SelectOptions';
 
-const AutomationTooltip = (props: { children: React.ReactNode }) => {
+const UnavailableInPlanTips = (props: { children: React.ReactNode }) => {
   const { children } = props;
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   return (
@@ -33,7 +33,7 @@ const AutomationTooltip = (props: { children: React.ReactNode }) => {
       <Tooltip>
         <TooltipTrigger asChild>{children}</TooltipTrigger>
         <TooltipContent>
-          <p className="max-w-[320px]">{t('billing.automationRequiresUpgrade')}</p>
+          <p className="max-w-[320px]">{t('billing.unavailableInPlanTips')}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -177,12 +177,12 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
   const { setModal } = useWorkFlowPanelStore();
   const { t } = useTranslation(tableConfig.i18nNamespaces);
   const usage = useBaseUsage();
-  const { automationEnable = false } = usage?.limit ?? {};
+  const { buttonFieldEnable = false } = usage?.limit ?? {};
 
   return (
     <div className="flex flex-col gap-2">
       <Label className="text-sm font-medium">{t('table:field.default.button.automation')}</Label>
-      {automationEnable ? (
+      {buttonFieldEnable ? (
         <Button
           className="flex items-center "
           variant="outline"
@@ -197,14 +197,14 @@ const WorkflowAction = (props: { options?: Partial<IButtonFieldOptions>; onSave?
           </span>
         </Button>
       ) : (
-        <AutomationTooltip>
+        <UnavailableInPlanTips>
           <Button className="flex items-center " variant="outline">
             <PlusIcon className="size-4" />
             <span className="flex-1 text-left">
               {workflow?.name || t('table:field.default.button.customAutomation')}
             </span>
           </Button>
-        </AutomationTooltip>
+        </UnavailableInPlanTips>
       )}
     </div>
   );
