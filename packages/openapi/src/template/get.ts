@@ -57,9 +57,9 @@ export const templateVoSchema = z.object({
   visitCount: z.number(),
   createdBy: z
     .object({
-      userId: z.string().startsWith(IdPrefix.User),
-      userName: z.string().optional(),
-      avatarUrl: z.string().optional(),
+      id: z.string().startsWith(IdPrefix.User),
+      name: z.string().optional(),
+      avatar: z.string().optional(),
       email: z.string().optional(),
     })
     .nullable(),

@@ -73,7 +73,6 @@ export const TemplateTable = () => {
     },
   });
 
-  // 当前显示的数据
   const displayedData = useMemo(() => {
     return data?.pages.flatMap((page) => page) ?? [];
   }, [data]);
@@ -314,21 +313,18 @@ export const TemplateTable = () => {
                 </TemplateTooltips>
               </TableCell>
               <TableCell>
-                {row.createdBy?.userName ? (
+                {row.createdBy && row.createdBy.name ? (
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div className="flex cursor-pointer items-center gap-2">
                           <Avatar className="size-6">
-                            <AvatarImage
-                              src={row.createdBy.avatarUrl}
-                              alt={row.createdBy.userName}
-                            />
+                            <AvatarImage src={row.createdBy.avatar} alt={row.createdBy.name} />
                             <AvatarFallback className="text-xs">
-                              {row.createdBy.userName.charAt(0).toUpperCase()}
+                              {row.createdBy.name.charAt(0).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-sm">{row.createdBy.userName}</span>
+                          <span className="text-sm">{row.createdBy.name}</span>
                         </div>
                       </TooltipTrigger>
                       {row.createdBy.email && (
