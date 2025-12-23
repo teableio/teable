@@ -38,6 +38,11 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
   - call the endpoint executor/mappers from `@teable/v2-contract-http`
 - OpenAPI is generated from the ts-rest contract via `@teable/v2-contract-http-openapi`.
 
+## UI components (frontend)
+
+- In app UIs (e.g. `apps/playground`), use shadcn wrappers from `apps/playground/src/components/ui/*` (or `@teable/ui-lib`) instead of importing Radix primitives directly.
+- If a shadcn wrapper is missing, add it under `apps/playground/src/components/ui` before using the primitive.
+
 ## Dependency injection (DI)
 
 - Do not import `tsyringe` / `reflect-metadata` directly anywhere; use `@teable/v2-di`.

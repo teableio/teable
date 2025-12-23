@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../base/BaseId';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
+import { FormulaExpression } from './fields/types/FormulaExpression';
 import { RatingMax } from './fields/types/RatingMax';
 import { SelectOption } from './fields/types/SelectOption';
 import { Table } from './Table';
@@ -181,6 +182,116 @@ describe('TableBuilder', () => {
       'form',
       'plugin',
     ]);
+  });
+
+  it('initializes column meta for all view types', () => {
+    const baseIdResult = BaseId.create(`bse${'e'.repeat(16)}`);
+    const tableNameResult = TableName.create('Column Meta');
+    const titleNameResult = FieldName.create('Title');
+    const amountNameResult = FieldName.create('Amount');
+    const scoreNameResult = FieldName.create('Score');
+    const actionNameResult = FieldName.create('Action');
+    expect(
+      [
+        baseIdResult,
+        tableNameResult,
+        titleNameResult,
+        amountNameResult,
+        scoreNameResult,
+        actionNameResult,
+      ].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      titleNameResult.isErr() ||
+      amountNameResult.isErr() ||
+      scoreNameResult.isErr() ||
+      actionNameResult.isErr()
+    )
+      return;
+
+    const primaryIdResult = FieldId.generate();
+    expect(primaryIdResult.isOk()).toBe(true);
+    if (primaryIdResult.isErr()) return;
+    const primaryId = primaryIdResult.value;
+
+    const expressionResult = FormulaExpression.create(`{${primaryId.toString()}} + 1`);
+    expect(expressionResult.isOk()).toBe(true);
+    if (expressionResult.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(titleNameResult.value).done();
+    builder.field().number().withId(primaryId).withName(amountNameResult.value).primary().done();
+    builder
+      .field()
+      .formula()
+      .withName(scoreNameResult.value)
+      .withExpression(expressionResult.value)
+      .done();
+    builder.field().button().withName(actionNameResult.value).done();
+    builder.view().defaultGrid().done();
+    builder.view().kanban().defaultName().done();
+    builder.view().gallery().defaultName().done();
+    builder.view().calendar().defaultName().done();
+    builder.view().form().defaultName().done();
+    builder.view().plugin().defaultName().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+
+    const table = buildResult.value;
+    const fieldIds = table.fields().map((field) => field.id().toString());
+    const primaryFieldId = table.primaryFieldId().toString();
+    const expectedOrder = [
+      primaryFieldId,
+      ...fieldIds.filter((fieldId) => fieldId !== primaryFieldId),
+    ];
+
+    const fieldIdsByName = new Map(
+      table.fields().map((field) => [field.name().toString(), field.id().toString()] as const)
+    );
+    const viewsByType = new Map(
+      table.views().map((view) => [view.type().toString(), view] as const)
+    );
+
+    expect(viewsByType.size).toBe(6);
+
+    for (const [type, view] of viewsByType.entries()) {
+      const metaResult = view.columnMeta();
+      expect(metaResult.isOk()).toBe(true);
+      if (metaResult.isErr()) return;
+
+      const meta = metaResult.value.toDto();
+      expect(Object.keys(meta).sort()).toEqual([...fieldIds].sort());
+      expectedOrder.forEach((fieldId, index) => {
+        expect(meta[fieldId]?.order).toBe(index);
+      });
+
+      if (type === 'grid' || type === 'plugin') {
+        expect(meta[primaryFieldId]?.visible).toBeUndefined();
+      }
+    }
+
+    const formMeta = viewsByType.get('form')?.columnMeta();
+    expect(formMeta?.isOk()).toBe(true);
+    if (formMeta?.isOk()) {
+      const meta = formMeta.value.toDto();
+      expect(meta[fieldIdsByName.get('Title')!]?.visible).toBe(true);
+      expect(meta[fieldIdsByName.get('Amount')!]?.visible).toBe(true);
+      expect(meta[fieldIdsByName.get('Score')!]?.visible).toBeUndefined();
+      expect(meta[fieldIdsByName.get('Action')!]?.visible).toBeUndefined();
+    }
+
+    const primaryVisibleTypes = ['kanban', 'gallery', 'calendar'] as const;
+    primaryVisibleTypes.forEach((type) => {
+      const meta = viewsByType.get(type)?.columnMeta();
+      expect(meta?.isOk()).toBe(true);
+      if (meta?.isOk()) {
+        expect(meta.value.toDto()[primaryFieldId]?.visible).toBe(true);
+      }
+    });
   });
 
   it('allows setting a non-first field as primary', () => {

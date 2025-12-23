@@ -1,5 +1,7 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
+export * from './commands/DeleteTableCommand';
+export * from './commands/DeleteTableHandler';
 export * from './commands/CommandHandler';
 export * from './ports/TraceSpan';
 
@@ -29,6 +31,7 @@ export * from './domain/table/TableId';
 export * from './domain/table/TableName';
 export * from './domain/table/TableSortKey';
 export * from './domain/table/events/TableCreated';
+export * from './domain/table/events/TableDeleted';
 export * from './domain/table/specs/TableByIdSpec';
 export * from './domain/table/specs/TableByNameLikeSpec';
 export * from './domain/table/specs/TableByNameSpec';
@@ -86,6 +89,7 @@ export * from './domain/table/fields/types/SelectOptionName';
 export * from './domain/table/fields/types/SelectDefaultValue';
 export * from './domain/table/fields/types/SelectAutoNewOptions';
 export type { View } from './domain/table/views/View';
+export * from './domain/table/views/ViewColumnMeta';
 export * from './domain/table/views/ViewId';
 export * from './domain/table/views/ViewName';
 export * from './domain/table/views/ViewType';

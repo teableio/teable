@@ -498,6 +498,157 @@ describe('PostgresTableRepository (pg)', () => {
     }
   });
 
+  it('initializes column meta for all view types', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+
+      const baseId = baseIdResult.value;
+      const actorId = actorIdResult.value;
+      const context = { actorId };
+      const spaceId = `spc${'d'.repeat(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Column Meta Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Column Meta Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableNameResult = TableName.create('Column Meta Table');
+      const titleNameResult = FieldName.create('Title');
+      const primaryNameResult = FieldName.create('Amount');
+      const formulaNameResult = FieldName.create('Score');
+      const buttonNameResult = FieldName.create('Action');
+      expect(
+        [
+          tableNameResult,
+          titleNameResult,
+          primaryNameResult,
+          formulaNameResult,
+          buttonNameResult,
+        ].every((r) => r.isOk())
+      ).toBe(true);
+      if (
+        tableNameResult.isErr() ||
+        titleNameResult.isErr() ||
+        primaryNameResult.isErr() ||
+        formulaNameResult.isErr() ||
+        buttonNameResult.isErr()
+      )
+        return;
+
+      const primaryIdResult = FieldId.generate();
+      expect(primaryIdResult.isOk()).toBe(true);
+      if (primaryIdResult.isErr()) return;
+      const primaryId = primaryIdResult.value;
+
+      const formulaExpressionResult = FormulaExpression.create(`{${primaryId.toString()}} + 1`);
+      expect(formulaExpressionResult.isOk()).toBe(true);
+      if (formulaExpressionResult.isErr()) return;
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
+      builder.field().singleLineText().withName(titleNameResult.value).done();
+      builder.field().number().withId(primaryId).withName(primaryNameResult.value).primary().done();
+      builder
+        .field()
+        .formula()
+        .withName(formulaNameResult.value)
+        .withExpression(formulaExpressionResult.value)
+        .done();
+      builder.field().button().withName(buttonNameResult.value).done();
+
+      builder.view().defaultGrid().done();
+      builder.view().kanban().defaultName().done();
+      builder.view().gallery().defaultName().done();
+      builder.view().calendar().defaultName().done();
+      builder.view().form().defaultName().done();
+      builder.view().plugin().defaultName().done();
+
+      const tableResult = builder.build();
+      expect(tableResult.isOk()).toBe(true);
+      if (tableResult.isErr()) return;
+      const table = tableResult.value;
+
+      const resolveResult = resolveFormulaFields(table);
+      expect(resolveResult.isOk()).toBe(true);
+      if (resolveResult.isErr()) return;
+
+      const insertResult = await repo.insert(context, table);
+      expect(insertResult.isOk()).toBe(true);
+      if (insertResult.isErr()) return;
+
+      const viewRows = await db
+        .selectFrom('view')
+        .select(['type', 'column_meta'])
+        .where('table_id', '=', table.id().toString())
+        .where('deleted_time', 'is', null)
+        .execute();
+
+      expect(viewRows).toHaveLength(6);
+
+      const fieldIds = table.fields().map((field) => field.id().toString());
+      const primaryFieldId = table.primaryFieldId().toString();
+      const expectedOrder = [
+        primaryFieldId,
+        ...fieldIds.filter((fieldId) => fieldId !== primaryFieldId),
+      ];
+
+      const fieldIdsByName = new Map(
+        table.fields().map((field) => [field.name().toString(), field.id().toString()] as const)
+      );
+
+      const columnMetaByType = new Map(
+        viewRows.map((row) => [row.type, JSON.parse(row.column_meta)] as const)
+      );
+
+      for (const [type, columnMeta] of columnMetaByType.entries()) {
+        expect(columnMeta).toBeDefined();
+        const metaFieldIds = Object.keys(columnMeta).sort();
+        expect(metaFieldIds).toEqual([...fieldIds].sort());
+        expectedOrder.forEach((fieldId, index) => {
+          expect(columnMeta[fieldId]?.order).toBe(index);
+        });
+        if (type === 'grid' || type === 'plugin') {
+          expect(columnMeta[primaryFieldId]?.visible).toBeUndefined();
+        }
+      }
+
+      const formMeta = columnMetaByType.get('form');
+      expect(formMeta?.[fieldIdsByName.get('Title')!]?.visible).toBe(true);
+      expect(formMeta?.[fieldIdsByName.get('Amount')!]?.visible).toBe(true);
+      expect(formMeta?.[fieldIdsByName.get('Score')!]?.visible).toBeUndefined();
+      expect(formMeta?.[fieldIdsByName.get('Action')!]?.visible).toBeUndefined();
+
+      ['kanban', 'gallery', 'calendar'].forEach((type) => {
+        const columnMeta = columnMetaByType.get(type);
+        expect(columnMeta?.[primaryFieldId]?.visible).toBe(true);
+      });
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('filters tables by name like spec', async () => {
     const c = container.createChildContainer();
     await registerV2PostgresStateAdapter(c, {

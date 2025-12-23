@@ -17,6 +17,9 @@ describe('v2 http getTableById (e2e)', () => {
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
   let tableId: string;
+  const nameFieldId = `fld${'a'.repeat(16)}`;
+  const amountFieldId = `fld${'b'.repeat(16)}`;
+  const notesFieldId = `fld${'c'.repeat(16)}`;
 
   beforeAll(async () => {
     const testContainer = await createV2NodeTestContainer();
@@ -40,7 +43,11 @@ describe('v2 http getTableById (e2e)', () => {
     const payload = {
       baseId,
       name: 'Lookup',
-      fields: [{ type: 'singleLineText', name: 'Name' }],
+      fields: [
+        { type: 'singleLineText', id: nameFieldId, name: 'Name' },
+        { type: 'number', id: amountFieldId, name: 'Amount', isPrimary: true },
+        { type: 'longText', id: notesFieldId, name: 'Notes' },
+      ],
     };
 
     const response = await fetch(`${baseUrl}/tables/create`, {
@@ -87,6 +94,16 @@ describe('v2 http getTableById (e2e)', () => {
     expect(body.data.table.id).toBe(tableId);
     expect(body.data.table.baseId).toBe(baseId);
     expect(body.data.table.name).toBe('Lookup');
+    expect(body.data.table.views.length).toBeGreaterThan(0);
+    const view = body.data.table.views[0];
+    const columnMeta = view?.columnMeta ?? {};
+    expect(Object.keys(columnMeta).sort()).toEqual(
+      [nameFieldId, amountFieldId, notesFieldId].sort()
+    );
+    expect(columnMeta[amountFieldId]?.order).toBe(0);
+    expect(columnMeta[nameFieldId]?.order).toBe(1);
+    expect(columnMeta[notesFieldId]?.order).toBe(2);
+    expect(columnMeta[amountFieldId]?.visible).toBeUndefined();
   });
 
   it('returns ok via orpc client', async () => {

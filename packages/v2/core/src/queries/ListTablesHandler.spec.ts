@@ -106,6 +106,7 @@ describe('ListTablesHandler', () => {
       insert: async () => err('nope'),
       findOne: async () => err('nope'),
       find: async () => err('repository error'),
+      delete: async () => err('nope'),
     };
 
     const handler = new ListTablesHandler(repo, new NoopLogger());

@@ -14,4 +14,5 @@ export interface ITableRepository {
     spec: ISpecification<Table>,
     options?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, string>>;
+  delete(context: IExecutionContext, table: Table): Promise<Result<void, string>>;
 }

@@ -26,6 +26,7 @@ import type {
   Table,
   SingleLineTextField,
   UserField,
+  ViewColumnMetaValue,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -33,13 +34,29 @@ import { z } from 'zod';
 
 import { sequenceResults } from '../shared/neverthrow';
 
+const columnMetaEntrySchema = z
+  .object({
+    order: z.number(),
+    visible: z.boolean().optional(),
+    hidden: z.boolean().optional(),
+    width: z.number().optional(),
+    required: z.boolean().optional(),
+    statisticFunc: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+const columnMetaSchema = z.record(z.string(), columnMetaEntrySchema);
+
 export const viewDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.enum(['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin']),
+  columnMeta: columnMetaSchema,
 });
 
-export type IViewDto = z.infer<typeof viewDtoSchema>;
+export type IViewDto = Omit<z.infer<typeof viewDtoSchema>, 'columnMeta'> & {
+  columnMeta: ViewColumnMetaValue;
+};
 
 const baseFieldDtoSchema = z.object({
   id: z.string(),
@@ -488,18 +505,26 @@ export const mapTableToDto = (table: Table): Result<ITableDto, string> => {
   const primaryFieldId = table.primaryFieldId();
   const dbTableNameResult = table.dbTableName().andThen((name) => name.value());
   const dbTableName = dbTableNameResult.isOk() ? dbTableNameResult.value : undefined;
-  return sequenceResults(table.fields().map((f) => mapFieldToDto(f, primaryFieldId))).map(
-    (fields) => ({
+  const fieldsResult = sequenceResults(table.fields().map((f) => mapFieldToDto(f, primaryFieldId)));
+  const viewsResult = sequenceResults(
+    table.views().map((view) =>
+      view.columnMeta().map((columnMeta) => ({
+        id: view.id().toString(),
+        name: view.name().toString(),
+        type: view.type().toString(),
+        columnMeta: columnMeta.toDto(),
+      }))
+    )
+  );
+
+  return fieldsResult.andThen((fields) =>
+    viewsResult.map((views) => ({
       id: table.id().toString(),
       baseId: table.baseId().toString(),
       name: table.name().toString(),
       dbTableName,
       fields: [...fields],
-      views: table.views().map((v) => ({
-        id: v.id().toString(),
-        name: v.name().toString(),
-        type: v.type().toString(),
-      })),
-    })
+      views: [...views],
+    }))
   );
 };

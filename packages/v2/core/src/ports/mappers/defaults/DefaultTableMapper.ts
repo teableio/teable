@@ -58,6 +58,7 @@ import { GridView } from '../../../domain/table/views/types/GridView';
 import { KanbanView } from '../../../domain/table/views/types/KanbanView';
 import { PluginView } from '../../../domain/table/views/types/PluginView';
 import type { View } from '../../../domain/table/views/View';
+import { ViewColumnMeta } from '../../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import type { IViewVisitor } from '../../../domain/table/views/visitors/IViewVisitor';
@@ -323,27 +324,39 @@ const mapFieldToDto = (field: Field): Result<ITableFieldPersistenceDTO, string> 
 
 class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO> {
   visitGridView(view: GridView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'grid' });
+    return this.toDto(view, 'grid');
   }
 
   visitKanbanView(view: KanbanView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'kanban' });
+    return this.toDto(view, 'kanban');
   }
 
   visitGalleryView(view: GalleryView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'gallery' });
+    return this.toDto(view, 'gallery');
   }
 
   visitCalendarView(view: CalendarView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'calendar' });
+    return this.toDto(view, 'calendar');
   }
 
   visitFormView(view: FormView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'form' });
+    return this.toDto(view, 'form');
   }
 
   visitPluginView(view: PluginView): Result<ITableViewPersistenceDTO, string> {
-    return ok({ id: view.id().toString(), name: view.name().toString(), type: 'plugin' });
+    return this.toDto(view, 'plugin');
+  }
+
+  private toDto(
+    view: View,
+    type: ITableViewPersistenceDTO['type']
+  ): Result<ITableViewPersistenceDTO, string> {
+    return view.columnMeta().map((columnMeta) => ({
+      id: view.id().toString(),
+      name: view.name().toString(),
+      type,
+      columnMeta: columnMeta.toDto(),
+    }));
   }
 }
 
@@ -562,7 +575,7 @@ export class DefaultTableMapper implements ITableMapper {
   private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, string> {
     return ViewId.create(dto.id).andThen((id) =>
       ViewName.create(dto.name).andThen((name) => {
-        return match(dto.type)
+        const viewResult = match(dto.type)
           .with('grid', () => GridView.create({ id, name }))
           .with('kanban', () => KanbanView.create({ id, name }))
           .with('gallery', () => GalleryView.create({ id, name }))
@@ -570,6 +583,12 @@ export class DefaultTableMapper implements ITableMapper {
           .with('form', () => FormView.create({ id, name }))
           .with('plugin', () => PluginView.create({ id, name }))
           .exhaustive();
+
+        return viewResult.andThen((view) =>
+          ViewColumnMeta.rehydrate(dto.columnMeta).andThen((columnMeta) =>
+            view.setColumnMeta(columnMeta).map(() => view)
+          )
+        );
       })
     );
   }

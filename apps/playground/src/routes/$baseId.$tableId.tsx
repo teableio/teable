@@ -2,7 +2,8 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
-import { mapTableDtoToDomain } from '@teable/v2-contract-http';
+import { mapTableDtoToDomain, type ITableDto } from '@teable/v2-contract-http';
+import { toast } from 'sonner';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { getOrpcClient } from '@/lib/orpcClient';
@@ -84,6 +85,43 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     })
   );
 
+  const deleteTableMutation = useMutation(
+    orpc.tables.delete.mutationOptions({
+      onSuccess: () => {
+        queryClient.removeQueries({
+          queryKey: orpc.tables.getById.queryKey({
+            input: {
+              baseId,
+              tableId,
+            },
+          }),
+        });
+
+        const removeFromList = (list: ReadonlyArray<ITableDto> | undefined) =>
+          list ? list.filter((table) => table.id !== tableId) : list;
+
+        queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), removeFromList);
+
+        if (typeof window !== 'undefined') {
+          const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
+          if (storedTableId === tableId) {
+            localStorage.removeItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
+          }
+        }
+
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
+
+        void navigate({ to: '/$baseId', params: { baseId } });
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to delete table'));
+      },
+    })
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, tableId);
@@ -113,6 +151,11 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     createTableMutation.mutate(buildBasicTableInput(baseId, `Playground Table ${Date.now()}`));
   };
 
+  const handleDelete = () => {
+    deleteTableMutation.reset();
+    deleteTableMutation.mutate({ baseId, tableId });
+  };
+
   const handleRefresh = () => {
     void tableQuery.refetch();
   };
@@ -127,9 +170,11 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isInitialLoading={isInitialLoading}
       isLoading={isLoading}
       isCreating={isCreating}
+      isDeleting={deleteTableMutation.isPending}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
       onCreate={handleCreate}
+      onDelete={handleDelete}
     />
   );
 }

@@ -5,6 +5,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Responsibilities
 
 - View entity base and view type definitions.
+- View column meta defaults and validation.
 - Provide ViewFactory as a unified creation entry.
 
 ## Subfolders
@@ -17,6 +18,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe view abstractions.
 - `View.ts` - Role: view base; Purpose: shared view behavior + visitor entry.
 - `ViewBasics.spec.ts` - Role: view tests; Purpose: verify view basics.
+- `ViewColumnMeta.ts` - Role: value object; Purpose: validate and build view column meta.
 - `ViewFactory.ts` - Role: factory; Purpose: create view subtypes.
 - `ViewId.ts` - Role: value object; Purpose: ViewId validation and generation.
 - `ViewName.ts` - Role: value object; Purpose: ViewName validation and wrapping.

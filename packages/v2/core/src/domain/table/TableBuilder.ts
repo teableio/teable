@@ -59,6 +59,7 @@ import { GridView } from './views/types/GridView';
 import { KanbanView } from './views/types/KanbanView';
 import { PluginView } from './views/types/PluginView';
 import type { View } from './views/View';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
 import { ViewId } from './views/ViewId';
 import { ViewName } from './views/ViewName';
 
@@ -156,6 +157,9 @@ export class TableBuilder {
     if (!this.fields.some((f) => f.id().equals(primaryFieldId)))
       return err('Primary Field must exist in Table fields');
 
+    const columnMetaResult = this.applyViewColumnMeta(this.views, this.fields, primaryFieldId);
+    if (columnMetaResult.isErr()) return err(columnMetaResult.error);
+
     const idResult = this.tableId ? ok(this.tableId) : TableId.generate();
 
     return idResult.map((id) =>
@@ -207,6 +211,24 @@ export class TableBuilder {
   markPrimaryFieldId(fieldId: FieldId): Result<void, string> {
     if (this.primaryFieldId) return err('Table can only have one primary Field');
     this.primaryFieldId = fieldId;
+    return ok(undefined);
+  }
+
+  private applyViewColumnMeta(
+    views: ReadonlyArray<View>,
+    fields: ReadonlyArray<Field>,
+    primaryFieldId: FieldId
+  ): Result<void, string> {
+    for (const view of views) {
+      const metaResult = ViewColumnMeta.forView({
+        viewType: view.type(),
+        fields,
+        primaryFieldId,
+      });
+      if (metaResult.isErr()) return err(metaResult.error);
+      const setResult = view.setColumnMeta(metaResult.value);
+      if (setResult.isErr()) return err(setResult.error);
+    }
     return ok(undefined);
   }
 }

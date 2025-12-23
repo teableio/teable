@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
+import { TableDeleted } from './events/TableDeleted';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
@@ -58,6 +59,41 @@ describe('Table', () => {
       table.views().map((view) => view.id().toString())
     );
     expect(table.pullDomainEvents()).toEqual([]);
+  });
+
+  it('emits TableDeleted when marking deleted', () => {
+    const baseIdResult = createBaseId('z');
+    const tableNameResult = TableName.create('Archive');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    expect(
+      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr() ||
+      viewNameResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().grid().withName(viewNameResult.value).done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+    const table = buildResult.value;
+
+    table.pullDomainEvents();
+    const deleteResult = table.markDeleted();
+    expect(deleteResult.isOk()).toBe(true);
+    if (deleteResult.isErr()) return;
+
+    const events = table.pullDomainEvents();
+    expect(events.length).toBe(1);
+    expect(events[0]).toBeInstanceOf(TableDeleted);
   });
 
   it('rehydrates without emitting events', () => {

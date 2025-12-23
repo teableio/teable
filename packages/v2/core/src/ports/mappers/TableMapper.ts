@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 
 import type { Table } from '../../domain/table/Table';
+import type { ViewColumnMetaValue } from '../../domain/table/views/ViewColumnMeta';
 
 export type ISingleLineTextFieldOptionsDTO = {
   showAs?: { type: string };
@@ -128,13 +129,19 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'user'; options?: IUserFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO });
 
+export type ITableViewPersistenceDTOBase = {
+  id: string;
+  name: string;
+  columnMeta: ViewColumnMetaValue;
+};
+
 export type ITableViewPersistenceDTO =
-  | { id: string; name: string; type: 'grid' }
-  | { id: string; name: string; type: 'calendar' }
-  | { id: string; name: string; type: 'kanban' }
-  | { id: string; name: string; type: 'form' }
-  | { id: string; name: string; type: 'gallery' }
-  | { id: string; name: string; type: 'plugin' };
+  | (ITableViewPersistenceDTOBase & { type: 'grid' })
+  | (ITableViewPersistenceDTOBase & { type: 'calendar' })
+  | (ITableViewPersistenceDTOBase & { type: 'kanban' })
+  | (ITableViewPersistenceDTOBase & { type: 'form' })
+  | (ITableViewPersistenceDTOBase & { type: 'gallery' })
+  | (ITableViewPersistenceDTOBase & { type: 'plugin' });
 
 export type ITablePersistenceDTO = {
   id: string;

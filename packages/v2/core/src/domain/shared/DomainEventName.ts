@@ -21,6 +21,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('TableCreated');
   }
 
+  static tableDeleted(): DomainEventName {
+    return new DomainEventName('TableDeleted');
+  }
+
   equals(other: DomainEventName): boolean {
     return this.value === other.value;
   }

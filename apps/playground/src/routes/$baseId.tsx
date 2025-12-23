@@ -6,6 +6,7 @@ import { mapTableDtoToDomain, type ITableDto } from '@teable/v2-contract-http';
 import { Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
 import { debounce, useQueryState } from 'nuqs';
 import { useEffect, useOptimistic, useState } from 'react';
+import { toast } from 'sonner';
 import { useDebounceValue } from 'usehooks-ts';
 
 import { PlaygroundShell } from '@/components/playground/PlaygroundShell';
@@ -136,6 +137,54 @@ function PlaygroundBaseLayout() {
     })
   );
 
+  const deleteTableMutation = useMutation(
+    orpc.tables.delete.mutationOptions({
+      onSuccess: (_response, variables) => {
+        const deletedId = variables.tableId;
+
+        queryClient.removeQueries({
+          queryKey: orpc.tables.getById.queryKey({
+            input: {
+              baseId,
+              tableId: deletedId,
+            },
+          }),
+        });
+
+        const removeFromList = (list: ReadonlyArray<ITableDto> | undefined) =>
+          list ? list.filter((table) => table.id !== deletedId) : list;
+
+        queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), removeFromList);
+
+        if (searchQuery) {
+          queryClient.setQueryData(
+            orpc.tables.list.queryKey({ input: { baseId, q: searchQuery } }),
+            removeFromList
+          );
+        }
+
+        if (typeof window !== 'undefined') {
+          const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
+          if (storedTableId === deletedId) {
+            localStorage.removeItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
+          }
+        }
+
+        if (activeTableId === deletedId) {
+          void navigate({ to: '/$baseId', params: { baseId } });
+        }
+
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to delete table'));
+      },
+    })
+  );
+
   const handleSearchChange = (value: string) => {
     const nextValue = value.trim();
     void setSearch(nextValue ? nextValue : null);
@@ -148,6 +197,11 @@ function PlaygroundBaseLayout() {
   const handleCreate = () => {
     createTableMutation.reset();
     createTableMutation.mutate(buildBasicTableInput(baseId, `Playground Table ${Date.now()}`));
+  };
+
+  const handleDeleteTable = (table: ITableDto) => {
+    deleteTableMutation.reset();
+    deleteTableMutation.mutate({ baseId, tableId: table.id });
   };
 
   const pageErrorMessage = (() => {
@@ -167,6 +221,8 @@ function PlaygroundBaseLayout() {
       errorMessage={listErrorMessage}
       searchValue={searchValue}
       onSearchChange={handleSearchChange}
+      onDeleteTable={handleDeleteTable}
+      isDeletingTable={deleteTableMutation.isPending}
     >
       {activeTableId ? (
         <Outlet />

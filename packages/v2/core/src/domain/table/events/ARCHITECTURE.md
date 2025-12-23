@@ -11,7 +11,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe table events.
 - `TableCreated.ts` - Role: domain event; Purpose: payload for table creation.
+- `TableDeleted.ts` - Role: domain event; Purpose: payload for table deletion.
 
 ## Examples
 
 - `packages/v2/core/src/domain/table/Table.ts` - TableCreated emission location.
+- `packages/v2/core/src/domain/table/Table.ts` - TableDeleted emission location.

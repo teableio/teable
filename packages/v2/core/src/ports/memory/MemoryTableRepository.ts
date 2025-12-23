@@ -41,6 +41,13 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(paginated);
   }
 
+  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+    const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
+    if (index === -1) return err('Not found');
+    this.savedTables.splice(index, 1);
+    return ok(undefined);
+  }
+
   private applySort(tables: ReadonlyArray<Table>, sort?: Sort<TableSortKey>): ReadonlyArray<Table> {
     if (!sort || sort.isEmpty()) return [...tables];
     const sorted = [...tables];

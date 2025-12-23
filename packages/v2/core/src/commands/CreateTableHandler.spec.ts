@@ -51,6 +51,10 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, string>> {
     return ok([]);
   }
+
+  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
@@ -62,6 +66,10 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     this.lastContext = context;
     if (this.failInsert) return err(this.failInsert);
     this.inserted.push(table);
+    return ok(undefined);
+  }
+
+  async delete(_context: IExecutionContext, _table: Table) {
     return ok(undefined);
   }
 }

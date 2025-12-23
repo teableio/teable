@@ -1,18 +1,18 @@
 import { oc } from '@orpc/contract';
 import {
   createTableInputSchema,
+  deleteTableInputSchema,
   getTableByIdInputSchema,
   listTablesInputSchema,
 } from '@teable/v2-core';
 
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
-import {
-  getTableByIdErrorResponseSchema,
-  getTableByIdOkResponseSchema,
-} from './table/getTableById';
+import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
+import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { listTablesOkResponseSchema } from './table/listTables';
 
 const TABLES_CREATE_PATH = '/tables/create';
+const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
 const TABLES_LIST_PATH = '/tables/list';
 
@@ -28,6 +28,16 @@ export const v2Contract = {
       })
       .input(createTableInputSchema)
       .output(createTableOkResponseSchema),
+    delete: oc
+      .route({
+        method: 'DELETE',
+        path: TABLES_DELETE_PATH,
+        successStatus: 200,
+        summary: 'Delete table',
+        tags: ['tables'],
+      })
+      .input(deleteTableInputSchema)
+      .output(deleteTableOkResponseSchema),
     getById: oc
       .route({
         method: 'GET',
@@ -53,6 +63,6 @@ export const v2Contract = {
 
 export const v2ContractErrors = {
   400: createTableErrorResponseSchema,
-  404: getTableByIdErrorResponseSchema,
+  404: deleteTableErrorResponseSchema,
   500: createTableErrorResponseSchema,
 } as const;

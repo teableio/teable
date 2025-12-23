@@ -5,4 +5,5 @@ import type { IExecutionContext } from './ExecutionContext';
 
 export interface ITableSchemaRepository {
   insert(context: IExecutionContext, table: Table): Promise<Result<void, string>>;
+  delete(context: IExecutionContext, table: Table): Promise<Result<void, string>>;
 }

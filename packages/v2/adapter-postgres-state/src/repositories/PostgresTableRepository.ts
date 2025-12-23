@@ -134,7 +134,7 @@ export class PostgresTableRepository implements ITableRepository {
         options: null,
         order: i + 1,
         version: 1,
-        column_meta: '{}',
+        column_meta: JSON.stringify(v.columnMeta),
         is_locked: null,
         enable_share: null,
         share_id: null,
@@ -393,7 +393,7 @@ export class PostgresTableRepository implements ITableRepository {
           jsonArrayFrom(
             eb
               .selectFrom('view')
-              .select(['id', 'name', 'type'])
+              .select(['id', 'name', 'type', 'column_meta'])
               .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
@@ -469,7 +469,7 @@ export class PostgresTableRepository implements ITableRepository {
           jsonArrayFrom(
             eb
               .selectFrom('view')
-              .select(['id', 'name', 'type'])
+              .select(['id', 'name', 'type', 'column_meta'])
               .where(sql<boolean>`${sql.ref('view.table_id')} = ${sql.ref('table_meta.id')}`)
               .where('deleted_time', 'is', null)
               .orderBy('order')
@@ -516,6 +516,56 @@ export class PostgresTableRepository implements ITableRepository {
     }
   }
 
+  @TraceSpan()
+  async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+    const now = new Date();
+    const actorId = context.actorId.toString();
+    const tableId = table.id().toString();
+
+    try {
+      const db = resolvePostgresDb(this.db, context);
+      const tableUpdate = await db
+        .updateTable('table_meta')
+        .set({
+          deleted_time: now,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('id', '=', tableId)
+        .where('deleted_time', 'is', null)
+        .executeTakeFirst();
+
+      const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
+      if (updatedRows === 0) return err('Not found');
+
+      await db
+        .updateTable('field')
+        .set({
+          deleted_time: now,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('table_id', '=', tableId)
+        .where('deleted_time', 'is', null)
+        .execute();
+
+      await db
+        .updateTable('view')
+        .set({
+          deleted_time: now,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where('table_id', '=', tableId)
+        .where('deleted_time', 'is', null)
+        .execute();
+
+      return ok(undefined);
+    } catch (error) {
+      return err(`Failed to delete table: ${describeError(error)}`);
+    }
+  }
+
   private mapTableRow(row: {
     id: string;
     name: string;
@@ -539,7 +589,7 @@ export class PostgresTableRepository implements ITableRepository {
       : [];
 
     const viewRows = Array.isArray(row.views)
-      ? (row.views as Array<{ id: string; name: string; type: string }>)
+      ? (row.views as Array<{ id: string; name: string; type: string; column_meta: string }>)
       : [];
 
     const primaryFieldId =
@@ -749,13 +799,20 @@ export class PostgresTableRepository implements ITableRepository {
     id: string;
     name: string;
     type: string;
+    column_meta: string | null;
   }): Result<ITableViewPersistenceDTO, string> {
-    if (row.type === 'grid') return ok({ id: row.id, name: row.name, type: 'grid' });
-    if (row.type === 'kanban') return ok({ id: row.id, name: row.name, type: 'kanban' });
-    if (row.type === 'gallery') return ok({ id: row.id, name: row.name, type: 'gallery' });
-    if (row.type === 'calendar') return ok({ id: row.id, name: row.name, type: 'calendar' });
-    if (row.type === 'form') return ok({ id: row.id, name: row.name, type: 'form' });
-    if (row.type === 'plugin') return ok({ id: row.id, name: row.name, type: 'plugin' });
+    const columnMeta = this.parseOptions(row.column_meta) as ITableViewPersistenceDTO['columnMeta'];
+
+    if (row.type === 'grid') return ok({ id: row.id, name: row.name, type: 'grid', columnMeta });
+    if (row.type === 'kanban')
+      return ok({ id: row.id, name: row.name, type: 'kanban', columnMeta });
+    if (row.type === 'gallery')
+      return ok({ id: row.id, name: row.name, type: 'gallery', columnMeta });
+    if (row.type === 'calendar')
+      return ok({ id: row.id, name: row.name, type: 'calendar', columnMeta });
+    if (row.type === 'form') return ok({ id: row.id, name: row.name, type: 'form', columnMeta });
+    if (row.type === 'plugin')
+      return ok({ id: row.id, name: row.name, type: 'plugin', columnMeta });
     return err('Unsupported view type');
   }
 

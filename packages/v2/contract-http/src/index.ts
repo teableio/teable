@@ -3,6 +3,7 @@ export * from './shared/container';
 export * from './shared/domainEvent';
 export * from './shared/http';
 export * from './table/createTable';
+export * from './table/deleteTable';
 export * from './table/getTableById';
 export * from './table/listTables';
 export * from './table/dto';

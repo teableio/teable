@@ -24,4 +24,8 @@ export class NoopTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, string>> {
     return ok([]);
   }
+
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
 }

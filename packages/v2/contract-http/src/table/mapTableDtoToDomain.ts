@@ -33,6 +33,7 @@ import {
   UserDefaultValue,
   UserMultiplicity,
   UserNotification,
+  ViewColumnMeta,
   ViewId,
   ViewName,
   createAttachmentField,
@@ -276,22 +277,30 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
 const mapViewDtoToDomain = (dto: IViewDto): Result<View, string> => {
   return ViewId.create(dto.id).andThen((id) =>
     ViewName.create(dto.name).andThen((name) => {
-      switch (dto.type) {
-        case 'grid':
-          return createGridView({ id, name });
-        case 'kanban':
-          return createKanbanView({ id, name });
-        case 'gallery':
-          return createGalleryView({ id, name });
-        case 'calendar':
-          return createCalendarView({ id, name });
-        case 'form':
-          return createFormView({ id, name });
-        case 'plugin':
-          return createPluginView({ id, name });
-        default:
-          return err('Unsupported view type');
-      }
+      const viewResult = (() => {
+        switch (dto.type) {
+          case 'grid':
+            return createGridView({ id, name });
+          case 'kanban':
+            return createKanbanView({ id, name });
+          case 'gallery':
+            return createGalleryView({ id, name });
+          case 'calendar':
+            return createCalendarView({ id, name });
+          case 'form':
+            return createFormView({ id, name });
+          case 'plugin':
+            return createPluginView({ id, name });
+          default:
+            return err('Unsupported view type');
+        }
+      })();
+
+      return viewResult.andThen((view) =>
+        ViewColumnMeta.rehydrate(dto.columnMeta).andThen((columnMeta) =>
+          view.setColumnMeta(columnMeta).map(() => view)
+        )
+      );
     })
   );
 };

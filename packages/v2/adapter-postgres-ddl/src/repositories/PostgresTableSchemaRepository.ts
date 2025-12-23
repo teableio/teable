@@ -66,6 +66,25 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
     return ok(undefined);
   }
+
+  @TraceSpan()
+  async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+    const dbTableNameResult = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }));
+    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+    const { schema, tableName } = dbTableNameResult.value;
+    const db = resolvePostgresDb(this.db, context);
+
+    try {
+      const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
+      await schemaBuilder.dropTable(tableName).ifExists().execute();
+    } catch (error) {
+      return err(`Failed to delete table schema: ${describeError(error)}`);
+    }
+
+    return ok(undefined);
+  }
 }
 
 const describeError = (error: unknown): string => {

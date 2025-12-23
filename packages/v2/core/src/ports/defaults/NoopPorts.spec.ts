@@ -54,11 +54,12 @@ describe('NoopTableRepository', () => {
     expect((await repo.insert(context, table)).isOk()).toBe(true);
     const queryResult = await repo.findOne(context, { isSatisfiedBy: () => true } as never);
     expect(queryResult.isErr()).toBe(true);
+    expect((await repo.delete(context, table)).isOk()).toBe(true);
   });
 });
 
 describe('NoopTableSchemaRepository', () => {
-  it('accepts inserts', async () => {
+  it('accepts inserts and deletes', async () => {
     const table = buildTable();
     if (!table) return;
     const repo = new NoopTableSchemaRepository();
@@ -67,6 +68,7 @@ describe('NoopTableSchemaRepository', () => {
     if (actorIdResult.isErr()) return;
     const context = { actorId: actorIdResult.value };
     expect((await repo.insert(context, table)).isOk()).toBe(true);
+    expect((await repo.delete(context, table)).isOk()).toBe(true);
   });
 });
 

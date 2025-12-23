@@ -6,6 +6,7 @@ import { AggregateRoot } from '../shared/AggregateRoot';
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
+import { TableDeleted } from './events/TableDeleted';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
@@ -159,5 +160,18 @@ export class Table extends AggregateRoot<TableId> {
 
   viewIds(): ReadonlyArray<ViewId> {
     return this.viewsValue.map((v) => v.id());
+  }
+
+  markDeleted(): Result<void, string> {
+    this.addDomainEvent(
+      TableDeleted.create({
+        tableId: this.id(),
+        baseId: this.baseIdValue,
+        tableName: this.nameValue,
+        fieldIds: this.fieldIds(),
+        viewIds: this.viewIds(),
+      })
+    );
+    return ok(undefined);
   }
 }

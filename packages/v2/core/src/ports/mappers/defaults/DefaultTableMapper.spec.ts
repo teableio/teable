@@ -44,6 +44,7 @@ import { GalleryView } from '../../../domain/table/views/types/GalleryView';
 import { GridView } from '../../../domain/table/views/types/GridView';
 import { KanbanView } from '../../../domain/table/views/types/KanbanView';
 import { PluginView } from '../../../domain/table/views/types/PluginView';
+import { ViewColumnMeta } from '../../../domain/table/views/ViewColumnMeta';
 import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import { DefaultTableMapper } from './DefaultTableMapper';
@@ -275,6 +276,17 @@ const buildTable = () => {
       })
     ),
   ];
+
+  views.forEach((view) => {
+    const columnMeta = unwrap(
+      ViewColumnMeta.forView({
+        viewType: view.type(),
+        fields,
+        primaryFieldId: titleId,
+      })
+    );
+    unwrap(view.setColumnMeta(columnMeta));
+  });
 
   return unwrap(
     Table.rehydrate({

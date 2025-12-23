@@ -1,12 +1,38 @@
 import { mapTableToDto } from '@teable/v2-contract-http';
-import type { Field, Table as TableAggregate, View } from '@teable/v2-core';
-import { Copy, Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
+import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '@teable/v2-core';
+import {
+  Copy,
+  Database,
+  MoreVertical,
+  Plus,
+  RefreshCcw,
+  Table as TableIcon,
+  Trash2,
+  TriangleAlert,
+} from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -21,6 +47,49 @@ import { renderFieldOptions } from './fieldOptionsVisitor';
 
 const formatViewLabel = (view: View): string =>
   `${view.name().toString()} (${view.type().toString()})`;
+
+const getViewColumnMeta = (
+  view: View
+): { value: ViewColumnMetaValue | null; error: string | null } => {
+  const result = view.columnMeta();
+  if (result.isOk()) {
+    return { value: result.value.toDto(), error: null };
+  }
+  return { value: null, error: result.error };
+};
+
+const sortColumnMeta = (
+  columnMeta: ViewColumnMetaValue
+): Array<[string, ViewColumnMetaValue[string]]> =>
+  Object.entries(columnMeta).sort(([, left], [, right]) => (left.order ?? 0) - (right.order ?? 0));
+
+const formatOptionalBoolean = (value: boolean | undefined): string => {
+  if (value === undefined) return '-';
+  return value ? 'true' : 'false';
+};
+
+const formatOptionalNumber = (value: number | undefined): string => {
+  if (value === undefined) return '-';
+  return value.toString();
+};
+
+const formatOptionalString = (value: string | null | undefined): string => {
+  if (value === undefined || value === null) return '-';
+  return value;
+};
+
+const formatColumnMetaExtras = (entry: ViewColumnMetaValue[string]): string => {
+  const knownKeys = new Set(['order', 'visible', 'hidden', 'required', 'width', 'statisticFunc']);
+  const extra = Object.keys(entry).reduce<Record<string, unknown>>((acc, key) => {
+    if (!knownKeys.has(key)) {
+      acc[key] = entry[key];
+    }
+    return acc;
+  }, {});
+
+  if (!Object.keys(extra).length) return '-';
+  return JSON.stringify(extra);
+};
 
 const getDbFieldName = (field: Field): string | null => {
   const nameResult = field.dbFieldName().andThen((name) => name.value());
@@ -41,9 +110,11 @@ type TableMetaPageProps = {
   isInitialLoading: boolean;
   isLoading: boolean;
   isCreating: boolean;
+  isDeleting: boolean;
   errorMessage: string | null;
   onRefresh: () => void;
   onCreate: () => void;
+  onDelete: () => void;
 };
 
 export function TableMetaPage({
@@ -55,9 +126,11 @@ export function TableMetaPage({
   isInitialLoading,
   isLoading,
   isCreating,
+  isDeleting,
   errorMessage,
   onRefresh,
   onCreate,
+  onDelete,
 }: TableMetaPageProps) {
   const hasTable = !!table;
 
@@ -69,8 +142,10 @@ export function TableMetaPage({
         table={table}
         isLoading={isLoading}
         isCreating={isCreating}
+        isDeleting={isDeleting}
         onRefresh={onRefresh}
         onCreate={onCreate}
+        onDelete={onDelete}
       />
       <section className="flex-1 space-y-6 px-6 py-8">
         {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
@@ -98,8 +173,10 @@ type PlaygroundHeaderProps = {
   table: TableAggregate | null;
   isLoading: boolean;
   isCreating: boolean;
+  isDeleting: boolean;
   onRefresh: () => void;
   onCreate: () => void;
+  onDelete: () => void;
 };
 
 function PlaygroundHeader({
@@ -108,9 +185,20 @@ function PlaygroundHeader({
   table,
   isLoading,
   isCreating,
+  isDeleting,
   onRefresh,
   onCreate,
+  onDelete,
 }: PlaygroundHeaderProps) {
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const canDelete = !!table && !isDeleting;
+
+  const handleDeleteConfirm = () => {
+    if (!table) return;
+    onDelete();
+    setDeleteOpen(false);
+  };
+
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
       <div className="flex flex-wrap items-center gap-3">
@@ -136,7 +224,49 @@ function PlaygroundHeader({
           <Plus className="mr-2 h-4 w-4" />
           {isCreating ? 'Creating...' : 'Create basic table'}
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" aria-label="Table actions" disabled={!table}>
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              disabled={!canDelete}
+              onSelect={(event) => {
+                event.preventDefault();
+                setDeleteOpen(true);
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Delete table
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete table</AlertDialogTitle>
+            <AlertDialogDescription>
+              {table
+                ? `Delete "${table.name().toString()}"? This will remove its schema and metadata.`
+                : 'Delete this table?'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 }
@@ -351,21 +481,110 @@ type TableViewsCardProps = {
 
 function TableViewsCard({ views }: TableViewsCardProps) {
   const viewLabels = views.map(formatViewLabel);
+  const viewDetails = views.map((view) => {
+    const columnMetaResult = getViewColumnMeta(view);
+    const columnMetaEntries = columnMetaResult.value ? sortColumnMeta(columnMetaResult.value) : [];
+    const hasVisibility = columnMetaEntries.some(
+      ([, entry]) => entry.visible !== undefined || entry.hidden !== undefined
+    );
+    return {
+      view,
+      columnMetaEntries,
+      columnMetaError: columnMetaResult.error,
+      columnMetaCount: columnMetaEntries.length,
+      hasVisibility,
+    };
+  });
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="text-base">Views</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent className="space-y-4">
         {viewLabels.length ? (
-          <div className="flex flex-wrap gap-2">
-            {viewLabels.map((viewLabel) => (
-              <Badge key={viewLabel} variant="secondary">
-                {viewLabel}
-              </Badge>
-            ))}
-          </div>
+          <>
+            <div className="flex flex-wrap gap-2">
+              {viewLabels.map((viewLabel) => (
+                <Badge key={viewLabel} variant="secondary">
+                  {viewLabel}
+                </Badge>
+              ))}
+            </div>
+            <div className="space-y-3">
+              {viewDetails.map(
+                ({ view, columnMetaEntries, columnMetaError, columnMetaCount, hasVisibility }) => (
+                  <div
+                    key={view.id().toString()}
+                    className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="text-sm font-semibold text-foreground">
+                        {view.name().toString()}
+                      </div>
+                      <Badge variant="secondary">{view.type().toString()}</Badge>
+                      <Badge variant="outline">{columnMetaCount} columns</Badge>
+                      {hasVisibility ? <Badge variant="outline">visibility</Badge> : null}
+                      {columnMetaError ? (
+                        <Badge variant="destructive">column meta error</Badge>
+                      ) : null}
+                    </div>
+                    {columnMetaError ? (
+                      <div className="text-xs text-destructive">{columnMetaError}</div>
+                    ) : null}
+                    {columnMetaEntries.length ? (
+                      <UITable>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Field ID</TableHead>
+                            <TableHead>Order</TableHead>
+                            <TableHead>Visible</TableHead>
+                            <TableHead>Hidden</TableHead>
+                            <TableHead>Required</TableHead>
+                            <TableHead>Width</TableHead>
+                            <TableHead>Statistic</TableHead>
+                            <TableHead>Extras</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {columnMetaEntries.map(([fieldId, entry]) => (
+                            <TableRow key={`${view.id().toString()}-${fieldId}`}>
+                              <TableCell className="break-all font-mono text-xs text-muted-foreground">
+                                {fieldId}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalNumber(entry.order)}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalBoolean(entry.visible)}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalBoolean(entry.hidden)}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalBoolean(entry.required)}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalNumber(entry.width)}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs text-muted-foreground">
+                                {formatOptionalString(entry.statisticFunc)}
+                              </TableCell>
+                              <TableCell className="break-all font-mono text-xs text-muted-foreground">
+                                {formatColumnMetaExtras(entry)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </UITable>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">No column meta entries.</div>
+                    )}
+                  </div>
+                )
+              )}
+            </div>
+          </>
         ) : (
           <div className="text-sm text-muted-foreground">No views defined.</div>
         )}

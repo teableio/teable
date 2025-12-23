@@ -10,4 +10,8 @@ export class NoopTableSchemaRepository implements ITableSchemaRepository {
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
     return ok(undefined);
   }
+
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
 }

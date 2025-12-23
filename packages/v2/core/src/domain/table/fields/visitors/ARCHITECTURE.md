@@ -10,6 +10,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field visitor role.
+- `FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
+- `FieldValueTypeVisitor.ts` - Role: visitor; Purpose: derive cell value types and multiplicity.
+- `FieldValueTypeVisitor.spec.ts` - Role: tests; Purpose: verify value type visitor behavior.
 - `IFieldVisitor.ts` - Role: visitor interface; Purpose: declare per-field visit methods.
 - `NoopFieldVisitor.ts` - Role: no-op visitor; Purpose: default empty implementation.
 

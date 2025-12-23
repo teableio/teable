@@ -11,6 +11,7 @@ import {
 } from '@teable/v2-core';
 
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
+import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
 
@@ -104,6 +105,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
   });
 
+  const tablesDelete = os.tables.delete.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDeleteTableEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+  });
+
   const tablesList = os.tables.list.handler(async ({ input }) => {
     let container: IHandlerResolver;
     try {
@@ -136,6 +170,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   return os.router({
     tables: {
       create: tablesCreate,
+      delete: tablesDelete,
       getById: tablesGetById,
       list: tablesList,
     },
