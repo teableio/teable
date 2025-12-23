@@ -137,7 +137,7 @@ const resolveColumnType = (
 
   switch (cellValueType) {
     case 'number':
-      return 'numeric';
+      return 'double precision';
     case 'dateTime':
       return 'timestamptz';
     case 'boolean':

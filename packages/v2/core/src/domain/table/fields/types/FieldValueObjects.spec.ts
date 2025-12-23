@@ -7,6 +7,7 @@ import { ButtonWorkflow } from './ButtonWorkflow';
 import { CheckboxDefaultValue } from './CheckboxDefaultValue';
 import { DateDefaultValue } from './DateDefaultValue';
 import { FieldColor } from './FieldColor';
+import { FieldComputed } from './FieldComputed';
 import { NumberDefaultValue } from './NumberDefaultValue';
 import { RatingColor } from './RatingColor';
 import { RatingIcon } from './RatingIcon';
@@ -100,6 +101,21 @@ describe('SelectAutoNewOptions', () => {
     expect(SelectAutoNewOptions.create('nope').isErr()).toBe(true);
     expect(SelectAutoNewOptions.allow().toBoolean()).toBe(false);
     expect(SelectAutoNewOptions.prevent().toBoolean()).toBe(true);
+  });
+});
+
+describe('FieldComputed', () => {
+  it('supports computed/manual and boolean values', () => {
+    const computed = FieldComputed.computed();
+    const manual = FieldComputed.manual();
+    const created = FieldComputed.create(true);
+    expect(created.isOk()).toBe(true);
+    if (created.isErr()) return;
+    expect(computed.equals(manual)).toBe(false);
+    expect(computed.equals(created.value)).toBe(true);
+    expect(FieldComputed.create('nope').isErr()).toBe(true);
+    expect(computed.toBoolean()).toBe(true);
+    expect(manual.toBoolean()).toBe(false);
   });
 });
 

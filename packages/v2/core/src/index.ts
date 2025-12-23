@@ -60,6 +60,7 @@ export * from './domain/table/fields/types/DateTimeFormatting';
 export * from './domain/table/fields/types/DateDefaultValue';
 export * from './domain/table/fields/types/TimeZone';
 export * from './domain/table/fields/types/FieldColor';
+export * from './domain/table/fields/types/FieldComputed';
 export type { FormulaField } from './domain/table/fields/types/FormulaField';
 export * from './domain/table/fields/types/FormulaExpression';
 export * from './domain/table/fields/types/FormulaMeta';

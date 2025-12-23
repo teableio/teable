@@ -101,7 +101,7 @@ export class PostgresTableRepository implements ITableRepository {
             not_null: null,
             unique: null,
             is_primary: f.field.id === dto.primaryFieldId ? true : null,
-            is_computed: null,
+            is_computed: typeof f.field.isComputed === 'boolean' ? f.field.isComputed : null,
             is_lookup: null,
             is_conditional_lookup: null,
             is_pending: null,

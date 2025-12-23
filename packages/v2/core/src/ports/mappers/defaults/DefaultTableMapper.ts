@@ -189,6 +189,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
     const meta = field.meta();
+    const isComputed = field.computed().toBoolean();
 
     return field
       .cellValueType()
@@ -207,6 +208,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
           cellValueType: cellValueType.toString(),
           isMultipleCellValue: isMultipleCellValue.toBoolean(),
+          isComputed,
         }))
       );
   }

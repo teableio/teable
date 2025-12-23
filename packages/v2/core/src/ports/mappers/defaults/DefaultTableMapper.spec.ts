@@ -10,11 +10,15 @@ import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
 import { ButtonWorkflow } from '../../../domain/table/fields/types/ButtonWorkflow';
+import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellValueMultiplicity';
+import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
+import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
+import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
@@ -300,6 +304,46 @@ const buildTable = () => {
   );
 };
 
+const buildFormulaTable = () => {
+  const baseId = unwrap(BaseId.create(`bse${'f'.repeat(16)}`));
+  const tableId = unwrap(TableId.create(`tbl${'f'.repeat(16)}`));
+  const name = unwrap(TableName.create('Formula'));
+  const fieldId = unwrap(FieldId.create(`fld${'f'.repeat(16)}`));
+  const fieldName = unwrap(FieldName.create('Total'));
+  const expression = unwrap(FormulaExpression.create('1'));
+  const field = unwrap(
+    FormulaField.create({
+      id: fieldId,
+      name: fieldName,
+      expression,
+    })
+  );
+  unwrap(field.setResultType(CellValueType.number(), CellValueMultiplicity.single()));
+
+  const viewId = unwrap(ViewId.create(`viw${'f'.repeat(16)}`));
+  const viewName = unwrap(ViewName.create('Grid'));
+  const view = unwrap(GridView.create({ id: viewId, name: viewName }));
+  const columnMeta = unwrap(
+    ViewColumnMeta.forView({
+      viewType: view.type(),
+      fields: [field],
+      primaryFieldId: fieldId,
+    })
+  );
+  unwrap(view.setColumnMeta(columnMeta));
+
+  return unwrap(
+    Table.rehydrate({
+      id: tableId,
+      baseId,
+      name,
+      fields: [field],
+      views: [view],
+      primaryFieldId: fieldId,
+    })
+  );
+};
+
 describe('DefaultTableMapper', () => {
   it('maps tables to persistence dto and back', () => {
     const table = buildTable();
@@ -328,5 +372,18 @@ describe('DefaultTableMapper', () => {
 
     const fieldDbNameResult = mapped.fields()[0]?.dbFieldName();
     expect(fieldDbNameResult?.isOk()).toBe(true);
+  });
+
+  it('marks formula fields as computed in persistence dto', () => {
+    const table = buildFormulaTable();
+
+    const mapper = new DefaultTableMapper();
+    const dtoResult = mapper.toDTO(table);
+    expect(dtoResult.isOk()).toBe(true);
+    if (dtoResult.isErr()) return;
+
+    const formulaField = dtoResult.value.fields[0];
+    expect(formulaField?.type).toBe('formula');
+    expect(formulaField?.isComputed).toBe(true);
   });
 });

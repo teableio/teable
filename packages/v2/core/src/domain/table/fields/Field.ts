@@ -6,6 +6,7 @@ import { DbFieldName } from './DbFieldName';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
+import { FieldComputed } from './types/FieldComputed';
 import type { IFieldVisitor } from './visitors/IFieldVisitor';
 
 export abstract class Field extends Entity<FieldId> {
@@ -14,16 +15,19 @@ export abstract class Field extends Entity<FieldId> {
     private readonly nameValue: FieldName,
     private readonly typeValue: FieldType,
     dbFieldName?: DbFieldName,
-    dependencies: ReadonlyArray<FieldId> = []
+    dependencies: ReadonlyArray<FieldId> = [],
+    computed?: FieldComputed
   ) {
     super(id);
     this.dbFieldNameValue = dbFieldName ?? DbFieldName.empty();
     this.dependenciesValue = [...dependencies];
+    this.computedValue = computed ?? FieldComputed.manual();
   }
 
   private dbFieldNameValue: DbFieldName;
   private dependenciesValue: ReadonlyArray<FieldId>;
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
+  private readonly computedValue: FieldComputed;
 
   name(): FieldName {
     return this.nameValue;
@@ -31,6 +35,10 @@ export abstract class Field extends Entity<FieldId> {
 
   type(): FieldType {
     return this.typeValue;
+  }
+
+  computed(): FieldComputed {
+    return this.computedValue;
   }
 
   dbFieldName(): Result<DbFieldName, string> {

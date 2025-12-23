@@ -10,6 +10,7 @@ import type { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import type { DateTimeFormatting } from './DateTimeFormatting';
 import { DateTimeFormatting as DateTimeFormattingValue } from './DateTimeFormatting';
+import { FieldComputed } from './FieldComputed';
 import { FormulaExpression } from './FormulaExpression';
 import type { FormulaMeta } from './FormulaMeta';
 import type { NumberFormatting } from './NumberFormatting';
@@ -41,7 +42,7 @@ export class FormulaField extends Field {
     private isMultipleCellValueValue: CellValueMultiplicity | undefined,
     dependencies: ReadonlyArray<FieldId>
   ) {
-    super(id, name, FieldType.formula(), undefined, dependencies);
+    super(id, name, FieldType.formula(), undefined, dependencies, FieldComputed.computed());
   }
 
   static create(params: {

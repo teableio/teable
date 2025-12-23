@@ -104,6 +104,7 @@ export type ITableFieldBaseDTO = {
   id: string;
   name: string;
   dbFieldName?: string;
+  isComputed?: boolean;
 };
 
 export type ITableFieldPersistenceDTO =

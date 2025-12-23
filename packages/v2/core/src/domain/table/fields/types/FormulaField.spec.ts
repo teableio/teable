@@ -42,6 +42,7 @@ describe('FormulaField', () => {
     if (!fieldResult || fieldResult.isErr()) return;
     const field = fieldResult.value;
 
+    expect(field.computed().toBoolean()).toBe(true);
     expect(field.cellValueType().isErr()).toBe(true);
     expect(field.isMultipleCellValue().isErr()).toBe(true);
 
