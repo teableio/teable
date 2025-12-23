@@ -53,3 +53,7 @@ export function generateTemplateCacheKeyByBaseId(baseId: string) {
 export function generateTemplateCategoryCacheKey() {
   return `template:published-category-list` as const;
 }
+
+export function generateInstanceBillableUserCountCacheKey() {
+  return 'instance-billable-count' as const;
+}

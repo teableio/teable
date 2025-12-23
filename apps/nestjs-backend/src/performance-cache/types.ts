@@ -38,6 +38,9 @@ export interface IPerformanceCacheStore {
 
   // template cache, format: template:base:base_id
   [key: `template:base:${string}`]: unknown;
+
+  // billable user count cache, format: instance-billable-count
+  'instance-billable-count': number;
 }
 
 /**
