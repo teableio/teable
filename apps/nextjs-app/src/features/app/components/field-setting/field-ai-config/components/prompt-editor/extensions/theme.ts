@@ -39,7 +39,7 @@ const EDITOR_LIGHT_THEME = (options?: IEditorThemeOptions) => ({
   '.cm-placeholder': {
     position: 'absolute',
     paddingLeft: 'unset',
-    pointerEvents: 'none',
+    fontSize: 'inherit',
   },
 });
 
@@ -55,7 +55,7 @@ const EDITOR_DARK_THEME = (options?: IEditorThemeOptions) => ({
   '.cm-placeholder': {
     position: 'absolute',
     paddingLeft: 'unset',
-    pointerEvents: 'none',
+    fontSize: 'inherit',
   },
 });
 
