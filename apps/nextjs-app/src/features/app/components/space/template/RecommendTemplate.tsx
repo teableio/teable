@@ -59,11 +59,11 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
             key={template.id}
             role="button"
             tabIndex={0}
-            className="group relative flex h-64 w-full cursor-pointer flex-col items-start justify-start overflow-hidden rounded-lg border border-border bg-background transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:max-w-[33%] md:flex-1"
+            className="group relative flex h-64 w-full cursor-pointer flex-col items-start justify-start bg-background transition-shadow focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 md:max-w-[33%] md:flex-1"
             onClick={() => handleTemplateClick(template.id)}
             onKeyDown={(e) => handleKeyDown(e, template.id)}
           >
-            <div className="relative h-[218px] w-full self-stretch overflow-hidden bg-secondary">
+            <div className="relative h-[218px] w-full self-stretch overflow-hidden rounded-lg border border-border bg-secondary hover:shadow-md">
               {template.cover?.presignedUrl ? (
                 <img
                   src={template.cover.presignedUrl}
@@ -78,7 +78,7 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-start justify-center gap-2 self-stretch border-t border-border bg-background p-3">
+            <div className="flex flex-col items-start justify-center gap-2 self-stretch border-border bg-background px-1 pt-2">
               <div className="relative flex flex-col items-start justify-start gap-1 self-stretch">
                 <p className="w-full truncate text-sm font-medium text-foreground">
                   {template.name}

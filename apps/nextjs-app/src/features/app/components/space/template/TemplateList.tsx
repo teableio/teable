@@ -54,7 +54,7 @@ export const TemplateList = (props: ITemplateListProps) => {
     <div className="flex flex-1 flex-col overflow-y-auto">
       <div
         className={cn(
-          'grid grid-cols-1 gap-4 text-left sm:grid-cols-2 lg:grid-cols-3 flex-1',
+          'grid grid-cols-1 gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 flex-1',
           {
             'grid-cols-1 sm:grid-cols-1 lg:grid-cols-1': currentTemplateList?.length === 0,
           },

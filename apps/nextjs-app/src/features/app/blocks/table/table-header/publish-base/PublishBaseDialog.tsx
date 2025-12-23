@@ -480,9 +480,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               <div className="relative flex size-full flex-col items-center justify-center gap-3 p-5">
                 <div className="text-base font-semibold">{t('publishBase.previewTips')}</div>
 
-                <div className="flex min-h-[302px] w-[432px] flex-col overflow-hidden rounded-md border shadow-md">
+                <div className="flex min-h-[302px] w-[432px] flex-col">
                   <div
-                    className="group relative h-[180px] cursor-pointer overflow-hidden"
+                    className="group relative h-[180px] cursor-pointer overflow-hidden rounded-md border shadow-md"
                     onClick={handleUploadClick}
                     role="button"
                     tabIndex={0}
@@ -526,7 +526,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-1 flex-col gap-1 border-t bg-card p-4">
+                  <div className="flex flex-1 flex-col gap-1 pt-2">
                     <div className="flex items-center justify-between">
                       <p
                         className={cn(
@@ -544,7 +544,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     </div>
                     <span
                       className={cn(
-                        'line-clamp-3 text-wrap break-words text-sm',
+                        'text-nowrap break-words text-sm truncate',
                         description ? 'text-foreground' : 'text-muted-foreground'
                       )}
                       title={description}

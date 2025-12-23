@@ -1,5 +1,6 @@
 import { Eye } from '@teable/icons';
 import type { ITemplateVo } from '@teable/openapi';
+import { useTranslation } from 'react-i18next';
 import type { ITemplateBaseProps } from './TemplateMain';
 
 interface ITemplateCardProps extends ITemplateBaseProps {
@@ -9,10 +10,11 @@ interface ITemplateCardProps extends ITemplateBaseProps {
 export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplateCardProps) => {
   const { name, description, cover, visitCount, id: templateId } = template;
   const { presignedUrl } = cover ?? {};
+  const { t } = useTranslation(['common']);
 
   return (
     <div
-      className="group relative flex h-[308px] w-full shrink-0 cursor-pointer flex-col overflow-hidden rounded-lg border p-0 transition-shadow hover:shadow-lg"
+      className="relative flex h-[236px] w-full shrink-0 cursor-pointer flex-col overflow-hidden"
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -26,18 +28,24 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
         }
       }}
     >
-      <div className="h-[180px] w-auto shrink-0 bg-secondary">
-        {presignedUrl && (
+      <div className="group h-[180px] w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-lg">
+        {presignedUrl ? (
           <img
             src={presignedUrl}
             className="size-full object-cover transition-all duration-300 group-hover:scale-105"
             alt="preview"
           />
+        ) : (
+          <div className="flex size-full items-center justify-center">
+            <span className="text-sm text-muted-foreground">
+              {t('settings.templateAdmin.noImage')}
+            </span>
+          </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col px-4 pt-4">
-        <h2 className="mb-2 flex items-center justify-between text-base">
+      <div className="flex flex-1 flex-col gap-0.5 pt-2">
+        <h2 className="flex items-center justify-between text-base">
           <span className="truncate font-semibold" title={name}>
             {name}
           </span>
@@ -47,7 +55,10 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
             <span>{visitCount > 999 ? '999+' : visitCount}</span>
           </div>
         </h2>
-        <p className="m-0 line-clamp-2 flex-1 overflow-hidden text-sm " title={description}>
+        <p
+          className="m-0 flex-1 overflow-hidden truncate text-sm text-muted-foreground"
+          title={description}
+        >
           {description}
         </p>
       </div>
