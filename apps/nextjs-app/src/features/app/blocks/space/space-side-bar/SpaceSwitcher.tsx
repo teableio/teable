@@ -236,6 +236,8 @@ export const SpaceSwitcher = () => {
             <div className="flex flex-col px-2 py-1">
               <Link
                 href="/space/shared-base"
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
                 className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
@@ -245,6 +247,8 @@ export const SpaceSwitcher = () => {
               {user?.isAdmin && (
                 <Link
                   href="/admin/setting"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => setOpen(false)}
                   className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
                 >
@@ -256,6 +260,8 @@ export const SpaceSwitcher = () => {
               {organization?.isAdmin && (
                 <Link
                   href={`/enterprise/${organization.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => setOpen(false)}
                   className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
                 >
@@ -266,6 +272,8 @@ export const SpaceSwitcher = () => {
 
               <Link
                 href="/space/trash"
+                target="_blank"
+                rel="noopener noreferrer"
                 onClick={() => setOpen(false)}
                 className="flex h-9 items-center gap-2 rounded-md p-2 hover:bg-accent"
               >
