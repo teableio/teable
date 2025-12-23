@@ -26,7 +26,7 @@ export const TemplateRolePermission: Record<Action, boolean> = {
   'base|table_export': false,
   'base|authority_matrix_config': false,
   'base|db_connection': false,
-  'base|query_data': false,
+  'base|query_data': true,
   'table|create': false,
   'table|delete': false,
   'table|update': false,

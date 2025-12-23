@@ -319,7 +319,7 @@ export class PermissionService {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
       const template = await this.templateModel.getTemplateRawByBaseId(baseId);
-      return getPermissions(template ? 'viewer' : 'owner');
+      return template ? TemplatePermissions : getPermissions('owner');
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
