@@ -55,8 +55,8 @@ export const Collaborator = (props: ICollaboratorProps) => {
                 {t('billing.billable')}
               </Badge>
             )}
+            {tips}
           </div>
-          {tips}
         </div>
         {item.type === PrincipalType.User && (
           <p className="text-xs leading-none text-muted-foreground">{item.email}</p>
