@@ -227,8 +227,8 @@ function PlaygroundEmptyState({ isCreating, onCreate }: PlaygroundEmptyStateProp
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">
         <p>
-          This playground uses Teable v2 core with a fixed base and user. Click the button to create
-          a table with all basic field types, then view its schema immediately.
+          This playground uses Teable v2 core with a fixed actor. Create a table with all basic
+          field types, then view its schema, or switch the base ID from the sidebar.
         </p>
         <Button disabled={isCreating} onClick={onCreate}>
           <Plus className="mr-2 h-4 w-4" />

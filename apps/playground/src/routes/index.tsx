@@ -6,21 +6,28 @@ import { PLAYGROUND_BASE_ID, PLAYGROUND_TABLE_ID_STORAGE_KEY } from '@/lib/playg
 
 export const Route = createFileRoute('/')({ component: PlaygroundIndex });
 
-type RedirectTarget = { baseId: string; tableId: string } | null;
+type RedirectTarget =
+  | { to: '/$baseId'; params: { baseId: string } }
+  | { to: '/$baseId/$tableId'; params: { baseId: string; tableId: string } }
+  | null;
 
 function PlaygroundIndex() {
   const [target, setTarget] = useState<RedirectTarget>(null);
 
   useEffect(() => {
     const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-    setTarget({
-      baseId: PLAYGROUND_BASE_ID,
-      tableId: storedTableId ?? 'new',
-    });
+    if (storedTableId) {
+      setTarget({
+        to: '/$baseId/$tableId',
+        params: { baseId: PLAYGROUND_BASE_ID, tableId: storedTableId },
+      });
+      return;
+    }
+    setTarget({ to: '/$baseId', params: { baseId: PLAYGROUND_BASE_ID } });
   }, []);
 
   if (target) {
-    return <Navigate to="/$baseId/$tableId" params={target} replace />;
+    return <Navigate to={target.to} params={target.params} replace />;
   }
 
   return (

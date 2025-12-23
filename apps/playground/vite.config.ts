@@ -20,6 +20,8 @@ const v2ServerDeps = [
   '@teable/v2-di',
 ];
 
+const PLAYGROUND_PORT = 3100;
+
 const config = defineConfig(({ mode }) => {
   const envDir = path.dirname(fileURLToPath(import.meta.url));
   const env = loadEnv(mode, envDir, '');
@@ -49,6 +51,9 @@ const config = defineConfig(({ mode }) => {
     },
     optimizeDeps: {
       exclude: v2ServerDeps,
+    },
+    server: {
+      port: PLAYGROUND_PORT,
     },
   };
 });

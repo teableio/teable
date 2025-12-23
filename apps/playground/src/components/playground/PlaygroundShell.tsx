@@ -1,7 +1,7 @@
 import type { ITableDto } from '@teable/v2-contract-http';
-import { Link } from '@tanstack/react-router';
-import { LayoutGrid, Table as TableIcon, TriangleAlert } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
+import { ArrowRight, Database, LayoutGrid, Table as TableIcon, TriangleAlert } from 'lucide-react';
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
 
 import {
   Sidebar,
@@ -20,6 +20,7 @@ import {
   SidebarRail,
   SidebarSeparator,
 } from '@/components/ui/sidebar';
+import { Button } from '@/components/ui/button';
 
 type PlaygroundShellProps = {
   baseId: string;
@@ -77,9 +78,56 @@ function PlaygroundSidebar({
   searchValue,
   onSearchChange,
 }: PlaygroundSidebarProps) {
+  const navigate = useNavigate();
+  const [nextBaseId, setNextBaseId] = useState(baseId);
+
+  useEffect(() => {
+    setNextBaseId(baseId);
+  }, [baseId]);
+
+  const trimmedBaseId = nextBaseId.trim();
+  const canSwitchBase = trimmedBaseId.length > 0 && trimmedBaseId !== baseId;
+
+  const handleBaseSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!canSwitchBase) return;
+    onSearchChange('');
+    void navigate({
+      to: '/$baseId',
+      params: { baseId: trimmedBaseId },
+      search: {},
+    });
+  };
+
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="gap-3 px-4 pt-5 pb-4">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+          <Database className="h-4 w-4" />
+          Base
+        </div>
+        <form
+          className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+          onSubmit={handleBaseSubmit}
+        >
+          <SidebarInput
+            type="text"
+            placeholder="Base ID"
+            value={nextBaseId}
+            onChange={(event) => setNextBaseId(event.target.value)}
+            aria-label="Base ID"
+            spellCheck={false}
+          />
+          <Button
+            type="submit"
+            variant="outline"
+            size="icon-sm"
+            disabled={!canSwitchBase}
+            aria-label="Open base"
+          >
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </form>
         <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           <LayoutGrid className="h-4 w-4" />
           Tables
