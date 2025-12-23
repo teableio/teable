@@ -176,4 +176,153 @@ describe('resolveFormulaFields', () => {
       expect(resolveResult.error).toContain('Formula field dependency cycle detected');
     }
   });
+
+  it('returns errors for invalid formula references', () => {
+    const baseIdResult = BaseId.create(`bse${'c'.repeat(16)}`);
+    const tableNameResult = TableName.create('Bad refs');
+    const formulaIdResult = createFieldId('f');
+    const nameFieldResult = FieldName.create('Name');
+    const formulaNameResult = FieldName.create('Broken');
+
+    expect(
+      [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].every(
+        (r) => r.isOk()
+      )
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      formulaIdResult.isErr() ||
+      nameFieldResult.isErr() ||
+      formulaNameResult.isErr()
+    )
+      return;
+
+    const expression = FormulaExpression.create('{badField} + 1');
+    expect(expression.isOk()).toBe(true);
+    if (expression.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    builder
+      .field()
+      .formula()
+      .withId(formulaIdResult.value)
+      .withName(formulaNameResult.value)
+      .withExpression(expression.value)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const tableResult = builder.build();
+    expect(tableResult.isOk()).toBe(true);
+    if (tableResult.isErr()) return;
+
+    const resolveResult = resolveFormulaFields(tableResult.value);
+    expect(resolveResult.isErr()).toBe(true);
+    if (resolveResult.isErr()) {
+      expect(resolveResult.error).toContain('Formula references not found');
+    }
+  });
+
+  it('returns errors for missing referenced fields', () => {
+    const baseIdResult = BaseId.create(`bse${'d'.repeat(16)}`);
+    const tableNameResult = TableName.create('Missing refs');
+    const formulaIdResult = createFieldId('g');
+    const missingIdResult = createFieldId('h');
+    const nameFieldResult = FieldName.create('Name');
+    const formulaNameResult = FieldName.create('Depends');
+
+    expect(
+      [
+        baseIdResult,
+        tableNameResult,
+        formulaIdResult,
+        missingIdResult,
+        nameFieldResult,
+        formulaNameResult,
+      ].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      formulaIdResult.isErr() ||
+      missingIdResult.isErr() ||
+      nameFieldResult.isErr() ||
+      formulaNameResult.isErr()
+    )
+      return;
+
+    const missingId = missingIdResult.value;
+    const expression = FormulaExpression.create(`{${missingId.toString()}} + 1`);
+    expect(expression.isOk()).toBe(true);
+    if (expression.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    builder
+      .field()
+      .formula()
+      .withId(formulaIdResult.value)
+      .withName(formulaNameResult.value)
+      .withExpression(expression.value)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const tableResult = builder.build();
+    expect(tableResult.isOk()).toBe(true);
+    if (tableResult.isErr()) return;
+
+    const resolveResult = resolveFormulaFields(tableResult.value);
+    expect(resolveResult.isErr()).toBe(true);
+    if (resolveResult.isErr()) {
+      expect(resolveResult.error).toContain(missingId.toString());
+    }
+  });
+
+  it('returns errors for formula type inference failures', () => {
+    const baseIdResult = BaseId.create(`bse${'e'.repeat(16)}`);
+    const tableNameResult = TableName.create('Type errors');
+    const formulaIdResult = createFieldId('i');
+    const nameFieldResult = FieldName.create('Name');
+    const formulaNameResult = FieldName.create('Unknown function');
+
+    expect(
+      [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].every(
+        (r) => r.isOk()
+      )
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      formulaIdResult.isErr() ||
+      nameFieldResult.isErr() ||
+      formulaNameResult.isErr()
+    )
+      return;
+
+    const expression = FormulaExpression.create('UNKNOWN()');
+    expect(expression.isOk()).toBe(true);
+    if (expression.isErr()) return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    builder
+      .field()
+      .formula()
+      .withId(formulaIdResult.value)
+      .withName(formulaNameResult.value)
+      .withExpression(expression.value)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const tableResult = builder.build();
+    expect(tableResult.isOk()).toBe(true);
+    if (tableResult.isErr()) return;
+
+    const resolveResult = resolveFormulaFields(tableResult.value);
+    expect(resolveResult.isErr()).toBe(true);
+    if (resolveResult.isErr()) {
+      expect(resolveResult.error).toContain('Parse formula expression');
+    }
+  });
 });

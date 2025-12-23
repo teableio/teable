@@ -241,6 +241,8 @@
     "pg": "8.11.5",
     "pino-http": "10.5.0",
     "pino-pretty": "11.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
     "redlock": "5.0.0-beta.2",
     "reflect-metadata": "0.2.1",
     "rxjs": "7.8.1",
