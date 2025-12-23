@@ -2,6 +2,8 @@ export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
 export * from './commands/DeleteTableCommand';
 export * from './commands/DeleteTableHandler';
+export * from './commands/RenameTableCommand';
+export * from './commands/RenameTableHandler';
 export * from './commands/CommandHandler';
 export * from './ports/TraceSpan';
 
@@ -25,6 +27,7 @@ export * from './domain/shared/sort/SortDirection';
 export * from './domain/base/BaseId';
 
 export * from './domain/table/Table';
+export * from './domain/table/TableMutator';
 export * from './domain/table/TableBuilder';
 export * from './domain/table/DbTableName';
 export * from './domain/table/TableId';
@@ -32,9 +35,11 @@ export * from './domain/table/TableName';
 export * from './domain/table/TableSortKey';
 export * from './domain/table/events/TableCreated';
 export * from './domain/table/events/TableDeleted';
+export * from './domain/table/events/TableRenamed';
 export * from './domain/table/specs/TableByIdSpec';
 export * from './domain/table/specs/TableByNameLikeSpec';
 export * from './domain/table/specs/TableByNameSpec';
+export * from './domain/table/specs/ITableSpecVisitor';
 export type { Field } from './domain/table/fields/Field';
 export * from './domain/table/fields/DbFieldName';
 export * from './domain/table/fields/FieldId';

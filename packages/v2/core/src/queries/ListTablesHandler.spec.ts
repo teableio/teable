@@ -106,6 +106,7 @@ describe('ListTablesHandler', () => {
       insert: async () => err('nope'),
       findOne: async () => err('nope'),
       find: async () => err('repository error'),
+      updateOne: async (_context, _table, _mutateSpec) => err('nope'),
       delete: async () => err('nope'),
     };
 

@@ -17,21 +17,19 @@ export class NotSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpeci
   }
 
   accept(v: V): Result<void, string> {
+    const visited = v.visit(this);
     if (isSpecFilterVisitor(v)) {
       const innerVisitor = v.clone();
 
-      return this.inner
-        .accept(innerVisitor as unknown as V)
+      return visited
+        .andThen(() => this.inner.accept(innerVisitor as unknown as V))
         .andThen(() => innerVisitor.where())
         .map((innerCond) => v.not(innerCond))
         .andThen((cond) => v.addCond(cond))
         .map(() => undefined);
     }
 
-    return v
-      .visit(this)
-      .andThen(() => this.inner.accept(v))
-      .map(() => undefined);
+    return visited.andThen(() => this.inner.accept(v)).map(() => undefined);
   }
 }
 

@@ -2078,7 +2078,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -2360,6 +2360,52 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/v2/adapter-db-postgres-bun-sql:
+    dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      kysely-bun-sql:
+        specifier: 0.2.0
+        version: 0.2.0(kysely@0.28.9)(typescript@5.4.3)
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/bun':
+        specifier: 1.3.5
+        version: 1.3.5
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+
   packages/v2/adapter-db-postgres-pg:
     dependencies:
       '@teable/v2-core':
@@ -2637,6 +2683,9 @@ importers:
       '@orpc/server':
         specifier: 1.13.0
         version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+      '@teable/v2-adapter-db-postgres-bun-sql':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-bun-sql
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
@@ -10531,6 +10580,9 @@ packages:
   '@types/body-parser@1.19.5':
     resolution: {integrity: sha512-fB3Zu92ucau0iQ0JMCFQE7b/dv8Ot07NI3KaZIkIUNXq82k4eBAqUaneXfleGY9JWskeS9y+u0nXMyspcuQrCg==}
 
+  '@types/bun@1.3.5':
+    resolution: {integrity: sha512-RnygCqNrd3srIPEWBd5LFeUYG7plCoH2Yw9WaZGyNmdTEei+gWaHqydbaIRkIkcbXwhBT94q78QljxN0Sk838w==}
+
   '@types/canvas-confetti@1.9.0':
     resolution: {integrity: sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==}
 
@@ -12629,6 +12681,9 @@ packages:
 
   bullmq@5.21.2:
     resolution: {integrity: sha512-LPuNoGaDc5CON2X6h4cJ2iVfd+B+02xubFU+IB/fyJHd+/HqUZRqnlYryUCAuhVHBhUKtA6oyVdJxqSa62i+og==}
+
+  bun-types@1.3.5:
+    resolution: {integrity: sha512-inmAYe2PFLs0SUbFOWSVD24sg1jFlMPxOjOSSCYqUgn4Hsc3rDc7dFvfVYjFPNHtov6kgUeulV4SxbuIV/stPw==}
 
   busboy@1.6.0:
     resolution: {integrity: sha512-8SFQbg/0hQ9xy3UNTB0YEnsNBbWfhf7RtnzpL7TkBiTBRfrQ9Fxcnz7VJsleJpyp6rVLvXiuORqjlHi5q+PYuA==}
@@ -16332,6 +16387,13 @@ packages:
 
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
+
+  kysely-bun-sql@0.2.0:
+    resolution: {integrity: sha512-LuddpS7hoOd3n/HOj6CztBXKQolIkkWv2IOySuE1JwEq45c+V3xbrkZFiHqPlCK8HOEIIa9ZzlZ+QlvNdtc0fQ==}
+    engines: {bun: '>=1.3.0'}
+    peerDependencies:
+      kysely: ^0.28.8
+      typescript: ^5
 
   kysely-postgres-js@3.0.0:
     resolution: {integrity: sha512-o2t/xNSYJQDW6rVGGFPXKmZ0BEz2dGn66c2B+cO/k9ZNcU2qPWPycQPQ+B+P2MBXbKYq0xV9BZmFIvkUrmFWAQ==}
@@ -28857,14 +28919,6 @@ snapshots:
     optionalDependencies:
       rollup: 2.78.0
 
-  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
-    dependencies:
-      '@types/estree': 1.0.6
-      estree-walker: 2.0.2
-      picomatch: 4.0.2
-    optionalDependencies:
-      rollup: 2.79.2
-
   '@rollup/pluginutils@5.1.4(rollup@4.53.5)':
     dependencies:
       '@types/estree': 1.0.6
@@ -31173,6 +31227,10 @@ snapshots:
     dependencies:
       '@types/connect': 3.4.38
       '@types/node': 22.18.0
+
+  '@types/bun@1.3.5':
+    dependencies:
+      bun-types: 1.3.5
 
   '@types/canvas-confetti@1.9.0': {}
 
@@ -33906,6 +33964,10 @@ snapshots:
       uuid: 9.0.1
     transitivePeerDependencies:
       - supports-color
+
+  bun-types@1.3.5:
+    dependencies:
+      '@types/node': 22.18.0
 
   busboy@1.6.0:
     dependencies:
@@ -38271,6 +38333,11 @@ snapshots:
       - supports-color
 
   kuler@2.0.0: {}
+
+  kysely-bun-sql@0.2.0(kysely@0.28.9)(typescript@5.4.3):
+    dependencies:
+      kysely: 0.28.9
+      typescript: 5.4.3
 
   kysely-postgres-js@3.0.0(kysely@0.28.9)(postgres@3.4.7):
     dependencies:
@@ -45227,9 +45294,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
+  vite-plugin-svgr@4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
+      '@rollup/pluginutils': 5.1.4(rollup@4.53.5)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)

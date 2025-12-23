@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import type { OffsetPagination } from '../../domain/shared/pagination/OffsetPagination';
 import type { Sort } from '../../domain/shared/sort/Sort';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
+import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
 import type { IExecutionContext } from '../ExecutionContext';
@@ -24,7 +25,10 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(table);
   }
 
-  async findOne(_: IExecutionContext, spec: ISpecification<Table>): Promise<Result<Table, string>> {
+  async findOne(
+    _: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<Table, string>> {
     const found = this.savedTables.find((t) => spec.isSatisfiedBy(t));
     if (!found) return err('Not found');
     return ok(found);
@@ -32,13 +36,29 @@ export class MemoryTableRepository implements ITableRepository {
 
   async find(
     _: IExecutionContext,
-    spec: ISpecification<Table>,
+    spec: ISpecification<Table, ITableSpecVisitor>,
     options?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, string>> {
     const filtered = this.savedTables.filter((t) => spec.isSatisfiedBy(t));
     const sorted = this.applySort(filtered, options?.sort);
     const paginated = this.applyPagination(sorted, options?.pagination);
     return ok(paginated);
+  }
+
+  async updateOne(
+    _: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
+    if (index === -1) return err('Not found');
+    const current = this.savedTables[index];
+    const mutateResult = mutateSpec.mutate(current);
+    if (mutateResult.isErr()) return err(mutateResult.error);
+    const nextTable = mutateResult.value;
+    nextTable.pullDomainEvents();
+    this.savedTables[index] = nextTable;
+    return ok(undefined);
   }
 
   async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {

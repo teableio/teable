@@ -4,17 +4,20 @@ import {
   deleteTableInputSchema,
   getTableByIdInputSchema,
   listTablesInputSchema,
+  renameTableInputSchema,
 } from '@teable/v2-core';
 
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { listTablesOkResponseSchema } from './table/listTables';
+import { renameTableOkResponseSchema } from './table/renameTable';
 
 const TABLES_CREATE_PATH = '/tables/create';
 const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
 const TABLES_LIST_PATH = '/tables/list';
+const TABLES_RENAME_PATH = '/tables/rename';
 
 export const v2Contract = {
   tables: {
@@ -58,6 +61,16 @@ export const v2Contract = {
       })
       .input(listTablesInputSchema)
       .output(listTablesOkResponseSchema),
+    rename: oc
+      .route({
+        method: 'POST',
+        path: TABLES_RENAME_PATH,
+        successStatus: 200,
+        summary: 'Rename table',
+        tags: ['tables'],
+      })
+      .input(renameTableInputSchema)
+      .output(renameTableOkResponseSchema),
   },
 } as const;
 

@@ -14,6 +14,6 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `MemoryEventBus.ts` - Role: IEventBus memory impl; Purpose: invoke registered event handlers.
 - `MemoryPorts.spec.ts` - Role: memory port tests; Purpose: validate bus/repository behavior.
 - `MemoryQueryBus.ts` - Role: IQueryBus memory impl; Purpose: resolve handler and execute query.
-- `MemoryTableRepository.ts` - Role: ITableRepository memory impl; Purpose: array storage + spec filter/sort/paginate.
+- `MemoryTableRepository.ts` - Role: ITableRepository memory impl; Purpose: array storage + spec filter/sort/paginate + updateOne by id.
 - `index.spec.ts` - Role: export tests; Purpose: validate entry exports.
 - `index.ts` - Role: module entry; Purpose: export memory adapters.

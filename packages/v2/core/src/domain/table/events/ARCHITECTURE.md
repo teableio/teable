@@ -12,6 +12,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe table events.
 - `TableCreated.ts` - Role: domain event; Purpose: payload for table creation.
 - `TableDeleted.ts` - Role: domain event; Purpose: payload for table deletion.
+- `TableRenamed.ts` - Role: domain event; Purpose: payload for table rename.
 
 ## Examples
 

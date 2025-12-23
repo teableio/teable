@@ -1,3 +1,4 @@
+import { registerV2PostgresBunSqlDb } from '@teable/v2-adapter-db-postgres-bun-sql';
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresJsDb } from '@teable/v2-adapter-db-postgres-postgresjs';
@@ -41,6 +42,7 @@ type IBenchTarget = {
 const adapters: IDbAdapter[] = [
   { name: 'pg', registerDb: registerV2PostgresDb },
   { name: 'postgresjs', registerDb: registerV2PostgresJsDb },
+  { name: 'bun-sql', registerDb: registerV2PostgresBunSqlDb },
 ];
 
 const simpleScenario = 'simple';

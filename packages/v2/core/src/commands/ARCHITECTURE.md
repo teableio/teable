@@ -16,6 +16,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateTableHandler.ts` - Role: command handler; Purpose: build aggregate and persist/publish.
 - `DeleteTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deletion.
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
+- `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.
+- `RenameTableHandler.ts` - Role: command handler; Purpose: persist table rename and publish events.
 
 ## Examples
 

@@ -6,13 +6,14 @@ import {
   Database,
   FileJson,
   MoreVertical,
+  Pencil,
   RefreshCcw,
   Table as TableIcon,
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
@@ -37,6 +38,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -143,11 +145,13 @@ type TableMetaPageProps = {
   isLoading: boolean;
   isCreating: boolean;
   isDeleting: boolean;
+  isRenaming: boolean;
   errorMessage: string | null;
   onRefresh: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
+  onRename: (name: string) => void;
 };
 
 export function TableMetaPage({
@@ -160,11 +164,13 @@ export function TableMetaPage({
   isLoading,
   isCreating,
   isDeleting,
+  isRenaming,
   errorMessage,
   onRefresh,
   templates,
   onCreateTemplate,
   onDelete,
+  onRename,
 }: TableMetaPageProps) {
   const [activeTab, setActiveTab] = useQueryState(
     'tab',
@@ -188,10 +194,12 @@ export function TableMetaPage({
         isLoading={isLoading}
         isCreating={isCreating}
         isDeleting={isDeleting}
+        isRenaming={isRenaming}
         onRefresh={onRefresh}
         templates={templates}
         onCreateTemplate={onCreateTemplate}
         onDelete={onDelete}
+        onRename={onRename}
       />
       <section className="flex-1 space-y-6 px-6 py-8">
         {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
@@ -242,10 +250,12 @@ type PlaygroundHeaderProps = {
   isLoading: boolean;
   isCreating: boolean;
   isDeleting: boolean;
+  isRenaming: boolean;
   onRefresh: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
+  onRename: (name: string) => void;
 };
 
 function PlaygroundHeader({
@@ -255,19 +265,40 @@ function PlaygroundHeader({
   isLoading,
   isCreating,
   isDeleting,
+  isRenaming,
   onRefresh,
   templates,
   onCreateTemplate,
   onDelete,
+  onRename,
 }: PlaygroundHeaderProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
   const canDelete = !!table && !isDeleting;
+  const currentName = table ? table.name().toString() : '';
+  const trimmedRename = renameValue.trim();
+  const canRename =
+    !!table && trimmedRename.length > 0 && trimmedRename !== currentName && !isRenaming;
 
   const handleDeleteConfirm = () => {
     if (!table) return;
     onDelete();
     setDeleteOpen(false);
   };
+
+  const handleRenameConfirm = () => {
+    if (!table) return;
+    if (!canRename) return;
+    onRename(trimmedRename);
+    setRenameOpen(false);
+  };
+
+  useEffect(() => {
+    if (!renameOpen) return;
+    if (!table) return;
+    setRenameValue(table.name().toString());
+  }, [renameOpen, table]);
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
@@ -305,6 +336,16 @@ function PlaygroundHeader({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem
+              disabled={!table || isRenaming}
+              onSelect={(event) => {
+                event.preventDefault();
+                setRenameOpen(true);
+              }}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              Rename table
+            </DropdownMenuItem>
+            <DropdownMenuItem
               className="text-destructive focus:text-destructive"
               disabled={!canDelete}
               onSelect={(event) => {
@@ -336,6 +377,31 @@ function PlaygroundHeader({
               disabled={isDeleting}
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={renameOpen} onOpenChange={setRenameOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Rename table</AlertDialogTitle>
+            <AlertDialogDescription>
+              Choose a new name for this table. Names must be between 1 and 255 characters.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <Input
+              value={renameValue}
+              onChange={(event) => setRenameValue(event.target.value)}
+              maxLength={255}
+              placeholder="Table name"
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isRenaming}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRenameConfirm} disabled={!canRename}>
+              {isRenaming ? 'Renaming...' : 'Rename'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

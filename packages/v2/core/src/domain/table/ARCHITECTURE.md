@@ -6,6 +6,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Table aggregate, builder, value objects, and sort keys.
 - Entry point for table fields/views/specs/events.
+- Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) but are passed separately from query specs.
 
 ## Subfolders
 
@@ -25,6 +26,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableBuilder.ts` - Role: builder; Purpose: fluent aggregate construction.
 - `TableId.ts` - Role: value object; Purpose: TableId validation and generation.
 - `TableName.ts` - Role: value object; Purpose: TableName validation and wrapping.
+- `TableMutator.ts` - Role: update builder; Purpose: compose mutation specs and return immutable updates.
 - `TableSortKey.spec.ts` - Role: sort key tests; Purpose: validate TableSortKey rules.
 - `TableSortKey.ts` - Role: value object; Purpose: table sort key modeling.
 
@@ -32,3 +34,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `packages/v2/core/src/domain/table/TableBuilder.spec.ts` - Aggregate build flow.
 - `packages/v2/core/src/domain/table/Table.spec.ts` - Invariants and events.
+- `packages/v2/core/src/domain/table/Table.ts` - Update entry point and immutable rename flow.

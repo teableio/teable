@@ -25,7 +25,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `Logger.ts` - Role: logging port; Purpose: abstract logging.
 - `QueryBus.ts` - Role: port interface; Purpose: define IQueryBus + middleware contract.
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
-- `TableRepository.ts` - Role: repository port; Purpose: table insert/find via specifications.
+- `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.
 - `TableSchemaRepository.ts` - Role: schema port; Purpose: persist physical table schema.
 - `TraceSpan.spec.ts` - Role: decorator tests; Purpose: verify span + error handling.
 - `TraceSpan.ts` - Role: decorator; Purpose: wrap handlers with spans and Result errors.

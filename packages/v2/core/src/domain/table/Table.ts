@@ -7,12 +7,14 @@ import { topologicalSort } from '../shared/graph/topologicalSort';
 import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
+import { TableRenamed } from './events/TableRenamed';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
 import type { TableId } from './TableId';
+import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
 import type { View } from './views/View';
 import type { ViewId } from './views/ViewId';
@@ -173,5 +175,46 @@ export class Table extends AggregateRoot<TableId> {
       })
     );
     return ok(undefined);
+  }
+
+  update(build: (mutator: TableMutator) => TableMutator): Result<TableUpdateResult, string> {
+    const mutator = build(TableMutator.create(this));
+    return mutator.apply();
+  }
+
+  rename(nextName: TableName): Result<Table, string> {
+    const cloned = this.cloneWithName(nextName);
+    if (cloned.isErr()) return err(cloned.error);
+    const nextTable = cloned.value;
+
+    if (!this.nameValue.equals(nextName)) {
+      nextTable.addDomainEvent(
+        TableRenamed.create({
+          tableId: nextTable.id(),
+          baseId: nextTable.baseId(),
+          previousName: this.nameValue,
+          nextName,
+        })
+      );
+    }
+
+    return ok(nextTable);
+  }
+
+  private cloneWithName(nextName: TableName): Result<Table, string> {
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: nextName,
+      fields: this.fields(),
+      views: this.views(),
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props);
   }
 }

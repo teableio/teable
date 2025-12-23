@@ -10,6 +10,7 @@ import type {
   ITablePersistenceDTO,
   IExecutionContext,
   IFindOptions,
+  ITableSpecVisitor,
   ITableViewPersistenceDTO,
   ISpecification,
   Table,
@@ -45,7 +46,8 @@ import {
   FieldStorageTypeVisitor,
   type IFieldStorageType,
 } from './visitors/FieldStorageTypeVisitor';
-import { TableWhereVisitor } from './visitors/TableWhereVisitor';
+import { TableUpdateVisitor } from './visitors/TableUpdateVisitor';
+import { ITableMetaWhere, TableWhereVisitor } from './visitors/TableWhereVisitor';
 
 @injectable()
 export class PostgresTableRepository implements ITableRepository {
@@ -354,7 +356,7 @@ export class PostgresTableRepository implements ITableRepository {
   @TraceSpan()
   async findOne(
     context: IExecutionContext,
-    spec: ISpecification<Table>
+    spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, string>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
@@ -429,7 +431,7 @@ export class PostgresTableRepository implements ITableRepository {
   @TraceSpan()
   async find(
     context: IExecutionContext,
-    spec: ISpecification<Table>,
+    spec: ISpecification<Table, ITableSpecVisitor>,
     options?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, string>> {
     const visitor = new TableWhereVisitor();
@@ -513,6 +515,50 @@ export class PostgresTableRepository implements ITableRepository {
       return ok(tablesResult.value);
     } catch (error) {
       return err(`Failed to load tables: ${describeError(error)}`);
+    }
+  }
+
+  @TraceSpan()
+  async updateOne(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    const updateVisitor = new TableUpdateVisitor();
+    const updateAccept = mutateSpec.accept(updateVisitor);
+    if (updateAccept.isErr()) return err(updateAccept.error);
+    const updateResult = updateVisitor.update();
+    if (updateResult.isErr()) return err(updateResult.error);
+
+    const now = new Date();
+    const actorId = context.actorId.toString();
+    const tableId = table.id().toString();
+    const baseId = table.baseId().toString();
+    const whereFactory: ITableMetaWhere = (eb) =>
+      eb.and([
+        eb.eb('id', '=', tableId),
+        eb.eb('base_id', '=', baseId),
+        eb.eb('deleted_time', 'is', null),
+      ]);
+
+    try {
+      const db = resolvePostgresDb(this.db, context);
+      const update = await db
+        .updateTable('table_meta')
+        .set({
+          ...updateResult.value,
+          last_modified_time: now,
+          last_modified_by: actorId,
+        })
+        .where((eb) => whereFactory(eb))
+        .executeTakeFirst();
+
+      const updatedRows = Number(update.numUpdatedRows ?? 0);
+      if (updatedRows === 0) return err('Not found');
+
+      return ok(undefined);
+    } catch (error) {
+      return err(`Failed to update table: ${describeError(error)}`);
     }
   }
 

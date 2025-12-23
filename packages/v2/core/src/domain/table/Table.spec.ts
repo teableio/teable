@@ -4,6 +4,7 @@ import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
+import { TableRenamed } from './events/TableRenamed';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
@@ -252,6 +253,49 @@ describe('Table', () => {
     expect(table.dbTableName().isOk()).toBe(true);
     expect(table.setDbTableName(dbNameResult.value).isOk()).toBe(true);
     expect(table.setDbTableName(otherDbNameResult.value).isErr()).toBe(true);
+  });
+
+  it('updates table name immutably and emits TableRenamed', () => {
+    const baseIdResult = createBaseId('f');
+    const tableNameResult = TableName.create('Original');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    const nextNameResult = TableName.create('Renamed');
+    expect(
+      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult, nextNameResult].every((r) =>
+        r.isOk()
+      )
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr() ||
+      viewNameResult.isErr() ||
+      nextNameResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().grid().withName(viewNameResult.value).done();
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+    const table = buildResult.value;
+    table.pullDomainEvents();
+
+    const updateResult = table.update((mutator) => mutator.rename(nextNameResult.value));
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    const updatedTable = updateResult.value.table;
+    expect(updatedTable).not.toBe(table);
+    expect(updatedTable.name().toString()).toBe('Renamed');
+    expect(table.name().toString()).toBe('Original');
+
+    const events = updatedTable.pullDomainEvents();
+    expect(events.length).toBe(1);
+    expect(events[0]).toBeInstanceOf(TableRenamed);
   });
 
   it('exposes copies of fields and views', () => {

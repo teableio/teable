@@ -6,10 +6,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Table-specific specs and spec builder.
 - Used for in-memory filtering and persistence translation.
+- Some specs double as mutate specs (e.g. `TableByNameSpec` for renames).
+- `ITableSpecVisitor` defines table-specific visit hooks for where/update translation.
 
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe table spec system.
+- `ITableSpecVisitor.ts` - Role: visitor interface; Purpose: generic table-specific visit methods for query/update translation payloads.
 - `TableByBaseIdSpec.ts` - Role: spec; Purpose: filter by BaseId.
 - `TableByIdSpec.ts` - Role: spec; Purpose: filter by TableId.
 - `TableByNameLikeSpec.ts` - Role: spec; Purpose: fuzzy match by name.

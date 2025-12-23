@@ -2,11 +2,11 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { ISpecification } from '../../shared/specification/ISpecification';
-import type { ISpecVisitor } from '../../shared/specification/ISpecVisitor';
 import type { Table } from '../Table';
 import type { TableName } from '../TableName';
+import type { ITableSpecVisitor } from './ITableSpecVisitor';
 
-export class TableByNameLikeSpec<V extends ISpecVisitor = ISpecVisitor>
+export class TableByNameLikeSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
   implements ISpecification<Table, V>
 {
   private constructor(private readonly tableNameValue: TableName) {}
@@ -28,6 +28,6 @@ export class TableByNameLikeSpec<V extends ISpecVisitor = ISpecVisitor>
   }
 
   accept(v: V): Result<void, string> {
-    return v.visit(this).map(() => undefined);
+    return v.visitTableByNameLike(this).map(() => undefined);
   }
 }

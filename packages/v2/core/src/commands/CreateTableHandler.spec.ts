@@ -6,6 +6,7 @@ import { ActorId } from '../domain/shared/ActorId';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { FormulaField } from '../domain/table/fields/types/FormulaField';
+import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
@@ -39,17 +40,25 @@ class FakeTableRepository implements ITableRepository {
 
   async findOne(
     _context: IExecutionContext,
-    _spec: ISpecification<Table>
+    _spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, string>> {
     return err('Not implemented');
   }
 
   async find(
     _context: IExecutionContext,
-    _spec: ISpecification<Table>,
+    _spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
   ): Promise<Result<ReadonlyArray<Table>, string>> {
     return ok([]);
+  }
+
+  async updateOne(
+    _context: IExecutionContext,
+    _table: Table,
+    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    return err('Not implemented');
   }
 
   async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, string>> {

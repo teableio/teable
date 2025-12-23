@@ -6,7 +6,7 @@ import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
-import { TableDeleted } from '../domain/table/events/TableDeleted';
+import { TableRenamed } from '../domain/table/events/TableRenamed';
 import { FieldName } from '../domain/table/fields/FieldName';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
@@ -18,10 +18,9 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import type { ILogger } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
-import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { DeleteTableCommand } from './DeleteTableCommand';
-import { DeleteTableHandler } from './DeleteTableHandler';
+import { RenameTableCommand } from './RenameTableCommand';
+import { RenameTableHandler } from './RenameTableHandler';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -30,9 +29,9 @@ const createContext = (): IExecutionContext => {
   return { actorId: actorIdResult.value };
 };
 
-const buildTable = (baseIdSeed: string): Table => {
+const buildTable = (baseIdSeed: string, name: string): Table => {
   const baseIdResult = BaseId.create(`bse${baseIdSeed.repeat(16)}`);
-  const tableNameResult = TableName.create('Delete Me');
+  const tableNameResult = TableName.create(name);
   const fieldNameResult = FieldName.create('Title');
   expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
   if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) {
@@ -52,8 +51,8 @@ const buildTable = (baseIdSeed: string): Table => {
 
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
-  deleted: Table[] = [];
-  failDelete: string | undefined;
+  updated: Table[] = [];
+  failUpdate: string | undefined;
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, string>> {
     this.tables.push(table);
@@ -79,30 +78,26 @@ class FakeTableRepository implements ITableRepository {
 
   async updateOne(
     _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
+    targetTable: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, string>> {
-    return err('Not implemented');
-  }
-
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    if (this.failDelete) return err(this.failDelete);
-    this.deleted.push(table);
+    if (this.failUpdate) return err(this.failUpdate);
+    let updated = false;
+    this.tables = this.tables.map((current) => {
+      if (!current.id().equals(targetTable.id())) return current;
+      const mutateResult = mutateSpec.mutate(current);
+      if (mutateResult.isErr()) {
+        throw new Error(mutateResult.error);
+      }
+      updated = true;
+      this.updated.push(mutateResult.value);
+      return mutateResult.value;
+    });
+    if (!updated) return err('Not found');
     return ok(undefined);
   }
-}
 
-class FakeTableSchemaRepository implements ITableSchemaRepository {
-  deleted: Table[] = [];
-  failDelete: string | undefined;
-
-  async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
-    return ok(undefined);
-  }
-
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    if (this.failDelete) return err(this.failDelete);
-    this.deleted.push(table);
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
     return ok(undefined);
   }
 }
@@ -158,48 +153,48 @@ class FakeUnitOfWork implements IUnitOfWork {
   }
 }
 
-describe('DeleteTableHandler', () => {
-  it('deletes tables and publishes events', async () => {
-    const table = buildTable('a');
+describe('RenameTableHandler', () => {
+  it('renames tables and publishes events', async () => {
+    const table = buildTable('a', 'Old Name');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
-    const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
 
-    const commandResult = DeleteTableCommand.create({
+    const commandResult = RenameTableCommand.create({
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
+      name: 'New Name',
     });
     expect(commandResult.isOk()).toBe(true);
     if (commandResult.isErr()) return;
 
-    const handler = new DeleteTableHandler(repo, schemaRepo, eventBus, logger, unitOfWork);
+    const handler = new RenameTableHandler(repo, eventBus, logger, unitOfWork);
     const result = await handler.handle(createContext(), commandResult.value);
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
 
-    expect(schemaRepo.deleted).toHaveLength(1);
-    expect(repo.deleted).toHaveLength(1);
-    expect(eventBus.published.some((event) => event instanceof TableDeleted)).toBe(true);
+    expect(repo.updated).toHaveLength(1);
+    expect(result.value.table.name().toString()).toBe('New Name');
+    expect(eventBus.published.some((event) => event instanceof TableRenamed)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
   });
 
   it('returns not found when table is missing', async () => {
-    const table = buildTable('b');
+    const table = buildTable('b', 'Missing');
     const repo = new FakeTableRepository();
-    const handler = new DeleteTableHandler(
+    const handler = new RenameTableHandler(
       repo,
-      new FakeTableSchemaRepository(),
       new FakeEventBus(),
       new FakeLogger(),
       new FakeUnitOfWork()
     );
 
-    const commandResult = DeleteTableCommand.create({
+    const commandResult = RenameTableCommand.create({
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
+      name: 'Renamed',
     });
     expect(commandResult.isOk()).toBe(true);
     if (commandResult.isErr()) return;
@@ -208,52 +203,6 @@ describe('DeleteTableHandler', () => {
     expect(result.isErr()).toBe(true);
     if (result.isErr()) {
       expect(result.error).toBe('Table not found');
-    }
-  });
-
-  it('returns errors from repositories and event bus', async () => {
-    const table = buildTable('c');
-    const repo = new FakeTableRepository();
-    repo.tables.push(table);
-    const schemaRepo = new FakeTableSchemaRepository();
-    const eventBus = new FakeEventBus();
-
-    const handler = new DeleteTableHandler(
-      repo,
-      schemaRepo,
-      eventBus,
-      new FakeLogger(),
-      new FakeUnitOfWork()
-    );
-
-    const commandResult = DeleteTableCommand.create({
-      baseId: table.baseId().toString(),
-      tableId: table.id().toString(),
-    });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
-
-    schemaRepo.failDelete = 'schema delete failed';
-    const schemaResult = await handler.handle(createContext(), commandResult.value);
-    expect(schemaResult.isErr()).toBe(true);
-    if (schemaResult.isErr()) {
-      expect(schemaResult.error).toBe('schema delete failed');
-    }
-
-    schemaRepo.failDelete = undefined;
-    repo.failDelete = 'repo delete failed';
-    const repoResult = await handler.handle(createContext(), commandResult.value);
-    expect(repoResult.isErr()).toBe(true);
-    if (repoResult.isErr()) {
-      expect(repoResult.error).toBe('repo delete failed');
-    }
-
-    repo.failDelete = undefined;
-    eventBus.failPublish = 'publish failed';
-    const publishResult = await handler.handle(createContext(), commandResult.value);
-    expect(publishResult.isErr()).toBe(true);
-    if (publishResult.isErr()) {
-      expect(publishResult.error).toBe('publish failed');
     }
   });
 });

@@ -2,18 +2,18 @@ import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../base/BaseId';
 import type { ISpecification } from '../../shared/specification/ISpecification';
-import type { ISpecVisitor } from '../../shared/specification/ISpecVisitor';
 import { SpecBuilder } from '../../shared/specification/SpecBuilder';
 import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
 import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { TableName } from '../TableName';
+import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 
-export class TableSpecBuilder extends SpecBuilder<Table, ISpecVisitor, TableSpecBuilder> {
+export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, TableSpecBuilder> {
   private includeBaseId = true;
 
   private constructor(
@@ -75,7 +75,7 @@ export class TableSpecBuilder extends SpecBuilder<Table, ISpecVisitor, TableSpec
     return this;
   }
 
-  build(): Result<ISpecification<Table, ISpecVisitor>, string> {
+  build(): Result<ISpecification<Table, ITableSpecVisitor>, string> {
     const specs = this.includeBaseId
       ? [TableByBaseIdSpec.create(this.baseIdValue), ...this.specs]
       : [...this.specs];

@@ -1,5 +1,5 @@
 {
-  "name": "@teable/v2-benchmark-bun",
+  "name": "@teable/v2-adapter-db-postgres-bun-sql",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -12,6 +12,7 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
+      "module": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
   },
@@ -22,31 +23,20 @@
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-benchmark-bun.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-adapter-db-postgres-bun-sql.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "bench": "bun run --bun src/run.ts",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@orpc/client": "1.13.0",
-    "@orpc/contract": "1.13.0",
-    "@orpc/server": "1.13.0",
-    "@teable/v2-container-bun-test": "workspace:*",
-    "@teable/v2-contract-http-implementation": "workspace:*",
-    "@teable/v2-contract-http": "workspace:*",
-    "@teable/v2-core": "workspace:*",
-    "@teable/v2-table-templates": "workspace:*",
-    "@teable/v2-adapter-db-postgres-bun-sql": "workspace:*",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
-    "@teable/v2-adapter-db-postgres-postgresjs": "workspace:*",
     "@teable/v2-di": "workspace:*",
-    "@teable/v2-postgres-schema": "workspace:*",
     "kysely": "0.28.9",
-    "tinybench": "2.9.0"
+    "kysely-bun-sql": "0.2.0"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
     "@teable/eslint-config-bases": "workspace:^",
+    "@types/bun": "1.3.5",
     "@types/node": "22.18.0",
     "eslint": "8.57.0",
     "prettier": "3.2.5",

@@ -3,20 +3,41 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../base/BaseId';
 import type { ISpecification } from '../../shared/specification/ISpecification';
-import type { ISpecVisitor } from '../../shared/specification/ISpecVisitor';
 import { FieldName } from '../fields/FieldName';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
+import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 
-class SpyVisitor implements ISpecVisitor {
+class SpyVisitor implements ITableSpecVisitor {
   readonly calls: string[] = [];
 
-  visit(spec: ISpecification): ReturnType<ISpecVisitor['visit']> {
-    this.calls.push(spec.constructor.name);
+  visit(_: ISpecification): ReturnType<ITableSpecVisitor['visit']> {
+    return ok(undefined);
+  }
+
+  visitTableByBaseId(_: TableByBaseIdSpec): ReturnType<ITableSpecVisitor['visitTableByBaseId']> {
+    this.calls.push('TableByBaseIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableById(_: TableByIdSpec): ReturnType<ITableSpecVisitor['visitTableById']> {
+    this.calls.push('TableByIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableByName(_: TableByNameSpec): ReturnType<ITableSpecVisitor['visitTableByName']> {
+    this.calls.push('TableByNameSpec');
+    return ok(undefined);
+  }
+
+  visitTableByNameLike(
+    _: TableByNameLikeSpec
+  ): ReturnType<ITableSpecVisitor['visitTableByNameLike']> {
+    this.calls.push('TableByNameLikeSpec');
     return ok(undefined);
   }
 }
@@ -73,6 +94,12 @@ describe('Table specs', () => {
     expect(byName.isSatisfiedBy(table)).toBe(true);
     const byOtherName = TableByNameSpec.create(otherNameResult.value);
     expect(byOtherName.isSatisfiedBy(table)).toBe(false);
+
+    const mutateResult = byOtherName.mutate(table);
+    expect(mutateResult.isOk()).toBe(true);
+    if (mutateResult.isErr()) return;
+    expect(mutateResult.value.name().toString()).toBe(otherNameResult.value.toString());
+    expect(table.name().toString()).toBe(nameResult.value.toString());
 
     const visitor = new SpyVisitor();
     expect(byId.accept(visitor).isOk()).toBe(true);

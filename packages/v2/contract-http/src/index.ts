@@ -6,5 +6,6 @@ export * from './table/createTable';
 export * from './table/deleteTable';
 export * from './table/getTableById';
 export * from './table/listTables';
+export * from './table/renameTable';
 export * from './table/dto';
 export * from './table/mapTableDtoToDomain';

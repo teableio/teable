@@ -22,12 +22,13 @@ export class OrSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpecif
   }
 
   accept(v: V): Result<void, string> {
+    const visited = v.visit(this);
     if (isSpecFilterVisitor(v)) {
       const leftVisitor = v.clone();
       const rightVisitor = v.clone();
 
-      return this.left
-        .accept(leftVisitor as unknown as V)
+      return visited
+        .andThen(() => this.left.accept(leftVisitor as unknown as V))
         .andThen(() => this.right.accept(rightVisitor as unknown as V))
         .andThen(() => leftVisitor.where())
         .andThen((leftCond) => rightVisitor.where().map((rightCond) => v.or(leftCond, rightCond)))
@@ -35,8 +36,7 @@ export class OrSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpecif
         .map(() => undefined);
     }
 
-    return v
-      .visit(this)
+    return visited
       .andThen(() => this.left.accept(v))
       .andThen(() => this.right.accept(v))
       .map(() => undefined);

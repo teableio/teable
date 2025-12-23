@@ -22,6 +22,7 @@ import {
   FieldId,
   FieldName,
   FormulaExpression,
+  getRandomString,
   OffsetPagination,
   PageLimit,
   PageOffset,
@@ -34,6 +35,7 @@ import {
   SortDirection,
   Table,
   TableName,
+  TableByNameSpec,
   TableSortKey,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -183,7 +185,7 @@ describe('PostgresTableRepository (pg)', () => {
       expect(baseIdResult.isOk()).toBe(true);
       if (baseIdResult.isErr()) return;
       const baseId = baseIdResult.value;
-      const spaceId = `spc${'a'.repeat(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
       const actorIdResult = ActorId.create('system');
       expect(actorIdResult.isOk()).toBe(true);
       if (actorIdResult.isErr()) return;
@@ -414,7 +416,7 @@ describe('PostgresTableRepository (pg)', () => {
       const actorId = actorIdResult.value;
       const context = { actorId };
 
-      const spaceId = `spc${'b'.repeat(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
 
       await db
         .insertInto('space')
@@ -517,7 +519,7 @@ describe('PostgresTableRepository (pg)', () => {
       const baseId = baseIdResult.value;
       const actorId = actorIdResult.value;
       const context = { actorId };
-      const spaceId = `spc${'d'.repeat(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
 
       await db
         .insertInto('space')
@@ -668,7 +670,7 @@ describe('PostgresTableRepository (pg)', () => {
       const baseId = baseIdResult.value;
       const actorId = actorIdResult.value;
       const context = { actorId };
-      const spaceId = `spc${'c'.repeat(16)}`;
+      const spaceId = `spc${getRandomString(16)}`;
 
       await db
         .insertInto('space')
@@ -729,6 +731,82 @@ describe('PostgresTableRepository (pg)', () => {
 
       const names = findResult.value.map((table) => table.name().toString());
       expect(names).toEqual(['Alpha']);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('updates table name with mutate spec', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+
+      const baseId = baseIdResult.value;
+      const actorId = actorIdResult.value;
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Rename Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Rename Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const tableNameResult = TableName.create('Before');
+      const fieldNameResult = FieldName.create('Name');
+      expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+      if (tableNameResult.isErr() || fieldNameResult.isErr()) return;
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
+      builder.field().singleLineText().withName(fieldNameResult.value).done();
+      builder.view().defaultGrid().done();
+      const tableResult = builder.build();
+      expect(tableResult.isOk()).toBe(true);
+      if (tableResult.isErr()) return;
+
+      const insertResult = await repo.insert(context, tableResult.value);
+      expect(insertResult.isOk()).toBe(true);
+      if (insertResult.isErr()) return;
+      const inserted = insertResult.value;
+
+      const whereSpecResult = Table.specs(baseId).byId(inserted.id()).build();
+      expect(whereSpecResult.isOk()).toBe(true);
+      if (whereSpecResult.isErr()) return;
+
+      const nextNameResult = TableName.create('After');
+      expect(nextNameResult.isOk()).toBe(true);
+      if (nextNameResult.isErr()) return;
+
+      const mutateSpec = TableByNameSpec.create(nextNameResult.value);
+      const updateResult = await repo.updateOne(context, inserted, mutateSpec);
+      expect(updateResult.isOk()).toBe(true);
+      if (updateResult.isErr()) return;
+
+      const findResult = await repo.findOne(context, whereSpecResult.value);
+      expect(findResult.isOk()).toBe(true);
+      if (findResult.isErr()) return;
+      expect(findResult.value.name().toString()).toBe('After');
     } finally {
       await db.destroy();
     }

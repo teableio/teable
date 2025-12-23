@@ -138,6 +138,48 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     })
   );
 
+  const renameTableMutation = useMutation(
+    orpc.tables.rename.mutationOptions({
+      onSuccess: (response) => {
+        const updated = response.data.table;
+        setEventCount(response.data.events.length);
+
+        queryClient.setQueryData(
+          orpc.tables.getById.queryKey({
+            input: {
+              baseId,
+              tableId,
+            },
+          }),
+          { ok: true, data: { table: updated } }
+        );
+
+        const updateList = (list: IListTablesOkResponseDto | undefined) =>
+          list
+            ? {
+                ...list,
+                data: {
+                  ...list.data,
+                  tables: list.data.tables.map((table) =>
+                    table.id === updated.id ? updated : table
+                  ),
+                },
+              }
+            : list;
+
+        queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), updateList);
+
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to rename table'));
+      },
+    })
+  );
+
   useEffect(() => {
     setStoredBaseId(baseId);
     setStoredTableId(tableId);
@@ -172,6 +214,11 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     deleteTableMutation.mutate({ baseId, tableId });
   };
 
+  const handleRename = (name: string) => {
+    renameTableMutation.reset();
+    renameTableMutation.mutate({ baseId, tableId, name });
+  };
+
   const handleRefresh = () => {
     void tableQuery.refetch();
   };
@@ -187,11 +234,13 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isLoading={isLoading}
       isCreating={isCreating}
       isDeleting={deleteTableMutation.isPending}
+      isRenaming={renameTableMutation.isPending}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
       templates={tableTemplates}
       onCreateTemplate={handleCreateTemplate}
       onDelete={handleDelete}
+      onRename={handleRename}
     />
   );
 }
