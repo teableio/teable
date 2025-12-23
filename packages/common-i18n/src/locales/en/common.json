@@ -152,6 +152,8 @@
         "addCategory": "Add category",
         "selectCategory": "Select category"
       },
+      "relatedTemplates": "Related Templates",
+      "noImage": "No image",
       "baseSelectPanel": {
         "title": "Select template source",
         "description": "Select a base to be the template",

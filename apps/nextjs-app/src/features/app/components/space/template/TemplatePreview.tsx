@@ -4,7 +4,7 @@ import { Spin } from '@teable/ui-lib/base';
 import { Button, cn } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMeasure } from 'react-use';
 
 export const TemplatePreview = (props: {
@@ -20,6 +20,13 @@ export const TemplatePreview = (props: {
   const { t } = useTranslation(['common']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const isHydrated = useIsHydrated();
+  const url =
+    defaultUrl || (snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '');
+  useEffect(() => {
+    if (url) {
+      setIsLoading(true);
+    }
+  }, [url]);
 
   if (!isHydrated) {
     return (
@@ -30,8 +37,6 @@ export const TemplatePreview = (props: {
   }
 
   const height = width * (640 / 1240);
-  const url =
-    defaultUrl || (snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '');
 
   return (
     <div className={cn('relative', className)} ref={isFull ? null : ref}>
@@ -46,7 +51,7 @@ export const TemplatePreview = (props: {
           onLoad={() => requestAnimationFrame(() => setIsLoading(false))}
         />
       )}
-      {isLoading && (
+      {(isLoading || !url) && (
         <div
           className="absolute inset-0 flex items-center justify-center rounded-sm border bg-background text-sm text-muted-foreground"
           style={{ height: isFull ? '100%' : `${height}px` }}

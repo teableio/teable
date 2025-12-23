@@ -485,6 +485,8 @@ export type I18nTranslations = {
                     "addCategory": string;
                     "selectCategory": string;
                 };
+                "relatedTemplates": string;
+                "noImage": string;
                 "baseSelectPanel": {
                     "title": string;
                     "description": string;

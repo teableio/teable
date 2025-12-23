@@ -152,6 +152,8 @@
         "addCategory": "添加分类",
         "selectCategory": "选择分类"
       },
+      "relatedTemplates": "相关模板",
+      "noImage": "暂无图片",
       "baseSelectPanel": {
         "title": "选择模板来源",
         "description": "选择一个数据库作为模板",

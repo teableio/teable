@@ -12,23 +12,28 @@ import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
 import { ArrowUpRight, ChevronLeft } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useSpaceId } from './hooks/use-space-id';
+import { RecommendTemplate } from './RecommendTemplate';
 import { TemplatePreview } from './TemplatePreview';
 import { TemplatePreviewSheet } from './TemplatePreviewSheet';
 
 interface ITemplateDetailProps {
   templateId: string;
   onBackToTemplateList?: () => void;
+  onTemplateClick?: (templateId: string) => void;
 }
 export const TemplateDetail = (props: ITemplateDetailProps) => {
-  const { templateId, onBackToTemplateList } = props;
+  const { templateId, onBackToTemplateList, onTemplateClick } = props;
   const { t } = useTranslation(['common']);
+  const detailRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
-  const { data: templateDetail } = useQuery({
+  const { data: _templateDetail } = useQuery({
     queryKey: ReactQueryKeys.templateDetail(templateId),
     queryFn: () => getTemplateDetail(templateId).then((res) => res.data),
   });
+
+  const templateDetail = _templateDetail?.id === templateId ? _templateDetail : undefined;
 
   const { name, description, categoryId, markdownDescription, cover } = templateDetail || {};
 
@@ -71,6 +76,19 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     },
   });
 
+  const filterTemplateIds = useMemo(() => {
+    return [templateId];
+  }, [templateId]);
+
+  useEffect(() => {
+    if (detailRef.current) {
+      detailRef.current.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      });
+    }
+  }, [templateId]);
+
   if (isMobile) {
     return (
       <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
@@ -86,7 +104,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           )}
           <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
         </div>
-        <div className="flex flex-col gap-3 overflow-y-auto px-6 pb-3">
+        <div ref={detailRef} className="flex flex-col gap-3 overflow-y-auto px-6 pb-3">
           {categoryNames.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {categoryNames.map((categoryName) => (
@@ -131,10 +149,11 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {markdownDescription && (
               <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
             )}
-            {/* {!markdownDescription && (
-              <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
-            )} */}
           </div>
+          <RecommendTemplate
+            filterTemplateIds={filterTemplateIds}
+            onTemplateClick={onTemplateClick}
+          />
         </div>
       </div>
     );
@@ -187,16 +206,17 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           {isLoading && <Spin className="size-3" />}
         </Button>
       </div>
-      <div className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6 2xl:flex-row">
-        <TemplatePreview detail={templateDetail} className="2xl:h-fit 2xl:min-w-0 2xl:flex-1" />
-        <div className="flex flex-col gap-1 pb-2 2xl:w-1/3 2xl:shrink-0">
+      <div ref={detailRef} className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6">
+        <TemplatePreview detail={templateDetail} />
+        <div className="flex flex-col gap-1 pb-2">
           {markdownDescription && (
             <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
           )}
-          {/* {!markdownDescription && (
-            <span className="self-center text-sm text-gray-500">{t('common:noDescription')}</span>
-          )} */}
         </div>
+        <RecommendTemplate
+          filterTemplateIds={filterTemplateIds}
+          onTemplateClick={onTemplateClick}
+        />
       </div>
     </div>
   );

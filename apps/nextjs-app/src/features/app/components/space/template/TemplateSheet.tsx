@@ -68,6 +68,7 @@ export const TemplateSheet = (props: ITemplateSheetProps) => {
           <TemplateDetail
             templateId={currentTemplateId}
             onBackToTemplateList={() => setCurrentTemplateId(null)}
+            onTemplateClick={(templateId) => setCurrentTemplateId(templateId)}
           />
         ) : (
           <TemplateMain
