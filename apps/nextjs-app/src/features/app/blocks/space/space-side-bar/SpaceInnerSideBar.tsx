@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
 import { TemplateModal } from '@/features/app/components/space/template';
 import { TemplateContext } from '@/features/app/components/space/template/context';
 import { spaceConfig } from '@/features/i18n/space.config';
@@ -63,11 +64,6 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
       Icon: Settings,
       hidden: !isAdmin,
     },
-    {
-      href: `/space/${spaceId}/trash`,
-      text: t('noun.trash'),
-      Icon: Trash2,
-    },
   ];
 
   const canCreateBase = space && hasPermission(space?.role, 'base|create');
@@ -111,6 +107,22 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
               </li>
             );
           })}
+          <li key="trash">
+            <SpaceInnerTrashModal spaceId={spaceId}>
+              <Button
+                variant="ghost"
+                size={'xs'}
+                asChild
+                className={cn('w-full justify-start h-8 text-sm font-normal')}
+              >
+                <div className="cursor-pointer">
+                  <Trash2 className="size-4 shrink-0" />
+                  <p className="truncate">{t('noun.trash')}</p>
+                  <div className="grow basis-0"></div>
+                </div>
+              </Button>
+            </SpaceInnerTrashModal>
+          </li>
           <li key="template">
             <TemplateContext.Provider value={{ spaceId }}>
               <TemplateModal spaceId={spaceId}>
@@ -120,7 +132,7 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
                   asChild
                   className={cn('w-full justify-start h-8 text-sm font-normal')}
                 >
-                  <div>
+                  <div className="cursor-pointer">
                     <LayoutTemplate className="size-4 shrink-0" />
                     <p className="truncate">{t('common:noun.template')}</p>
                     <div className="grow basis-0"></div>
