@@ -49,7 +49,7 @@ const ConfirmEditor = (props: {
   const fields = useFields({ withHidden: true, withDenied: true });
   const titleEditorViewRef = useRef(null) as EditorViewRef;
   const descEditorViewRef = useRef(null) as EditorViewRef;
-
+  const confirmTextEditorViewRef = useRef(null) as EditorViewRef;
   const confirmEnabled = Boolean(options?.confirm);
   const confirm = options?.confirm;
 
@@ -157,11 +157,12 @@ const ConfirmEditor = (props: {
                 {t('table:field.default.button.confirmButtonText')}
               </Label>
             </div>
-            <Input
-              className="h-8 bg-transparent"
+            <PromptEditor
+              themeOptions={{ height: 'auto', content: { padding: '6px 0px' } }}
               value={confirm?.confirmText ?? ''}
               placeholder={t('common:actions.confirm')}
-              onChange={(e) => updateConfirm('confirmText', e.target.value)}
+              editorViewRef={confirmTextEditorViewRef}
+              onChange={(value) => updateConfirm('confirmText', value)}
             />
           </div>
         </div>
