@@ -12,7 +12,10 @@ export const ImagePreview = (props: IImagePreviewProps) => {
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
+  const [initialPinchScale, setInitialPinchScale] = useState(1);
   const imageRef = useRef<HTMLImageElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Reset state when image changes
   useEffect(() => {
@@ -20,6 +23,50 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     setRotation(0);
     setPosition({ x: 0, y: 0 });
   }, [src]);
+
+  // Adjust position when scale changes to keep within bounds
+  useEffect(() => {
+    if (scale > 1) {
+      setPosition((prev) => constrainPosition(prev));
+    } else {
+      setPosition({ x: 0, y: 0 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scale]);
+
+  // Constrain position to prevent image from being dragged completely out of view
+  const constrainPosition = (newPosition: { x: number; y: number }) => {
+    if (!imageRef.current || !containerRef.current || scale <= 1) {
+      return newPosition;
+    }
+
+    const image = imageRef.current;
+
+    // Get image's actual rendered dimensions (respecting max-w-full max-h-full)
+    const imageRect = image.getBoundingClientRect();
+    const baseImageWidth = imageRect.width / scale; // Original displayed size before scaling
+    const baseImageHeight = imageRect.height / scale;
+
+    // Calculate scaled image dimensions
+    const scaledWidth = baseImageWidth * scale;
+    const scaledHeight = baseImageHeight * scale;
+
+    // Calculate how much the image extends beyond the container when scaled
+    const excessWidth = (scaledWidth - baseImageWidth) / 2;
+    const excessHeight = (scaledHeight - baseImageHeight) / 2;
+
+    // Allow dragging within the container bounds
+    // The image can be dragged to show any part that extends beyond its original position
+    const maxX = excessWidth;
+    const minX = -excessWidth;
+    const maxY = excessHeight;
+    const minY = -excessHeight;
+
+    return {
+      x: Math.max(minX, Math.min(maxX, newPosition.x)),
+      y: Math.max(minY, Math.min(maxY, newPosition.y)),
+    };
+  };
 
   // Zoom in
   const handleZoomIn = () => {
@@ -62,10 +109,11 @@ export const ImagePreview = (props: IImagePreviewProps) => {
   // Handle mouse move for dragging
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging && scale > 1) {
-      setPosition({
+      const newPosition = {
         x: e.clientX - dragStart.x,
         y: e.clientY - dragStart.y,
-      });
+      };
+      setPosition(constrainPosition(newPosition));
     }
   };
 
@@ -89,20 +137,75 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     }
   };
 
+  // Get distance between two touch points
+  const getTouchDistance = (touches: React.TouchList) => {
+    const touch1 = touches[0];
+    const touch2 = touches[1];
+    const dx = touch2.clientX - touch1.clientX;
+    const dy = touch2.clientY - touch1.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  // Handle touch start
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && scale > 1) {
+      // Single touch - start dragging
+      setIsDragging(true);
+      setDragStart({
+        x: e.touches[0].clientX - position.x,
+        y: e.touches[0].clientY - position.y,
+      });
+    } else if (e.touches.length === 2) {
+      // Two fingers - start pinch zoom
+      const distance = getTouchDistance(e.touches);
+      setInitialPinchDistance(distance);
+      setInitialPinchScale(scale);
+      setIsDragging(false);
+    }
+  };
+
+  // Handle touch move
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && isDragging && scale > 1) {
+      // Single touch - drag
+      const newPosition = {
+        x: e.touches[0].clientX - dragStart.x,
+        y: e.touches[0].clientY - dragStart.y,
+      };
+      setPosition(constrainPosition(newPosition));
+    } else if (e.touches.length === 2 && initialPinchDistance !== null) {
+      // Two fingers - pinch zoom
+      const distance = getTouchDistance(e.touches);
+      const scaleChange = distance / initialPinchDistance;
+      const newScale = Math.min(Math.max(initialPinchScale * scaleChange, 0.25), 5);
+      setScale(newScale);
+    }
+  };
+
+  // Handle touch end
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    setInitialPinchDistance(null);
+  };
+
   return (
-    <div className="relative w-full h-full flex items-center justify-center">
+    <div ref={containerRef} className="relative w-full h-full flex items-center justify-center">
       {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
       <div
         className={cn(
-          'relative flex items-center justify-center w-full h-full',
+          'relative flex items-center justify-center w-full h-full overflow-hidden',
           scale > 1 ? 'cursor-grab' : 'cursor-default',
           isDragging && 'cursor-grabbing'
         )}
+        style={{ touchAction: 'none' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <img
           ref={imageRef}
