@@ -1,5 +1,6 @@
 import { v2Tracer } from './otel';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
+import { PinoLoggerAdapter, v2PinoLogger } from '@teable/v2-adapter-logger-pino';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -14,6 +15,7 @@ import {
 
 let containerPromise: Promise<DependencyContainer> | undefined;
 let seedPromise: Promise<void> | undefined;
+const playgroundLogger = new PinoLoggerAdapter(v2PinoLogger);
 
 const resolveConnectionString = (): string | undefined =>
   process.env.DATABASE_URL ?? process.env.PRISMA_DATABASE_URL;
@@ -74,6 +76,7 @@ export const createPlaygroundContainer = async (): Promise<DependencyContainer> 
       const container = await createV2NodePgContainer({
         ensureSchema: true,
         connectionString,
+        logger: playgroundLogger,
         tracer: v2Tracer,
       });
       await ensurePlaygroundSeed(container);
