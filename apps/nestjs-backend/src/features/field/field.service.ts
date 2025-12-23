@@ -841,7 +841,7 @@ export class FieldService implements IReadonlyAdapterService {
     if (query?.projection) {
       const fieldIds = query.projection;
       const fieldMap = keyBy(result, 'id');
-      result = fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
+      return fieldIds.map((fieldId) => fieldMap[fieldId]).filter(Boolean);
     }
 
     /**

@@ -1034,4 +1034,139 @@ describe('OpenAPI SelectionController (e2e)', () => {
       undefined,
     ]);
   });
+
+  describe('paste with projection', () => {
+    let projectionTable: ITableFullVo;
+
+    beforeEach(async () => {
+      // Create a table with 4 fields: A, B, C, D
+      projectionTable = await createTable(baseId, {
+        name: 'projection-table',
+        fields: [
+          { name: 'Field A', type: FieldType.SingleLineText },
+          { name: 'Field B', type: FieldType.SingleLineText },
+          { name: 'Field C', type: FieldType.SingleLineText },
+          { name: 'Field D', type: FieldType.SingleLineText },
+        ],
+        records: [
+          { fields: { 'Field A': 'A1', 'Field B': 'B1', 'Field C': 'C1', 'Field D': 'D1' } },
+          { fields: { 'Field A': 'A2', 'Field B': 'B2', 'Field C': 'C2', 'Field D': 'D2' } },
+        ],
+      });
+    });
+
+    afterEach(async () => {
+      await permanentDeleteTable(baseId, projectionTable.id);
+    });
+
+    it('should paste correctly when projection order is shuffled', async () => {
+      const fieldA = projectionTable.fields.find((f) => f.name === 'Field A')!;
+      const fieldB = projectionTable.fields.find((f) => f.name === 'Field B')!;
+      const fieldC = projectionTable.fields.find((f) => f.name === 'Field C')!;
+      const fieldD = projectionTable.fields.find((f) => f.name === 'Field D')!;
+
+      // Projection order is shuffled: D, B, A (skip C)
+      // Original order in table: A, B, C, D
+      const projection = [fieldD.id, fieldB.id, fieldA.id];
+
+      // Paste 3 columns of data: should map to D, B, A respectively
+      await apiPaste(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        content: 'NewD1\tNewB1\tNewA1',
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        projection,
+      });
+
+      const recordsData = await getRecords(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const firstRecord = recordsData.data.records[0];
+
+      // Verify: should update according to projection order
+      expect(firstRecord.fields[fieldA.id]).toBe('NewA1'); // projection column 3
+      expect(firstRecord.fields[fieldB.id]).toBe('NewB1'); // projection column 2
+      expect(firstRecord.fields[fieldC.id]).toBe('C1'); // not in projection, should remain unchanged
+      expect(firstRecord.fields[fieldD.id]).toBe('NewD1'); // projection column 1
+    });
+
+    it('should paste correctly when projection order is reversed', async () => {
+      const fieldA = projectionTable.fields.find((f) => f.name === 'Field A')!;
+      const fieldB = projectionTable.fields.find((f) => f.name === 'Field B')!;
+      const fieldC = projectionTable.fields.find((f) => f.name === 'Field C')!;
+      const fieldD = projectionTable.fields.find((f) => f.name === 'Field D')!;
+
+      // Projection completely reversed: D, C, B, A
+      const projection = [fieldD.id, fieldC.id, fieldB.id, fieldA.id];
+
+      // Paste 2x2 data
+      await apiPaste(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        content: 'NewD1\tNewC1\nNewD2\tNewC2',
+        ranges: [
+          [0, 0],
+          [1, 1],
+        ],
+        projection,
+      });
+
+      const recordsData = await getRecords(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      // Verify first row: column 0 (index 0) maps to D, column 1 (index 1) maps to C
+      const firstRecord = recordsData.data.records[0];
+      expect(firstRecord.fields[fieldA.id]).toBe('A1'); // not in paste range, should remain unchanged
+      expect(firstRecord.fields[fieldB.id]).toBe('B1'); // not in paste range, should remain unchanged
+      expect(firstRecord.fields[fieldC.id]).toBe('NewC1');
+      expect(firstRecord.fields[fieldD.id]).toBe('NewD1');
+
+      // Verify second row
+      const secondRecord = recordsData.data.records[1];
+      expect(secondRecord.fields[fieldA.id]).toBe('A2');
+      expect(secondRecord.fields[fieldB.id]).toBe('B2');
+      expect(secondRecord.fields[fieldC.id]).toBe('NewC2');
+      expect(secondRecord.fields[fieldD.id]).toBe('NewD2');
+    });
+
+    it('should paste to correct field when using shuffled projection with column offset', async () => {
+      const fieldA = projectionTable.fields.find((f) => f.name === 'Field A')!;
+      const fieldB = projectionTable.fields.find((f) => f.name === 'Field B')!;
+      const fieldC = projectionTable.fields.find((f) => f.name === 'Field C')!;
+      const fieldD = projectionTable.fields.find((f) => f.name === 'Field D')!;
+
+      // Projection shuffled order: C, A, D
+      const projection = [fieldC.id, fieldA.id, fieldD.id];
+
+      // Paste to column index 1 (maps to Field A in projection)
+      await apiPaste(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        content: 'UpdatedA1',
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        projection,
+      });
+
+      const recordsData = await getRecords(projectionTable.id, {
+        viewId: projectionTable.views[0].id,
+        fieldKeyType: FieldKeyType.Id,
+      });
+
+      const firstRecord = recordsData.data.records[0];
+
+      // Field A should be updated (projection index 1)
+      expect(firstRecord.fields[fieldA.id]).toBe('UpdatedA1');
+      // Other fields should remain unchanged
+      expect(firstRecord.fields[fieldB.id]).toBe('B1');
+      expect(firstRecord.fields[fieldC.id]).toBe('C1');
+      expect(firstRecord.fields[fieldD.id]).toBe('D1');
+    });
+  });
 });
