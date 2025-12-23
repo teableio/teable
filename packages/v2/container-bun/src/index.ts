@@ -1,3 +1,4 @@
+import { PostgresUnitOfWork } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-postgres-state';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
@@ -13,7 +14,6 @@ import {
   type IQueryBusMiddleware,
   type ITracer,
 } from '@teable/v2-core';
-import { PostgresUnitOfWork } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 

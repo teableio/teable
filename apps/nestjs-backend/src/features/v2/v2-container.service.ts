@@ -1,8 +1,8 @@
 import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di' with { 'resolution-mode': 'import' };
 import { PinoLogger } from 'nestjs-pino';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';

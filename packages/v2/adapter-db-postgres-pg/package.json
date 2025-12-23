@@ -1,5 +1,5 @@
 {
-  "name": "@teable/v2-db-postgres",
+  "name": "@teable/v2-adapter-db-postgres-pg",
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
@@ -23,7 +23,7 @@
     "build": "tsdown --tsconfig tsconfig.build.json",
     "dev": "tsdown --tsconfig tsconfig.build.json --watch",
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
-    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-db-postgres.eslintcache",
+    "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-adapter-db-postgres-pg.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },

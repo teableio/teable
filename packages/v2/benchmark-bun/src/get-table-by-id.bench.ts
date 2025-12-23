@@ -46,7 +46,6 @@ export const runGetTableByIdBench = async (): Promise<void> => {
   const context = await createBunBenchContext();
 
   try {
-    const bench = new Bench(benchOptions);
     const tableIds: Record<string, string> = {};
 
     const createTable = async (scenario: string, fields: ICreateTableRequestDto['fields']) => {
@@ -86,27 +85,23 @@ export const runGetTableByIdBench = async (): Promise<void> => {
       }
     };
 
-    bench.add('bun: get table by id: 3 columns', async () => {
-      await runGetTableById('simple');
-    });
+    const runScenario = async (label: string, scenario: string) => {
+      const bench = new Bench(benchOptions);
+      bench.add(`bun: get table by id: ${label}`, async () => {
+        await runGetTableById(scenario);
+      });
 
-    bench.add('bun: get table by id: all base fields', async () => {
-      await runGetTableById('base');
-    });
+      console.log(`[bun-bench] running get table by id benchmarks: ${label}`);
+      await bench.run();
 
-    bench.add('bun: get table by id: 200 columns', async () => {
-      await runGetTableById('columns200');
-    });
+      console.log(`GetTableById benchmarks (bun): ${label}`);
+      console.table(bench.table());
+    };
 
-    bench.add('bun: get table by id: 1000 columns', async () => {
-      await runGetTableById('columns1000');
-    });
-
-    console.log('[bun-bench] running get table by id benchmarks');
-    await bench.run();
-
-    console.log('GetTableById benchmarks (bun)');
-    console.table(bench.table());
+    await runScenario('3 columns', 'simple');
+    await runScenario('all base fields', 'base');
+    await runScenario('200 columns', 'columns200');
+    await runScenario('1000 columns', 'columns1000');
   } finally {
     await context.dispose();
   }

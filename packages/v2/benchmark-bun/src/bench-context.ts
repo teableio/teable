@@ -1,6 +1,7 @@
 import { onError } from '@orpc/server';
 import { RPCHandler } from '@orpc/server/fetch';
 import { CORSPlugin } from '@orpc/server/plugins';
+import type { IV2BunTestContainerOptions } from '@teable/v2-container-bun-test';
 import { createV2BunTestContainer } from '@teable/v2-container-bun-test';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
 import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
@@ -70,9 +71,11 @@ export type IBunBenchContext = {
   dispose: () => Promise<void>;
 };
 
-export const createBunBenchContext = async (): Promise<IBunBenchContext> => {
+export const createBunBenchContext = async (
+  options: IV2BunTestContainerOptions = {}
+): Promise<IBunBenchContext> => {
   console.log('[bun-bench] starting test container');
-  const testContainer = await createV2BunTestContainer();
+  const testContainer = await createV2BunTestContainer(options);
   testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
 
   console.log('[bun-bench] test container ready');

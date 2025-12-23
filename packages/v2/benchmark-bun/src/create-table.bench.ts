@@ -46,7 +46,6 @@ export const runCreateTableBench = async (): Promise<void> => {
   const context = await createBunBenchContext();
 
   try {
-    const bench = new Bench(benchOptions);
     const simpleFields = createSimpleFields();
     const baseFields = createAllBaseFields();
     const fields200 = createTextColumns(200);
@@ -65,27 +64,27 @@ export const runCreateTableBench = async (): Promise<void> => {
       }
     };
 
-    bench.add('bun: create table: 3 columns', async () => {
-      await runCreateTable('simple', simpleFields);
-    });
+    const runScenario = async (
+      label: string,
+      scenario: string,
+      fields: ICreateTableRequestDto['fields']
+    ) => {
+      const bench = new Bench(benchOptions);
+      bench.add(`bun: create table: ${label}`, async () => {
+        await runCreateTable(scenario, fields);
+      });
 
-    bench.add('bun: create table: all base fields', async () => {
-      await runCreateTable('base', baseFields);
-    });
+      console.log(`[bun-bench] running create table benchmarks: ${label}`);
+      await bench.run();
 
-    bench.add('bun: create table: 200 columns', async () => {
-      await runCreateTable('200', fields200);
-    });
+      console.log(`CreateTable benchmarks (bun): ${label}`);
+      console.table(bench.table());
+    };
 
-    bench.add('bun: create table: 1000 columns', async () => {
-      await runCreateTable('1000', fields1000);
-    });
-
-    console.log('[bun-bench] running create table benchmarks');
-    await bench.run();
-
-    console.log('CreateTable benchmarks (bun)');
-    console.table(bench.table());
+    await runScenario('3 columns', 'simple', simpleFields);
+    await runScenario('all base fields', 'base', baseFields);
+    await runScenario('200 columns', '200', fields200);
+    await runScenario('1000 columns', '1000', fields1000);
   } finally {
     await context.dispose();
   }

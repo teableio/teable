@@ -1,5 +1,5 @@
-import type { IV2PostgresDbConfig } from '@teable/v2-db-postgres';
-import { v2PostgresDbConfigSchema } from '@teable/v2-db-postgres';
+import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
+import { v2PostgresDbConfigSchema } from '@teable/v2-adapter-db-postgres-pg';
 
 export const v2PostgresDdlAdapterConfigSchema = v2PostgresDbConfigSchema;
 

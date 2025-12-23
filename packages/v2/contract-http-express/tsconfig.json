@@ -27,7 +27,7 @@
       "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
       "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
       "@teable/v2-core": ["../core/src"],
-      "@teable/v2-db-postgres": ["../db-postgres/src"],
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
       "@teable/v2-di": ["../di/src"]
     },
     "types": ["vitest/globals"]
@@ -42,7 +42,7 @@
     "../adapter-postgres-ddl/src",
     "../adapter-postgres-state/src",
     "../core/src",
-    "../db-postgres/src",
+    "../adapter-db-postgres-pg/src",
     "../di/src"
   ]
 }

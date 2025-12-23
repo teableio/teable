@@ -1,5 +1,6 @@
 /* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { IExecutionContext, ITableSchemaRepository } from '@teable/v2-core';
 import {
   ActorId,
@@ -13,7 +14,6 @@ import {
   TableName,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import { container } from '@teable/v2-di';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';

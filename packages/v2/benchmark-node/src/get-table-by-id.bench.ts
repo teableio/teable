@@ -58,194 +58,191 @@ type IBenchTarget = {
   close: () => Promise<void>;
 };
 
-describe('GetTableById benchmarks', () => {
-  let servers: IBenchTarget[] = [];
-  let dispose: (() => Promise<void>) | undefined;
-  let baseId: string;
-  let tableIds: Record<string, string> = {};
-  let setupPromise: Promise<void> | undefined;
+let servers: IBenchTarget[] = [];
+let dispose: (() => Promise<void>) | undefined;
+let baseId: string;
+let tableIds: Record<string, string> = {};
+let setupPromise: Promise<void> | undefined;
 
-  const setupExpress = async (container: DependencyContainer): Promise<IBenchTarget> => {
-    const app = express();
-    app.use(
-      createV2ExpressRouter({
-        createContainer: () => container,
-      })
-    );
-
-    const server = await new Promise<Server>((resolve) => {
-      const s = app.listen(0, '127.0.0.1', () => resolve(s));
-    });
-
-    const address = server.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const client = createV2HttpClient({ baseUrl });
-
-    return {
-      name: 'express',
-      client,
-      close: async () => {
-        await new Promise<void>((resolve) => server.close(() => resolve()));
-      },
-    };
-  };
-
-  const setupFastify = async (container: DependencyContainer): Promise<IBenchTarget> => {
-    const app = fastify();
-    await app.register(
-      createV2FastifyPlugin({
-        createContainer: () => container,
-      })
-    );
-    await app.listen({ port: 0, host: '127.0.0.1' });
-
-    const address = app.server.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const client = createV2HttpClient({ baseUrl });
-
-    return {
-      name: 'fastify',
-      client,
-      close: async () => {
-        await app.close();
-      },
-    };
-  };
-
-  const setupHono = async (container: DependencyContainer): Promise<IBenchTarget> => {
-    const app = createV2HonoApp({
+const setupExpress = async (container: DependencyContainer): Promise<IBenchTarget> => {
+  const app = express();
+  app.use(
+    createV2ExpressRouter({
       createContainer: () => container,
-    });
-    const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
-    await new Promise<void>((resolve) => server.once('listening', () => resolve()));
-    const address = server.address() as AddressInfo;
-    const baseUrl = `http://127.0.0.1:${address.port}`;
-    const client = createV2HttpClient({ baseUrl });
+    })
+  );
 
-    return {
-      name: 'hono',
-      client,
-      close: async () => {
-        await new Promise<void>((resolve) => server.close(() => resolve()));
-      },
-    };
-  };
-
-  const createTable = async (
-    target: IBenchTarget,
-    scenario: string,
-    fields: ICreateTableRequestDto['fields']
-  ): Promise<string> => {
-    if (!baseId) throw new Error('BaseId is missing');
-
-    const input = {
-      baseId,
-      name: createTableName(target.name, scenario),
-      fields,
-    };
-
-    const response = await target.client.tables.create(input);
-    if (!response.ok) {
-      throw new Error('Create table failed');
-    }
-
-    return response.data.table.id;
-  };
-
-  const setup = async () => {
-    const testContainer = await createV2NodeTestContainer();
-    testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
-    dispose = testContainer.dispose;
-    baseId = testContainer.baseId.toString();
-
-    const expressTarget = await setupExpress(testContainer.container);
-    const fastifyTarget = await setupFastify(testContainer.container);
-    const honoTarget = await setupHono(testContainer.container);
-
-    servers = [expressTarget, fastifyTarget, honoTarget];
-
-    tableIds = {
-      simple: await createTable(expressTarget, 'simple', createSimpleFields()),
-      base: await createTable(expressTarget, 'base', createAllBaseFields()),
-      columns200: await createTable(expressTarget, '200', createTextColumns(200)),
-      columns1000: await createTable(expressTarget, '1000', createTextColumns(1000)),
-    };
-  };
-
-  const ensureSetup = async () => {
-    if (!setupPromise) {
-      setupPromise = setup();
-    }
-    await setupPromise;
-  };
-
-  beforeAll(async () => {
-    await ensureSetup();
+  const server = await new Promise<Server>((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s));
   });
 
-  afterAll(async () => {
-    for (const server of servers) {
-      await server.close();
-    }
-    if (dispose) await dispose();
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const client = createV2HttpClient({ baseUrl });
+
+  return {
+    name: 'express',
+    client,
+    close: async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+};
+
+const setupFastify = async (container: DependencyContainer): Promise<IBenchTarget> => {
+  const app = fastify();
+  await app.register(
+    createV2FastifyPlugin({
+      createContainer: () => container,
+    })
+  );
+  await app.listen({ port: 0, host: '127.0.0.1' });
+
+  const address = app.server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const client = createV2HttpClient({ baseUrl });
+
+  return {
+    name: 'fastify',
+    client,
+    close: async () => {
+      await app.close();
+    },
+  };
+};
+
+const setupHono = async (container: DependencyContainer): Promise<IBenchTarget> => {
+  const app = createV2HonoApp({
+    createContainer: () => container,
   });
+  const server = serve({ fetch: app.fetch, port: 0, hostname: '127.0.0.1' });
+  await new Promise<void>((resolve) => server.once('listening', () => resolve()));
+  const address = server.address() as AddressInfo;
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+  const client = createV2HttpClient({ baseUrl });
 
-  const runGetTableById = async (target: IBenchTarget, scenario: string) => {
-    if (!baseId) throw new Error('BaseId is missing');
-    const tableId = tableIds[scenario];
-    if (!tableId) {
-      throw new Error(`Missing table for scenario ${scenario}`);
-    }
+  return {
+    name: 'hono',
+    client,
+    close: async () => {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    },
+  };
+};
 
-    const response = await target.client.tables.getById({ baseId, tableId });
-    if (!response.ok) {
-      throw new Error('Get table failed');
-    }
+const createTable = async (
+  target: IBenchTarget,
+  scenario: string,
+  fields: ICreateTableRequestDto['fields']
+): Promise<string> => {
+  if (!baseId) throw new Error('BaseId is missing');
+
+  const input = {
+    baseId,
+    name: createTableName(target.name, scenario),
+    fields,
   };
 
-  const expressFramework = 'express';
-  const fastifyFramework = 'fastify';
-  const honoFramework = 'hono';
-  const simpleScenario = 'simple';
-  const baseScenario = 'base';
-  const columns200Scenario = 'columns200';
-  const columns1000Scenario = 'columns1000';
-  const simpleLabel = '3 columns';
-  const baseLabel = 'all base fields';
-  const columns200Label = '200 columns';
-  const columns1000Label = '1000 columns';
+  const response = await target.client.tables.create(input);
+  if (!response.ok) {
+    throw new Error('Create table failed');
+  }
 
-  const getTarget = (name: string): IBenchTarget => {
-    const target = servers.find((server) => server.name === name);
-    if (!target) {
-      throw new Error(`${name} server is not initialized`);
-    }
-    return target;
+  return response.data.table.id;
+};
+
+const setup = async () => {
+  const testContainer = await createV2NodeTestContainer();
+  testContainer.container.registerInstance(v2CoreTokens.logger, new NoopLogger());
+  dispose = testContainer.dispose;
+  baseId = testContainer.baseId.toString();
+
+  const expressTarget = await setupExpress(testContainer.container);
+  const fastifyTarget = await setupFastify(testContainer.container);
+  const honoTarget = await setupHono(testContainer.container);
+
+  servers = [expressTarget, fastifyTarget, honoTarget];
+
+  tableIds = {
+    simple: await createTable(expressTarget, 'simple', createSimpleFields()),
+    base: await createTable(expressTarget, 'base', createAllBaseFields()),
+    columns200: await createTable(expressTarget, '200', createTextColumns(200)),
+    columns1000: await createTable(expressTarget, '1000', createTextColumns(1000)),
   };
+};
 
-  const benchGetTable = (framework: string, label: string, scenario: string) => {
-    bench(
-      `${framework}: get table by id: ${label}`,
-      async () => {
-        await ensureSetup();
-        await runGetTableById(getTarget(framework), scenario);
-      },
-      benchOptions
-    );
-  };
+const ensureSetup = async () => {
+  if (!setupPromise) {
+    setupPromise = setup();
+  }
+  await setupPromise;
+};
 
-  benchGetTable(expressFramework, simpleLabel, simpleScenario);
-  benchGetTable(expressFramework, baseLabel, baseScenario);
-  benchGetTable(expressFramework, columns200Label, columns200Scenario);
-  benchGetTable(expressFramework, columns1000Label, columns1000Scenario);
+beforeAll(async () => {
+  await ensureSetup();
+});
 
-  benchGetTable(fastifyFramework, simpleLabel, simpleScenario);
-  benchGetTable(fastifyFramework, baseLabel, baseScenario);
-  benchGetTable(fastifyFramework, columns200Label, columns200Scenario);
-  benchGetTable(fastifyFramework, columns1000Label, columns1000Scenario);
+afterAll(async () => {
+  for (const server of servers) {
+    await server.close();
+  }
+  if (dispose) await dispose();
+});
 
-  benchGetTable(honoFramework, simpleLabel, simpleScenario);
-  benchGetTable(honoFramework, baseLabel, baseScenario);
-  benchGetTable(honoFramework, columns200Label, columns200Scenario);
-  benchGetTable(honoFramework, columns1000Label, columns1000Scenario);
+const runGetTableById = async (target: IBenchTarget, scenario: string) => {
+  if (!baseId) throw new Error('BaseId is missing');
+  const tableId = tableIds[scenario];
+  if (!tableId) {
+    throw new Error(`Missing table for scenario ${scenario}`);
+  }
+
+  const response = await target.client.tables.getById({ baseId, tableId });
+  if (!response.ok) {
+    throw new Error('Get table failed');
+  }
+};
+
+const frameworks = ['express', 'fastify', 'hono'] as const;
+
+const getTarget = (name: string): IBenchTarget => {
+  const target = servers.find((server) => server.name === name);
+  if (!target) {
+    throw new Error(`${name} server is not initialized`);
+  }
+  return target;
+};
+
+const benchGetTable = (framework: (typeof frameworks)[number], label: string, scenario: string) => {
+  bench(
+    `${framework}: get table by id: ${label}`,
+    async () => {
+      await ensureSetup();
+      await runGetTableById(getTarget(framework), scenario);
+    },
+    benchOptions
+  );
+};
+
+describe('GetTableById benchmarks: 3 columns', () => {
+  for (const framework of frameworks) {
+    benchGetTable(framework, '3 columns', 'simple');
+  }
+});
+
+describe('GetTableById benchmarks: all base fields', () => {
+  for (const framework of frameworks) {
+    benchGetTable(framework, 'all base fields', 'base');
+  }
+});
+
+describe('GetTableById benchmarks: 200 columns', () => {
+  for (const framework of frameworks) {
+    benchGetTable(framework, '200 columns', 'columns200');
+  }
+});
+
+describe('GetTableById benchmarks: 1000 columns', () => {
+  for (const framework of frameworks) {
+    benchGetTable(framework, '1000 columns', 'columns1000');
+  }
 });

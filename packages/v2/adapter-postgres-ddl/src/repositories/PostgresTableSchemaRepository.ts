@@ -1,10 +1,10 @@
+import { resolvePostgresDb, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   TraceSpan,
   type IExecutionContext,
   type ITableSchemaRepository,
   type Table,
 } from '@teable/v2-core';
-import { resolvePostgresDb, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import { inject, injectable } from '@teable/v2-di';
 import type { ColumnDefinitionBuilder, CreateTableBuilder, Kysely } from 'kysely';
 import { sql } from 'kysely';

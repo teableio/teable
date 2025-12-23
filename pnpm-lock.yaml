@@ -230,6 +230,9 @@ importers:
       '@teable/openapi':
         specifier: workspace:^
         version: link:../../packages/openapi
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../../packages/v2/adapter-db-postgres-pg
       '@teable/v2-container-node':
         specifier: workspace:*
         version: link:../../packages/v2/container-node
@@ -245,9 +248,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../../packages/v2/core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../../packages/v2/db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../../packages/v2/di
@@ -617,7 +617,7 @@ importers:
         version: 15.1.0
       pg-mem:
         specifier: 3.0.5
-        version: 3.0.5(knex@3.1.0(pg@8.11.5))(kysely@0.28.9)
+        version: 3.0.5(knex@3.1.0(pg@8.11.5))(kysely@0.28.9)(postgres@3.4.7)
       prettier:
         specifier: 3.2.5
         version: 3.2.5
@@ -650,7 +650,7 @@ importers:
         version: 1.4.4(@swc/core@1.13.3(@swc/helpers@0.5.17))(rollup@4.53.5)
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(lightningcss@1.30.2)(terser@5.37.0))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)
@@ -1180,6 +1180,9 @@ importers:
       '@tanstack/router-plugin':
         specifier: ^1.132.0
         version: 1.142.0(@tanstack/react-router@1.141.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:^
+        version: link:../../packages/v2/adapter-db-postgres-pg
       '@teable/v2-container-node':
         specifier: workspace:^
         version: link:../../packages/v2/container-node
@@ -1192,9 +1195,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:^
         version: link:../../packages/v2/core
-      '@teable/v2-db-postgres':
-        specifier: workspace:^
-        version: link:../../packages/v2/db-postgres
       '@teable/v2-di':
         specifier: workspace:^
         version: link:../../packages/v2/di
@@ -1509,7 +1509,7 @@ importers:
         version: 9.1.0(eslint@8.57.0)
       eslint-import-resolver-typescript:
         specifier: 3.6.1
-        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+        version: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import:
         specifier: 2.29.1
         version: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
@@ -1628,7 +1628,7 @@ importers:
         version: 5.4.3
       vite-tsconfig-paths:
         specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@5.4.11(@types/node@22.18.0)(lightningcss@1.30.2)(terser@5.37.0))
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
       vitest:
         specifier: 2.1.5
         version: 2.1.5(@types/node@22.18.0)(happy-dom@15.11.6)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)
@@ -2054,7 +2054,7 @@ importers:
         version: 5.4.3
       vite-plugin-svgr:
         specifier: 4.2.0
-        version: 4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+        version: 4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -2336,6 +2336,104 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/v2/adapter-db-postgres-pg:
+    dependencies:
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+      pg:
+        specifier: 8.11.5
+        version: 8.11.5
+      zod:
+        specifier: 4.1.8
+        version: 4.1.8
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@types/pg':
+        specifier: 8.16.0
+        version: 8.16.0
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/v2/adapter-db-postgres-postgresjs:
+    dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      kysely-postgres-js:
+        specifier: 3.0.0
+        version: 3.0.0(kysely@0.28.9)(postgres@3.4.7)
+      postgres:
+        specifier: 3.4.7
+        version: 3.4.7
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+
   packages/v2/adapter-logger-console:
     dependencies:
       '@teable/v2-core':
@@ -2378,12 +2476,12 @@ importers:
 
   packages/v2/adapter-postgres-ddl:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2439,12 +2537,12 @@ importers:
 
   packages/v2/adapter-postgres-state:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2515,6 +2613,12 @@ importers:
       '@orpc/server':
         specifier: 1.13.0
         version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-db-postgres-postgresjs':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-postgresjs
       '@teable/v2-container-bun-test':
         specifier: workspace:*
         version: link:../container-bun-test
@@ -2527,9 +2631,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2576,6 +2677,9 @@ importers:
       '@hono/node-server':
         specifier: 1.13.5
         version: 1.13.5(hono@4.11.1)
+      '@teable/v2-adapter-db-postgres-postgresjs':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-postgresjs
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
@@ -2686,6 +2790,9 @@ importers:
 
   packages/v2/container-bun:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-adapter-postgres-ddl':
         specifier: workspace:*
         version: link:../adapter-postgres-ddl
@@ -2695,9 +2802,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2738,6 +2842,9 @@ importers:
 
   packages/v2/container-bun-test:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
@@ -2750,9 +2857,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2805,6 +2909,9 @@ importers:
 
   packages/v2/container-node:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-adapter-postgres-ddl':
         specifier: workspace:*
         version: link:../adapter-postgres-ddl
@@ -2814,9 +2921,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -2857,6 +2961,9 @@ importers:
 
   packages/v2/container-node-test:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
@@ -2869,9 +2976,6 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
-      '@teable/v2-db-postgres':
-        specifier: workspace:*
-        version: link:../db-postgres
       '@teable/v2-di':
         specifier: workspace:*
         version: link:../di
@@ -3319,58 +3423,6 @@ importers:
       vitest:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
-
-  packages/v2/db-postgres:
-    dependencies:
-      '@teable/v2-core':
-        specifier: workspace:*
-        version: link:../core
-      '@teable/v2-di':
-        specifier: workspace:*
-        version: link:../di
-      kysely:
-        specifier: 0.28.9
-        version: 0.28.9
-      neverthrow:
-        specifier: 8.2.0
-        version: 8.2.0
-      pg:
-        specifier: 8.11.5
-        version: 8.11.5
-      zod:
-        specifier: 4.1.8
-        version: 4.1.8
-    devDependencies:
-      '@teable/eslint-config-bases':
-        specifier: workspace:^
-        version: link:../../eslint-config-bases
-      '@teable/v2-tsdown-config':
-        specifier: workspace:*
-        version: link:../tsdown-config
-      '@types/node':
-        specifier: 22.18.0
-        version: 22.18.0
-      '@types/pg':
-        specifier: 8.16.0
-        version: 8.16.0
-      eslint:
-        specifier: 8.57.0
-        version: 8.57.0
-      prettier:
-        specifier: 3.2.5
-        version: 3.2.5
-      rimraf:
-        specifier: 5.0.5
-        version: 5.0.5
-      tsdown:
-        specifier: 0.18.1
-        version: 0.18.1(typescript@5.4.3)
-      typescript:
-        specifier: 5.4.3
-        version: 5.4.3
-      vite-tsconfig-paths:
-        specifier: 4.3.2
-        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
 
   packages/v2/di:
     dependencies:
@@ -10408,6 +10460,7 @@ packages:
 
   '@types/canvas-confetti@1.9.0':
     resolution: {integrity: sha512-aBGj/dULrimR1XDZLtG9JwxX1b4HPRF6CX9Yfwh3NvstZEm1ZL7RBnel4keCPSqs1ANRu1u2Aoz9R+VmtjYuTg==}
+
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
 
@@ -16207,6 +16260,16 @@ packages:
   kuler@2.0.0:
     resolution: {integrity: sha512-Xq9nH7KlWZmXAtodXDDRE7vs6DU1gTU8zYDHDiWLSip45Egwq3plLHzPn27NgvzL2r1LMPC1vdqh98sQxtqj4A==}
 
+  kysely-postgres-js@3.0.0:
+    resolution: {integrity: sha512-o2t/xNSYJQDW6rVGGFPXKmZ0BEz2dGn66c2B+cO/k9ZNcU2qPWPycQPQ+B+P2MBXbKYq0xV9BZmFIvkUrmFWAQ==}
+    engines: {bun: '>=1.2', node: '>=20'}
+    peerDependencies:
+      kysely: '>= 0.24.0 < 1'
+      postgres: ^3.4.0
+    peerDependenciesMeta:
+      postgres:
+        optional: true
+
   kysely@0.28.9:
     resolution: {integrity: sha512-3BeXMoiOhpOwu62CiVpO6lxfq4eS6KMYfQdMsN/2kUCRNuF2YiEr7u0HLHaQU+O4Xu8YXE3bHVkwaQ85i72EuA==}
     engines: {node: '>=20.0.0'}
@@ -18726,6 +18789,10 @@ packages:
   postgres-interval@1.2.0:
     resolution: {integrity: sha512-9ZhXKM/rw350N1ovuWHbGxnGh/SNJ4cnxHiM0rxE4VN41wsg8P8zWn9hv/buK00RP4WvlOyr/RBDiptyxVbkZQ==}
     engines: {node: '>=0.10.0'}
+
+  postgres@3.4.7:
+    resolution: {integrity: sha512-Jtc2612XINuBjIl/QTWsV5UvE8UHuNblcO3vVADSrKsrc6RqGX6lOW1cEo3CM2v0XG4Nat8nI+YM7/f26VxXLw==}
+    engines: {node: '>=12'}
 
   preact@10.12.1:
     resolution: {integrity: sha512-l8386ixSsBdbreOAkqtrwqHwdvR35ID8c3rKPa8lCWuO86dBi32QWHV4vfsZK1utLLFMvw+Z5Ad4XLkZzchscg==}
@@ -28601,6 +28668,14 @@ snapshots:
     optionalDependencies:
       rollup: 2.78.0
 
+  '@rollup/pluginutils@5.1.4(rollup@2.79.2)':
+    dependencies:
+      '@types/estree': 1.0.6
+      estree-walker: 2.0.2
+      picomatch: 4.0.2
+    optionalDependencies:
+      rollup: 2.79.2
+
   '@rollup/pluginutils@5.1.4(rollup@4.53.5)':
     dependencies:
       '@types/estree': 1.0.6
@@ -30911,6 +30986,7 @@ snapshots:
       '@types/node': 22.18.0
 
   '@types/canvas-confetti@1.9.0': {}
+
   '@types/chai@5.2.3':
     dependencies:
       '@types/deep-eql': 4.0.2
@@ -32798,6 +32874,10 @@ snapshots:
   acorn-jsx@5.3.2(acorn@8.14.0):
     dependencies:
       acorn: 8.14.0
+
+  acorn-jsx@5.3.2(acorn@8.15.0):
+    dependencies:
+      acorn: 8.15.0
 
   acorn-walk@7.2.0: {}
 
@@ -35482,7 +35562,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-typescript@3.6.1)(eslint@8.57.0)
       eslint-plugin-jsx-a11y: 6.8.0(eslint@8.57.0)
       eslint-plugin-react: 7.34.1(eslint@8.57.0)
@@ -35505,7 +35585,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0):
+  eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0):
     dependencies:
       debug: 4.4.0
       enhanced-resolve: 5.17.1
@@ -35550,7 +35630,7 @@ snapshots:
       '@typescript-eslint/parser': 7.3.1(eslint@8.57.0)(typescript@5.4.3)
       eslint: 8.57.0
       eslint-import-resolver-node: 0.3.9
-      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1)(eslint@8.57.0)
+      eslint-import-resolver-typescript: 3.6.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint-import-resolver-node@0.3.9)(eslint-plugin-import@2.29.1(@typescript-eslint/parser@7.3.1(eslint@8.57.0)(typescript@5.4.3))(eslint@8.57.0))(eslint@8.57.0)
     transitivePeerDependencies:
       - supports-color
 
@@ -35784,8 +35864,8 @@ snapshots:
 
   espree@9.6.1:
     dependencies:
-      acorn: 8.14.0
-      acorn-jsx: 5.3.2(acorn@8.14.0)
+      acorn: 8.15.0
+      acorn-jsx: 5.3.2(acorn@8.15.0)
       eslint-visitor-keys: 3.4.3
 
   esprima@1.2.5: {}
@@ -38002,6 +38082,12 @@ snapshots:
       - supports-color
 
   kuler@2.0.0: {}
+
+  kysely-postgres-js@3.0.0(kysely@0.28.9)(postgres@3.4.7):
+    dependencies:
+      kysely: 0.28.9
+    optionalDependencies:
+      postgres: 3.4.7
 
   kysely@0.28.9: {}
 
@@ -40642,7 +40728,7 @@ snapshots:
 
   pg-int8@1.0.1: {}
 
-  pg-mem@3.0.5(knex@3.1.0(pg@8.11.5))(kysely@0.28.9):
+  pg-mem@3.0.5(knex@3.1.0(pg@8.11.5))(kysely@0.28.9)(postgres@3.4.7):
     dependencies:
       functional-red-black-tree: 1.0.1
       immutable: 4.3.7
@@ -40654,6 +40740,7 @@ snapshots:
     optionalDependencies:
       knex: 3.1.0(pg@8.11.5)
       kysely: 0.28.9
+      postgres: 3.4.7
 
   pg-pool@3.9.6(pg@8.11.5):
     dependencies:
@@ -41297,6 +41384,8 @@ snapshots:
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
+
+  postgres@3.4.7: {}
 
   preact@10.12.1: {}
 
@@ -43979,7 +44068,7 @@ snapshots:
 
   terser@4.8.1:
     dependencies:
-      acorn: 8.14.0
+      acorn: 8.15.0
       commander: 2.20.3
       source-map: 0.6.1
       source-map-support: 0.5.21
@@ -44943,9 +45032,9 @@ snapshots:
       - supports-color
       - typescript
 
-  vite-plugin-svgr@4.2.0(rollup@4.53.5)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
+  vite-plugin-svgr@4.2.0(rollup@2.79.2)(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)):
     dependencies:
-      '@rollup/pluginutils': 5.1.4(rollup@4.53.5)
+      '@rollup/pluginutils': 5.1.4(rollup@2.79.2)
       '@svgr/core': 8.1.0(typescript@5.4.3)
       '@svgr/plugin-jsx': 8.1.0(@svgr/core@8.1.0(typescript@5.4.3))
       vite: 7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)

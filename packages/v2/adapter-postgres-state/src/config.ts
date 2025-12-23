@@ -1,4 +1,4 @@
-import { v2PostgresDbConfigSchema } from '@teable/v2-db-postgres';
+import { v2PostgresDbConfigSchema } from '@teable/v2-adapter-db-postgres-pg';
 import { z } from 'zod';
 
 export const v2PostgresStateAdapterConfigSchema = v2PostgresDbConfigSchema.extend({

@@ -71,7 +71,7 @@ For HTTP-ish integrations, keep framework-independent contracts/mappers in `pack
 
 - Cross-repository workflows in commands must be wrapped in `IUnitOfWork.withTransaction(...)`.
 - Repositories should reuse `IExecutionContext.transaction` when present (do not start nested transactions).
-- Postgres implementation lives in `@teable/v2-db-postgres` (`PostgresUnitOfWork`, `PostgresUnitOfWorkTransaction`); register it in containers.
+- Postgres implementation lives in `@teable/v2-adapter-db-postgres-pg` (`PostgresUnitOfWork`, `PostgresUnitOfWorkTransaction`); register it in containers.
 - Publish domain events only after transactional work succeeds.
 
 ## Build tooling (v2)

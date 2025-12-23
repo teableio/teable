@@ -1,4 +1,5 @@
 import { runCreateTableBench } from './create-table.bench';
+import { runDbAdapterBench } from './db-adapter.bench';
 import { runGetTableByIdBench } from './get-table-by-id.bench';
 
 const exitProcess = (code: number) => {
@@ -18,6 +19,7 @@ const exitProcess = (code: number) => {
 
 const runAll = async () => {
   console.log('[bun-bench] starting benchmarks');
+  await runDbAdapterBench();
   await runCreateTableBench();
   await runGetTableByIdBench();
   console.log('[bun-bench] benchmarks finished');

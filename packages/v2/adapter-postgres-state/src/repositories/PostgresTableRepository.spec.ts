@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/naming-convention */
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type {
   AttachmentField,
   ButtonField,
@@ -36,7 +37,6 @@ import {
   TableSortKey,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import { container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';

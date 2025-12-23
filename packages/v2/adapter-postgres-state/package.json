@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
-    "@teable/v2-db-postgres": "workspace:*",
+    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "kysely": "0.28.9",

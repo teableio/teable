@@ -1,6 +1,6 @@
 import { v2Tracer } from './otel';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
-import { v2PostgresDbTokens } from '@teable/v2-db-postgres';
+import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';

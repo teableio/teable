@@ -23,7 +23,7 @@ module.exports = {
     '@teable/eslint-config-bases/prettier-plugin',
   ],
   rules: {
-    '@typescript-eslint/naming-convention': 'off',
+    '@typescript-eslint/consistent-type-imports': 'off',
   },
   overrides: [],
 };

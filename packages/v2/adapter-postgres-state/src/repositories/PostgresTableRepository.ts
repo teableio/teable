@@ -1,3 +1,8 @@
+import {
+  getPostgresTransaction,
+  resolvePostgresDb,
+  v2PostgresDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import type {
   ITableMapper,
   ITableFieldPersistenceDTO,
@@ -26,11 +31,6 @@ import {
   getRandomString,
   TraceSpan,
 } from '@teable/v2-core';
-import {
-  getPostgresTransaction,
-  resolvePostgresDb,
-  v2PostgresDbTokens,
-} from '@teable/v2-db-postgres';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql } from 'kysely';

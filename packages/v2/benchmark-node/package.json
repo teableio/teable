@@ -31,6 +31,7 @@
   "dependencies": {
     "@hono/node-server": "1.13.5",
     "@teable/v2-container-node-test": "workspace:*",
+    "@teable/v2-adapter-db-postgres-postgresjs": "workspace:*",
     "@teable/v2-contract-http-client": "workspace:*",
     "@teable/v2-contract-http-express": "workspace:*",
     "@teable/v2-contract-http-fastify": "workspace:*",

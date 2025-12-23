@@ -13,7 +13,7 @@ const v2ServerDeps = [
   '@teable/v2-contract-http',
   '@teable/v2-contract-http-implementation',
   '@teable/v2-container-node',
-  '@teable/v2-db-postgres',
+  '@teable/v2-adapter-db-postgres-pg',
   '@teable/v2-postgres-schema',
   '@teable/v2-adapter-postgres-state',
   '@teable/v2-adapter-postgres-ddl',

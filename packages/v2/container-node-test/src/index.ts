@@ -1,3 +1,5 @@
+import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
+import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
@@ -11,7 +13,6 @@ import {
   NoopTracer,
   v2CoreTokens,
 } from '@teable/v2-core';
-import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -26,7 +27,16 @@ export interface IV2NodeTestContainer {
   dispose(): Promise<void>;
 }
 
-export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer> => {
+export interface IV2NodeTestContainerOptions {
+  registerDb?: (
+    container: DependencyContainer,
+    config: IV2PostgresDbConfig
+  ) => Promise<DependencyContainer | void>;
+}
+
+export const createV2NodeTestContainer = async (
+  options: IV2NodeTestContainerOptions = {}
+): Promise<IV2NodeTestContainer> => {
   const c = container.createChildContainer();
 
   const pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
@@ -35,13 +45,18 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
     .withPassword('teable')
     .start();
   const connectionString = pgContainer.getConnectionUri();
+  const dbConfig: IV2PostgresDbConfig = { pg: { connectionString } };
+
+  if (options.registerDb) {
+    await options.registerDb(c, dbConfig);
+  }
 
   await registerV2PostgresStateAdapter(c, {
-    pg: { connectionString },
+    ...dbConfig,
     ensureSchema: true,
   });
 
-  await registerV2PostgresDdlAdapter(c, { pg: { connectionString } });
+  await registerV2PostgresDdlAdapter(c, dbConfig);
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,

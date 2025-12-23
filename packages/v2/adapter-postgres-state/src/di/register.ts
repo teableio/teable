@@ -1,5 +1,5 @@
+import { registerV2PostgresDb, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { DefaultTableMapper, v2CoreTokens } from '@teable/v2-core';
-import { registerV2PostgresDb, v2PostgresDbTokens } from '@teable/v2-db-postgres';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
