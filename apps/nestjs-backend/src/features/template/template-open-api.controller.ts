@@ -1,5 +1,5 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { Controller, Get, Post, Body, Param, Patch, Delete, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Patch, Delete, Query, Put } from '@nestjs/common';
 import {
   createTemplateRoSchema,
   ICreateTemplateCategoryRo,
@@ -8,10 +8,12 @@ import {
   ITemplateQueryRoSchema,
   IUpdateTemplateCategoryRo,
   IUpdateTemplateRo,
+  IUpdateOrderRo,
   templateListQueryRoSchema,
   templateQueryRoSchema,
   updateTemplateCategoryRoSchema,
   updateTemplateRoSchema,
+  updateOrderRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
@@ -65,6 +67,15 @@ export class TemplateOpenApiController {
   @Permissions('instance|update')
   async updateTemplateOrder(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.pinTopTemplate(templateId);
+  }
+
+  @Put('/:templateId/order')
+  @Permissions('instance|update')
+  async updateOrder(
+    @Param('templateId') templateId: string,
+    @Body(new ZodValidationPipe(updateOrderRoSchema)) updateOrderRo: IUpdateOrderRo
+  ) {
+    return await this.templateOpenApiService.updateOrder(templateId, updateOrderRo);
   }
 
   @Post('/:templateId/snapshot')

@@ -22,6 +22,7 @@ import {
   pinTopTemplate,
   updateTemplate,
   updateTemplateCategory,
+  updateTemplateOrder,
 } from '@teable/openapi';
 import { omit } from 'lodash';
 import { deleteSpace, initApp } from './utils/init-app';
@@ -140,6 +141,267 @@ describe('Template Open API Controller (e2e)', () => {
     expect(tmpList2.status).toBe(200);
     expect(tmpList2.data.length).toBe(3);
     expect(tmpList2.data.map(({ id }) => id)).toEqual([tmp3.data.id, tmp1.data.id, tmp2.data.id]);
+  });
+
+  describe('Template Order', () => {
+    beforeEach(async () => {
+      // Ensure database is clean before each test
+      const tx = prismaService.txClient();
+      await tx.template.deleteMany({
+        where: {},
+      });
+    });
+
+    it('should update template order - move to before anchor', async () => {
+      // Create 3 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+
+      // Initial order: [tmp1, tmp2, tmp3]
+      const initialList = await getTemplateList();
+      expect(initialList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+      ]);
+
+      // Move tmp3 before tmp1
+      await updateTemplateOrder({
+        templateId: tmp3.data.id,
+        anchorId: tmp1.data.id,
+        position: 'before',
+      });
+
+      // Expected order: [tmp3, tmp1, tmp2]
+      const updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp3.data.id,
+        tmp1.data.id,
+        tmp2.data.id,
+      ]);
+    });
+
+    it('should update template order - move to after anchor', async () => {
+      // Create 3 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+
+      // Initial order: [tmp1, tmp2, tmp3]
+      const initialList = await getTemplateList();
+      expect(initialList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+      ]);
+
+      // Move tmp1 after tmp3
+      await updateTemplateOrder({
+        templateId: tmp1.data.id,
+        anchorId: tmp3.data.id,
+        position: 'after',
+      });
+
+      // Expected order: [tmp2, tmp3, tmp1]
+      const updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp2.data.id,
+        tmp3.data.id,
+        tmp1.data.id,
+      ]);
+    });
+
+    it('should update template order - move middle item before first', async () => {
+      // Create 3 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+
+      // Initial order: [tmp1, tmp2, tmp3]
+      // Move tmp2 before tmp1
+      await updateTemplateOrder({
+        templateId: tmp2.data.id,
+        anchorId: tmp1.data.id,
+        position: 'before',
+      });
+
+      // Expected order: [tmp2, tmp1, tmp3]
+      const updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp2.data.id,
+        tmp1.data.id,
+        tmp3.data.id,
+      ]);
+    });
+
+    it('should update template order - move middle item after last', async () => {
+      // Create 3 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+
+      // Initial order: [tmp1, tmp2, tmp3]
+      // Move tmp2 after tmp3
+      await updateTemplateOrder({
+        templateId: tmp2.data.id,
+        anchorId: tmp3.data.id,
+        position: 'after',
+      });
+
+      // Expected order: [tmp1, tmp3, tmp2]
+      const updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp3.data.id,
+        tmp2.data.id,
+      ]);
+    });
+
+    it('should update template order - complex reordering', async () => {
+      // Create 5 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+      const tmp4 = await createTemplate({});
+      const tmp5 = await createTemplate({});
+
+      // Initial order: [tmp1, tmp2, tmp3, tmp4, tmp5]
+      const initialList = await getTemplateList();
+      expect(initialList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+        tmp4.data.id,
+        tmp5.data.id,
+      ]);
+
+      // Move tmp5 before tmp2
+      await updateTemplateOrder({
+        templateId: tmp5.data.id,
+        anchorId: tmp2.data.id,
+        position: 'before',
+      });
+
+      // Expected order: [tmp1, tmp5, tmp2, tmp3, tmp4]
+      let updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp5.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+        tmp4.data.id,
+      ]);
+
+      // Move tmp1 after tmp4
+      await updateTemplateOrder({
+        templateId: tmp1.data.id,
+        anchorId: tmp4.data.id,
+        position: 'after',
+      });
+
+      // Expected order: [tmp5, tmp2, tmp3, tmp4, tmp1]
+      updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp5.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+        tmp4.data.id,
+        tmp1.data.id,
+      ]);
+
+      // Move tmp3 before tmp5
+      await updateTemplateOrder({
+        templateId: tmp3.data.id,
+        anchorId: tmp5.data.id,
+        position: 'before',
+      });
+
+      // Expected order: [tmp3, tmp5, tmp2, tmp4, tmp1]
+      updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp3.data.id,
+        tmp5.data.id,
+        tmp2.data.id,
+        tmp4.data.id,
+        tmp1.data.id,
+      ]);
+    });
+
+    it('should handle adjacent template reordering', async () => {
+      // Create 3 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+
+      // Move tmp2 after tmp1 (already in this position, but should work)
+      await updateTemplateOrder({
+        templateId: tmp2.data.id,
+        anchorId: tmp1.data.id,
+        position: 'after',
+      });
+
+      // Order should remain: [tmp1, tmp2, tmp3]
+      let updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp1.data.id,
+        tmp2.data.id,
+        tmp3.data.id,
+      ]);
+
+      // Swap tmp1 and tmp2 by moving tmp1 after tmp2
+      await updateTemplateOrder({
+        templateId: tmp1.data.id,
+        anchorId: tmp2.data.id,
+        position: 'after',
+      });
+
+      // Expected order: [tmp2, tmp1, tmp3]
+      updatedList = await getTemplateList();
+      expect(updatedList.data.map(({ id }) => id)).toEqual([
+        tmp2.data.id,
+        tmp1.data.id,
+        tmp3.data.id,
+      ]);
+    });
+
+    it('should maintain order consistency after multiple operations', async () => {
+      // Create 4 templates
+      const tmp1 = await createTemplate({});
+      const tmp2 = await createTemplate({});
+      const tmp3 = await createTemplate({});
+      const tmp4 = await createTemplate({});
+
+      // Perform multiple reordering operations
+      await updateTemplateOrder({
+        templateId: tmp4.data.id,
+        anchorId: tmp1.data.id,
+        position: 'before',
+      });
+      // Order: [tmp4, tmp1, tmp2, tmp3]
+
+      await updateTemplateOrder({
+        templateId: tmp2.data.id,
+        anchorId: tmp4.data.id,
+        position: 'before',
+      });
+      // Order: [tmp2, tmp4, tmp1, tmp3]
+
+      await updateTemplateOrder({
+        templateId: tmp3.data.id,
+        anchorId: tmp2.data.id,
+        position: 'after',
+      });
+      // Order: [tmp2, tmp3, tmp4, tmp1]
+
+      const finalList = await getTemplateList();
+      expect(finalList.data.map(({ id }) => id)).toEqual([
+        tmp2.data.id,
+        tmp3.data.id,
+        tmp4.data.id,
+        tmp1.data.id,
+      ]);
+    });
   });
 
   it('should support update template markdown description and get ', async () => {

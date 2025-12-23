@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
@@ -10,6 +10,7 @@ import type {
   IUpdateTemplateCategoryRo,
   IUpdateTemplateRo,
   ITemplateQueryRoSchema,
+  IUpdateOrderRo,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -21,12 +22,15 @@ import {
   generateTemplateCategoryCacheKey,
 } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
+import { updateOrder } from '../../utils/update-order';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
 import { getPublicFullStorageUrl } from '../attachments/plugins/utils';
 import { BaseDuplicateService } from '../base/base-duplicate.service';
 
 @Injectable()
 export class TemplateOpenApiService {
+  private logger = new Logger(TemplateOpenApiService.name);
+
   constructor(
     private readonly prismaService: PrismaService,
     private readonly baseDuplicateService: BaseDuplicateService,
@@ -557,5 +561,97 @@ export class TemplateOpenApiService {
       },
       {} as Record<string, { id: string; name: string; avatar: string | undefined; email: string }>
     );
+  }
+
+  async shuffle(_query: unknown) {
+    const templates = await this.prismaService.txClient().template.findMany({
+      select: { id: true },
+      orderBy: { order: 'asc' },
+    });
+
+    this.logger.log(`lucky template shuffle!`, 'shuffle');
+
+    await this.prismaService.$tx(async (prisma) => {
+      for (let i = 0; i < templates.length; i++) {
+        const template = templates[i];
+        await prisma.template.update({
+          where: { id: template.id },
+          data: { order: i + 1 },
+        });
+      }
+    });
+  }
+
+  async updateOrder(templateId: string, orderRo: IUpdateOrderRo) {
+    const { anchorId, position } = orderRo;
+    const prisma = this.prismaService.txClient();
+
+    // Check if there are duplicate orders, if so, shuffle first
+    const templatesOrder = await prisma.template.findMany({
+      select: {
+        order: true,
+      },
+    });
+
+    const uniqOrder = [...new Set(templatesOrder.map((t) => t.order))];
+
+    // if the template order has the same order, should shuffle
+    const shouldShuffle = uniqOrder.length !== templatesOrder.length;
+
+    if (shouldShuffle) {
+      await this.shuffle(null);
+    }
+
+    const template = await prisma.template
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { id: templateId },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Template not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.base.templateNotFound',
+          },
+        });
+      });
+
+    const anchorTemplate = await prisma.template
+      .findFirstOrThrow({
+        select: { order: true, id: true },
+        where: { id: anchorId },
+      })
+      .catch(() => {
+        throw new CustomHttpException('Anchor template not found', HttpErrorCode.NOT_FOUND, {
+          localization: {
+            i18nKey: 'httpErrors.table.anchorNotFound',
+            context: {
+              anchorId,
+            },
+          },
+        });
+      });
+
+    await updateOrder({
+      query: null,
+      position,
+      item: template,
+      anchorItem: anchorTemplate,
+      getNextItem: async (whereOrder, align) => {
+        return prisma.template.findFirst({
+          select: { order: true, id: true },
+          where: {
+            order: whereOrder,
+          },
+          orderBy: { order: align },
+        });
+      },
+      update: async (_, id, data) => {
+        await prisma.template.update({
+          data: { order: data.newOrder },
+          where: { id },
+        });
+      },
+      shuffle: this.shuffle.bind(this),
+    });
   }
 }

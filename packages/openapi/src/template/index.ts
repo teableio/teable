@@ -6,6 +6,7 @@ export * from './update';
 export * from './create-snapshot';
 export * from './category';
 export * from './pin-top';
+export * from './update-order';
 export * from './get-template-detail';
 export * from './get-by-base-id';
 export * from './unpublish';
