@@ -557,11 +557,13 @@ export class ShareService {
       });
     }
 
-    const fields = await this.fieldService.getFieldsByQuery(tableId, {
+    let fields = await this.fieldService.getFieldsByQuery(tableId, {
       viewId: view?.id,
       filterHidden: !view?.shareMeta?.includeHiddenField,
-      projection: query?.fieldId ? [query.fieldId] : undefined,
     });
+    if (query?.fieldId) {
+      fields = fields.filter((field) => field.id === query.fieldId);
+    }
     // If there is no user field, return an empty array
     if (
       !fields.some((field) =>
