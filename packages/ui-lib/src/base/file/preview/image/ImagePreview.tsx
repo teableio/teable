@@ -14,6 +14,7 @@ export const ImagePreview = (props: IImagePreviewProps) => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [initialPinchDistance, setInitialPinchDistance] = useState<number | null>(null);
   const [initialPinchScale, setInitialPinchScale] = useState(1);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -34,18 +35,34 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scale]);
 
+  // Use ResizeObserver to efficiently monitor image dimension changes
+  useEffect(() => {
+    const img = imageRef.current;
+    if (!img) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        setImageDimensions({ width, height });
+      }
+    });
+
+    resizeObserver.observe(img);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [src]);
+
   // Constrain position to prevent image from being dragged completely out of view
   const constrainPosition = (newPosition: { x: number; y: number }) => {
-    if (!imageRef.current || !containerRef.current || scale <= 1) {
+    if (scale <= 1 || !imageDimensions.width || !imageDimensions.height) {
       return newPosition;
     }
 
-    const image = imageRef.current;
-
-    // Get image's actual rendered dimensions (respecting max-w-full max-h-full)
-    const imageRect = image.getBoundingClientRect();
-    const baseImageWidth = imageRect.width / scale; // Original displayed size before scaling
-    const baseImageHeight = imageRect.height / scale;
+    // Use cached dimensions instead of getBoundingClientRect() for better performance
+    const baseImageWidth = imageDimensions.width / scale; // Original displayed size before scaling
+    const baseImageHeight = imageDimensions.height / scale;
 
     // Calculate scaled image dimensions
     const scaledWidth = baseImageWidth * scale;
@@ -127,15 +144,27 @@ export const ImagePreview = (props: IImagePreviewProps) => {
     setIsDragging(false);
   };
 
-  // Handle wheel for zoom
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    if (e.deltaY < 0) {
-      handleZoomIn();
-    } else {
-      handleZoomOut();
-    }
-  };
+  // Add native wheel event listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setScale((prev) => Math.min(prev + 0.25, 5));
+      } else {
+        setScale((prev) => Math.max(prev - 0.25, 0.25));
+      }
+    };
+
+    // Add event listener with passive: false to allow preventDefault
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   // Get distance between two touch points
   const getTouchDistance = (touches: React.TouchList) => {
@@ -202,7 +231,6 @@ export const ImagePreview = (props: IImagePreviewProps) => {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
