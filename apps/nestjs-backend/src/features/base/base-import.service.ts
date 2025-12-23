@@ -343,11 +343,12 @@ export class BaseImportService {
     const tableIdMap: Record<string, string> = {};
 
     for (const table of tables) {
-      const { name, icon, description, id: tableId } = table;
+      const { name, icon, description, id: tableId, dbTableName } = table;
       const newTableVo = await this.tableService.createTable(baseId, {
         name,
         icon,
         description,
+        dbTableName,
       });
       tableIdMap[tableId] = newTableVo.id;
       this.logger.log(`base-duplicate-service: duplicate table item successfully`);

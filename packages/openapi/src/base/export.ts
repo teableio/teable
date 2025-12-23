@@ -77,6 +77,9 @@ export const tableJsonSchema = z.object({
   order: z.number(),
   fields: fieldJsonSchema.array(),
   views: viewJsonSchema.array(),
+  dbTableName: z.string().meta({
+    description: 'The table name in the physical postgres database.',
+  }),
 });
 
 export const pluginInstallJsonSchema = z.object({

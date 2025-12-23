@@ -409,13 +409,15 @@ export class BaseExportService {
     const { name: baseName, icon: baseIcon, id: baseId } = baseRaw;
     const tables = [] as IBaseJson['tables'];
     for (const table of tableRaws) {
-      const { name, description, order, id, icon } = table;
+      const { name, description, order, id, icon, dbTableName } = table;
+      const realDbTableName = dbTableName?.split('.')?.pop();
       const tableObject = {
         id,
         name,
         order,
         description,
         icon,
+        dbTableName: realDbTableName,
       } as IBaseJson['tables'][number];
       const currentTableFields = fieldRaws.filter(({ tableId }) => tableId === id);
       tableObject.fields = this.generateFieldConfig(
