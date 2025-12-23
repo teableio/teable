@@ -33,6 +33,10 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
+      - name: 🏗 Build v2 packages
+        run: |
+          pnpm build:v2
+
       - name: 🧪 Run v2 vitest
         run: |
           pnpm -F "@teable/v2-*" -r --if-present --workspace-concurrency=1 test-unit-cover

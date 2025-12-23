@@ -37,6 +37,10 @@ jobs:
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
 
+      - name: 🏗 Build v2 packages
+        run: |
+          pnpm build:v2
+
       - name: 🧪 Run v2 benchmarks
         run: |
           pnpm -C packages/v2/benchmark-node bench
@@ -68,6 +72,10 @@ jobs:
 
       - name: 📥 Monorepo install
         uses: ./.github/actions/pnpm-install
+
+      - name: 🏗 Build v2 packages
+        run: |
+          pnpm build:v2
 
       - name: 🧪 Run v2 bun benchmarks
         run: |
