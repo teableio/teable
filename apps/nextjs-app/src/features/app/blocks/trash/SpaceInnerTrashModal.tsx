@@ -12,27 +12,36 @@ import {
 import { InfiniteTable } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useIsHydrated } from '@teable/sdk/hooks';
-import { ConfirmDialog } from '@teable/ui-lib/base';
-import { Button } from '@teable/ui-lib/shadcn';
+import { ConfirmDialog, Spin } from '@teable/ui-lib/base';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
-import Head from 'next/head';
-import { useParams } from 'next/navigation';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
-import { useBrand } from '@/features/app/hooks/useBrand';
-import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 
-export const SpaceInnerTrashPage = () => {
-  const { spaceId } = useParams<{ spaceId: string }>();
+interface ISpaceInnerTrashModalProps {
+  children: React.ReactNode;
+  spaceId: string;
+}
+
+export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
+  const { children, spaceId } = props;
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
-  const { t } = useTranslation(spaceConfig.i18nNamespaces);
-  const { brandName } = useBrand();
+  const { t } = useTranslation(['common', 'space']);
   const resourceType = ResourceType.Base;
 
+  const [open, setOpen] = useState(false);
   const [userMap, setUserMap] = useState<ITrashVo['userMap']>({});
   const [resourceMap, setResourceMap] = useState<ITrashVo['resourceMap']>({});
   const [nextCursor, setNextCursor] = useState<string | null | undefined>();
@@ -46,8 +55,8 @@ export const SpaceInnerTrashPage = () => {
     const { trashItems, nextCursor } = res.data;
 
     setNextCursor(() => nextCursor);
-    setUserMap({ ...userMap, ...res.data.userMap });
-    setResourceMap({ ...resourceMap, ...res.data.resourceMap });
+    setUserMap((prev) => ({ ...prev, ...res.data.userMap }));
+    setResourceMap((prev) => ({ ...prev, ...res.data.resourceMap }));
 
     return trashItems;
   };
@@ -58,6 +67,7 @@ export const SpaceInnerTrashPage = () => {
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     getNextPageParam: () => nextCursor,
+    enabled: open,
   });
 
   const { mutateAsync: mutateRestore } = useMutation({
@@ -184,20 +194,24 @@ export const SpaceInnerTrashPage = () => {
     }
   }, [fetchNextPage, isFetching, nextCursor]);
 
-  if (!isHydrated || isLoading) return null;
-
   return (
-    <div className="flex h-screen flex-1 flex-col space-y-4 overflow-hidden p-8">
-      <Head>
-        <title>{`${t('noun.trash')} - ${brandName}`}</title>
-      </Head>
-      <div className="flex flex-col items-start justify-between gap-2">
-        <h1 className="text-2xl font-semibold">{t('noun.trash')}</h1>
-        <p className="shrink-0 grow-0 text-left text-sm text-zinc-500">
-          {t('space:trash.baseDescription')}
-        </p>
-      </div>
-      <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{children}</DialogTrigger>
+        <DialogContent className="flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300">
+          <DialogHeader className="flex w-full border-b p-4">
+            <DialogTitle>{t('noun.trash')}</DialogTitle>
+            <DialogDescription>{t('space:trash.baseDescription')}</DialogDescription>
+          </DialogHeader>
+          <div className="h-full flex-col overflow-hidden p-4">
+            {isHydrated && !isLoading ? (
+              <InfiniteTable rows={allRows} columns={columns} fetchNextPage={fetchNextPageInner} />
+            ) : (
+              <Spin className="size-4" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
       <ConfirmDialog
         open={isConfirmVisible}
         onOpenChange={setConfirmVisible}
@@ -217,6 +231,6 @@ export const SpaceInnerTrashPage = () => {
           });
         }}
       />
-    </div>
+    </>
   );
 };
