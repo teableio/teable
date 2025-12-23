@@ -1,8 +1,13 @@
 import { createFileRoute, Navigate } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
+import { useLocalStorage } from 'usehooks-ts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PLAYGROUND_BASE_ID, PLAYGROUND_TABLE_ID_STORAGE_KEY } from '@/lib/playground/constants';
+import {
+  PLAYGROUND_BASE_ID,
+  PLAYGROUND_BASE_ID_STORAGE_KEY,
+  PLAYGROUND_TABLE_ID_STORAGE_KEY,
+} from '@/lib/playground/constants';
 
 export const Route = createFileRoute('/')({ component: PlaygroundIndex });
 
@@ -13,18 +18,43 @@ type RedirectTarget =
 
 function PlaygroundIndex() {
   const [target, setTarget] = useState<RedirectTarget>(null);
+  const [hasHydrated, setHasHydrated] = useState(false);
+  const [storedBaseId] = useLocalStorage<string | null>(PLAYGROUND_BASE_ID_STORAGE_KEY, null, {
+    initializeWithValue: false,
+  });
+  const [storedTableId, , removeStoredTableId] = useLocalStorage<string | null>(
+    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
 
   useEffect(() => {
-    const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-    if (storedTableId) {
+    setHasHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    const baseId = storedBaseId && storedBaseId.trim() ? storedBaseId : PLAYGROUND_BASE_ID;
+    const tableId = storedTableId && storedTableId.trim() ? storedTableId : null;
+
+    if (!storedBaseId || !storedBaseId.trim()) {
+      if (tableId) {
+        removeStoredTableId();
+      }
+      setTarget({ to: '/$baseId', params: { baseId } });
+      return;
+    }
+
+    if (tableId) {
       setTarget({
         to: '/$baseId/$tableId',
-        params: { baseId: PLAYGROUND_BASE_ID, tableId: storedTableId },
+        params: { baseId, tableId },
       });
       return;
     }
-    setTarget({ to: '/$baseId', params: { baseId: PLAYGROUND_BASE_ID } });
-  }, []);
+
+    setTarget({ to: '/$baseId', params: { baseId } });
+  }, [hasHydrated, removeStoredTableId, storedBaseId, storedTableId]);
 
   if (target) {
     return <Navigate to={target.to} params={target.params} replace />;

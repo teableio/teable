@@ -9,6 +9,11 @@ import { createV2FastifyPlugin } from '@teable/v2-contract-http-fastify';
 import { createV2HonoApp } from '@teable/v2-contract-http-hono';
 import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import {
+  createAllBaseFields,
+  createSimpleFields,
+  createTextColumns,
+} from '@teable/v2-table-templates';
 import express from 'express';
 import fastify from 'fastify';
 import { afterAll, beforeAll, bench, describe } from 'vitest';
@@ -25,32 +30,6 @@ const createTableName = (framework: string, scenario: string): string => {
   const random = Math.random().toString(36).slice(2, 8);
   return `Bench_${framework}_${scenario}_${Date.now()}_${random}`;
 };
-
-const createSimpleFields = (): ICreateTableRequestDto['fields'] => [
-  { type: 'singleLineText', name: 'Name' },
-  { type: 'number', name: 'Amount', options: { defaultValue: 1 } },
-  { type: 'checkbox', name: 'Done', options: { defaultValue: false } },
-];
-
-const createAllBaseFields = (): ICreateTableRequestDto['fields'] => [
-  { type: 'singleLineText', name: 'Name' },
-  { type: 'longText', name: 'Description', options: { defaultValue: 'Notes' } },
-  { type: 'number', name: 'Amount', options: { defaultValue: 10 } },
-  { type: 'rating', name: 'Priority', max: 5, options: { icon: 'star', color: 'yellowBright' } },
-  { type: 'singleSelect', name: 'Status', options: ['Todo', 'Done'] },
-  { type: 'multipleSelect', name: 'Tags', options: ['Frontend', 'Backend'] },
-  { type: 'checkbox', name: 'Done', options: { defaultValue: true } },
-  { type: 'attachment', name: 'Files' },
-  { type: 'date', name: 'Due Date' },
-  { type: 'user', name: 'Owner', options: { isMultiple: false } },
-  { type: 'button', name: 'Action', options: { label: 'Run' } },
-];
-
-const createTextColumns = (count: number): ICreateTableRequestDto['fields'] =>
-  Array.from({ length: count }, (_, index) => ({
-    type: 'singleLineText',
-    name: `Column ${index + 1}`,
-  }));
 
 type IBenchTarget = {
   name: string;

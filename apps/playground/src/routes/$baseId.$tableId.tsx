@@ -1,16 +1,18 @@
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, createFileRoute, useNavigate } from '@tanstack/react-router';
+import { mapTableDtoToDomain, type IListTablesOkResponseDto } from '@teable/v2-contract-http';
+import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
 import { useEffect, useMemo, useState } from 'react';
-import { mapTableDtoToDomain, type ITableDto } from '@teable/v2-contract-http';
 import { toast } from 'sonner';
+import { useLocalStorage } from 'usehooks-ts';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { getOrpcClient } from '@/lib/orpcClient';
-import { buildBasicTableInput } from '@/lib/playground/basicTable';
 import {
   PLAYGROUND_BASE_ID,
   PLAYGROUND_BASE_NAME,
+  PLAYGROUND_BASE_ID_STORAGE_KEY,
   PLAYGROUND_TABLE_ID_STORAGE_KEY,
 } from '@/lib/playground/constants';
 
@@ -41,6 +43,16 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const [eventCount, setEventCount] = useState<number | null>(null);
   const navigate = useNavigate();
   const baseName = baseId === PLAYGROUND_BASE_ID ? PLAYGROUND_BASE_NAME : baseId;
+  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
+    PLAYGROUND_BASE_ID_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
+  const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
+    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
 
   const orpc = createTanstackQueryUtils(getOrpcClient());
   const queryClient = useQueryClient();
@@ -60,9 +72,8 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       onSuccess: (response) => {
         const created = response.data.table;
         setEventCount(response.data.events.length);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, created.id);
-        }
+        setStoredBaseId(baseId);
+        setStoredTableId(created.id);
         queryClient.setQueryData(
           orpc.tables.getById.queryKey({
             input: {
@@ -97,16 +108,21 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
           }),
         });
 
-        const removeFromList = (list: ReadonlyArray<ITableDto> | undefined) =>
-          list ? list.filter((table) => table.id !== tableId) : list;
+        const removeFromList = (list: IListTablesOkResponseDto | undefined) =>
+          list
+            ? {
+                ...list,
+                data: {
+                  ...list.data,
+                  tables: list.data.tables.filter((table) => table.id !== tableId),
+                },
+              }
+            : list;
 
         queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), removeFromList);
 
-        if (typeof window !== 'undefined') {
-          const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-          if (storedTableId === tableId) {
-            localStorage.removeItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-          }
+        if (storedBaseId === baseId && storedTableId === tableId) {
+          removeStoredTableId();
         }
 
         void queryClient.invalidateQueries({
@@ -123,9 +139,9 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, tableId);
-  }, [tableId]);
+    setStoredBaseId(baseId);
+    setStoredTableId(tableId);
+  }, [baseId, setStoredBaseId, setStoredTableId, tableId]);
 
   const tableDto = tableQuery.data ?? null;
   const tableResult = useMemo(() => (tableDto ? mapTableDtoToDomain(tableDto) : null), [tableDto]);
@@ -146,9 +162,9 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     return null;
   })();
 
-  const handleCreate = () => {
+  const handleCreateTemplate = (template: TableTemplateDefinition) => {
     createTableMutation.reset();
-    createTableMutation.mutate(buildBasicTableInput(baseId, `Playground Table ${Date.now()}`));
+    createTableMutation.mutate(template.createInput(baseId, `Playground Table ${Date.now()}`));
   };
 
   const handleDelete = () => {
@@ -173,7 +189,8 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isDeleting={deleteTableMutation.isPending}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
-      onCreate={handleCreate}
+      templates={tableTemplates}
+      onCreateTemplate={handleCreateTemplate}
       onDelete={handleDelete}
     />
   );

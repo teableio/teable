@@ -37,6 +37,7 @@
     "@teable/v2-contract-http-fastify": "workspace:*",
     "@teable/v2-contract-http-hono": "workspace:*",
     "@teable/v2-core": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*",
     "express": "4.21.1",
     "fastify": "4.29.1",
     "hono": "4.11.1"

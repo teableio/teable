@@ -3,6 +3,7 @@ import { registerV2PostgresDb } from '@teable/v2-adapter-db-postgres-pg';
 import { registerV2PostgresJsDb } from '@teable/v2-adapter-db-postgres-postgresjs';
 import type { ICreateTableRequestDto } from '@teable/v2-contract-http';
 import type { DependencyContainer } from '@teable/v2-di';
+import { createSimpleFields, createTextColumns } from '@teable/v2-table-templates';
 import { Bench } from 'tinybench';
 
 import type { IBunBenchContext } from './bench-context';
@@ -20,18 +21,6 @@ const createTableName = (adapterName: string, scenario: string): string => {
   const random = Math.random().toString(36).slice(2, 8);
   return `Bench_Bun_Db_${adapterName}_${scenario}_${Date.now()}_${random}`;
 };
-
-const createSimpleFields = (): ICreateTableRequestDto['fields'] => [
-  { type: 'singleLineText', name: 'Name' },
-  { type: 'number', name: 'Amount', options: { defaultValue: 1 } },
-  { type: 'checkbox', name: 'Done', options: { defaultValue: false } },
-];
-
-const createTextColumns = (count: number): ICreateTableRequestDto['fields'] =>
-  Array.from({ length: count }, (_, index) => ({
-    type: 'singleLineText',
-    name: `Column ${index + 1}`,
-  }));
 
 type IDbAdapter = {
   name: string;

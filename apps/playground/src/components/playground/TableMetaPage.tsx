@@ -1,11 +1,11 @@
 import { mapTableToDto, type ITableDto } from '@teable/v2-contract-http';
 import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '@teable/v2-core';
+import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import {
   Copy,
   Database,
   FileJson,
   MoreVertical,
-  Plus,
   RefreshCcw,
   Table as TableIcon,
   Trash2,
@@ -17,6 +17,7 @@ import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
 
+import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -144,7 +145,8 @@ type TableMetaPageProps = {
   isDeleting: boolean;
   errorMessage: string | null;
   onRefresh: () => void;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
 };
 
@@ -160,7 +162,8 @@ export function TableMetaPage({
   isDeleting,
   errorMessage,
   onRefresh,
-  onCreate,
+  templates,
+  onCreateTemplate,
   onDelete,
 }: TableMetaPageProps) {
   const [activeTab, setActiveTab] = useQueryState(
@@ -186,7 +189,8 @@ export function TableMetaPage({
         isCreating={isCreating}
         isDeleting={isDeleting}
         onRefresh={onRefresh}
-        onCreate={onCreate}
+        templates={templates}
+        onCreateTemplate={onCreateTemplate}
         onDelete={onDelete}
       />
       <section className="flex-1 space-y-6 px-6 py-8">
@@ -195,7 +199,11 @@ export function TableMetaPage({
         {isInitialLoading ? (
           <PlaygroundLoadingState />
         ) : !table ? (
-          <PlaygroundEmptyState isCreating={isCreating} onCreate={onCreate} />
+          <PlaygroundEmptyState
+            isCreating={isCreating}
+            templates={templates}
+            onCreateTemplate={onCreateTemplate}
+          />
         ) : (
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
             <TabsList className="w-fit">
@@ -235,7 +243,8 @@ type PlaygroundHeaderProps = {
   isCreating: boolean;
   isDeleting: boolean;
   onRefresh: () => void;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
 };
 
@@ -247,7 +256,8 @@ function PlaygroundHeader({
   isCreating,
   isDeleting,
   onRefresh,
-  onCreate,
+  templates,
+  onCreateTemplate,
   onDelete,
 }: PlaygroundHeaderProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -280,10 +290,13 @@ function PlaygroundHeader({
           <RefreshCcw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
-        <Button disabled={isCreating} onClick={onCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isCreating ? 'Creating...' : 'Create basic table'}
-        </Button>
+        <CreateTableDropdown
+          templates={templates}
+          isCreating={isCreating}
+          onSelect={onCreateTemplate}
+          label="Create table"
+          align="end"
+        />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="icon" aria-label="Table actions" disabled={!table}>
@@ -406,10 +419,15 @@ function PlaygroundLoadingState() {
 
 type PlaygroundEmptyStateProps = {
   isCreating: boolean;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
 };
 
-function PlaygroundEmptyState({ isCreating, onCreate }: PlaygroundEmptyStateProps) {
+function PlaygroundEmptyState({
+  isCreating,
+  templates,
+  onCreateTemplate,
+}: PlaygroundEmptyStateProps) {
   return (
     <Card>
       <CardHeader>
@@ -417,13 +435,16 @@ function PlaygroundEmptyState({ isCreating, onCreate }: PlaygroundEmptyStateProp
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">
         <p>
-          This playground uses Teable v2 core with a fixed actor. Create a table with all basic
-          field types, then view its schema, or switch the base ID from the sidebar.
+          This playground uses Teable v2 core with a fixed actor. Pick a template to create a table,
+          view its schema, or switch the base ID from the sidebar.
         </p>
-        <Button disabled={isCreating} onClick={onCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isCreating ? 'Creating...' : 'Create table'}
-        </Button>
+        <CreateTableDropdown
+          templates={templates}
+          isCreating={isCreating}
+          onSelect={onCreateTemplate}
+          label="Create table"
+          align="start"
+        />
       </CardContent>
     </Card>
   );

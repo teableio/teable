@@ -28,6 +28,17 @@ export class FieldId extends ValueObject {
     }
   }
 
+  static mustGenerate(): FieldId {
+    const result = FieldId.generate();
+    if (result.isOk()) return result.value;
+    const fallbackBody = Math.random()
+      .toString(36)
+      .slice(2)
+      .padEnd(fieldIdBodyLength, '0')
+      .slice(0, fieldIdBodyLength);
+    return new FieldId(`${fieldIdPrefix}${fallbackBody}`);
+  }
+
   equals(other: FieldId): boolean {
     return this.value === other.value;
   }

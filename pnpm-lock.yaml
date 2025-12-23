@@ -1219,6 +1219,9 @@ importers:
       '@teable/v2-postgres-schema':
         specifier: workspace:^
         version: link:../../packages/v2/postgres-schema
+      '@teable/v2-table-templates':
+        specifier: workspace:^
+        version: link:../../packages/v2/table-templates
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -2658,6 +2661,9 @@ importers:
       '@teable/v2-postgres-schema':
         specifier: workspace:*
         version: link:../postgres-schema
+      '@teable/v2-table-templates':
+        specifier: workspace:*
+        version: link:../table-templates
       kysely:
         specifier: 0.28.9
         version: 0.28.9
@@ -2719,6 +2725,9 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-table-templates':
+        specifier: workspace:*
+        version: link:../table-templates
       express:
         specifier: 4.21.1
         version: 4.21.1
@@ -3573,6 +3582,49 @@ importers:
       vite-tsconfig-paths:
         specifier: 4.3.2
         version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+
+  packages/v2/table-templates:
+    dependencies:
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../contract-http
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
 
   packages/v2/test-node:
     dependencies:

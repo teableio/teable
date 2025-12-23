@@ -2,13 +2,19 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, createFileRoute, Outlet, useMatch, useNavigate } from '@tanstack/react-router';
 import { TableByNameLikeSpec, TableName } from '@teable/v2-core';
-import { mapTableDtoToDomain, type ITableDto } from '@teable/v2-contract-http';
-import { Database, Plus, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
+import {
+  mapTableDtoToDomain,
+  type IListTablesOkResponseDto,
+  type ITableDto,
+} from '@teable/v2-contract-http';
+import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
+import { Database, RefreshCcw, Table as TableIcon, TriangleAlert } from 'lucide-react';
 import { debounce, useQueryState } from 'nuqs';
 import { useEffect, useOptimistic, useState } from 'react';
 import { toast } from 'sonner';
-import { useDebounceValue } from 'usehooks-ts';
+import { useDebounceValue, useLocalStorage } from 'usehooks-ts';
 
+import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown';
 import { PlaygroundShell } from '@/components/playground/PlaygroundShell';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -24,10 +30,10 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { getOrpcClient } from '@/lib/orpcClient';
-import { buildBasicTableInput } from '@/lib/playground/basicTable';
 import {
   PLAYGROUND_BASE_ID,
   PLAYGROUND_BASE_NAME,
+  PLAYGROUND_BASE_ID_STORAGE_KEY,
   PLAYGROUND_TABLE_ID_STORAGE_KEY,
 } from '@/lib/playground/constants';
 
@@ -59,6 +65,16 @@ function PlaygroundBaseLayout() {
   const tableMatch = useMatch({ from: '/$baseId/$tableId', shouldThrow: false });
   const activeTableId = tableMatch?.params.tableId ?? null;
   const baseName = baseId === PLAYGROUND_BASE_ID ? PLAYGROUND_BASE_NAME : baseId;
+  const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
+    PLAYGROUND_BASE_ID_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
+  const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
+    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    null,
+    { initializeWithValue: false }
+  );
 
   const [search, setSearch] = useQueryState('q', {
     limitUrlUpdates: debounce(300),
@@ -73,7 +89,7 @@ function PlaygroundBaseLayout() {
   const orpc = createTanstackQueryUtils(getOrpcClient());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const tablesQuery = useQuery(
+  const tablesQuery = useQuery<IListTablesOkResponseDto, unknown, ReadonlyArray<ITableDto>>(
     orpc.tables.list.queryOptions({
       input: {
         baseId,
@@ -97,6 +113,15 @@ function PlaygroundBaseLayout() {
     setOptimisticTables(filterTablesByNameLike(baseTables, trimmedSearch));
   }, [baseTables, hasSearch, setOptimisticTables, trimmedSearch]);
 
+  useEffect(() => {
+    if (storedBaseId !== baseId) {
+      setStoredBaseId(baseId);
+      if (!activeTableId) {
+        removeStoredTableId();
+      }
+    }
+  }, [activeTableId, baseId, removeStoredTableId, setStoredBaseId, storedBaseId]);
+
   const tables = (() => {
     if (!hasSearch) return tablesQuery.data ?? [];
     if (!isSearchSynced) return optimisticTables;
@@ -112,9 +137,8 @@ function PlaygroundBaseLayout() {
     orpc.tables.create.mutationOptions({
       onSuccess: (response) => {
         const created = response.data.table;
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(PLAYGROUND_TABLE_ID_STORAGE_KEY, created.id);
-        }
+        setStoredBaseId(baseId);
+        setStoredTableId(created.id);
         queryClient.setQueryData(
           orpc.tables.getById.queryKey({
             input: {
@@ -151,8 +175,16 @@ function PlaygroundBaseLayout() {
           }),
         });
 
-        const removeFromList = (list: ReadonlyArray<ITableDto> | undefined) =>
-          list ? list.filter((table) => table.id !== deletedId) : list;
+        const removeFromList = (list: IListTablesOkResponseDto | undefined) =>
+          list
+            ? {
+                ...list,
+                data: {
+                  ...list.data,
+                  tables: list.data.tables.filter((table) => table.id !== deletedId),
+                },
+              }
+            : list;
 
         queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), removeFromList);
 
@@ -163,11 +195,8 @@ function PlaygroundBaseLayout() {
           );
         }
 
-        if (typeof window !== 'undefined') {
-          const storedTableId = localStorage.getItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-          if (storedTableId === deletedId) {
-            localStorage.removeItem(PLAYGROUND_TABLE_ID_STORAGE_KEY);
-          }
+        if (storedBaseId === baseId && storedTableId === deletedId) {
+          removeStoredTableId();
         }
 
         if (activeTableId === deletedId) {
@@ -194,9 +223,9 @@ function PlaygroundBaseLayout() {
     void tablesQuery.refetch();
   };
 
-  const handleCreate = () => {
+  const handleCreateTemplate = (template: TableTemplateDefinition) => {
     createTableMutation.reset();
-    createTableMutation.mutate(buildBasicTableInput(baseId, `Playground Table ${Date.now()}`));
+    createTableMutation.mutate(template.createInput(baseId, `Playground Table ${Date.now()}`));
   };
 
   const handleDeleteTable = (table: ITableDto) => {
@@ -237,7 +266,8 @@ function PlaygroundBaseLayout() {
           errorMessage={pageErrorMessage}
           searchValue={searchValue}
           onRefresh={handleRefresh}
-          onCreate={handleCreate}
+          templates={tableTemplates}
+          onCreateTemplate={handleCreateTemplate}
         />
       )}
     </PlaygroundShell>
@@ -254,7 +284,8 @@ type PlaygroundBasePageProps = {
   errorMessage: string | null;
   searchValue: string;
   onRefresh: () => void;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
 };
 
 function PlaygroundBasePage({
@@ -267,7 +298,8 @@ function PlaygroundBasePage({
   errorMessage,
   searchValue,
   onRefresh,
-  onCreate,
+  templates,
+  onCreateTemplate,
 }: PlaygroundBasePageProps) {
   const trimmedSearch = searchValue.trim();
   const hasSearch = trimmedSearch.length > 0;
@@ -280,7 +312,8 @@ function PlaygroundBasePage({
         isLoading={isLoading}
         isCreating={isCreating}
         onRefresh={onRefresh}
-        onCreate={onCreate}
+        templates={templates}
+        onCreateTemplate={onCreateTemplate}
       />
       <section className="flex-1 space-y-6 px-6 py-8">
         {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
@@ -294,7 +327,8 @@ function PlaygroundBasePage({
             hasSearch={hasSearch}
             searchValue={trimmedSearch}
             isCreating={isCreating}
-            onCreate={onCreate}
+            templates={templates}
+            onCreateTemplate={onCreateTemplate}
           />
         )}
       </section>
@@ -308,7 +342,8 @@ type PlaygroundBaseHeaderProps = {
   isLoading: boolean;
   isCreating: boolean;
   onRefresh: () => void;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
 };
 
 function PlaygroundBaseHeader({
@@ -317,7 +352,8 @@ function PlaygroundBaseHeader({
   isLoading,
   isCreating,
   onRefresh,
-  onCreate,
+  templates,
+  onCreateTemplate,
 }: PlaygroundBaseHeaderProps) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
@@ -340,10 +376,13 @@ function PlaygroundBaseHeader({
           <RefreshCcw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
-        <Button disabled={isCreating} onClick={onCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isCreating ? 'Creating...' : 'Create basic table'}
-        </Button>
+        <CreateTableDropdown
+          templates={templates}
+          isCreating={isCreating}
+          onSelect={onCreateTemplate}
+          label="Create table"
+          align="end"
+        />
       </div>
     </header>
   );
@@ -458,19 +497,21 @@ type PlaygroundBaseEmptyStateProps = {
   hasSearch: boolean;
   searchValue: string;
   isCreating: boolean;
-  onCreate: () => void;
+  templates: ReadonlyArray<TableTemplateDefinition>;
+  onCreateTemplate: (template: TableTemplateDefinition) => void;
 };
 
 function PlaygroundBaseEmptyState({
   hasSearch,
   searchValue,
   isCreating,
-  onCreate,
+  templates,
+  onCreateTemplate,
 }: PlaygroundBaseEmptyStateProps) {
   const title = hasSearch ? 'No matching tables' : 'Create your first table';
   const description = hasSearch
     ? `No tables match "${searchValue}".`
-    : 'Build a basic table with all field types to explore the v2 playground.';
+    : 'Pick a template to explore the v2 playground with different field mixes.';
 
   return (
     <Card>
@@ -479,10 +520,13 @@ function PlaygroundBaseEmptyState({
       </CardHeader>
       <CardContent className="space-y-4 text-sm text-muted-foreground">
         <p>{description}</p>
-        <Button disabled={isCreating} onClick={onCreate}>
-          <Plus className="mr-2 h-4 w-4" />
-          {isCreating ? 'Creating...' : 'Create table'}
-        </Button>
+        <CreateTableDropdown
+          templates={templates}
+          isCreating={isCreating}
+          onSelect={onCreateTemplate}
+          label="Create table"
+          align="start"
+        />
       </CardContent>
     </Card>
   );

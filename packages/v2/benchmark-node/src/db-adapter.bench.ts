@@ -9,6 +9,7 @@ import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2HonoApp } from '@teable/v2-contract-http-hono';
 import { NoopLogger, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import { createSimpleFields, createTextColumns } from '@teable/v2-table-templates';
 import { afterAll, beforeAll, bench, describe } from 'vitest';
 
 const benchOptions = {
@@ -23,18 +24,6 @@ const createTableName = (adapterName: string, scenario: string): string => {
   const random = Math.random().toString(36).slice(2, 8);
   return `Bench_Db_${adapterName}_${scenario}_${Date.now()}_${random}`;
 };
-
-const createSimpleFields = (): ICreateTableRequestDto['fields'] => [
-  { type: 'singleLineText', name: 'Name' },
-  { type: 'number', name: 'Amount', options: { defaultValue: 1 } },
-  { type: 'checkbox', name: 'Done', options: { defaultValue: false } },
-];
-
-const createTextColumns = (count: number): ICreateTableRequestDto['fields'] =>
-  Array.from({ length: count }, (_, index) => ({
-    type: 'singleLineText',
-    name: `Column ${index + 1}`,
-  }));
 
 type IBenchTarget = {
   name: string;
