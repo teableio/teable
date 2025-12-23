@@ -1,4 +1,4 @@
-import type { ILogger, LogContext } from '@teable/v2-core';
+import type { ILogger, LogContext } from '@teable/v2-core' with { 'resolution-mode': 'import' };
 import type { PinoLogger } from 'nestjs-pino';
 
 export class PinoLoggerAdapter implements ILogger {

@@ -1,6 +1,11 @@
 import type { Span as ApiSpan } from '@opentelemetry/api';
 import { SpanStatusCode, context as otelContext, trace } from '@opentelemetry/api';
-import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '@teable/v2-core';
+import type {
+  ISpan,
+  ITracer,
+  SpanAttributeValue,
+  SpanAttributes,
+} from '@teable/v2-core' with { 'resolution-mode': 'import' };
 
 class OpenTelemetrySpan implements ISpan {
   constructor(private readonly span: ApiSpan) {}

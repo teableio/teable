@@ -6,7 +6,11 @@ import {
   executeGetTableByIdEndpoint,
 } from '@teable/v2-contract-http-implementation';
 import { ActorId, v2CoreTokens } from '@teable/v2-core';
-import type { IQueryBus, ICommandBus, ITracer } from '@teable/v2-core';
+import type {
+  IQueryBus,
+  ICommandBus,
+  ITracer,
+} from '@teable/v2-core' with { 'resolution-mode': 'import' };
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../types/cls';
 import { V2ContainerService } from './v2-container.service';

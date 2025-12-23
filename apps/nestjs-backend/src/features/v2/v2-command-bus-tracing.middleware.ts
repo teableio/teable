@@ -3,7 +3,7 @@ import type {
   ICommandBusMiddleware,
   IExecutionContext,
   Result,
-} from '@teable/v2-core';
+} from '@teable/v2-core' with { 'resolution-mode': 'import' };
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) return error.message || error.name;

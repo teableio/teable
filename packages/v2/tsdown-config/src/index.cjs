@@ -1,4 +1,4 @@
-export const v2TsdownBaseConfig = {
+const v2TsdownBaseConfig = {
   entry: ['src/index.ts'],
   outDir: 'dist',
   format: ['esm', 'cjs'],
@@ -19,3 +19,5 @@ export const v2TsdownBaseConfig = {
     };
   },
 };
+
+module.exports = { v2TsdownBaseConfig };
