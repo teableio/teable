@@ -72,7 +72,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const { data: space } = useQuery({
     queryKey: ReactQueryKeys.space(spaceId as string),
     queryFn: ({ queryKey }) => getSpaceById(queryKey[1]).then((res) => res.data),
-    enabled: !!spaceId,
+    enabled: Boolean(!baseId) && Boolean(spaceId),
   });
 
   const isLevelSufficientMemo = useMemo(() => {
