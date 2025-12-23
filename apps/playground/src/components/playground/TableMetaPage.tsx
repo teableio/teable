@@ -1,8 +1,9 @@
-import { mapTableToDto } from '@teable/v2-contract-http';
+import { mapTableToDto, type ITableDto } from '@teable/v2-contract-http';
 import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '@teable/v2-core';
 import {
   Copy,
   Database,
+  FileJson,
   MoreVertical,
   Plus,
   RefreshCcw,
@@ -10,7 +11,9 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
-import { useState } from 'react';
+import { parseAsStringEnum, useQueryState } from 'nuqs';
+import { useMemo, useState } from 'react';
+import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
 
@@ -33,8 +36,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table as UITable,
   TableBody,
@@ -101,6 +106,32 @@ const getDbTableName = (table: TableAggregate): string | null => {
   return nameResult.isOk() ? nameResult.value : null;
 };
 
+const tableTabValues = ['table', 'json'] as const;
+type TableMetaTab = (typeof tableTabValues)[number];
+
+const isTableMetaTab = (value: string): value is TableMetaTab =>
+  tableTabValues.includes(value as TableMetaTab);
+
+const shouldExpandJsonNode = (level: number) => level < 2;
+
+const copyTableJson = async (
+  table: TableAggregate,
+  copyToClipboard: (value: string) => Promise<boolean>
+) => {
+  const tableDtoResult = mapTableToDto(table);
+  if (tableDtoResult.isErr()) {
+    toast.error('Unable to prepare table JSON', { description: tableDtoResult.error });
+    return;
+  }
+
+  const didCopy = await copyToClipboard(JSON.stringify(tableDtoResult.value, null, 2));
+  if (didCopy) {
+    toast.success('Copied table JSON');
+  } else {
+    toast.error('Copy failed');
+  }
+};
+
 type TableMetaPageProps = {
   baseId: string;
   baseName: string;
@@ -132,7 +163,18 @@ export function TableMetaPage({
   onCreate,
   onDelete,
 }: TableMetaPageProps) {
-  const hasTable = !!table;
+  const [activeTab, setActiveTab] = useQueryState(
+    'tab',
+    parseAsStringEnum<TableMetaTab>([...tableTabValues]).withDefault('table')
+  );
+  const tableDtoResult = useMemo(() => (table ? mapTableToDto(table) : null), [table]);
+  const tableJson = tableDtoResult?.isOk() ? tableDtoResult.value : null;
+  const tableJsonError = tableDtoResult?.isErr() ? tableDtoResult.error : null;
+
+  const handleTabChange = (value: string) => {
+    if (!isTableMetaTab(value)) return;
+    void setActiveTab(value);
+  };
 
   return (
     <>
@@ -152,15 +194,33 @@ export function TableMetaPage({
 
         {isInitialLoading ? (
           <PlaygroundLoadingState />
-        ) : !hasTable ? (
+        ) : !table ? (
           <PlaygroundEmptyState isCreating={isCreating} onCreate={onCreate} />
         ) : (
-          <PlaygroundMetaLayout
-            table={table}
-            baseId={baseId}
-            tableId={tableId}
-            isLoading={isLoading}
-          />
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+            <TabsList className="w-fit">
+              <TabsTrigger value="table">Table</TabsTrigger>
+              <TabsTrigger value="json">JSON</TabsTrigger>
+            </TabsList>
+            <TabsContent value="table" className="mt-0">
+              <PlaygroundMetaLayout
+                table={table}
+                baseId={baseId}
+                tableId={tableId}
+                isLoading={isLoading}
+              />
+            </TabsContent>
+            <TabsContent value="json" className="mt-0">
+              <PlaygroundJsonLayout
+                table={table}
+                tableJson={tableJson}
+                tableJsonError={tableJsonError}
+                baseId={baseId}
+                tableId={tableId}
+                isLoading={isLoading}
+              />
+            </TabsContent>
+          </Tabs>
         )}
       </section>
     </>
@@ -393,6 +453,39 @@ function PlaygroundMetaLayout({ table, baseId, tableId, isLoading }: PlaygroundM
   );
 }
 
+type PlaygroundJsonLayoutProps = {
+  table: TableAggregate;
+  tableJson: ITableDto | null;
+  tableJsonError: string | null;
+  baseId: string;
+  tableId: string;
+  isLoading: boolean;
+};
+
+function PlaygroundJsonLayout({
+  table,
+  tableJson,
+  tableJsonError,
+  baseId,
+  tableId,
+  isLoading,
+}: PlaygroundJsonLayoutProps) {
+  return (
+    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
+      <TableJsonCard table={table} tableJson={tableJson} tableJsonError={tableJsonError} />
+      <div className="space-y-6">
+        <TableViewsCard views={table.views()} />
+        <TableConnectionCard
+          baseId={baseId}
+          tableId={tableId}
+          table={table}
+          isLoading={isLoading}
+        />
+      </div>
+    </div>
+  );
+}
+
 type TableSchemaCardProps = {
   table: TableAggregate;
 };
@@ -401,19 +494,8 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
   const fields = table.fields();
   const primaryFieldId = table.primaryFieldId();
   const [, copyToClipboard] = useCopyToClipboard();
-  const handleCopyTableJson = async () => {
-    const tableDtoResult = mapTableToDto(table);
-    if (tableDtoResult.isErr()) {
-      toast.error('Unable to prepare table JSON', { description: tableDtoResult.error });
-      return;
-    }
-
-    const didCopy = await copyToClipboard(JSON.stringify(tableDtoResult.value, null, 2));
-    if (didCopy) {
-      toast.success('Copied table JSON');
-    } else {
-      toast.error('Copy failed');
-    }
+  const handleCopyTableJson = () => {
+    void copyTableJson(table, copyToClipboard);
   };
 
   return (
@@ -425,7 +507,7 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
           <Badge variant="secondary">{fields.length} fields</Badge>
         </CardTitle>
         <CardAction>
-          <Button variant="outline" size="sm" onClick={() => void handleCopyTableJson()}>
+          <Button variant="outline" size="sm" onClick={handleCopyTableJson}>
             <Copy className="h-4 w-4" />
             Copy JSON
           </Button>
@@ -470,6 +552,57 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
             })}
           </TableBody>
         </UITable>
+      </CardContent>
+    </Card>
+  );
+}
+
+type TableJsonCardProps = {
+  table: TableAggregate;
+  tableJson: ITableDto | null;
+  tableJsonError: string | null;
+};
+
+function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps) {
+  const [, copyToClipboard] = useCopyToClipboard();
+  const handleCopyTableJson = () => {
+    void copyTableJson(table, copyToClipboard);
+  };
+
+  return (
+    <Card className="overflow-hidden">
+      <CardHeader className="border-b border-border/60">
+        <CardTitle className="flex items-center gap-3 text-lg">
+          <FileJson className="h-5 w-5 text-muted-foreground" />
+          Table JSON
+          <Badge variant="secondary">{table.fields().length} fields</Badge>
+          <Badge variant="outline">{table.views().length} views</Badge>
+        </CardTitle>
+        <CardAction>
+          <Button variant="outline" size="sm" onClick={handleCopyTableJson}>
+            <Copy className="h-4 w-4" />
+            Copy JSON
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className="px-0">
+        {tableJsonError ? (
+          <div className="px-6 py-4 text-sm text-destructive">
+            Unable to render JSON: {tableJsonError}
+          </div>
+        ) : !tableJson ? (
+          <div className="px-6 py-4 text-sm text-muted-foreground">JSON snapshot unavailable.</div>
+        ) : (
+          <ScrollArea className="h-[60vh] min-h-[320px]">
+            <div className="px-6 pb-6 pt-4 text-xs font-mono text-foreground">
+              <JsonView
+                data={tableJson}
+                shouldExpandNode={shouldExpandJsonNode}
+                clickToExpandNode
+              />
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );

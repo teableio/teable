@@ -2,6 +2,8 @@
 
 @import 'tw-animate-css';
 
+@import 'react-json-view-lite/dist/index.css';
+
 @custom-variant dark (&:is(.dark *));
 
 body {
