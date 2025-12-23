@@ -63,7 +63,7 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
   const baseId = base?.id;
   // EE starts from business level
   targetBillingLevel =
-    targetBillingLevel === BillingProductLevel.Business && isEE
+    targetBillingLevel === BillingProductLevel.Pro && isEE
       ? BillingProductLevel.Business
       : targetBillingLevel;
 
@@ -79,7 +79,12 @@ export const UpgradeWrapper: React.FC<IUpgradeWrapperProps> = ({
     return isLevelSufficient(currentLevel, targetBillingLevel);
   }, [currentLevel, targetBillingLevel]);
 
-  const isSpaceOwner = space?.role === Role.Owner;
+  const isSpaceOwner = useMemo(() => {
+    if (baseId) {
+      return base?.role === Role.Owner;
+    }
+    return space?.role === Role.Owner;
+  }, [baseId, base?.role, space?.role]);
 
   const needsUpgrade =
     currentLevel && !isLevelSufficientMemo && !!targetBillingLevel && !isCommunity;
