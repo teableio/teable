@@ -34,11 +34,38 @@ export enum Status {
 export class AttachmentManager {
   limit: number;
   uploadQueue: IUploadTask[];
+  uploadingQueue: IUploadTask[];
   shareId?: string;
+  onUploadingTaskChange?: (uploadingTasks: IUploadTask[], pendingTasks: IUploadTask[]) => void;
 
-  constructor(limit: number) {
+  constructor(
+    limit: number,
+    options: {
+      onUploadingTaskChange?: (uploadingTasks: IUploadTask[], pendingTasks: IUploadTask[]) => void;
+    } = {}
+  ) {
     this.limit = limit;
     this.uploadQueue = [];
+    this.uploadingQueue = [];
+    this.onUploadingTaskChange = options.onUploadingTaskChange || noop;
+  }
+
+  private notifyUploadingTaskChange() {
+    console.log('notifyUploadingTaskChange', this.uploadingQueue, this.uploadQueue);
+    this.onUploadingTaskChange?.(this.uploadingQueue, this.uploadQueue);
+  }
+
+  private addToUploadingQueue(uploadTask: IUploadTask) {
+    this.uploadingQueue.push(uploadTask);
+    this.notifyUploadingTaskChange();
+  }
+
+  private removeFromUploadingQueue(uploadTask: IUploadTask) {
+    const index = this.uploadingQueue.findIndex((task) => task.file.id === uploadTask.file.id);
+    if (index !== -1) {
+      this.uploadingQueue.splice(index, 1);
+      this.notifyUploadingTaskChange();
+    }
   }
 
   upload(
@@ -65,18 +92,14 @@ export class AttachmentManager {
         errorCallback: errorCallback,
         progressCallback: progressCallback,
       };
-
-      if (this.uploadQueue.length < this.limit) {
-        this.executeUpload(uploadTask);
-      } else {
-        this.uploadQueue.push(uploadTask);
-      }
+      this.uploadQueue.push(uploadTask);
+      this.nextUpload();
     }
   }
 
   async executeUpload(uploadTask: IUploadTask) {
     uploadTask.status = Status.Uploading;
-
+    this.addToUploadingQueue(uploadTask);
     try {
       const fileInstance = uploadTask.file.instance;
       const res = await getSignature(
@@ -90,6 +113,7 @@ export class AttachmentManager {
       ); // Assuming you have an AttachmentApi that provides the upload URL
       if (!res.data) {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
+        this.nextUpload();
         return;
       }
       const { url, uploadMethod, token, requestHeaders } = res.data;
@@ -111,22 +135,34 @@ export class AttachmentManager {
       const notifyRes = await notify(token, this.shareId, fileInstance.name);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
+        this.nextUpload();
         return;
       }
       this.completeUpload(uploadTask, notifyRes.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       uploadTask.errorCallback(uploadTask.file, error?.message, error?.status);
+      this.nextUpload();
+    } finally {
+      this.removeFromUploadingQueue(uploadTask);
     }
   }
 
   completeUpload(uploadTask: IUploadTask, attachment: INotifyVo) {
     uploadTask.status = Status.Completed;
     uploadTask.successCallback(uploadTask.file, attachment);
+    this.removeFromUploadingQueue(uploadTask);
     // Check if there are pending upload tasks
-    if (this.uploadQueue.length > 0) {
+    this.nextUpload();
+  }
+
+  nextUpload() {
+    // Start as many uploads as possible up to the limit
+    while (this.uploadingQueue.length < this.limit && this.uploadQueue.length > 0) {
       const nextTask = this.uploadQueue.shift();
-      nextTask && this.executeUpload(nextTask);
+      if (nextTask) {
+        this.executeUpload(nextTask);
+      }
     }
   }
 }

@@ -175,6 +175,7 @@ export const CellEditorMain = (props: Omit<ICellValueEditor, 'wrapClassName' | '
     case FieldType.Attachment: {
       return (
         <AttachmentEditor
+          key={`${field.id}-${recordId}`}
           className={className}
           value={cellValue as IAttachmentCellValue}
           onChange={onChange}

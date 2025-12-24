@@ -3,9 +3,10 @@
 import type { IAttachmentCellValue } from '@teable/core';
 import type { IFilePreviewDialogRef } from '@teable/ui-lib';
 import { cn, FilePreviewDialog, FilePreviewProvider } from '@teable/ui-lib';
-import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
 import { AttachmentEditorMain } from '../../editor';
+import { AttachmentManager } from '../../editor/attachment/upload-attachment/uploadManage';
 import type { IEditorProps } from '../../grid/components';
 import { useAttachmentPreviewI18Map } from '../../hooks';
 import { useGridPopupPosition } from '../hooks';
@@ -21,11 +22,12 @@ export const GridAttachmentEditor = forwardRef<
 >((props, ref) => {
   const { record, field, style, rect, isEditing, setEditing } = props;
   const attachStyle = useGridPopupPosition(rect, 340);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const attachments = record.getCellValue(field.id) as IAttachmentCellValue;
   const imagePreviewDialogRef = useRef<IFilePreviewDialogRef>(null);
   const i18nMap = useAttachmentPreviewI18Map();
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const attachmentManager = useRef(new AttachmentManager(2));
   const { t } = useTranslation();
   const previewFiles = useMemo(() => {
     return attachments
@@ -51,10 +53,20 @@ export const GridAttachmentEditor = forwardRef<
     record.updateCell(field.id, attachments, { t });
   };
 
+  useEffect(() => {
+    attachmentManager.current.onUploadingTaskChange = (uploadingTasks, pendingTasks) => {
+      setUploadingCount(uploadingTasks.length + pendingTasks.length);
+    };
+    return () => {
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      attachmentManager.current.onUploadingTaskChange = undefined;
+    };
+  }, []);
+
   if (!isEditing) {
     return null;
   }
-
+  const totalCount = (attachments?.length || 0) + uploadingCount;
   return (
     <>
       <div
@@ -67,7 +79,7 @@ export const GridAttachmentEditor = forwardRef<
         className={cn(
           'click-outside-ignore cursor-default flex flex-col absolute w-full overflow-hidden rounded-md border border-border-high bg-popover shadow-md dark:shadow-lg',
           {
-            'h-[320px]': attachments?.length > 4,
+            'h-[320px]': totalCount > 4,
           }
         )}
       >
@@ -77,6 +89,7 @@ export const GridAttachmentEditor = forwardRef<
             className="h-full"
             value={attachments || []}
             onChange={setAttachments}
+            attachmentManager={attachmentManager.current}
           />
         </div>
         <FilePreviewProvider i18nMap={i18nMap}>

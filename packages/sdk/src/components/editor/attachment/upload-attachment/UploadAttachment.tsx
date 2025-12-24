@@ -17,26 +17,17 @@ import type { IAttachmentItem, IAttachmentCellValue } from '@teable/core';
 import { generateAttachmentId } from '@teable/core';
 import { useTheme } from '@teable/next-themes';
 import { UploadType, type INotifyVo } from '@teable/openapi';
-import { FilePreviewProvider, Progress, ScrollArea, cn, isImage, sonner } from '@teable/ui-lib';
-import { map, omit } from 'lodash';
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
+import { omit } from 'lodash';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
 import { useBaseId } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
-import { EllipsisFileName } from '../../../upload/EllipsisFileName';
-import { FileCover } from '../../../upload/FileCover';
 import { FileZone } from '../../../upload/FileZone';
 import { getFileCover } from '../utils';
 import AttachmentItem from './AttachmentItem';
+import { UploadingFile } from './UploadingFile';
 import type { IFile } from './uploadManage';
 import { AttachmentManager } from './uploadManage';
 
@@ -51,12 +42,18 @@ export interface IUploadAttachment {
   disabled?: boolean;
 }
 
-type IUploadFileMap = { [key: string]: { progress: number; file: File } };
+// Unified uploading file state
+interface IUploadingFile {
+  id: string;
+  file: File;
+  progress: number;
+}
 
 const defaultAttachmentManager = new AttachmentManager(2);
 
 export interface IUploadAttachmentRef {
   uploadAttachment: (files: File[]) => void;
+  setUploadingFiles: (files: IUploadingFile[]) => void;
 }
 
 export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachment>(
@@ -71,11 +68,9 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
     } = props;
     const { resolvedTheme } = useTheme();
     const baseId = useBaseId();
-    const [sortData, setSortData] = useState([...attachments]);
-    const [uploadingFiles, setUploadingFiles] = useState<IUploadFileMap>({});
+    const [uploadingFiles, setUploadingFiles] = useState<IUploadingFile[]>([]);
     const listRef = useRef<HTMLDivElement>(null);
-    const attachmentsRef = useRef<IAttachmentCellValue>(attachments);
-    const [newAttachments, setNewAttachments] = useState<IAttachmentCellValue>([]);
+    const attachmentsRef = useRef(attachments);
     const { t } = useTranslation();
     const i18nMap = useAttachmentPreviewI18Map();
     const fileInput = useRef<HTMLInputElement>(null);
@@ -88,84 +83,34 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       })
     );
 
+    // Keep attachmentsRef in sync
     attachmentsRef.current = attachments;
 
+    // Local state for sortData to enable optimistic updates
+    const [sortData, setSortData] = useState<IAttachmentCellValue>(attachments);
+
+    // Sync sortData when attachments prop changes
     useEffect(() => {
-      if (newAttachments.length && newAttachments.length === Object.keys(uploadingFiles).length) {
-        setNewAttachments([]);
-        requestAnimationFrame(() => {
-          setUploadingFiles({});
-          onChange?.(attachmentsRef.current.concat(newAttachments));
-        });
-      }
-    }, [newAttachments, onChange, uploadingFiles]);
+      setSortData(attachments);
+    }, [attachments]);
+
     const onDelete = (id: string) => {
-      const finalAttachments = attachments.filter((attachment) => attachment.id !== id);
-      onChange?.(!finalAttachments.length ? null : finalAttachments);
+      // Optimistic update: immediately update local state
+      setSortData((prev) => {
+        const finalAttachments = prev.filter((attachment) => attachment.id !== id);
+        onChange?.(!finalAttachments.length ? null : finalAttachments);
+        return finalAttachments;
+      });
     };
 
-    const downloadFile = ({ presignedUrl, name }: IAttachmentItem) => {
+    const downloadFile = useCallback(({ presignedUrl, name }: IAttachmentItem) => {
       const downloadLink = document.createElement('a');
       downloadLink.href = presignedUrl || '';
-      downloadLink.target = '_blank';
       downloadLink.download = name;
       downloadLink.click();
-    };
-
-    const handleSuccess = useCallback((file: IFile, attachment: INotifyVo) => {
-      const { id, instance } = file;
-      const newAttachment: IAttachmentItem = {
-        id,
-        name: instance.name,
-        ...omit(attachment, ['url']),
-      };
-      setNewAttachments((pre) => [...pre, newAttachment]);
     }, []);
 
-    const uploadAttachment = useCallback(
-      (files: File[]) => {
-        const uploadList = files.map((v) => ({ instance: v, id: generateAttachmentId() }));
-
-        const newUploadMap = uploadList.reduce((acc: IUploadFileMap, file) => {
-          acc[file.id] = { progress: 0, file: file.instance };
-          return acc;
-        }, {});
-        attachmentManager.upload(
-          uploadList,
-          UploadType.Table,
-          {
-            successCallback: handleSuccess,
-            errorCallback: (file, error, code) => {
-              const curUploadingFiles = { ...uploadingFiles };
-              delete curUploadingFiles[file.id];
-              setUploadingFiles(curUploadingFiles);
-
-              if (code === 402) {
-                return useUsageLimitModalStore.setState({
-                  modalType: UsageLimitModalType.Upgrade,
-                  modalOpen: true,
-                });
-              }
-              toast.error(error ?? t('common.uploadFailed'));
-            },
-            progressCallback: (file, progress) => {
-              setUploadingFiles((pre) => ({
-                ...pre,
-                [file.id]: { progress, file: file.instance },
-              }));
-            },
-          },
-          baseId
-        );
-        setUploadingFiles((pre) => ({ ...pre, ...newUploadMap }));
-        setTimeout(() => {
-          scrollBottom();
-        }, 100);
-      },
-      [attachmentManager, baseId, handleSuccess, t, uploadingFiles]
-    );
-
-    const scrollBottom = () => {
+    const scrollBottom = useCallback(() => {
       const lastChild = listRef.current?.lastElementChild;
       if (lastChild) {
         lastChild.scrollTo({
@@ -173,11 +118,110 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
           behavior: 'smooth',
         });
       }
-    };
+    }, []);
 
-    const len = useMemo(() => {
-      return attachments.length + Object.keys(uploadingFiles).length;
-    }, [attachments, uploadingFiles]);
+    const uploadAttachment = useCallback(
+      (files: File[]) => {
+        if (files.length === 0) return;
+
+        const uploadList = files.map((file) => ({
+          instance: file,
+          id: generateAttachmentId(),
+        }));
+
+        // Add to uploading list
+        const newUploadingFiles: IUploadingFile[] = uploadList.map(({ id, instance }) => ({
+          id,
+          file: instance,
+          progress: 0,
+        }));
+
+        setUploadingFiles((prev) => [...prev, ...newUploadingFiles]);
+
+        // Track completed attachments for this batch
+        const batchResult = {
+          completed: [] as IAttachmentItem[],
+          pending: uploadList.length,
+        };
+        const commitBatch = () => {
+          if (batchResult.completed.length > 0) {
+            onChange?.([
+              ...attachmentsRef.current,
+              ...batchResult.completed.sort(
+                (a, b) =>
+                  uploadList.findIndex((item) => item.id === a.id) -
+                  uploadList.findIndex((item) => item.id === b.id)
+              ),
+            ]);
+            batchResult.completed = [];
+          }
+        };
+
+        const handleSuccess = (file: IFile, attachment: INotifyVo) => {
+          const { id, instance } = file;
+          const newAttachment: IAttachmentItem = {
+            id,
+            name: instance.name,
+            ...omit(attachment, ['url']),
+          };
+
+          batchResult.completed.push(newAttachment);
+          batchResult.pending--;
+
+          // Remove from uploading list
+          setUploadingFiles((prev) => prev.filter((item) => item.id !== id));
+
+          if (batchResult.pending === 0) {
+            commitBatch();
+          }
+        };
+
+        const handleError = (file: IFile, error?: string, code?: number) => {
+          batchResult.pending--;
+
+          // Remove from uploading list on error
+          setUploadingFiles((prev) => prev.filter((item) => item.id !== file.id));
+
+          if (code === 402) {
+            useUsageLimitModalStore.setState({
+              modalType: UsageLimitModalType.Upgrade,
+              modalOpen: true,
+            });
+          } else {
+            toast.error(error ?? t('common.uploadFailed'));
+          }
+
+          // Commit when all files are processed (even if some failed)
+          if (batchResult.pending === 0) {
+            commitBatch();
+          }
+        };
+
+        attachmentManager.upload(
+          uploadList,
+          UploadType.Table,
+          {
+            successCallback: handleSuccess,
+            errorCallback: handleError,
+            progressCallback: (file, progress) => {
+              setUploadingFiles((prev) =>
+                prev.map((item) => (item.id === file.id ? { ...item, progress } : item))
+              );
+            },
+          },
+          baseId
+        );
+
+        // Auto scroll to bottom after files added
+        setTimeout(() => {
+          scrollBottom();
+        }, 100);
+      },
+      [attachmentManager, baseId, onChange, scrollBottom, t]
+    );
+
+    // Total count of attachments and uploading files
+    const totalCount = attachments.length + uploadingFiles.length;
 
     const fileCover = useCallback(
       ({
@@ -193,42 +237,44 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       [resolvedTheme]
     );
 
-    const uploadingFilesList = map(uploadingFiles, (value, key) => ({ id: key, ...value }));
+    const handleDragEnd = useCallback(
+      (event: DragEndEvent) => {
+        const { active, over } = event;
 
-    const handleDragEnd = (event: DragEndEvent) => {
-      const { active, over } = event;
+        if (over && active.id !== over.id) {
+          setSortData((currentSortData) => {
+            const oldIndex = currentSortData.findIndex((item) => item.id === active.id);
+            const newIndex = currentSortData.findIndex((item) => item.id === over.id);
 
-      if (over && active.id !== over.id) {
-        setSortData((sortData) => {
-          const oldIndex = sortData.findIndex((item) => item.id === active.id);
-          const newIndex = sortData.findIndex((item) => item.id === over.id);
+            if (oldIndex !== -1 && newIndex !== -1) {
+              const newSortedData = arrayMove(currentSortData, oldIndex, newIndex);
+              // Optimistic update: update local state immediately
+              // Then notify parent
+              onChange?.(newSortedData);
+              return newSortedData;
+            }
+            return currentSortData;
+          });
+        }
+      },
+      [onChange]
+    );
 
-          if (oldIndex !== -1 && newIndex !== -1) {
-            onChange?.(arrayMove(sortData, oldIndex, newIndex));
-            return arrayMove(sortData, oldIndex, newIndex);
-          }
-          return sortData;
-        });
-      }
-    };
-
-    useEffect(() => {
-      if (attachments && attachments.length) {
-        setSortData([...attachments]);
-      } else {
-        setSortData([]);
-      }
-    }, [attachments]);
-
-    useImperativeHandle<IUploadAttachmentRef, IUploadAttachmentRef>(ref, () => ({
+    useImperativeHandle(ref, () => ({
       uploadAttachment,
+      setUploadingFiles: (tasks: IUploadingFile[]) => {
+        setUploadingFiles(tasks);
+      },
     }));
 
     const handleSelectFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
       const fileList = e.target.files;
-      fileList && uploadAttachment(Array.from(fileList));
+      if (fileList) {
+        uploadAttachment(Array.from(fileList));
+      }
       e.target.value = '';
     };
+
     return (
       <div className={cn('flex h-full flex-col overflow-hidden p-4', className)}>
         <div className="relative flex-1 overflow-hidden">
@@ -237,7 +283,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
             disabled={disabled || readonly}
             onChange={uploadAttachment}
             zoneClassName={cn('h-12 cursor-default', {
-              'h-[120px]': len === 0,
+              'h-[120px]': totalCount === 0,
             })}
             className="min-h-[auto]"
             defaultText={
@@ -261,7 +307,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
               ref={fileInput}
               onChange={handleSelectFiles}
             />
-            {len > 0 && (
+            {totalCount > 0 && (
               <ScrollArea className="h-full flex-1" ref={listRef}>
                 <ul className="-right-2 flex size-full flex-wrap gap-1 gap-y-2 overflow-hidden">
                   <FilePreviewProvider i18nMap={i18nMap}>
@@ -288,24 +334,8 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
                       </SortableContext>
                     </DndContext>
                   </FilePreviewProvider>
-                  {uploadingFilesList.map(({ id, progress, file }) => (
-                    <li key={id} className="flex h-[132px] w-[104px] flex-col rounded-lg p-1">
-                      <div className="relative flex-1 overflow-hidden rounded-lg">
-                        <div className="absolute inset-0">
-                          <FileCover
-                            className="size-full object-cover"
-                            mimetype={file.type}
-                            url={isImage(file.type) ? URL.createObjectURL(file) : undefined}
-                            name={file.name}
-                          />
-                        </div>
-                        <div className="absolute inset-0 flex flex-1 cursor-pointer flex-col items-center justify-center rounded-lg border border-border bg-black/60 px-4 text-white/85">
-                          <Progress indicatorClassName="bg-white" value={progress} />
-                          {progress}%
-                        </div>
-                      </div>
-                      <EllipsisFileName name={file.name} endLength={3} />
-                    </li>
+                  {uploadingFiles.map(({ id, progress, file }) => (
+                    <UploadingFile key={id} file={file} progress={progress} />
                   ))}
                 </ul>
               </ScrollArea>
