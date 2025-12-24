@@ -3,6 +3,7 @@ import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '
 import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import {
   Copy,
+  ExternalLink,
   FileJson,
   MoreVertical,
   Pencil,
@@ -185,6 +186,8 @@ export function TableMetaPage({
   return (
     <>
       <PlaygroundHeader
+        baseId={baseId}
+        tableId={tableId}
         eventCount={eventCount}
         table={table}
         isLoading={isLoading}
@@ -240,6 +243,8 @@ export function TableMetaPage({
 }
 
 type PlaygroundHeaderProps = {
+  baseId: string;
+  tableId: string;
   eventCount: number | null;
   table: TableAggregate | null;
   isLoading: boolean;
@@ -254,6 +259,8 @@ type PlaygroundHeaderProps = {
 };
 
 function PlaygroundHeader({
+  baseId,
+  tableId,
   eventCount,
   table,
   isLoading,
@@ -277,6 +284,18 @@ function PlaygroundHeader({
   const trimmedRename = renameValue.trim();
   const canRename =
     !!table && trimmedRename.length > 0 && trimmedRename !== currentName && !isRenaming;
+  const appBaseUrl = import.meta.env.VITE_APP_URL?.trim();
+  const appTableUrl =
+    table && appBaseUrl
+      ? (() => {
+          const resolvedTableId = table.id().toString();
+          try {
+            return new URL(`/base/${baseId}/table/${resolvedTableId}`, appBaseUrl).toString();
+          } catch {
+            return null;
+          }
+        })()
+      : null;
 
   const handleDeleteConfirm = () => {
     if (!table) return;
@@ -308,6 +327,14 @@ function PlaygroundHeader({
           <div className="flex flex-wrap items-center gap-3 text-xl font-semibold text-foreground">
             <TableIcon className="h-5 w-5 text-muted-foreground" />
             <span>{tableName}</span>
+            {appTableUrl ? (
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+                <a href={appTableUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
+                  Open in App
+                </a>
+              </Button>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {fieldCount !== null ? <Badge variant="outline">{fieldCount} fields</Badge> : null}

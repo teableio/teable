@@ -1,5 +1,5 @@
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Navigate, createFileRoute, useNavigate } from '@tanstack/react-router';
 import { mapTableDtoToDomain, type IListTablesOkResponseDto } from '@teable/v2-contract-http';
 import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
@@ -61,6 +61,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
         baseId,
         tableId,
       },
+      placeholderData: keepPreviousData,
       select: (response) => response.data.table,
     })
   );

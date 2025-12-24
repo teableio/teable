@@ -3,6 +3,7 @@
 @import 'tw-animate-css';
 
 @import 'react-json-view-lite/dist/index.css';
+@import 'nprogress/nprogress.css';
 
 @custom-variant dark (&:is(.dark *));
 
