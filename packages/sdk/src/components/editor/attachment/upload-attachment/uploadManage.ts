@@ -51,7 +51,6 @@ export class AttachmentManager {
   }
 
   private notifyUploadingTaskChange() {
-    console.log('notifyUploadingTaskChange', this.uploadingQueue, this.uploadQueue);
     this.onUploadingTaskChange?.(this.uploadingQueue, this.uploadQueue);
   }
 
@@ -113,7 +112,6 @@ export class AttachmentManager {
       ); // Assuming you have an AttachmentApi that provides the upload URL
       if (!res.data) {
         uploadTask.errorCallback(uploadTask.file, 'Failed to get upload URL');
-        this.nextUpload();
         return;
       }
       const { url, uploadMethod, token, requestHeaders } = res.data;
@@ -135,25 +133,21 @@ export class AttachmentManager {
       const notifyRes = await notify(token, this.shareId, fileInstance.name);
       if (!notifyRes.data) {
         uploadTask.errorCallback(uploadTask.file);
-        this.nextUpload();
         return;
       }
       this.completeUpload(uploadTask, notifyRes.data);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       uploadTask.errorCallback(uploadTask.file, error?.message, error?.status);
-      this.nextUpload();
     } finally {
       this.removeFromUploadingQueue(uploadTask);
+      this.nextUpload();
     }
   }
 
   completeUpload(uploadTask: IUploadTask, attachment: INotifyVo) {
     uploadTask.status = Status.Completed;
     uploadTask.successCallback(uploadTask.file, attachment);
-    this.removeFromUploadingQueue(uploadTask);
-    // Check if there are pending upload tasks
-    this.nextUpload();
   }
 
   nextUpload() {
