@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
+import type { ReactNode } from 'react';
 import { SpaceInnerTrashModal } from '@/features/app/blocks/trash/SpaceInnerTrashModal';
 import { TemplateModal } from '@/features/app/components/space/template';
 import { TemplateContext } from '@/features/app/components/space/template/context';
@@ -16,8 +17,11 @@ import { spaceConfig } from '@/features/i18n/space.config';
 import { useBaseList } from '../useBaseList';
 import { PinList } from './PinList';
 
-export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
-  const { isAdmin } = props;
+export const SpaceInnerSideBar = (props: {
+  isAdmin?: boolean | null;
+  renderSettingModal?: (children: React.ReactNode) => React.ReactNode;
+}) => {
+  const { isAdmin, renderSettingModal } = props;
   const router = useRouter();
   const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const { spaceId } = useParams<{ spaceId: string }>();
@@ -107,6 +111,24 @@ export const SpaceInnerSideBar = (props: { isAdmin?: boolean | null }) => {
               </li>
             );
           })}
+          {renderSettingModal && (
+            <li key="settings">
+              {renderSettingModal(
+                <Button
+                  variant="ghost"
+                  size={'xs'}
+                  asChild
+                  className={cn('w-full justify-start h-8 text-sm font-normal')}
+                >
+                  <div className="cursor-pointer">
+                    <Settings className="size-4 shrink-0" />
+                    <p className="truncate">{t('space:spaceSetting.title')}</p>
+                    <div className="grow basis-0"></div>
+                  </div>
+                </Button>
+              )}
+            </li>
+          )}
           <li key="trash">
             <SpaceInnerTrashModal spaceId={spaceId}>
               <Button
