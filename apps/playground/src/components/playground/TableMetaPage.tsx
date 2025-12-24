@@ -3,7 +3,6 @@ import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '
 import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import {
   Copy,
-  Database,
   FileJson,
   MoreVertical,
   Pencil,
@@ -137,7 +136,6 @@ const copyTableJson = async (
 
 type TableMetaPageProps = {
   baseId: string;
-  baseName: string;
   tableId: string;
   table: TableAggregate | null;
   eventCount: number | null;
@@ -156,7 +154,6 @@ type TableMetaPageProps = {
 
 export function TableMetaPage({
   baseId,
-  baseName,
   tableId,
   table,
   eventCount,
@@ -188,7 +185,6 @@ export function TableMetaPage({
   return (
     <>
       <PlaygroundHeader
-        baseName={baseName}
         eventCount={eventCount}
         table={table}
         isLoading={isLoading}
@@ -244,7 +240,6 @@ export function TableMetaPage({
 }
 
 type PlaygroundHeaderProps = {
-  baseName: string;
   eventCount: number | null;
   table: TableAggregate | null;
   isLoading: boolean;
@@ -259,7 +254,6 @@ type PlaygroundHeaderProps = {
 };
 
 function PlaygroundHeader({
-  baseName,
   eventCount,
   table,
   isLoading,
@@ -277,6 +271,9 @@ function PlaygroundHeader({
   const [renameValue, setRenameValue] = useState('');
   const canDelete = !!table && !isDeleting;
   const currentName = table ? table.name().toString() : '';
+  const tableName = table ? table.name().toString() : 'Table';
+  const fieldCount = table ? table.fields().length : null;
+  const viewCount = table ? table.views().length : null;
   const trimmedRename = renameValue.trim();
   const canRename =
     !!table && trimmedRename.length > 0 && trimmedRename !== currentName && !isRenaming;
@@ -302,16 +299,19 @@ function PlaygroundHeader({
 
   return (
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
-      <div className="flex flex-wrap items-center gap-3">
-        <SidebarTrigger className="shrink-0" />
+      <div className="flex flex-wrap items-start gap-3">
+        <SidebarTrigger className="shrink-0 self-start" />
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Base
+            Table
           </div>
-          <div className="text-xl font-semibold text-foreground">{baseName}</div>
+          <div className="flex flex-wrap items-center gap-3 text-xl font-semibold text-foreground">
+            <TableIcon className="h-5 w-5 text-muted-foreground" />
+            <span>{tableName}</span>
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Database className="h-4 w-4 text-muted-foreground" />
-            <span>Postgres playground</span>
+            {fieldCount !== null ? <Badge variant="outline">{fieldCount} fields</Badge> : null}
+            {viewCount !== null ? <Badge variant="outline">{viewCount} views</Badge> : null}
             {eventCount !== null ? <Badge variant="outline">events {eventCount}</Badge> : null}
           </div>
         </div>

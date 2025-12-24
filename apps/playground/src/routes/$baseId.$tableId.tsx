@@ -11,7 +11,6 @@ import { TableMetaPage } from '@/components/playground/TableMetaPage';
 import { getOrpcClient } from '@/lib/orpcClient';
 import {
   PLAYGROUND_BASE_ID,
-  PLAYGROUND_BASE_NAME,
   PLAYGROUND_BASE_ID_STORAGE_KEY,
   PLAYGROUND_TABLE_ID_STORAGE_KEY,
 } from '@/lib/playground/constants';
@@ -42,7 +41,6 @@ type PlaygroundTableDetailProps = {
 function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) {
   const [eventCount, setEventCount] = useState<number | null>(null);
   const navigate = useNavigate();
-  const baseName = baseId === PLAYGROUND_BASE_ID ? PLAYGROUND_BASE_NAME : baseId;
   const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
     PLAYGROUND_BASE_ID_STORAGE_KEY,
     null,
@@ -226,7 +224,6 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   return (
     <TableMetaPage
       baseId={baseId}
-      baseName={baseName}
       tableId={tableId}
       table={table}
       eventCount={eventCount}
