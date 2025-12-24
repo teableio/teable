@@ -11,6 +11,9 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic-conventions';
 import type { ISpan, ITracer, SpanAttributeValue, SpanAttributes } from '@teable/v2-core';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 const parseOtelHeaders = (headerStr?: string) => {
   if (!headerStr) return {};
@@ -62,19 +65,23 @@ export const ensureServerOtel = async (): Promise<NodeSDK> => {
     resource: resourceFromAttributes(resourceAttributes),
     instrumentations: [
       new ORPCInstrumentation(),
-      new PgInstrumentation({ enhancedDatabaseReporting: true }),
+      new PgInstrumentation({
+        enhancedDatabaseReporting: true,
+        requireParentSpan: false,
+      }),
     ],
   };
 
   const sdk = new NodeSDK(traceExporter ? { ...sdkOptions, traceExporter } : sdkOptions);
 
   globalAny.__teablePlaygroundOtelSdk = sdk;
-  globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk.start())
-    .then(() => sdk)
-    .catch((err) => {
-      console.error('Playground OTEL start error', err);
-      return sdk;
-    });
+  try {
+    sdk.start();
+    globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk);
+  } catch (err) {
+    console.error('Playground OTEL start error', err);
+    globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk);
+  }
 
   const shutdown = () =>
     sdk.shutdown().then(
@@ -85,11 +92,19 @@ export const ensureServerOtel = async (): Promise<NodeSDK> => {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 
+  try {
+    // Force load pg after SDK start to ensure it is instrumented.
+    // In Nitro/Vite dev environments, this helps ensure the patch is applied before the app uses it.
+    require('pg');
+  } catch {
+    // Ignore if pg is not available in the current environment
+  }
+
   return globalAny.__teablePlaygroundOtelStart;
 };
 
 class OpenTelemetrySpan implements ISpan {
-  constructor(private readonly span: ApiSpan) {}
+  constructor(public readonly span: ApiSpan) {}
 
   setAttribute(key: string, value: SpanAttributeValue): void {
     this.span.setAttribute(key, value);
@@ -116,6 +131,13 @@ export class OpenTelemetryTracer implements ITracer {
     const tracer = trace.getTracer(this.name);
     const span = tracer.startSpan(name, { attributes }, otelContext.active());
     return new OpenTelemetrySpan(span);
+  }
+
+  async withSpan<T>(span: ISpan, callback: () => Promise<T>): Promise<T> {
+    if (span instanceof OpenTelemetrySpan) {
+      return otelContext.with(trace.setSpan(otelContext.active(), span.span), callback);
+    }
+    return callback();
   }
 }
 

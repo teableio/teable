@@ -40,6 +40,10 @@ class FakeTracer implements ITracer {
     this.spans.push({ name, attributes, span });
     return span;
   }
+
+  async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
+    return callback();
+  }
 }
 
 class PayloadMessage {}
@@ -148,6 +152,9 @@ describe('TraceSpan', () => {
     const brokenTracer: ITracer = {
       startSpan() {
         throw new Error('bad tracer');
+      },
+      async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
+        return callback();
       },
     };
     const handler = new TestHandler(brokenTracer);

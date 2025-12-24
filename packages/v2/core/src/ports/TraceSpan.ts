@@ -93,11 +93,18 @@ export const TraceSpan =
       }
 
       try {
-        const result = await original.apply(this, [context, ...args]);
-        if (isResult(result) && result.isErr()) {
-          span.recordError(result.error);
+        const execute = async () => {
+          const result = await original.apply(this, [context, ...args]);
+          if (isResult(result) && result.isErr()) {
+            span.recordError(result.error);
+          }
+          return result;
+        };
+
+        if (tracer) {
+          return await tracer.withSpan(span, execute);
         }
-        return result;
+        return await execute();
       } catch (error) {
         const errorMessage = describeError(error) || 'Command handler execution failed';
         span.recordError(errorMessage);

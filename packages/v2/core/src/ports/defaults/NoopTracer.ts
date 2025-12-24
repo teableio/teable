@@ -12,4 +12,8 @@ export class NoopTracer implements ITracer {
   startSpan(_name: string, _attributes?: SpanAttributes): ISpan {
     return noopSpan;
   }
+
+  async withSpan<T>(_span: ISpan, callback: () => Promise<T>): Promise<T> {
+    return callback();
+  }
 }

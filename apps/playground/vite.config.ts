@@ -18,6 +18,9 @@ const v2ServerDeps = [
   '@teable/v2-adapter-postgres-state',
   '@teable/v2-adapter-postgres-ddl',
   '@teable/v2-di',
+  'pg',
+  'pg-pool',
+  'kysely',
 ];
 
 const PLAYGROUND_PORT = 3100;

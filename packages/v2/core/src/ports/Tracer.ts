@@ -11,4 +11,5 @@ export interface ISpan {
 
 export interface ITracer {
   startSpan(name: string, attributes?: SpanAttributes): ISpan;
+  withSpan<T>(span: ISpan, callback: () => Promise<T>): Promise<T>;
 }

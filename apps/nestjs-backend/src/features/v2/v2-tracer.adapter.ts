@@ -8,7 +8,7 @@ import type {
 } from '@teable/v2-core' with { 'resolution-mode': 'import' };
 
 class OpenTelemetrySpan implements ISpan {
-  constructor(private readonly span: ApiSpan) {}
+  constructor(public readonly span: ApiSpan) {}
 
   setAttribute(key: string, value: SpanAttributeValue): void {
     this.span.setAttribute(key, value);
@@ -35,5 +35,12 @@ export class OpenTelemetryTracer implements ITracer {
     const tracer = trace.getTracer(this.name);
     const span = tracer.startSpan(name, { attributes }, otelContext.active());
     return new OpenTelemetrySpan(span);
+  }
+
+  async withSpan<T>(span: ISpan, callback: () => Promise<T>): Promise<T> {
+    if (span instanceof OpenTelemetrySpan) {
+      return otelContext.with(trace.setSpan(otelContext.active(), span.span), callback);
+    }
+    return callback();
   }
 }
