@@ -15,7 +15,7 @@ export interface IUserCollaborator {
   name: string;
   email: string;
   avatar?: string | null;
-  billable?: boolean;
+  billable?: boolean | null;
 }
 
 export interface IDepartmentCollaborator {
