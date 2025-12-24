@@ -111,7 +111,8 @@ export class BaseExportService {
     bucket: string,
     s3Path: string,
     archivePath: string,
-    timeoutMs: number = 10 * 60 * 1000
+    timeoutMs: number = 10 * 60 * 1000,
+    chatId?: string
   ): Promise<boolean> {
     try {
       const stream = await this.storageAdapter.downloadFile(bucket, s3Path);
