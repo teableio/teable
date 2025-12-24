@@ -377,7 +377,7 @@
       "tableDelete": "Delete table",
       "tableUpdate": "Update table",
       "tableImport": "Import data into table",
-      "tableExport": "export table data",
+      "tableExport": "Export table data",
       "tableTrashRead": "Read table trash",
       "tableTrashUpdate": "Update table trash",
       "tableTrashReset": "Reset table trash",
