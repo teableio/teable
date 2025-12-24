@@ -12,7 +12,7 @@ import {
   TriangleAlert,
   User,
 } from 'lucide-react';
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
 import {
   Sidebar,
   SidebarContent,
@@ -124,10 +124,21 @@ function PlaygroundSidebar({
   const navigate = useNavigate();
   const [nextBaseId, setNextBaseId] = useState(baseId);
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setNextBaseId(baseId);
   }, [baseId]);
+
+  useEffect(() => {
+    if (activeTableId && menuRef.current) {
+      const activeElement = menuRef.current.querySelector('[data-active="true"]');
+      activeElement?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [activeTableId, tables]);
 
   const trimmedBaseId = nextBaseId.trim();
   const canSwitchBase = trimmedBaseId.length > 0 && trimmedBaseId !== baseId;
@@ -221,7 +232,7 @@ function PlaygroundSidebar({
           <ScrollArea className="h-full" scrollHideDelay={0}>
             <SidebarGroup className="py-2">
               <SidebarGroupContent>
-                <div className="mt-2">
+                <div className="mt-2" ref={menuRef}>
                   {isInitialLoading ? (
                     <SidebarMenu>
                       {Array.from({ length: 3 }).map((_, index) => (
