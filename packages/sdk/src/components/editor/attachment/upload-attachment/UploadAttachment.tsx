@@ -21,7 +21,7 @@ import { FilePreviewProvider, ScrollArea, cn, sonner } from '@teable/ui-lib';
 import { omit } from 'lodash';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { useTranslation } from '../../../../context/app/i18n';
-import { useBaseId } from '../../../../hooks';
+import { useBaseId, useIsMobile } from '../../../../hooks';
 import { UsageLimitModalType, useUsageLimitModalStore } from '../../../billing/store';
 import { useAttachmentPreviewI18Map } from '../../../hooks';
 import { FileZone } from '../../../upload/FileZone';
@@ -74,6 +74,7 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
     const { t } = useTranslation();
     const i18nMap = useAttachmentPreviewI18Map();
     const fileInput = useRef<HTMLInputElement>(null);
+    const isMobile = useIsMobile();
     const sensors = useSensors(
       useSensor(PointerSensor, {
         activationConstraint: { distance: 5 },
@@ -103,12 +104,16 @@ export const UploadAttachment = forwardRef<IUploadAttachmentRef, IUploadAttachme
       });
     };
 
-    const downloadFile = useCallback(({ presignedUrl, name }: IAttachmentItem) => {
-      const downloadLink = document.createElement('a');
-      downloadLink.href = presignedUrl || '';
-      downloadLink.download = name;
-      downloadLink.click();
-    }, []);
+    const downloadFile = useCallback(
+      ({ presignedUrl, name }: IAttachmentItem) => {
+        const downloadLink = document.createElement('a');
+        downloadLink.href = presignedUrl || '';
+        downloadLink.target = isMobile ? '_self' : '_blank';
+        downloadLink.download = name;
+        downloadLink.click();
+      },
+      [isMobile]
+    );
 
     const scrollBottom = useCallback(() => {
       const lastChild = listRef.current?.lastElementChild;
