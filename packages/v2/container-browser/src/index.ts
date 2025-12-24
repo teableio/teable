@@ -6,6 +6,7 @@ import {
   NoopTableRepository,
   NoopTableSchemaRepository,
   NoopUnitOfWork,
+  TableUpdateFlow,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -24,6 +25,9 @@ export const registerV2BrowserNoopDependencies = (
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c));
   c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
   c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.logger, NoopLogger, {

@@ -49,6 +49,7 @@ import type { UserDefaultValue } from './fields/types/UserDefaultValue';
 import { UserField } from './fields/types/UserField';
 import { UserMultiplicity } from './fields/types/UserMultiplicity';
 import { UserNotification } from './fields/types/UserNotification';
+import { resolveFormulaFields } from './resolveFormulaFields';
 import type { Table } from './Table';
 import { TableId } from './TableId';
 import type { TableName } from './TableName';
@@ -162,16 +163,19 @@ export class TableBuilder {
 
     const idResult = this.tableId ? ok(this.tableId) : TableId.generate();
 
-    return idResult.map((id) =>
-      this.factory({
+    return idResult.andThen((id) => {
+      const table = this.factory({
         id,
         baseId,
         name: tableName,
         fields: [...this.fields],
         views: [...this.views],
         primaryFieldId,
-      })
-    );
+      });
+      const resolveResult = resolveFormulaFields(table);
+      if (resolveResult.isErr()) return err(resolveResult.error);
+      return ok(table);
+    });
   }
 
   private sink(): ITableBuilderSink {

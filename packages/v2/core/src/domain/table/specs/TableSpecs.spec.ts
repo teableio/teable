@@ -7,15 +7,29 @@ import { FieldName } from '../fields/FieldName';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
+import type { TableAddFieldSpec } from './TableAddFieldSpec';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
+import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
   readonly calls: string[] = [];
 
   visit(_: ISpecification): ReturnType<ITableSpecVisitor['visit']> {
+    return ok(undefined);
+  }
+
+  visitTableAddField(_: TableAddFieldSpec): ReturnType<ITableSpecVisitor['visitTableAddField']> {
+    this.calls.push('TableAddFieldSpec');
+    return ok(undefined);
+  }
+
+  visitTableUpdateViewColumnMeta(
+    _: TableUpdateViewColumnMetaSpec
+  ): ReturnType<ITableSpecVisitor['visitTableUpdateViewColumnMeta']> {
+    this.calls.push('TableUpdateViewColumnMetaSpec');
     return ok(undefined);
   }
 

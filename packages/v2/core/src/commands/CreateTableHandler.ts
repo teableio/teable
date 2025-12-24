@@ -2,7 +2,6 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveFormulaFields } from '../application/formula/resolveFormulaFields';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
@@ -105,9 +104,6 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
 
     const tableResult = builder.build();
     if (tableResult.isErr()) return err(tableResult.error);
-
-    const resolveResult = resolveFormulaFields(tableResult.value);
-    if (resolveResult.isErr()) return err(resolveResult.error);
 
     return ok(tableResult.value);
   }

@@ -8,6 +8,7 @@ import {
   MemoryQueryBus,
   NoopLogger,
   NoopTracer,
+  TableUpdateFlow,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type IQueryBusMiddleware,
@@ -50,6 +51,9 @@ export const registerV2NodePgDependencies = async (
   });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
 

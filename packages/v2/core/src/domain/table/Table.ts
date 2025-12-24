@@ -10,6 +10,8 @@ import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
+import { FieldType } from './fields/FieldType';
+import { resolveFormulaFields } from './resolveFormulaFields';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
 import { TableBuilder } from './TableBuilder';
@@ -17,7 +19,9 @@ import type { TableId } from './TableId';
 import { TableMutator, type TableUpdateResult } from './TableMutator';
 import type { TableName } from './TableName';
 import type { View } from './views/View';
+import { ViewColumnMeta } from './views/ViewColumnMeta';
 import type { ViewId } from './views/ViewId';
+import { CloneViewVisitor } from './views/visitors/CloneViewVisitor';
 
 export class Table extends AggregateRoot<TableId> {
   private dbTableNameValue: DbTableName;
@@ -201,6 +205,39 @@ export class Table extends AggregateRoot<TableId> {
     return ok(nextTable);
   }
 
+  addField(field: Field): Result<Table, string> {
+    if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
+      return err('Field already exists');
+    }
+    if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
+      return err('Field names must be unique');
+    }
+
+    if (field.type().equals(FieldType.formula())) {
+      const resolveResult = resolveFormulaFields(this);
+      if (resolveResult.isErr()) return err(resolveResult.error);
+    }
+
+    const nextFields = [...this.fieldsValue, field];
+    const nextViewsResult = this.cloneViewsWithField(nextFields, field);
+    if (nextViewsResult.isErr()) return err(nextViewsResult.error);
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: nextViewsResult.value,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props);
+  }
+
   private cloneWithName(nextName: TableName): Result<Table, string> {
     const props: ITableBuildProps = {
       id: this.id(),
@@ -216,5 +253,62 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     return Table.rehydrate(props);
+  }
+
+  private cloneViewsWithField(
+    fields: ReadonlyArray<Field>,
+    newField: Field
+  ): Result<ReadonlyArray<View>, string> {
+    const defaultMetaByType = new Map<string, ViewColumnMeta>();
+    const newFieldKey = newField.id().toString();
+
+    const clones = this.viewsValue.map((view) => {
+      const currentMetaResult = view.columnMeta();
+      if (currentMetaResult.isErr()) return err(currentMetaResult.error);
+      const currentMeta = currentMetaResult.value.toDto();
+
+      const viewType = view.type().toString();
+      let defaultMeta = defaultMetaByType.get(viewType);
+      if (!defaultMeta) {
+        const metaResult = ViewColumnMeta.forView({
+          viewType: view.type(),
+          fields,
+          primaryFieldId: this.primaryFieldIdValue,
+        });
+        if (metaResult.isErr()) return err(metaResult.error);
+        defaultMeta = metaResult.value;
+        defaultMetaByType.set(viewType, defaultMeta);
+      }
+
+      const defaultEntry = defaultMeta.toDto()[newFieldKey];
+      if (!defaultEntry) return err('Missing new field column meta');
+
+      const currentEntries = Object.values(currentMeta);
+      const maxOrder = currentEntries.length
+        ? Math.max(...currentEntries.map((entry) => entry.order))
+        : -1;
+
+      const nextMeta = {
+        ...currentMeta,
+        [newFieldKey]: { ...defaultEntry, order: maxOrder + 1 },
+      };
+
+      const nextMetaResult = ViewColumnMeta.create(nextMeta);
+      if (nextMetaResult.isErr()) return err(nextMetaResult.error);
+
+      const cloneResult = view.accept(new CloneViewVisitor());
+      if (cloneResult.isErr()) return err(cloneResult.error);
+
+      const clone = cloneResult.value;
+      const setResult = clone.setColumnMeta(nextMetaResult.value);
+      if (setResult.isErr()) return err(setResult.error);
+
+      return ok(clone);
+    });
+
+    return clones.reduce<Result<ReadonlyArray<View>, string>>(
+      (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
+      ok([])
+    );
   }
 }

@@ -8,6 +8,7 @@ import {
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
+  TableUpdateFlow,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { ITableRepository } from '@teable/v2-core';
@@ -34,6 +35,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
+  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow);
   c.registerInstance(v2CoreTokens.logger, new NoopLogger());
   c.registerInstance(v2CoreTokens.tracer, new NoopTracer());
 

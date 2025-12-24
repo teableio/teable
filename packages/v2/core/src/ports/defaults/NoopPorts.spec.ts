@@ -3,7 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
+import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 
@@ -67,7 +69,13 @@ describe('NoopTableSchemaRepository', () => {
     expect(actorIdResult.isOk()).toBe(true);
     if (actorIdResult.isErr()) return;
     const context = { actorId: actorIdResult.value };
+    const mutateSpec: ISpecification<Table, ITableSpecVisitor> = {
+      isSatisfiedBy: () => true,
+      mutate: () => ok(table),
+      accept: () => ok(undefined),
+    };
     expect((await repo.insert(context, table)).isOk()).toBe(true);
+    expect((await repo.update(context, table, mutateSpec)).isOk()).toBe(true);
     expect((await repo.delete(context, table)).isOk()).toBe(true);
   });
 });

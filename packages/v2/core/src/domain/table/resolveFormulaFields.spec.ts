@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { BaseId } from '../../domain/base/BaseId';
-import { FieldId } from '../../domain/table/fields/FieldId';
-import { FieldName } from '../../domain/table/fields/FieldName';
-import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
-import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
-import { Table } from '../../domain/table/Table';
-import { TableName } from '../../domain/table/TableName';
-import { resolveFormulaFields } from './resolveFormulaFields';
+import { BaseId } from '../base/BaseId';
+import { FieldId } from './fields/FieldId';
+import { FieldName } from './fields/FieldName';
+import { FormulaExpression } from './fields/types/FormulaExpression';
+import { FieldValueTypeVisitor } from './fields/visitors/FieldValueTypeVisitor';
+import { Table } from './Table';
+import { TableName } from './TableName';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
@@ -80,11 +79,7 @@ describe('resolveFormulaFields', () => {
     if (tableResult.isErr()) return;
     const table = tableResult.value;
 
-    const resolveResult = resolveFormulaFields(table);
-    expect(resolveResult.isOk()).toBe(true);
-    if (resolveResult.isErr()) return;
-
-    const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const byId = new Map(table.fields().map((field) => [field.id().toString(), field] as const));
     const amountField = byId.get(amountId.toString());
     const scoreField = byId.get(scoreId.toString());
     const labelField = byId.get(labelId.toString());
@@ -167,13 +162,9 @@ describe('resolveFormulaFields', () => {
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
-
-    const resolveResult = resolveFormulaFields(tableResult.value);
-    expect(resolveResult.isErr()).toBe(true);
-    if (resolveResult.isErr()) {
-      expect(resolveResult.error).toContain('Formula field dependency cycle detected');
+    expect(tableResult.isErr()).toBe(true);
+    if (tableResult.isErr()) {
+      expect(tableResult.error).toContain('Formula field dependency cycle detected');
     }
   });
 
@@ -214,13 +205,9 @@ describe('resolveFormulaFields', () => {
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
-
-    const resolveResult = resolveFormulaFields(tableResult.value);
-    expect(resolveResult.isErr()).toBe(true);
-    if (resolveResult.isErr()) {
-      expect(resolveResult.error).toContain('Formula references not found');
+    expect(tableResult.isErr()).toBe(true);
+    if (tableResult.isErr()) {
+      expect(tableResult.error).toContain('Formula references not found');
     }
   });
 
@@ -269,13 +256,9 @@ describe('resolveFormulaFields', () => {
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
-
-    const resolveResult = resolveFormulaFields(tableResult.value);
-    expect(resolveResult.isErr()).toBe(true);
-    if (resolveResult.isErr()) {
-      expect(resolveResult.error).toContain(missingId.toString());
+    expect(tableResult.isErr()).toBe(true);
+    if (tableResult.isErr()) {
+      expect(tableResult.error).toContain(missingId.toString());
     }
   });
 
@@ -316,13 +299,9 @@ describe('resolveFormulaFields', () => {
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
-
-    const resolveResult = resolveFormulaFields(tableResult.value);
-    expect(resolveResult.isErr()).toBe(true);
-    if (resolveResult.isErr()) {
-      expect(resolveResult.error).toContain('Parse formula expression');
+    expect(tableResult.isErr()).toBe(true);
+    if (tableResult.isErr()) {
+      expect(tableResult.error).toContain('Parse formula expression');
     }
   });
 });

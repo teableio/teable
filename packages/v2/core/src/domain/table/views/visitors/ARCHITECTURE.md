@@ -11,6 +11,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe view visitor role.
 - `IViewVisitor.ts` - Role: visitor interface; Purpose: declare per-view visit methods.
+- `CloneViewVisitor.ts` - Role: visitor; Purpose: clone view subtypes with same id/name.
 - `NoopViewVisitor.ts` - Role: no-op visitor; Purpose: default empty implementation.
 
 ## Examples

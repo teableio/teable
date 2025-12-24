@@ -11,6 +11,14 @@ export class OrSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpecif
     private readonly right: ISpecification<T, V>
   ) {}
 
+  leftSpec(): ISpecification<T, V> {
+    return this.left;
+  }
+
+  rightSpec(): ISpecification<T, V> {
+    return this.right;
+  }
+
   isSatisfiedBy(t: T): boolean {
     return this.left.isSatisfiedBy(t) || this.right.isSatisfiedBy(t);
   }

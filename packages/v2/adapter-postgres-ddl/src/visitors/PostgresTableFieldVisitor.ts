@@ -1,10 +1,10 @@
-import { FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   AttachmentField,
   ButtonField,
   CheckboxField,
   DateField,
   Field,
+  FormulaField,
   IFieldVisitor,
   LongTextField,
   MultipleSelectField,
@@ -14,14 +14,13 @@ import type {
   SingleSelectField,
   Table,
   UserField,
-  FormulaField,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 type ICreateTableBuilder = CreateTableBuilder<string, string>;
-type ITableColumnDataType = Parameters<ICreateTableBuilder['addColumn']>[1];
+type TableColumnDataType = Parameters<ICreateTableBuilder['addColumn']>[1];
 
 export interface ICreateTableBuilderRef {
   builder: ICreateTableBuilder;
@@ -33,8 +32,6 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   private static isFieldArray(value: Table | ReadonlyArray<Field>): value is ReadonlyArray<Field> {
     return Array.isArray(value);
   }
-
-  private readonly valueTypeVisitor = new FieldValueTypeVisitor();
 
   apply(table: Table): Result<void, string>;
   apply(fields: ReadonlyArray<Field>): Result<void, string>;
@@ -100,25 +97,12 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   }
 
   private addColumnFromValueType(field: Field): Result<void, string> {
-    const valueTypeResult = field.accept(this.valueTypeVisitor);
-    if (valueTypeResult.isErr()) return err(valueTypeResult.error);
-    const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
-    const dataType = resolveColumnType(
-      field.type().toString(),
-      cellValueType.toString(),
-      isMultipleCellValue.toBoolean()
-    );
-    return this.addColumn(field, dataType);
-  }
-
-  private addColumn(field: Field, dataType: ITableColumnDataType): Result<void, string> {
-    const columnNameResult = field.dbFieldName().andThen((name) => name.value());
-    if (columnNameResult.isErr()) {
-      return err(
-        `Missing db field name for field ${field.id().toString()}: ${columnNameResult.error}`
-      );
-    }
+    const columnNameResult = resolveColumnName(field);
+    if (columnNameResult.isErr()) return err(columnNameResult.error);
+    const dataTypeResult = resolveColumnType(field);
+    if (dataTypeResult.isErr()) return err(dataTypeResult.error);
     const columnName = columnNameResult.value;
+    const dataType = dataTypeResult.value;
     this.builderRef.builder = this.builderRef.builder.addColumn(
       columnName,
       dataType
@@ -127,13 +111,47 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
   }
 }
 
-const resolveColumnType = (
-  fieldType: string,
+const resolveColumnName = (field: Field): Result<string, string> => {
+  const columnNameResult = field.dbFieldName().andThen((name) => name.value());
+  if (columnNameResult.isErr()) {
+    return err(
+      `Missing db field name for field ${field.id().toString()}: ${columnNameResult.error}`
+    );
+  }
+  return ok(columnNameResult.value);
+};
+
+const resolveColumnType = (field: Field): Result<TableColumnDataType, string> => {
+  const fieldType = field.type().toString();
+
+  if (fieldType === 'formula') {
+    const formulaField = field as FormulaField;
+    return formulaField
+      .cellValueType()
+      .andThen((cellValueType) =>
+        formulaField
+          .isMultipleCellValue()
+          .map((isMultiple) =>
+            resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+          )
+      );
+  }
+
+  if (['attachment', 'user', 'button', 'multipleSelect'].includes(fieldType)) {
+    return ok('jsonb');
+  }
+
+  if (fieldType === 'number' || fieldType === 'rating') return ok('double precision');
+  if (fieldType === 'date') return ok('timestamptz');
+  if (fieldType === 'checkbox') return ok('boolean');
+  return ok('text');
+};
+
+const resolveFormulaColumnType = (
   cellValueType: string,
-  isMultipleCellValue: boolean
-): ITableColumnDataType => {
-  if (isMultipleCellValue) return 'jsonb';
-  if (['attachment', 'user', 'button'].includes(fieldType)) return 'jsonb';
+  isMultiple: boolean
+): TableColumnDataType => {
+  if (isMultiple) return 'jsonb';
 
   switch (cellValueType) {
     case 'number':

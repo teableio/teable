@@ -34,18 +34,15 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql } from 'kysely';
+import { Kysely, sql, type CompiledQuery } from 'kysely';
 import { jsonArrayFrom } from 'kysely/helpers/postgres';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { ITableDbFieldMeta, ITableDbMeta } from '../db/tableDbMeta';
 import { v2PostgresStateTokens } from '../di/tokens';
-import { baseRecordColumnNames, convertNameToValidCharacter, joinDbTableName } from '../naming';
-import {
-  FieldStorageTypeVisitor,
-  type IFieldStorageType,
-} from './visitors/FieldStorageTypeVisitor';
+import { convertNameToValidCharacter, joinDbTableName } from '../naming';
+import { TableFieldPersistenceBuilder, type TableFieldRow } from './TableFieldPersistenceBuilder';
 import { TableUpdateVisitor } from './visitors/TableUpdateVisitor';
 import { ITableMetaWhere, TableWhereVisitor } from './visitors/TableWhereVisitor';
 
@@ -63,13 +60,17 @@ export class PostgresTableRepository implements ITableRepository {
     const dtoResult = this.tableMapper.toDTO(table);
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
-    const fieldStorageTypeResult = this.buildFieldStorageTypeById(table);
-    if (fieldStorageTypeResult.isErr()) return err(fieldStorageTypeResult.error);
-    const fieldStorageTypeById = fieldStorageTypeResult.value;
 
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = dto.baseId;
+    const fieldRowBuilder = new TableFieldPersistenceBuilder({
+      table,
+      tableMapper: this.tableMapper,
+      now,
+      actorId,
+      dto,
+    });
 
     let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
@@ -81,49 +82,15 @@ export class PostgresTableRepository implements ITableRepository {
           where base_id = ${baseId}
         )
       `;
-      tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId);
+      const dbFieldMetaResult = fieldRowBuilder.buildDbFieldMeta();
+      if (dbFieldMetaResult.isErr()) return err(dbFieldMetaResult.error);
+      tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId, dbFieldMetaResult.value);
       const tableDbMetaValue = tableDbMeta;
       if (!tableDbMetaValue) return err('Missing table db metadata');
-      const fieldValuesResult = this.sequenceResults(
-        tableDbMetaValue.fields.map((f, i) => {
-          const storageType = fieldStorageTypeById.get(f.field.id);
-          if (!storageType) return err(`Missing storage type for field ${f.field.id}`);
-          return ok({
-            id: f.field.id,
-            name: f.field.name,
-            description: null,
-            options: this.serializeFieldOptions(f.field),
-            meta: this.serializeFieldMeta(f.field),
-            ai_config: null,
-            type: f.field.type,
-            cell_value_type: storageType.cellValueType,
-            is_multiple_cell_value: storageType.isMultipleCellValue,
-            db_field_type: storageType.dbFieldType,
-            db_field_name: f.dbFieldName,
-            not_null: null,
-            unique: null,
-            is_primary: f.field.id === dto.primaryFieldId ? true : null,
-            is_computed: typeof f.field.isComputed === 'boolean' ? f.field.isComputed : null,
-            is_lookup: null,
-            is_conditional_lookup: null,
-            is_pending: null,
-            has_error: null,
-            lookup_linked_field_id: null,
-            lookup_options: null,
-            table_id: dto.id,
-            order: i + 1,
-            version: 1,
-            created_time: now,
-            last_modified_time: now,
-            deleted_time: null,
-            created_by: actorId,
-            last_modified_by: actorId,
-          });
-        })
-      );
+      const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMetaValue.fields);
       if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
 
-      const fieldRows = fieldValuesResult.value;
+      const fieldRows: ReadonlyArray<TableFieldRow> = fieldValuesResult.value;
       const viewRows = dto.views.map((v, i) => ({
         id: v.id,
         name: v.name,
@@ -524,12 +491,6 @@ export class PostgresTableRepository implements ITableRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, string>> {
-    const updateVisitor = new TableUpdateVisitor();
-    const updateAccept = mutateSpec.accept(updateVisitor);
-    if (updateAccept.isErr()) return err(updateAccept.error);
-    const updateResult = updateVisitor.update();
-    if (updateResult.isErr()) return err(updateResult.error);
-
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
@@ -541,20 +502,26 @@ export class PostgresTableRepository implements ITableRepository {
         eb.eb('deleted_time', 'is', null),
       ]);
 
+    const db = resolvePostgresDb(this.db, context);
     try {
-      const db = resolvePostgresDb(this.db, context);
-      const update = await db
-        .updateTable('table_meta')
-        .set({
-          ...updateResult.value,
-          last_modified_time: now,
-          last_modified_by: actorId,
-        })
-        .where((eb) => whereFactory(eb))
-        .executeTakeFirst();
+      const updateVisitor = new TableUpdateVisitor({
+        db,
+        table,
+        tableMapper: this.tableMapper,
+        actorId,
+        now,
+        where: whereFactory,
+      });
+      const updateAccept = mutateSpec.accept(updateVisitor);
+      if (updateAccept.isErr()) return err(updateAccept.error);
+      const statementsResult = updateVisitor.where();
+      if (statementsResult.isErr()) return err(statementsResult.error);
+      if (statementsResult.value.length === 0) return ok(undefined);
 
-      const updatedRows = Number(update.numUpdatedRows ?? 0);
-      if (updatedRows === 0) return err('Not found');
+      const compiled = combineCompiledQueries(
+        statementsResult.value.map((statement) => statement.compile())
+      );
+      await db.executeQuery(compiled);
 
       return ok(undefined);
     } catch (error) {
@@ -662,18 +629,6 @@ export class PostgresTableRepository implements ITableRepository {
 
   private resolveSortColumn(key: TableSortKey): 'name' | 'id' {
     return key.toString() === 'name' ? 'name' : 'id';
-  }
-
-  private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
-    if (field.options === undefined) return null;
-    return JSON.stringify(field.options);
-  }
-
-  private serializeFieldMeta(field: ITableFieldPersistenceDTO): string | null {
-    if ('meta' in field && field.meta !== undefined) {
-      return JSON.stringify(field.meta);
-    }
-    return null;
   }
 
   private deserializeFieldDto(row: {
@@ -890,22 +845,13 @@ export class PostgresTableRepository implements ITableRepository {
     return this.sequenceResults(fieldResults).map(() => undefined);
   }
 
-  private buildFieldStorageTypeById(
-    table: Table
-  ): Result<ReadonlyMap<string, IFieldStorageType>, string> {
-    const visitor = new FieldStorageTypeVisitor();
-    const applyResult = visitor.apply(table);
-    if (applyResult.isErr()) return err(applyResult.error);
-    return ok(visitor.typesById());
-  }
-
   private async buildTableDbMeta(
     trx: Kysely<V1TeableDatabase>,
     dto: ITablePersistenceDTO,
-    baseId: string
+    baseId: string,
+    fields: ReadonlyArray<ITableDbFieldMeta>
   ): Promise<ITableDbMeta> {
     const dbTableName = await this.resolveDbTableName(trx, baseId, dto.name);
-    const fields = this.buildDbFieldMeta(dto);
     return { tableId: dto.id, dbTableName, fields };
   }
 
@@ -929,30 +875,6 @@ export class PostgresTableRepository implements ITableRepository {
 
     return dbTableName;
   }
-
-  private buildDbFieldMeta(dto: ITablePersistenceDTO): ReadonlyArray<ITableDbFieldMeta> {
-    const reservedNames = new Set(baseRecordColumnNames);
-
-    return dto.fields.map((field) => {
-      const baseName = convertNameToValidCharacter(field.name, 40);
-      const dbFieldName = this.ensureUniqueDbFieldName(baseName, reservedNames);
-      reservedNames.add(dbFieldName);
-      return { field, dbFieldName };
-    });
-  }
-
-  private ensureUniqueDbFieldName(baseName: string, reservedNames: Set<string>): string {
-    if (!reservedNames.has(baseName)) return baseName;
-
-    let suffix = 2;
-    let candidate = `${baseName}_${suffix}`;
-    while (reservedNames.has(candidate)) {
-      suffix += 1;
-      candidate = `${baseName}_${suffix}`;
-    }
-
-    return candidate;
-  }
 }
 
 const describeError = (error: unknown): string => {
@@ -966,4 +888,25 @@ const describeError = (error: unknown): string => {
   } catch {
     return String(error);
   }
+};
+
+const combineCompiledQueries = (compiled: ReadonlyArray<CompiledQuery>): CompiledQuery => {
+  const first = compiled[0]!;
+  let offset = 0;
+  const parameters: unknown[] = [];
+  const sqlStatements = compiled.map((query) => {
+    const adjusted = offset === 0 ? query.sql : adjustPlaceholders(query.sql, offset);
+    parameters.push(...query.parameters);
+    offset += query.parameters.length;
+    return adjusted;
+  });
+  return {
+    ...first,
+    sql: sqlStatements.join(';\n'),
+    parameters: parameters,
+  };
+};
+
+const adjustPlaceholders = (sqlText: string, offset: number): string => {
+  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + offset}`);
 };

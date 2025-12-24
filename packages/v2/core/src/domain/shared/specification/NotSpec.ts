@@ -8,6 +8,10 @@ import { isSpecFilterVisitor } from './visitors/ISpecFilterVisitor';
 export class NotSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpecification<T, V> {
   constructor(private readonly inner: ISpecification<T, V>) {}
 
+  innerSpec(): ISpecification<T, V> {
+    return this.inner;
+  }
+
   isSatisfiedBy(t: T): boolean {
     return !this.inner.isSatisfiedBy(t);
   }

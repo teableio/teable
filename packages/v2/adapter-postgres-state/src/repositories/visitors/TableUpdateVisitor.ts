@@ -1,48 +1,146 @@
 import {
-  type ISpecification,
-  type ITableSpecVisitor,
-  NotSpec,
-  OrSpec,
+  AbstractSpecFilterVisitor,
+  TableAddFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
+  TableUpdateViewColumnMetaSpec,
+  type ITableMapper,
+  type ITableSpecVisitor,
+  type Table,
 } from '@teable/v2-core';
-import { err, ok } from 'neverthrow';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type {
+  InsertQueryBuilder,
+  InsertResult,
+  Kysely,
+  UpdateQueryBuilder,
+  UpdateResult,
+} from 'kysely';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-export type ITableMetaUpdate = {
+import { TableFieldPersistenceBuilder } from '../TableFieldPersistenceBuilder';
+import type { ITableMetaWhere } from './TableWhereVisitor';
+
+export type TableUpdateBuilder =
+  | UpdateQueryBuilder<V1TeableDatabase, 'table_meta', 'table_meta', UpdateResult>
+  | UpdateQueryBuilder<V1TeableDatabase, 'view', 'view', UpdateResult>
+  | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>;
+
+type TableUpdateVisitorParams = {
+  db: Kysely<V1TeableDatabase>;
+  table: Table;
+  tableMapper: ITableMapper;
+  actorId: string;
+  now: Date;
+  where: ITableMetaWhere;
+};
+
+type TableMetaUpdate = {
   name?: string;
 };
 
-export class TableUpdateVisitor implements ITableSpecVisitor<ITableMetaUpdate> {
-  private readonly updates: ITableMetaUpdate = {};
+export class TableUpdateVisitor
+  extends AbstractSpecFilterVisitor<ReadonlyArray<TableUpdateBuilder>>
+  implements ITableSpecVisitor<ReadonlyArray<TableUpdateBuilder>>
+{
+  private readonly fieldRowBuilder: TableFieldPersistenceBuilder;
 
-  visit(spec: ISpecification): Result<void, string> {
-    if (spec instanceof OrSpec) return err('OrSpec is not supported for table updates');
-    if (spec instanceof NotSpec) return err('NotSpec is not supported for table updates');
-    return ok(undefined);
+  constructor(private readonly params: TableUpdateVisitorParams) {
+    super();
+    this.fieldRowBuilder = new TableFieldPersistenceBuilder({
+      table: params.table,
+      tableMapper: params.tableMapper,
+      now: params.now,
+      actorId: params.actorId,
+    });
   }
 
-  visitTableByBaseId(_: TableByBaseIdSpec): Result<ITableMetaUpdate, string> {
+  visitTableByBaseId(_: TableByBaseIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
     return err('TableByBaseIdSpec is not supported for table updates');
   }
 
-  visitTableById(_: TableByIdSpec): Result<ITableMetaUpdate, string> {
+  visitTableAddField(spec: TableAddFieldSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+    const fieldRowResult = this.fieldRowBuilder.buildRowForField(spec.field());
+    if (fieldRowResult.isErr()) return err(fieldRowResult.error);
+
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db.insertInto('field').values(fieldRowResult.value),
+    ];
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableUpdateViewColumnMeta(
+    spec: TableUpdateViewColumnMetaSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+    const updates = spec.updates();
+    const statements: ReadonlyArray<TableUpdateBuilder> = updates.map((update) =>
+      this.params.db
+        .updateTable('view')
+        .set({
+          column_meta: JSON.stringify(update.columnMeta.toDto()),
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', update.viewId.toString())
+        .where('deleted_time', 'is', null)
+    );
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
     return err('TableByIdSpec is not supported for table updates');
   }
 
-  visitTableByName(spec: TableByNameSpec): Result<ITableMetaUpdate, string> {
-    this.updates.name = spec.tableName().toString();
-    return ok(this.updates);
+  visitTableByName(spec: TableByNameSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.buildTableMetaUpdate({ name: spec.tableName().toString() }),
+    ];
+    return this.addCond(statements).map(() => statements);
   }
 
-  visitTableByNameLike(_: TableByNameLikeSpec): Result<ITableMetaUpdate, string> {
+  visitTableByNameLike(_: TableByNameLikeSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
     return err('TableByNameLikeSpec is not supported for table updates');
   }
 
-  update(): Result<ITableMetaUpdate, string> {
-    if (Object.keys(this.updates).length === 0) return err('Empty update');
-    return ok({ ...this.updates });
+  clone(): this {
+    return new TableUpdateVisitor(this.params) as this;
+  }
+
+  and(
+    left: ReadonlyArray<TableUpdateBuilder>,
+    right: ReadonlyArray<TableUpdateBuilder>
+  ): ReadonlyArray<TableUpdateBuilder> {
+    return [...left, ...right];
+  }
+
+  or(
+    left: ReadonlyArray<TableUpdateBuilder>,
+    right: ReadonlyArray<TableUpdateBuilder>
+  ): ReadonlyArray<TableUpdateBuilder> {
+    return [...left, ...right];
+  }
+
+  not(inner: ReadonlyArray<TableUpdateBuilder>): ReadonlyArray<TableUpdateBuilder> {
+    return [...inner];
+  }
+
+  private buildTableMetaUpdate(
+    updates: Partial<TableMetaUpdate>
+  ): UpdateQueryBuilder<V1TeableDatabase, 'table_meta', 'table_meta', UpdateResult> {
+    const { db, now, actorId, where } = this.params;
+
+    return db
+      .updateTable('table_meta')
+      .set({
+        ...updates,
+        last_modified_time: now,
+        last_modified_by: actorId,
+      })
+      .where((eb) => where(eb));
   }
 }

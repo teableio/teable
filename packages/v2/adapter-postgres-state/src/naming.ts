@@ -28,3 +28,16 @@ export const convertNameToValidCharacter = (name: string, maxLength = 40): strin
 export const joinDbTableName = (schemaName: string, tableName: string): string => {
   return `${schemaName}.${tableName}`;
 };
+
+export const ensureUniqueDbFieldName = (baseName: string, reservedNames: Set<string>): string => {
+  if (!reservedNames.has(baseName)) return baseName;
+
+  let suffix = 2;
+  let candidate = `${baseName}_${suffix}`;
+  while (reservedNames.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseName}_${suffix}`;
+  }
+
+  return candidate;
+};

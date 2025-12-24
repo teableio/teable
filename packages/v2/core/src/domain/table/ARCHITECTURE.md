@@ -6,7 +6,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Table aggregate, builder, value objects, and sort keys.
 - Entry point for table fields/views/specs/events.
-- Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) but are passed separately from query specs.
+- Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) and mutate-only specs (e.g. TableAddFieldSpec, TableUpdateViewColumnMetaSpec) but are passed separately from query specs.
 
 ## Subfolders
 
@@ -27,6 +27,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableId.ts` - Role: value object; Purpose: TableId validation and generation.
 - `TableName.ts` - Role: value object; Purpose: TableName validation and wrapping.
 - `TableMutator.ts` - Role: update builder; Purpose: compose mutation specs and return immutable updates.
+- `resolveFormulaFields.ts` - Role: domain helper; Purpose: resolve formula dependencies and result types.
+- `resolveFormulaFields.spec.ts` - Role: domain tests; Purpose: validate formula resolution during build.
 - `TableSortKey.spec.ts` - Role: sort key tests; Purpose: validate TableSortKey rules.
 - `TableSortKey.ts` - Role: value object; Purpose: table sort key modeling.
 

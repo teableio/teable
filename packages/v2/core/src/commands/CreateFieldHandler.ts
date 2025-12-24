@@ -8,23 +8,23 @@ import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import { v2CoreTokens } from '../ports/tokens';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
-import { RenameTableCommand } from './RenameTableCommand';
+import { CreateFieldCommand } from './CreateFieldCommand';
 import { TableUpdateFlow } from './TableUpdateFlow';
 
-export class RenameTableResult {
+export class CreateFieldResult {
   private constructor(
     readonly table: Table,
     readonly events: ReadonlyArray<IDomainEvent>
   ) {}
 
-  static create(table: Table, events: ReadonlyArray<IDomainEvent>): RenameTableResult {
-    return new RenameTableResult(table, [...events]);
+  static create(table: Table, events: ReadonlyArray<IDomainEvent>): CreateFieldResult {
+    return new CreateFieldResult(table, [...events]);
   }
 }
 
-@CommandHandler(RenameTableCommand)
+@CommandHandler(CreateFieldCommand)
 @injectable()
-export class RenameTableHandler implements ICommandHandler<RenameTableCommand, RenameTableResult> {
+export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, CreateFieldResult> {
   constructor(
     @inject(v2CoreTokens.tableUpdateFlow)
     private readonly tableUpdateFlow: TableUpdateFlow,
@@ -34,28 +34,31 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
 
   async handle(
     context: IExecutionContext,
-    command: RenameTableCommand
-  ): Promise<Result<RenameTableResult, string>> {
-    this.logger.debug('RenameTableHandler.start', {
+    command: CreateFieldCommand
+  ): Promise<Result<CreateFieldResult, string>> {
+    this.logger.debug('CreateFieldHandler.start', {
       actorId: context.actorId.toString(),
       baseId: command.baseId.toString(),
       tableId: command.tableId.toString(),
-      tableName: command.tableName.toString(),
+      fieldId: command.field.id().toString(),
+      fieldName: command.field.name().toString(),
+      fieldType: command.field.type().toString(),
     });
 
     const updateResult = await this.tableUpdateFlow.execute(
       { context, baseId: command.baseId, tableId: command.tableId },
-      (table) => table.update((mutator) => mutator.rename(command.tableName))
+      (table) => table.update((mutator) => mutator.addField(command.field))
     );
     if (updateResult.isErr()) return err(updateResult.error);
     const { table: updatedTable, events } = updateResult.value;
 
-    this.logger.debug('RenameTableHandler.success', {
+    this.logger.debug('CreateFieldHandler.success', {
       baseId: command.baseId.toString(),
       tableId: command.tableId.toString(),
+      fieldId: command.field.id().toString(),
       eventCount: events.length,
     });
 
-    return ok(RenameTableResult.create(updatedTable, events));
+    return ok(CreateFieldResult.create(updatedTable, events));
   }
 }

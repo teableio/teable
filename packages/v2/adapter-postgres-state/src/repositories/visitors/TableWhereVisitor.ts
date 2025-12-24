@@ -1,6 +1,8 @@
 import {
   AbstractSpecFilterVisitor,
   type ITableSpecVisitor,
+  TableAddFieldSpec,
+  TableUpdateViewColumnMetaSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableByNameLikeSpec,
@@ -8,6 +10,7 @@ import {
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Expression, ExpressionBuilder, SqlBool } from 'kysely';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 export type ITableMetaWhere = (
@@ -21,6 +24,16 @@ export class TableWhereVisitor
   constructor() {
     super();
     this.addCond((eb) => eb.eb('deleted_time', 'is', null));
+  }
+
+  visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, string> {
+    return err('TableAddFieldSpec is not supported for table filters');
+  }
+
+  visitTableUpdateViewColumnMeta(
+    _: TableUpdateViewColumnMetaSpec
+  ): Result<ITableMetaWhere, string> {
+    return err('TableUpdateViewColumnMetaSpec is not supported for table filters');
   }
 
   visitTableByBaseId(spec: TableByBaseIdSpec): Result<ITableMetaWhere, string> {

@@ -14,10 +14,14 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CommandHandler.ts` - Role: handler interface + registry; Purpose: let the command bus resolve handlers.
 - `CreateTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs and build TableBuilder inputs.
 - `CreateTableHandler.ts` - Role: command handler; Purpose: build aggregate and persist/publish.
+- `CreateFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for adding a field.
+- `CreateFieldHandler.ts` - Role: command handler; Purpose: update table meta/schema and publish events.
 - `DeleteTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deletion.
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
 - `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.
 - `RenameTableHandler.ts` - Role: command handler; Purpose: persist table rename and publish events.
+- `TableUpdateFlow.ts` - Role: command helper; Purpose: shared table update workflow (mutate + persist + publish).
+- `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.
 
 ## Examples
 

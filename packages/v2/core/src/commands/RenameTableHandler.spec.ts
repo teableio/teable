@@ -18,9 +18,11 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/Executi
 import type { ILogger } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
+import { TableUpdateFlow } from './TableUpdateFlow';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -119,6 +121,27 @@ class FakeEventBus implements IEventBus {
   }
 }
 
+class FakeTableSchemaRepository implements ITableSchemaRepository {
+  updates: Table[] = [];
+
+  async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
+
+  async update(
+    _: IExecutionContext,
+    table: Table,
+    __: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    this.updates.push(table);
+    return ok(undefined);
+  }
+
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
+}
+
 class FakeLogger implements ILogger {
   readonly messages: string[] = [];
 
@@ -158,9 +181,11 @@ describe('RenameTableHandler', () => {
     const table = buildTable('a', 'Old Name');
     const repo = new FakeTableRepository();
     repo.tables.push(table);
+    const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
+    const flow = new TableUpdateFlow(repo, schemaRepo, eventBus, unitOfWork);
 
     const commandResult = RenameTableCommand.create({
       baseId: table.baseId().toString(),
@@ -170,7 +195,7 @@ describe('RenameTableHandler', () => {
     expect(commandResult.isOk()).toBe(true);
     if (commandResult.isErr()) return;
 
-    const handler = new RenameTableHandler(repo, eventBus, logger, unitOfWork);
+    const handler = new RenameTableHandler(flow, logger);
     const result = await handler.handle(createContext(), commandResult.value);
     expect(result.isOk()).toBe(true);
     if (result.isErr()) return;
@@ -185,10 +210,13 @@ describe('RenameTableHandler', () => {
     const table = buildTable('b', 'Missing');
     const repo = new FakeTableRepository();
     const handler = new RenameTableHandler(
-      repo,
-      new FakeEventBus(),
-      new FakeLogger(),
-      new FakeUnitOfWork()
+      new TableUpdateFlow(
+        repo,
+        new FakeTableSchemaRepository(),
+        new FakeEventBus(),
+        new FakeUnitOfWork()
+      ),
+      new FakeLogger()
     );
 
     const commandResult = RenameTableCommand.create({

@@ -298,6 +298,71 @@ describe('Table', () => {
     expect(events[0]).toBeInstanceOf(TableRenamed);
   });
 
+  it('adds a field and extends view column meta', () => {
+    const baseIdResult = createBaseId('g');
+    const tableNameResult = TableName.create('Schema');
+    const fieldNameResult = FieldName.create('Title');
+    const viewNameResult = ViewName.create('Grid');
+    const newFieldIdResult = createFieldId('h');
+    const newFieldNameResult = FieldName.create('Status');
+    expect(
+      [
+        baseIdResult,
+        tableNameResult,
+        fieldNameResult,
+        viewNameResult,
+        newFieldIdResult,
+        newFieldNameResult,
+      ].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      fieldNameResult.isErr() ||
+      viewNameResult.isErr() ||
+      newFieldIdResult.isErr() ||
+      newFieldNameResult.isErr()
+    )
+      return;
+
+    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.view().grid().withName(viewNameResult.value).done();
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+
+    const table = buildResult.value;
+    const metaResult = table.views()[0]?.columnMeta();
+    expect(metaResult?.isOk()).toBe(true);
+    if (!metaResult || metaResult.isErr()) return;
+    const existingMeta = metaResult.value.toDto();
+    const existingOrders = Object.values(existingMeta).map((entry) => entry.order);
+    const maxOrder = existingOrders.length ? Math.max(...existingOrders) : -1;
+
+    const newFieldResult = SingleLineTextField.create({
+      id: newFieldIdResult.value,
+      name: newFieldNameResult.value,
+    });
+    expect(newFieldResult.isOk()).toBe(true);
+    if (newFieldResult.isErr()) return;
+
+    const updateResult = table.update((mutator) => mutator.addField(newFieldResult.value));
+    expect(updateResult.isOk()).toBe(true);
+    if (updateResult.isErr()) return;
+
+    const updatedTable = updateResult.value.table;
+    expect(updatedTable.fields().length).toBe(2);
+    const nextMetaResult = updatedTable.views()[0]?.columnMeta();
+    expect(nextMetaResult?.isOk()).toBe(true);
+    if (!nextMetaResult || nextMetaResult.isErr()) return;
+    const nextMeta = nextMetaResult.value.toDto();
+    const addedEntry = nextMeta[newFieldIdResult.value.toString()];
+    expect(addedEntry).toBeTruthy();
+    if (!addedEntry) return;
+    expect(addedEntry.order).toBe(maxOrder + 1);
+  });
+
   it('exposes copies of fields and views', () => {
     const baseIdResult = createBaseId('e');
     const tableNameResult = TableName.create('Copies');

@@ -11,6 +11,7 @@ import {
   MemoryEventBus,
   MemoryQueryBus,
   NoopTracer,
+  TableUpdateFlow,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -59,6 +60,9 @@ export const createV2NodeTestContainer = async (
   await registerV2PostgresDdlAdapter(c, dbConfig);
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());

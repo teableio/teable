@@ -2,7 +2,6 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolveFormulaFields } from '../application/formula/resolveFormulaFields';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -51,22 +50,12 @@ export class ListTablesHandler implements IQueryHandler<ListTablesQuery, ListTab
       pagination: query.pagination,
     });
     if (tablesResult.isErr()) return err(tablesResult.error);
-    const resolved = this.resolveFormulaTables(tablesResult.value);
-    if (resolved.isErr()) return err(resolved.error);
 
     this.logger.debug('ListTablesHandler.success', {
       baseId: query.baseId.toString(),
-      count: resolved.value.length,
+      count: tablesResult.value.length,
     });
 
-    return ok(ListTablesResult.create(resolved.value));
-  }
-
-  private resolveFormulaTables(tables: ReadonlyArray<Table>): Result<ReadonlyArray<Table>, string> {
-    for (const table of tables) {
-      const resolveResult = resolveFormulaFields(table);
-      if (resolveResult.isErr()) return err(resolveResult.error);
-    }
-    return ok(tables);
+    return ok(ListTablesResult.create(tablesResult.value));
   }
 }

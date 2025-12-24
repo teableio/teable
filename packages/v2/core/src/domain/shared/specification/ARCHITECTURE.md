@@ -5,6 +5,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Responsibilities
 
 - Specification pattern core abstractions and composition.
+- Composition specs expose child accessors (e.g. `leftSpec`, `rightSpec`, `innerSpec`) for traversal helpers in adapters.
 - Used for in-memory evaluation and persistence translation.
 
 ## Files
@@ -13,6 +14,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `AndSpec.ts` - Role: spec composition; Purpose: AND two specs.
 - `ISpecVisitor.ts` - Role: visitor interface; Purpose: define spec visit API.
 - `ISpecification.ts` - Role: spec interface; Purpose: isSatisfiedBy/mutate/accept contract.
+- `MutateOnlySpec.ts` - Role: spec base; Purpose: provide mutate-only specs with neutral isSatisfiedBy.
 - `NotSpec.ts` - Role: spec composition; Purpose: negate a spec.
 - `OrSpec.ts` - Role: spec composition; Purpose: OR two specs.
 - `SpecBasics.spec.ts` - Role: tests; Purpose: verify basic spec behavior.

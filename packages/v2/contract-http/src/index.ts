@@ -2,6 +2,7 @@ export * from './contract';
 export * from './shared/container';
 export * from './shared/domainEvent';
 export * from './shared/http';
+export * from './table/createField';
 export * from './table/createTable';
 export * from './table/deleteTable';
 export * from './table/getTableById';

@@ -100,6 +100,14 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     return ok(undefined);
   }
 
+  async update(
+    _: IExecutionContext,
+    __: Table,
+    ___: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
+
   async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
     if (this.failDelete) return err(this.failDelete);
     this.deleted.push(table);

@@ -1,9 +1,12 @@
 export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
+export * from './commands/CreateFieldCommand';
+export * from './commands/CreateFieldHandler';
 export * from './commands/DeleteTableCommand';
 export * from './commands/DeleteTableHandler';
 export * from './commands/RenameTableCommand';
 export * from './commands/RenameTableHandler';
+export * from './commands/TableUpdateFlow';
 export * from './commands/CommandHandler';
 export * from './ports/TraceSpan';
 
@@ -12,7 +15,7 @@ export * from './queries/GetTableByIdHandler';
 export * from './queries/ListTablesQuery';
 export * from './queries/ListTablesHandler';
 export * from './queries/QueryHandler';
-export * from './application/formula/resolveFormulaFields';
+export * from './domain/table/resolveFormulaFields';
 
 export * from './domain/shared/ActorId';
 export * from './domain/shared/DomainEvent';
@@ -39,6 +42,8 @@ export * from './domain/table/events/TableRenamed';
 export * from './domain/table/specs/TableByIdSpec';
 export * from './domain/table/specs/TableByNameLikeSpec';
 export * from './domain/table/specs/TableByNameSpec';
+export * from './domain/table/specs/TableAddFieldSpec';
+export * from './domain/table/specs/TableUpdateViewColumnMetaSpec';
 export * from './domain/table/specs/ITableSpecVisitor';
 export type { Field } from './domain/table/fields/Field';
 export * from './domain/table/fields/DbFieldName';
@@ -132,6 +137,7 @@ export * from './domain/shared/specification/ISpecVisitor';
 export * from './domain/shared/specification/AndSpec';
 export * from './domain/shared/specification/OrSpec';
 export * from './domain/shared/specification/NotSpec';
+export * from './domain/shared/specification/MutateOnlySpec';
 export * from './domain/shared/specification/SpecBuilder';
 export * from './domain/shared/specification/visitors/AbstractSpecFilterVisitor';
 export * from './domain/shared/specification/visitors/ISpecFilterVisitor';

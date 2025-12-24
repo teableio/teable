@@ -1,5 +1,6 @@
 import { oc } from '@orpc/contract';
 import {
+  createFieldInputSchema,
   createTableInputSchema,
   deleteTableInputSchema,
   getTableByIdInputSchema,
@@ -7,12 +8,14 @@ import {
   renameTableInputSchema,
 } from '@teable/v2-core';
 
+import { createFieldOkResponseSchema } from './table/createField';
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { listTablesOkResponseSchema } from './table/listTables';
 import { renameTableOkResponseSchema } from './table/renameTable';
 
+const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
 const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
@@ -31,6 +34,16 @@ export const v2Contract = {
       })
       .input(createTableInputSchema)
       .output(createTableOkResponseSchema),
+    createField: oc
+      .route({
+        method: 'POST',
+        path: TABLES_CREATE_FIELD_PATH,
+        successStatus: 200,
+        summary: 'Create field',
+        tags: ['tables'],
+      })
+      .input(createFieldInputSchema)
+      .output(createFieldOkResponseSchema),
     delete: oc
       .route({
         method: 'DELETE',

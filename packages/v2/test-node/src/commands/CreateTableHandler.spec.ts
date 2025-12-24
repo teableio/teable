@@ -8,7 +8,9 @@ import {
   type IEventHandler,
   type ICommandBus,
   type IExecutionContext,
+  type ISpecification,
   type ITableSchemaRepository,
+  type ITableSpecVisitor,
   FieldValueTypeVisitor,
   Table,
   TableCreated,
@@ -341,6 +343,14 @@ describe('CreateTableHandler', () => {
     class FailingTableSchemaRepository implements ITableSchemaRepository {
       async insert(_: IExecutionContext, __: Table) {
         return err('Forced schema failure');
+      }
+
+      async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {
+        return ok(undefined);
+      }
+
+      async delete(_: IExecutionContext, __: Table) {
+        return ok(undefined);
       }
     }
 

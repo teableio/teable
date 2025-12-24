@@ -2,11 +2,13 @@ import { resolvePostgresDb, v2PostgresDbTokens } from '@teable/v2-adapter-db-pos
 import {
   TraceSpan,
   type IExecutionContext,
+  type ISpecification,
   type ITableSchemaRepository,
+  type ITableSpecVisitor,
   type Table,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import type { ColumnDefinitionBuilder, CreateTableBuilder, Kysely } from 'kysely';
+import type { ColumnDefinitionBuilder, CompiledQuery, CreateTableBuilder, Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -15,6 +17,7 @@ import {
   PostgresTableFieldVisitor,
   type ICreateTableBuilderRef,
 } from '../visitors/PostgresTableFieldVisitor';
+import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
@@ -68,6 +71,38 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   }
 
   @TraceSpan()
+  async update(
+    context: IExecutionContext,
+    table: Table,
+    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    const dbTableNameResult = table
+      .dbTableName()
+      .andThen((name) => name.split({ defaultSchema: null }));
+    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+    const { schema, tableName } = dbTableNameResult.value;
+
+    const db = resolvePostgresDb(this.db, context);
+    const visitor = new TableSchemaUpdateVisitor({ db, schema, tableName });
+    const acceptResult = mutateSpec.accept(visitor);
+    if (acceptResult.isErr()) return err(acceptResult.error);
+    const statementsResult = visitor.where();
+    if (statementsResult.isErr()) return err(statementsResult.error);
+    if (statementsResult.value.length === 0) return ok(undefined);
+
+    try {
+      const compiled = combineCompiledQueries(
+        statementsResult.value.map((statement) => statement.compile())
+      );
+      await db.executeQuery(compiled);
+    } catch (error) {
+      return err(`Failed to update table schema: ${describeError(error)}`);
+    }
+
+    return ok(undefined);
+  }
+
+  @TraceSpan()
   async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
     const dbTableNameResult = table
       .dbTableName()
@@ -98,4 +133,25 @@ const describeError = (error: unknown): string => {
   } catch {
     return String(error);
   }
+};
+
+const combineCompiledQueries = (compiled: ReadonlyArray<CompiledQuery>): CompiledQuery => {
+  const first = compiled[0]!;
+  let offset = 0;
+  const parameters: unknown[] = [];
+  const sqlStatements = compiled.map((query) => {
+    const adjusted = offset === 0 ? query.sql : adjustPlaceholders(query.sql, offset);
+    parameters.push(...query.parameters);
+    offset += query.parameters.length;
+    return adjusted;
+  });
+  return {
+    ...first,
+    sql: sqlStatements.join(';\n'),
+    parameters: parameters,
+  };
+};
+
+const adjustPlaceholders = (sqlText: string, offset: number): string => {
+  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + offset}`);
 };

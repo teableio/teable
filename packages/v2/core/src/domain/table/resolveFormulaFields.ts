@@ -1,15 +1,15 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { FieldId } from '../../domain/table/fields/FieldId';
-import { FieldType } from '../../domain/table/fields/FieldType';
-import type { FormulaField } from '../../domain/table/fields/types/FormulaField';
-import { FormulaField as FormulaFieldType } from '../../domain/table/fields/types/FormulaField';
+import { FieldId } from './fields/FieldId';
+import { FieldType } from './fields/FieldType';
+import type { FormulaField } from './fields/types/FormulaField';
+import { FormulaField as FormulaFieldType } from './fields/types/FormulaField';
 import {
   FieldValueTypeVisitor,
   type FieldValueType,
-} from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
-import type { Table } from '../../domain/table/Table';
+} from './fields/visitors/FieldValueTypeVisitor';
+import type { Table } from './Table';
 
 export const resolveFormulaFields = (table: Table): Result<void, string> => {
   const fields = table.fields();
