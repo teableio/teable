@@ -51,7 +51,9 @@ export const Collaborator = (props: ICollaboratorProps) => {
           <div className="flex items-center gap-2">
             <span className="truncate">{item.name}</span>
             {item.type === PrincipalType.User && item.billable && (
-              <Badge className="shrink-0 border-none">{t('billing.billable')}</Badge>
+              <Badge className="shrink-0 border-none bg-blue-100 font-normal text-blue-500 dark:bg-blue-500/20 ">
+                {t('billing.billable')}
+              </Badge>
             )}
             {tips}
           </div>
