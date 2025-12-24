@@ -10,12 +10,12 @@ import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { TableId } from '../domain/table/TableId';
 import type { TableUpdateResult } from '../domain/table/TableMutator';
-import { IEventBus } from '../ports/EventBus';
+import * as EventBusPort from '../ports/EventBus';
 import type { IExecutionContext } from '../ports/ExecutionContext';
-import { ITableRepository } from '../ports/TableRepository';
-import { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import * as TableRepositoryPort from '../ports/TableRepository';
+import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
-import { IUnitOfWork } from '../ports/UnitOfWork';
+import * as UnitOfWorkPort from '../ports/UnitOfWork';
 
 type TableUpdateMutate = (table: Table) => Result<TableUpdateResult, string>;
 type TableUpdateTransactionHook = (
@@ -39,13 +39,13 @@ export type TableUpdateFlowResult = {
 export class TableUpdateFlow {
   constructor(
     @inject(v2CoreTokens.tableRepository)
-    private readonly tableRepository: ITableRepository,
+    private readonly tableRepository: TableRepositoryPort.ITableRepository,
     @inject(v2CoreTokens.tableSchemaRepository)
-    private readonly tableSchemaRepository: ITableSchemaRepository,
+    private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: IEventBus,
+    private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
-    private readonly unitOfWork: IUnitOfWork
+    private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
   async execute(
@@ -64,7 +64,10 @@ export class TableUpdateFlow {
     }
     const table = tableResult.value;
 
+    const span = context.tracer?.startSpan('teable.TableUpdateFlow.mutate');
     const updateResult = mutate(table);
+    span?.end();
+
     if (updateResult.isErr()) return err(updateResult.error);
 
     const updatedTable = updateResult.value.table;

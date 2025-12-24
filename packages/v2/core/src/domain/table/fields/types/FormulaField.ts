@@ -69,7 +69,14 @@ export class FormulaField extends Field {
       params.dependencies ?? []
     );
 
-    // resultType is derived from the formula expression + dependencies, not from input.
+    if (params.resultType) {
+      const setResult = field.setResultType(
+        params.resultType.cellValueType,
+        params.resultType.isMultipleCellValue
+      );
+      if (setResult.isErr()) return err(setResult.error);
+    }
+
     return ok(field);
   }
 

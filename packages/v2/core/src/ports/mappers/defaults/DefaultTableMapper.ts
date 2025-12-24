@@ -14,6 +14,8 @@ import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../../../domain/table/fields/types/ButtonResetCount';
 import { ButtonWorkflow } from '../../../domain/table/fields/types/ButtonWorkflow';
+import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellValueMultiplicity';
+import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../../../domain/table/fields/types/CheckboxDefaultValue';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
@@ -116,6 +118,24 @@ const parseFormulaShowAs = (
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
   return err('Invalid FormulaShowAs');
+};
+
+const parseFormulaResultType = (
+  cellValueTypeRaw: unknown,
+  isMultipleCellValueRaw: unknown
+): Result<
+  { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity } | undefined,
+  string
+> => {
+  if (cellValueTypeRaw == null || typeof isMultipleCellValueRaw !== 'boolean') {
+    return ok(undefined);
+  }
+  return CellValueType.create(cellValueTypeRaw).andThen((cellValueType) =>
+    CellValueMultiplicity.create(isMultipleCellValueRaw).map((isMultipleCellValue) => ({
+      cellValueType,
+      isMultipleCellValue,
+    }))
+  );
 };
 
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
@@ -462,15 +482,19 @@ export class DefaultTableMapper implements ITableMapper {
                   parseFormulaFormatting(options.formatting).andThen((formatting) =>
                     parseFormulaShowAs(options.showAs).andThen((showAs) =>
                       optional(dto.meta, FormulaMeta.rehydrate).andThen((meta) =>
-                        FormulaField.create({
-                          id,
-                          name,
-                          expression,
-                          timeZone,
-                          formatting,
-                          showAs,
-                          meta,
-                        })
+                        parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
+                          (resultType) =>
+                            FormulaField.create({
+                              id,
+                              name,
+                              expression,
+                              timeZone,
+                              formatting,
+                              showAs,
+                              meta,
+                              ...(resultType ? { resultType } : {}),
+                            })
+                        )
                       )
                     )
                   )

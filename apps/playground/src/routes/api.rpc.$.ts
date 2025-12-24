@@ -7,6 +7,8 @@ import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { createFileRoute } from '@tanstack/react-router';
 import { v2PinoLogger } from '@teable/v2-adapter-logger-pino';
 import { v2OrpcRouter } from '@/server/v2OrpcRouter';
+import { extractRequestContext } from '@/server/traceContext';
+import { applyTraceHeaders } from '@/server/traceResponseHeaders';
 
 const generateRequestId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -47,12 +49,35 @@ const handler = new RPCHandler(v2OrpcRouter, {
 });
 
 async function handle({ request }: { request: Request }) {
-  const { response } = await handler.handle(request, {
-    prefix: '/api/rpc',
-    context: {},
-  });
+  const tracer = trace.getTracer('orpc');
+  const parentContext = extractRequestContext(request);
+  return tracer.startActiveSpan(
+    'orpc.request',
+    { attributes: { 'rpc.system': 'orpc' } },
+    parentContext,
+    async (span) => {
+      try {
+        const { response } = await handler.handle(request, {
+          prefix: '/api/rpc',
+          context: {},
+        });
 
-  return response ?? new Response('Not Found', { status: 404 });
+        const finalResponse = response ?? new Response('Not Found', { status: 404 });
+        span.setAttribute('http.status_code', finalResponse.status);
+        if (finalResponse.status >= 500) {
+          span.setStatus({ code: SpanStatusCode.ERROR });
+        }
+        return applyTraceHeaders(finalResponse, span.spanContext());
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        span.recordException(error instanceof Error ? error : message);
+        span.setStatus({ code: SpanStatusCode.ERROR, message });
+        throw error;
+      } finally {
+        span.end();
+      }
+    }
+  );
 }
 
 export const Route = createFileRoute('/api/rpc/$')({

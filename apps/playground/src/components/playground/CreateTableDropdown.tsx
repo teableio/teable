@@ -2,6 +2,7 @@ import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import type { VariantProps } from 'class-variance-authority';
 import { Plus } from 'lucide-react';
 
+import { cn } from '@/lib/utils';
 import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -30,19 +31,24 @@ export function CreateTableDropdown({
   label = 'Create table',
   align = 'start',
   variant = 'default',
-  size = 'default',
+  size = 'sm',
   className,
 }: CreateTableDropdownProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size={size} disabled={isCreating} className={className}>
-          <Plus className="mr-2 h-4 w-4" />
+        <Button
+          variant={variant}
+          size={size}
+          disabled={isCreating}
+          className={cn('text-xs font-normal', className)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
           {isCreating ? 'Creating...' : label}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align={align} className="w-72">
-        <DropdownMenuLabel>Templates</DropdownMenuLabel>
+      <DropdownMenuContent align={align} className="w-56">
+        <DropdownMenuLabel className="text-xs font-semibold py-1.5">Templates</DropdownMenuLabel>
         <DropdownMenuSeparator />
         {templates.map((template) => (
           <DropdownMenuItem
@@ -51,10 +57,12 @@ export function CreateTableDropdown({
               onSelect(template);
             }}
             disabled={isCreating}
-            className="flex flex-col items-start gap-0.5 py-2"
+            className="flex flex-col items-start gap-0 p-2"
           >
-            <span className="text-sm font-medium text-foreground">{template.name}</span>
-            <span className="text-xs text-muted-foreground">{template.description}</span>
+            <span className="text-xs font-medium text-foreground">{template.name}</span>
+            <span className="text-[10px] text-muted-foreground leading-tight">
+              {template.description}
+            </span>
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>

@@ -1,11 +1,9 @@
-import { err, ok } from 'neverthrow';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
 import type { Field } from './fields/Field';
-import { FieldType } from './fields/FieldType';
-import { resolveFormulaFields } from './resolveFormulaFields';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
 import { TableByNameSpec } from './specs/TableByNameSpec';

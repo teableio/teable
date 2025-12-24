@@ -213,11 +213,6 @@ export class Table extends AggregateRoot<TableId> {
       return err('Field names must be unique');
     }
 
-    if (field.type().equals(FieldType.formula())) {
-      const resolveResult = resolveFormulaFields(this);
-      if (resolveResult.isErr()) return err(resolveResult.error);
-    }
-
     const nextFields = [...this.fieldsValue, field];
     const nextViewsResult = this.cloneViewsWithField(nextFields, field);
     if (nextViewsResult.isErr()) return err(nextViewsResult.error);
@@ -235,7 +230,10 @@ export class Table extends AggregateRoot<TableId> {
       props.dbTableName = this.dbTableNameValue;
     }
 
-    return Table.rehydrate(props);
+    return Table.rehydrate(props).andThen((nextTable) => {
+      if (!field.type().equals(FieldType.formula())) return ok(nextTable);
+      return resolveFormulaFields(nextTable).map(() => nextTable);
+    });
   }
 
   private cloneWithName(nextName: TableName): Result<Table, string> {

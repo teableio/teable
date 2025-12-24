@@ -6,8 +6,10 @@ import {
 } from '@tanstack/react-start/server';
 import { createServerEntry } from '@tanstack/react-start/server-entry';
 import { ensureServerOtel } from './server/otel';
+import { extractRequestContext } from './server/traceContext';
+import { applyTraceHeaders } from './server/traceResponseHeaders';
 
-ensureServerOtel();
+void ensureServerOtel();
 
 const handler = defineHandlerCallback(async (ctx) => {
   const tracer = trace.getTracer('tanstack-start');
@@ -17,6 +19,7 @@ const handler = defineHandlerCallback(async (ctx) => {
   const leaf = matches[matches.length - 1];
   const routeId = leaf?.routeId ?? url.pathname;
   const spanName = `tanstack.start ${routeId}`;
+  const parentContext = extractRequestContext(ctx.request);
 
   return tracer.startActiveSpan(
     spanName,
@@ -27,6 +30,7 @@ const handler = defineHandlerCallback(async (ctx) => {
         'http.url': url.pathname,
       },
     },
+    parentContext,
     async (span) => {
       try {
         const response = await defaultStreamHandler(ctx);
@@ -34,7 +38,7 @@ const handler = defineHandlerCallback(async (ctx) => {
         if (response.status >= 500) {
           span.setStatus({ code: SpanStatusCode.ERROR });
         }
-        return response;
+        return applyTraceHeaders(response, span.spanContext());
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         span.recordException(error instanceof Error ? error : message);

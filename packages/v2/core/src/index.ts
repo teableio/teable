@@ -2,6 +2,7 @@ export * from './commands/CreateTableCommand';
 export * from './commands/CreateTableHandler';
 export * from './commands/CreateFieldCommand';
 export * from './commands/CreateFieldHandler';
+export * from './commands/TableFieldSpecs';
 export * from './commands/DeleteTableCommand';
 export * from './commands/DeleteTableHandler';
 export * from './commands/RenameTableCommand';

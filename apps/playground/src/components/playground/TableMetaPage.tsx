@@ -19,6 +19,7 @@ import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
 
 import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown';
+import { FieldCreateDialog } from '@/components/playground/FieldCreateDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -184,11 +185,9 @@ export function TableMetaPage({
   };
 
   return (
-    <>
+    <div className="flex flex-1 flex-col overflow-hidden h-full">
       <PlaygroundHeader
         baseId={baseId}
-        tableId={tableId}
-        eventCount={eventCount}
         table={table}
         isLoading={isLoading}
         isCreating={isCreating}
@@ -200,52 +199,62 @@ export function TableMetaPage({
         onDelete={onDelete}
         onRename={onRename}
       />
-      <section className="flex-1 space-y-6 px-6 py-8">
-        {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
+      <ScrollArea className="flex-1 min-h-0" scrollHideDelay={0}>
+        <section className="space-y-4 px-4 py-4">
+          {errorMessage ? <PlaygroundErrorState message={errorMessage} /> : null}
 
-        {isInitialLoading ? (
-          <PlaygroundLoadingState />
-        ) : !table ? (
-          <PlaygroundEmptyState
-            isCreating={isCreating}
-            templates={templates}
-            onCreateTemplate={onCreateTemplate}
-          />
-        ) : (
-          <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-            <TabsList className="w-fit">
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="json">JSON</TabsTrigger>
-            </TabsList>
-            <TabsContent value="table" className="mt-0">
-              <PlaygroundMetaLayout
-                table={table}
-                baseId={baseId}
-                tableId={tableId}
-                isLoading={isLoading}
-              />
-            </TabsContent>
-            <TabsContent value="json" className="mt-0">
-              <PlaygroundJsonLayout
-                table={table}
-                tableJson={tableJson}
-                tableJsonError={tableJsonError}
-                baseId={baseId}
-                tableId={tableId}
-                isLoading={isLoading}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
-      </section>
-    </>
+          {isInitialLoading ? (
+            <PlaygroundLoadingState />
+          ) : !table ? (
+            <PlaygroundEmptyState
+              isCreating={isCreating}
+              templates={templates}
+              onCreateTemplate={onCreateTemplate}
+            />
+          ) : (
+            <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
+              <TabsList className="h-8 w-fit p-0.5 bg-transparent border-none">
+                <TabsTrigger
+                  value="table"
+                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                >
+                  Table
+                </TabsTrigger>
+                <TabsTrigger
+                  value="json"
+                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                >
+                  JSON
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="table" className="mt-0 outline-none">
+                <PlaygroundMetaLayout
+                  table={table}
+                  baseId={baseId}
+                  tableId={tableId}
+                  isLoading={isLoading}
+                />
+              </TabsContent>
+              <TabsContent value="json" className="mt-0">
+                <PlaygroundJsonLayout
+                  table={table}
+                  tableJson={tableJson}
+                  tableJsonError={tableJsonError}
+                  baseId={baseId}
+                  tableId={tableId}
+                  isLoading={isLoading}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
+        </section>
+      </ScrollArea>
+    </div>
   );
 }
 
 type PlaygroundHeaderProps = {
   baseId: string;
-  tableId: string;
-  eventCount: number | null;
   table: TableAggregate | null;
   isLoading: boolean;
   isCreating: boolean;
@@ -260,8 +269,6 @@ type PlaygroundHeaderProps = {
 
 function PlaygroundHeader({
   baseId,
-  tableId,
-  eventCount,
   table,
   isLoading,
   isCreating,
@@ -280,7 +287,6 @@ function PlaygroundHeader({
   const currentName = table ? table.name().toString() : '';
   const tableName = table ? table.name().toString() : 'Table';
   const fieldCount = table ? table.fields().length : null;
-  const viewCount = table ? table.views().length : null;
   const trimmedRename = renameValue.trim();
   const canRename =
     !!table && trimmedRename.length > 0 && trimmedRename !== currentName && !isRenaming;
@@ -317,37 +323,50 @@ function PlaygroundHeader({
   }, [renameOpen, table]);
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4 border-b border-border bg-background px-6 py-5">
-      <div className="flex flex-wrap items-start gap-3">
-        <SidebarTrigger className="shrink-0 self-start" />
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Table
-          </div>
-          <div className="flex flex-wrap items-center gap-3 text-xl font-semibold text-foreground">
-            <TableIcon className="h-5 w-5 text-muted-foreground" />
-            <span>{tableName}</span>
-            {appTableUrl ? (
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
-                <a href={appTableUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 h-3.5 w-3.5" />
-                  Open in App
-                </a>
-              </Button>
-            ) : null}
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {fieldCount !== null ? <Badge variant="outline">{fieldCount} fields</Badge> : null}
-            {viewCount !== null ? <Badge variant="outline">{viewCount} views</Badge> : null}
-            {eventCount !== null ? <Badge variant="outline">events {eventCount}</Badge> : null}
-          </div>
+    <header className="flex h-12 shrink-0 items-center justify-between gap-4 border-b border-border bg-background px-4">
+      <div className="flex items-center gap-2">
+        <SidebarTrigger className="-ml-1" />
+        <div className="h-4 w-px bg-border mx-1" />
+        <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <TableIcon className="h-4 w-4 text-muted-foreground" />
+          <span>{tableName}</span>
+          {appTableUrl ? (
+            <Button variant="ghost" size="icon-sm" className="h-6 w-6" asChild>
+              <a href={appTableUrl} target="_blank" rel="noreferrer" title="Open in App">
+                <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            </Button>
+          ) : null}
+        </div>
+        <div className="ml-2 flex items-center gap-1.5">
+          {fieldCount !== null ? (
+            <Badge
+              variant="secondary"
+              className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            >
+              {fieldCount} fields
+            </Badge>
+          ) : null}
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button variant="secondary" disabled={!table || isLoading} onClick={onRefresh}>
-          <RefreshCcw className="mr-2 h-4 w-4" />
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs font-normal"
+          disabled={!table || isLoading}
+          onClick={onRefresh}
+        >
+          <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />
           Refresh
         </Button>
+        {table && (
+          <FieldCreateDialog
+            baseId={baseId}
+            tableId={table.id().toString()}
+            onSuccess={onRefresh}
+          />
+        )}
         <CreateTableDropdown
           templates={templates}
           isCreating={isCreating}
@@ -357,30 +376,37 @@ function PlaygroundHeader({
         />
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" aria-label="Table actions" disabled={!table}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="h-8 w-8"
+              aria-label="Table actions"
+              disabled={!table}
+            >
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-40">
             <DropdownMenuItem
               disabled={!table || isRenaming}
+              className="text-xs py-1.5"
               onSelect={(event) => {
                 event.preventDefault();
                 setRenameOpen(true);
               }}
             >
-              <Pencil className="mr-2 h-4 w-4" />
+              <Pencil className="mr-2 h-3.5 w-3.5" />
               Rename table
             </DropdownMenuItem>
             <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
+              className="text-xs py-1.5 text-destructive focus:text-destructive"
               disabled={!canDelete}
               onSelect={(event) => {
                 event.preventDefault();
                 setDeleteOpen(true);
               }}
             >
-              <Trash2 className="mr-2 h-4 w-4" />
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
               Delete table
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -614,15 +640,25 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <TableIcon className="h-5 w-5 text-muted-foreground" />
+      <CardHeader className="py-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <TableIcon className="h-4 w-4 text-muted-foreground" />
           {table.name().toString()}
-          <Badge variant="secondary">{fields.length} fields</Badge>
+          <Badge
+            variant="secondary"
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {fields.length} fields
+          </Badge>
         </CardTitle>
         <CardAction>
-          <Button variant="outline" size="sm" onClick={handleCopyTableJson}>
-            <Copy className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs font-normal"
+            onClick={handleCopyTableJson}
+          >
+            <Copy className="h-3.5 w-3.5" />
             Copy JSON
           </Button>
         </CardAction>
@@ -685,16 +721,31 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
 
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="border-b border-border/60">
-        <CardTitle className="flex items-center gap-3 text-lg">
-          <FileJson className="h-5 w-5 text-muted-foreground" />
+      <CardHeader className="border-b border-border/60 py-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <FileJson className="h-4 w-4 text-muted-foreground" />
           Table JSON
-          <Badge variant="secondary">{table.fields().length} fields</Badge>
-          <Badge variant="outline">{table.views().length} views</Badge>
+          <Badge
+            variant="secondary"
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {table.fields().length} fields
+          </Badge>
+          <Badge
+            variant="outline"
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {table.views().length} views
+          </Badge>
         </CardTitle>
         <CardAction>
-          <Button variant="outline" size="sm" onClick={handleCopyTableJson}>
-            <Copy className="h-4 w-4" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs font-normal"
+            onClick={handleCopyTableJson}
+          >
+            <Copy className="h-3.5 w-3.5" />
             Copy JSON
           </Button>
         </CardAction>
@@ -745,8 +796,8 @@ function TableViewsCard({ views }: TableViewsCardProps) {
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Views</CardTitle>
+      <CardHeader className="py-3">
+        <CardTitle className="text-sm font-semibold">Views</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {viewLabels.length ? (
@@ -855,25 +906,30 @@ function TableConnectionCard({ baseId, tableId, table, isLoading }: TableConnect
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Connection</CardTitle>
+      <CardHeader className="py-3">
+        <CardTitle className="text-sm font-semibold">Connection</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-2 text-sm text-muted-foreground">
+      <CardContent className="space-y-2 text-xs text-muted-foreground">
         <div className="flex items-center justify-between">
           <span>Base ID</span>
-          <code className="text-xs text-foreground">{baseIdValue || baseId}</code>
+          <code className="text-[11px] text-foreground font-mono">{baseIdValue || baseId}</code>
         </div>
         <div className="flex items-center justify-between">
           <span>Table ID</span>
-          <code className="text-xs text-foreground">{resolvedTableId}</code>
+          <code className="text-[11px] text-foreground font-mono">{resolvedTableId}</code>
         </div>
         <div className="flex items-center justify-between">
           <span>DB Table</span>
-          <code className="text-xs text-foreground">{dbTableName ?? '-'}</code>
+          <code className="text-[11px] text-foreground font-mono">{dbTableName ?? '-'}</code>
         </div>
         <div className="flex items-center justify-between">
           <span>Status</span>
-          <Badge variant="outline">{isLoading ? 'loading' : 'ready'}</Badge>
+          <Badge
+            variant="outline"
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {isLoading ? 'loading' : 'ready'}
+          </Badge>
         </div>
       </CardContent>
     </Card>

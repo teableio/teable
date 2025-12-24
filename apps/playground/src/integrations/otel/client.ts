@@ -1,6 +1,7 @@
 import { ORPCInstrumentation } from '@orpc/otel';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
 import { registerInstrumentations } from '@opentelemetry/instrumentation';
+import { FetchInstrumentation } from '@opentelemetry/instrumentation-fetch';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import {
   BatchSpanProcessor,
@@ -64,7 +65,15 @@ export const initClientOtel = () => {
 
   provider.register();
 
+  const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const corsUrls = [new RegExp(`^${escapeRegExp(window.location.origin)}`)];
+
   registerInstrumentations({
-    instrumentations: [new ORPCInstrumentation()],
+    instrumentations: [
+      new ORPCInstrumentation(),
+      new FetchInstrumentation({
+        propagateTraceHeaderCorsUrls: corsUrls,
+      }),
+    ],
   });
 };

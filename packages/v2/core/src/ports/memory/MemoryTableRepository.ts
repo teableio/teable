@@ -55,9 +55,7 @@ export class MemoryTableRepository implements ITableRepository {
     const current = this.savedTables[index];
     const mutateResult = mutateSpec.mutate(current);
     if (mutateResult.isErr()) return err(mutateResult.error);
-    const nextTable = mutateResult.value;
-    nextTable.pullDomainEvents();
-    this.savedTables[index] = nextTable;
+    this.savedTables[index] = table;
     return ok(undefined);
   }
 

@@ -1,4 +1,4 @@
-import { v2Tracer } from './otel';
+import { ensureServerOtel, v2Tracer } from './otel';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import { PinoLoggerAdapter, v2PinoLogger } from '@teable/v2-adapter-logger-pino';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
@@ -69,6 +69,7 @@ const ensurePlaygroundSeed = async (container: DependencyContainer): Promise<voi
 export const createPlaygroundContainer = async (): Promise<DependencyContainer> => {
   if (!containerPromise) {
     containerPromise = (async () => {
+      await ensureServerOtel();
       const connectionString = resolveConnectionString();
       if (!connectionString) {
         throw new Error('Missing DATABASE_URL for playground container (.env or .env.development)');

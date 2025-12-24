@@ -91,10 +91,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     if (statementsResult.value.length === 0) return ok(undefined);
 
     try {
-      const compiled = combineCompiledQueries(
+      const batch = combineCompiledQueriesAsSql(
         statementsResult.value.map((statement) => statement.compile())
       );
-      await db.executeQuery(compiled);
+      await batch.execute(db);
     } catch (error) {
       return err(`Failed to update table schema: ${describeError(error)}`);
     }
@@ -135,23 +135,32 @@ const describeError = (error: unknown): string => {
   }
 };
 
-const combineCompiledQueries = (compiled: ReadonlyArray<CompiledQuery>): CompiledQuery => {
-  const first = compiled[0]!;
-  let offset = 0;
-  const parameters: unknown[] = [];
-  const sqlStatements = compiled.map((query) => {
-    const adjusted = offset === 0 ? query.sql : adjustPlaceholders(query.sql, offset);
-    parameters.push(...query.parameters);
-    offset += query.parameters.length;
-    return adjusted;
-  });
-  return {
-    ...first,
-    sql: sqlStatements.join(';\n'),
-    parameters: parameters,
-  };
+const combineCompiledQueriesAsSql = (
+  compiled: ReadonlyArray<CompiledQuery>
+): ReturnType<typeof sql> => {
+  const statements = compiled.map(compileWithLiterals);
+  return sql.join(statements, sql.raw(';\n'));
 };
 
-const adjustPlaceholders = (sqlText: string, offset: number): string => {
-  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + offset}`);
+const compileWithLiterals = (compiled: CompiledQuery): ReturnType<typeof sql> => {
+  const parts: Array<ReturnType<typeof sql>> = [];
+  const parameters = compiled.parameters;
+  let lastIndex = 0;
+  const placeholder = /\$(\d+)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = placeholder.exec(compiled.sql)) !== null) {
+    const before = compiled.sql.slice(lastIndex, match.index);
+    if (before) parts.push(sql.raw(before));
+    const parameterIndex = Number(match[1]) - 1;
+    const value = parameters[parameterIndex] ?? null;
+    parts.push(sql.lit(value));
+    lastIndex = match.index + match[0].length;
+  }
+
+  const tail = compiled.sql.slice(lastIndex);
+  if (tail) parts.push(sql.raw(tail));
+  if (parts.length === 0) return sql.raw(compiled.sql);
+
+  return sql.join(parts, sql.raw(''));
 };

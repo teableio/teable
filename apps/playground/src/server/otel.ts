@@ -49,10 +49,14 @@ const resourceAttributes = {
 
 const globalAny = globalThis as typeof globalThis & {
   __teablePlaygroundOtelSdk?: NodeSDK;
+  __teablePlaygroundOtelStart?: Promise<NodeSDK>;
 };
 
-export const ensureServerOtel = () => {
-  if (globalAny.__teablePlaygroundOtelSdk) return globalAny.__teablePlaygroundOtelSdk;
+export const ensureServerOtel = async (): Promise<NodeSDK> => {
+  if (globalAny.__teablePlaygroundOtelStart) return globalAny.__teablePlaygroundOtelStart;
+  if (globalAny.__teablePlaygroundOtelSdk) {
+    return Promise.resolve(globalAny.__teablePlaygroundOtelSdk);
+  }
 
   const sdkOptions = {
     resource: resourceFromAttributes(resourceAttributes),
@@ -64,10 +68,13 @@ export const ensureServerOtel = () => {
 
   const sdk = new NodeSDK(traceExporter ? { ...sdkOptions, traceExporter } : sdkOptions);
 
-  Promise.resolve()
-    .then(() => sdk.start())
-    .catch((err) => console.error('Playground OTEL start error', err));
   globalAny.__teablePlaygroundOtelSdk = sdk;
+  globalAny.__teablePlaygroundOtelStart = Promise.resolve(sdk.start())
+    .then(() => sdk)
+    .catch((err) => {
+      console.error('Playground OTEL start error', err);
+      return sdk;
+    });
 
   const shutdown = () =>
     sdk.shutdown().then(
@@ -78,7 +85,7 @@ export const ensureServerOtel = () => {
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 
-  return sdk;
+  return globalAny.__teablePlaygroundOtelStart;
 };
 
 class OpenTelemetrySpan implements ISpan {
@@ -114,4 +121,4 @@ export class OpenTelemetryTracer implements ITracer {
 
 export const v2Tracer = new OpenTelemetryTracer('v2-core');
 
-ensureServerOtel();
+void ensureServerOtel();

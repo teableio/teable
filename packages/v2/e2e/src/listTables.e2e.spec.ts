@@ -13,6 +13,7 @@ describe('v2 http listTables (e2e)', () => {
   let baseUrl: string;
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
+  let fieldIdCounter = 0;
 
   const createTable = async (name: string) => {
     const response = await fetch(`${baseUrl}/tables/create`, {
@@ -22,6 +23,43 @@ describe('v2 http listTables (e2e)', () => {
         baseId,
         name,
         fields: [{ type: 'singleLineText', name: 'Name' }],
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    const rawBody = await response.json();
+    const parsed = createTableOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) {
+      throw new Error('Failed to parse create table response');
+    }
+  };
+
+  const createFieldId = () => {
+    const suffix = fieldIdCounter.toString(36).padStart(16, '0');
+    fieldIdCounter += 1;
+    return `fld${suffix}`;
+  };
+
+  const createFormulaTable = async (name: string) => {
+    const amountFieldId = createFieldId();
+    const scoreFieldId = createFieldId();
+    const response = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name,
+        fields: [
+          { type: 'singleLineText', name: 'Name' },
+          { type: 'number', id: amountFieldId, name: 'Amount' },
+          {
+            type: 'formula',
+            id: scoreFieldId,
+            name: 'Score',
+            options: { expression: `{${amountFieldId}} * 2` },
+          },
+        ],
       }),
     });
 
@@ -134,5 +172,33 @@ describe('v2 http listTables (e2e)', () => {
 
     const names = body.data.tables.map((table) => table.name);
     expect(names).toEqual(['Alpha']);
+  });
+
+  it('lists tables that include formula fields', async () => {
+    await createFormulaTable('Formula List');
+
+    const params = new URLSearchParams({
+      baseId,
+      sortBy: 'name',
+      sortDirection: 'asc',
+    });
+
+    const response = await fetch(`${baseUrl}/tables/list?${params.toString()}`, {
+      method: 'GET',
+    });
+
+    expect(response.status).toBe(200);
+
+    const rawBody = await response.json();
+    const parsed = listTablesOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success) return;
+    const body = parsed.data;
+
+    expect(body.ok).toBe(true);
+    if (!body.ok) return;
+
+    const table = body.data.tables.find((item) => item.name === 'Formula List');
+    expect(table).toBeTruthy();
   });
 });
