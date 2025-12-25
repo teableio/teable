@@ -286,7 +286,6 @@ export class SsrApi {
   }
 
   async getBaseNodeList(baseId: string) {
-    console.log('xxxxxx getBaseNodeList', baseId);
     return this.axios
       .get<IBaseNodeListVo>(urlBuilder(GET_BASE_NODE_LIST, { baseId }))
       .then(({ data }) => data);
