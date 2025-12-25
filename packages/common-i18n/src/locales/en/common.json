@@ -897,5 +897,11 @@
     "description": "Configure the v0 API Key to enable App builder capabilities. Access <a>v0 setting</a> to obtain your API Key",
     "previewAppError": "App running error",
     "sendErrorToAI": "Send error to AI"
+  },
+  "baseDropdown": {
+    "backToSpace": "Back to space",
+    "credits": "Credits & Billing",
+    "creditsLeft": "left",
+    "winFreeCredits": "Win free credits"
   }
 }

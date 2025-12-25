@@ -1095,6 +1095,12 @@ export type I18nTranslations = {
         "base": {
             "deleteTip": string;
         };
+        "baseDropdown": {
+            "backToSpace": string;
+            "credits": string;
+            "creditsLeft": string;
+            "winFreeCredits": string;
+        };
         "allNodes": string;
         "noDescription": string;
         "noPermissionToCreateBase": string;

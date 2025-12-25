@@ -259,22 +259,6 @@ const RightMenu = ({ className }: { className?: string }) => {
               </SheetContent>
             </Sheet>
           )}
-          <Button asChild variant="ghost" size="xs" className="flex justify-start">
-            <Link
-              href={{
-                pathname: '/base/[baseId]/design',
-                query: { baseId: base.id, tableId },
-              }}
-              title={t('common:noun.design')}
-            >
-              <Settings className="size-4" /> {t('common:noun.design')}
-            </Link>
-          </Button>
-          <Button asChild variant="ghost" size="xs" className="flex justify-start">
-            <a href={t('help.mainLink')} title={t('help.title')} target="_blank" rel="noreferrer">
-              <HelpCircle className="size-4" /> {t('help.title')}
-            </a>
-          </Button>
         </div>
       </PopoverContent>
     </Popover>

@@ -701,5 +701,11 @@
   },
   "base": {
     "deleteTip": "「{{name}}」ベースを削除してもよろしいですか？"
+  },
+  "baseDropdown": {
+    "backToSpace": "スペースに戻る",
+    "credits": "クレジット＆請求",
+    "creditsLeft": "残り",
+    "winFreeCredits": "無料クレジットを獲得"
   }
 }

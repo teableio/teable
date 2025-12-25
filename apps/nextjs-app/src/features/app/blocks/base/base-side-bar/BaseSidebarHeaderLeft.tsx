@@ -1,19 +1,119 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { hasPermission } from '@teable/core';
-import { ChevronsLeft, ChevronDown, Menu } from '@teable/icons';
-import { CollaboratorType, deleteBase, permanentDeleteBase, updateBase } from '@teable/openapi';
+import { ChevronsLeft, ChevronDown, HelpCircle, Pencil } from '@teable/icons';
+import { CollaboratorType, updateBase } from '@teable/openapi';
 import { ReactQueryKeys } from '@teable/sdk/config';
 import { useBase } from '@teable/sdk/hooks';
 import { useIsTemplate } from '@teable/sdk/hooks/use-is-template';
-import { Button, cn, Input } from '@teable/ui-lib';
+import {
+  cn,
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  Input,
+  DropdownMenuSeparator,
+} from '@teable/ui-lib';
+import { ArrowLeft, Send } from 'lucide-react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import { useRef, useState } from 'react';
 import { TeableLogo } from '@/components/TeableLogo';
 import { Emoji } from '@/features/app/components/emoji/Emoji';
-import { BaseActionTrigger } from '../../space/component/BaseActionTrigger';
-import { BaseListTrigger } from '../../space/component/BaseListTrigger';
+import { useIsCloud } from '@/features/app/hooks/useIsCloud';
+import { tableConfig } from '@/features/i18n/table.config';
+import { PublishBaseDialog } from '../../table/table-header/publish-base/PublishBaseDialog';
 
-export const BaseSidebarHeaderLeft = () => {
+const BaseDropdownMenu = ({
+  children,
+  showRename,
+  onRename,
+  backSpace,
+  creditUsage,
+  winFreeCredit,
+}: {
+  children: React.ReactNode;
+  showRename: boolean;
+  onRename: () => void;
+  backSpace: () => void;
+  spaceId?: string;
+  creditUsage?: React.ReactNode;
+  winFreeCredit?: React.ReactNode;
+}) => {
+  const { t } = useTranslation(tableConfig.i18nNamespaces);
+  const isCloud = useIsCloud();
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
+      <DropdownMenuContent
+        className="min-w-[220px]"
+        align="start"
+        alignOffset={8}
+        sideOffset={4}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DropdownMenuItem onClick={backSpace}>
+          <div className="flex w-full cursor-pointer items-center gap-2">
+            <ArrowLeft className="size-4" />
+            {t('common:baseDropdown.backToSpace')}
+          </div>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        {isCloud && creditUsage && (
+          <>
+            {creditUsage && <DropdownMenuItem>{creditUsage}</DropdownMenuItem>}
+            {winFreeCredit && <DropdownMenuItem>{winFreeCredit}</DropdownMenuItem>}
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {showRename && (
+          <DropdownMenuItem onClick={onRename}>
+            <div className="flex w-full cursor-pointer items-center gap-2">
+              <Pencil className="size-4" />
+              {t('actions.rename')}
+            </div>
+          </DropdownMenuItem>
+        )}
+        <PublishBaseDialog
+          onClose={() => {
+            console.log('close');
+          }}
+          closeOnSuccess={false}
+        >
+          <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+            <div className="flex w-full cursor-pointer items-center gap-2">
+              <Send className="size-4" />
+              {t('space:publishBase.publishToCommunity')}
+            </div>
+          </DropdownMenuItem>
+        </PublishBaseDialog>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link
+            href={t('help.mainLink')}
+            title={t('help.title')}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full cursor-pointer items-center gap-2"
+          >
+            <HelpCircle className="size-4" />
+            {t('help.title')}
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
+
+export const BaseSidebarHeaderLeft = ({
+  creditUsage,
+  winFreeCredit,
+}: {
+  creditUsage?: React.ReactNode;
+  winFreeCredit?: React.ReactNode;
+}) => {
   const base = useBase();
   const router = useRouter();
   const [renaming, setRenaming] = useState<boolean>();
@@ -26,17 +126,6 @@ export const BaseSidebarHeaderLeft = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: ReactQueryKeys.base(base.id),
-      });
-    },
-  });
-
-  const { mutate: deleteBaseMutator } = useMutation({
-    mutationFn: ({ baseId, permanent }: { baseId: string; permanent?: boolean }) =>
-      permanent ? permanentDeleteBase(baseId) : deleteBase(baseId),
-    onSuccess: () => {
-      router.push({
-        pathname: '/space/[spaceId]',
-        query: { spaceId: base.spaceId },
       });
     },
   });
@@ -57,8 +146,6 @@ export const BaseSidebarHeaderLeft = () => {
   };
 
   const hasUpdatePermission = hasPermission(base.role, 'base|update');
-  const hasDeletePermission = hasPermission(base.role, 'base|delete');
-  const hasMovePermission = hasPermission(base.role, 'space|create');
 
   const backSpace = () => {
     if (isTemplate) {
@@ -126,35 +213,23 @@ export const BaseSidebarHeaderLeft = () => {
             />
           </form>
         ) : (
-          <p className="shrink truncate text-sm" title={base.name}>
-            {base.name}
-          </p>
-        )}
-        {!isTemplate && (
-          <BaseActionTrigger
-            base={base}
+          <BaseDropdownMenu
+            backSpace={backSpace}
             showRename={hasUpdatePermission}
-            showDuplicate={hasUpdatePermission}
-            showDelete={hasDeletePermission}
-            showExport={hasUpdatePermission}
-            showMove={hasMovePermission}
-            onDelete={(permanent) => deleteBaseMutator({ baseId: base.id, permanent })}
             onRename={onRename}
-            align="start"
+            spaceId={base.spaceId}
+            creditUsage={creditUsage}
+            winFreeCredit={winFreeCredit}
           >
-            <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
+            <div className="flex h-7 items-center gap-2">
+              <span className="shrink truncate text-sm" title={base.name}>
+                {base.name}
+              </span>
               <ChevronDown className="size-4" />
-            </Button>
-          </BaseActionTrigger>
+            </div>
+          </BaseDropdownMenu>
         )}
       </div>
-      {!isTemplate && (
-        <BaseListTrigger spaceId={base.spaceId} collaboratorType={base.collaboratorType}>
-          <Button className="h-7 w-5 shrink-0 px-0" size="xs" variant="ghost">
-            <Menu className="size-4" />
-          </Button>
-        </BaseListTrigger>
-      )}
     </div>
   );
 };

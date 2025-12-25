@@ -894,5 +894,11 @@
     "description": "配置 v0 API 密钥以启用应用构建器功能，访问 <a>v0 设置</a> 获取 API 密钥",
     "previewAppError": "应用运行报错",
     "sendErrorToAI": "将错误发送给 AI"
+  },
+  "baseDropdown": {
+    "backToSpace": "返回空间",
+    "credits": "额度与账单",
+    "creditsLeft": "剩余",
+    "winFreeCredits": "获取免费额度"
   }
 }

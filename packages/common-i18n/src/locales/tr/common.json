@@ -716,5 +716,11 @@
   },
   "base": {
     "deleteTip": "\"{{name}}\" veritabanını silmek istediğinizden emin misiniz?"
+  },
+  "baseDropdown": {
+    "backToSpace": "Alana geri dön",
+    "credits": "Krediler ve Faturalama",
+    "creditsLeft": "kaldı",
+    "winFreeCredits": "Ücretsiz kredi kazan"
   }
 }

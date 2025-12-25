@@ -701,5 +701,11 @@
   },
   "base": {
     "deleteTip": "¿Estás seguro de que quieres eliminar \"{{name}}\" base?"
+  },
+  "baseDropdown": {
+    "backToSpace": "Volver al espacio",
+    "credits": "Créditos y Facturación",
+    "creditsLeft": "restantes",
+    "winFreeCredits": "Ganar créditos gratis"
   }
 }
