@@ -212,6 +212,7 @@ const RightMenu = ({ className }: { className?: string }) => {
               name: base.name,
               role: base.role,
               id: base.id,
+              enabledAuthority: base.enabledAuthority,
             }}
           >
             <Button variant="ghost" size="xs" className="flex justify-start">
