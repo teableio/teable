@@ -52,13 +52,6 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
     },
   });
 
-  const onSpaceSetting = () => {
-    router.push({
-      pathname: '/space/[spaceId]/setting/general',
-      query: { spaceId: space.id },
-    });
-  };
-
   if (!Object.values(menuPermission).some(Boolean)) {
     return null;
   }
@@ -75,12 +68,10 @@ export const SpaceOperation = (props: ISpaceOperationProps) => {
         space={space}
         showRename={menuPermission.spaceUpdate}
         showDelete={menuPermission.spaceDelete}
-        showSpaceSetting={menuPermission.spaceUpdate}
         showImportBase={menuPermission.spaceUpdate}
         onDelete={() => deleteSpaceMutator(space.id)}
         onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
         onRename={onRename}
-        onSpaceSetting={onSpaceSetting}
         open={open}
         setOpen={setOpen}
         onImportBase={onImportBase}

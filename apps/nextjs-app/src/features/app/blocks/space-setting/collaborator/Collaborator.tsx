@@ -25,8 +25,9 @@ export const Collaborator = (props: ICollaboratorProps) => {
   });
 
   const { data: collaborators } = useQuery({
-    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId),
-    queryFn: ({ queryKey }) => getSpaceCollaboratorList(queryKey[1]).then((res) => res.data),
+    queryKey: ReactQueryKeys.spaceCollaboratorList(spaceId, { includeBase: true }),
+    queryFn: ({ queryKey }) =>
+      getSpaceCollaboratorList(queryKey[1], { includeBase: true }).then((res) => res.data),
   });
 
   return (
@@ -42,7 +43,7 @@ export const Collaborator = (props: ICollaboratorProps) => {
       }
     >
       {isHydrated && !!space && (
-        <div className="w-full py-4">
+        <div className="size-full py-4">
           <Collaborators
             spaceId={spaceId}
             role={space.role}

@@ -51,6 +51,9 @@ export const SpaceInnerSideBar = (props: {
     createBaseMutator({ spaceId, name });
   };
 
+  const canCreateBase = space && hasPermission(space?.role, 'base|create');
+  const canUpdateSpace = space && hasPermission(space.role, 'space|update');
+
   const pageRoutes: {
     href: string;
     text: string;
@@ -64,13 +67,11 @@ export const SpaceInnerSideBar = (props: {
     },
     {
       href: `/space/${spaceId}/setting/general`,
-      text: t('space:spaceSetting.title'),
+      text: t('space:spaceSetting.title') + ' to delete',
       Icon: Settings,
-      hidden: !isAdmin,
+      hidden: !canUpdateSpace,
     },
   ];
-
-  const canCreateBase = space && hasPermission(space?.role, 'base|create');
 
   return (
     <>
@@ -111,7 +112,7 @@ export const SpaceInnerSideBar = (props: {
               </li>
             );
           })}
-          {renderSettingModal && (
+          {canUpdateSpace && renderSettingModal && (
             <li key="settings">
               {renderSettingModal(
                 <Button
