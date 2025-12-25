@@ -450,6 +450,7 @@ export type I18nTranslations = {
                     "featured": string;
                     "createdBy": string;
                     "userNonExistent": string;
+                    "preview": string;
                 };
                 "title": string;
                 "noData": string;
@@ -484,6 +485,7 @@ export type I18nTranslations = {
                     "pinTop": string;
                     "addCategory": string;
                     "selectCategory": string;
+                    "viewTemplate": string;
                 };
                 "relatedTemplates": string;
                 "noImage": string;

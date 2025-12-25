@@ -1,7 +1,7 @@
 import type { DropResult } from '@hello-pangea/dnd';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle } from '@teable/icons';
+import { MoreHorizontal, Trash2, ArrowUp, DraggableHandle, Link } from '@teable/icons';
 import type { ITemplateCoverRo, IUpdateTemplateRo } from '@teable/openapi';
 import {
   createTemplateSnapshot,
@@ -258,16 +258,18 @@ export const TemplateTable = () => {
         <TableCell className="text-center align-middle">
           <TemplateTooltips
             content={t('settings.templateAdmin.tips.needPublish')}
-            disabled={!row.snapshot || !row.name || !row.description}
+            disabled={!row.isPublished}
           >
-            <Switch
-              className="scale-80"
-              defaultChecked={Boolean(row.featured)}
-              disabled={!row.isPublished}
-              onCheckedChange={(checked: boolean) => {
-                handleFeaturedTemplate(row?.id, checked);
-              }}
-            />
+            <div>
+              <Switch
+                className="scale-80"
+                defaultChecked={Boolean(row.featured)}
+                disabled={!row.isPublished}
+                onCheckedChange={(checked: boolean) => {
+                  handleFeaturedTemplate(row?.id, checked);
+                }}
+              />
+            </div>
           </TemplateTooltips>
         </TableCell>
         <TableCell className="text-center align-middle">
@@ -275,14 +277,16 @@ export const TemplateTable = () => {
             content={t('settings.templateAdmin.tips.needSnapshot')}
             disabled={!row.snapshot || !row.name || !row.description}
           >
-            <Switch
-              className="scale-80"
-              defaultChecked={Boolean(row.isPublished)}
-              disabled={!row.snapshot || !row.name || !row.description}
-              onCheckedChange={(checked: boolean) => {
-                handlePublishTemplate(row?.id, checked);
-              }}
-            />
+            <div>
+              <Switch
+                className="scale-80"
+                defaultChecked={Boolean(row.isPublished)}
+                disabled={!row.snapshot || !row.name || !row.description}
+                onCheckedChange={(checked: boolean) => {
+                  handlePublishTemplate(row?.id, checked);
+                }}
+              />
+            </div>
           </TemplateTooltips>
         </TableCell>
         <TableCell>
@@ -356,6 +360,34 @@ export const TemplateTable = () => {
             </span>
           )}
         </TableCell>
+        <TableCell className="text-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size={'xs'}
+                  disabled={!row.snapshot?.baseId}
+                  onClick={() => {
+                    const defaultUrl = row.publishInfo?.defaultUrl;
+                    const url =
+                      defaultUrl || (row.snapshot?.baseId ? `/base/${row.snapshot.baseId}` : '');
+                    if (url) {
+                      window.open(`${window.location.origin}${url}`, '_blank');
+                    }
+                  }}
+                >
+                  <Link className="size-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipPortal>
+                <TooltipContent>
+                  <p>{t('settings.templateAdmin.actions.viewTemplate')}</p>
+                </TooltipContent>
+              </TooltipPortal>
+            </Tooltip>
+          </TooltipProvider>
+        </TableCell>
         <TableCell>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -428,6 +460,9 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.createdBy')}
+            </TableHead>
+            <TableHead className="text-center">
+              {t('settings.templateAdmin.header.preview')}
             </TableHead>
             <TableHead>{t('settings.templateAdmin.header.actions')}</TableHead>
           </TableRow>

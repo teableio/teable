@@ -37,7 +37,7 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import confetti from 'canvas-confetti';
-import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
+import { Camera, Send, Copy } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
@@ -47,6 +47,12 @@ import { NodeSelect } from './NodeSelect';
 import { NodeTreeSelect } from './NodeTreeSelect';
 
 const attachmentManager = new AttachmentManager(1);
+
+const generateShareUrl = (defaultUrl?: string, snapshotBaseId?: string): string => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const relativeUrl = defaultUrl || (snapshotBaseId && `/base/${snapshotBaseId}`) || '';
+  return relativeUrl ? `${origin}${relativeUrl}` : '';
+};
 
 interface IPublishBaseDialogProps {
   children: React.ReactNode;
@@ -112,6 +118,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         setHasLoadedTemplate(true);
       }
       setIncludeData(data?.publishInfo?.includeData ?? true);
+      setShareUrl(generateShareUrl(data?.publishInfo?.defaultUrl, data?.snapshot?.baseId));
     },
   });
 
@@ -162,10 +169,8 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       setUploadedCover(null);
       // Close the publish dialog and show success dialog
       setOpen(false);
-      // Generate share URL based on baseId
-      const origin = typeof window !== 'undefined' ? window.location.origin : '';
-      const url = defaultUrl || `/base/${templateBaseId}`;
-      setShareUrl(`${origin}${url}`);
+      // Generate share URL
+      setShareUrl(generateShareUrl(defaultUrl, templateBaseId));
       setSuccessDialogOpen(true);
       // Trigger fireworks effect
       fireConfetti();
@@ -302,10 +307,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(shareUrl);
     toast.success(t('publishBase.urlCopied'));
-  };
-
-  const handleOpenUrl = () => {
-    window.open(shareUrl, '_blank');
   };
 
   const handleShareToX = () => {
@@ -470,6 +471,20 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
             </div>
 
             <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
+              {templateDetail?.isPublished && (
+                <div className="absolute left-1/2 top-6 z-50 flex max-w-[480px] -translate-x-1/2 items-center gap-2 overflow-hidden rounded-md border bg-background px-3 py-1 shadow-md">
+                  <div className="truncate text-sm text-muted-foreground">{shareUrl}</div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="size-8 shrink-0 p-0"
+                    onClick={handleCopyUrl}
+                  >
+                    <Copy className="size-4" />
+                  </Button>
+                </div>
+              )}
+
               <input
                 ref={uploadRef}
                 type="file"
@@ -588,9 +603,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               </div>
               <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleCopyUrl}>
                 <Copy className="size-4" />
-              </Button>
-              <Button size="sm" variant="outline" className="size-9 p-0" onClick={handleOpenUrl}>
-                <ExternalLink className="size-4" />
               </Button>
             </div>
 

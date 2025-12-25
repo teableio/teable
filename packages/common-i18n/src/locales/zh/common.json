@@ -139,7 +139,8 @@
         "actions": "操作",
         "featured": "推荐",
         "createdBy": "创建者",
-        "userNonExistent": "用户不存在"
+        "userNonExistent": "用户不存在",
+        "preview": "预览"
       },
       "actions": {
         "title": "操作",
@@ -150,7 +151,8 @@
         "use": "使用",
         "pinTop": "置顶",
         "addCategory": "添加分类",
-        "selectCategory": "选择分类"
+        "selectCategory": "选择分类",
+        "viewTemplate": "查看模板"
       },
       "relatedTemplates": "相关模板",
       "noImage": "暂无图片",

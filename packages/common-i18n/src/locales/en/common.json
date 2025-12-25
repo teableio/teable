@@ -139,7 +139,8 @@
         "actions": "Actions",
         "featured": "Featured",
         "createdBy": "Created by",
-        "userNonExistent": "User non-existent"
+        "userNonExistent": "User non-existent",
+        "preview": "Preview"
       },
       "actions": {
         "title": "Actions",
@@ -150,7 +151,8 @@
         "use": "Use",
         "pinTop": "Pin top",
         "addCategory": "Add category",
-        "selectCategory": "Select category"
+        "selectCategory": "Select category",
+        "viewTemplate": "View template"
       },
       "relatedTemplates": "Related Templates",
       "noImage": "No image",
