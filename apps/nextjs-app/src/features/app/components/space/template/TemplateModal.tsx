@@ -47,14 +47,7 @@ export const TemplateModal = (props: TemplateModalProps) => {
   ) : (
     <Dialog>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent
-        className={cn(
-          'flex h-[85%] max-h-[85%] max-w-[80%] flex-col gap-0 p-0 transition-[max-width] duration-300',
-          {
-            'max-w-7xl': currentTemplateId,
-          }
-        )}
-      >
+      <DialogContent className="flex h-[85%] max-h-[85%] max-w-7xl flex-col gap-0 p-0 transition-[max-width] duration-300">
         <DialogHeader className="flex w-full border-b p-4">
           <div className="relative flex w-full items-center justify-center gap-2">
             <div className="absolute left-0 flex shrink-0 flex-col gap-0.5">
