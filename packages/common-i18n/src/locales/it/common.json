@@ -312,6 +312,8 @@
     "unavailableInPlanTips": "Il piano di abbonamento attuale non supporta questa funzione",
     "unavailableConnectionTips": "La funzione di connessione al database verrà rimossa in futuro e sarà disponibile solo nella versione Enterprise e nelle versioni self-hosted.",
     "levelTips": "Questo spazio è attualmente sul piano {{level}}",
+    "billable": "Fatturabile",
+    "billableByAuthorityMatrix": "Fatturazione generata dalla matrice dei permessi",
     "licenseExpiredGracePeriod": "La tua licenza self-hosted è scaduta e verrà declassata al piano gratuito il {{expiredTime}}. Aggiorna la tua licenza tempestivamente per mantenere l'accesso alle funzionalità premium.",
     "spaceSubscriptionModal": {
       "title": "Aggiorna il piano di abbonamento dello spazio",

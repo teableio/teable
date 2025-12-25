@@ -160,6 +160,7 @@ export const Collaborators: FC<PropsWithChildren<ICollaborators>> = (props) => {
                 avatar: item.avatar,
                 id: item.userId,
                 billable: item.billable,
+                role,
               }
             : {
                 type: PrincipalType.Department as const,

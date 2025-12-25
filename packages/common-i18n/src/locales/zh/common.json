@@ -444,6 +444,7 @@
     "authorityMatrixRequiresUpgrade": "升级到企业版以启用权限矩阵",
     "viewPricing": "查看定价",
     "billable": "计费",
+    "billableByAuthorityMatrix": "由权限矩阵产生的计费",
     "licenseExpiredGracePeriod": "您的私有化部署许可证已过期，系统将在 {{expiredTime}} 降级为免费版并停用高级功能，请尽快更新许可证以保留完整功能。",
     "spaceSubscriptionModal": {
       "title": "升级空间站的订阅计划",

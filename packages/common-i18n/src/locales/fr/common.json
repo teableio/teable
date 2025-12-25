@@ -299,6 +299,8 @@
     "unavailableInPlanTips": "Le plan d'abonnement actuel ne prend pas en charge cette fonctionnalité",
     "unavailableConnectionTips": "La fonctionnalité de connexion de base de données sera supprimée et ne sera disponible que dans la version Entreprise et les versions auto-hébergées.",
     "levelTips": "Cet espace est actuellement sur le plan {{level}}",
+    "billable": "Facturable",
+    "billableByAuthorityMatrix": "Facturation générée par la matrice d'autorités",
     "licenseExpiredGracePeriod": "Votre licence auto-hébergée a expiré et sera rétrogradée au forfait gratuit le {{expiredTime}}. Veuillez mettre à jour votre licence rapidement pour conserver l'accès aux fonctionnalités premium.",
     "spaceSubscriptionModal": {
       "title": "Mettre à niveau le plan d'abonnement de l'espace",

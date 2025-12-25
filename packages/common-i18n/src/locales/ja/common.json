@@ -305,6 +305,8 @@
     "unavailableInPlanTips": "現在契約中のプランではこの機能はサポートされていません",
     "unavailableConnectionTips": "データベース接続機能は将来削除され、Enterpriseプランと自己ホストバージョンでのみ利用可能になります。",
     "levelTips": "このスペースは現在{{level}}プランにです",
+    "billable": "課金対象",
+    "billableByAuthorityMatrix": "権限マトリックスによって生成された課金",
     "licenseExpiredGracePeriod": "セルフホスト版ライセンスの有効期限が切れました。{{expiredTime}}に無料プランへダウングレードされ、プレミアム機能が利用できなくなります。完全な機能を維持するため、速やかにライセンスを更新してください。",
     "spaceSubscriptionModal": {
       "title": "スペースの契約プランをアップグレード",
