@@ -3774,12 +3774,18 @@ importers:
 
   packages/v2/test-node:
     dependencies:
+      '@teable/v2-adapter-db-postgres-pg':
+        specifier: workspace:*
+        version: link:../adapter-db-postgres-pg
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-table-templates':
+        specifier: workspace:*
+        version: link:../table-templates
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3796,6 +3802,9 @@ importers:
       eslint:
         specifier: 8.57.0
         version: 8.57.0
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
       neverthrow:
         specifier: 8.2.0
         version: 8.2.0

@@ -24,6 +24,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldName.ts` - Role: value object; Purpose: FieldName validation and wrapping.
 - `FieldType.ts` - Role: value object; Purpose: field type enumeration wrapper.
 - `visitors/FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
+- `fieldPredicates.ts` - Role: functional utils; Purpose: predicates to check field types
 
 ## Examples
 

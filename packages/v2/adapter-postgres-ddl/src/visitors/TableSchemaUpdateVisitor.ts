@@ -6,16 +6,17 @@ import {
   TableByNameLikeSpec,
   TableByNameSpec,
   TableUpdateViewColumnMetaSpec,
-  type Field,
-  type FormulaField,
   type ITableSpecVisitor,
 } from '@teable/v2-core';
-import type { CompiledQuery, CreateTableBuilder, Kysely } from 'kysely';
-import { err, ok } from 'neverthrow';
+import type { CompiledQuery, Kysely, QueryExecutorProvider } from 'kysely';
+import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-export type TableSchemaStatementBuilder = { compile: () => CompiledQuery };
-type TableColumnDataType = Parameters<CreateTableBuilder<string, string>['addColumn']>[1];
+import { PostgresTableFieldSchemaUpdateVisitor } from './PostgresTableFieldSchemaUpdateVisitor';
+
+export type TableSchemaStatementBuilder = {
+  compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
+};
 
 type TableSchemaUpdateVisitorParams = {
   db: Kysely<unknown>;
@@ -34,20 +35,10 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    const columnNameResult = resolveColumnName(spec.field());
-    if (columnNameResult.isErr()) return err(columnNameResult.error);
-    const dataTypeResult = resolveColumnType(spec.field());
-    if (dataTypeResult.isErr()) return err(dataTypeResult.error);
-    const columnName = columnNameResult.value;
-    const dataType = dataTypeResult.value;
-
-    const schemaBuilder = this.params.schema
-      ? this.params.db.schema.withSchema(this.params.schema)
-      : this.params.db.schema;
-    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [
-      schemaBuilder.alterTable(this.params.tableName).addColumn(columnName, dataType),
-    ];
-
+    const fieldVisitor = new PostgresTableFieldSchemaUpdateVisitor(this.params);
+    const statementsResult = spec.field().accept(fieldVisitor);
+    if (statementsResult.isErr()) return err(statementsResult.error);
+    const statements = statementsResult.value;
     return this.addCond(statements).map(() => statements);
   }
 
@@ -103,58 +94,3 @@ export class TableSchemaUpdateVisitor
     return [...inner];
   }
 }
-
-const resolveColumnName = (field: Field): Result<string, string> => {
-  const columnNameResult = field.dbFieldName().andThen((name) => name.value());
-  if (columnNameResult.isErr()) {
-    return err(
-      `Missing db field name for field ${field.id().toString()}: ${columnNameResult.error}`
-    );
-  }
-  return ok(columnNameResult.value);
-};
-
-const resolveColumnType = (field: Field): Result<TableColumnDataType, string> => {
-  const fieldType = field.type().toString();
-
-  if (fieldType === 'formula') {
-    const formulaField = field as FormulaField;
-    return formulaField
-      .cellValueType()
-      .andThen((cellValueType) =>
-        formulaField
-          .isMultipleCellValue()
-          .map((isMultiple) =>
-            resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
-          )
-      );
-  }
-
-  if (['attachment', 'user', 'button', 'multipleSelect'].includes(fieldType)) {
-    return ok('jsonb');
-  }
-
-  if (fieldType === 'number' || fieldType === 'rating') return ok('double precision');
-  if (fieldType === 'date') return ok('timestamptz');
-  if (fieldType === 'checkbox') return ok('boolean');
-  return ok('text');
-};
-
-const resolveFormulaColumnType = (
-  cellValueType: string,
-  isMultiple: boolean
-): TableColumnDataType => {
-  if (isMultiple) return 'jsonb';
-
-  switch (cellValueType) {
-    case 'number':
-      return 'double precision';
-    case 'dateTime':
-      return 'timestamptz';
-    case 'boolean':
-      return 'boolean';
-    case 'string':
-    default:
-      return 'text';
-  }
-};

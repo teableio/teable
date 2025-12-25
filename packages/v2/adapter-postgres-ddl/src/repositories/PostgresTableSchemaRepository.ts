@@ -92,7 +92,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
     try {
       const batch = combineCompiledQueriesAsSql(
-        statementsResult.value.map((statement) => statement.compile())
+        statementsResult.value.map((statement) => statement.compile(db))
       );
       await batch.execute(db);
     } catch (error) {

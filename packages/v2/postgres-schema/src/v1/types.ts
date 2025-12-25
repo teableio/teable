@@ -100,10 +100,18 @@ export interface V1ViewTable {
   last_modified_by: string | null;
 }
 
+export interface V1ReferenceTable {
+  id: string;
+  from_field_id: string;
+  to_field_id: string;
+  created_time: ColumnType<Date, Date | undefined, never>;
+}
+
 export interface V1TeableDatabase {
   space: V1SpaceTable;
   base: V1BaseTable;
   table_meta: V1TableMetaTable;
   field: V1FieldTable;
   view: V1ViewTable;
+  reference: V1ReferenceTable;
 }

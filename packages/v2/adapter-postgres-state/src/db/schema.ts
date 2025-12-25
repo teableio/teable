@@ -87,6 +87,37 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('reference')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('from_field_id', 'text', (col) => col.notNull())
+    .addColumn('to_field_id', 'text', (col) => col.notNull())
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .execute();
+
+  await db.schema
+    .createIndex('reference_from_field_id_idx')
+    .ifNotExists()
+    .on('reference')
+    .column('from_field_id')
+    .execute();
+
+  await db.schema
+    .createIndex('reference_to_field_id_idx')
+    .ifNotExists()
+    .on('reference')
+    .column('to_field_id')
+    .execute();
+
+  await db.schema
+    .createIndex('reference_to_field_id_from_field_id_key')
+    .ifNotExists()
+    .on('reference')
+    .columns(['to_field_id', 'from_field_id'])
+    .unique()
+    .execute();
+
+  await db.schema
     .createTable('view')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())

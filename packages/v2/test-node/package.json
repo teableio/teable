@@ -29,8 +29,11 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
+    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
-    "@teable/v2-core": "workspace:*"
+    "@teable/v2-core": "workspace:*",
+    "@teable/v2-postgres-schema": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",
@@ -38,6 +41,7 @@
     "@types/node": "22.18.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",
+    "kysely": "0.28.9",
     "neverthrow": "8.2.0",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",

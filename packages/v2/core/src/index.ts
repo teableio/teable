@@ -100,6 +100,7 @@ export * from './domain/table/fields/types/RatingMax';
 export * from './domain/table/fields/types/SelectOptionName';
 export * from './domain/table/fields/types/SelectDefaultValue';
 export * from './domain/table/fields/types/SelectAutoNewOptions';
+export * from './domain/table/fields/fieldPredicates';
 export type { View } from './domain/table/views/View';
 export * from './domain/table/views/ViewColumnMeta';
 export * from './domain/table/views/ViewId';
@@ -147,3 +148,4 @@ export * from './domain/table/specs/TableByBaseIdSpec';
 export * from './domain/table/specs/TableSpecBuilder';
 
 export * from 'neverthrow';
+export * from 'ts-pattern';

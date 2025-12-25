@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { ValueObject } from '../../shared/ValueObject';
+import { Field } from './Field';
 
 const fieldTypeSchema = z.enum([
   'singleLineText',
@@ -83,7 +84,7 @@ export class FieldType extends ValueObject {
     return this.value === other.value;
   }
 
-  toString(): string {
+  toString(): IFieldTypeLiteral {
     return this.value;
   }
 }
