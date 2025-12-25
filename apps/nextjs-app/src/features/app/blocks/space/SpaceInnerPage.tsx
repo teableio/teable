@@ -127,13 +127,6 @@ export const SpaceInnerPage: React.FC = () => {
     setRenaming(false);
   };
 
-  const onSpaceSetting = () => {
-    router.push({
-      pathname: '/space/[spaceId]/setting/general',
-      query: { spaceId },
-    });
-  };
-
   const renderSubscription = () => {
     if (space && isCloud) {
       return (
@@ -205,7 +198,6 @@ export const SpaceInnerPage: React.FC = () => {
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
-            onSpaceSetting={onSpaceSetting}
           />
         </div>
 

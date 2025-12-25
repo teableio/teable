@@ -89,13 +89,6 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
     setRenaming(false);
   };
 
-  const onSpaceSetting = () => {
-    router.push({
-      pathname: '/space/[spaceId]/setting/general',
-      query: { spaceId: space.id },
-    });
-  };
-
   return (
     <Card className="w-full bg-muted/30 shadow-none">
       <CardHeader className="pt-5">
@@ -133,7 +126,6 @@ export const SpaceCard: FC<ISpaceCard> = (props) => {
             onDelete={() => deleteSpaceMutator(space.id)}
             onPermanentDelete={() => permanentDeleteSpaceMutator(space.id)}
             onRename={() => setRenaming(true)}
-            onSpaceSetting={onSpaceSetting}
           />
         </div>
       </CardHeader>

@@ -11,6 +11,7 @@ import { LicenseExpiryBanner } from '@/features/app/components/LicenseExpiryBann
 import { AppLayout } from '@/features/app/layouts';
 import { SpaceInnerSideBar } from '../blocks/space/space-side-bar/SpaceInnerSideBar';
 import { SpaceSwitcher } from '../blocks/space/space-side-bar/SpaceSwitcher';
+import { SpaceInnerSettingModal } from '../blocks/space-setting';
 import { Sidebar } from '../components/sidebar/Sidebar';
 import { SideBarFooter } from '../components/SideBarFooter';
 import { useSdkLocale } from '../hooks/useSdkLocale';
@@ -23,7 +24,7 @@ export const SpaceInnerLayout: React.FC<{
 }> = ({ children, user, dehydratedState }) => {
   const sdkLocale = useSdkLocale();
   const { i18n } = useTranslation();
-  const { spaceId } = useParams();
+  const { spaceId } = useParams<{ spaceId: string }>();
 
   useEffect(() => {
     if (!spaceId || !isString(spaceId)) {
@@ -36,6 +37,10 @@ export const SpaceInnerLayout: React.FC<{
     });
   }, [spaceId]);
 
+  const renderSettingModal = (children: React.ReactNode) => {
+    return <SpaceInnerSettingModal spaceId={spaceId}>{children}</SpaceInnerSettingModal>;
+  };
+
   return (
     <AppLayout>
       <SpacePageTitle dehydratedState={dehydratedState} />
@@ -47,7 +52,7 @@ export const SpaceInnerLayout: React.FC<{
               <Sidebar headerLeft={<SpaceSwitcher />}>
                 <Fragment>
                   <div className="flex flex-1 flex-col gap-1 divide-y divide-solid overflow-hidden">
-                    <SpaceInnerSideBar isAdmin={user?.isAdmin} />
+                    <SpaceInnerSideBar renderSettingModal={renderSettingModal} />
                   </div>
                   <SideBarFooter />
                 </Fragment>

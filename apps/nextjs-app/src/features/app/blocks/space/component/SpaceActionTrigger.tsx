@@ -1,4 +1,4 @@
-import { Pencil, Settings, Trash2, Import } from '@teable/icons';
+import { Pencil, Trash2, Import } from '@teable/icons';
 import type { IGetSpaceVo } from '@teable/openapi';
 import {
   DropdownMenu,
@@ -16,12 +16,10 @@ interface ISpaceActionTrigger {
   space: IGetSpaceVo;
   showRename?: boolean;
   showDelete?: boolean;
-  showSpaceSetting?: boolean;
   showImportBase?: boolean;
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
-  onSpaceSetting?: () => void;
   open?: boolean;
   setOpen?: (open: boolean) => void;
   onImportBase?: () => void;
@@ -35,12 +33,10 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
     children,
     showDelete,
     showRename,
-    showSpaceSetting,
     showImportBase,
     onDelete,
     onPermanentDelete,
     onRename,
-    onSpaceSetting,
     open,
     setOpen,
     onImportBase,
@@ -60,12 +56,6 @@ export const SpaceActionTrigger: React.FC<React.PropsWithChildren<ISpaceActionTr
             <DropdownMenuItem onClick={onRename}>
               <Pencil className="mr-2" />
               {t('actions.rename')}
-            </DropdownMenuItem>
-          )}
-          {showSpaceSetting && (
-            <DropdownMenuItem onClick={onSpaceSetting}>
-              <Settings className="mr-2" />
-              {t('space:spaceSetting.title')}
             </DropdownMenuItem>
           )}
           {showImportBase && (

@@ -24,7 +24,6 @@ interface ActionBarProps {
   onRename?: () => void;
   onDelete?: () => void;
   onPermanentDelete?: () => void;
-  onSpaceSetting?: () => void;
 }
 
 export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
@@ -36,7 +35,6 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
     onRename,
     onDelete,
     onPermanentDelete,
-    onSpaceSetting,
   } = props;
   const [importBaseOpen, setImportBaseOpen] = React.useState(false);
 
@@ -107,12 +105,10 @@ export const SpaceActionBar: React.FC<ActionBarProps> = (props) => {
         space={space}
         showRename={hasPermission(space.role, 'space|update')}
         showDelete={hasPermission(space.role, 'space|delete')}
-        showSpaceSetting={hasPermission(space.role, 'space|update')}
         showImportBase={hasPermission(space.role, 'space|update')}
         onDelete={onDelete}
         onPermanentDelete={onPermanentDelete}
         onRename={onRename}
-        onSpaceSetting={onSpaceSetting}
         onImportBase={() => setImportBaseOpen(true)}
       >
         <Button variant={'outline'} size={buttonSize} className="p-[5px]">
