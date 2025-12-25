@@ -14,9 +14,9 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import {
-  PostgresTableFieldVisitor,
+  PostgresTableFieldCreateVisitor,
   type ICreateTableBuilderRef,
-} from '../visitors/PostgresTableFieldVisitor';
+} from '../visitors/PostgresTableFieldCreateVisitor';
 import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 
 @injectable()
@@ -51,18 +51,21 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
 
     const builderRef: ICreateTableBuilderRef = { builder };
-    const visitor = new PostgresTableFieldVisitor(builderRef);
-    const applyResult = visitor.apply(table);
-    if (applyResult.isErr()) return err(applyResult.error);
+    const visitor = PostgresTableFieldCreateVisitor.forTableCreation(builderRef);
+    const fieldStatementsResult = visitor.apply(table);
+    if (fieldStatementsResult.isErr()) return err(fieldStatementsResult.error);
 
     try {
-      const statements: string[] = [];
+      const compiledStatements: CompiledQuery[] = [];
       if (schema && schema !== 'public') {
-        statements.push(db.schema.createSchema(schema).ifNotExists().compile().sql);
+        compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
       }
-      statements.push(builderRef.builder.compile().sql);
+      compiledStatements.push(builderRef.builder.compile());
+      compiledStatements.push(
+        ...fieldStatementsResult.value.map((statement) => statement.compile(db))
+      );
 
-      await sql.raw(statements.join(';\n')).execute(db);
+      await combineCompiledQueriesAsSql(compiledStatements).execute(db);
     } catch (error) {
       return err(`Failed to insert table schema: ${describeError(error)}`);
     }

@@ -3783,6 +3783,9 @@ importers:
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
       '@teable/v2-table-templates':
         specifier: workspace:*
         version: link:../table-templates

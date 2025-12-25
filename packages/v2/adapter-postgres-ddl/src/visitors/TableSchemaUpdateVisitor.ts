@@ -8,15 +8,14 @@ import {
   TableUpdateViewColumnMetaSpec,
   type ITableSpecVisitor,
 } from '@teable/v2-core';
-import type { CompiledQuery, Kysely, QueryExecutorProvider } from 'kysely';
+import type { Kysely } from 'kysely';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { PostgresTableFieldSchemaUpdateVisitor } from './PostgresTableFieldSchemaUpdateVisitor';
-
-export type TableSchemaStatementBuilder = {
-  compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
-};
+import {
+  PostgresTableFieldCreateVisitor,
+  type TableSchemaStatementBuilder,
+} from './PostgresTableFieldCreateVisitor';
 
 type TableSchemaUpdateVisitorParams = {
   db: Kysely<unknown>;
@@ -35,7 +34,7 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    const fieldVisitor = new PostgresTableFieldSchemaUpdateVisitor(this.params);
+    const fieldVisitor = PostgresTableFieldCreateVisitor.forSchemaUpdate(this.params);
     const statementsResult = spec.field().accept(fieldVisitor);
     if (statementsResult.isErr()) return err(statementsResult.error);
     const statements = statementsResult.value;
