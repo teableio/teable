@@ -639,6 +639,8 @@ export type I18nTranslations = {
             "unavailableInPlanTips": string;
             "unavailableConnectionTips": string;
             "levelTips": string;
+            "billable": string;
+            "billableByAuthorityMatrix": string;
             "licenseExpiredGracePeriod": string;
             "spaceSubscriptionModal": {
                 "title": string;
@@ -659,7 +661,6 @@ export type I18nTranslations = {
             "automationRequiresUpgrade": string;
             "authorityMatrixRequiresUpgrade": string;
             "viewPricing": string;
-            "billable": string;
         };
         "admin": {
             "setting": {
