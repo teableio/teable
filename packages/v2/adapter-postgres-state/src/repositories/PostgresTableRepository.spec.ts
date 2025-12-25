@@ -8,6 +8,7 @@ import type {
   FormulaField,
   IFieldVisitor,
   ITableRepository,
+  LinkField,
   LongTextField,
   MultipleSelectField,
   NumberField,
@@ -43,7 +44,7 @@ import { container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start']>>;
@@ -152,6 +153,10 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitButtonField(field: ButtonField) {
     const snapshot: IFieldSnapshot = { type: 'button', name: field.name().toString() };
     return ok(snapshot);
+  }
+
+  visitLinkField(_: LinkField) {
+    return err('Not implemented');
   }
 }
 

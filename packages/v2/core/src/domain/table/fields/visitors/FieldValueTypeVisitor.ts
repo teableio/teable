@@ -1,4 +1,4 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
@@ -8,6 +8,7 @@ import { CellValueType } from '../types/CellValueType';
 import type { CheckboxField } from '../types/CheckboxField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
@@ -111,5 +112,9 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
       cellValueType: CellValueType.string(),
       isMultipleCellValue: CellValueMultiplicity.single(),
     });
+  }
+
+  visitLinkField(_: LinkField): Result<FieldValueType, string> {
+    return err('Not implemented');
   }
 }

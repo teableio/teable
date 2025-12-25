@@ -19,6 +19,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe table aggregate structure.
 - `DbTableName.ts` - Role: rehydrated value object; Purpose: persisted table name and schema split.
+- `ForeignTable.ts` - Role: branded wrapper; Purpose: distinguish foreign table context.
 - `IdValueObjects.spec.ts` - Role: ID tests; Purpose: verify table/field/view ID formats.
 - `Table.spec.ts` - Role: aggregate tests; Purpose: verify Table behavior and invariants.
 - `Table.ts` - Role: aggregate root; Purpose: manage fields/views and domain events.

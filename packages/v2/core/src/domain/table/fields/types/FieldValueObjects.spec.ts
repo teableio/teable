@@ -8,6 +8,9 @@ import { CheckboxDefaultValue } from './CheckboxDefaultValue';
 import { DateDefaultValue } from './DateDefaultValue';
 import { FieldColor } from './FieldColor';
 import { FieldComputed } from './FieldComputed';
+import { LinkFieldConfig } from './LinkFieldConfig';
+import { LinkFieldMeta } from './LinkFieldMeta';
+import { LinkRelationship } from './LinkRelationship';
 import { NumberDefaultValue } from './NumberDefaultValue';
 import { RatingColor } from './RatingColor';
 import { RatingIcon } from './RatingIcon';
@@ -249,6 +252,54 @@ describe('User values', () => {
     expect(defaults.value.isMultiple()).toBe(true);
     expect(defaults.value.toDto()).toEqual(['me', 'usr123']);
     expect(defaults.value.equals(defaults.value)).toBe(true);
+  });
+});
+
+describe('Link field values', () => {
+  it('validates relationships and meta', () => {
+    const relationship = LinkRelationship.create('oneMany');
+    const reverse = LinkRelationship.manyOne();
+    const meta = LinkFieldMeta.create({ hasOrderColumn: true });
+    const emptyMeta = LinkFieldMeta.create(undefined);
+    expect([relationship, meta, emptyMeta].every((r) => r.isOk())).toBe(true);
+    if (relationship.isErr() || meta.isErr() || emptyMeta.isErr()) return;
+    expect(relationship.value.isMultipleValue()).toBe(true);
+    expect(relationship.value.reverse().equals(reverse)).toBe(true);
+    expect(meta.value?.hasOrderColumn()).toBe(true);
+    expect(meta.value?.equals(meta.value)).toBe(true);
+    expect(emptyMeta.value).toBeUndefined();
+  });
+
+  it('validates link config', () => {
+    const configResult = LinkFieldConfig.create({
+      baseId: `bse${'a'.repeat(16)}`,
+      relationship: LinkRelationship.oneMany().toString(),
+      foreignTableId: `tbl${'b'.repeat(16)}`,
+      lookupFieldId: `fld${'c'.repeat(16)}`,
+      isOneWay: true,
+      fkHostTableName: 'link_table',
+      selfKeyName: '__id',
+      foreignKeyName: '__fk_field',
+      symmetricFieldId: `fld${'d'.repeat(16)}`,
+      filterByViewId: `viw${'e'.repeat(16)}`,
+      visibleFieldIds: [`fld${'c'.repeat(16)}`, `fld${'d'.repeat(16)}`],
+    });
+
+    expect(configResult.isOk()).toBe(true);
+    if (configResult.isErr()) return;
+    const config = configResult.value;
+    expect(config.baseId()?.toString()).toBe(`bse${'a'.repeat(16)}`);
+    expect(config.relationship().equals(LinkRelationship.oneMany())).toBe(true);
+    expect(config.isOneWay()).toBe(true);
+    expect(config.isMultipleValue()).toBe(true);
+    const orderResult = config.orderColumnName();
+    expect(orderResult.isOk()).toBe(true);
+    if (orderResult.isErr()) return;
+    expect(orderResult.value).toBe('__id_order');
+    const dtoResult = config.toDto();
+    expect(dtoResult.isOk()).toBe(true);
+    if (dtoResult.isErr()) return;
+    expect(dtoResult.value.foreignTableId).toBe(`tbl${'b'.repeat(16)}`);
   });
 });
 

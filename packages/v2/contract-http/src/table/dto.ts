@@ -17,6 +17,7 @@ import type {
   Field,
   FieldId,
   IFieldVisitor,
+  LinkField,
   LongTextField,
   MultipleSelectField,
   NumberField,
@@ -28,7 +29,7 @@ import type {
   UserField,
   ViewColumnMetaValue,
 } from '@teable/v2-core';
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -495,6 +496,10 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });
+  }
+
+  visitLinkField(_: LinkField): Result<IFieldDto, string> {
+    return err('Not implemented');
   }
 }
 

@@ -5,6 +5,7 @@ import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
@@ -26,4 +27,5 @@ export interface IFieldVisitor<T = void> {
   visitDateField(field: DateField): Result<T, string>;
   visitUserField(field: UserField): Result<T, string>;
   visitButtonField(field: ButtonField): Result<T, string>;
+  visitLinkField(field: LinkField): Result<T, string>;
 }

@@ -6,6 +6,7 @@ import type {
   Field,
   FormulaField,
   IFieldVisitor,
+  LinkField,
   LongTextField,
   MultipleSelectField,
   NumberField,
@@ -94,6 +95,10 @@ export class PostgresTableFieldVisitor implements IFieldVisitor<void> {
 
   visitButtonField(field: ButtonField): Result<void, string> {
     return this.addColumnFromValueType(field);
+  }
+
+  visitLinkField(_: LinkField): Result<void, string> {
+    return err('Not implemented');
   }
 
   private addColumnFromValueType(field: Field): Result<void, string> {

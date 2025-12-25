@@ -25,6 +25,7 @@ import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
+import type { LinkField } from '../../../domain/table/fields/types/LinkField';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
@@ -338,6 +339,10 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       type: 'button',
       options,
     });
+  }
+
+  visitLinkField(_: LinkField): Result<ITableFieldPersistenceDTO, string> {
+    return err('Not implemented');
   }
 }
 

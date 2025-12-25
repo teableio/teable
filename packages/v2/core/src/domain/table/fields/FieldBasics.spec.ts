@@ -42,6 +42,7 @@ describe('DbFieldName', () => {
 describe('FieldType', () => {
   it('accepts known types and rejects unknown', () => {
     expect(FieldType.create('singleLineText').isOk()).toBe(true);
+    expect(FieldType.create('link').isOk()).toBe(true);
     expect(FieldType.create('unknown').isErr()).toBe(true);
   });
 
@@ -57,6 +58,7 @@ describe('FieldType', () => {
     expect(FieldType.date().toString()).toBe('date');
     expect(FieldType.user().toString()).toBe('user');
     expect(FieldType.button().toString()).toBe('button');
+    expect(FieldType.link().toString()).toBe('link');
   });
 });
 

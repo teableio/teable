@@ -29,6 +29,11 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FormulaExpression.ts` - Role: value object; Purpose: formula expression parsing + type inference.
 - `FormulaField.ts` - Role: field subtype; Purpose: formula field entity.
 - `FormulaMeta.ts` - Role: value object; Purpose: formula persistence meta (rehydrated).
+- `LinkField.ts` - Role: field subtype; Purpose: link field entity.
+- `LinkField.spec.ts` - Role: field tests; Purpose: verify link field lookup behavior.
+- `LinkFieldMeta.ts` - Role: value object; Purpose: link field meta config.
+- `LinkFieldConfig.ts` - Role: value object; Purpose: link field relationship config.
+- `LinkRelationship.ts` - Role: value object; Purpose: link relationship type.
 - `FieldTypes.spec.ts` - Role: type tests; Purpose: verify field subtype creation.
 - `FieldValueObjects.spec.ts` - Role: value object tests; Purpose: verify field value objects.
 - `LongTextField.ts` - Role: field subtype; Purpose: long text field entity.

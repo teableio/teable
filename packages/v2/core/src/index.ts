@@ -31,6 +31,7 @@ export * from './domain/shared/sort/SortDirection';
 export * from './domain/base/BaseId';
 
 export * from './domain/table/Table';
+export * from './domain/table/ForeignTable';
 export * from './domain/table/TableMutator';
 export * from './domain/table/TableBuilder';
 export * from './domain/table/DbTableName';
@@ -75,6 +76,10 @@ export * from './domain/table/fields/types/FieldComputed';
 export type { FormulaField } from './domain/table/fields/types/FormulaField';
 export * from './domain/table/fields/types/FormulaExpression';
 export * from './domain/table/fields/types/FormulaMeta';
+export type { LinkField } from './domain/table/fields/types/LinkField';
+export * from './domain/table/fields/types/LinkFieldMeta';
+export * from './domain/table/fields/types/LinkFieldConfig';
+export * from './domain/table/fields/types/LinkRelationship';
 export type { LongTextField } from './domain/table/fields/types/LongTextField';
 export type { MultipleSelectField } from './domain/table/fields/types/MultipleSelectField';
 export type { NumberField } from './domain/table/fields/types/NumberField';

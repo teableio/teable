@@ -1,6 +1,8 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { TableId } from '../../TableId';
+import { ViewId } from '../../views/ViewId';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
@@ -21,6 +23,9 @@ import { DateTimeFormatting } from './DateTimeFormatting';
 import { FieldColor } from './FieldColor';
 import { FormulaExpression } from './FormulaExpression';
 import { FormulaField } from './FormulaField';
+import { LinkField } from './LinkField';
+import { LinkFieldConfig } from './LinkFieldConfig';
+import { LinkRelationship } from './LinkRelationship';
 import { LongTextField } from './LongTextField';
 import { MultipleSelectField } from './MultipleSelectField';
 import { NumberDefaultValue } from './NumberDefaultValue';
@@ -82,6 +87,9 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   visitButtonField(): ReturnType<IFieldVisitor<string>['visitButtonField']> {
     return ok('button');
   }
+  visitLinkField(): ReturnType<IFieldVisitor<string>['visitLinkField']> {
+    return ok('link');
+  }
 }
 
 describe('Field types', () => {
@@ -128,6 +136,21 @@ describe('Field types', () => {
       isActive: true,
     });
     const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
+    const foreignTableIdResult = TableId.create(`tbl${'b'.repeat(16)}`);
+    const lookupFieldIdResult = createFieldId('b');
+    const symmetricFieldIdResult = createFieldId('c');
+    const viewIdResult = ViewId.create(`viw${'c'.repeat(16)}`);
+    const linkConfigResult = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: `tbl${'b'.repeat(16)}`,
+      lookupFieldId: `fld${'b'.repeat(16)}`,
+      fkHostTableName: 'link_table',
+      selfKeyName: '__id',
+      foreignKeyName: '__fk_field',
+      symmetricFieldId: `fld${'c'.repeat(16)}`,
+      filterByViewId: `viw${'c'.repeat(16)}`,
+      visibleFieldIds: [`fld${'b'.repeat(16)}`],
+    });
 
     expect(
       [
@@ -156,6 +179,11 @@ describe('Field types', () => {
         buttonResetResult,
         buttonWorkflowResult,
         formulaExpressionResult,
+        foreignTableIdResult,
+        lookupFieldIdResult,
+        symmetricFieldIdResult,
+        viewIdResult,
+        linkConfigResult,
       ].every((r) => r.isOk())
     ).toBe(true);
     if (
@@ -183,7 +211,12 @@ describe('Field types', () => {
       buttonMaxResult.isErr() ||
       buttonResetResult.isErr() ||
       buttonWorkflowResult.isErr() ||
-      formulaExpressionResult.isErr()
+      formulaExpressionResult.isErr() ||
+      foreignTableIdResult.isErr() ||
+      lookupFieldIdResult.isErr() ||
+      symmetricFieldIdResult.isErr() ||
+      viewIdResult.isErr() ||
+      linkConfigResult.isErr()
     )
       return;
 
@@ -370,6 +403,20 @@ describe('Field types', () => {
     expect(buttonAccept.isOk()).toBe(true);
     if (buttonAccept.isErr()) return;
     expect(buttonAccept.value).toBe('button');
+
+    const linkField = LinkField.create({ id, name, config: linkConfigResult.value });
+    expect(linkField.isOk()).toBe(true);
+    if (linkField.isErr()) return;
+    expect(linkField.value.relationship().equals(LinkRelationship.manyOne())).toBe(true);
+    expect(linkField.value.isMultipleValue()).toBe(false);
+    const orderColumnResult = linkField.value.orderColumnName();
+    expect(orderColumnResult.isOk()).toBe(true);
+    if (orderColumnResult.isErr()) return;
+    expect(orderColumnResult.value).toBe('__fk_field_order');
+    const linkAccept = linkField.value.accept(visitor);
+    expect(linkAccept.isOk()).toBe(true);
+    if (linkAccept.isErr()) return;
+    expect(linkAccept.value).toBe('link');
 
     const noopVisitor = new NoopFieldVisitor();
     expect(buttonField.value.accept(noopVisitor).isOk()).toBe(true);

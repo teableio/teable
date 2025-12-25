@@ -3,7 +3,6 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { ValueObject } from '../../shared/ValueObject';
-import { Field } from './Field';
 
 const fieldTypeSchema = z.enum([
   'singleLineText',
@@ -18,6 +17,7 @@ const fieldTypeSchema = z.enum([
   'date',
   'user',
   'button',
+  'link',
 ]);
 type IFieldTypeLiteral = z.infer<typeof fieldTypeSchema>;
 
@@ -78,6 +78,10 @@ export class FieldType extends ValueObject {
 
   static button(): FieldType {
     return new FieldType('button');
+  }
+
+  static link(): FieldType {
+    return new FieldType('link');
   }
 
   equals(other: FieldType): boolean {

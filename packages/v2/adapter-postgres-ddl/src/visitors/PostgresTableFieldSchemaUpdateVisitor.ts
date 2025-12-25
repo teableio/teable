@@ -6,6 +6,7 @@ import {
   Field,
   FormulaField,
   IFieldVisitor,
+  LinkField,
   LongTextField,
   MultipleSelectField,
   NumberField,
@@ -109,6 +110,10 @@ export class PostgresTableFieldSchemaUpdateVisitor
     return this.addColumnOnly(field);
   }
 
+  visitLinkField(_: LinkField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return err('Not implemented');
+  }
+
   private addColumnOnly(field: Field): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     return this.buildColumnStatement(field).map((statement) => [statement]);
   }
@@ -177,7 +182,7 @@ const resolveColumnType = (field: Field): Result<TableColumnDataType, string> =>
     .when(isNumericField, () => ok('double precision'))
     .when(isDateField, () => ok('timestamptz'))
     .when(isBooleanField, () => ok('boolean'))
-    .otherwise(() => ok('text'));
+    .exhaustive();
 };
 
 const resolveFormulaColumnType = (

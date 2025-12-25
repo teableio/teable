@@ -6,6 +6,7 @@ import type {
   DateField,
   Field,
   IFieldVisitor,
+  LinkField,
   LongTextField,
   MultipleSelectField,
   NumberField,
@@ -98,6 +99,10 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
 
   visitButtonField(field: ButtonField): Result<IFieldStorageType, string> {
     return this.setTypeFromValueType(field);
+  }
+
+  visitLinkField(_: LinkField): Result<IFieldStorageType, string> {
+    return err('Not implemented');
   }
 
   private setTypeFromValueType(field: Field): Result<IFieldStorageType, string> {
