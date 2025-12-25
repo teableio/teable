@@ -50,6 +50,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
         }}
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
+        onContextMenu={(e) => e.stopPropagation()}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
             closePreview();

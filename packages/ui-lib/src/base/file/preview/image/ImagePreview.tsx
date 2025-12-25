@@ -237,7 +237,7 @@ export const ImagePreview = (props: IImagePreviewProps) => {
       >
         <img
           ref={imageRef}
-          className="max-h-full max-w-full select-none pointer-events-none"
+          className="max-h-full max-w-full select-none"
           src={src}
           alt={name}
           style={{
