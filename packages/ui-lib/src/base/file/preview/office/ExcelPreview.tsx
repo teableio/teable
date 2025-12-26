@@ -104,8 +104,9 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
       if (setLoading) {
         setLoading(false);
       }
-      const rowData = currentSheetData?.[row] || {};
-      const cellData = (rowData?.[col] || {}) as XLSX.CellObject;
+      // Make sure rowData is a record with number keys and XLSX.CellObject values
+      const rowData = (currentSheetData?.['!data']?.[row] || {}) as Record<number, XLSX.CellObject>;
+      const cellData = rowData[col] || {};
 
       const value = (cellData?.w ?? cellData?.v ?? '') as string;
 
@@ -157,7 +158,7 @@ export const ExcelPreview = (props: IExcelPreviewProps) => {
           verticalBorder={true}
           getCellContent={(cell) => getData(cell)}
           columns={cols}
-          rows={currentSheetData.length || 1}
+          rows={currentSheetData?.['!data']?.length || 1}
         />
       )}
 
