@@ -63,12 +63,6 @@ export const SpaceInnerSideBar = (props: {
       text: t('space:baseList.allBases'),
       Icon: Home,
     },
-    {
-      href: `/space/${spaceId}/setting/general`,
-      text: t('space:spaceSetting.title') + ' to delete',
-      Icon: Settings,
-      hidden: !canUpdateSpace,
-    },
   ];
 
   return (

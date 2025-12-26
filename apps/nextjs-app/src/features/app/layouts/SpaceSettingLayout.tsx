@@ -54,12 +54,6 @@ export const SpaceSettingLayout: React.FC<{
         route: `/space/[spaceId]/setting/collaborator`,
         pathTo: `/space/${spaceId}/setting/collaborator`,
       },
-      // {
-      //   Icon: MagicAi,
-      //   label: t('space:aiSetting.title'),
-      //   route: `/space/[spaceId]/setting/ai-setting`,
-      //   pathTo: `/space/${spaceId}/setting/ai-setting`,
-      // },
     ];
   }, [spaceId, t]);
 
