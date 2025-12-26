@@ -27,6 +27,7 @@ import dayjs from 'dayjs';
 import { IterationCcwIcon } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useCallback, useMemo, useState } from 'react';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { Collaborator } from '../../components/collaborator-manage/components/Collaborator';
 
 interface ISpaceInnerTrashModalProps {
@@ -38,7 +39,7 @@ export const SpaceInnerTrashModal = (props: ISpaceInnerTrashModalProps) => {
   const { children, spaceId } = props;
   const isHydrated = useIsHydrated();
   const queryClient = useQueryClient();
-  const { t } = useTranslation(['common', 'space']);
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
   const resourceType = ResourceType.Base;
 
   const [open, setOpen] = useState(false);
