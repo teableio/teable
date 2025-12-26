@@ -110,14 +110,10 @@ export const SpaceInnerSideBar = (props: {
                 <Button
                   variant="ghost"
                   size={'xs'}
-                  asChild
                   className={cn('w-full justify-start h-8 text-sm font-normal')}
                 >
-                  <div className="cursor-pointer">
-                    <Settings className="size-4 shrink-0" />
-                    <p className="truncate">{t('space:spaceSetting.title')}</p>
-                    <div className="grow basis-0"></div>
-                  </div>
+                  <Settings className="size-4 shrink-0" />
+                  <p className="truncate">{t('space:spaceSetting.title')}</p>
                 </Button>
               )}
             </li>
@@ -127,14 +123,10 @@ export const SpaceInnerSideBar = (props: {
               <Button
                 variant="ghost"
                 size={'xs'}
-                asChild
                 className={cn('w-full justify-start h-8 text-sm font-normal')}
               >
-                <div className="cursor-pointer">
-                  <Trash2 className="size-4 shrink-0" />
-                  <p className="truncate">{t('noun.trash')}</p>
-                  <div className="grow basis-0"></div>
-                </div>
+                <Trash2 className="size-4 shrink-0" />
+                <p className="truncate">{t('noun.trash')}</p>
               </Button>
             </SpaceInnerTrashModal>
           </li>
@@ -144,14 +136,10 @@ export const SpaceInnerSideBar = (props: {
                 <Button
                   variant="ghost"
                   size={'xs'}
-                  asChild
                   className={cn('w-full justify-start h-8 text-sm font-normal')}
                 >
-                  <div className="cursor-pointer">
-                    <LayoutTemplate className="size-4 shrink-0" />
-                    <p className="truncate">{t('common:noun.template')}</p>
-                    <div className="grow basis-0"></div>
-                  </div>
+                  <LayoutTemplate className="size-4 shrink-0" />
+                  <p className="truncate">{t('common:noun.template')}</p>
                 </Button>
               </TemplateModal>
             </TemplateContext.Provider>

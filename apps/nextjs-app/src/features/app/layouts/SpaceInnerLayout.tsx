@@ -38,7 +38,7 @@ export const SpaceInnerLayout: React.FC<{
   }, [spaceId]);
 
   const renderSettingModal = (children: React.ReactNode) => {
-    return <SpaceInnerSettingModal spaceId={spaceId}>{children}</SpaceInnerSettingModal>;
+    return <SpaceInnerSettingModal>{children}</SpaceInnerSettingModal>;
   };
 
   return (

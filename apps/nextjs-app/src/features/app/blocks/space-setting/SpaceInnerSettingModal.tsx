@@ -10,12 +10,12 @@ import {
 import { Settings, Users } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
+import { spaceConfig } from '@/features/i18n/space.config';
 import { CollaboratorPage } from './collaborator';
 import { GeneralPage } from './general';
 
 interface ISpaceInnerSettingModalProps {
   children: React.ReactNode;
-  spaceId: string;
 }
 
 enum SettingTab {
@@ -24,9 +24,9 @@ enum SettingTab {
 }
 
 export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
-  const { children, spaceId } = props;
+  const { children } = props;
 
-  const { t } = useTranslation(['common', 'space']);
+  const { t } = useTranslation(spaceConfig.i18nNamespaces);
 
   const [open, setOpen] = useState(false);
 
