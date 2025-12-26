@@ -16,7 +16,7 @@ interface IFilePreviewProps {
 
 export const FilePreview = (props: IFilePreviewProps) => {
   const { className } = props;
-  const { currentFile } = useContext(FilePreviewContext);
+  const { currentFile, closePreview } = useContext(FilePreviewContext);
 
   const mimetype = currentFile?.mimetype;
 
@@ -28,7 +28,7 @@ export const FilePreview = (props: IFilePreviewProps) => {
 
   switch (true) {
     case isImage(mimetype):
-      return <ImagePreview {...currentFile} />;
+      return <ImagePreview {...currentFile} onClose={closePreview} />;
     case isVideo(mimetype):
       return <VideoPreview {...currentFile} />;
     case isAudio(mimetype):

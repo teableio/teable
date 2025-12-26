@@ -13,6 +13,7 @@ export type IFileId = number | string;
 
 export interface IFileItemInner extends IFileItemBase {
   fileId: IFileId;
+  onClose?: () => void;
 }
 
 export interface IFileItem extends IFileItemBase {

@@ -1,3 +1,5 @@
+/* eslint-disable jsx-a11y/no-static-element-interactions */
+/* eslint-disable jsx-a11y/click-events-have-key-events */
 import { ZoomIn, ZoomOut, RotateCw, RefreshCcw } from '@teable/icons';
 import { useState, useRef, useEffect } from 'react';
 import { cn } from '../../../../shadcn';
@@ -6,7 +8,7 @@ import type { IFileItemInner } from '../FilePreviewContext';
 interface IImagePreviewProps extends IFileItemInner {}
 
 export const ImagePreview = (props: IImagePreviewProps) => {
-  const { src, name } = props;
+  const { src, name, onClose } = props;
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -234,6 +236,11 @@ export const ImagePreview = (props: IImagePreviewProps) => {
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose?.();
+          }
+        }}
       >
         <img
           ref={imageRef}
