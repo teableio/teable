@@ -81,7 +81,7 @@ export class PermissionGuard {
       if (!templateId) {
         throw new CustomHttpException(
           `Template header is invalid`,
-          HttpErrorCode.RESTRICTED_RESOURCE,
+          this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
           {
             localization: {
               i18nKey: 'httpErrors.permission.templateHeaderInvalid',
@@ -94,7 +94,7 @@ export class PermissionGuard {
     if (!resourceId) {
       throw new CustomHttpException(
         `Template permission check ID does not exist`,
-        HttpErrorCode.RESTRICTED_RESOURCE,
+        this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
             i18nKey: 'httpErrors.permission.checkIdNotExist',

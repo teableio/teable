@@ -1,7 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import type { IBaseRole, Action } from '@teable/core';
-import { HttpErrorCode, IdPrefix, TemplatePermissions, getPermissions } from '@teable/core';
+import {
+  HttpErrorCode,
+  IdPrefix,
+  TemplatePermissions,
+  getPermissions,
+  isAnonymous,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
@@ -430,10 +436,14 @@ export class PermissionService {
     );
   }
 
+  private isAnonymous() {
+    return isAnonymous(this.cls.get('user.id'));
+  }
+
   async getTemplatePermissions(resourceId: string) {
     const deniedResourceError = new CustomHttpException(
       `Template access denied, template not found for ${resourceId}`,
-      HttpErrorCode.RESTRICTED_RESOURCE,
+      this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
       {
         localization: {
           i18nKey: 'httpErrors.base.templateNotFound',
@@ -477,7 +487,7 @@ export class PermissionService {
     } else {
       throw new CustomHttpException(
         `Resource ${resourceId} is not valid for template`,
-        HttpErrorCode.RESTRICTED_RESOURCE,
+        this.isAnonymous() ? HttpErrorCode.UNAUTHORIZED : HttpErrorCode.RESTRICTED_RESOURCE,
         {
           localization: {
             i18nKey: 'httpErrors.permission.invalidResource',
