@@ -919,5 +919,216 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         // shared container disposed in afterAll
       }
     });
+
+    it('creates self-referencing link fields for all relationships', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      const cases = [
+        {
+          relationship: 'manyMany',
+          tableLabel: 'Link Self ManyMany',
+          hostTableName: 'tbl_link_mm_self',
+          fkHostTableName: 'link_relations_mm_self',
+          linkColumn: 'link_value_mm_self',
+          includeOrder: true,
+          expectHostTypes: {
+            link_value_mm_self: 'jsonb',
+          },
+          expectJoin: true,
+        },
+        {
+          relationship: 'oneMany',
+          tableLabel: 'Link Self OneMany',
+          hostTableName: 'tbl_link_om_self',
+          fkHostTableName: 'tbl_link_om_self',
+          linkColumn: 'link_value_om_self',
+          includeOrder: true,
+          expectHostTypes: {
+            link_value_om_self: 'jsonb',
+            __self_id: 'text',
+            __self_id_order: 'float8',
+          },
+          expectJoin: false,
+        },
+        {
+          relationship: 'manyOne',
+          tableLabel: 'Link Self ManyOne',
+          hostTableName: 'tbl_link_mo_self',
+          fkHostTableName: 'tbl_link_mo_self',
+          linkColumn: 'link_value_mo_self',
+          includeOrder: false,
+          expectHostTypes: {
+            link_value_mo_self: 'jsonb',
+            __foreign_id: 'text',
+          },
+          expectJoin: false,
+        },
+        {
+          relationship: 'oneOne',
+          tableLabel: 'Link Self OneOne',
+          hostTableName: 'tbl_link_oo_self',
+          fkHostTableName: 'tbl_link_oo_self',
+          linkColumn: 'link_value_oo_self',
+          includeOrder: false,
+          expectHostTypes: {
+            link_value_oo_self: 'jsonb',
+            __foreign_id: 'text',
+          },
+          expectJoin: false,
+        },
+      ] as const;
+
+      for (const entry of cases) {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create(entry.tableLabel);
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        const linkMetaResult = entry.includeOrder
+          ? LinkFieldMeta.create({ hasOrderColumn: true })
+          : ok(undefined);
+
+        expect(
+          [
+            baseIdResult,
+            tableNameResult,
+            primaryNameResult,
+            linkNameResult,
+            primaryFieldIdResult,
+            linkFieldIdResult,
+            lookupFieldIdResult,
+            linkMetaResult,
+          ].every((r) => r.isOk())
+        ).toBe(true);
+        if (
+          baseIdResult.isErr() ||
+          tableNameResult.isErr() ||
+          primaryNameResult.isErr() ||
+          linkNameResult.isErr() ||
+          primaryFieldIdResult.isErr() ||
+          linkFieldIdResult.isErr() ||
+          lookupFieldIdResult.isErr() ||
+          linkMetaResult.isErr()
+        )
+          continue;
+
+        const baseId = unwrapResult(baseIdResult);
+        const tableName = unwrapResult(tableNameResult);
+        const primaryName = unwrapResult(primaryNameResult);
+        const linkName = unwrapResult(linkNameResult);
+        const primaryFieldId = unwrapResult(primaryFieldIdResult);
+        const linkFieldId = unwrapResult(linkFieldIdResult);
+        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+        const linkMeta = unwrapResult(linkMetaResult);
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        expect(baseTableResult.isOk()).toBe(true);
+        if (baseTableResult.isErr()) continue;
+        const baseTable = unwrapResult(baseTableResult);
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: entry.relationship,
+          foreignTableId: baseTable.id().toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: entry.fkHostTableName,
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        expect(linkConfigResult.isOk()).toBe(true);
+        if (linkConfigResult.isErr()) continue;
+        const linkConfig = unwrapResult(linkConfigResult);
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          meta: linkMeta,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        expect(linkFieldResult.isOk()).toBe(true);
+        if (linkFieldResult.isErr()) continue;
+        const linkFieldValue = unwrapResult(linkFieldResult);
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        expect(tableResult.isOk()).toBe(true);
+        if (tableResult.isErr()) continue;
+        const table = unwrapResult(tableResult);
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.${entry.hostTableName}`);
+        expect(dbTableNameResult.isOk()).toBe(true);
+        if (dbTableNameResult.isErr()) continue;
+        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        expect(setTableDbNameResult.isOk()).toBe(true);
+        unwrapResult(setTableDbNameResult);
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) continue;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate(entry.linkColumn);
+        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
+        if (primaryDbNameResult.isErr() || linkDbNameResult.isErr()) continue;
+        const primaryDbName = unwrapResult(primaryDbNameResult);
+        const linkDbName = unwrapResult(linkDbNameResult);
+        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
+        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+
+        const actorIdResult = ActorId.create('system');
+        expect(actorIdResult.isOk()).toBe(true);
+        if (actorIdResult.isErr()) continue;
+        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+
+        const insertResult = await repo.insert(context, table);
+        expect(insertResult.isOk()).toBe(true);
+        unwrapResult(insertResult);
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        expect(splitResult.isOk()).toBe(true);
+        if (splitResult.isErr()) continue;
+        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        for (const [column, expectedType] of Object.entries(entry.expectHostTypes)) {
+          const actualType = hostColumns.get(column);
+          expect(actualType).toBe(expectedType);
+        }
+
+        if (entry.expectJoin) {
+          const joinSplit = DbTableName.rehydrate(`${testSchemaName}.${entry.fkHostTableName}`);
+          expect(joinSplit.isOk()).toBe(true);
+          if (joinSplit.isErr()) continue;
+          const joinDbTableName = unwrapResult(joinSplit);
+          const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+          expect(joinTable.isOk()).toBe(true);
+          if (joinTable.isErr()) continue;
+          const joinInfo = unwrapResult(joinTable);
+          const joinSchema = joinInfo.schema ?? 'public';
+          const joinColumns = await fetchColumnTypes(db, joinInfo.tableName, joinSchema);
+          expect(joinColumns.get('__self_id')).toBe('text');
+          expect(joinColumns.get('__foreign_id')).toBe('text');
+          expect(joinColumns.get('__order')).toBe('float8');
+        }
+      }
+    });
   });
 });

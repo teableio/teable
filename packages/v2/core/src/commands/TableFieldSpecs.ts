@@ -22,7 +22,6 @@ import {
 } from '../domain/table/fields/FieldFactory';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
-import type { TableId } from '../domain/table/TableId';
 import { ButtonLabel } from '../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../domain/table/fields/types/ButtonMaxCount';
 import { ButtonResetCount } from '../domain/table/fields/types/ButtonResetCount';
@@ -63,6 +62,7 @@ import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue'
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import type { TableBuilder } from '../domain/table/TableBuilder';
+import type { TableId } from '../domain/table/TableId';
 
 const fieldColorSchema = z.enum(fieldColorValues);
 const ratingIconSchema = z.enum(ratingIconValues);

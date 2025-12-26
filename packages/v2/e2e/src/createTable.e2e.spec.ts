@@ -44,6 +44,41 @@ describe('v2 http createTable (e2e)', () => {
     } as ICreateTableCommandInput;
   };
 
+  const createTable = async (payload: ICreateTableCommandInput) => {
+    const response = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create table: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = createTableOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse create table response');
+    }
+    return parsed.data.data.table;
+  };
+
+  const getTableById = async (baseIdValue: string, tableIdValue: string) => {
+    const response = await fetch(
+      `${baseUrl}/tables/get?baseId=${baseIdValue}&tableId=${tableIdValue}`,
+      { method: 'GET' }
+    );
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch table: ${errorText}`);
+    }
+    const rawBody = await response.json();
+    const parsed = getTableByIdOkResponseSchema.safeParse(rawBody);
+    if (!parsed.success || !parsed.data.ok) {
+      throw new Error('Failed to parse get table response');
+    }
+    return parsed.data.data.table;
+  };
+
   beforeAll(async () => {
     const testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
@@ -118,94 +153,90 @@ describe('v2 http createTable (e2e)', () => {
   });
 
   describe('link fields', () => {
-    it('creates symmetric link fields in the foreign table', async () => {
-      const foreignResponse = await fetch(`${baseUrl}/tables/create`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          baseId,
-          name: 'Companies',
-          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
-        } satisfies ICreateTableCommandInput),
+    it('creates symmetric link fields for all relationships', async () => {
+      const foreignTable = await createTable({
+        baseId,
+        name: 'Companies',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
       });
 
-      expect(foreignResponse.status).toBe(201);
-
-      const foreignRaw = await foreignResponse.json();
-      const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
-      expect(foreignParsed.success).toBe(true);
-      if (!foreignParsed.success) return;
-      const foreignBody = foreignParsed.data;
-      if (!foreignBody.ok) return;
-
-      const foreignTableId = foreignBody.data.table.id;
-      const foreignPrimaryField = foreignBody.data.table.fields.find((f) => f.isPrimary);
+      const foreignPrimaryField = foreignTable.fields.find((f) => f.isPrimary);
       expect(foreignPrimaryField).toBeDefined();
       if (!foreignPrimaryField) return;
 
+      const cases = [
+        { relationship: 'oneOne', expected: 'oneOne' },
+        { relationship: 'manyMany', expected: 'manyMany' },
+        { relationship: 'oneMany', expected: 'manyOne' },
+        { relationship: 'manyOne', expected: 'oneMany' },
+      ] as const;
+
+      for (const entry of cases) {
+        const linkFieldId = createFieldId();
+        const linkPayload: ICreateTableCommandInput = {
+          baseId,
+          name: `Projects (${entry.relationship})`,
+          fields: [
+            { type: 'singleLineText', name: 'Name', isPrimary: true },
+            {
+              type: 'link',
+              id: linkFieldId,
+              name: `Company ${entry.relationship}`,
+              options: {
+                relationship: entry.relationship,
+                foreignTableId: foreignTable.id,
+                lookupFieldId: foreignPrimaryField.id,
+              },
+            },
+          ],
+        };
+
+        const linkTable = await createTable(linkPayload);
+        const updatedForeignTable = await getTableById(baseId, foreignTable.id);
+        const foreignLinkField = updatedForeignTable.fields.find(
+          (field) =>
+            field.type === 'link' &&
+            field.options.symmetricFieldId === linkFieldId &&
+            field.options.foreignTableId === linkTable.id
+        );
+        expect(foreignLinkField).toBeDefined();
+        if (!foreignLinkField || foreignLinkField.type !== 'link') return;
+
+        expect(foreignLinkField.options.relationship).toBe(entry.expected);
+      }
+    });
+
+    it('supports self-referencing links', async () => {
+      const selfTableId = `tbl${'s'.repeat(16)}`;
+      const primaryFieldId = createFieldId();
       const linkFieldId = createFieldId();
-      const linkPayload: ICreateTableCommandInput = {
+
+      await createTable({
         baseId,
-        name: 'Projects (link)',
+        tableId: selfTableId,
+        name: 'Self Links',
         fields: [
-          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'singleLineText', id: primaryFieldId, name: 'Name', isPrimary: true },
           {
             type: 'link',
             id: linkFieldId,
-            name: 'Company',
+            name: 'Self',
             options: {
-              relationship: 'manyOne',
-              foreignTableId,
-              lookupFieldId: foreignPrimaryField.id,
+              relationship: 'manyMany',
+              foreignTableId: selfTableId,
+              lookupFieldId: primaryFieldId,
             },
           },
         ],
-      };
-
-      const linkResponse = await fetch(`${baseUrl}/tables/create`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(linkPayload),
       });
 
-      if (!linkResponse.ok) {
-        const errorText = await linkResponse.text();
-        throw new Error(`Failed to create table with link field: ${errorText}`);
-      }
-
-      expect(linkResponse.status).toBe(201);
-
-      const linkRaw = await linkResponse.json();
-      const linkParsed = createTableOkResponseSchema.safeParse(linkRaw);
-      expect(linkParsed.success).toBe(true);
-      if (!linkParsed.success) return;
-      const linkBody = linkParsed.data;
-      if (!linkBody.ok) return;
-
-      const newTableId = linkBody.data.table.id;
-
-      const getResponse = await fetch(
-        `${baseUrl}/tables/get?baseId=${baseId}&tableId=${foreignTableId}`,
-        { method: 'GET' }
+      const selfTable = await getTableById(baseId, selfTableId);
+      const linkFields = selfTable.fields.filter((field) => field.type === 'link');
+      expect(linkFields.length).toBe(2);
+      const symmetric = linkFields.find(
+        (field) => field.type === 'link' && field.options.symmetricFieldId === linkFieldId
       );
-      expect(getResponse.status).toBe(200);
-
-      const getRaw = await getResponse.json();
-      const getParsed = getTableByIdOkResponseSchema.safeParse(getRaw);
-      expect(getParsed.success).toBe(true);
-      if (!getParsed.success) return;
-      const getBody = getParsed.data;
-      if (!getBody.ok) return;
-
-      const foreignLinkField = getBody.data.table.fields.find((field) => field.type === 'link');
-      expect(foreignLinkField).toBeDefined();
-      if (!foreignLinkField || foreignLinkField.type !== 'link') return;
-
-      expect(foreignLinkField.name).toBe('Company');
-      expect(foreignLinkField.options.foreignTableId).toBe(newTableId);
-      expect(foreignLinkField.options.symmetricFieldId).toBe(linkFieldId);
-      expect(foreignLinkField.options.relationship).toBe('oneMany');
-      expect(foreignLinkField.meta).toBeUndefined();
+      expect(symmetric).toBeDefined();
     });
   });
 });

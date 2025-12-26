@@ -186,6 +186,161 @@ describe('TableBuilder', () => {
     ]);
   });
 
+  it('builds link fields for all relationships with self references', () => {
+    const baseIdResult = createBaseId('g');
+    const tableIdResult = createTableId('h');
+    const tableNameResult = TableName.create('Link Self');
+    const primaryNameResult = FieldName.create('Title');
+    const linkNamesResult = [
+      FieldName.create('OneOne'),
+      FieldName.create('ManyMany'),
+      FieldName.create('OneMany'),
+      FieldName.create('ManyOne'),
+    ];
+    const primaryFieldIdResult = createFieldId('i');
+    const linkFieldIdsResult = [
+      createFieldId('j'),
+      createFieldId('k'),
+      createFieldId('l'),
+      createFieldId('m'),
+    ];
+
+    expect(
+      [
+        baseIdResult,
+        tableIdResult,
+        tableNameResult,
+        primaryNameResult,
+        primaryFieldIdResult,
+        ...linkNamesResult,
+        ...linkFieldIdsResult,
+      ].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      baseIdResult.isErr() ||
+      tableIdResult.isErr() ||
+      tableNameResult.isErr() ||
+      primaryNameResult.isErr() ||
+      primaryFieldIdResult.isErr() ||
+      linkNamesResult.some((r) => r.isErr()) ||
+      linkFieldIdsResult.some((r) => r.isErr())
+    )
+      return;
+
+    const baseId = baseIdResult.value;
+    const tableId = tableIdResult.value;
+    const primaryFieldId = primaryFieldIdResult.value;
+    const [oneOneName, manyManyName, oneManyName, manyOneName] = linkNamesResult.map((r) =>
+      r._unsafeUnwrap()
+    );
+    const [oneOneId, manyManyId, oneManyId, manyOneId] = linkFieldIdsResult.map((r) =>
+      r._unsafeUnwrap()
+    );
+
+    const builder = Table.builder()
+      .withId(tableId)
+      .withBaseId(baseId)
+      .withName(tableNameResult.value);
+    builder
+      .field()
+      .singleLineText()
+      .withId(primaryFieldId)
+      .withName(primaryNameResult.value)
+      .primary()
+      .done();
+
+    const buildConfig = (relationship: string) =>
+      LinkFieldConfig.create({
+        relationship,
+        foreignTableId: tableId.toString(),
+        lookupFieldId: primaryFieldId.toString(),
+      });
+
+    const oneOneConfig = buildConfig('oneOne');
+    const manyManyConfig = buildConfig('manyMany');
+    const oneManyConfig = buildConfig('oneMany');
+    const manyOneConfig = buildConfig('manyOne');
+    expect(
+      [oneOneConfig, manyManyConfig, oneManyConfig, manyOneConfig].every((r) => r.isOk())
+    ).toBe(true);
+    if (
+      oneOneConfig.isErr() ||
+      manyManyConfig.isErr() ||
+      oneManyConfig.isErr() ||
+      manyOneConfig.isErr()
+    )
+      return;
+
+    builder
+      .field()
+      .link()
+      .withId(oneOneId)
+      .withName(oneOneName)
+      .withConfig(oneOneConfig.value)
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(manyManyId)
+      .withName(manyManyName)
+      .withConfig(manyManyConfig.value)
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(oneManyId)
+      .withName(oneManyName)
+      .withConfig(oneManyConfig.value)
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(manyOneId)
+      .withName(manyOneName)
+      .withConfig(manyOneConfig.value)
+      .done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    expect(buildResult.isOk()).toBe(true);
+    if (buildResult.isErr()) return;
+
+    const table = buildResult.value;
+    const linkFields = table.fields().filter((f) => f.type().toString() === 'link') as LinkField[];
+    expect(linkFields).toHaveLength(4);
+
+    const fkHost = `${baseId.toString()}.${tableId.toString()}`;
+    const linkById = new Map(linkFields.map((field) => [field.id().toString(), field]));
+    const oneOne = linkById.get(oneOneId.toString());
+    const manyMany = linkById.get(manyManyId.toString());
+    const oneMany = linkById.get(oneManyId.toString());
+    const manyOne = linkById.get(manyOneId.toString());
+    expect(!!(oneOne && manyMany && oneMany && manyOne)).toBe(true);
+    if (!oneOne || !manyMany || !oneMany || !manyOne) return;
+
+    expect(oneOne.relationship().toString()).toBe('oneOne');
+    expect(oneMany.relationship().toString()).toBe('oneMany');
+    expect(manyOne.relationship().toString()).toBe('manyOne');
+    expect(manyMany.relationship().toString()).toBe('manyMany');
+
+    const fkOneOne = oneOne.fkHostTableNameString();
+    const fkOneMany = oneMany.fkHostTableNameString();
+    const fkManyOne = manyOne.fkHostTableNameString();
+    expect([fkOneOne, fkOneMany, fkManyOne].every((r) => r.isOk())).toBe(true);
+    if (fkOneOne.isErr() || fkOneMany.isErr() || fkManyOne.isErr()) return;
+    expect(fkOneOne.value).toBe(fkHost);
+    expect(fkOneMany.value).toBe(fkHost);
+    expect(fkManyOne.value).toBe(fkHost);
+
+    const fkManyMany = manyMany.fkHostTableNameString();
+    expect(fkManyMany.isOk()).toBe(true);
+    if (fkManyMany.isErr()) return;
+    expect(
+      fkManyMany.value.startsWith(`${baseId.toString()}.junction_${manyManyId.toString()}`)
+    ).toBe(true);
+    expect(manyMany.symmetricFieldId()).toBeDefined();
+  });
+
   it('initializes column meta for all view types', () => {
     const baseIdResult = BaseId.create(`bse${'e'.repeat(16)}`);
     const tableNameResult = TableName.create('Column Meta');

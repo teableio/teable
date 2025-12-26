@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { BaseId } from '../domain/base/BaseId';
 import { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
+import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
 import {
@@ -17,6 +18,7 @@ import {
 
 export const createTableInputSchema = z.object({
   baseId: z.string(),
+  tableId: z.string().optional(),
   name: z.string(),
   fields: z.array(tableFieldInputSchema).default([]),
   views: z
@@ -116,6 +118,7 @@ const sequence = <T>(values: ReadonlyArray<Result<T, string>>): Result<ReadonlyA
 export class CreateTableCommand {
   private constructor(
     readonly baseId: BaseId,
+    readonly tableId: TableId | undefined,
     readonly tableName: TableName,
     readonly fields: ReadonlyArray<ICreateTableFieldSpec>,
     readonly views: ReadonlyArray<ICreateTableViewSpec>
@@ -125,13 +128,22 @@ export class CreateTableCommand {
     const parsed = createTableInputSchema.safeParse(raw);
     if (!parsed.success) return err('Invalid CreateTableCommand input');
 
+    const tableIdResult: Result<TableId | undefined, string> = parsed.data.tableId
+      ? TableId.create(parsed.data.tableId)
+      : ok<TableId | undefined, string>(undefined);
+
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
-      TableName.create(parsed.data.name).andThen((tableName) =>
-        this.parseFields(parsed.data.fields)
-          .andThen((fields) =>
-            this.parseViews(parsed.data.views).map((views) => ({ fields, views }))
-          )
-          .map(({ fields, views }) => new CreateTableCommand(baseId, tableName, fields, views))
+      tableIdResult.andThen((tableId) =>
+        TableName.create(parsed.data.name).andThen((tableName) =>
+          this.parseFields(parsed.data.fields)
+            .andThen((fields) =>
+              this.parseViews(parsed.data.views).map((views) => ({ fields, views }))
+            )
+            .map(
+              ({ fields, views }) =>
+                new CreateTableCommand(baseId, tableId, tableName, fields, views)
+            )
+        )
       )
     );
   }
@@ -198,6 +210,9 @@ export class CreateTableCommand {
 
 export function buildTable(command: CreateTableCommand): Result<Table, string> {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
+  if (command.tableId) {
+    builder.withId(command.tableId);
+  }
 
   for (const fieldSpec of command.fields) {
     fieldSpec.applyTo(builder);

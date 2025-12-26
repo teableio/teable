@@ -5,12 +5,17 @@ import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
 import { CreateTableCommand } from './CreateTableCommand';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
+const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 
 const buildFromCommand = (command: CreateTableCommand) => {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
+  if (command.tableId) {
+    builder.withId(command.tableId);
+  }
   for (const fieldSpec of command.fields) fieldSpec.applyTo(builder);
   for (const viewSpec of command.views) viewSpec.applyTo(builder);
   return builder.build();
@@ -286,6 +291,55 @@ describe('CreateTableCommand', () => {
       expect(linkField.foreignTableId().toString()).toBe(foreignTableId);
       expect(linkField.lookupFieldId().toString()).toBe(lookupFieldId);
       expect(linkField.hasOrderColumn()).toBe(false);
+    });
+
+    it('supports all relationships including self references', () => {
+      const baseIdResult = createBaseId('x');
+      const tableIdResult = createTableId('y');
+      expect([baseIdResult, tableIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || tableIdResult.isErr()) return;
+
+      const tableId = tableIdResult.value.toString();
+      const lookupFieldId = `fld${'z'.repeat(16)}`;
+      const relationshipCases = ['oneOne', 'manyMany', 'oneMany', 'manyOne'] as const;
+
+      const commandResult = CreateTableCommand.create({
+        baseId: baseIdResult.value.toString(),
+        tableId,
+        name: 'Self Link Table',
+        fields: [
+          { type: 'singleLineText', name: 'Name', id: lookupFieldId, isPrimary: true },
+          ...relationshipCases.map((relationship, index) => ({
+            type: 'link' as const,
+            id: `fld${String(index).repeat(16)}`,
+            name: `Link ${relationship}`,
+            options: {
+              relationship,
+              foreignTableId: tableId,
+              lookupFieldId,
+            },
+          })),
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      expect(commandResult.isOk()).toBe(true);
+      if (commandResult.isErr()) return;
+
+      const buildResult = buildFromCommand(commandResult.value);
+      expect(buildResult.isOk()).toBe(true);
+      if (buildResult.isErr()) return;
+
+      const table = buildResult.value;
+      const linkFields = table.fields().filter((field) => field.type().toString() === 'link') as
+        | LinkField[]
+        | undefined;
+      expect(linkFields?.length).toBe(4);
+      if (!linkFields) return;
+
+      const relationships = linkFields.map((field) => field.relationship().toString());
+      expect(relationships.sort()).toEqual([...relationshipCases].sort());
+      expect(linkFields.every((field) => field.foreignTableId().toString() === tableId)).toBe(true);
     });
   });
 

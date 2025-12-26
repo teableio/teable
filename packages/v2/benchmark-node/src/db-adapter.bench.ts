@@ -22,7 +22,13 @@ const benchOptions = {
 
 const createTableName = (adapterName: string, scenario: string): string => {
   const random = Math.random().toString(36).slice(2, 8);
-  return `Bench_Db_${adapterName}_${scenario}_${Date.now()}_${random}`;
+  const time = Date.now().toString(36).slice(-6);
+  const suffix = `_${time}_${random}`;
+  const prefixBase = `b_${adapterName}_${scenario}`;
+  const maxPrefixLength = 40 - suffix.length;
+  const prefix =
+    maxPrefixLength > 0 ? prefixBase.slice(0, maxPrefixLength) : prefixBase.slice(0, 1);
+  return `${prefix}${suffix}`;
 };
 
 type IBenchTarget = {

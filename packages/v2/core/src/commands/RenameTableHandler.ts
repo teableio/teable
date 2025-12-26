@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -9,7 +10,6 @@ import * as LoggerPort from '../ports/Logger';
 import { v2CoreTokens } from '../ports/tokens';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { RenameTableCommand } from './RenameTableCommand';
-import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 
 export class RenameTableResult {
   private constructor(

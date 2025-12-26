@@ -10,7 +10,7 @@ import type { ViewId } from '../../views/ViewId';
 import type { DbFieldName } from '../DbFieldName';
 import { Field } from '../Field';
 import { FieldId } from '../FieldId';
-import type { FieldName } from '../FieldName';
+import { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
@@ -209,22 +209,24 @@ export class LinkField extends Field {
       symmetricFieldIdResult.andThen((symmetricFieldId) =>
         symmetricDbConfigResult.andThen((symmetricDbConfig) =>
           this.setSymmetricFieldId(symmetricFieldId).andThen(() =>
-            LinkFieldConfig.create({
-              baseId,
-              relationship: this.relationship().reverse().toString(),
-              foreignTableId: hostTable.id().toString(),
-              lookupFieldId,
-              isOneWay: false,
-              symmetricFieldId: this.id().toString(),
-            }).andThen((config) =>
-              (symmetricDbConfig ? config.withDbConfig(symmetricDbConfig) : ok(config)).andThen(
-                (finalConfig) =>
-                  LinkField.create({
-                    id: symmetricFieldId,
-                    name: this.name(),
-                    config: finalConfig,
-                    meta: this.meta(),
-                  })
+            this.resolveSymmetricFieldName(hostTable, foreignTable).andThen((symmetricName) =>
+              LinkFieldConfig.create({
+                baseId,
+                relationship: this.relationship().reverse().toString(),
+                foreignTableId: hostTable.id().toString(),
+                lookupFieldId,
+                isOneWay: false,
+                symmetricFieldId: this.id().toString(),
+              }).andThen((config) =>
+                (symmetricDbConfig ? config.withDbConfig(symmetricDbConfig) : ok(config)).andThen(
+                  (finalConfig) =>
+                    LinkField.create({
+                      id: symmetricFieldId,
+                      name: symmetricName,
+                      config: finalConfig,
+                      meta: this.meta(),
+                    })
+                )
               )
             )
           )
@@ -318,5 +320,30 @@ export class LinkField extends Field {
       ? `${this.id().toString()}_${symmetricFieldId.toString()}`
       : this.id().toString();
     return DbTableName.rehydrate(`${baseId.toString()}.junction_${suffix}`);
+  }
+
+  private resolveSymmetricFieldName(
+    hostTable: Table,
+    foreignTable: ForeignTable
+  ): Result<FieldName, string> {
+    if (!foreignTable.id().equals(hostTable.id())) return ok(this.name());
+
+    const existingNames = hostTable.fields().map((field) => field.name());
+    if (!existingNames.some((name) => name.equals(this.name()))) {
+      return ok(this.name());
+    }
+
+    const baseName = this.name().toString();
+    for (let index = 1; index <= 100; index += 1) {
+      const suffix = index === 1 ? ' (linked)' : ` (linked ${index})`;
+      const candidateResult = FieldName.create(`${baseName}${suffix}`);
+      if (candidateResult.isErr()) return err(candidateResult.error);
+      const candidate = candidateResult.value;
+      if (!existingNames.some((name) => name.equals(candidate))) {
+        return ok(candidate);
+      }
+    }
+
+    return err('Failed to generate unique FieldName');
   }
 }

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -22,7 +23,6 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
-import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');

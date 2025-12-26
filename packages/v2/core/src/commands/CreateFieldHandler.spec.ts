@@ -1,0 +1,258 @@
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { describe, expect, it } from 'vitest';
+
+import { FieldCreationSideEffectFlow } from '../application/services/FieldCreationSideEffectFlow';
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { BaseId } from '../domain/base/BaseId';
+import { ActorId } from '../domain/shared/ActorId';
+import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldId } from '../domain/table/fields/FieldId';
+import { FieldName } from '../domain/table/fields/FieldName';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
+import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
+import { Table } from '../domain/table/Table';
+import { TableId } from '../domain/table/TableId';
+import { TableName } from '../domain/table/TableName';
+import type { TableSortKey } from '../domain/table/TableSortKey';
+import type { IEventBus } from '../ports/EventBus';
+import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import type { ILogger } from '../ports/Logger';
+import type { IFindOptions } from '../ports/RepositoryQuery';
+import type { ITableRepository } from '../ports/TableRepository';
+import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
+import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
+import { CreateFieldCommand } from './CreateFieldCommand';
+import { CreateFieldHandler } from './CreateFieldHandler';
+
+const createContext = (): IExecutionContext => {
+  const actorIdResult = ActorId.create('system');
+  expect(actorIdResult.isOk()).toBe(true);
+  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
+  return { actorId: actorIdResult.value };
+};
+
+class InMemoryTableRepository implements ITableRepository {
+  tables: Table[] = [];
+
+  async insert(_context: IExecutionContext, table: Table) {
+    this.tables.push(table);
+    return ok(table);
+  }
+
+  async findOne(
+    _context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<Table, string>> {
+    const match = this.tables.find((table) => spec.isSatisfiedBy(table));
+    if (!match) return err('Not found');
+    return ok(match);
+  }
+
+  async find(
+    _context: IExecutionContext,
+    spec: ISpecification<Table, ITableSpecVisitor>,
+    _options?: IFindOptions<TableSortKey>
+  ): Promise<Result<ReadonlyArray<Table>, string>> {
+    return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
+  }
+
+  async updateOne(
+    _context: IExecutionContext,
+    table: Table,
+    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ): Promise<Result<void, string>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index === -1) return err('Not found');
+    this.tables[index] = table;
+    return ok(undefined);
+  }
+
+  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
+}
+
+class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async insert(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
+  async update(
+    _context: IExecutionContext,
+    _table: Table,
+    _mutateSpec: ISpecification<Table, ITableSpecVisitor>
+  ) {
+    return ok(undefined);
+  }
+
+  async delete(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+}
+
+class FakeEventBus implements IEventBus {
+  async publish(_context: IExecutionContext, _event: IDomainEvent) {
+    return ok(undefined);
+  }
+
+  async publishMany(_context: IExecutionContext, _events: ReadonlyArray<IDomainEvent>) {
+    return ok(undefined);
+  }
+}
+
+class FakeLogger implements ILogger {
+  readonly messages: string[] = [];
+
+  debug(message: string): void {
+    this.messages.push(message);
+  }
+  info(message: string): void {
+    this.messages.push(message);
+  }
+  warn(message: string): void {
+    this.messages.push(message);
+  }
+  error(message: string): void {
+    this.messages.push(message);
+  }
+}
+
+class FakeUnitOfWork implements IUnitOfWork {
+  async withTransaction<T>(
+    context: IExecutionContext,
+    work: UnitOfWorkOperation<T>
+  ): Promise<Result<T, string>> {
+    const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
+    return work({ ...context, transaction });
+  }
+}
+
+const buildTable = (params: {
+  baseId: string;
+  tableId: string;
+  tableName: string;
+  primaryFieldId: string;
+}) => {
+  return Table.builder()
+    .withId(TableId.create(params.tableId)._unsafeUnwrap())
+    .withBaseId(BaseId.create(params.baseId)._unsafeUnwrap())
+    .withName(TableName.create(params.tableName)._unsafeUnwrap())
+    .field()
+    .singleLineText()
+    .withId(FieldId.create(params.primaryFieldId)._unsafeUnwrap())
+    .withName(FieldName.create('Name')._unsafeUnwrap())
+    .primary()
+    .done()
+    .view()
+    .defaultGrid()
+    .done()
+    .build()
+    ._unsafeUnwrap();
+};
+
+describe('CreateFieldHandler', () => {
+  it('supports all link relationships and self references', async () => {
+    const baseId = `bse${'a'.repeat(16)}`;
+    const hostTableId = `tbl${'b'.repeat(16)}`;
+    const foreignTableId = `tbl${'c'.repeat(16)}`;
+    const hostPrimaryId = `fld${'d'.repeat(16)}`;
+    const foreignPrimaryId = `fld${'e'.repeat(16)}`;
+
+    const tableRepository = new InMemoryTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const logger = new FakeLogger();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      tableRepository,
+      tableUpdateFlow
+    );
+    const handler = new CreateFieldHandler(
+      tableUpdateFlow,
+      fieldCreationSideEffectFlow,
+      eventBus,
+      logger
+    );
+
+    tableRepository.tables.push(
+      buildTable({
+        baseId,
+        tableId: hostTableId,
+        tableName: 'Host',
+        primaryFieldId: hostPrimaryId,
+      }),
+      buildTable({
+        baseId,
+        tableId: foreignTableId,
+        tableName: 'Foreign',
+        primaryFieldId: foreignPrimaryId,
+      })
+    );
+
+    const relationships = ['oneOne', 'manyMany', 'oneMany', 'manyOne'] as const;
+    for (const relationship of relationships) {
+      const commandResult = CreateFieldCommand.create({
+        baseId,
+        tableId: hostTableId,
+        field: {
+          type: 'link',
+          name: `Link ${relationship}`,
+          options: {
+            relationship,
+            foreignTableId,
+            lookupFieldId: foreignPrimaryId,
+          },
+        },
+      });
+      expect(commandResult.isOk()).toBe(true);
+      if (commandResult.isErr()) continue;
+
+      const result = await handler.handle(createContext(), commandResult.value);
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) continue;
+
+      const updatedForeign = tableRepository.tables.find(
+        (table) => table.id().toString() === foreignTableId
+      );
+      expect(updatedForeign).toBeDefined();
+      if (!updatedForeign) continue;
+      const linkFields = updatedForeign
+        .fields()
+        .filter((field) => field.type().toString() === 'link') as LinkField[];
+      expect(linkFields.length).toBeGreaterThan(0);
+    }
+
+    const selfCommand = CreateFieldCommand.create({
+      baseId,
+      tableId: hostTableId,
+      field: {
+        type: 'link',
+        name: 'Self',
+        options: {
+          relationship: 'manyMany',
+          foreignTableId: hostTableId,
+          lookupFieldId: hostPrimaryId,
+        },
+      },
+    });
+    expect(selfCommand.isOk()).toBe(true);
+    if (selfCommand.isErr()) return;
+    const selfResult = await handler.handle(createContext(), selfCommand.value);
+    expect(selfResult.isOk()).toBe(true);
+    if (selfResult.isErr()) return;
+
+    const selfTable = tableRepository.tables.find((table) => table.id().toString() === hostTableId);
+    expect(selfTable).toBeDefined();
+    if (!selfTable) return;
+    const selfLinks = selfTable.fields().filter((field) => field.type().toString() === 'link');
+    expect(selfLinks.length).toBeGreaterThan(1);
+  });
+});

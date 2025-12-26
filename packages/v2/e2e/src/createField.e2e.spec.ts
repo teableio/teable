@@ -2,7 +2,11 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
-import { createFieldOkResponseSchema, createTableOkResponseSchema } from '@teable/v2-contract-http';
+import {
+  createFieldOkResponseSchema,
+  createTableOkResponseSchema,
+  getTableByIdOkResponseSchema,
+} from '@teable/v2-contract-http';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -13,6 +17,9 @@ describe('v2 http createField (e2e)', () => {
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
   let tableId: string;
+  let tablePrimaryFieldId: string;
+  let foreignTableId: string;
+  let foreignPrimaryFieldId: string;
   let fieldIdCounter = 0;
 
   const createFieldId = () => {
@@ -57,6 +64,33 @@ describe('v2 http createField (e2e)', () => {
       throw new Error('Failed to create seed table');
     }
     tableId = parsed.data.data.table.id;
+    const primaryField = parsed.data.data.table.fields.find((field) => field.isPrimary);
+    if (!primaryField) {
+      throw new Error('Failed to resolve primary field');
+    }
+    tablePrimaryFieldId = primaryField.id;
+
+    const foreignResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Foreign Table',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      }),
+    });
+    const foreignRaw = await foreignResponse.json();
+    const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
+    expect(foreignParsed.success).toBe(true);
+    if (!foreignParsed.success || !foreignParsed.data.ok) {
+      throw new Error('Failed to create foreign table');
+    }
+    foreignTableId = foreignParsed.data.data.table.id;
+    const foreignPrimary = foreignParsed.data.data.table.fields.find((field) => field.isPrimary);
+    if (!foreignPrimary) {
+      throw new Error('Failed to resolve foreign primary field');
+    }
+    foreignPrimaryFieldId = foreignPrimary.id;
   });
 
   afterAll(async () => {
@@ -322,5 +356,98 @@ describe('v2 http createField (e2e)', () => {
         expect(created.isMultipleCellValue).toBe(entry.expect.isMultipleCellValue);
       }
     }
+  });
+
+  it('creates link fields for all relationships and self links', async () => {
+    const relationships = [
+      { relationship: 'oneOne', expected: 'oneOne' },
+      { relationship: 'manyMany', expected: 'manyMany' },
+      { relationship: 'oneMany', expected: 'manyOne' },
+      { relationship: 'manyOne', expected: 'oneMany' },
+    ] as const;
+
+    for (const entry of relationships) {
+      const linkFieldId = createFieldId();
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: `Link ${entry.relationship}`,
+            options: {
+              relationship: entry.relationship,
+              foreignTableId,
+              lookupFieldId: foreignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed for link: ${JSON.stringify(rawBody)}`);
+      }
+      expect(response.status).toBe(200);
+
+      const getResponse = await fetch(
+        `${baseUrl}/tables/get?baseId=${baseId}&tableId=${foreignTableId}`,
+        { method: 'GET' }
+      );
+      expect(getResponse.status).toBe(200);
+      const getRaw = await getResponse.json();
+      const getParsed = getTableByIdOkResponseSchema.safeParse(getRaw);
+      expect(getParsed.success).toBe(true);
+      if (!getParsed.success || !getParsed.data.ok) return;
+
+      const foreignLinks = getParsed.data.data.table.fields.filter(
+        (field) => field.type === 'link'
+      ) as Array<{
+        type: 'link';
+        options: { relationship: string; symmetricFieldId?: string };
+      }>;
+      const matched = foreignLinks.filter(
+        (field) => field.options.symmetricFieldId === linkFieldId
+      );
+      expect(matched).toHaveLength(1);
+      if (matched.length === 0) return;
+      expect(matched[0].options.relationship).toBe(entry.expected);
+    }
+
+    const selfLinkFieldId = createFieldId();
+    const selfResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId,
+        field: {
+          type: 'link',
+          id: selfLinkFieldId,
+          name: 'Self',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: tableId,
+            lookupFieldId: tablePrimaryFieldId,
+          },
+        },
+      }),
+    });
+
+    expect(selfResponse.status).toBe(200);
+    const selfGetResponse = await fetch(
+      `${baseUrl}/tables/get?baseId=${baseId}&tableId=${tableId}`,
+      { method: 'GET' }
+    );
+    expect(selfGetResponse.status).toBe(200);
+    const selfRaw = await selfGetResponse.json();
+    const selfParsed = getTableByIdOkResponseSchema.safeParse(selfRaw);
+    expect(selfParsed.success).toBe(true);
+    if (!selfParsed.success || !selfParsed.data.ok) return;
+    const selfLinks = selfParsed.data.data.table.fields.filter((field) => field.type === 'link');
+    expect(selfLinks.length).toBeGreaterThan(1);
   });
 });

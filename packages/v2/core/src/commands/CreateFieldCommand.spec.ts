@@ -5,6 +5,7 @@ import { ButtonField } from '../domain/table/fields/types/ButtonField';
 import { CheckboxField } from '../domain/table/fields/types/CheckboxField';
 import { DateField } from '../domain/table/fields/types/DateField';
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
+import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LongTextField } from '../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberField } from '../domain/table/fields/types/NumberField';
@@ -270,6 +271,71 @@ describe('CreateFieldCommand', () => {
           expect(typed.timeZone()?.toString()).toBe('utc');
           expect(typed.formatting()?.toDto()).toEqual({ type: 'decimal', precision: 1 });
           expect(typed.showAs()?.toDto()).toEqual({ type: 'url' });
+        },
+      },
+      {
+        field: {
+          type: 'link',
+          name: 'Self Link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: tableId,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LinkField);
+          const typed = field as LinkField;
+          expect(typed.relationship().toString()).toBe('manyMany');
+          expect(typed.foreignTableId().toString()).toBe(tableId);
+        },
+      },
+      {
+        field: {
+          type: 'link',
+          name: 'OneOne',
+          options: {
+            relationship: 'oneOne',
+            foreignTableId: `tbl${'d'.repeat(16)}`,
+            lookupFieldId: `fld${'e'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LinkField);
+          const typed = field as LinkField;
+          expect(typed.relationship().toString()).toBe('oneOne');
+        },
+      },
+      {
+        field: {
+          type: 'link',
+          name: 'OneMany',
+          options: {
+            relationship: 'oneMany',
+            foreignTableId: `tbl${'f'.repeat(16)}`,
+            lookupFieldId: `fld${'g'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LinkField);
+          const typed = field as LinkField;
+          expect(typed.relationship().toString()).toBe('oneMany');
+        },
+      },
+      {
+        field: {
+          type: 'link',
+          name: 'ManyOne',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: `tbl${'h'.repeat(16)}`,
+            lookupFieldId: `fld${'i'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LinkField);
+          const typed = field as LinkField;
+          expect(typed.relationship().toString()).toBe('manyOne');
         },
       },
     ];

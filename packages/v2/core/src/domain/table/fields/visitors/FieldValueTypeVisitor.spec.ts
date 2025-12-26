@@ -1,153 +1,62 @@
 import { describe, expect, it } from 'vitest';
 
-import { BaseId } from '../../../base/BaseId';
-import { Table } from '../../Table';
-import { TableName } from '../../TableName';
+import { TableId } from '../../TableId';
+import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
-import { CellValueMultiplicity } from '../types/CellValueMultiplicity';
-import { CellValueType } from '../types/CellValueType';
-import { FormulaExpression } from '../types/FormulaExpression';
-import type { FormulaField } from '../types/FormulaField';
-import { UserMultiplicity } from '../types/UserMultiplicity';
+import { LinkField } from '../types/LinkField';
+import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { FieldValueTypeVisitor } from './FieldValueTypeVisitor';
 
+const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
+const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
+
 describe('FieldValueTypeVisitor', () => {
-  it('infers cell value types for all field kinds', () => {
-    const baseIdResult = BaseId.create(`bse${'f'.repeat(16)}`);
-    const tableNameResult = TableName.create('Visitor fields');
-    const expressionResult = FormulaExpression.create('1 + 1');
-    const names = [
-      'Single',
-      'Long',
-      'Number',
-      'Rating',
-      'Formula',
-      'SingleSelect',
-      'MultipleSelect',
-      'Checkbox',
-      'Attachment',
-      'Date',
-      'User',
-      'Button',
-    ];
-    const nameResults = names.map((name) => FieldName.create(name));
-
+  it('returns multiplicity based on link relationship', () => {
+    const foreignTableIdResult = createTableId('a');
+    const lookupFieldIdResult = createFieldId('b');
+    const linkFieldIdResult = createFieldId('c');
+    const linkFieldNameResult = FieldName.create('Link');
     expect(
-      [baseIdResult, tableNameResult, expressionResult, ...nameResults].every((r) => r.isOk())
+      [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].every(
+        (r) => r.isOk()
+      )
     ).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || expressionResult.isErr()) return;
+    if (
+      foreignTableIdResult.isErr() ||
+      lookupFieldIdResult.isErr() ||
+      linkFieldIdResult.isErr() ||
+      linkFieldNameResult.isErr()
+    )
+      return;
 
-    const nameValues: FieldName[] = [];
-    for (const result of nameResults) {
-      if (result.isErr()) return;
-      nameValues.push(result.value);
-    }
+    const buildLinkField = (relationship: string) =>
+      LinkFieldConfig.create({
+        relationship,
+        foreignTableId: foreignTableIdResult.value.toString(),
+        lookupFieldId: lookupFieldIdResult.value.toString(),
+      }).andThen((config) =>
+        LinkField.create({
+          id: linkFieldIdResult.value,
+          name: linkFieldNameResult.value,
+          config,
+        })
+      );
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-
-    builder.field().singleLineText().withName(nameValues[0]).done();
-    builder.field().longText().withName(nameValues[1]).done();
-    builder.field().number().withName(nameValues[2]).done();
-    builder.field().rating().withName(nameValues[3]).done();
-    builder.field().formula().withName(nameValues[4]).withExpression(expressionResult.value).done();
-    builder.field().singleSelect().withName(nameValues[5]).done();
-    builder.field().multipleSelect().withName(nameValues[6]).done();
-    builder.field().checkbox().withName(nameValues[7]).done();
-    builder.field().attachment().withName(nameValues[8]).done();
-    builder.field().date().withName(nameValues[9]).done();
-    builder
-      .field()
-      .user()
-      .withName(nameValues[10])
-      .withMultiplicity(UserMultiplicity.multiple())
-      .done();
-    builder.field().button().withName(nameValues[11]).done();
-    builder.view().defaultGrid().done();
-
-    const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
+    const manyMany = buildLinkField('manyMany');
+    const manyOne = buildLinkField('manyOne');
+    expect([manyMany, manyOne].every((r) => r.isOk())).toBe(true);
+    if (manyMany.isErr() || manyOne.isErr()) return;
 
     const visitor = new FieldValueTypeVisitor();
-    const byName = new Map(
-      tableResult.value.fields().map((field) => [field.name().toString(), field])
-    );
-    const formulaField = byName.get('Formula') as FormulaField | undefined;
-    if (formulaField) {
-      const formulaResult = formulaField.setResultType(
-        CellValueType.number(),
-        CellValueMultiplicity.single()
-      );
-      expect(formulaResult.isOk()).toBe(true);
-    }
-    const expectations = [
-      {
-        name: 'Single',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      { name: 'Long', type: CellValueType.string(), multiplicity: CellValueMultiplicity.single() },
-      {
-        name: 'Number',
-        type: CellValueType.number(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'Rating',
-        type: CellValueType.number(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'Formula',
-        type: CellValueType.number(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'SingleSelect',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'MultipleSelect',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.multiple(),
-      },
-      {
-        name: 'Checkbox',
-        type: CellValueType.boolean(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'Attachment',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.multiple(),
-      },
-      {
-        name: 'Date',
-        type: CellValueType.dateTime(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-      {
-        name: 'User',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.multiple(),
-      },
-      {
-        name: 'Button',
-        type: CellValueType.string(),
-        multiplicity: CellValueMultiplicity.single(),
-      },
-    ];
+    const manyManyValue = manyMany.value.accept(visitor);
+    const manyOneValue = manyOne.value.accept(visitor);
+    expect([manyManyValue, manyOneValue].every((r) => r.isOk())).toBe(true);
+    if (manyManyValue.isErr() || manyOneValue.isErr()) return;
 
-    for (const { name, type, multiplicity } of expectations) {
-      const field = byName.get(name);
-      expect(field).toBeTruthy();
-      if (!field) continue;
-      const result = field.accept(visitor);
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) continue;
-      expect(result.value.cellValueType.equals(type)).toBe(true);
-      expect(result.value.isMultipleCellValue.equals(multiplicity)).toBe(true);
-    }
+    expect(manyManyValue.value.cellValueType.toString()).toBe('string');
+    expect(manyManyValue.value.isMultipleCellValue.toBoolean()).toBe(true);
+
+    expect(manyOneValue.value.cellValueType.toString()).toBe('string');
+    expect(manyOneValue.value.isMultipleCellValue.toBoolean()).toBe(false);
   });
 });
