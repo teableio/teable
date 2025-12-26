@@ -37,6 +37,13 @@ export default function ensureLogin<P extends { [key: string]: any }>(
           },
         };
       }
+      // User is not logged in, redirect to social auth if on login page
+      if (isLoginPage) {
+        const result = redirectSocialAuth(req);
+        if (result) {
+          return result;
+        }
+      }
     } catch (error) {
       if (error instanceof HttpError) {
         if (isLoginPage) {
