@@ -20,6 +20,7 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-container-node-test": ["../container-node-test/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
       "@teable/v2-di": ["../di/src"],
@@ -30,6 +31,7 @@
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": [
     "src",
+    "../container-node-test/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",
     "../di/src",

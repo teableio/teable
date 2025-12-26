@@ -4,6 +4,8 @@ import { BaseId } from '../base/BaseId';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FormulaExpression } from './fields/types/FormulaExpression';
+import type { LinkField } from './fields/types/LinkField';
+import { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { RatingMax } from './fields/types/RatingMax';
 import { SelectOption } from './fields/types/SelectOption';
 import { Table } from './Table';
@@ -554,5 +556,73 @@ describe('TableBuilder', () => {
     expect(buildResult.isOk()).toBe(true);
     if (buildResult.isErr()) return;
     expect(buildResult.value.id().equals(tableIdResult.value)).toBe(true);
+  });
+
+  describe('link fields', () => {
+    it('builds a table with link configs', () => {
+      const baseIdResult = createBaseId('h');
+      const tableNameResult = TableName.create('Linked');
+      const titleNameResult = FieldName.create('Name');
+      const linkNameResult = FieldName.create('Company');
+      const foreignTableIdResult = createTableId('i');
+      const lookupFieldIdResult = createFieldId('j');
+
+      expect(
+        [
+          baseIdResult,
+          tableNameResult,
+          titleNameResult,
+          linkNameResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+        ].every((r) => r.isOk())
+      ).toBe(true);
+      if (
+        baseIdResult.isErr() ||
+        tableNameResult.isErr() ||
+        titleNameResult.isErr() ||
+        linkNameResult.isErr() ||
+        foreignTableIdResult.isErr() ||
+        lookupFieldIdResult.isErr()
+      )
+        return;
+
+      const linkConfigResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableIdResult.value.toString(),
+        lookupFieldId: lookupFieldIdResult.value.toString(),
+        fkHostTableName: 'link_relations',
+        selfKeyName: '__self_id',
+        foreignKeyName: '__foreign_id',
+      });
+      expect(linkConfigResult.isOk()).toBe(true);
+      if (linkConfigResult.isErr()) return;
+
+      const builder = Table.builder()
+        .withBaseId(baseIdResult.value)
+        .withName(tableNameResult.value);
+      builder.field().singleLineText().withName(titleNameResult.value).primary().done();
+      builder
+        .field()
+        .link()
+        .withName(linkNameResult.value)
+        .withConfig(linkConfigResult.value)
+        .done();
+      builder.view().defaultGrid().done();
+
+      const buildResult = builder.build();
+      expect(buildResult.isOk()).toBe(true);
+      if (buildResult.isErr()) return;
+
+      const linkField = buildResult.value
+        .fields()
+        .find((field) => field.type().toString() === 'link') as LinkField | undefined;
+      expect(linkField).toBeDefined();
+      if (!linkField) return;
+      expect(linkField.foreignTableId().equals(foreignTableIdResult.value)).toBe(true);
+      expect(linkField.lookupFieldId().equals(lookupFieldIdResult.value)).toBe(true);
+      expect(linkField.relationship().toString()).toBe('manyOne');
+      expect(linkField.hasOrderColumn()).toBe(false);
+    });
   });
 });

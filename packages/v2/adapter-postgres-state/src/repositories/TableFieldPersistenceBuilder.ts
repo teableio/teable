@@ -111,14 +111,11 @@ export class TableFieldPersistenceBuilder {
   }
 
   buildRowForField(field: Field): Result<TableFieldRow, string> {
-    const ensureResult = this.ensureDbFieldNames();
-    if (ensureResult.isErr()) return err(ensureResult.error);
-
     const fieldDtoResult = this.resolveFieldDto(field);
     if (fieldDtoResult.isErr()) return err(fieldDtoResult.error);
     const { fieldDto, storageType } = fieldDtoResult.value;
 
-    const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
+    const dbFieldNameResult = this.resolveDbFieldName(field);
     if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
 
     const orderResult = this.resolveFieldOrder(field);
@@ -177,31 +174,22 @@ export class TableFieldPersistenceBuilder {
     return ok(index + 1);
   }
 
-  private ensureDbFieldNames(): Result<void, string> {
+  private resolveDbFieldName(field: Field): Result<string, string> {
+    const existingResult = field.dbFieldName().andThen((name) => name.value());
+    if (existingResult.isOk()) return ok(existingResult.value);
+
     const reservedNames = new Set(baseRecordColumnNames);
-    const pendingFields: Field[] = [];
-
-    for (const field of this.params.table.fields()) {
-      const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
-      if (dbFieldNameResult.isOk()) {
-        reservedNames.add(dbFieldNameResult.value);
-        continue;
-      }
-
-      pendingFields.push(field);
+    for (const existing of this.params.table.fields()) {
+      const nameResult = existing.dbFieldName().andThen((name) => name.value());
+      if (nameResult.isOk()) reservedNames.add(nameResult.value);
     }
 
-    for (const field of pendingFields) {
-      const baseName = convertNameToValidCharacter(field.name().toString(), 40);
-      const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
-      reservedNames.add(dbFieldName);
-      const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
-      if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
-      const setResult = field.setDbFieldName(dbFieldNameResult.value);
-      if (setResult.isErr()) return err(setResult.error);
-    }
+    const baseName = convertNameToValidCharacter(field.name().toString(), 40);
+    const nextName = ensureUniqueDbFieldName(baseName, reservedNames);
 
-    return ok(undefined);
+    return DbFieldName.rehydrate(nextName).andThen((dbFieldName) =>
+      field.setDbFieldName(dbFieldName).map(() => nextName)
+    );
   }
 
   private buildRowValue(params: {

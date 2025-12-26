@@ -29,7 +29,7 @@ import type {
   UserField,
   ViewColumnMetaValue,
 } from '@teable/v2-core';
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -184,6 +184,26 @@ const formulaOptionsSchema = z.object({
   showAs: formulaShowAsSchema.optional(),
 });
 
+const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
+
+const linkOptionsSchema = z.object({
+  baseId: z.string().optional(),
+  relationship: linkRelationshipSchema,
+  foreignTableId: z.string(),
+  lookupFieldId: z.string(),
+  isOneWay: z.boolean().optional(),
+  fkHostTableName: z.string().optional(),
+  selfKeyName: z.string().optional(),
+  foreignKeyName: z.string().optional(),
+  symmetricFieldId: z.string().optional(),
+  filterByViewId: z.string().nullable().optional(),
+  visibleFieldIds: z.array(z.string()).readonly().nullable().optional(),
+});
+
+const linkMetaSchema = z.object({
+  hasOrderColumn: z.boolean().optional(),
+});
+
 type SingleLineTextOptionsDto = z.infer<typeof singleLineTextOptionsSchema>;
 type LongTextOptionsDto = z.infer<typeof longTextOptionsSchema>;
 type NumberOptionsDto = z.infer<typeof numberOptionsSchema>;
@@ -245,6 +265,11 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
     type: z.literal('button'),
     options: buttonOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('link'),
+    options: linkOptionsSchema,
+    meta: linkMetaSchema.optional(),
   }),
 ]);
 
@@ -498,8 +523,16 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitLinkField(_: LinkField): Result<IFieldDto, string> {
-    return err('Not implemented');
+  visitLinkField(field: LinkField): Result<IFieldDto, string> {
+    return field.configDto().map((options) => ({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'link',
+      options,
+      meta: field.metaDto(),
+      isPrimary: field.id().equals(this.primaryFieldId),
+    }));
   }
 }
 

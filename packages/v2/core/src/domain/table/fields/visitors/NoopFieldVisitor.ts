@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
@@ -66,6 +66,6 @@ export class NoopFieldVisitor implements IFieldVisitor {
   }
 
   visitLinkField(_: LinkField): Result<void, string> {
-    return err('Not implemented');
+    return ok(undefined);
   }
 }

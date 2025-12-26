@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { Table } from '../domain/table/Table';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
@@ -193,4 +194,21 @@ export class CreateTableCommand {
 
     return sequence(specs);
   }
+}
+
+export function buildTable(command: CreateTableCommand): Result<Table, string> {
+  const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
+
+  for (const fieldSpec of command.fields) {
+    fieldSpec.applyTo(builder);
+  }
+
+  for (const viewSpec of command.views) {
+    viewSpec.applyTo(builder);
+  }
+
+  const tableResult = builder.build();
+  if (tableResult.isErr()) return err(tableResult.error);
+
+  return ok(tableResult.value);
 }

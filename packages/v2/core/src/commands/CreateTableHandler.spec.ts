@@ -18,6 +18,8 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateTableCommand } from './CreateTableCommand';
 import { CreateTableHandler } from './CreateTableHandler';
+import { FieldCreationSideEffectFlow } from '../application/services/FieldCreationSideEffectFlow';
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
@@ -162,10 +164,21 @@ describe('CreateTableHandler', () => {
     const eventBus = new FakeEventBus();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      tableRepository,
+      tableUpdateFlow
+    );
 
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      fieldCreationSideEffectFlow,
       eventBus,
       logger,
       unitOfWork
@@ -207,9 +220,20 @@ describe('CreateTableHandler', () => {
     const eventBus = new FakeEventBus();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      tableRepository,
+      tableUpdateFlow
+    );
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      fieldCreationSideEffectFlow,
       eventBus,
       logger,
       unitOfWork
@@ -242,10 +266,21 @@ describe('CreateTableHandler', () => {
     const eventBus = new FakeEventBus();
     const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      tableRepository,
+      tableUpdateFlow
+    );
 
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
+      fieldCreationSideEffectFlow,
       eventBus,
       logger,
       unitOfWork
@@ -287,12 +322,29 @@ describe('CreateTableHandler', () => {
     expect(commandResult.isOk()).toBe(true);
     if (commandResult.isErr()) return;
 
+    const tableRepository = new FakeTableRepository();
+    const schemaRepository = new FakeTableSchemaRepository();
+    const eventBus = new FakeEventBus();
+    const logger = new FakeLogger();
+    const unitOfWork = new FakeUnitOfWork();
+    const tableUpdateFlow = new TableUpdateFlow(
+      tableRepository,
+      schemaRepository,
+      eventBus,
+      unitOfWork
+    );
+    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      tableRepository,
+      tableUpdateFlow
+    );
+
     const handler = new CreateTableHandler(
-      new FakeTableRepository(),
-      new FakeTableSchemaRepository(),
-      new FakeEventBus(),
-      new FakeLogger(),
-      new FakeUnitOfWork()
+      tableRepository,
+      schemaRepository,
+      fieldCreationSideEffectFlow,
+      eventBus,
+      logger,
+      unitOfWork
     );
 
     const result = await handler.handle(createContext(), commandResult.value);

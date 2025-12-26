@@ -22,7 +22,7 @@ import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
-import { TableUpdateFlow } from './TableUpdateFlow';
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');

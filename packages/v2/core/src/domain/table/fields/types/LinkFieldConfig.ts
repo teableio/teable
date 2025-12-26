@@ -1,8 +1,9 @@
-import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../../../base/BaseId';
+import { getRandomString } from '../../../shared/IdGenerator';
 import { ValueObject } from '../../../shared/ValueObject';
 import { DbTableName } from '../../DbTableName';
 import { TableId } from '../../TableId';
@@ -18,9 +19,9 @@ const linkFieldConfigSchema = z
     foreignTableId: z.string(),
     lookupFieldId: z.string(),
     isOneWay: z.boolean().optional(),
-    fkHostTableName: z.string(),
-    selfKeyName: z.string(),
-    foreignKeyName: z.string(),
+    fkHostTableName: z.string().optional(),
+    selfKeyName: z.string().optional(),
+    foreignKeyName: z.string().optional(),
     symmetricFieldId: z.string().optional(),
     filterByViewId: z.string().nullable().optional(),
     visibleFieldIds: z.array(z.string()).nullable().optional(),
@@ -33,12 +34,18 @@ export type LinkFieldConfigValue = {
   foreignTableId: string;
   lookupFieldId: string;
   isOneWay?: boolean;
-  fkHostTableName: string;
-  selfKeyName: string;
-  foreignKeyName: string;
+  fkHostTableName?: string;
+  selfKeyName?: string;
+  foreignKeyName?: string;
   symmetricFieldId?: string;
   filterByViewId?: string | null;
   visibleFieldIds?: ReadonlyArray<string> | null;
+};
+
+export type LinkFieldDbConfig = {
+  fkHostTableName: DbTableName;
+  selfKeyName: DbFieldName;
+  foreignKeyName: DbFieldName;
 };
 
 const optional = <T>(
@@ -93,40 +100,117 @@ export class LinkFieldConfig extends ValueObject {
     if (!parsed.success) return err('Invalid LinkFieldConfig');
     const data = parsed.data;
 
-    return optional(data.baseId, BaseId.create).andThen((baseId) =>
-      LinkRelationship.create(data.relationship).andThen((relationship) =>
-        TableId.create(data.foreignTableId).andThen((foreignTableId) =>
-          FieldId.create(data.lookupFieldId).andThen((lookupFieldId) =>
-            DbTableName.rehydrate(data.fkHostTableName).andThen((fkHostTableName) =>
-              DbFieldName.rehydrate(data.selfKeyName).andThen((selfKeyName) =>
-                DbFieldName.rehydrate(data.foreignKeyName).andThen((foreignKeyName) =>
-                  optional(data.symmetricFieldId, FieldId.create).andThen((symmetricFieldId) =>
-                    optionalNullable(data.filterByViewId, ViewId.create).andThen((filterByViewId) =>
-                      optionalNullableArray(data.visibleFieldIds, FieldId.create).map(
-                        (visibleFieldIds) =>
-                          new LinkFieldConfig(
-                            baseId,
-                            relationship,
-                            foreignTableId,
-                            lookupFieldId,
-                            data.isOneWay ?? false,
-                            fkHostTableName,
-                            selfKeyName,
-                            foreignKeyName,
-                            symmetricFieldId,
-                            filterByViewId,
-                            visibleFieldIds
-                          )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          )
+    const fkHostTableNameResult: Result<DbTableName, string> = data.fkHostTableName
+      ? DbTableName.rehydrate(data.fkHostTableName)
+      : ok<DbTableName, string>(DbTableName.empty());
+    const selfKeyNameResult: Result<DbFieldName, string> = data.selfKeyName
+      ? DbFieldName.rehydrate(data.selfKeyName)
+      : ok<DbFieldName, string>(DbFieldName.empty());
+    const foreignKeyNameResult: Result<DbFieldName, string> = data.foreignKeyName
+      ? DbFieldName.rehydrate(data.foreignKeyName)
+      : ok<DbFieldName, string>(DbFieldName.empty());
+
+    return safeTry<LinkFieldConfig, string>(function* () {
+      const baseId = yield* optional(data.baseId, BaseId.create);
+      const relationship = yield* LinkRelationship.create(data.relationship);
+      const foreignTableId = yield* TableId.create(data.foreignTableId);
+      const lookupFieldId = yield* FieldId.create(data.lookupFieldId);
+      const fkHostTableName = yield* fkHostTableNameResult;
+      const selfKeyName = yield* selfKeyNameResult;
+      const foreignKeyName = yield* foreignKeyNameResult;
+      const symmetricFieldId = yield* optional(data.symmetricFieldId, FieldId.create);
+      const filterByViewId = yield* optionalNullable(data.filterByViewId, ViewId.create);
+      const visibleFieldIds = yield* optionalNullableArray(data.visibleFieldIds, FieldId.create);
+
+      return ok(
+        new LinkFieldConfig(
+          baseId,
+          relationship,
+          foreignTableId,
+          lookupFieldId,
+          data.isOneWay ?? false,
+          fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+          symmetricFieldId,
+          filterByViewId,
+          visibleFieldIds
         )
+      );
+    });
+  }
+
+  static foreignKeyFieldName(fieldId?: FieldId): Result<DbFieldName, string> {
+    const name = fieldId ? `__fk_${fieldId.toString()}` : `__fk_rad${getRandomString(16)}`;
+    return DbFieldName.rehydrate(name);
+  }
+
+  static swapDbConfig(raw: {
+    fkHostTableName: string;
+    selfKeyName: string;
+    foreignKeyName: string;
+  }): Result<LinkFieldDbConfig, string> {
+    return DbTableName.rehydrate(raw.fkHostTableName).andThen((fkHostTableName) =>
+      DbFieldName.rehydrate(raw.foreignKeyName).andThen((selfKeyName) =>
+        DbFieldName.rehydrate(raw.selfKeyName).map((foreignKeyName) => ({
+          fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+        }))
       )
     );
+  }
+
+  static buildDbConfig(params: {
+    fkHostTableName: DbTableName;
+    relationship: LinkRelationship;
+    fieldId: FieldId;
+    symmetricFieldId?: FieldId;
+    isOneWay: boolean;
+  }): Result<LinkFieldDbConfig, string> {
+    const relationship = params.relationship.toString();
+
+    if (relationship === 'manyMany') {
+      return LinkFieldConfig.foreignKeyFieldName(params.symmetricFieldId).andThen((selfKeyName) =>
+        LinkFieldConfig.foreignKeyFieldName(params.fieldId).map((foreignKeyName) => ({
+          fkHostTableName: params.fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+        }))
+      );
+    }
+
+    if (relationship === 'manyOne' || relationship === 'oneOne') {
+      return DbFieldName.rehydrate('__id').andThen((selfKeyName) =>
+        LinkFieldConfig.foreignKeyFieldName(params.fieldId).map((foreignKeyName) => ({
+          fkHostTableName: params.fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+        }))
+      );
+    }
+
+    if (relationship === 'oneMany') {
+      if (params.isOneWay) {
+        return LinkFieldConfig.foreignKeyFieldName(params.symmetricFieldId).andThen((selfKeyName) =>
+          LinkFieldConfig.foreignKeyFieldName(params.fieldId).map((foreignKeyName) => ({
+            fkHostTableName: params.fkHostTableName,
+            selfKeyName,
+            foreignKeyName,
+          }))
+        );
+      }
+
+      return LinkFieldConfig.foreignKeyFieldName(params.symmetricFieldId).andThen((selfKeyName) =>
+        DbFieldName.rehydrate('__id').map((foreignKeyName) => ({
+          fkHostTableName: params.fkHostTableName,
+          selfKeyName,
+          foreignKeyName,
+        }))
+      );
+    }
+
+    return err('Unsupported LinkRelationship');
   }
 
   equals(other: LinkFieldConfig): boolean {
@@ -210,6 +294,73 @@ export class LinkFieldConfig extends ValueObject {
 
   isCrossBase(): boolean {
     return !!this.baseIdValue;
+  }
+
+  hasDbConfig(): boolean {
+    return (
+      this.fkHostTableNameValue.isRehydrated() &&
+      this.selfKeyNameValue.isRehydrated() &&
+      this.foreignKeyNameValue.isRehydrated()
+    );
+  }
+
+  withDbConfig(params: LinkFieldDbConfig): Result<LinkFieldConfig, string> {
+    if (this.fkHostTableNameValue.isRehydrated()) {
+      if (!this.fkHostTableNameValue.equals(params.fkHostTableName)) {
+        return err('LinkFieldConfig fkHostTableName already set');
+      }
+    }
+    if (this.selfKeyNameValue.isRehydrated()) {
+      if (!this.selfKeyNameValue.equals(params.selfKeyName)) {
+        return err('LinkFieldConfig selfKeyName already set');
+      }
+    }
+    if (this.foreignKeyNameValue.isRehydrated()) {
+      if (!this.foreignKeyNameValue.equals(params.foreignKeyName)) {
+        return err('LinkFieldConfig foreignKeyName already set');
+      }
+    }
+
+    return ok(
+      new LinkFieldConfig(
+        this.baseIdValue,
+        this.relationshipValue,
+        this.foreignTableIdValue,
+        this.lookupFieldIdValue,
+        this.isOneWayValue,
+        params.fkHostTableName,
+        params.selfKeyName,
+        params.foreignKeyName,
+        this.symmetricFieldIdValue,
+        this.filterByViewIdValue,
+        this.visibleFieldIdsValue
+      )
+    );
+  }
+
+  withSymmetricFieldId(symmetricFieldId: FieldId): Result<LinkFieldConfig, string> {
+    if (this.symmetricFieldIdValue) {
+      if (!this.symmetricFieldIdValue.equals(symmetricFieldId)) {
+        return err('LinkFieldConfig symmetricFieldId already set');
+      }
+      return ok(this);
+    }
+
+    return ok(
+      new LinkFieldConfig(
+        this.baseIdValue,
+        this.relationshipValue,
+        this.foreignTableIdValue,
+        this.lookupFieldIdValue,
+        this.isOneWayValue,
+        this.fkHostTableNameValue,
+        this.selfKeyNameValue,
+        this.foreignKeyNameValue,
+        symmetricFieldId,
+        this.filterByViewIdValue,
+        this.visibleFieldIdsValue
+      )
+    );
   }
 
   orderColumnName(): Result<string, string> {

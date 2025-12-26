@@ -1,5 +1,7 @@
 import type { Result } from 'neverthrow';
 
+import type { BaseId } from '../../base/BaseId';
+import type { TableId } from '../TableId';
 import type { Field } from './Field';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
@@ -20,6 +22,9 @@ import type { FieldColor } from './types/FieldColor';
 import type { FormulaExpression } from './types/FormulaExpression';
 import { FormulaField, type FormulaFormatting, type FormulaShowAs } from './types/FormulaField';
 import type { FormulaMeta } from './types/FormulaMeta';
+import { LinkField } from './types/LinkField';
+import type { LinkFieldConfig } from './types/LinkFieldConfig';
+import type { LinkFieldMeta } from './types/LinkFieldMeta';
 import { LongTextField } from './types/LongTextField';
 import { MultipleSelectField } from './types/MultipleSelectField';
 import type { NumberDefaultValue } from './types/NumberDefaultValue';
@@ -139,3 +144,19 @@ export const createButtonField = (params: {
   resetCount?: ButtonResetCount;
   workflow?: ButtonWorkflow;
 }): Result<Field, string> => ButtonField.create(params);
+
+export const createLinkField = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: LinkFieldConfig;
+  meta?: LinkFieldMeta;
+}): Result<Field, string> => LinkField.create(params);
+
+export const createNewLinkField = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: LinkFieldConfig;
+  baseId: BaseId;
+  hostTableId: TableId;
+  meta?: LinkFieldMeta;
+}): Result<Field, string> => LinkField.createNew(params);

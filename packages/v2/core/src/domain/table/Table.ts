@@ -11,6 +11,10 @@ import { TableRenamed } from './events/TableRenamed';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldType } from './fields/FieldType';
+import {
+  LinkForeignTableReferenceVisitor,
+  type LinkForeignTableReference,
+} from './fields/visitors/LinkForeignTableReferenceVisitor';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
@@ -162,6 +166,28 @@ export class Table extends AggregateRoot<TableId> {
 
   fieldIds(): ReadonlyArray<FieldId> {
     return this.fieldsValue.map((f) => f.id());
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    const visitor = new LinkForeignTableReferenceVisitor();
+    return this.fieldsValue
+      .reduce<Result<ReadonlyArray<LinkForeignTableReference>, string>>(
+        (acc, field) =>
+          acc.andThen((refs) => field.accept(visitor).map((next) => [...refs, ...next])),
+        ok([])
+      )
+      .map((refs) => {
+        const seen = new Set<string>();
+        const unique: LinkForeignTableReference[] = [];
+        for (const ref of refs) {
+          const baseKey = ref.baseId ? ref.baseId.toString() : 'local';
+          const key = `${baseKey}:${ref.foreignTableId.toString()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          unique.push(ref);
+        }
+        return unique;
+      });
   }
 
   viewIds(): ReadonlyArray<ViewId> {

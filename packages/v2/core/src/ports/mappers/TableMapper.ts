@@ -100,6 +100,24 @@ export type IFormulaFieldMetaDTO = {
   persistedAsGeneratedColumn?: boolean;
 };
 
+export type ILinkFieldOptionsDTO = {
+  baseId?: string;
+  relationship: 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne';
+  foreignTableId: string;
+  lookupFieldId: string;
+  isOneWay?: boolean;
+  fkHostTableName?: string;
+  selfKeyName?: string;
+  foreignKeyName?: string;
+  symmetricFieldId?: string;
+  filterByViewId?: string | null;
+  visibleFieldIds?: ReadonlyArray<string> | null;
+};
+
+export type ILinkFieldMetaDTO = {
+  hasOrderColumn?: boolean;
+};
+
 export type ITableFieldBaseDTO = {
   id: string;
   name: string;
@@ -128,7 +146,12 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'attachment'; options?: Record<string, never> })
   | (ITableFieldBaseDTO & { type: 'date'; options?: IDateFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'user'; options?: IUserFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO });
+  | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO })
+  | (ITableFieldBaseDTO & {
+      type: 'link';
+      options: ILinkFieldOptionsDTO;
+      meta?: ILinkFieldMetaDTO;
+    });
 
 export type ITableViewPersistenceDTOBase = {
   id: string;

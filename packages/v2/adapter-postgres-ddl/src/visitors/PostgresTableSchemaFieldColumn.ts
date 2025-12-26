@@ -8,19 +8,16 @@ import {
   match,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
-import { err, ok } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 export type TableColumnDataType = Parameters<CreateTableBuilder<string, string>['addColumn']>[1];
 
 export const resolveColumnName = (field: Field): Result<string, string> => {
-  const columnNameResult = field.dbFieldName().andThen((name) => name.value());
-  if (columnNameResult.isErr()) {
-    return err(
-      `Missing db field name for field ${field.id().toString()}: ${columnNameResult.error}`
-    );
-  }
-  return ok(columnNameResult.value);
+  return safeTry<string, string>(function* () {
+    const columnName = yield* field.dbFieldName().andThen((name) => name.value());
+    return ok(columnName);
+  }).mapErr((error) => `Missing db field name for field ${field.id().toString()}: ${error}`);
 };
 
 export const resolveColumnType = (field: Field): Result<TableColumnDataType, string> => {

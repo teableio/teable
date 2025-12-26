@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -52,43 +52,38 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
       tableId: command.tableId.toString(),
     });
 
-    const specResult = TableAggregate.specs(command.baseId).byId(command.tableId).build();
-    if (specResult.isErr()) return err(specResult.error);
-
-    const tableResult = await this.tableRepository.findOne(context, specResult.value);
-    if (tableResult.isErr()) {
-      if (tableResult.error === 'Not found') return err('Table not found');
-      return err(tableResult.error);
-    }
-    const table = tableResult.value;
-
-    const transactionResult = await this.unitOfWork.withTransaction(
-      context,
-      async (transactionContext) => {
-        const schemaResult = await this.tableSchemaRepository.delete(transactionContext, table);
-        if (schemaResult.isErr()) return err(schemaResult.error);
-
-        const deleteResult = await this.tableRepository.delete(transactionContext, table);
-        if (deleteResult.isErr()) return err(deleteResult.error);
-
-        return ok(undefined);
+    const tableRepository = this.tableRepository;
+    const tableSchemaRepository = this.tableSchemaRepository;
+    const unitOfWork = this.unitOfWork;
+    const eventBus = this.eventBus;
+    const result = await safeTry<DeleteTableResult, string>(async function* () {
+      const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
+      const tableResult = await tableRepository.findOne(context, specResult);
+      if (tableResult.isErr()) {
+        if (tableResult.error === 'Not found') return err('Table not found');
+        return err(tableResult.error);
       }
-    );
-    if (transactionResult.isErr()) return err(transactionResult.error);
-
-    const markResult = table.markDeleted();
-    if (markResult.isErr()) return err(markResult.error);
-
-    const events = table.pullDomainEvents();
-    const publishResult = await this.eventBus.publishMany(context, events);
-    if (publishResult.isErr()) return err(publishResult.error);
-
-    this.logger.debug('DeleteTableHandler.success', {
-      baseId: command.baseId.toString(),
-      tableId: command.tableId.toString(),
-      eventCount: events.length,
+      const table = tableResult.value;
+      yield* await unitOfWork.withTransaction(context, async (transactionContext) => {
+        const resultAsync = safeTry<void, string>(async function* () {
+          yield* await tableSchemaRepository.delete(transactionContext, table);
+          yield* await tableRepository.delete(transactionContext, table);
+          return ok(undefined);
+        });
+        return await resultAsync;
+      });
+      yield* table.markDeleted();
+      const events = table.pullDomainEvents();
+      yield* await eventBus.publishMany(context, events);
+      return ok(DeleteTableResult.create(table, events));
     });
-
-    return ok(DeleteTableResult.create(table, events));
+    if (result.isOk()) {
+      this.logger.debug('DeleteTableHandler.success', {
+        baseId: command.baseId.toString(),
+        tableId: command.tableId.toString(),
+        eventCount: result.value.events.length,
+      });
+    }
+    return result;
   }
 }

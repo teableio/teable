@@ -3,6 +3,7 @@ import {
   TableAddFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
   TableUpdateViewColumnMetaSpec,
@@ -29,7 +30,7 @@ export type TableUpdateBuilder =
   | UpdateQueryBuilder<V1TeableDatabase, 'view', 'view', UpdateResult>
   | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>;
 
-type TableUpdateVisitorParams = {
+type TableMetaUpdateVisitorParams = {
   db: Kysely<V1TeableDatabase>;
   table: Table;
   tableMapper: ITableMapper;
@@ -42,13 +43,13 @@ type TableMetaUpdate = {
   name?: string;
 };
 
-export class TableUpdateVisitor
+export class TableMetaUpdateVisitor
   extends AbstractSpecFilterVisitor<ReadonlyArray<TableUpdateBuilder>>
   implements ITableSpecVisitor<ReadonlyArray<TableUpdateBuilder>>
 {
   private readonly fieldRowBuilder: TableFieldPersistenceBuilder;
 
-  constructor(private readonly params: TableUpdateVisitorParams) {
+  constructor(private readonly params: TableMetaUpdateVisitorParams) {
     super();
     this.fieldRowBuilder = new TableFieldPersistenceBuilder({
       table: params.table,
@@ -96,6 +97,10 @@ export class TableUpdateVisitor
     return err('TableByIdSpec is not supported for table updates');
   }
 
+  visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+    return err('TableByIdsSpec is not supported for table updates');
+  }
+
   visitTableByName(spec: TableByNameSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.buildTableMetaUpdate({ name: spec.tableName().toString() }),
@@ -108,7 +113,7 @@ export class TableUpdateVisitor
   }
 
   clone(): this {
-    return new TableUpdateVisitor(this.params) as this;
+    return new TableMetaUpdateVisitor(this.params) as this;
   }
 
   and(

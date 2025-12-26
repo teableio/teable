@@ -10,13 +10,13 @@ import {
 import { inject, injectable } from '@teable/v2-di';
 import type { ColumnDefinitionBuilder, CompiledQuery, CreateTableBuilder, Kysely } from 'kysely';
 import { sql } from 'kysely';
-import { err, ok } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import {
-  PostgresTableFieldCreateVisitor,
-  type ICreateTableBuilderRef,
-} from '../visitors/PostgresTableFieldCreateVisitor';
+  ICreateTableBuilderRef,
+  PostgresTableSchemaFieldCreateVisitor,
+} from '../visitors/PostgresTableSchemaFieldCreateVisitor';
 import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 
 @injectable()
@@ -28,49 +28,53 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
   @TraceSpan()
   async insert(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    const dbTableNameResult = table
-      .dbTableName()
-      .andThen((name) => name.split({ defaultSchema: null }));
-    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
-    const { schema, tableName } = dbTableNameResult.value;
-    const db = resolvePostgresDb(this.db, context);
+    const repository = this;
+    return await safeTry<void, string>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDb(repository.db, context);
 
-    type ICreateTableBuilder = CreateTableBuilder<string, string>;
-    const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
-    let builder = schemaBuilder.createTable(tableName) as unknown as ICreateTableBuilder;
+      type ICreateTableBuilder = CreateTableBuilder<string, string>;
+      const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
+      let builder = schemaBuilder.createTable(tableName) as unknown as ICreateTableBuilder;
 
-    builder = builder
-      .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
-      .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
-      .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
-        col.notNull().defaultTo(sql`now()`)
-      )
-      .addColumn('__last_modified_time', 'timestamptz')
-      .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
-      .addColumn('__last_modified_by', 'text')
-      .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
+      builder = builder
+        .addColumn('__id', 'text', (col: ColumnDefinitionBuilder) => col.notNull().unique())
+        .addColumn('__auto_number', 'serial', (col: ColumnDefinitionBuilder) => col.primaryKey())
+        .addColumn('__created_time', 'timestamptz', (col: ColumnDefinitionBuilder) =>
+          col.notNull().defaultTo(sql`now()`)
+        )
+        .addColumn('__last_modified_time', 'timestamptz')
+        .addColumn('__created_by', 'text', (col: ColumnDefinitionBuilder) => col.notNull())
+        .addColumn('__last_modified_by', 'text')
+        .addColumn('__version', 'integer', (col: ColumnDefinitionBuilder) => col.notNull());
 
-    const builderRef: ICreateTableBuilderRef = { builder };
-    const visitor = PostgresTableFieldCreateVisitor.forTableCreation(builderRef);
-    const fieldStatementsResult = visitor.apply(table);
-    if (fieldStatementsResult.isErr()) return err(fieldStatementsResult.error);
+      const builderRef: ICreateTableBuilderRef = { builder };
+      const visitor = PostgresTableSchemaFieldCreateVisitor.forTableCreation({
+        builderRef,
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+      });
+      const fieldStatements = yield* visitor.apply(table);
 
-    try {
-      const compiledStatements: CompiledQuery[] = [];
-      if (schema && schema !== 'public') {
-        compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
+      try {
+        const compiledStatements: CompiledQuery[] = [];
+        if (schema && schema !== 'public') {
+          compiledStatements.push(db.schema.createSchema(schema).ifNotExists().compile());
+        }
+        compiledStatements.push(builderRef.builder.compile());
+        compiledStatements.push(...fieldStatements.map((statement) => statement.compile(db)));
+
+        await combineCompiledQueriesAsSql(compiledStatements).execute(db);
+      } catch (error) {
+        return err(`Failed to insert table schema: ${describeError(error)}`);
       }
-      compiledStatements.push(builderRef.builder.compile());
-      compiledStatements.push(
-        ...fieldStatementsResult.value.map((statement) => statement.compile(db))
-      );
 
-      await combineCompiledQueriesAsSql(compiledStatements).execute(db);
-    } catch (error) {
-      return err(`Failed to insert table schema: ${describeError(error)}`);
-    }
-
-    return ok(undefined);
+      return ok(undefined);
+    });
   }
 
   @TraceSpan()
@@ -79,49 +83,54 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, string>> {
-    const dbTableNameResult = table
-      .dbTableName()
-      .andThen((name) => name.split({ defaultSchema: null }));
-    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
-    const { schema, tableName } = dbTableNameResult.value;
+    const repository = this;
+    return await safeTry<void, string>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
 
-    const db = resolvePostgresDb(this.db, context);
-    const visitor = new TableSchemaUpdateVisitor({ db, schema, tableName });
-    const acceptResult = mutateSpec.accept(visitor);
-    if (acceptResult.isErr()) return err(acceptResult.error);
-    const statementsResult = visitor.where();
-    if (statementsResult.isErr()) return err(statementsResult.error);
-    if (statementsResult.value.length === 0) return ok(undefined);
+      const db = resolvePostgresDb(repository.db, context);
+      const visitor = new TableSchemaUpdateVisitor({
+        db,
+        schema,
+        tableName,
+        tableId: table.id().toString(),
+      });
+      yield* mutateSpec.accept(visitor);
+      const statements = yield* visitor.where();
+      if (statements.length === 0) return ok(undefined);
 
-    try {
-      const batch = combineCompiledQueriesAsSql(
-        statementsResult.value.map((statement) => statement.compile(db))
-      );
-      await batch.execute(db);
-    } catch (error) {
-      return err(`Failed to update table schema: ${describeError(error)}`);
-    }
+      try {
+        const batch = combineCompiledQueriesAsSql(
+          statements.map((statement) => statement.compile(db))
+        );
+        await batch.execute(db);
+      } catch (error) {
+        return err(`Failed to update table schema: ${describeError(error)}`);
+      }
 
-    return ok(undefined);
+      return ok(undefined);
+    });
   }
 
   @TraceSpan()
   async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
-    const dbTableNameResult = table
-      .dbTableName()
-      .andThen((name) => name.split({ defaultSchema: null }));
-    if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
-    const { schema, tableName } = dbTableNameResult.value;
-    const db = resolvePostgresDb(this.db, context);
+    const repository = this;
+    return await safeTry<void, string>(async function* () {
+      const { schema, tableName } = yield* table
+        .dbTableName()
+        .andThen((name) => name.split({ defaultSchema: null }));
+      const db = resolvePostgresDb(repository.db, context);
 
-    try {
-      const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
-      await schemaBuilder.dropTable(tableName).ifExists().execute();
-    } catch (error) {
-      return err(`Failed to delete table schema: ${describeError(error)}`);
-    }
+      try {
+        const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
+        await schemaBuilder.dropTable(tableName).ifExists().execute();
+      } catch (error) {
+        return err(`Failed to delete table schema: ${describeError(error)}`);
+      }
 
-    return ok(undefined);
+      return ok(undefined);
+    });
   }
 }
 

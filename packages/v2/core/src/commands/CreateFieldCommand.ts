@@ -33,7 +33,7 @@ export class CreateFieldCommand {
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>
         parseTableFieldSpec(parsed.data.field, { isPrimary: false })
-          .andThen((spec) => spec.createField())
+          .andThen((spec) => spec.createField({ baseId, tableId }))
           .map((field) => new CreateFieldCommand(baseId, tableId, field))
       )
     );

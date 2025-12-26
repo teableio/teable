@@ -1,15 +1,24 @@
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
-import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  PostgresUnitOfWork,
+  registerV2PostgresDb,
+  v2PostgresDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
-import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
+import {
+  ensureV1MetaSchema,
+  registerV2PostgresStateAdapter,
+} from '@teable/v2-adapter-postgres-state';
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
+  FieldCreationSideEffectFlow,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
+  MemoryTableRepository,
   NoopTracer,
   TableUpdateFlow,
   v2CoreTokens,
@@ -17,6 +26,7 @@ import {
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
 
@@ -29,10 +39,13 @@ export interface IV2NodeTestContainer {
 }
 
 export interface IV2NodeTestContainerOptions {
+  connectionString?: string;
   registerDb?: (
     container: DependencyContainer,
     config: IV2PostgresDbConfig
   ) => Promise<DependencyContainer | void>;
+  ensureSchema?: boolean;
+  seedBase?: boolean;
 }
 
 export const createV2NodeTestContainer = async (
@@ -40,22 +53,43 @@ export const createV2NodeTestContainer = async (
 ): Promise<IV2NodeTestContainer> => {
   const c = container.createChildContainer();
 
-  const pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
-    .withDatabase('teable_v2_test')
-    .withUsername('teable')
-    .withPassword('teable')
-    .start();
-  const connectionString = pgContainer.getConnectionUri();
+  const shouldStartContainer = !options.connectionString;
+  let pgContainer: StartedPostgreSqlContainer | undefined;
+  let connectionString = options.connectionString;
+
+  if (shouldStartContainer) {
+    pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
+      .withDatabase('teable_v2_test')
+      .withUsername('teable')
+      .withPassword('teable')
+      .start();
+    connectionString = pgContainer.getConnectionUri();
+  }
+
+  if (!connectionString) {
+    throw new Error('createV2NodeTestContainer requires a connection string');
+  }
+
   const dbConfig: IV2PostgresDbConfig = { pg: { connectionString } };
 
   if (options.registerDb) {
     await options.registerDb(c, dbConfig);
   }
 
+  const ensureSchema = options.ensureSchema ?? true;
+
+  if (!c.isRegistered(v2PostgresDbTokens.db) && (ensureSchema || options.seedBase)) {
+    await registerV2PostgresDb(c, dbConfig);
+  }
+
   await registerV2PostgresStateAdapter(c, {
     ...dbConfig,
-    ensureSchema: true,
+    ensureSchema,
   });
+  if (ensureSchema) {
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    await ensureV1MetaSchema(db);
+  }
 
   await registerV2PostgresDdlAdapter(c, dbConfig);
 
@@ -65,12 +99,14 @@ export const createV2NodeTestContainer = async (
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
   });
 
-  const tableRepository = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
   const commandBus = new MemoryCommandBus(c);
   const queryBus = new MemoryQueryBus(c);
   const eventBus = new MemoryEventBus(c);
@@ -79,30 +115,45 @@ export const createV2NodeTestContainer = async (
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
-  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
     throw new Error(baseIdResult.error);
   }
   const baseId = baseIdResult.value;
-  const spaceId = `spc${getRandomString(16)}`;
-  const actorId = 'system';
+  const shouldSeedBase = options.seedBase ?? true;
+  const shouldSeedSpace = shouldSeedBase;
+  const db = c.isRegistered(v2PostgresDbTokens.db)
+    ? c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db)
+    : undefined;
+  if (shouldSeedBase && db) {
+    const spaceId = `spc${getRandomString(16)}`;
+    const actorId = 'system';
 
-  await db
-    .insertInto('space')
-    .values({ id: spaceId, name: 'Test Space', created_by: actorId })
-    .execute();
+    if (shouldSeedSpace) {
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space', created_by: actorId })
+        .execute();
+    }
 
-  await db
-    .insertInto('base')
-    .values({
-      id: baseId.toString(),
-      space_id: spaceId,
-      name: 'Test Base',
-      order: 1,
-      created_by: actorId,
-    })
-    .execute();
+    await db
+      .insertInto('base')
+      .values({
+        id: baseId.toString(),
+        space_id: spaceId,
+        name: 'Test Base',
+        order: 1,
+        created_by: actorId,
+      })
+      .execute();
+  }
+
+  const tableRepository = c.isRegistered(v2CoreTokens.tableRepository)
+    ? c.resolve<ITableRepository>(v2CoreTokens.tableRepository)
+    : new MemoryTableRepository();
+  if (!c.isRegistered(v2CoreTokens.tableRepository)) {
+    c.registerInstance(v2CoreTokens.tableRepository, tableRepository);
+  }
 
   return {
     container: c,
@@ -111,9 +162,13 @@ export const createV2NodeTestContainer = async (
     baseId,
     dispose: async () => {
       try {
-        await db.destroy();
+        if (db) {
+          await db.destroy();
+        }
       } finally {
-        await pgContainer.stop();
+        if (pgContainer) {
+          await pgContainer.stop();
+        }
       }
     },
   };

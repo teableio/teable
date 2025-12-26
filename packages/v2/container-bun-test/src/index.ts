@@ -6,6 +6,7 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-stat
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
+  FieldCreationSideEffectFlow,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -66,6 +67,9 @@ export const createV2BunTestContainer = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
     lifecycle: Lifecycle.Singleton,
   });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());

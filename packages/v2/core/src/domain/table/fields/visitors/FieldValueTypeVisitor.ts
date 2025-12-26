@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
@@ -114,7 +114,13 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
     });
   }
 
-  visitLinkField(_: LinkField): Result<FieldValueType, string> {
-    return err('Not implemented');
+  visitLinkField(field: LinkField): Result<FieldValueType, string> {
+    const isMultiple = field.isMultipleValue();
+    return ok({
+      cellValueType: CellValueType.string(),
+      isMultipleCellValue: isMultiple
+        ? CellValueMultiplicity.multiple()
+        : CellValueMultiplicity.single(),
+    });
   }
 }

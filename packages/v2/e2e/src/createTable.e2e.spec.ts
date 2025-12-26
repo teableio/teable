@@ -2,7 +2,10 @@
 import type { Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
-import { createTableOkResponseSchema } from '@teable/v2-contract-http';
+import {
+  createTableOkResponseSchema,
+  getTableByIdOkResponseSchema,
+} from '@teable/v2-contract-http';
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
@@ -112,5 +115,97 @@ describe('v2 http createTable (e2e)', () => {
     expect(body.data.table.fields.filter((f) => f.isPrimary).length).toBe(1);
     expect(body.data.table.views.length).toBeGreaterThan(0);
     expect(body.data.events.some((e) => e.name === 'TableCreated')).toBe(true);
+  });
+
+  describe('link fields', () => {
+    it('creates symmetric link fields in the foreign table', async () => {
+      const foreignResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          name: 'Companies',
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        } satisfies ICreateTableCommandInput),
+      });
+
+      expect(foreignResponse.status).toBe(201);
+
+      const foreignRaw = await foreignResponse.json();
+      const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
+      expect(foreignParsed.success).toBe(true);
+      if (!foreignParsed.success) return;
+      const foreignBody = foreignParsed.data;
+      if (!foreignBody.ok) return;
+
+      const foreignTableId = foreignBody.data.table.id;
+      const foreignPrimaryField = foreignBody.data.table.fields.find((f) => f.isPrimary);
+      expect(foreignPrimaryField).toBeDefined();
+      if (!foreignPrimaryField) return;
+
+      const linkFieldId = createFieldId();
+      const linkPayload: ICreateTableCommandInput = {
+        baseId,
+        name: 'Projects (link)',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Company',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId: foreignPrimaryField.id,
+            },
+          },
+        ],
+      };
+
+      const linkResponse = await fetch(`${baseUrl}/tables/create`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(linkPayload),
+      });
+
+      if (!linkResponse.ok) {
+        const errorText = await linkResponse.text();
+        throw new Error(`Failed to create table with link field: ${errorText}`);
+      }
+
+      expect(linkResponse.status).toBe(201);
+
+      const linkRaw = await linkResponse.json();
+      const linkParsed = createTableOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success) return;
+      const linkBody = linkParsed.data;
+      if (!linkBody.ok) return;
+
+      const newTableId = linkBody.data.table.id;
+
+      const getResponse = await fetch(
+        `${baseUrl}/tables/get?baseId=${baseId}&tableId=${foreignTableId}`,
+        { method: 'GET' }
+      );
+      expect(getResponse.status).toBe(200);
+
+      const getRaw = await getResponse.json();
+      const getParsed = getTableByIdOkResponseSchema.safeParse(getRaw);
+      expect(getParsed.success).toBe(true);
+      if (!getParsed.success) return;
+      const getBody = getParsed.data;
+      if (!getBody.ok) return;
+
+      const foreignLinkField = getBody.data.table.fields.find((field) => field.type === 'link');
+      expect(foreignLinkField).toBeDefined();
+      if (!foreignLinkField || foreignLinkField.type !== 'link') return;
+
+      expect(foreignLinkField.name).toBe('Company');
+      expect(foreignLinkField.options.foreignTableId).toBe(newTableId);
+      expect(foreignLinkField.options.symmetricFieldId).toBe(linkFieldId);
+      expect(foreignLinkField.options.relationship).toBe('oneMany');
+      expect(foreignLinkField.meta).toBeUndefined();
+    });
   });
 });

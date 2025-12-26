@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import type { BaseId } from '../base/BaseId';
 import type { DbTableName } from './DbTableName';
 import type { Field } from './fields/Field';
+import { createNewLinkField } from './fields/FieldFactory';
 import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
 import { AttachmentField } from './fields/types/AttachmentField';
@@ -12,8 +13,6 @@ import { ButtonLabel } from './fields/types/ButtonLabel';
 import type { ButtonMaxCount } from './fields/types/ButtonMaxCount';
 import type { ButtonResetCount } from './fields/types/ButtonResetCount';
 import type { ButtonWorkflow } from './fields/types/ButtonWorkflow';
-import type { CellValueMultiplicity } from './fields/types/CellValueMultiplicity';
-import type { CellValueType } from './fields/types/CellValueType';
 import type { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
 import type { DateDefaultValue } from './fields/types/DateDefaultValue';
@@ -26,7 +25,7 @@ import {
   type FormulaFormatting,
   type FormulaShowAs,
 } from './fields/types/FormulaField';
-import type { FormulaMeta } from './fields/types/FormulaMeta';
+import type { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { LongTextField } from './fields/types/LongTextField';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import type { NumberDefaultValue } from './fields/types/NumberDefaultValue';
@@ -85,6 +84,7 @@ export interface ITableBuilderSink {
 const fieldNameRequiredError = 'FieldName is required';
 const viewNameRequiredError = 'ViewName is required';
 const formulaExpressionRequiredError = 'Formula expression is required';
+const linkConfigRequiredError = 'LinkFieldConfig is required';
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -161,7 +161,7 @@ export class TableBuilder {
     const columnMetaResult = this.applyViewColumnMeta(this.views, this.fields, primaryFieldId);
     if (columnMetaResult.isErr()) return err(columnMetaResult.error);
 
-    const idResult = this.tableId ? ok(this.tableId) : TableId.generate();
+    const idResult = this.ensureTableId();
 
     return idResult.andThen((id) => {
       const table = this.factory({
@@ -176,6 +176,19 @@ export class TableBuilder {
       if (resolveResult.isErr()) return err(resolveResult.error);
       return ok(table);
     });
+  }
+
+  ensureTableId(): Result<TableId, string> {
+    if (this.tableId) return ok(this.tableId);
+    return TableId.generate().map((id) => {
+      this.tableId = id;
+      return id;
+    });
+  }
+
+  requireBaseId(): Result<BaseId, string> {
+    if (!this.baseId) return err('BaseId is required');
+    return ok(this.baseId);
   }
 
   private sink(): ITableBuilderSink {
@@ -289,6 +302,10 @@ export class TableFieldBuilder {
 
   button(): ButtonFieldBuilder {
     return new ButtonFieldBuilder(this.parent, this.sink);
+  }
+
+  link(): LinkFieldBuilder {
+    return new LinkFieldBuilder(this.parent, this.sink);
   }
 }
 
@@ -538,10 +555,6 @@ export class FormulaFieldBuilder {
   private timeZone: TimeZone | undefined;
   private formatting: FormulaFormatting | undefined;
   private showAs: FormulaShowAs | undefined;
-  private meta: FormulaMeta | undefined;
-  private resultType:
-    | { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }
-    | undefined;
   private dependencies: ReadonlyArray<FieldId> = [];
   private isPrimary = false;
 
@@ -580,19 +593,6 @@ export class FormulaFieldBuilder {
     return this;
   }
 
-  withMeta(meta: FormulaMeta): FormulaFieldBuilder {
-    this.meta = meta;
-    return this;
-  }
-
-  withResultType(
-    cellValueType: CellValueType,
-    isMultipleCellValue: CellValueMultiplicity
-  ): FormulaFieldBuilder {
-    this.resultType = { cellValueType, isMultipleCellValue };
-    return this;
-  }
-
   withDependencies(dependencies: ReadonlyArray<FieldId>): FormulaFieldBuilder {
     this.dependencies = [...dependencies];
     return this;
@@ -623,9 +623,7 @@ export class FormulaFieldBuilder {
         timeZone: this.timeZone,
         formatting: this.formatting,
         showAs: this.showAs,
-        meta: this.meta,
         dependencies: this.dependencies,
-        ...(this.resultType ? { resultType: this.resultType } : {}),
       }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
@@ -1062,6 +1060,77 @@ export class ButtonFieldBuilder {
         maxCount: this.maxCount,
         resetCount: this.resetCount,
         workflow: this.workflow,
+      }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class LinkFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private config: LinkFieldConfig | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): LinkFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): LinkFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withConfig(config: LinkFieldConfig): LinkFieldBuilder {
+    this.config = config;
+    return this;
+  }
+
+  primary(): LinkFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const config = this.config;
+    if (!config) {
+      this.sink.addError(linkConfigRequiredError);
+      return this.parent;
+    }
+
+    const baseIdResult = this.parent.requireBaseId();
+    if (baseIdResult.isErr()) {
+      this.sink.addError(baseIdResult.error);
+      return this.parent;
+    }
+    const tableIdResult = this.parent.ensureTableId();
+    if (tableIdResult.isErr()) {
+      this.sink.addError(tableIdResult.error);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      createNewLinkField({
+        id,
+        name,
+        config,
+        baseId: baseIdResult.value,
+        hostTableId: tableIdResult.value,
       }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);

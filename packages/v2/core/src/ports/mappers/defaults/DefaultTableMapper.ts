@@ -25,7 +25,9 @@ import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
-import type { LinkField } from '../../../domain/table/fields/types/LinkField';
+import { LinkField } from '../../../domain/table/fields/types/LinkField';
+import { LinkFieldConfig } from '../../../domain/table/fields/types/LinkFieldConfig';
+import { LinkFieldMeta } from '../../../domain/table/fields/types/LinkFieldMeta';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
@@ -71,6 +73,8 @@ import type {
   IDateFieldOptionsDTO,
   IFormulaFieldMetaDTO,
   IFormulaFieldOptionsDTO,
+  ILinkFieldMetaDTO,
+  ILinkFieldOptionsDTO,
   ILongTextFieldOptionsDTO,
   INumberFieldOptionsDTO,
   IRatingFieldOptionsDTO,
@@ -341,8 +345,17 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     });
   }
 
-  visitLinkField(_: LinkField): Result<ITableFieldPersistenceDTO, string> {
-    return err('Not implemented');
+  visitLinkField(field: LinkField): Result<ITableFieldPersistenceDTO, string> {
+    const optionsResult = field.configDto();
+    if (optionsResult.isErr()) return err(optionsResult.error);
+    const meta = field.metaDto();
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'link',
+      options: optionsResult.value,
+      ...(meta ? { meta } : {}),
+    });
   }
 }
 
@@ -597,6 +610,13 @@ export class DefaultTableMapper implements ITableMapper {
                 )
               );
             })
+            .with({ type: 'link' }, (dto) =>
+              LinkFieldConfig.create(dto.options as ILinkFieldOptionsDTO).andThen((config) =>
+                LinkFieldMeta.create(dto.meta as ILinkFieldMetaDTO | undefined).andThen((meta) =>
+                  LinkField.create({ id, name, config, meta })
+                )
+              )
+            )
             .exhaustive();
         })
       )

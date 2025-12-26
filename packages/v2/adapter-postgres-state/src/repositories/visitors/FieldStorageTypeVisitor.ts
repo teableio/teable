@@ -101,8 +101,17 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
     return this.setTypeFromValueType(field);
   }
 
-  visitLinkField(_: LinkField): Result<IFieldStorageType, string> {
-    return err('Not implemented');
+  visitLinkField(field: LinkField): Result<IFieldStorageType, string> {
+    const valueTypeResult = field.accept(this.valueTypeVisitor);
+    if (valueTypeResult.isErr()) return err(valueTypeResult.error);
+    const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
+    const type: IFieldStorageType = {
+      cellValueType: cellValueType.toString(),
+      isMultipleCellValue: isMultipleCellValue.toBoolean(),
+      dbFieldType: 'JSON',
+    };
+    this.typesByFieldId.set(field.id().toString(), type);
+    return ok(type);
   }
 
   private setTypeFromValueType(field: Field): Result<IFieldStorageType, string> {

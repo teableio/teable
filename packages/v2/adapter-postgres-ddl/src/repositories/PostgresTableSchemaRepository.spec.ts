@@ -1,6 +1,7 @@
-/* eslint-disable sonarjs/cognitive-complexity */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
+import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import type { IExecutionContext, ITableSchemaRepository } from '@teable/v2-core';
 import {
   ActorId,
@@ -11,23 +12,25 @@ import {
   FieldName,
   FieldValueTypeVisitor,
   FormulaExpression,
+  LinkFieldConfig,
+  LinkFieldMeta,
   RatingMax,
   SelectOption,
   Table,
   TableName,
+  TableId,
+  createNewLinkField,
+  getRandomString,
   UserMultiplicity,
   v2CoreTokens,
   resolveFormulaFields,
 } from '@teable/v2-core';
-import { container } from '@teable/v2-di';
-import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
+import { ok, safeTry } from 'neverthrow';
+import type { Result } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start']>>;
-
-import { registerV2PostgresDdlAdapter } from '../di/register';
 import {
   baseRecordColumnNames,
   convertNameToValidCharacter,
@@ -43,6 +46,15 @@ const baseRecordColumnTypes: Record<string, string> = {
   __created_by: 'text',
   __last_modified_by: 'text',
   __version: 'int4',
+};
+
+const unwrapResult = <T>(result: Result<T, string>): T => {
+  const unwrapped = safeTry<T, string>(function* () {
+    const value = yield* result;
+    return ok(value);
+  });
+  if (unwrapped.isOk()) return unwrapped.value;
+  throw new Error(unwrapped.error);
 };
 
 const resolveExpectedUdtName = (
@@ -66,35 +78,43 @@ const resolveExpectedUdtName = (
   }
 };
 
+const fetchColumnTypes = async (
+  db: Kysely<unknown>,
+  tableName: string,
+  schemaName = 'public'
+): Promise<Map<string, string>> => {
+  const columnsResult = await sql<{ columnName: string; udtName: string }>`
+    select column_name as "columnName", udt_name as "udtName"
+    from information_schema.columns
+    where table_schema = ${schemaName}
+      and table_name = ${tableName}
+  `.execute(db);
+  return new Map(columnsResult.rows.map((row) => [row.columnName, row.udtName]));
+};
+
 describe('PostgresTableSchemaRepository (pg)', () => {
-  let pgContainer: StartedPostgreSqlContainer;
+  let testContainer: IV2NodeTestContainer;
+  const createSchemaName = (): string => `t_${getRandomString(8)}`;
 
   beforeAll(async () => {
-    pgContainer = await new PostgreSqlContainer('postgres:16-alpine')
-      .withDatabase('teable_v2_test')
-      .withUsername('teable')
-      .withPassword('teable')
-      .start();
+    testContainer = await createV2NodeTestContainer();
   });
 
   afterAll(async () => {
-    await pgContainer.stop();
+    await testContainer.dispose();
   });
 
   it('creates record table and field columns', async () => {
-    const c = container.createChildContainer();
-    await registerV2PostgresDdlAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
-    });
+    const c = testContainer.container;
 
     const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
-      const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
+      const testSchemaName = createSchemaName();
+      const baseIdResult = BaseId.generate();
       expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
-      const baseId = baseIdResult.value;
+      const baseId = unwrapResult(baseIdResult);
 
       const tableNameResult = TableName.create('Project Items');
       const titleNameResult = FieldName.create('Task Name');
@@ -105,37 +125,34 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           r.isOk()
         )
       ).toBe(true);
-      if (
-        tableNameResult.isErr() ||
-        titleNameResult.isErr() ||
-        ratingNameResult.isErr() ||
-        statusNameResult.isErr()
-      )
-        return;
+      const tableName = unwrapResult(tableNameResult);
+      const titleName = unwrapResult(titleNameResult);
+      const ratingName = unwrapResult(ratingNameResult);
+      const statusName = unwrapResult(statusNameResult);
 
       const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
       const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
       expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-      if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
+      const todoOption = unwrapResult(todoOptionResult);
+      const doneOption = unwrapResult(doneOptionResult);
 
-      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-      builder.field().singleLineText().withName(titleNameResult.value).done();
-      builder.field().rating().withName(ratingNameResult.value).withMax(RatingMax.five()).done();
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(titleName).done();
+      builder.field().rating().withName(ratingName).withMax(RatingMax.five()).done();
       builder
         .field()
         .singleSelect()
-        .withName(statusNameResult.value)
-        .withOptions([todoOptionResult.value, doneOptionResult.value])
+        .withName(statusName)
+        .withOptions([todoOption, doneOption])
         .done();
       builder.view().defaultGrid().done();
 
       const tableResult = builder.build();
       expect(tableResult.isOk()).toBe(true);
-      if (tableResult.isErr()) return;
-      const table = tableResult.value;
+      const table = unwrapResult(tableResult);
 
       const dbTableName = joinDbTableName(
-        baseId.toString(),
+        testSchemaName,
         convertNameToValidCharacter(table.name().toString(), 40)
       );
       const reservedNames = new Set(baseRecordColumnNames);
@@ -143,10 +160,10 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
       const dbTableNameResult = DbTableName.rehydrate(dbTableName);
       expect(dbTableNameResult.isOk()).toBe(true);
-      if (dbTableNameResult.isErr()) return;
-      const setTableDbNameResult = table.setDbTableName(dbTableNameResult.value);
+      const dbTableNameValue = unwrapResult(dbTableNameResult);
+      const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
       expect(setTableDbNameResult.isOk()).toBe(true);
-      if (setTableDbNameResult.isErr()) return;
+      unwrapResult(setTableDbNameResult);
 
       for (const field of table.fields()) {
         const baseName = convertNameToValidCharacter(field.name().toString(), 40);
@@ -155,34 +172,32 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         fieldDbNames.push(dbFieldName);
         const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
         expect(dbFieldNameResult.isOk()).toBe(true);
-        if (dbFieldNameResult.isErr()) return;
-        const setFieldDbNameResult = field.setDbFieldName(dbFieldNameResult.value);
+        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
+        const setFieldDbNameResult = field.setDbFieldName(dbFieldNameValue);
         expect(setFieldDbNameResult.isOk()).toBe(true);
-        if (setFieldDbNameResult.isErr()) return;
+        unwrapResult(setFieldDbNameResult);
       }
 
       const actorIdResult = ActorId.create('system');
       expect(actorIdResult.isOk()).toBe(true);
-      if (actorIdResult.isErr()) return;
-      const context: IExecutionContext = { actorId: actorIdResult.value };
+      const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
 
       const insertResult = await repo.insert(context, table);
       expect(insertResult.isOk()).toBe(true);
-      if (insertResult.isErr()) return;
+      unwrapResult(insertResult);
 
       const expectedBaseColumns = baseRecordColumnNames;
       const expectedFieldColumns = fieldDbNames;
 
-      const splitResult = dbTableNameResult.value.split({ defaultSchema: 'public' });
+      const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
       expect(splitResult.isOk()).toBe(true);
-      if (splitResult.isErr()) return;
-      const { schema, tableName } = splitResult.value;
-      const schemaName = schema ?? 'public';
+      const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+      const actualSchemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string }>`
         select column_name as "columnName"
         from information_schema.columns
-        where table_schema = ${schemaName}
-          and table_name = ${tableName}
+        where table_schema = ${actualSchemaName}
+          and table_name = ${dbTableNameFromSplit}
       `.execute(db);
 
       const actualColumns = columnsResult.rows.map((r) => r.columnName);
@@ -190,15 +205,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(actualColumns).toContain(columnName);
       }
     } finally {
-      await db.destroy();
+      // no cleanup required
+      void 0;
     }
   });
 
   it('uses v1-compatible column types for fields', async () => {
-    const c = container.createChildContainer();
-    await registerV2PostgresDdlAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
-    });
+    const c = testContainer.container;
 
     const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
@@ -206,10 +219,10 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     let contextForCleanup: IExecutionContext | undefined;
 
     try {
-      const baseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
+      const testSchemaName = createSchemaName();
+      const baseIdResult = BaseId.generate();
       expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
-      const baseId = baseIdResult.value;
+      const baseId = unwrapResult(baseIdResult);
 
       const tableNameResult = TableName.create('DDL Column Types');
       const titleNameResult = FieldName.create('Title');
@@ -266,103 +279,83 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           featureOptionResult,
         ].every((r) => r.isOk())
       ).toBe(true);
-      if (
-        tableNameResult.isErr() ||
-        titleNameResult.isErr() ||
-        descriptionNameResult.isErr() ||
-        amountNameResult.isErr() ||
-        ratingNameResult.isErr() ||
-        scoreNameResult.isErr() ||
-        scoreLabelNameResult.isErr() ||
-        statusNameResult.isErr() ||
-        tagsNameResult.isErr() ||
-        doneNameResult.isErr() ||
-        filesNameResult.isErr() ||
-        dueNameResult.isErr() ||
-        ownerNameResult.isErr() ||
-        actionNameResult.isErr() ||
-        titleFieldIdResult.isErr() ||
-        amountFieldIdResult.isErr() ||
-        scoreExpressionResult.isErr() ||
-        scoreLabelExpressionResult.isErr() ||
-        todoOptionResult.isErr() ||
-        doneOptionResult.isErr() ||
-        bugOptionResult.isErr() ||
-        featureOptionResult.isErr()
-      )
-        return;
+      const tableName = unwrapResult(tableNameResult);
+      const titleName = unwrapResult(titleNameResult);
+      const descriptionName = unwrapResult(descriptionNameResult);
+      const amountName = unwrapResult(amountNameResult);
+      const ratingName = unwrapResult(ratingNameResult);
+      const scoreName = unwrapResult(scoreNameResult);
+      const scoreLabelName = unwrapResult(scoreLabelNameResult);
+      const statusName = unwrapResult(statusNameResult);
+      const tagsName = unwrapResult(tagsNameResult);
+      const doneName = unwrapResult(doneNameResult);
+      const filesName = unwrapResult(filesNameResult);
+      const dueName = unwrapResult(dueNameResult);
+      const ownerName = unwrapResult(ownerNameResult);
+      const actionName = unwrapResult(actionNameResult);
+      const titleFieldId = unwrapResult(titleFieldIdResult);
+      const amountFieldId = unwrapResult(amountFieldIdResult);
+      const scoreExpression = unwrapResult(scoreExpressionResult);
+      const scoreLabelExpression = unwrapResult(scoreLabelExpressionResult);
+      const todoOption = unwrapResult(todoOptionResult);
+      const doneOption = unwrapResult(doneOptionResult);
+      const bugOption = unwrapResult(bugOptionResult);
+      const featureOption = unwrapResult(featureOptionResult);
 
-      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-      builder
-        .field()
-        .singleLineText()
-        .withName(titleNameResult.value)
-        .withId(titleFieldIdResult.value)
-        .primary()
-        .done();
-      builder.field().longText().withName(descriptionNameResult.value).done();
-      builder
-        .field()
-        .number()
-        .withName(amountNameResult.value)
-        .withId(amountFieldIdResult.value)
-        .done();
-      builder.field().rating().withName(ratingNameResult.value).withMax(RatingMax.five()).done();
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder.field().singleLineText().withName(titleName).withId(titleFieldId).primary().done();
+      builder.field().longText().withName(descriptionName).done();
+      builder.field().number().withName(amountName).withId(amountFieldId).done();
+      builder.field().rating().withName(ratingName).withMax(RatingMax.five()).done();
+      builder.field().formula().withName(scoreName).withExpression(scoreExpression).done();
       builder
         .field()
         .formula()
-        .withName(scoreNameResult.value)
-        .withExpression(scoreExpressionResult.value)
-        .done();
-      builder
-        .field()
-        .formula()
-        .withName(scoreLabelNameResult.value)
-        .withExpression(scoreLabelExpressionResult.value)
+        .withName(scoreLabelName)
+        .withExpression(scoreLabelExpression)
         .done();
       builder
         .field()
         .singleSelect()
-        .withName(statusNameResult.value)
-        .withOptions([todoOptionResult.value, doneOptionResult.value])
+        .withName(statusName)
+        .withOptions([todoOption, doneOption])
         .done();
       builder
         .field()
         .multipleSelect()
-        .withName(tagsNameResult.value)
-        .withOptions([bugOptionResult.value, featureOptionResult.value])
+        .withName(tagsName)
+        .withOptions([bugOption, featureOption])
         .done();
-      builder.field().checkbox().withName(doneNameResult.value).done();
-      builder.field().attachment().withName(filesNameResult.value).done();
-      builder.field().date().withName(dueNameResult.value).done();
+      builder.field().checkbox().withName(doneName).done();
+      builder.field().attachment().withName(filesName).done();
+      builder.field().date().withName(dueName).done();
       builder
         .field()
         .user()
-        .withName(ownerNameResult.value)
+        .withName(ownerName)
         .withMultiplicity(UserMultiplicity.multiple())
         .done();
-      builder.field().button().withName(actionNameResult.value).done();
+      builder.field().button().withName(actionName).done();
       builder.view().defaultGrid().done();
 
       const tableResult = builder.build();
       expect(tableResult.isOk()).toBe(true);
-      if (tableResult.isErr()) return;
-      const table = tableResult.value;
+      const table = unwrapResult(tableResult);
 
       const resolveResult = resolveFormulaFields(table);
       expect(resolveResult.isOk()).toBe(true);
-      if (resolveResult.isErr()) return;
+      unwrapResult(resolveResult);
 
       const dbTableName = joinDbTableName(
-        baseId.toString(),
+        testSchemaName,
         convertNameToValidCharacter(table.name().toString(), 40)
       );
       const dbTableNameResult = DbTableName.rehydrate(dbTableName);
       expect(dbTableNameResult.isOk()).toBe(true);
-      if (dbTableNameResult.isErr()) return;
-      const setTableDbNameResult = table.setDbTableName(dbTableNameResult.value);
+      const dbTableNameValue = unwrapResult(dbTableNameResult);
+      const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
       expect(setTableDbNameResult.isOk()).toBe(true);
-      if (setTableDbNameResult.isErr()) return;
+      unwrapResult(setTableDbNameResult);
       tableForCleanup = table;
 
       const reservedNames = new Set(baseRecordColumnNames);
@@ -372,32 +365,30 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         reservedNames.add(dbFieldName);
         const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
         expect(dbFieldNameResult.isOk()).toBe(true);
-        if (dbFieldNameResult.isErr()) return;
-        const setFieldDbNameResult = field.setDbFieldName(dbFieldNameResult.value);
+        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
+        const setFieldDbNameResult = field.setDbFieldName(dbFieldNameValue);
         expect(setFieldDbNameResult.isOk()).toBe(true);
-        if (setFieldDbNameResult.isErr()) return;
+        unwrapResult(setFieldDbNameResult);
       }
 
       const actorIdResult = ActorId.create('system');
       expect(actorIdResult.isOk()).toBe(true);
-      if (actorIdResult.isErr()) return;
-      const context: IExecutionContext = { actorId: actorIdResult.value };
+      const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
       contextForCleanup = context;
 
       const insertResult = await repo.insert(context, table);
       expect(insertResult.isOk()).toBe(true);
-      if (insertResult.isErr()) return;
+      unwrapResult(insertResult);
 
-      const splitResult = dbTableNameResult.value.split({ defaultSchema: 'public' });
+      const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
       expect(splitResult.isOk()).toBe(true);
-      if (splitResult.isErr()) return;
-      const { schema, tableName } = splitResult.value;
-      const schemaName = schema ?? 'public';
+      const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+      const actualSchemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string; udtName: string }>`
         select column_name as "columnName", udt_name as "udtName"
         from information_schema.columns
-        where table_schema = ${schemaName}
-          and table_name = ${tableName}
+        where table_schema = ${actualSchemaName}
+          and table_name = ${dbTableNameFromSplit}
       `.execute(db);
 
       const actualTypes = new Map(columnsResult.rows.map((row) => [row.columnName, row.udtName]));
@@ -407,17 +398,17 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       for (const field of table.fields()) {
         const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
         expect(dbFieldNameResult.isOk()).toBe(true);
-        if (dbFieldNameResult.isErr()) return;
         const valueTypeResult = field.accept(valueTypeVisitor);
         expect(valueTypeResult.isOk()).toBe(true);
-        if (valueTypeResult.isErr()) return;
+        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
+        const valueType = unwrapResult(valueTypeResult);
 
         const expectedType = resolveExpectedUdtName(
           field.type().toString(),
-          valueTypeResult.value.cellValueType.toString(),
-          valueTypeResult.value.isMultipleCellValue.toBoolean()
+          valueType.cellValueType.toString(),
+          valueType.isMultipleCellValue.toBoolean()
         );
-        expectedTypes.set(dbFieldNameResult.value, expectedType);
+        expectedTypes.set(dbFieldNameValue, expectedType);
       }
 
       const mismatches: string[] = [];
@@ -436,7 +427,497 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       if (tableForCleanup && contextForCleanup) {
         await repo.delete(contextForCleanup, tableForCleanup);
       }
-      await db.destroy();
     }
+  });
+
+  describe('link fields ddl', () => {
+    it('creates manyMany join table columns', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      try {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create('Link Host ManyMany');
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const foreignTableIdResult = TableId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
+        expect(
+          [
+            baseIdResult,
+            tableNameResult,
+            primaryNameResult,
+            linkNameResult,
+            primaryFieldIdResult,
+            linkFieldIdResult,
+            foreignTableIdResult,
+            lookupFieldIdResult,
+            linkMetaResult,
+          ].every((r) => r.isOk())
+        ).toBe(true);
+        const baseId = unwrapResult(baseIdResult);
+        const tableName = unwrapResult(tableNameResult);
+        const primaryName = unwrapResult(primaryNameResult);
+        const linkName = unwrapResult(linkNameResult);
+        const primaryFieldId = unwrapResult(primaryFieldIdResult);
+        const linkFieldId = unwrapResult(linkFieldIdResult);
+        const foreignTableId = unwrapResult(foreignTableIdResult);
+        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+        const linkMeta = unwrapResult(linkMetaResult);
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: 'manyMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: 'link_relations_mm',
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        expect(linkConfigResult.isOk()).toBe(true);
+        const linkConfig = unwrapResult(linkConfigResult);
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        expect(baseTableResult.isOk()).toBe(true);
+        const baseTable = unwrapResult(baseTableResult);
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          meta: linkMeta,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        expect(linkFieldResult.isOk()).toBe(true);
+        const linkFieldValue = unwrapResult(linkFieldResult);
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        expect(tableResult.isOk()).toBe(true);
+        const table = unwrapResult(tableResult);
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mm`);
+        expect(dbTableNameResult.isOk()).toBe(true);
+        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        expect(setTableDbNameResult.isOk()).toBe(true);
+        unwrapResult(setTableDbNameResult);
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) return;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate('link_value_mm');
+        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
+        const primaryDbName = unwrapResult(primaryDbNameResult);
+        const linkDbName = unwrapResult(linkDbNameResult);
+        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
+        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+
+        const actorIdResult = ActorId.create('system');
+        expect(actorIdResult.isOk()).toBe(true);
+        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+
+        const insertResult = await repo.insert(context, table);
+        expect(insertResult.isOk()).toBe(true);
+        unwrapResult(insertResult);
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        expect(splitResult.isOk()).toBe(true);
+        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        expect(hostColumns.get('link_value_mm')).toBe('jsonb');
+        expect(hostColumns.has('__self_id')).toBe(false);
+        expect(hostColumns.has('__foreign_id')).toBe(false);
+
+        const joinSplit = DbTableName.rehydrate(`${testSchemaName}.link_relations_mm`);
+        expect(joinSplit.isOk()).toBe(true);
+        const joinDbTableName = unwrapResult(joinSplit);
+        const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+        expect(joinTable.isOk()).toBe(true);
+        const joinTableInfo = unwrapResult(joinTable);
+        const joinSchema = joinTableInfo.schema ?? 'public';
+        const joinColumns = await fetchColumnTypes(db, joinTableInfo.tableName, joinSchema);
+        expect(joinColumns.get('__self_id')).toBe('text');
+        expect(joinColumns.get('__foreign_id')).toBe('text');
+        expect(joinColumns.get('__order')).toBe('float8');
+      } finally {
+        // no cleanup required
+        void 0;
+      }
+    });
+
+    it('creates oneMany foreign key columns on host table', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      try {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create('Link Host OneMany');
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const foreignTableIdResult = TableId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
+        expect(
+          [
+            baseIdResult,
+            tableNameResult,
+            primaryNameResult,
+            linkNameResult,
+            primaryFieldIdResult,
+            linkFieldIdResult,
+            foreignTableIdResult,
+            lookupFieldIdResult,
+            linkMetaResult,
+          ].every((r) => r.isOk())
+        ).toBe(true);
+        const baseId = unwrapResult(baseIdResult);
+        const tableName = unwrapResult(tableNameResult);
+        const primaryName = unwrapResult(primaryNameResult);
+        const linkName = unwrapResult(linkNameResult);
+        const primaryFieldId = unwrapResult(primaryFieldIdResult);
+        const linkFieldId = unwrapResult(linkFieldIdResult);
+        const foreignTableId = unwrapResult(foreignTableIdResult);
+        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+        const linkMeta = unwrapResult(linkMetaResult);
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: 'oneMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: 'tbl_link_om',
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        expect(linkConfigResult.isOk()).toBe(true);
+        const linkConfig = unwrapResult(linkConfigResult);
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        expect(baseTableResult.isOk()).toBe(true);
+        const baseTable = unwrapResult(baseTableResult);
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          meta: linkMeta,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        expect(linkFieldResult.isOk()).toBe(true);
+        const linkFieldValue = unwrapResult(linkFieldResult);
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        expect(tableResult.isOk()).toBe(true);
+        const table = unwrapResult(tableResult);
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_om`);
+        expect(dbTableNameResult.isOk()).toBe(true);
+        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        expect(setTableDbNameResult.isOk()).toBe(true);
+        unwrapResult(setTableDbNameResult);
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) return;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate('link_value_om');
+        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
+        const primaryDbName = unwrapResult(primaryDbNameResult);
+        const linkDbName = unwrapResult(linkDbNameResult);
+        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
+        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+
+        const actorIdResult = ActorId.create('system');
+        expect(actorIdResult.isOk()).toBe(true);
+        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+
+        const insertResult = await repo.insert(context, table);
+        expect(insertResult.isOk()).toBe(true);
+        unwrapResult(insertResult);
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        expect(splitResult.isOk()).toBe(true);
+        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        expect(hostColumns.get('link_value_om')).toBe('jsonb');
+        expect(hostColumns.get('__self_id')).toBe('text');
+        expect(hostColumns.get('__self_id_order')).toBe('float8');
+      } finally {
+        // no cleanup required
+        void 0;
+      }
+    });
+
+    it('creates manyOne foreign key columns on host table', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      try {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create('Link Host ManyOne');
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const foreignTableIdResult = TableId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        expect(
+          [
+            baseIdResult,
+            tableNameResult,
+            primaryNameResult,
+            linkNameResult,
+            primaryFieldIdResult,
+            linkFieldIdResult,
+            foreignTableIdResult,
+            lookupFieldIdResult,
+          ].every((r) => r.isOk())
+        ).toBe(true);
+        const baseId = unwrapResult(baseIdResult);
+        const tableName = unwrapResult(tableNameResult);
+        const primaryName = unwrapResult(primaryNameResult);
+        const linkName = unwrapResult(linkNameResult);
+        const primaryFieldId = unwrapResult(primaryFieldIdResult);
+        const linkFieldId = unwrapResult(linkFieldIdResult);
+        const foreignTableId = unwrapResult(foreignTableIdResult);
+        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: 'tbl_link_mo',
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        expect(linkConfigResult.isOk()).toBe(true);
+        const linkConfig = unwrapResult(linkConfigResult);
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        expect(baseTableResult.isOk()).toBe(true);
+        const baseTable = unwrapResult(baseTableResult);
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        expect(linkFieldResult.isOk()).toBe(true);
+        const linkFieldValue = unwrapResult(linkFieldResult);
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        expect(tableResult.isOk()).toBe(true);
+        const table = unwrapResult(tableResult);
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mo`);
+        expect(dbTableNameResult.isOk()).toBe(true);
+        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        expect(setTableDbNameResult.isOk()).toBe(true);
+        unwrapResult(setTableDbNameResult);
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) return;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate('link_value_mo');
+        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
+        const primaryDbName = unwrapResult(primaryDbNameResult);
+        const linkDbName = unwrapResult(linkDbNameResult);
+        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
+        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+
+        const actorIdResult = ActorId.create('system');
+        expect(actorIdResult.isOk()).toBe(true);
+        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+
+        const insertResult = await repo.insert(context, table);
+        expect(insertResult.isOk()).toBe(true);
+        unwrapResult(insertResult);
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        expect(splitResult.isOk()).toBe(true);
+        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        expect(hostColumns.get('link_value_mo')).toBe('jsonb');
+        expect(hostColumns.get('__foreign_id')).toBe('text');
+      } finally {
+        // no cleanup required
+        void 0;
+      }
+    });
+
+    it('creates oneOne foreign key columns on host table', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      try {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create('Link Host OneOne');
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const foreignTableIdResult = TableId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        expect(
+          [
+            baseIdResult,
+            tableNameResult,
+            primaryNameResult,
+            linkNameResult,
+            primaryFieldIdResult,
+            linkFieldIdResult,
+            foreignTableIdResult,
+            lookupFieldIdResult,
+          ].every((r) => r.isOk())
+        ).toBe(true);
+        const baseId = unwrapResult(baseIdResult);
+        const tableName = unwrapResult(tableNameResult);
+        const primaryName = unwrapResult(primaryNameResult);
+        const linkName = unwrapResult(linkNameResult);
+        const primaryFieldId = unwrapResult(primaryFieldIdResult);
+        const linkFieldId = unwrapResult(linkFieldIdResult);
+        const foreignTableId = unwrapResult(foreignTableIdResult);
+        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: 'oneOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: 'tbl_link_oo',
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        expect(linkConfigResult.isOk()).toBe(true);
+        const linkConfig = unwrapResult(linkConfigResult);
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        expect(baseTableResult.isOk()).toBe(true);
+        const baseTable = unwrapResult(baseTableResult);
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        expect(linkFieldResult.isOk()).toBe(true);
+        const linkFieldValue = unwrapResult(linkFieldResult);
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        expect(tableResult.isOk()).toBe(true);
+        const table = unwrapResult(tableResult);
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_oo`);
+        expect(dbTableNameResult.isOk()).toBe(true);
+        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        expect(setTableDbNameResult.isOk()).toBe(true);
+        unwrapResult(setTableDbNameResult);
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) return;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate('link_value_oo');
+        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
+        const primaryDbName = unwrapResult(primaryDbNameResult);
+        const linkDbName = unwrapResult(linkDbNameResult);
+        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
+        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+
+        const actorIdResult = ActorId.create('system');
+        expect(actorIdResult.isOk()).toBe(true);
+        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+
+        const insertResult = await repo.insert(context, table);
+        expect(insertResult.isOk()).toBe(true);
+        unwrapResult(insertResult);
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        expect(splitResult.isOk()).toBe(true);
+        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        expect(hostColumns.get('link_value_oo')).toBe('jsonb');
+        expect(hostColumns.get('__foreign_id')).toBe('text');
+      } finally {
+        // shared container disposed in afterAll
+      }
+    });
   });
 });

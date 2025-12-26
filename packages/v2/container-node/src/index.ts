@@ -8,6 +8,7 @@ import {
   MemoryQueryBus,
   NoopLogger,
   NoopTracer,
+  FieldCreationSideEffectFlow,
   TableUpdateFlow,
   v2CoreTokens,
   type ICommandBusMiddleware,
@@ -54,6 +55,9 @@ export const registerV2NodePgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
     lifecycle: Lifecycle.Singleton,
   });
 

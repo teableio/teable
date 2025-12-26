@@ -3,24 +3,25 @@ import {
   TableAddFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
   TableUpdateViewColumnMetaSpec,
   type ITableSpecVisitor,
 } from '@teable/v2-core';
 import type { Kysely } from 'kysely';
-import { err } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-
 import {
-  PostgresTableFieldCreateVisitor,
-  type TableSchemaStatementBuilder,
-} from './PostgresTableFieldCreateVisitor';
+  PostgresTableSchemaFieldCreateVisitor,
+  TableSchemaStatementBuilder,
+} from './PostgresTableSchemaFieldCreateVisitor';
 
 type TableSchemaUpdateVisitorParams = {
   db: Kysely<unknown>;
   schema: string | null;
   tableName: string;
+  tableId: string;
 };
 
 export class TableSchemaUpdateVisitor
@@ -34,11 +35,13 @@ export class TableSchemaUpdateVisitor
   visitTableAddField(
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    const fieldVisitor = PostgresTableFieldCreateVisitor.forSchemaUpdate(this.params);
-    const statementsResult = spec.field().accept(fieldVisitor);
-    if (statementsResult.isErr()) return err(statementsResult.error);
-    const statements = statementsResult.value;
-    return this.addCond(statements).map(() => statements);
+    const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
+    const addCond = this.addCond.bind(this);
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const statements = yield* spec.field().accept(fieldVisitor);
+      yield* addCond(statements);
+      return ok(statements);
+    });
   }
 
   visitTableUpdateViewColumnMeta(
@@ -56,6 +59,10 @@ export class TableSchemaUpdateVisitor
 
   visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     return err('TableByIdSpec is not supported for table schema updates');
+  }
+
+  visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return err('TableByIdsSpec is not supported for table schema updates');
   }
 
   visitTableByName(_: TableByNameSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {

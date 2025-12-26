@@ -49,13 +49,7 @@ describe('FieldValueTypeVisitor', () => {
     builder.field().longText().withName(nameValues[1]).done();
     builder.field().number().withName(nameValues[2]).done();
     builder.field().rating().withName(nameValues[3]).done();
-    builder
-      .field()
-      .formula()
-      .withName(nameValues[4])
-      .withExpression(expressionResult.value)
-      .withResultType(CellValueType.number(), CellValueMultiplicity.single())
-      .done();
+    builder.field().formula().withName(nameValues[4]).withExpression(expressionResult.value).done();
     builder.field().singleSelect().withName(nameValues[5]).done();
     builder.field().multipleSelect().withName(nameValues[6]).done();
     builder.field().checkbox().withName(nameValues[7]).done();

@@ -7,6 +7,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Application write model (Command) definitions and handlers.
 - Input validation via `zod.safeParse` and Result-only error flow.
 - Coordinate domain creation/changes via repositories, buses, and unit of work.
+- Rehydration-only fields (e.g. link meta, formula result types) are read-only; reject them in
+  create/update inputs and only populate them via repository rehydration.
 
 ## Files
 
@@ -20,7 +22,6 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
 - `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.
 - `RenameTableHandler.ts` - Role: command handler; Purpose: persist table rename and publish events.
-- `TableUpdateFlow.ts` - Role: command helper; Purpose: shared table update workflow (mutate + persist + publish).
 - `TableFieldSpecs.ts` - Role: parsing helpers; Purpose: shared field input schema + spec builders.
 
 ## Examples

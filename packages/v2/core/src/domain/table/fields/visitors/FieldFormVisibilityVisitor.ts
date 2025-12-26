@@ -1,4 +1,4 @@
-import { err, ok } from 'neverthrow';
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
@@ -66,6 +66,6 @@ export class FieldFormVisibilityVisitor implements IFieldVisitor<boolean> {
   }
 
   visitLinkField(_: LinkField): Result<boolean, string> {
-    return err('Not implemented');
+    return ok(true);
   }
 }

@@ -24,6 +24,7 @@ module.exports = {
   rules: {
     '@typescript-eslint/consistent-type-imports': 'off',
     '@typescript-eslint/naming-convention': 'off',
+    '@typescript-eslint/no-this-alias': 'off',
   },
   overrides: [],
 };

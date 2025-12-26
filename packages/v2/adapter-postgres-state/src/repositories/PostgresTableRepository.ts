@@ -3,35 +3,7 @@ import {
   resolvePostgresDb,
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
-import type {
-  ITableMapper,
-  ITableFieldPersistenceDTO,
-  ITableRepository,
-  ITablePersistenceDTO,
-  IExecutionContext,
-  IFindOptions,
-  ITableSpecVisitor,
-  ITableViewPersistenceDTO,
-  ISpecification,
-  Table,
-  TableSortKey,
-  ISingleLineTextFieldOptionsDTO,
-  ILongTextFieldOptionsDTO,
-  INumberFieldOptionsDTO,
-  ICheckboxFieldOptionsDTO,
-  IDateFieldOptionsDTO,
-  IUserFieldOptionsDTO,
-  IButtonFieldOptionsDTO,
-  IFormulaFieldOptionsDTO,
-  IFormulaFieldMetaDTO,
-} from '@teable/v2-core';
-import {
-  DbFieldName,
-  DbTableName,
-  fieldColorValues,
-  getRandomString,
-  TraceSpan,
-} from '@teable/v2-core';
+import * as core from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql, type CompiledQuery } from 'kysely';
@@ -43,34 +15,26 @@ import type { ITableDbFieldMeta, ITableDbMeta } from '../db/tableDbMeta';
 import { v2PostgresStateTokens } from '../di/tokens';
 import { convertNameToValidCharacter, joinDbTableName } from '../naming';
 import { TableFieldPersistenceBuilder, type TableFieldRow } from './TableFieldPersistenceBuilder';
-import { TableUpdateVisitor } from './visitors/TableUpdateVisitor';
+import { TableMetaUpdateVisitor } from './visitors/TableMetaUpdateVisitor';
 import { ITableMetaWhere, TableWhereVisitor } from './visitors/TableWhereVisitor';
 
 @injectable()
-export class PostgresTableRepository implements ITableRepository {
+export class PostgresTableRepository implements core.ITableRepository {
   constructor(
     @inject(v2PostgresDbTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2PostgresStateTokens.tableMapper)
-    private readonly tableMapper: ITableMapper
+    private readonly tableMapper: core.ITableMapper
   ) {}
 
-  @TraceSpan()
-  async insert(context: IExecutionContext, table: Table): Promise<Result<Table, string>> {
-    const dtoResult = this.tableMapper.toDTO(table);
-    if (dtoResult.isErr()) return err(dtoResult.error);
-    const dto = dtoResult.value;
-
+  @core.TraceSpan()
+  async insert(
+    context: core.IExecutionContext,
+    table: core.Table
+  ): Promise<Result<core.Table, string>> {
     const now = new Date();
     const actorId = context.actorId.toString();
-    const baseId = dto.baseId;
-    const fieldRowBuilder = new TableFieldPersistenceBuilder({
-      table,
-      tableMapper: this.tableMapper,
-      now,
-      actorId,
-      dto,
-    });
+    const baseId = table.baseId().toString();
 
     let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
@@ -82,9 +46,41 @@ export class PostgresTableRepository implements ITableRepository {
           where base_id = ${baseId}
         )
       `;
+      const existingDbTableNameResult = table.dbTableName().andThen((name) => name.value());
+      const dbTableName = existingDbTableNameResult.isOk()
+        ? existingDbTableNameResult.value
+        : joinDbTableName(baseId, convertNameToValidCharacter(table.name().toString(), 40));
+      if (existingDbTableNameResult.isErr()) {
+        const existing = await trx
+          .selectFrom('table_meta')
+          .select(['id'])
+          .where('base_id', '=', baseId)
+          .where('db_table_name', '=', dbTableName)
+          .where('deleted_time', 'is', null)
+          .executeTakeFirst();
+        if (existing) return err('DbTableName already exists');
+      }
+
+      const dtoResult = this.tableMapper.toDTO(table);
+      if (dtoResult.isErr()) return err(dtoResult.error);
+      const dto = dtoResult.value;
+
+      const fieldRowBuilder = new TableFieldPersistenceBuilder({
+        table,
+        tableMapper: this.tableMapper,
+        now,
+        actorId,
+        dto,
+      });
       const dbFieldMetaResult = fieldRowBuilder.buildDbFieldMeta();
       if (dbFieldMetaResult.isErr()) return err(dbFieldMetaResult.error);
-      tableDbMeta = await this.buildTableDbMeta(trx, dto, baseId, dbFieldMetaResult.value);
+      tableDbMeta = await this.buildTableDbMeta(
+        trx,
+        dto,
+        baseId,
+        dbFieldMetaResult.value,
+        dbTableName
+      );
       const tableDbMetaValue = tableDbMeta;
       if (!tableDbMetaValue) return err('Missing table db metadata');
       const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMetaValue.fields);
@@ -320,11 +316,11 @@ export class PostgresTableRepository implements ITableRepository {
     return ok(table);
   }
 
-  @TraceSpan()
+  @core.TraceSpan()
   async findOne(
-    context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
+    context: core.IExecutionContext,
+    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>
+  ): Promise<Result<core.Table, string>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
@@ -395,12 +391,12 @@ export class PostgresTableRepository implements ITableRepository {
     }
   }
 
-  @TraceSpan()
+  @core.TraceSpan()
   async find(
-    context: IExecutionContext,
-    spec: ISpecification<Table, ITableSpecVisitor>,
-    options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+    context: core.IExecutionContext,
+    spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
+    options?: core.IFindOptions<core.TableSortKey>
+  ): Promise<Result<ReadonlyArray<core.Table>, string>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
@@ -485,11 +481,11 @@ export class PostgresTableRepository implements ITableRepository {
     }
   }
 
-  @TraceSpan()
+  @core.TraceSpan()
   async updateOne(
-    context: IExecutionContext,
-    table: Table,
-    mutateSpec: ISpecification<Table, ITableSpecVisitor>
+    context: core.IExecutionContext,
+    table: core.Table,
+    mutateSpec: core.ISpecification<core.Table, core.ITableSpecVisitor>
   ): Promise<Result<void, string>> {
     const now = new Date();
     const actorId = context.actorId.toString();
@@ -504,7 +500,7 @@ export class PostgresTableRepository implements ITableRepository {
 
     const db = resolvePostgresDb(this.db, context);
     try {
-      const updateVisitor = new TableUpdateVisitor({
+      const updateVisitor = new TableMetaUpdateVisitor({
         db,
         table,
         tableMapper: this.tableMapper,
@@ -529,8 +525,8 @@ export class PostgresTableRepository implements ITableRepository {
     }
   }
 
-  @TraceSpan()
-  async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  @core.TraceSpan()
+  async delete(context: core.IExecutionContext, table: core.Table): Promise<Result<void, string>> {
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
@@ -586,7 +582,7 @@ export class PostgresTableRepository implements ITableRepository {
     db_table_name: string | null;
     fields: unknown;
     views: unknown;
-  }): Result<Table, string> {
+  }): Result<core.Table, string> {
     const fieldRows = Array.isArray(row.fields)
       ? (row.fields as Array<{
           id: string;
@@ -611,7 +607,7 @@ export class PostgresTableRepository implements ITableRepository {
     const viewsResult = this.sequenceResults(viewRows.map((v) => this.deserializeViewDto(v)));
     if (viewsResult.isErr()) return err(viewsResult.error);
 
-    const dto: ITablePersistenceDTO = {
+    const dto: core.ITablePersistenceDTO = {
       id: row.id,
       baseId: row.base_id,
       name: row.name,
@@ -627,7 +623,7 @@ export class PostgresTableRepository implements ITableRepository {
     return ok(domainResult.value);
   }
 
-  private resolveSortColumn(key: TableSortKey): 'name' | 'id' {
+  private resolveSortColumn(key: core.TableSortKey): 'name' | 'id' {
     return key.toString() === 'name' ? 'name' : 'id';
   }
 
@@ -640,7 +636,7 @@ export class PostgresTableRepository implements ITableRepository {
     cell_value_type: string | null;
     is_multiple_cell_value: boolean | null;
     db_field_name: string | null;
-  }): ITableFieldPersistenceDTO {
+  }): core.ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
@@ -683,7 +679,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'number',
-        options: asOptions<INumberFieldOptionsDTO>(),
+        options: asOptions<core.INumberFieldOptionsDTO>(),
         dbFieldName,
       };
     }
@@ -692,8 +688,8 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'formula',
-        options: asOptions<IFormulaFieldOptionsDTO>() ?? { expression: '' },
-        meta: asMeta<IFormulaFieldMetaDTO>(),
+        options: asOptions<core.IFormulaFieldOptionsDTO>() ?? { expression: '' },
+        meta: asMeta<core.IFormulaFieldMetaDTO>(),
         cellValueType: row.cell_value_type ?? undefined,
         isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
         dbFieldName,
@@ -704,7 +700,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'longText',
-        options: asOptions<ILongTextFieldOptionsDTO>(),
+        options: asOptions<core.ILongTextFieldOptionsDTO>(),
         dbFieldName,
       };
     }
@@ -713,7 +709,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'checkbox',
-        options: asOptions<ICheckboxFieldOptionsDTO>(),
+        options: asOptions<core.ICheckboxFieldOptionsDTO>(),
         dbFieldName,
       };
     }
@@ -726,7 +722,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'date',
-        options: asOptions<IDateFieldOptionsDTO>(),
+        options: asOptions<core.IDateFieldOptionsDTO>(),
         dbFieldName,
       };
     }
@@ -735,7 +731,7 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'user',
-        options: asOptions<IUserFieldOptionsDTO>(),
+        options: asOptions<core.IUserFieldOptionsDTO>(),
         dbFieldName,
       };
     }
@@ -744,7 +740,19 @@ export class PostgresTableRepository implements ITableRepository {
         id: row.id,
         name: row.name,
         type: 'button',
-        options: asOptions<IButtonFieldOptionsDTO>(),
+        options: asOptions<core.IButtonFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'link') {
+      const options = asOptions<core.ILinkFieldOptionsDTO>() ?? ({} as core.ILinkFieldOptionsDTO);
+      const meta = asMeta<core.ILinkFieldMetaDTO>();
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'link',
+        options,
+        ...(meta ? { meta } : {}),
         dbFieldName,
       };
     }
@@ -752,13 +760,17 @@ export class PostgresTableRepository implements ITableRepository {
       id: row.id,
       name: row.name,
       type: 'singleLineText',
-      options: asOptions<ISingleLineTextFieldOptionsDTO>(),
+      options: asOptions<core.ISingleLineTextFieldOptionsDTO>(),
       dbFieldName,
     };
   }
 
-  private parseOptions(raw: string | null): Record<string, unknown> {
+  private parseOptions(raw: unknown): Record<string, unknown> {
     if (!raw) return {};
+    if (typeof raw === 'object' && !Array.isArray(raw)) {
+      return raw as Record<string, unknown>;
+    }
+    if (typeof raw !== 'string') return {};
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
@@ -777,9 +789,9 @@ export class PostgresTableRepository implements ITableRepository {
   } {
     if (Array.isArray(raw.options)) {
       const choices = raw.options.map((name, index) => ({
-        id: `cho${getRandomString(8)}`,
+        id: `cho${core.getRandomString(8)}`,
         name: String(name),
-        color: fieldColorValues[index % fieldColorValues.length],
+        color: core.fieldColorValues[index % core.fieldColorValues.length],
       }));
       return { choices };
     }
@@ -801,8 +813,10 @@ export class PostgresTableRepository implements ITableRepository {
     name: string;
     type: string;
     column_meta: string | null;
-  }): Result<ITableViewPersistenceDTO, string> {
-    const columnMeta = this.parseOptions(row.column_meta) as ITableViewPersistenceDTO['columnMeta'];
+  }): Result<core.ITableViewPersistenceDTO, string> {
+    const columnMeta = this.parseOptions(
+      row.column_meta
+    ) as core.ITableViewPersistenceDTO['columnMeta'];
 
     if (row.type === 'grid') return ok({ id: row.id, name: row.name, type: 'grid', columnMeta });
     if (row.type === 'kanban')
@@ -826,8 +840,8 @@ export class PostgresTableRepository implements ITableRepository {
     );
   }
 
-  private applyDbMeta(table: Table, tableDbMeta: ITableDbMeta): Result<void, string> {
-    const dbTableNameResult = DbTableName.rehydrate(tableDbMeta.dbTableName);
+  private applyDbMeta(table: core.Table, tableDbMeta: ITableDbMeta): Result<void, string> {
+    const dbTableNameResult = core.DbTableName.rehydrate(tableDbMeta.dbTableName);
     if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
 
     const setTableNameResult = table.setDbTableName(dbTableNameResult.value);
@@ -837,7 +851,7 @@ export class PostgresTableRepository implements ITableRepository {
     const fieldResults = tableDbMeta.fields.map((meta) => {
       const field = fieldsById.get(meta.field.id);
       if (!field) return err(`Missing field for db name ${meta.field.id}`);
-      return DbFieldName.rehydrate(meta.dbFieldName).andThen((dbFieldName) =>
+      return core.DbFieldName.rehydrate(meta.dbFieldName).andThen((dbFieldName) =>
         field.setDbFieldName(dbFieldName)
       );
     });
@@ -846,34 +860,15 @@ export class PostgresTableRepository implements ITableRepository {
   }
 
   private async buildTableDbMeta(
-    trx: Kysely<V1TeableDatabase>,
-    dto: ITablePersistenceDTO,
+    _trx: Kysely<V1TeableDatabase>,
+    dto: core.ITablePersistenceDTO,
     baseId: string,
-    fields: ReadonlyArray<ITableDbFieldMeta>
+    fields: ReadonlyArray<ITableDbFieldMeta>,
+    dbTableNameOverride?: string
   ): Promise<ITableDbMeta> {
-    const dbTableName = await this.resolveDbTableName(trx, baseId, dto.name);
+    const dbTableName =
+      dbTableNameOverride ?? joinDbTableName(baseId, convertNameToValidCharacter(dto.name, 40));
     return { tableId: dto.id, dbTableName, fields };
-  }
-
-  private async resolveDbTableName(
-    trx: Kysely<V1TeableDatabase>,
-    baseId: string,
-    tableName: string
-  ): Promise<string> {
-    const validName = convertNameToValidCharacter(tableName, 40);
-    let dbTableName = joinDbTableName(baseId, validName);
-
-    const conflict = await trx
-      .selectFrom('table_meta')
-      .select(['id'])
-      .where('db_table_name', '=', dbTableName)
-      .executeTakeFirst();
-
-    if (conflict) {
-      dbTableName = `${dbTableName}${getRandomString(10)}`;
-    }
-
-    return dbTableName;
   }
 }
 

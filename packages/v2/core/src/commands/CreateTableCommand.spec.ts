@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { Table } from '../domain/table/Table';
@@ -236,5 +237,106 @@ describe('CreateTableCommand', () => {
       views: [{ type: 'grid' }],
     });
     expect(badSelectResult.isErr()).toBe(true);
+  });
+
+  describe('link fields', () => {
+    it('builds link fields from input', () => {
+      const baseIdResult = createBaseId('d');
+      expect(baseIdResult.isOk()).toBe(true);
+      if (baseIdResult.isErr()) return;
+
+      const foreignTableId = `tbl${'c'.repeat(16)}`;
+      const lookupFieldId = `fld${'d'.repeat(16)}`;
+      const linkFieldId = `fld${'e'.repeat(16)}`;
+
+      const commandResult = CreateTableCommand.create({
+        baseId: baseIdResult.value.toString(),
+        name: 'Link Table',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Company',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      expect(commandResult.isOk()).toBe(true);
+      if (commandResult.isErr()) return;
+
+      const buildResult = buildFromCommand(commandResult.value);
+      expect(buildResult.isOk()).toBe(true);
+      if (buildResult.isErr()) return;
+
+      const table = buildResult.value;
+      const linkField = table.fields().find((field) => field.type().toString() === 'link') as
+        | LinkField
+        | undefined;
+      expect(linkField).toBeDefined();
+      if (!linkField) return;
+      expect(linkField.id().toString()).toBe(linkFieldId);
+      expect(linkField.relationship().toString()).toBe('manyOne');
+      expect(linkField.foreignTableId().toString()).toBe(foreignTableId);
+      expect(linkField.lookupFieldId().toString()).toBe(lookupFieldId);
+      expect(linkField.hasOrderColumn()).toBe(false);
+    });
+  });
+
+  describe('rehydrated-only fields', () => {
+    it('rejects link meta in input', () => {
+      const baseIdResult = createBaseId('e');
+      expect(baseIdResult.isOk()).toBe(true);
+      if (baseIdResult.isErr()) return;
+
+      const commandResult = CreateTableCommand.create({
+        baseId: baseIdResult.value.toString(),
+        name: 'Link Meta',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            name: 'Company',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: `tbl${'c'.repeat(16)}`,
+              lookupFieldId: `fld${'d'.repeat(16)}`,
+            },
+            meta: { hasOrderColumn: true },
+          },
+        ],
+      });
+
+      expect(commandResult.isErr()).toBe(true);
+    });
+
+    it('rejects formula result type in input', () => {
+      const baseIdResult = createBaseId('f');
+      expect(baseIdResult.isOk()).toBe(true);
+      if (baseIdResult.isErr()) return;
+
+      const commandResult = CreateTableCommand.create({
+        baseId: baseIdResult.value.toString(),
+        name: 'Formula Result Type',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'formula',
+            name: 'Total',
+            options: { expression: '1 + 1' },
+            cellValueType: 'number',
+            isMultipleCellValue: false,
+          },
+        ],
+      });
+
+      expect(commandResult.isErr()).toBe(true);
+    });
   });
 });

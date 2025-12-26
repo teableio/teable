@@ -6,6 +6,7 @@ import {
   createCheckboxField,
   createDateField,
   createFormulaField,
+  createLinkField,
   createLongTextField,
   createMultipleSelectField,
   createNumberField,
@@ -28,6 +29,8 @@ import { DateDefaultValue } from './types/DateDefaultValue';
 import { DateTimeFormatting } from './types/DateTimeFormatting';
 import { FieldColor } from './types/FieldColor';
 import { FormulaExpression } from './types/FormulaExpression';
+import { LinkFieldConfig } from './types/LinkFieldConfig';
+import { LinkRelationship } from './types/LinkRelationship';
 import { NumberDefaultValue } from './types/NumberDefaultValue';
 import { NumberFormatting } from './types/NumberFormatting';
 import { NumberShowAs } from './types/NumberShowAs';
@@ -90,6 +93,14 @@ describe('FieldFactory', () => {
       isActive: true,
     });
     const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
+    const linkConfigResult = LinkFieldConfig.create({
+      relationship: LinkRelationship.manyOne().toString(),
+      foreignTableId: `tbl${'b'.repeat(16)}`,
+      lookupFieldId: `fld${'b'.repeat(16)}`,
+      fkHostTableName: 'link_table',
+      selfKeyName: '__id',
+      foreignKeyName: '__fk_link',
+    });
 
     expect(
       [
@@ -118,6 +129,7 @@ describe('FieldFactory', () => {
         buttonResetResult,
         buttonWorkflowResult,
         formulaExpressionResult,
+        linkConfigResult,
       ].every((r) => r.isOk())
     ).toBe(true);
     if (
@@ -145,7 +157,8 @@ describe('FieldFactory', () => {
       buttonMaxResult.isErr() ||
       buttonResetResult.isErr() ||
       buttonWorkflowResult.isErr() ||
-      formulaExpressionResult.isErr()
+      formulaExpressionResult.isErr() ||
+      linkConfigResult.isErr()
     )
       return;
 
@@ -273,5 +286,14 @@ describe('FieldFactory', () => {
     expect(buttonField.isOk()).toBe(true);
     if (buttonField.isErr()) return;
     expect(buttonField.value.type().toString()).toBe('button');
+
+    const linkField = createLinkField({
+      id,
+      name,
+      config: linkConfigResult.value,
+    });
+    expect(linkField.isOk()).toBe(true);
+    if (linkField.isErr()) return;
+    expect(linkField.value.type().toString()).toBe('link');
   });
 });

@@ -5,6 +5,7 @@ import {
   TableUpdateViewColumnMetaSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
+  TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
 } from '@teable/v2-core';
@@ -43,6 +44,13 @@ export class TableWhereVisitor
 
   visitTableById(spec: TableByIdSpec): Result<ITableMetaWhere, string> {
     const cond: ITableMetaWhere = (eb) => eb.eb('id', '=', spec.tableId().toString());
+    return this.addCond(cond).map(() => cond);
+  }
+
+  visitTableByIds(spec: TableByIdsSpec): Result<ITableMetaWhere, string> {
+    const ids = spec.tableIds().map((id) => id.toString());
+    if (ids.length === 0) return err('TableByIdsSpec requires at least one id');
+    const cond: ITableMetaWhere = (eb) => eb.eb('id', 'in', ids);
     return this.addCond(cond).map(() => cond);
   }
 

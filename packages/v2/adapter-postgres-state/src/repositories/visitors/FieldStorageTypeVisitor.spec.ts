@@ -3,9 +3,11 @@ import {
   FieldId,
   FieldName,
   FormulaExpression,
+  LinkFieldConfig,
   RatingMax,
   SelectOption,
   Table,
+  TableId,
   TableName,
   resolveFormulaFields,
 } from '@teable/v2-core';
@@ -37,10 +39,23 @@ describe('FieldStorageTypeVisitor', () => {
     const dueDateName = unwrap(FieldName.create('Due Date'));
     const ownerName = unwrap(FieldName.create('Owner'));
     const actionName = unwrap(FieldName.create('Action'));
+    const linkName = unwrap(FieldName.create('Related'));
     const todoOption = unwrap(SelectOption.create({ name: 'Todo', color: 'blue' }));
     const doneOption = unwrap(SelectOption.create({ name: 'Done', color: 'red' }));
     const amountId = unwrap(FieldId.create(`fld${'a'.repeat(16)}`));
     const formulaExpression = unwrap(FormulaExpression.create(`{${amountId.toString()}} * 2`));
+    const foreignTableId = unwrap(TableId.create(`tbl${'b'.repeat(16)}`));
+    const lookupFieldId = unwrap(FieldId.create(`fld${'b'.repeat(16)}`));
+    const linkConfig = unwrap(
+      LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        fkHostTableName: 'link_relations',
+        selfKeyName: '__self_id',
+        foreignKeyName: '__foreign_id',
+      })
+    );
 
     const builder = Table.builder().withBaseId(baseId).withName(tableName);
     builder.field().singleLineText().withName(titleName).done();
@@ -65,6 +80,7 @@ describe('FieldStorageTypeVisitor', () => {
     builder.field().date().withName(dueDateName).done();
     builder.field().user().withName(ownerName).done();
     builder.field().button().withName(actionName).done();
+    builder.field().link().withName(linkName).withConfig(linkConfig).done();
     builder.view().defaultGrid().done();
 
     const table = unwrap(builder.build());
@@ -90,6 +106,7 @@ describe('FieldStorageTypeVisitor', () => {
       { cellValueType: 'boolean', dbFieldType: 'BOOLEAN', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: true },
       { cellValueType: 'dateTime', dbFieldType: 'DATETIME', isMultipleCellValue: false },
+      { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
       { cellValueType: 'string', dbFieldType: 'JSON', isMultipleCellValue: false },
     ]);

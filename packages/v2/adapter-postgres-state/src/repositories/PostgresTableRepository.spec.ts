@@ -50,7 +50,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start']>>;
 
 import { registerV2PostgresStateAdapter } from '../di/register';
-import { convertNameToValidCharacter } from '../naming';
+import { convertNameToValidCharacter, joinDbTableName } from '../naming';
 
 type IFieldSnapshot =
   | { type: 'singleLineText'; name: string }
@@ -310,10 +310,10 @@ describe('PostgresTableRepository (pg)', () => {
         table.primaryFieldId().toString()
       );
 
-      const expectedDbTableName = `${baseId.toString()}.${convertNameToValidCharacter(
-        table.name().toString(),
-        40
-      )}`;
+      const expectedDbTableName = joinDbTableName(
+        baseId.toString(),
+        convertNameToValidCharacter(table.name().toString(), 40)
+      );
       const dbTableNameResult = persistedTable.dbTableName().andThen((name) => name.value());
       expect(dbTableNameResult.isOk()).toBe(true);
       if (dbTableNameResult.isErr()) return;
@@ -394,6 +394,85 @@ describe('PostgresTableRepository (pg)', () => {
       if (byNameSpecResult.isErr()) return;
       const byNameResult = await repo.findOne(context, byNameSpecResult.value);
       expect(byNameResult.isOk()).toBe(true);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('rejects duplicate db table names within a base', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
+      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+      const baseId = baseIdResult.value;
+      const actorId = actorIdResult.value;
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Test Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Test Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const nameResult = TableName.create('Same Name');
+      const fieldNameResult = FieldName.create('Title');
+      expect([nameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
+      if (nameResult.isErr() || fieldNameResult.isErr()) return;
+
+      const buildTable = () => {
+        const builder = Table.builder().withBaseId(baseId).withName(nameResult.value);
+        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        builder.view().defaultGrid().done();
+        return builder.build();
+      };
+
+      const firstResult = buildTable();
+      expect(firstResult.isOk()).toBe(true);
+      if (firstResult.isErr()) return;
+      const firstInsert = await repo.insert(context, firstResult.value);
+      expect(firstInsert.isOk()).toBe(true);
+      if (firstInsert.isErr()) return;
+
+      const secondResult = buildTable();
+      expect(secondResult.isOk()).toBe(true);
+      if (secondResult.isErr()) return;
+      const secondInsert = await repo.insert(context, secondResult.value);
+      expect(secondInsert.isErr()).toBe(true);
+      if (secondInsert.isOk()) return;
+      expect(secondInsert.error).toBe('DbTableName already exists');
+
+      const expectedDbTableName = joinDbTableName(
+        baseId.toString(),
+        convertNameToValidCharacter(nameResult.value.toString(), 40)
+      );
+      const rows = await db
+        .selectFrom('table_meta')
+        .select(['db_table_name', 'base_id'])
+        .where('base_id', '=', baseId.toString())
+        .execute();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]?.db_table_name).toBe(expectedDbTableName);
+      expect(rows[0]?.base_id).toBe(baseId.toString());
     } finally {
       await db.destroy();
     }

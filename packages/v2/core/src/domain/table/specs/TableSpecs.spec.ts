@@ -10,6 +10,7 @@ import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
 import { TableByBaseIdSpec } from './TableByBaseIdSpec';
 import { TableByIdSpec } from './TableByIdSpec';
+import { TableByIdsSpec } from './TableByIdsSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
@@ -40,6 +41,11 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableById(_: TableByIdSpec): ReturnType<ITableSpecVisitor['visitTableById']> {
     this.calls.push('TableByIdSpec');
+    return ok(undefined);
+  }
+
+  visitTableByIds(_: TableByIdsSpec): ReturnType<ITableSpecVisitor['visitTableByIds']> {
+    this.calls.push('TableByIdsSpec');
     return ok(undefined);
   }
 
@@ -104,6 +110,8 @@ describe('Table specs', () => {
 
     const byId = TableByIdSpec.create(table.id());
     expect(byId.isSatisfiedBy(table)).toBe(true);
+    const byIds = TableByIdsSpec.create([table.id()]);
+    expect(byIds.isSatisfiedBy(table)).toBe(true);
     const byName = TableByNameSpec.create(nameResult.value);
     expect(byName.isSatisfiedBy(table)).toBe(true);
     const byOtherName = TableByNameSpec.create(otherNameResult.value);
@@ -117,8 +125,10 @@ describe('Table specs', () => {
 
     const visitor = new SpyVisitor();
     expect(byId.accept(visitor).isOk()).toBe(true);
+    expect(byIds.accept(visitor).isOk()).toBe(true);
     expect(byName.accept(visitor).isOk()).toBe(true);
     expect(visitor.calls).toContain('TableByIdSpec');
+    expect(visitor.calls).toContain('TableByIdsSpec');
     expect(visitor.calls).toContain('TableByNameSpec');
   });
 

@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
@@ -9,7 +9,7 @@ import * as LoggerPort from '../ports/Logger';
 import { v2CoreTokens } from '../ports/tokens';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { RenameTableCommand } from './RenameTableCommand';
-import { TableUpdateFlow } from './TableUpdateFlow';
+import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 
 export class RenameTableResult {
   private constructor(
@@ -43,19 +43,22 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
       tableName: command.tableName.toString(),
     });
 
-    const updateResult = await this.tableUpdateFlow.execute(
-      { context, baseId: command.baseId, tableId: command.tableId },
-      (table) => table.update((mutator) => mutator.rename(command.tableName))
-    );
-    if (updateResult.isErr()) return err(updateResult.error);
-    const { table: updatedTable, events } = updateResult.value;
-
-    this.logger.debug('RenameTableHandler.success', {
-      baseId: command.baseId.toString(),
-      tableId: command.tableId.toString(),
-      eventCount: events.length,
+    const tableUpdateFlow = this.tableUpdateFlow;
+    const result = await safeTry<RenameTableResult, string>(async function* () {
+      const updateResult = yield* await tableUpdateFlow.execute(
+        context,
+        { baseId: command.baseId, tableId: command.tableId },
+        (table) => table.update((mutator) => mutator.rename(command.tableName))
+      );
+      return ok(RenameTableResult.create(updateResult.table, updateResult.events));
     });
-
-    return ok(RenameTableResult.create(updatedTable, events));
+    if (result.isOk()) {
+      this.logger.debug('RenameTableHandler.success', {
+        baseId: command.baseId.toString(),
+        tableId: command.tableId.toString(),
+        eventCount: result.value.events.length,
+      });
+    }
+    return result;
   }
 }

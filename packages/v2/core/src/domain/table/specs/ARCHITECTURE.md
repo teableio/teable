@@ -17,6 +17,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableUpdateViewColumnMetaSpec.ts` - Role: mutate spec; Purpose: carry view column meta updates during table mutations.
 - `TableByBaseIdSpec.ts` - Role: spec; Purpose: filter by BaseId.
 - `TableByIdSpec.ts` - Role: spec; Purpose: filter by TableId.
+- `TableByIdsSpec.ts` - Role: spec; Purpose: filter by multiple TableIds.
 - `TableByNameLikeSpec.ts` - Role: spec; Purpose: fuzzy match by name.
 - `TableByNameSpec.ts` - Role: spec; Purpose: exact match by name.
 - `TableSpecBuilder.spec.ts` - Role: spec builder tests; Purpose: verify and/or/not composition.

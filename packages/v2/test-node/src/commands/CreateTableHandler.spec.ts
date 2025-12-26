@@ -9,6 +9,7 @@ import {
   type ICommandBus,
   type IExecutionContext,
   type ISpecification,
+  type LinkField,
   type ITableSchemaRepository,
   type ITableSpecVisitor,
   FieldValueTypeVisitor,
@@ -544,5 +545,86 @@ describe('CreateTableHandler', () => {
 
     expect(handledEvents.length).toBe(1);
     expect(handledEvents[0].tableId.equals(result.value.table.id())).toBe(true);
+  });
+
+  describe('link fields', () => {
+    it('creates symmetric fields in the foreign table', async () => {
+      const { container, tableRepository, baseId } = getV2NodeTestContainer();
+      const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+
+      const actorIdResult = ActorId.create('system');
+      expect(actorIdResult.isOk()).toBe(true);
+      if (actorIdResult.isErr()) return;
+      const context = { actorId: actorIdResult.value };
+
+      const foreignCommandResult = CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Companies',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      });
+      expect(foreignCommandResult.isOk()).toBe(true);
+      if (foreignCommandResult.isErr()) return;
+
+      const foreignResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        context,
+        foreignCommandResult.value
+      );
+      expect(foreignResult.isOk()).toBe(true);
+      if (foreignResult.isErr()) return;
+
+      const foreignTable = foreignResult.value.table;
+      const foreignTableId = foreignTable.id().toString();
+      const lookupFieldId = foreignTable.primaryFieldId().toString();
+      const linkFieldId = `fld${'l'.repeat(16)}`;
+
+      const commandResult = CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Projects',
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          {
+            type: 'link',
+            id: linkFieldId,
+            name: 'Company',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId,
+              lookupFieldId,
+            },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      });
+
+      expect(commandResult.isOk()).toBe(true);
+      if (commandResult.isErr()) return;
+
+      const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        context,
+        commandResult.value
+      );
+      expect(result.isOk()).toBe(true);
+      if (result.isErr()) return;
+
+      const specResult = Table.specs(baseId).byId(foreignTable.id()).build();
+      expect(specResult.isOk()).toBe(true);
+      if (specResult.isErr()) return;
+
+      const updatedForeignResult = await tableRepository.findOne(context, specResult.value);
+      expect(updatedForeignResult.isOk()).toBe(true);
+      if (updatedForeignResult.isErr()) return;
+
+      const linkField = updatedForeignResult.value
+        .fields()
+        .find((field) => field.type().toString() === 'link') as LinkField | undefined;
+      expect(linkField).toBeDefined();
+      if (!linkField) return;
+
+      expect(linkField.name().toString()).toBe('Company');
+      expect(linkField.foreignTableId().equals(result.value.table.id())).toBe(true);
+      expect(linkField.symmetricFieldId()?.toString()).toBe(linkFieldId);
+      expect(linkField.relationship().toString()).toBe('oneMany');
+      expect(linkField.hasOrderColumn()).toBe(false);
+    });
   });
 });

@@ -16,6 +16,8 @@ import {
   FormulaExpression,
   CellValueMultiplicity,
   CellValueType,
+  LinkFieldConfig,
+  LinkFieldMeta,
   NumberDefaultValue,
   NumberFormatting,
   NumberShowAs,
@@ -45,6 +47,7 @@ import {
   createGalleryView,
   createGridView,
   createKanbanView,
+  createLinkField,
   createLongTextField,
   createMultipleSelectField,
   createNumberField,
@@ -263,6 +266,13 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
                     )
                   )
                 )
+              )
+            );
+          }
+          case 'link': {
+            return LinkFieldConfig.create(dto.options).andThen((config) =>
+              LinkFieldMeta.create(dto.meta).andThen((meta) =>
+                createLinkField({ id, name, config, meta: meta ?? undefined })
               )
             );
           }

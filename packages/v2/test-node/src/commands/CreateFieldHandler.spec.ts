@@ -19,6 +19,8 @@ import {
   type SingleLineTextField,
   type SingleSelectField,
   type UserField,
+  type ITableRepository,
+  Table,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
@@ -28,6 +30,7 @@ describe('CreateFieldHandler', () => {
   it('creates all field types with configured options', async () => {
     const { container, baseId } = getV2NodeTestContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     const createTableResult = CreateTableCommand.create({
       baseId: baseId.toString(),
@@ -49,9 +52,27 @@ describe('CreateFieldHandler', () => {
     expect(createdTable.isOk()).toBe(true);
     if (createdTable.isErr()) return;
 
+    const createForeignResult = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Foreign',
+      fields: [{ type: 'singleLineText', name: 'Title' }],
+    });
+    expect(createForeignResult.isOk()).toBe(true);
+    if (createForeignResult.isErr()) return;
+
+    const foreignCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
+      context,
+      createForeignResult.value
+    );
+    expect(foreignCreated.isOk()).toBe(true);
+    if (foreignCreated.isErr()) return;
+    const foreignTable = foreignCreated.value.table;
+
     const tableId = createdTable.value.table.id().toString();
     const numberFieldId = `fld${'n'.repeat(16)}`;
     const formulaFieldId = `fld${'f'.repeat(16)}`;
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const symmetricLinkFieldId = `fld${'s'.repeat(16)}`;
 
     const cases = [
       {
@@ -320,6 +341,23 @@ describe('CreateFieldHandler', () => {
           expect(typed.dependencies().map((id) => id.toString())).toEqual([numberFieldId]);
         },
       },
+      {
+        field: {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Related',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: foreignTable.primaryFieldId().toString(),
+            symmetricFieldId: symmetricLinkFieldId,
+          },
+        },
+        assert: (table: CreateFieldResult['table']) => {
+          const field = table.fields().find((f) => f.id().toString() === linkFieldId);
+          expect(field?.type().toString()).toBe('link');
+        },
+      },
     ];
 
     let currentTable = createdTable.value.table;
@@ -341,5 +379,18 @@ describe('CreateFieldHandler', () => {
       currentTable = result.value.table;
       entry.assert(currentTable);
     }
+
+    const foreignSpecResult = Table.specs(baseId).byId(foreignTable.id()).build();
+    expect(foreignSpecResult.isOk()).toBe(true);
+    if (foreignSpecResult.isErr()) return;
+
+    const foreignResult = await tableRepository.findOne(context, foreignSpecResult.value);
+    expect(foreignResult.isOk()).toBe(true);
+    if (foreignResult.isErr()) return;
+    const foreignLatest = foreignResult.value;
+    const symmetricField = foreignLatest
+      .fields()
+      .find((f) => f.id().toString() === symmetricLinkFieldId);
+    expect(symmetricField?.type().toString()).toBe('link');
   });
 });

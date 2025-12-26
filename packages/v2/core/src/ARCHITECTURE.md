@@ -11,7 +11,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `commands/` - Application commands and handlers (write side).
 - `queries/` - Application queries and handlers (read side).
-- `application/` - Application helpers that orchestrate domain behavior.
+- `application/` - Application services that orchestrate domain behavior and ports.
 - `domain/` - Domain model (aggregates, value objects, specs, events).
 - `ports/` - Ports plus default/memory implementations and mappers.
 

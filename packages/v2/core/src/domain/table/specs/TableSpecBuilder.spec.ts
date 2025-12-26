@@ -130,4 +130,23 @@ describe('TableSpecBuilder', () => {
     expect(specResult.value.isSatisfiedBy(table)).toBe(true);
     expect(specResult.value.isSatisfiedBy(otherTable)).toBe(false);
   });
+
+  it('supports id list specs', () => {
+    const baseIdResult = BaseId.create(`bse${'h'.repeat(16)}`);
+    const nameResult = TableName.create('Projects');
+    const otherNameResult = TableName.create('Tasks');
+    expect([baseIdResult, nameResult, otherNameResult].every((r) => r.isOk())).toBe(true);
+    if (baseIdResult.isErr() || nameResult.isErr() || otherNameResult.isErr()) return;
+
+    const table = buildTable(baseIdResult.value, nameResult.value);
+    const otherTable = buildTable(baseIdResult.value, otherNameResult.value);
+    if (!table || !otherTable) return;
+
+    const specResult = Table.specs(baseIdResult.value).withoutBaseId().byIds([table.id()]).build();
+    expect(specResult.isOk()).toBe(true);
+    if (specResult.isErr()) return;
+
+    expect(specResult.value.isSatisfiedBy(table)).toBe(true);
+    expect(specResult.value.isSatisfiedBy(otherTable)).toBe(false);
+  });
 });
