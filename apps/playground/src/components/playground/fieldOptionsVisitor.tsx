@@ -7,6 +7,7 @@ import {
   type DateField,
   type Field,
   type IFieldVisitor,
+  type LinkField,
   type LongTextField,
   type MultipleSelectField,
   type NumberField,
@@ -200,6 +201,15 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
       pushToken(tokens, 'workflow', workflowLabel);
       if (workflowDto.isActive === false) pushToken(tokens, 'active', 'off');
     }
+    return ok(formatTokens(tokens));
+  }
+
+  visitLinkField(field: LinkField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'rel', field.relationship().toString());
+    pushToken(tokens, 'foreign', field.foreignTableId().toString());
+    pushToken(tokens, 'lookup', field.lookupFieldId().toString());
+    if (field.isOneWay()) pushToken(tokens, 'oneWay', 'on');
     return ok(formatTokens(tokens));
   }
 }

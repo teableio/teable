@@ -198,20 +198,24 @@ export class PostgresTableSchemaFieldCreateVisitor
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
     const isCurrentTable = this.isCurrentTable.bind(this);
     const addForeignKeyColumns = this.addForeignKeyColumns.bind(this);
+    const buildLinkReferenceStatements = this.buildLinkReferenceStatements.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
       const valueColumnStatements = yield* addLinkValueColumn(field);
+      const referenceStatements = yield* buildLinkReferenceStatements(field);
       const relationship = field.relationship().toString();
       if (relationship === 'manyMany') {
         const statements = yield* buildManyManyStatements(field);
-        return ok([...valueColumnStatements, ...statements]);
+        return ok([...valueColumnStatements, ...referenceStatements, ...statements]);
       }
 
       const fkHostTable = yield* resolveFkHostTable(field);
-      if (!isCurrentTable(fkHostTable)) return ok(valueColumnStatements);
+      if (!isCurrentTable(fkHostTable)) {
+        return ok([...valueColumnStatements, ...referenceStatements]);
+      }
 
       const statements = yield* addForeignKeyColumns(field);
-      return ok([...valueColumnStatements, ...statements]);
+      return ok([...valueColumnStatements, ...referenceStatements, ...statements]);
     });
   }
 
@@ -315,6 +319,20 @@ export class PostgresTableSchemaFieldCreateVisitor
       on conflict (to_field_id, from_field_id) do nothing
     `;
     // TODO: task_reference insertion is handled by a separate spec.
+    return ok([insert]);
+  }
+
+  private buildLinkReferenceStatements(
+    field: LinkField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const toFieldId = field.id().toString();
+    const fromFieldId = field.lookupFieldId().toString();
+    const referenceId = getRandomString(25);
+    const insert = sql`
+      insert into reference (id, to_field_id, from_field_id)
+      values (${referenceId}, ${toFieldId}, ${fromFieldId})
+      on conflict (to_field_id, from_field_id) do nothing
+    `;
     return ok([insert]);
   }
 }

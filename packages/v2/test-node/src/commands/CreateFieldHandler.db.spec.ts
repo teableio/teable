@@ -723,5 +723,18 @@ describe('CreateFieldHandler (db)', () => {
       .where('table_name', '=', junctionTableName)
       .execute();
     expect(junctionRows).toHaveLength(1);
+
+    const linkReferenceRows = await db
+      .selectFrom('reference')
+      .select(['from_field_id', 'to_field_id'])
+      .where('to_field_id', 'in', [formulaId, linkId, symmetricLinkId])
+      .orderBy('to_field_id')
+      .orderBy('from_field_id')
+      .execute();
+    expect(linkReferenceRows).toEqual([
+      { from_field_id: numberId, to_field_id: formulaId },
+      { from_field_id: foreignPrimaryFieldId, to_field_id: linkId },
+      { from_field_id: hostTable.primaryFieldId().toString(), to_field_id: symmetricLinkId },
+    ]);
   });
 });

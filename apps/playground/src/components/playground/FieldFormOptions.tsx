@@ -8,15 +8,26 @@ import { DateOptions } from './field-options/DateOptions';
 import { UserOptions } from './field-options/UserOptions';
 import { ButtonOptions } from './field-options/ButtonOptions';
 import { FormulaOptions } from './field-options/FormulaOptions';
+import { LinkOptions } from './field-options/LinkOptions';
 import type { FieldFormApi } from './FieldForm';
 import type { ITableFieldInput } from '@teable/v2-core';
+import type { ITableDto } from '@teable/v2-contract-http';
 
 interface FieldFormOptionsProps {
   type: ITableFieldInput['type'];
   form: FieldFormApi;
+  tableId: string;
+  tables: ReadonlyArray<ITableDto>;
+  isTablesLoading: boolean;
 }
 
-export function FieldFormOptions({ type, form }: FieldFormOptionsProps) {
+export function FieldFormOptions({
+  type,
+  form,
+  tableId,
+  tables,
+  isTablesLoading,
+}: FieldFormOptionsProps) {
   return (
     <div className="space-y-4 border-t pt-4">
       <h3 className="text-sm font-medium">Field Options</h3>
@@ -37,6 +48,14 @@ export function FieldFormOptions({ type, form }: FieldFormOptionsProps) {
         .with('user', () => <UserOptions form={form} />)
         .with('button', () => <ButtonOptions form={form} />)
         .with('formula', () => <FormulaOptions form={form} />)
+        .with('link', () => (
+          <LinkOptions
+            form={form}
+            tableId={tableId}
+            tables={tables}
+            isTablesLoading={isTablesLoading}
+          />
+        ))
         .exhaustive()}
     </div>
   );

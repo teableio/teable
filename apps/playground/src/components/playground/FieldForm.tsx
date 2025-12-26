@@ -1,8 +1,15 @@
-import { useForm, type ReactFormApi, standardSchemaValidator } from '@tanstack/react-form';
+import {
+  useForm,
+  type ReactFormApi,
+  standardSchemaValidator,
+  type Validator,
+  type StandardSchemaV1,
+} from '@tanstack/react-form';
 import { toast } from 'sonner';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import { type ITableFieldInput, tableFieldInputSchema } from '@teable/v2-core';
+import type { IListTablesOkResponseDto, ITableDto } from '@teable/v2-contract-http';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,11 +30,24 @@ interface FieldFormProps {
   onSuccess: () => void;
 }
 
-export type FieldFormApi = ReactFormApi<ITableFieldInput, typeof standardSchemaValidator>;
+type FieldOptionsValue = Extract<ITableFieldInput, { options?: unknown }>['options'];
+type FieldFormValues = Omit<ITableFieldInput, 'options'> & { options?: FieldOptionsValue };
+type FieldFormValidator = Validator<FieldFormValues, StandardSchemaV1<FieldFormValues>>;
+type LinkFieldOptions = Extract<ITableFieldInput, { type: 'link' }>['options'];
+
+export type FieldFormApi = ReactFormApi<FieldFormValues, FieldFormValidator>;
 
 export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormProps) {
   const queryClient = useQueryClient();
   const orpc = createTanstackQueryUtils(getOrpcClient());
+  const validatorAdapter = standardSchemaValidator() as FieldFormValidator;
+
+  const tablesQuery = useQuery<IListTablesOkResponseDto, Error, ReadonlyArray<ITableDto>>(
+    orpc.tables.list.queryOptions({
+      input: { baseId },
+      select: (response) => response.data.tables,
+    })
+  );
 
   const createFieldMutation = useMutation(
     orpc.tables.createField.mutationOptions({
@@ -46,18 +66,36 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
     })
   );
 
-  const form = useForm({
+  const defaultLinkOptions = (): LinkFieldOptions => {
+    const tables = tablesQuery.data ?? [];
+    const candidates = tables.filter((table) => table.id !== tableId);
+    const target = candidates[0];
+    if (!target) {
+      return { relationship: 'manyMany' } as any;
+    }
+    const lookupField = target.fields.find((field) => field.isPrimary) ?? target.fields[0];
+    if (!lookupField) {
+      return { relationship: 'manyMany', foreignTableId: target.id } as any;
+    }
+    return {
+      relationship: 'manyMany',
+      foreignTableId: target.id,
+      lookupFieldId: lookupField.id,
+    } as any;
+  };
+
+  const form = useForm<FieldFormValues, FieldFormValidator>({
     defaultValues: {
       type: 'singleLineText',
       name: '',
       options: {},
-    } as ITableFieldInput,
-    validatorAdapter: standardSchemaValidator(),
+    } as FieldFormValues,
+    validatorAdapter,
     validators: {
       onChange: tableFieldInputSchema,
       onBlur: tableFieldInputSchema,
     },
-    onSubmit: async ({ value }: { value: ITableFieldInput }) => {
+    onSubmit: async ({ value }: { value: FieldFormValues }) => {
       createFieldMutation.mutate({
         baseId,
         tableId,
@@ -103,8 +141,11 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
               value={field.state.value}
               onValueChange={(value) => {
                 field.handleChange(value as any);
-                // Reset options when type changes
-                form.setFieldValue('options', {} as any);
+                if (value === 'link') {
+                  form.setFieldValue('options', defaultLinkOptions() as any);
+                } else {
+                  form.setFieldValue('options', {} as any);
+                }
               }}
             >
               <SelectTrigger>
@@ -123,6 +164,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 <SelectItem value="user">User</SelectItem>
                 <SelectItem value="button">Button</SelectItem>
                 <SelectItem value="formula">Formula</SelectItem>
+                <SelectItem value="link">Link</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -131,7 +173,15 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
 
       <form.Subscribe
         selector={(state) => state.values.type}
-        children={(type) => <FieldFormOptions type={type} form={form as FieldFormApi} />}
+        children={(type) => (
+          <FieldFormOptions
+            type={type}
+            form={form as FieldFormApi}
+            tableId={tableId}
+            tables={tablesQuery.data ?? []}
+            isTablesLoading={tablesQuery.isLoading}
+          />
+        )}
       />
 
       <div className="flex justify-end gap-3 pt-4">
