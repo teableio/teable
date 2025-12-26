@@ -5,11 +5,11 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
+import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   ensureV1MetaSchema,
   registerV2PostgresStateAdapter,
-} from '@teable/v2-adapter-postgres-state';
+} from '@teable/v2-adapter-repository-postgres';
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,

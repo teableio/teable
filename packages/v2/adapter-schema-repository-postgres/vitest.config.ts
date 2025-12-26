@@ -5,7 +5,7 @@ const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
-  cacheDir: '../../../.cache/vitest/v2-adapter-postgres-ddl',
+  cacheDir: '../../../.cache/vitest/v2-adapter-schema-repository-postgres',
   test: {
     globals: true,
     environment: 'node',

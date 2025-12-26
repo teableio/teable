@@ -2641,7 +2641,7 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/v2/adapter-postgres-ddl:
+  packages/v2/adapter-schema-repository-postgres:
     dependencies:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
@@ -2705,7 +2705,7 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
 
-  packages/v2/adapter-postgres-state:
+  packages/v2/adapter-repository-postgres:
     dependencies:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
@@ -2972,12 +2972,12 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
-      '@teable/v2-adapter-postgres-ddl':
+      '@teable/v2-adapter-schema-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-ddl
-      '@teable/v2-adapter-postgres-state':
+        version: link:../adapter-schema-repository-postgres
+      '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-state
+        version: link:../adapter-repository-postgres
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
@@ -3027,12 +3027,12 @@ importers:
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
-      '@teable/v2-adapter-postgres-ddl':
+      '@teable/v2-adapter-schema-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-ddl
-      '@teable/v2-adapter-postgres-state':
+        version: link:../adapter-schema-repository-postgres
+      '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-state
+        version: link:../adapter-repository-postgres
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
@@ -3091,12 +3091,12 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
-      '@teable/v2-adapter-postgres-ddl':
+      '@teable/v2-adapter-schema-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-ddl
-      '@teable/v2-adapter-postgres-state':
+        version: link:../adapter-schema-repository-postgres
+      '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-state
+        version: link:../adapter-repository-postgres
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core
@@ -3146,12 +3146,12 @@ importers:
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
-      '@teable/v2-adapter-postgres-ddl':
+      '@teable/v2-adapter-schema-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-ddl
-      '@teable/v2-adapter-postgres-state':
+        version: link:../adapter-schema-repository-postgres
+      '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
-        version: link:../adapter-postgres-state
+        version: link:../adapter-repository-postgres
       '@teable/v2-core':
         specifier: workspace:*
         version: link:../core

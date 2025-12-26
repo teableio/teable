@@ -29,8 +29,10 @@
       "@teable/v2-contract-http-implementation": ["../contract-http-implementation/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
-      "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
-      "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
+      "@teable/v2-adapter-schema-repository-postgres": [
+        "../adapter-schema-repository-postgres/src"
+      ],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-table-templates": ["../table-templates/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
@@ -52,8 +54,8 @@
     "../contract-http-implementation/src",
     "../contract-http/src",
     "../adapter-logger-console/src",
-    "../adapter-postgres-ddl/src",
-    "../adapter-postgres-state/src",
+    "../adapter-schema-repository-postgres/src",
+    "../adapter-repository-postgres/src",
     "../core/src",
     "../table-templates/src",
     "../adapter-db-postgres-pg/src",

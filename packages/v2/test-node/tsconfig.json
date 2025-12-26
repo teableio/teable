@@ -22,8 +22,10 @@
     "paths": {
       "@teable/v2-container-node-test": ["../container-node-test/src"],
       "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
-      "@teable/v2-adapter-postgres-ddl": ["../adapter-postgres-ddl/src"],
-      "@teable/v2-adapter-postgres-state": ["../adapter-postgres-state/src"],
+      "@teable/v2-adapter-schema-repository-postgres": [
+        "../adapter-schema-repository-postgres/src"
+      ],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
       "@teable/v2-di": ["../di/src"],
@@ -39,8 +41,8 @@
     "src",
     "../container-node-test/src",
     "../adapter-logger-console/src",
-    "../adapter-postgres-ddl/src",
-    "../adapter-postgres-state/src",
+    "../adapter-schema-repository-postgres/src",
+    "../adapter-repository-postgres/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",
     "../di/src",

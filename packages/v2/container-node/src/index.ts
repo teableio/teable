@@ -1,7 +1,7 @@
 import { PostgresUnitOfWork } from '@teable/v2-adapter-db-postgres-pg';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-postgres-ddl';
-import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-postgres-state';
-import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-postgres-state';
+import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
+import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
+import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import {
   MemoryCommandBus,
   MemoryEventBus,

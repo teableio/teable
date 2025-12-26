@@ -169,7 +169,7 @@ Inside `packages/v2/core/src`:
 ## Adding a repository adapter later
 
 1. Keep the port in `v2/core/src/ports/TableRepository.ts`.
-2. Implement the adapter in a separate package (e.g. `packages/v2/adapter-postgres-state`).
+2. Implement the adapter in a separate package (e.g. `packages/v2/adapter-repository-postgres`).
 3. Translate Specifications via a visitor (start with the stub visitor in `v2/core`).
 4. Map persistence DTOs <-> domain using mapper interfaces from `v2/core/src/ports/mappers`.
 

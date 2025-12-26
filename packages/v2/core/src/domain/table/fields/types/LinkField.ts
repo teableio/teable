@@ -289,11 +289,11 @@ export class LinkField extends Field {
     return ok(undefined);
   }
 
-  private resolveFkHostTableName(params: {
+  private resolveFkHostTableName = (params: {
     baseId: BaseId;
     hostTableId: TableId;
     symmetricFieldId?: FieldId;
-  }): Result<DbTableName, string> {
+  }): Result<DbTableName, string> => {
     const relationship = this.relationship().toString();
     if (relationship === 'manyMany') {
       return this.buildJunctionTableName(params.baseId, params.symmetricFieldId);
@@ -310,7 +310,7 @@ export class LinkField extends Field {
       );
     }
     return err('Unsupported LinkRelationship');
-  }
+  };
 
   private buildJunctionTableName(
     baseId: BaseId,

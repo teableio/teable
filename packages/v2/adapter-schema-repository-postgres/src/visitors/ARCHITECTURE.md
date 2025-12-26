@@ -1,6 +1,6 @@
 Declaration: If the folder I belong to changes, please update me, especially core domain concepts. Add examples or example file paths for abstract concepts when needed.
 
-# adapter-postgres-ddl visitors Architecture Notes
+# adapter-schema-repository-postgres visitors Architecture Notes
 
 ## Responsibilities
 
