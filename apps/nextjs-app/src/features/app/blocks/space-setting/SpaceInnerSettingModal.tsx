@@ -53,7 +53,7 @@ export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
       onValueChange={(value) => setTab(value as SettingTab)}
       className="flex h-full gap-0 overflow-hidden"
     >
-      <TabsList className="flex h-full w-[200px] flex-col items-start justify-start gap-1 rounded-none border-none bg-muted p-4">
+      <TabsList className="flex h-full w-72 flex-col items-start justify-start gap-1 rounded-none border-none bg-muted p-4">
         {tabList.map(({ key, name, Icon }) => {
           return (
             <TabsTrigger
@@ -61,24 +61,16 @@ export const SpaceInnerSettingModal = (props: ISpaceInnerSettingModalProps) => {
               value={key}
               className="h-8 w-full cursor-pointer justify-start gap-2 rounded-md font-normal data-[state=active]:bg-surface data-[state=active]:font-medium data-[state=active]:shadow-none hover:bg-surface"
             >
-              <Icon className="size-5 shrink-0 sm:size-4" />
-              <span className="hidden sm:inline">{name}</span>
+              <Icon className="size-4 shrink-0" />
+              <span>{name}</span>
             </TabsTrigger>
           );
         })}
       </TabsList>
-      <TabsContent
-        tabIndex={-1}
-        value={SettingTab.General}
-        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
-      >
+      <TabsContent tabIndex={-1} value={SettingTab.General} className="mt-0 size-full">
         <GeneralPage />
       </TabsContent>
-      <TabsContent
-        tabIndex={-1}
-        value={SettingTab.Collaborator}
-        className="mt-0 size-full overflow-y-auto overflow-x-hidden"
-      >
+      <TabsContent tabIndex={-1} value={SettingTab.Collaborator} className="mt-0 size-full">
         <CollaboratorPage />
       </TabsContent>
     </Tabs>
