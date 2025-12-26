@@ -1,7 +1,6 @@
 import { useTheme } from '@teable/next-themes';
 import { cn, Skeleton } from '@teable/ui-lib/shadcn';
 import Image from 'next/image';
-
 export const IntegrationContainer = (props: {
   children: React.ReactNode;
   count?: number;
@@ -11,7 +10,7 @@ export const IntegrationContainer = (props: {
   const { children, count, isLoading, description } = props;
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  const isEmpty = count && count === 0;
+  const isEmpty = typeof count === 'number' && count === 0;
   return (
     <div className="h-full overflow-auto py-4">
       <div

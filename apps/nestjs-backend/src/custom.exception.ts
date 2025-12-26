@@ -43,3 +43,14 @@ export const getDefaultCodeByStatus = (status: HttpStatus) => {
       return HttpErrorCode.UNKNOWN_ERROR_CODE;
   }
 };
+
+export class TemplateAppTokenNotAllowedException extends HttpException {
+  constructor() {
+    super(
+      {
+        message: 'Template preview app token operation not allowed',
+      },
+      200
+    );
+  }
+}

@@ -19,9 +19,12 @@ import {
   deleteTemplate,
   permanentDeleteSpace,
 } from '@teable/openapi';
-import type { IGetBaseVo, ITableFullVo } from '@teable/openapi';
+import type { IGetBaseVo, ITableFullVo, ITableListVo } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
+import { TemplateAppTokenNotAllowedException } from '../src/custom.exception';
+import { AuthService } from '../src/features/auth/auth.service';
 import { PermissionService } from '../src/features/auth/permission.service';
+import { JwtAuthInternalType } from '../src/features/auth/strategies/types';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createTable, createView, initApp, permanentDeleteBase } from './utils/init-app';
 
@@ -531,6 +534,52 @@ describe('Template Preview Permission (e2e)', () => {
       expect(res.status).toBe(200);
       expect(res.data.id).toBe(templateBaseId);
       expect(res.data.template).toBeDefined();
+    });
+  });
+
+  describe('Template preview app token operations', () => {
+    let appToken: string;
+    const anonymousAxios = createAxios();
+    let authService: AuthService;
+
+    beforeAll(async () => {
+      authService = app.get(AuthService);
+    });
+
+    beforeEach(async () => {
+      const { accessToken } = await authService.getTempInternalToken(
+        templateBaseId,
+        JwtAuthInternalType.App
+      );
+      appToken = accessToken;
+      anonymousAxios.defaults.baseURL = defaultAxios.defaults.baseURL;
+    });
+    it('should allow getTableList with valid app token', async () => {
+      const res = await anonymousAxios.get<ITableListVo>(`/base/${templateBaseId}/table`, {
+        headers: {
+          Authorization: `Bearer ${appToken}`,
+        },
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.length).toBeGreaterThan(0);
+    });
+
+    it('should allow createTable with valid app token', async () => {
+      const res = await anonymousAxios.post<ITableFullVo>(
+        `/base/${templateBaseId}/table`,
+        {
+          name: 'New Table',
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${appToken}`,
+          },
+        }
+      );
+      expect(res.status).toBe(200);
+      expect(res.data).toMatchObject({
+        message: new TemplateAppTokenNotAllowedException().message,
+      });
     });
   });
 });

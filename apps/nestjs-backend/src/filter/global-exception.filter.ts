@@ -13,6 +13,7 @@ import { ConfigService } from '@nestjs/config';
 import { SentryExceptionCaptured } from '@sentry/nestjs';
 import type { Request, Response } from 'express';
 import type { ILoggerConfig } from '../configs/logger.config';
+import { TemplateAppTokenNotAllowedException } from '../custom.exception';
 import { exceptionParse } from '../utils/exception-parse';
 
 @Catch()
@@ -40,6 +41,11 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       )
     ) {
       this.logError(exception, request);
+    }
+    if (exception instanceof TemplateAppTokenNotAllowedException) {
+      return response.status(exception.getStatus()).json({
+        message: exception.message,
+      });
     }
     const customHttpException = exceptionParse(exception);
     const status = customHttpException.getStatus();

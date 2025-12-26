@@ -6,7 +6,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { CollaboratorType } from '@teable/openapi';
 import { intersection, union } from 'lodash';
 import { ClsService } from 'nestjs-cls';
-import { CustomHttpException } from '../../custom.exception';
+import { CustomHttpException, TemplateAppTokenNotAllowedException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { getMaxLevelRole } from '../../utils/get-max-level-role';
 import { CollaboratorModel } from '../model/collaborator';
@@ -319,7 +319,15 @@ export class PermissionService {
     const tempAuthBaseId = this.cls.get('tempAuthBaseId');
     if (tempAuthBaseId === baseId) {
       const template = await this.templateModel.getTemplateRawByBaseId(baseId);
-      return template ? TemplatePermissions : getPermissions('owner');
+      if (template) {
+        this.cls.set('template', {
+          id: template.id,
+          baseId: template.snapshot.baseId,
+        });
+        return TemplatePermissions;
+      } else {
+        return getPermissions('owner');
+      }
     }
     const role = await this.getRoleByBaseId(baseId);
     const spaceRole = await this.getRoleBySpaceId(
@@ -403,6 +411,13 @@ export class PermissionService {
     );
     if (permissions.every((permission) => ownPermissions.includes(permission))) {
       return ownPermissions;
+    }
+    // for app token operation not allowed in template preview app
+    if (
+      this.cls.get('template') &&
+      this.cls.get('tempAuthBaseId') === this.cls.get('template.baseId')
+    ) {
+      throw new TemplateAppTokenNotAllowedException();
     }
     throw new CustomHttpException(
       `not allowed to operate ${permissions.join(', ')} on ${resourceId}`,
