@@ -151,7 +151,11 @@ describe('Template Preview Permission (e2e)', () => {
   });
 
   // Test suite factory that runs with different axios instances
-  const runTemplatePermissionTests = (description: string, getAxios: () => AxiosInstance) => {
+  const runTemplatePermissionTests = (
+    description: string,
+    getAxios: () => AxiosInstance,
+    isAnonymous?: boolean
+  ) => {
     describe(description, () => {
       let apiRequest: ReturnType<typeof createApiRequest>;
 
@@ -445,7 +449,7 @@ describe('Template Preview Permission (e2e)', () => {
           });
 
           const res = await apiRequest('GET', `/base/${anotherBase.data.id}`);
-          expect(res.status).toBe(403);
+          expect(res.status).toBe(isAnonymous ? 401 : 403);
 
           await deleteBase(anotherBase.data.id);
         });
@@ -460,7 +464,7 @@ describe('Template Preview Permission (e2e)', () => {
           });
 
           const res = await apiRequest('GET', `/base/${anotherBase.data.id}/table`);
-          expect(res.status).toBe(403);
+          expect(res.status).toBe(isAnonymous ? 401 : 403);
 
           await deleteBase(anotherBase.data.id);
         });
@@ -485,7 +489,7 @@ describe('Template Preview Permission (e2e)', () => {
               });
               throw new Error('Should have thrown 403');
             } catch (error: any) {
-              expect(error.status).toBe(403);
+              expect(error.status).toBe(isAnonymous ? 401 : 403);
             }
           }
         });
@@ -501,7 +505,7 @@ describe('Template Preview Permission (e2e)', () => {
       anonymousAxios = createAxios();
     });
 
-    runTemplatePermissionTests('Anonymous user with template header', () => anonymousAxios);
+    runTemplatePermissionTests('Anonymous user with template header', () => anonymousAxios, true);
   });
 
   // Run tests with authenticated new user (not a collaborator)
