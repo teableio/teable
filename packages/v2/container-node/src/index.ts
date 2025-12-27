@@ -1,14 +1,14 @@
 import { PostgresUnitOfWork } from '@teable/v2-adapter-db-postgres-pg';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
+import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
   NoopLogger,
   NoopTracer,
-  FieldCreationSideEffectFlow,
+  FieldCreationSideEffectService,
   TableUpdateFlow,
   v2CoreTokens,
   type ICommandBusMiddleware,
@@ -57,7 +57,7 @@ export const registerV2NodePgDependencies = async (
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
+  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
 

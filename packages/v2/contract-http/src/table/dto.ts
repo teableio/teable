@@ -23,6 +23,7 @@ import type {
   NumberField,
   RatingField,
   FormulaField,
+  RollupField,
   SingleSelectField,
   Table,
   SingleLineTextField,
@@ -184,6 +185,19 @@ const formulaOptionsSchema = z.object({
   showAs: formulaShowAsSchema.optional(),
 });
 
+const rollupOptionsSchema = z.object({
+  expression: z.string(),
+  timeZone: z.enum(TIME_ZONE_LIST).optional(),
+  formatting: formulaFormattingSchema.optional(),
+  showAs: formulaShowAsSchema.optional(),
+});
+
+const rollupConfigSchema = z.object({
+  linkFieldId: z.string(),
+  foreignTableId: z.string(),
+  lookupFieldId: z.string(),
+});
+
 const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
 
 const linkOptionsSchema = z.object({
@@ -214,6 +228,8 @@ type DateOptionsDto = z.infer<typeof dateOptionsSchema>;
 type UserOptionsDto = z.infer<typeof userOptionsSchema>;
 type ButtonOptionsDto = z.infer<typeof buttonOptionsSchema>;
 type FormulaOptionsDto = z.infer<typeof formulaOptionsSchema>;
+type RollupOptionsDto = z.infer<typeof rollupOptionsSchema>;
+type RollupConfigDto = z.infer<typeof rollupConfigSchema>;
 
 export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
@@ -235,6 +251,13 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
   baseFieldDtoSchema.extend({
     type: z.literal('formula'),
     options: formulaOptionsSchema,
+    cellValueType: cellValueTypeSchema.optional(),
+    isMultipleCellValue: z.boolean().optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('rollup'),
+    options: rollupOptionsSchema,
+    config: rollupConfigSchema,
     cellValueType: cellValueTypeSchema.optional(),
     isMultipleCellValue: z.boolean().optional(),
   }),
@@ -386,6 +409,39 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
         dbFieldName: this.optionalDbFieldName(field),
         type: 'formula',
         options,
+        cellValueType: cellValueType.toString(),
+        isMultipleCellValue: isMultipleCellValue.toBoolean(),
+        isPrimary: field.id().equals(this.primaryFieldId),
+      }));
+  }
+
+  visitRollupField(field: RollupField): Result<IFieldDto, string> {
+    const options: RollupOptionsDto = {
+      expression: field.expression().toString(),
+    };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const config: RollupConfigDto = field.configDto();
+
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field.isMultipleCellValue().map((isMultipleCellValue) => ({
+          cellValueType,
+          isMultipleCellValue,
+        }))
+      )
+      .map(({ cellValueType, isMultipleCellValue }) => ({
+        id: field.id().toString(),
+        name: field.name().toString(),
+        dbFieldName: this.optionalDbFieldName(field),
+        type: 'rollup',
+        options,
+        config,
         cellValueType: cellValueType.toString(),
         isMultipleCellValue: isMultipleCellValue.toBoolean(),
         isPrimary: field.id().equals(this.primaryFieldId),

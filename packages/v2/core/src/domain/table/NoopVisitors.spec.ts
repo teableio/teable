@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { FieldName } from './fields/FieldName';
@@ -9,10 +9,8 @@ import { TableName } from './TableName';
 import { NoopViewVisitor } from './views/visitors/NoopViewVisitor';
 
 const buildTable = () => {
-  const baseIdResult = BaseId.create(`bse${'v'.repeat(16)}`);
-  const tableNameResult = TableName.create('Visitor Table');
-  expect([baseIdResult, tableNameResult].every((r) => r.isOk())).toBe(true);
-  if (baseIdResult.isErr() || tableNameResult.isErr()) return undefined;
+  const baseId = BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Visitor Table')._unsafeUnwrap();
 
   const namesResult = [
     FieldName.create('Title'),
@@ -27,9 +25,6 @@ const buildTable = () => {
     FieldName.create('Owner'),
     FieldName.create('Action'),
   ];
-  expect(namesResult.every((r) => r.isOk())).toBe(true);
-  if (namesResult.some((r) => r.isErr())) return undefined;
-
   const [
     titleName,
     descriptionName,
@@ -46,10 +41,9 @@ const buildTable = () => {
 
   const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
   const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
-  expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-  if (todoOptionResult.isErr() || doneOptionResult.isErr()) return undefined;
+  [todoOptionResult, doneOptionResult].forEach((r) => r._unsafeUnwrap());
 
-  const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+  const builder = Table.builder().withBaseId(baseId).withName(tableName);
   builder.field().singleLineText().withName(titleName).done();
   builder.field().longText().withName(descriptionName).done();
   builder.field().number().withName(amountName).done();
@@ -58,13 +52,13 @@ const buildTable = () => {
     .field()
     .singleSelect()
     .withName(statusName)
-    .withOptions([todoOptionResult.value, doneOptionResult.value])
+    .withOptions([todoOptionResult._unsafeUnwrap(), doneOptionResult._unsafeUnwrap()])
     .done();
   builder
     .field()
     .multipleSelect()
     .withName(tagsName)
-    .withOptions([todoOptionResult.value, doneOptionResult.value])
+    .withOptions([todoOptionResult._unsafeUnwrap(), doneOptionResult._unsafeUnwrap()])
     .done();
   builder.field().checkbox().withName(doneName).done();
   builder.field().attachment().withName(filesName).done();
@@ -78,28 +72,23 @@ const buildTable = () => {
   builder.view().form().defaultName().done();
   builder.view().plugin().defaultName().done();
 
-  const result = builder.build();
-  expect(result.isOk()).toBe(true);
-  if (result.isErr()) return undefined;
-  return result.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('Noop visitors', () => {
   it('accepts all field visitors', () => {
     const table = buildTable();
-    if (!table) return;
 
     const visitor = new NoopFieldVisitor();
     const results = table.fields().map((field) => field.accept(visitor));
-    expect(results.every((result) => result.isOk())).toBe(true);
+    results.forEach((result) => result._unsafeUnwrap());
   });
 
   it('accepts all view visitors', () => {
     const table = buildTable();
-    if (!table) return;
 
     const visitor = new NoopViewVisitor();
     const results = table.views().map((view) => view.accept(visitor));
-    expect(results.every((result) => result.isOk())).toBe(true);
+    results.forEach((result) => result._unsafeUnwrap());
   });
 });

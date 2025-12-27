@@ -4,25 +4,21 @@ import { MultiNumberDisplayType, NumberShowAs, SingleNumberDisplayType } from '.
 
 describe('NumberShowAs', () => {
   it('accepts single and multi showAs shapes', () => {
-    expect(
-      NumberShowAs.create({
-        type: SingleNumberDisplayType.Bar,
-        color: 'blue',
-        showValue: true,
-        maxValue: 100,
-      }).isOk()
-    ).toBe(true);
+    NumberShowAs.create({
+      type: SingleNumberDisplayType.Bar,
+      color: 'blue',
+      showValue: true,
+      maxValue: 100,
+    })._unsafeUnwrap();
 
-    expect(
-      NumberShowAs.create({
-        type: MultiNumberDisplayType.Line,
-        color: 'green',
-      }).isOk()
-    ).toBe(true);
+    NumberShowAs.create({
+      type: MultiNumberDisplayType.Line,
+      color: 'green',
+    })._unsafeUnwrap();
   });
 
   it('rejects invalid showAs shape', () => {
-    expect(NumberShowAs.create({ type: 'pie', color: 'blue' }).isErr()).toBe(true);
+    NumberShowAs.create({ type: 'pie', color: 'blue' })._unsafeUnwrapErr();
   });
 
   it('compares showAs values and maps to dto', () => {
@@ -36,8 +32,9 @@ describe('NumberShowAs', () => {
       type: MultiNumberDisplayType.Line,
       color: 'green',
     });
-    expect([single, multi].every((r) => r.isOk())).toBe(true);
-    if (single.isErr() || multi.isErr()) return;
+    [single, multi].forEach((r) => r._unsafeUnwrap());
+    single._unsafeUnwrap();
+    multi._unsafeUnwrap();
     expect(single.value.equals(single.value)).toBe(true);
     expect(multi.value.equals(multi.value)).toBe(true);
     expect(single.value.toDto()).toEqual({

@@ -64,15 +64,15 @@ class SpyVisitor implements ITableSpecVisitor {
 
 const buildTable = (baseId: BaseId, name: TableName) => {
   const fieldNameResult = FieldName.create('Title');
-  expect(fieldNameResult.isOk()).toBe(true);
-  if (fieldNameResult.isErr()) return undefined;
+  fieldNameResult._unsafeUnwrap();
+  undefined;
   const builder = Table.builder().withBaseId(baseId).withName(name);
-  builder.field().singleLineText().withName(fieldNameResult.value).done();
+  builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
   builder.view().defaultGrid().done();
   const tableResult = builder.build();
-  expect(tableResult.isOk()).toBe(true);
-  if (tableResult.isErr()) return undefined;
-  return tableResult.value;
+  tableResult._unsafeUnwrap();
+  undefined;
+  return tableResult._unsafeUnwrap();
 };
 
 describe('Table specs', () => {
@@ -80,21 +80,25 @@ describe('Table specs', () => {
     const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
     const otherBaseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
     const nameResult = TableName.create('Projects');
-    expect([baseIdResult, otherBaseIdResult, nameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || otherBaseIdResult.isErr() || nameResult.isErr()) return;
+    [baseIdResult, otherBaseIdResult, nameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    otherBaseIdResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
 
-    const table = buildTable(baseIdResult.value, nameResult.value);
+    const table = buildTable(baseIdResult._unsafeUnwrap(), nameResult._unsafeUnwrap());
     if (!table) return;
 
-    const spec = TableByBaseIdSpec.create(baseIdResult.value);
+    const spec = TableByBaseIdSpec.create(baseIdResult._unsafeUnwrap());
     expect(spec.isSatisfiedBy(table)).toBe(true);
-    expect(spec.isSatisfiedBy(buildTable(otherBaseIdResult.value, nameResult.value) ?? table)).toBe(
-      false
-    );
+    expect(
+      spec.isSatisfiedBy(
+        buildTable(otherBaseIdResult._unsafeUnwrap(), nameResult._unsafeUnwrap()) ?? table
+      )
+    ).toBe(false);
     const mutateResult = spec.mutate(table);
-    expect(mutateResult.isOk()).toBe(true);
+    mutateResult._unsafeUnwrap();
     const visitor = new SpyVisitor();
-    expect(spec.accept(visitor).isOk()).toBe(true);
+    spec.accept(visitor)._unsafeUnwrap();
     expect(visitor.calls).toContain('TableByBaseIdSpec');
   });
 
@@ -102,31 +106,35 @@ describe('Table specs', () => {
     const baseIdResult = BaseId.create(`bse${'c'.repeat(16)}`);
     const nameResult = TableName.create('Tasks');
     const otherNameResult = TableName.create('Other');
-    expect([baseIdResult, nameResult, otherNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || nameResult.isErr() || otherNameResult.isErr()) return;
+    [baseIdResult, nameResult, otherNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
+    otherNameResult._unsafeUnwrap();
 
-    const table = buildTable(baseIdResult.value, nameResult.value);
+    const table = buildTable(baseIdResult._unsafeUnwrap(), nameResult._unsafeUnwrap());
     if (!table) return;
 
     const byId = TableByIdSpec.create(table.id());
     expect(byId.isSatisfiedBy(table)).toBe(true);
     const byIds = TableByIdsSpec.create([table.id()]);
     expect(byIds.isSatisfiedBy(table)).toBe(true);
-    const byName = TableByNameSpec.create(nameResult.value);
+    const byName = TableByNameSpec.create(nameResult._unsafeUnwrap());
     expect(byName.isSatisfiedBy(table)).toBe(true);
-    const byOtherName = TableByNameSpec.create(otherNameResult.value);
+    const byOtherName = TableByNameSpec.create(otherNameResult._unsafeUnwrap());
     expect(byOtherName.isSatisfiedBy(table)).toBe(false);
 
     const mutateResult = byOtherName.mutate(table);
-    expect(mutateResult.isOk()).toBe(true);
-    if (mutateResult.isErr()) return;
-    expect(mutateResult.value.name().toString()).toBe(otherNameResult.value.toString());
-    expect(table.name().toString()).toBe(nameResult.value.toString());
+    mutateResult._unsafeUnwrap();
+
+    expect(mutateResult._unsafeUnwrap().name().toString()).toBe(
+      otherNameResult._unsafeUnwrap().toString()
+    );
+    expect(table.name().toString()).toBe(nameResult._unsafeUnwrap().toString());
 
     const visitor = new SpyVisitor();
-    expect(byId.accept(visitor).isOk()).toBe(true);
-    expect(byIds.accept(visitor).isOk()).toBe(true);
-    expect(byName.accept(visitor).isOk()).toBe(true);
+    byId.accept(visitor)._unsafeUnwrap();
+    byIds.accept(visitor)._unsafeUnwrap();
+    byName.accept(visitor)._unsafeUnwrap();
     expect(visitor.calls).toContain('TableByIdSpec');
     expect(visitor.calls).toContain('TableByIdsSpec');
     expect(visitor.calls).toContain('TableByNameSpec');
@@ -137,27 +145,22 @@ describe('Table specs', () => {
     const nameResult = TableName.create('Projects');
     const queryNameResult = TableName.create('Pro');
     const otherNameResult = TableName.create('Tasks');
-    expect(
-      [baseIdResult, nameResult, queryNameResult, otherNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      nameResult.isErr() ||
-      queryNameResult.isErr() ||
-      otherNameResult.isErr()
-    )
-      return;
+    [baseIdResult, nameResult, queryNameResult, otherNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
+    queryNameResult._unsafeUnwrap();
+    otherNameResult._unsafeUnwrap();
 
-    const table = buildTable(baseIdResult.value, nameResult.value);
-    const otherTable = buildTable(baseIdResult.value, otherNameResult.value);
+    const table = buildTable(baseIdResult._unsafeUnwrap(), nameResult._unsafeUnwrap());
+    const otherTable = buildTable(baseIdResult._unsafeUnwrap(), otherNameResult._unsafeUnwrap());
     if (!table || !otherTable) return;
 
-    const spec = TableByNameLikeSpec.create(queryNameResult.value);
+    const spec = TableByNameLikeSpec.create(queryNameResult._unsafeUnwrap());
     expect(spec.isSatisfiedBy(table)).toBe(true);
     expect(spec.isSatisfiedBy(otherTable)).toBe(false);
 
     const visitor = new SpyVisitor();
-    expect(spec.accept(visitor).isOk()).toBe(true);
+    spec.accept(visitor)._unsafeUnwrap();
     expect(visitor.calls).toContain('TableByNameLikeSpec');
   });
 });

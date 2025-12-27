@@ -6,11 +6,12 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import * as UnitOfWorkPort from '../ports/UnitOfWork';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteTableCommand } from './DeleteTableCommand';
@@ -42,6 +43,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     private readonly unitOfWork: UnitOfWorkPort.IUnitOfWork
   ) {}
 
+  @TraceSpan()
   async handle(
     context: IExecutionContext,
     command: DeleteTableCommand

@@ -21,63 +21,61 @@ describe('resolveFormulaFields', () => {
     const scoreNameResult = FieldName.create('Score');
     const labelNameResult = FieldName.create('Score Label');
 
-    expect(
-      [
-        baseIdResult,
-        tableNameResult,
-        amountIdResult,
-        scoreIdResult,
-        labelIdResult,
-        amountNameResult,
-        scoreNameResult,
-        labelNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      amountIdResult.isErr() ||
-      scoreIdResult.isErr() ||
-      labelIdResult.isErr() ||
-      amountNameResult.isErr() ||
-      scoreNameResult.isErr() ||
-      labelNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      tableNameResult,
+      amountIdResult,
+      scoreIdResult,
+      labelIdResult,
+      amountNameResult,
+      scoreNameResult,
+      labelNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    amountIdResult._unsafeUnwrap();
+    scoreIdResult._unsafeUnwrap();
+    labelIdResult._unsafeUnwrap();
+    amountNameResult._unsafeUnwrap();
+    scoreNameResult._unsafeUnwrap();
+    labelNameResult._unsafeUnwrap();
 
-    const amountId = amountIdResult.value;
-    const scoreId = scoreIdResult.value;
-    const labelId = labelIdResult.value;
+    const amountId = amountIdResult._unsafeUnwrap();
+    const scoreId = scoreIdResult._unsafeUnwrap();
+    const labelId = labelIdResult._unsafeUnwrap();
 
     const scoreExpression = FormulaExpression.create(`{${amountId.toString()}} * 2`);
     const labelExpression = FormulaExpression.create(
       `CONCATENATE("Score: ", {${scoreId.toString()}})`
     );
-    expect([scoreExpression, labelExpression].every((r) => r.isOk())).toBe(true);
-    if (scoreExpression.isErr() || labelExpression.isErr()) return;
+    [scoreExpression, labelExpression].forEach((r) => r._unsafeUnwrap());
+    scoreExpression._unsafeUnwrap();
+    labelExpression._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().number().withId(amountId).withName(amountNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().number().withId(amountId).withName(amountNameResult._unsafeUnwrap()).done();
     builder
       .field()
       .formula()
       .withId(scoreId)
-      .withName(scoreNameResult.value)
+      .withName(scoreNameResult._unsafeUnwrap())
       .withExpression(scoreExpression.value)
       .done();
     builder
       .field()
       .formula()
       .withId(labelId)
-      .withName(labelNameResult.value)
+      .withName(labelNameResult._unsafeUnwrap())
       .withExpression(labelExpression.value)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
-    const table = tableResult.value;
+    tableResult._unsafeUnwrap();
+
+    const table = tableResult._unsafeUnwrap();
 
     const byId = new Map(table.fields().map((field) => [field.id().toString(), field] as const));
     const amountField = byId.get(amountId.toString());
@@ -95,13 +93,13 @@ describe('resolveFormulaFields', () => {
 
     const visitor = new FieldValueTypeVisitor();
     const scoreType = scoreField.accept(visitor);
-    expect(scoreType.isOk()).toBe(true);
-    if (scoreType.isErr()) return;
+    scoreType._unsafeUnwrap();
+
     expect(scoreType.value.cellValueType.toString()).toBe('number');
 
     const labelType = labelField.accept(visitor);
-    expect(labelType.isOk()).toBe(true);
-    if (labelType.isErr()) return;
+    labelType._unsafeUnwrap();
+
     expect(labelType.value.cellValueType.toString()).toBe('string');
   });
 
@@ -114,58 +112,54 @@ describe('resolveFormulaFields', () => {
     const bNameResult = FieldName.create('B');
     const primaryNameResult = FieldName.create('Name');
 
-    expect(
-      [
-        baseIdResult,
-        tableNameResult,
-        aIdResult,
-        bIdResult,
-        aNameResult,
-        bNameResult,
-        primaryNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      aIdResult.isErr() ||
-      bIdResult.isErr() ||
-      aNameResult.isErr() ||
-      bNameResult.isErr() ||
-      primaryNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      tableNameResult,
+      aIdResult,
+      bIdResult,
+      aNameResult,
+      bNameResult,
+      primaryNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    aIdResult._unsafeUnwrap();
+    bIdResult._unsafeUnwrap();
+    aNameResult._unsafeUnwrap();
+    bNameResult._unsafeUnwrap();
+    primaryNameResult._unsafeUnwrap();
 
-    const aId = aIdResult.value;
-    const bId = bIdResult.value;
+    const aId = aIdResult._unsafeUnwrap();
+    const bId = bIdResult._unsafeUnwrap();
     const exprA = FormulaExpression.create(`{${bId.toString()}} + 1`);
     const exprB = FormulaExpression.create(`{${aId.toString()}} + 1`);
-    expect([exprA, exprB].every((r) => r.isOk())).toBe(true);
-    if (exprA.isErr() || exprB.isErr()) return;
+    [exprA, exprB].forEach((r) => r._unsafeUnwrap());
+    exprA._unsafeUnwrap();
+    exprB._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(primaryNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(primaryNameResult._unsafeUnwrap()).done();
     builder
       .field()
       .formula()
       .withId(aId)
-      .withName(aNameResult.value)
+      .withName(aNameResult._unsafeUnwrap())
       .withExpression(exprA.value)
       .done();
     builder
       .field()
       .formula()
       .withId(bId)
-      .withName(bNameResult.value)
+      .withName(bNameResult._unsafeUnwrap())
       .withExpression(exprB.value)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isErr()).toBe(true);
-    if (tableResult.isErr()) {
-      expect(tableResult.error).toContain('Formula field dependency cycle detected');
-    }
+    tableResult._unsafeUnwrapErr();
+    expect(tableResult._unsafeUnwrapErr()).toContain('Formula field dependency cycle detected');
   });
 
   it('returns errors for invalid formula references', () => {
@@ -175,40 +169,34 @@ describe('resolveFormulaFields', () => {
     const nameFieldResult = FieldName.create('Name');
     const formulaNameResult = FieldName.create('Broken');
 
-    expect(
-      [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      formulaIdResult.isErr() ||
-      nameFieldResult.isErr() ||
-      formulaNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    formulaIdResult._unsafeUnwrap();
+    nameFieldResult._unsafeUnwrap();
+    formulaNameResult._unsafeUnwrap();
 
     const expression = FormulaExpression.create('{badField} + 1');
-    expect(expression.isOk()).toBe(true);
-    if (expression.isErr()) return;
+    expression._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(nameFieldResult._unsafeUnwrap()).done();
     builder
       .field()
       .formula()
-      .withId(formulaIdResult.value)
-      .withName(formulaNameResult.value)
+      .withId(formulaIdResult._unsafeUnwrap())
+      .withName(formulaNameResult._unsafeUnwrap())
       .withExpression(expression.value)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isErr()).toBe(true);
-    if (tableResult.isErr()) {
-      expect(tableResult.error).toContain('Formula references not found');
-    }
+    tableResult._unsafeUnwrapErr();
+    expect(tableResult._unsafeUnwrapErr()).toContain('Formula references not found');
   });
 
   it('returns errors for missing referenced fields', () => {
@@ -219,47 +207,41 @@ describe('resolveFormulaFields', () => {
     const nameFieldResult = FieldName.create('Name');
     const formulaNameResult = FieldName.create('Depends');
 
-    expect(
-      [
-        baseIdResult,
-        tableNameResult,
-        formulaIdResult,
-        missingIdResult,
-        nameFieldResult,
-        formulaNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      formulaIdResult.isErr() ||
-      missingIdResult.isErr() ||
-      nameFieldResult.isErr() ||
-      formulaNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      tableNameResult,
+      formulaIdResult,
+      missingIdResult,
+      nameFieldResult,
+      formulaNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    formulaIdResult._unsafeUnwrap();
+    missingIdResult._unsafeUnwrap();
+    nameFieldResult._unsafeUnwrap();
+    formulaNameResult._unsafeUnwrap();
 
-    const missingId = missingIdResult.value;
+    const missingId = missingIdResult._unsafeUnwrap();
     const expression = FormulaExpression.create(`{${missingId.toString()}} + 1`);
-    expect(expression.isOk()).toBe(true);
-    if (expression.isErr()) return;
+    expression._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(nameFieldResult._unsafeUnwrap()).done();
     builder
       .field()
       .formula()
-      .withId(formulaIdResult.value)
-      .withName(formulaNameResult.value)
+      .withId(formulaIdResult._unsafeUnwrap())
+      .withName(formulaNameResult._unsafeUnwrap())
       .withExpression(expression.value)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isErr()).toBe(true);
-    if (tableResult.isErr()) {
-      expect(tableResult.error).toContain(missingId.toString());
-    }
+    tableResult._unsafeUnwrapErr();
+    expect(tableResult._unsafeUnwrapErr()).toContain(missingId.toString());
   });
 
   it('returns errors for formula type inference failures', () => {
@@ -269,39 +251,33 @@ describe('resolveFormulaFields', () => {
     const nameFieldResult = FieldName.create('Name');
     const formulaNameResult = FieldName.create('Unknown function');
 
-    expect(
-      [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      formulaIdResult.isErr() ||
-      nameFieldResult.isErr() ||
-      formulaNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, formulaIdResult, nameFieldResult, formulaNameResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    formulaIdResult._unsafeUnwrap();
+    nameFieldResult._unsafeUnwrap();
+    formulaNameResult._unsafeUnwrap();
 
     const expression = FormulaExpression.create('UNKNOWN()');
-    expect(expression.isOk()).toBe(true);
-    if (expression.isErr()) return;
+    expression._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(nameFieldResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(nameFieldResult._unsafeUnwrap()).done();
     builder
       .field()
       .formula()
-      .withId(formulaIdResult.value)
-      .withName(formulaNameResult.value)
+      .withId(formulaIdResult._unsafeUnwrap())
+      .withName(formulaNameResult._unsafeUnwrap())
       .withExpression(expression.value)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
-    expect(tableResult.isErr()).toBe(true);
-    if (tableResult.isErr()) {
-      expect(tableResult.error).toContain('Parse formula expression');
-    }
+    tableResult._unsafeUnwrapErr();
+    expect(tableResult._unsafeUnwrapErr()).toContain('Parse formula expression');
   });
 });

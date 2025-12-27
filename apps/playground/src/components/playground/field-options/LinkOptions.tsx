@@ -1,7 +1,18 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import type { ITableDto } from '@teable/v2-contract-http';
+import { CheckIcon, ChevronsUpDownIcon } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -9,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import type { FieldFormApi } from '../FieldForm';
 
 const relationshipOptions = [
@@ -30,6 +42,7 @@ export function LinkOptions({ form, tableId, tables, isTablesLoading }: LinkOpti
     () => tables.filter((table) => table.id !== tableId),
     [tables, tableId]
   );
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -74,37 +87,62 @@ export function LinkOptions({ form, tableId, tables, isTablesLoading }: LinkOpti
           return (
             <div className="space-y-2">
               <Label htmlFor={field.name}>Linked Table</Label>
-              <Select
-                value={selectedTableId}
-                onValueChange={(value) => {
-                  const nextTable = availableTables.find((table) => table.id === value) ?? null;
-                  const nextLookup =
-                    nextTable?.fields.find((entry) => entry.isPrimary) ??
-                    nextTable?.fields[0] ??
-                    null;
-                  field.handleChange(value as any);
-                  form.setFieldValue('options.lookupFieldId', (nextLookup?.id ?? undefined) as any);
-                }}
-              >
-                <SelectTrigger id={field.name}>
-                  <SelectValue
-                    placeholder={isTablesLoading ? 'Loading tables...' : 'Select a table to link'}
-                  />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableTables.length === 0 ? (
-                    <SelectItem value="__empty__" disabled>
-                      No other tables available
-                    </SelectItem>
-                  ) : (
-                    availableTables.map((table) => (
-                      <SelectItem key={table.id} value={table.id}>
-                        {table.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <Popover open={isOpen} onOpenChange={setIsOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    id={field.name}
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={isOpen}
+                    className="w-full justify-between"
+                    disabled={isTablesLoading}
+                  >
+                    {selectedTable?.name ??
+                      (isTablesLoading ? 'Loading tables...' : 'Select a table to link')}
+                    <ChevronsUpDownIcon className="ml-2 size-4 shrink-0 opacity-60" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search tables..." />
+                    <CommandList>
+                      <CommandEmpty>
+                        {availableTables.length ? 'No matching tables.' : 'No other tables.'}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {availableTables.map((table) => (
+                          <CommandItem
+                            key={table.id}
+                            value={table.name}
+                            onSelect={() => {
+                              const nextTable =
+                                availableTables.find((entry) => entry.id === table.id) ?? null;
+                              const nextLookup =
+                                nextTable?.fields.find((entry) => entry.isPrimary) ??
+                                nextTable?.fields[0] ??
+                                null;
+                              field.handleChange(table.id as any);
+                              form.setFieldValue(
+                                'options.lookupFieldId',
+                                (nextLookup?.id ?? undefined) as any
+                              );
+                              setIsOpen(false);
+                            }}
+                          >
+                            <CheckIcon
+                              className={cn(
+                                'mr-2 size-4',
+                                table.id === selectedTableId ? 'opacity-100' : 'opacity-0'
+                              )}
+                            />
+                            {table.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {field.state.meta.errors ? (
                 <p className="text-xs text-destructive">{field.state.meta.errors.join(', ')}</p>
               ) : null}

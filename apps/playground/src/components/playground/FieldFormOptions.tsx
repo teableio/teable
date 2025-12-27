@@ -9,6 +9,7 @@ import { UserOptions } from './field-options/UserOptions';
 import { ButtonOptions } from './field-options/ButtonOptions';
 import { FormulaOptions } from './field-options/FormulaOptions';
 import { LinkOptions } from './field-options/LinkOptions';
+import { RollupOptions } from './field-options/RollupOptions';
 import type { FieldFormApi } from './FieldForm';
 import type { ITableFieldInput } from '@teable/v2-core';
 import type { ITableDto } from '@teable/v2-contract-http';
@@ -50,6 +51,14 @@ export function FieldFormOptions({
         .with('formula', () => <FormulaOptions form={form} />)
         .with('link', () => (
           <LinkOptions
+            form={form}
+            tableId={tableId}
+            tables={tables}
+            isTablesLoading={isTablesLoading}
+          />
+        ))
+        .with('rollup', () => (
+          <RollupOptions
             form={form}
             tableId={tableId}
             tables={tables}

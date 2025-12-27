@@ -13,6 +13,7 @@ import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
+import type { RollupField } from '../types/RollupField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
@@ -53,6 +54,16 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
   }
 
   visitFormulaField(field: FormulaField): Result<FieldValueType, string> {
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field
+          .isMultipleCellValue()
+          .map((isMultipleCellValue) => ({ cellValueType, isMultipleCellValue }))
+      );
+  }
+
+  visitRollupField(field: RollupField): Result<FieldValueType, string> {
     return field
       .cellValueType()
       .andThen((cellValueType) =>

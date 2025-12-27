@@ -16,47 +16,40 @@ describe('FieldValueTypeVisitor', () => {
     const lookupFieldIdResult = createFieldId('b');
     const linkFieldIdResult = createFieldId('c');
     const linkFieldNameResult = FieldName.create('Link');
-    expect(
-      [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      foreignTableIdResult.isErr() ||
-      lookupFieldIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+    foreignTableIdResult._unsafeUnwrap();
+    lookupFieldIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
     const buildLinkField = (relationship: string) =>
       LinkFieldConfig.create({
         relationship,
-        foreignTableId: foreignTableIdResult.value.toString(),
-        lookupFieldId: lookupFieldIdResult.value.toString(),
+        foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+        lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
       }).andThen((config) =>
         LinkField.create({
-          id: linkFieldIdResult.value,
-          name: linkFieldNameResult.value,
+          id: linkFieldIdResult._unsafeUnwrap(),
+          name: linkFieldNameResult._unsafeUnwrap(),
           config,
         })
       );
 
     const manyMany = buildLinkField('manyMany');
     const manyOne = buildLinkField('manyOne');
-    expect([manyMany, manyOne].every((r) => r.isOk())).toBe(true);
-    if (manyMany.isErr() || manyOne.isErr()) return;
+    const manyManyField = manyMany._unsafeUnwrap();
+    const manyOneField = manyOne._unsafeUnwrap();
 
     const visitor = new FieldValueTypeVisitor();
-    const manyManyValue = manyMany.value.accept(visitor);
-    const manyOneValue = manyOne.value.accept(visitor);
-    expect([manyManyValue, manyOneValue].every((r) => r.isOk())).toBe(true);
-    if (manyManyValue.isErr() || manyOneValue.isErr()) return;
+    const manyManyValue = manyManyField.accept(visitor)._unsafeUnwrap();
+    const manyOneValue = manyOneField.accept(visitor)._unsafeUnwrap();
 
-    expect(manyManyValue.value.cellValueType.toString()).toBe('string');
-    expect(manyManyValue.value.isMultipleCellValue.toBoolean()).toBe(true);
+    expect(manyManyValue.cellValueType.toString()).toBe('string');
+    expect(manyManyValue.isMultipleCellValue.toBoolean()).toBe(true);
 
-    expect(manyOneValue.value.cellValueType.toString()).toBe('string');
-    expect(manyOneValue.value.isMultipleCellValue.toBoolean()).toBe(false);
+    expect(manyOneValue.cellValueType.toString()).toBe('string');
+    expect(manyOneValue.isMultipleCellValue.toBoolean()).toBe(false);
   });
 });

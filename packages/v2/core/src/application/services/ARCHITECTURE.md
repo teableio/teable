@@ -6,9 +6,11 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Implement application services that coordinate repositories, schema updates, and event publishing.
 - Provide transactional orchestration around domain mutations and specs.
-- Keep domain logic inside domain model/visitors; this layer only wires ports.
+- Keep domain logic inside domain model/visitors; this layer only wires ports and supplies
+  preloaded data for cross-table validation.
 
 ## Files
 
-- `FieldCreationSideEffectFlow.ts` - Role: application service; Purpose: apply cross-table side effects after field creation.
+- `FieldCreationSideEffectService.ts` - Role: application service; Purpose: validate cross-table field
+  dependencies (via visitors) and apply side effects after field creation.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate + persist + publish).

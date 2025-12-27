@@ -6,14 +6,12 @@ import { ListTablesQuery } from './ListTablesQuery';
 describe('ListTablesQuery', () => {
   it('creates query with default sort and no pagination', () => {
     const baseIdResult = BaseId.generate();
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
+    baseIdResult._unsafeUnwrap();
 
-    const queryResult = ListTablesQuery.create({ baseId: baseIdResult.value.toString() });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    const queryResult = ListTablesQuery.create({ baseId: baseIdResult._unsafeUnwrap().toString() });
+    queryResult._unsafeUnwrap();
 
-    const query = queryResult.value;
+    const query = queryResult._unsafeUnwrap();
     const [field] = query.sort.fields();
     expect(field.key.toString()).toBe('name');
     expect(field.direction.toString()).toBe('asc');
@@ -22,20 +20,18 @@ describe('ListTablesQuery', () => {
 
   it('builds sort and pagination when provided', () => {
     const baseIdResult = BaseId.generate();
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
+    baseIdResult._unsafeUnwrap();
 
     const queryResult = ListTablesQuery.create({
-      baseId: baseIdResult.value.toString(),
+      baseId: baseIdResult._unsafeUnwrap().toString(),
       sortBy: 'id',
       sortDirection: 'desc',
       limit: 10,
       offset: 5,
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
-    const query = queryResult.value;
+    const query = queryResult._unsafeUnwrap();
     const [field] = query.sort.fields();
     expect(field.key.toString()).toBe('id');
     expect(field.direction.toString()).toBe('desc');
@@ -45,27 +41,24 @@ describe('ListTablesQuery', () => {
 
   it('accepts name search query', () => {
     const baseIdResult = BaseId.generate();
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
+    baseIdResult._unsafeUnwrap();
 
     const queryResult = ListTablesQuery.create({
-      baseId: baseIdResult.value.toString(),
+      baseId: baseIdResult._unsafeUnwrap().toString(),
       q: '  Alpha  ',
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
-    expect(queryResult.value.nameQuery?.toString()).toBe('Alpha');
+    expect(queryResult._unsafeUnwrap().nameQuery?.toString()).toBe('Alpha');
   });
 
   it('rejects invalid inputs', () => {
-    expect(ListTablesQuery.create({ baseId: 'bad' }).isErr()).toBe(true);
-    expect(
-      ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), sortDirection: 'asc' }).isErr()
-    ).toBe(true);
-    expect(ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), offset: 1 }).isErr()).toBe(
-      true
-    );
-    expect(ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), q: '' }).isErr()).toBe(true);
+    ListTablesQuery.create({ baseId: 'bad' })._unsafeUnwrapErr();
+    ListTablesQuery.create({
+      baseId: 'bse' + 'a'.repeat(16),
+      sortDirection: 'asc',
+    })._unsafeUnwrapErr();
+    ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), offset: 1 })._unsafeUnwrapErr();
+    ListTablesQuery.create({ baseId: 'bse' + 'a'.repeat(16), q: '' })._unsafeUnwrapErr();
   });
 });

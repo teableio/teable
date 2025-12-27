@@ -17,66 +17,59 @@ import { NoopTracer } from './NoopTracer';
 import { NoopUnitOfWork } from './NoopUnitOfWork';
 
 const buildTable = () => {
-  const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
-  const tableNameResult = TableName.create('Noop Table');
-  const fieldNameResult = FieldName.create('Title');
-  expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-  if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
-  const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-  builder.field().singleLineText().withName(fieldNameResult.value).done();
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create('Noop Table')._unsafeUnwrap();
+  const fieldName = FieldName.create('Title')._unsafeUnwrap();
+  const builder = Table.builder().withBaseId(baseId).withName(tableName);
+  builder.field().singleLineText().withName(fieldName).done();
   builder.view().defaultGrid().done();
-  const result = builder.build();
-  expect(result.isOk()).toBe(true);
-  if (result.isErr()) return undefined;
-  return result.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('NoopEventBus', () => {
   it('publishes events with ok results', async () => {
     const bus = new NoopEventBus();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const event = { name: { toString: () => 'Test' }, occurredAt: { toDate: () => new Date() } };
-    expect((await bus.publish(context, event as never)).isOk()).toBe(true);
-    expect((await bus.publishMany(context, [event as never])).isOk()).toBe(true);
+    (await bus.publish(context, event as never))._unsafeUnwrap();
+    (await bus.publishMany(context, [event as never]))._unsafeUnwrap();
   });
 });
 
 describe('NoopTableRepository', () => {
   it('accepts inserts and returns not found for queries', async () => {
     const table = buildTable();
-    if (!table) return;
     const repo = new NoopTableRepository();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
-    expect((await repo.insert(context, table)).isOk()).toBe(true);
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+    (await repo.insert(context, table))._unsafeUnwrap();
     const queryResult = await repo.findOne(context, { isSatisfiedBy: () => true } as never);
-    expect(queryResult.isErr()).toBe(true);
-    expect((await repo.delete(context, table)).isOk()).toBe(true);
+    queryResult._unsafeUnwrapErr();
+    (await repo.delete(context, table))._unsafeUnwrap();
   });
 });
 
 describe('NoopTableSchemaRepository', () => {
   it('accepts inserts and deletes', async () => {
     const table = buildTable();
-    if (!table) return;
     const repo = new NoopTableSchemaRepository();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const mutateSpec: ISpecification<Table, ITableSpecVisitor> = {
       isSatisfiedBy: () => true,
       mutate: () => ok(table),
       accept: () => ok(undefined),
     };
-    expect((await repo.insert(context, table)).isOk()).toBe(true);
-    expect((await repo.update(context, table, mutateSpec)).isOk()).toBe(true);
-    expect((await repo.delete(context, table)).isOk()).toBe(true);
+    (await repo.insert(context, table))._unsafeUnwrap();
+    (await repo.update(context, table, mutateSpec))._unsafeUnwrap();
+    (await repo.delete(context, table))._unsafeUnwrap();
   });
 });
 
@@ -105,40 +98,36 @@ describe('NoopUnitOfWork', () => {
   it('wraps work without failing', async () => {
     const unit = new NoopUnitOfWork();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const result = await unit.withTransaction(context, async () => ok('ok'));
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
   });
 
   it('returns error when work throws', async () => {
     const unit = new NoopUnitOfWork();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const result = await unit.withTransaction(context, async () => {
       throw new Error('boom');
     });
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Unexpected unit of work error');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('Unexpected unit of work error');
   });
 
   it('reports non-Error throws', async () => {
     const unit = new NoopUnitOfWork();
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const result = await unit.withTransaction(context, async () => {
       throw 'boom';
     });
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('boom');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('boom');
   });
 });

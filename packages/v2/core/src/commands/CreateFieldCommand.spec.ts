@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../domain/base/BaseId';
 import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
 import { ButtonField } from '../domain/table/fields/types/ButtonField';
 import { CheckboxField } from '../domain/table/fields/types/CheckboxField';
@@ -10,10 +11,14 @@ import { LongTextField } from '../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { NumberField } from '../domain/table/fields/types/NumberField';
 import { RatingField } from '../domain/table/fields/types/RatingField';
+import { RollupField } from '../domain/table/fields/types/RollupField';
 import { SingleLineTextField } from '../domain/table/fields/types/SingleLineTextField';
 import { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { UserField } from '../domain/table/fields/types/UserField';
+import { TableId } from '../domain/table/TableId';
 import { CreateFieldCommand } from './CreateFieldCommand';
+import type { ITableFieldInput } from './TableFieldSpecs';
+import { parseTableFieldSpec, resolveTableFieldInputName } from './TableFieldSpecs';
 
 const baseId = `bse${'a'.repeat(16)}`;
 const tableId = `tbl${'b'.repeat(16)}`;
@@ -30,14 +35,25 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
-    const command = commandResult.value;
+    const command = commandResult._unsafeUnwrap();
     expect(command.baseId.toString()).toBe(baseId);
     expect(command.tableId.toString()).toBe(tableId);
-    expect(command.field.name().toString()).toBe('Title');
-    expect(command.field.type().toString()).toBe('singleLineText');
+    expect(command.field.name).toBe('Title');
+    expect(command.field.type).toBe('singleLineText');
+  });
+
+  it('accepts field input without name', () => {
+    const commandResult = CreateFieldCommand.create({
+      baseId,
+      tableId,
+      field: {
+        type: 'singleLineText',
+      },
+    });
+
+    commandResult._unsafeUnwrap();
   });
 
   it('rejects primary field updates', () => {
@@ -51,7 +67,7 @@ describe('CreateFieldCommand', () => {
       },
     });
 
-    expect(commandResult.isErr()).toBe(true);
+    commandResult._unsafeUnwrapErr();
   });
 
   it('parses all field types with configured options', () => {
@@ -275,6 +291,34 @@ describe('CreateFieldCommand', () => {
       },
       {
         field: {
+          type: 'rollup',
+          name: 'Rollup Total',
+          options: {
+            expression: 'counta({values})',
+            timeZone: 'utc',
+            formatting: { type: 'decimal', precision: 2 },
+            showAs: { type: 'bar', color: 'blue', showValue: true, maxValue: 10 },
+          },
+          config: {
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            foreignTableId: `tbl${'d'.repeat(16)}`,
+            lookupFieldId: `fld${'e'.repeat(16)}`,
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(RollupField);
+          const typed = field as RollupField;
+          expect(typed.expression().toString()).toBe('counta({values})');
+          expect(typed.timeZone()?.toString()).toBe('utc');
+          expect(typed.configDto()).toEqual({
+            linkFieldId: `fld${'c'.repeat(16)}`,
+            foreignTableId: `tbl${'d'.repeat(16)}`,
+            lookupFieldId: `fld${'e'.repeat(16)}`,
+          });
+        },
+      },
+      {
+        field: {
           type: 'link',
           name: 'Self Link',
           options: {
@@ -338,17 +382,25 @@ describe('CreateFieldCommand', () => {
           expect(typed.relationship().toString()).toBe('manyOne');
         },
       },
-    ];
+    ] satisfies ReadonlyArray<{ field: ITableFieldInput; assert: (field: unknown) => void }>;
+
+    const baseIdValue = BaseId.create(baseId)._unsafeUnwrap();
+    const tableIdValue = TableId.create(tableId)._unsafeUnwrap();
 
     for (const entry of cases) {
-      const result = CreateFieldCommand.create({
+      const commandResult = CreateFieldCommand.create({
         baseId,
         tableId,
         field: entry.field,
       });
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
-      entry.assert(result.value.field);
+      commandResult._unsafeUnwrap();
+
+      const resolvedInput = resolveTableFieldInputName(entry.field, [])._unsafeUnwrap();
+      const spec = parseTableFieldSpec(resolvedInput, { isPrimary: false })._unsafeUnwrap();
+      const field = spec
+        .createField({ baseId: baseIdValue, tableId: tableIdValue })
+        ._unsafeUnwrap();
+      entry.assert(field);
     }
   });
 });

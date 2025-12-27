@@ -16,39 +16,22 @@ describe('FieldFormVisibilityVisitor', () => {
     const lookupFieldIdResult = createFieldId('b');
     const linkFieldIdResult = createFieldId('c');
     const linkFieldNameResult = FieldName.create('Link');
-    expect(
-      [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      foreignTableIdResult.isErr() ||
-      lookupFieldIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: lookupFieldIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
-
-    const linkFieldResult = LinkField.create({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
-    });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    const config = configResult._unsafeUnwrap();
+    const linkField = LinkField.create({
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config,
+    })._unsafeUnwrap();
 
     const visitor = new FieldFormVisibilityVisitor();
-    const visibilityResult = linkFieldResult.value.accept(visitor);
-    expect(visibilityResult.isOk()).toBe(true);
-    if (visibilityResult.isErr()) return;
-    expect(visibilityResult.value).toBe(true);
+    const visibility = linkField.accept(visitor)._unsafeUnwrap();
+
+    expect(visibility).toBe(true);
   });
 });

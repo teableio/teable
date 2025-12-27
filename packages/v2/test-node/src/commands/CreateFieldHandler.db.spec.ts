@@ -44,24 +44,22 @@ describe('CreateFieldHandler (db)', () => {
     const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
 
     const createTableResult = CreateTableCommand.create(
       allFieldTypesTemplate.createInput(baseId.toString(), 'Data Check')
     );
-    expect(createTableResult.isOk()).toBe(true);
-    if (createTableResult.isErr()) return;
+    createTableResult._unsafeUnwrap();
 
     const createdTableResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createTableResult.value
+      createTableResult._unsafeUnwrap()
     );
-    expect(createdTableResult.isOk()).toBe(true);
-    if (createdTableResult.isErr()) return;
+    createdTableResult._unsafeUnwrap();
 
-    const createdTable = createdTableResult.value.table;
+    const createdTable = createdTableResult._unsafeUnwrap().table;
     const tableId = createdTable.id().toString();
     const initialFieldIds = createdTable.fields().map((field) => field.id().toString());
 
@@ -88,9 +86,9 @@ describe('CreateFieldHandler (db)', () => {
     expect(initialView).toBeTruthy();
     if (!initialView) return;
     const initialViewMetaResult = initialView.columnMeta();
-    expect(initialViewMetaResult.isOk()).toBe(true);
-    if (initialViewMetaResult.isErr()) return;
-    const initialViewMeta = initialViewMetaResult.value.toDto();
+    initialViewMetaResult._unsafeUnwrap();
+
+    const initialViewMeta = initialViewMetaResult._unsafeUnwrap().toDto();
     const initialViewRow = initialViewRows[0];
     expect(initialViewRow).toBeTruthy();
     if (!initialViewRow) return;
@@ -155,16 +153,15 @@ describe('CreateFieldHandler (db)', () => {
         tableId,
         field,
       });
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
+      commandResult._unsafeUnwrap();
 
       const execResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
         context,
-        commandResult.value
+        commandResult._unsafeUnwrap()
       );
-      expect(execResult.isOk()).toBe(true);
-      if (execResult.isErr()) return;
-      latestTable = execResult.value.table;
+      execResult._unsafeUnwrap();
+
+      latestTable = execResult._unsafeUnwrap().table;
     }
 
     const rows = await db
@@ -284,9 +281,9 @@ describe('CreateFieldHandler (db)', () => {
     expect(updatedView).toBeTruthy();
     if (!updatedView) return;
     const updatedMetaResult = updatedView.columnMeta();
-    expect(updatedMetaResult.isOk()).toBe(true);
-    if (updatedMetaResult.isErr()) return;
-    const updatedViewMeta = updatedMetaResult.value.toDto();
+    updatedMetaResult._unsafeUnwrap();
+
+    const updatedViewMeta = updatedMetaResult._unsafeUnwrap().toDto();
     const updatedViewRow = updatedViewRows[0];
     expect(updatedViewRow).toBeTruthy();
     if (!updatedViewRow) return;
@@ -303,25 +300,23 @@ describe('CreateFieldHandler (db)', () => {
     const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
 
     const createHostResult = CreateTableCommand.create({
       baseId: baseId.toString(),
       name: 'Host Table',
       fields: [{ type: 'singleLineText', name: 'Name' }],
     });
-    expect(createHostResult.isOk()).toBe(true);
-    if (createHostResult.isErr()) return;
+    createHostResult._unsafeUnwrap();
 
     const hostExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createHostResult.value
+      createHostResult._unsafeUnwrap()
     );
-    expect(hostExec.isOk()).toBe(true);
-    if (hostExec.isErr()) return;
-    const hostTable = hostExec.value.table;
+
+    const hostTable = hostExec._unsafeUnwrap().table;
     const hostTableId = hostTable.id().toString();
 
     const createForeignResult = CreateTableCommand.create({
@@ -329,16 +324,13 @@ describe('CreateFieldHandler (db)', () => {
       name: 'Foreign Table',
       fields: [{ type: 'singleLineText', name: 'Title' }],
     });
-    expect(createForeignResult.isOk()).toBe(true);
-    if (createForeignResult.isErr()) return;
 
     const foreignExec = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createForeignResult.value
+      createForeignResult._unsafeUnwrap()
     );
-    expect(foreignExec.isOk()).toBe(true);
-    if (foreignExec.isErr()) return;
-    const foreignTable = foreignExec.value.table;
+
+    const foreignTable = foreignExec._unsafeUnwrap().table;
     const foreignTableId = foreignTable.id().toString();
     const foreignPrimaryFieldId = foreignTable.primaryFieldId().toString();
 
@@ -600,15 +592,13 @@ describe('CreateFieldHandler (db)', () => {
         tableId: hostTableId,
         field: entry.field,
       });
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
+      commandResult._unsafeUnwrap();
 
       const execResult = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
         context,
-        commandResult.value
+        commandResult._unsafeUnwrap()
       );
-      expect(execResult.isOk()).toBe(true);
-      if (execResult.isErr()) return;
+      execResult._unsafeUnwrap();
     }
 
     const fieldIds = fieldCommands.map((entry) => entry.id);
@@ -723,6 +713,15 @@ describe('CreateFieldHandler (db)', () => {
       .where('table_name', '=', junctionTableName)
       .execute();
     expect(junctionRows).toHaveLength(1);
+    const junctionColumns = await db
+      .withSchema('information_schema')
+      .selectFrom('columns')
+      .select(['column_name'])
+      .where('table_schema', '=', baseId.toString())
+      .where('table_name', '=', junctionTableName)
+      .execute();
+    const junctionColumnNames = new Set(junctionColumns.map((row) => row.column_name));
+    expect(junctionColumnNames.has('__id')).toBe(true);
 
     const linkReferenceRows = await db
       .selectFrom('reference')

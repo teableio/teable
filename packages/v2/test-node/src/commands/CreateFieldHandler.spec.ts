@@ -37,35 +37,31 @@ describe('CreateFieldHandler', () => {
       name: 'Seed',
       fields: [{ type: 'singleLineText', name: 'Name' }],
     });
-    expect(createTableResult.isOk()).toBe(true);
-    if (createTableResult.isErr()) return;
+    createTableResult._unsafeUnwrap();
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
+    actorIdResult._unsafeUnwrap();
 
-    const context = { actorId: actorIdResult.value };
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const createdTable = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createTableResult.value
+      createTableResult._unsafeUnwrap()
     );
-    expect(createdTable.isOk()).toBe(true);
-    if (createdTable.isErr()) return;
+    createdTable._unsafeUnwrap();
 
     const createForeignResult = CreateTableCommand.create({
       baseId: baseId.toString(),
       name: 'Foreign',
       fields: [{ type: 'singleLineText', name: 'Title' }],
     });
-    expect(createForeignResult.isOk()).toBe(true);
-    if (createForeignResult.isErr()) return;
+    createForeignResult._unsafeUnwrap();
 
     const foreignCreated = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createForeignResult.value
+      createForeignResult._unsafeUnwrap()
     );
-    expect(foreignCreated.isOk()).toBe(true);
-    if (foreignCreated.isErr()) return;
+    foreignCreated._unsafeUnwrap();
+
     const foreignTable = foreignCreated.value.table;
 
     const tableId = createdTable.value.table.id().toString();
@@ -333,10 +329,10 @@ describe('CreateFieldHandler', () => {
 
           const valueTypeVisitor = new FieldValueTypeVisitor();
           const typeResult = typed.accept(valueTypeVisitor);
-          expect(typeResult.isOk()).toBe(true);
-          if (typeResult.isErr()) return;
-          expect(typeResult.value.cellValueType.toString()).toBe('number');
-          expect(typeResult.value.isMultipleCellValue.toBoolean()).toBe(false);
+          typeResult._unsafeUnwrap();
+
+          expect(typeResult._unsafeUnwrap().cellValueType.toString()).toBe('number');
+          expect(typeResult._unsafeUnwrap().isMultipleCellValue.toBoolean()).toBe(false);
 
           expect(typed.dependencies().map((id) => id.toString())).toEqual([numberFieldId]);
         },
@@ -367,27 +363,25 @@ describe('CreateFieldHandler', () => {
         tableId,
         field: entry.field,
       });
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
+      commandResult._unsafeUnwrap();
 
       const result = await commandBus.execute<CreateFieldCommand, CreateFieldResult>(
         context,
-        commandResult.value
+        commandResult._unsafeUnwrap()
       );
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
+      result._unsafeUnwrap();
+
       currentTable = result.value.table;
       entry.assert(currentTable);
     }
 
     const foreignSpecResult = Table.specs(baseId).byId(foreignTable.id()).build();
-    expect(foreignSpecResult.isOk()).toBe(true);
-    if (foreignSpecResult.isErr()) return;
+    foreignSpecResult._unsafeUnwrap();
 
-    const foreignResult = await tableRepository.findOne(context, foreignSpecResult.value);
-    expect(foreignResult.isOk()).toBe(true);
-    if (foreignResult.isErr()) return;
-    const foreignLatest = foreignResult.value;
+    const foreignResult = await tableRepository.findOne(context, foreignSpecResult._unsafeUnwrap());
+    foreignResult._unsafeUnwrap();
+
+    const foreignLatest = foreignResult._unsafeUnwrap();
     const symmetricField = foreignLatest
       .fields()
       .find((f) => f.id().toString() === symmetricLinkFieldId);

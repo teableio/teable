@@ -5,6 +5,7 @@ import {
   isFormulaField,
   isJsonValueField,
   isNumericField,
+  isRollupField,
   match,
 } from '@teable/v2-core';
 import type { CreateTableBuilder } from 'kysely';
@@ -24,6 +25,17 @@ export const resolveColumnType = (field: Field): Result<TableColumnDataType, str
   return match(field)
     .returnType<Result<TableColumnDataType, string>>()
     .when(isFormulaField, (f) =>
+      f
+        .cellValueType()
+        .andThen((cellValueType) =>
+          f
+            .isMultipleCellValue()
+            .map((isMultiple) =>
+              resolveFormulaColumnType(cellValueType.toString(), isMultiple.toBoolean())
+            )
+        )
+    )
+    .when(isRollupField, (f) =>
       f
         .cellValueType()
         .andThen((cellValueType) =>

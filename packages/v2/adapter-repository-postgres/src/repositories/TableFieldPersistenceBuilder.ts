@@ -1,6 +1,7 @@
 import {
   DbFieldName,
   type Field,
+  type ILinkFieldOptionsDTO,
   type ITableFieldPersistenceDTO,
   type ITableMapper,
   type ITablePersistenceDTO,
@@ -40,8 +41,8 @@ export type TableFieldRow = {
   is_conditional_lookup: null;
   is_pending: null;
   has_error: null;
-  lookup_linked_field_id: null;
-  lookup_options: null;
+  lookup_linked_field_id: string | null;
+  lookup_options: string | null;
   table_id: string;
   order: number;
   version: number;
@@ -199,6 +200,8 @@ export class TableFieldPersistenceBuilder {
     order: number;
   }): TableFieldRow {
     const { table, now, actorId } = this.params;
+    const lookupOptions = this.serializeLookupOptions(params.fieldDto);
+    const lookupLinkedFieldId = this.resolveLookupLinkedFieldId(params.fieldDto);
 
     return {
       id: params.fieldDto.id,
@@ -221,8 +224,8 @@ export class TableFieldPersistenceBuilder {
       is_conditional_lookup: null,
       is_pending: null,
       has_error: null,
-      lookup_linked_field_id: null,
-      lookup_options: null,
+      lookup_linked_field_id: lookupLinkedFieldId,
+      lookup_options: lookupOptions,
       table_id: table.id().toString(),
       order: params.order,
       version: 1,
@@ -237,6 +240,34 @@ export class TableFieldPersistenceBuilder {
   private serializeFieldOptions(field: ITableFieldPersistenceDTO): string | null {
     if (field.options === undefined) return null;
     return JSON.stringify(field.options);
+  }
+
+  private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
+    if (field.type !== 'rollup') return null;
+    if (!field.config) return null;
+    const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
+    if (!linkOptions) return JSON.stringify(field.config);
+    return JSON.stringify({
+      ...linkOptions,
+      ...field.config,
+      linkFieldId: field.config.linkFieldId,
+    });
+  }
+
+  private resolveLookupLinkedFieldId(field: ITableFieldPersistenceDTO): string | null {
+    if (field.type !== 'rollup') return null;
+    return field.config?.linkFieldId ?? null;
+  }
+
+  private resolveLinkFieldOptions(
+    linkFieldId: string | undefined
+  ): ILinkFieldOptionsDTO | undefined {
+    if (!linkFieldId) return undefined;
+    const dto = this.dtoValue;
+    if (!dto) return undefined;
+    const linkField = dto.fields.find((item) => item.id === linkFieldId && item.type === 'link');
+    if (!linkField || linkField.type !== 'link') return undefined;
+    return linkField.options;
   }
 
   private serializeFieldMeta(field: ITableFieldPersistenceDTO): string | null {

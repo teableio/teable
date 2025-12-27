@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { TableId } from '../domain/table/TableId';
@@ -11,20 +11,19 @@ describe('RenameTableCommand', () => {
   it('creates command from valid input', () => {
     const baseIdResult = createBaseId('a');
     const tableIdResult = createTableId('a');
-    expect([baseIdResult, tableIdResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableIdResult.isErr()) return;
+    [baseIdResult, tableIdResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableIdResult._unsafeUnwrap();
 
     const commandResult = RenameTableCommand.create({
-      baseId: baseIdResult.value.toString(),
-      tableId: tableIdResult.value.toString(),
+      baseId: baseIdResult._unsafeUnwrap().toString(),
+      tableId: tableIdResult._unsafeUnwrap().toString(),
       name: 'Renamed',
     });
-    expect(commandResult.isOk()).toBe(true);
+    commandResult._unsafeUnwrap();
   });
 
   it('rejects invalid input', () => {
-    expect(RenameTableCommand.create({ baseId: 'bad', tableId: 'bad', name: '' }).isErr()).toBe(
-      true
-    );
+    RenameTableCommand.create({ baseId: 'bad', tableId: 'bad', name: '' })._unsafeUnwrapErr();
   });
 });

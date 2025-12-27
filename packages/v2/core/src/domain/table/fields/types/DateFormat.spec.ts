@@ -4,13 +4,13 @@ import { DateFormat } from './DateFormat';
 
 describe('DateFormat', () => {
   it('accepts valid formats', () => {
-    expect(DateFormat.create('date').isOk()).toBe(true);
-    expect(DateFormat.create('dateTime').isOk()).toBe(true);
+    DateFormat.create('date')._unsafeUnwrap();
+    DateFormat.create('dateTime')._unsafeUnwrap();
   });
 
   it('rejects invalid formats', () => {
-    expect(DateFormat.create('datetime').isErr()).toBe(true);
-    expect(DateFormat.create(123).isErr()).toBe(true);
+    DateFormat.create('datetime')._unsafeUnwrapErr();
+    DateFormat.create(123)._unsafeUnwrapErr();
   });
 
   it('provides helpers', () => {
@@ -21,8 +21,9 @@ describe('DateFormat', () => {
   it('compares formats by value', () => {
     const left = DateFormat.create('date');
     const right = DateFormat.create('date');
-    expect([left, right].every((r) => r.isOk())).toBe(true);
-    if (left.isErr() || right.isErr()) return;
+    [left, right].forEach((r) => r._unsafeUnwrap());
+    left._unsafeUnwrap();
+    right._unsafeUnwrap();
     expect(left.value.equals(right.value)).toBe(true);
   });
 });

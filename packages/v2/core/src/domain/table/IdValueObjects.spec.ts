@@ -11,47 +11,47 @@ const viewIdPattern = /^viw[0-9a-zA-Z]{16}$/;
 describe('TableId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = TableId.generate();
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value.toString()).toMatch(tableIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
     const valid = `tbl${'a'.repeat(16)}`;
     const invalidLegacy = `tbl${'a'.repeat(15)}_`;
-    expect(TableId.create(valid).isOk()).toBe(true);
-    expect(TableId.create(invalidLegacy).isErr()).toBe(true);
+    TableId.create(valid)._unsafeUnwrap();
+    TableId.create(invalidLegacy)._unsafeUnwrapErr();
   });
 });
 
 describe('FieldId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = FieldId.generate();
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value.toString()).toMatch(fieldIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
     const valid = `fld${'b'.repeat(16)}`;
     const invalidLegacy = `fld${'b'.repeat(15)}_`;
-    expect(FieldId.create(valid).isOk()).toBe(true);
-    expect(FieldId.create(invalidLegacy).isErr()).toBe(true);
+    FieldId.create(valid)._unsafeUnwrap();
+    FieldId.create(invalidLegacy)._unsafeUnwrapErr();
   });
 });
 
 describe('ViewId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = ViewId.generate();
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value.toString()).toMatch(viewIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
     const valid = `viw${'c'.repeat(16)}`;
     const invalidLegacy = `viw${'c'.repeat(15)}_`;
-    expect(ViewId.create(valid).isOk()).toBe(true);
-    expect(ViewId.create(invalidLegacy).isErr()).toBe(true);
+    ViewId.create(valid)._unsafeUnwrap();
+    ViewId.create(invalidLegacy)._unsafeUnwrapErr();
   });
 });

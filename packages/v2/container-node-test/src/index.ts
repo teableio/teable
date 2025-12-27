@@ -5,15 +5,15 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
-import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   ensureV1MetaSchema,
   registerV2PostgresStateAdapter,
 } from '@teable/v2-adapter-repository-postgres';
+import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
-  FieldCreationSideEffectFlow,
+  FieldCreationSideEffectService,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
@@ -99,7 +99,7 @@ export const createV2NodeTestContainer = async (
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
+  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());

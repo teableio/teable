@@ -12,13 +12,14 @@ import {
   type MultipleSelectField,
   type NumberField,
   type RatingField,
+  type RollupField,
   type SingleLineTextField,
   type SingleSelectField,
   type Table,
   type UserField,
 } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { CompiledQuery, CreateTableBuilder, Kysely, QueryExecutorProvider } from 'kysely';
-import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -37,7 +38,7 @@ type PostgresTableSchemaFieldCreateVisitorParams = {
     columnName: string,
     dataType: TableColumnDataType
   ) => Result<ReadonlyArray<TableSchemaStatementBuilder>, string>;
-  db: Kysely<unknown>;
+  db: Kysely<V1TeableDatabase>;
   currentSchema: string | null;
   currentTableName: string;
   currentTableId: string;
@@ -57,7 +58,7 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   static forTableCreation(params: {
     builderRef: ICreateTableBuilderRef;
-    db: Kysely<unknown>;
+    db: Kysely<V1TeableDatabase>;
     schema: string | null;
     tableName: string;
     tableId: string;
@@ -78,7 +79,7 @@ export class PostgresTableSchemaFieldCreateVisitor
   }
 
   static forSchemaUpdate(params: {
-    db: Kysely<unknown>;
+    db: Kysely<V1TeableDatabase>;
     schema: string | null;
     tableName: string;
     tableId: string;
@@ -148,12 +149,21 @@ export class PostgresTableSchemaFieldCreateVisitor
   visitFormulaField(
     field: FormulaField
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    return this.addColumnFromValueType(field).andThen((columnStatements) =>
-      this.buildFormulaReferenceStatements(field).map((referenceStatements) => [
-        ...columnStatements,
-        ...referenceStatements,
-      ])
-    );
+    const visitor = this;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const columnStatements = yield* visitor.addColumnFromValueType(field);
+      const referenceStatements = yield* visitor.buildFormulaReferenceStatements(field);
+      return ok([...columnStatements, ...referenceStatements]);
+    });
+  }
+
+  visitRollupField(field: RollupField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const visitor = this;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const columnStatements = yield* visitor.addColumnFromValueType(field);
+      const referenceStatements = yield* visitor.buildRollupReferenceStatements(field);
+      return ok([...columnStatements, ...referenceStatements]);
+    });
   }
 
   visitSingleSelectField(
@@ -195,10 +205,12 @@ export class PostgresTableSchemaFieldCreateVisitor
   visitLinkField(field: LinkField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     const addLinkValueColumn = this.addLinkValueColumn.bind(this);
     const buildManyManyStatements = this.buildManyManyStatements.bind(this);
+    const buildOneManyJunctionStatements = this.buildOneManyJunctionStatements.bind(this);
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
     const isCurrentTable = this.isCurrentTable.bind(this);
     const addForeignKeyColumns = this.addForeignKeyColumns.bind(this);
     const buildLinkReferenceStatements = this.buildLinkReferenceStatements.bind(this);
+    const buildLinkOrderMetaStatements = this.buildLinkOrderMetaStatements.bind(this);
 
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
       const valueColumnStatements = yield* addLinkValueColumn(field);
@@ -206,6 +218,16 @@ export class PostgresTableSchemaFieldCreateVisitor
       const relationship = field.relationship().toString();
       if (relationship === 'manyMany') {
         const statements = yield* buildManyManyStatements(field);
+        const metaStatements = yield* buildLinkOrderMetaStatements(field);
+        return ok([
+          ...valueColumnStatements,
+          ...referenceStatements,
+          ...statements,
+          ...metaStatements,
+        ]);
+      }
+      if (relationship === 'oneMany' && field.isOneWay()) {
+        const statements = yield* buildOneManyJunctionStatements(field);
         return ok([...valueColumnStatements, ...referenceStatements, ...statements]);
       }
 
@@ -215,7 +237,13 @@ export class PostgresTableSchemaFieldCreateVisitor
       }
 
       const statements = yield* addForeignKeyColumns(field);
-      return ok([...valueColumnStatements, ...referenceStatements, ...statements]);
+      const metaStatements = yield* buildLinkOrderMetaStatements(field);
+      return ok([
+        ...valueColumnStatements,
+        ...referenceStatements,
+        ...statements,
+        ...metaStatements,
+      ]);
     });
   }
 
@@ -253,7 +281,6 @@ export class PostgresTableSchemaFieldCreateVisitor
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
       const keyName = yield* keyNameResult;
       const statements = yield* params.addColumn(keyName, 'text');
-      if (!field.hasOrderColumn()) return ok(statements);
       const orderColumnName = yield* field.orderColumnName();
       const orderStatements = yield* params.addColumn(orderColumnName, 'double precision');
       return ok([...statements, ...orderStatements]);
@@ -275,14 +302,55 @@ export class PostgresTableSchemaFieldCreateVisitor
       let builder = schemaBuilder
         .createTable(fkHostTable.tableName)
         .ifNotExists()
+        .addColumn('__id', 'serial', (col) => col.primaryKey())
         .addColumn(selfKeyName, 'text')
         .addColumn(foreignKeyName, 'text');
-      if (field.hasOrderColumn()) {
-        const orderColumnName = yield* field.orderColumnName();
-        builder = builder.addColumn(orderColumnName, 'double precision');
-      }
+      const orderColumnName = yield* field.orderColumnName();
+      builder = builder.addColumn(orderColumnName, 'double precision');
       return ok([builder]);
     });
+  }
+
+  private buildOneManyJunctionStatements(
+    field: LinkField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const params = this.params;
+    const resolveFkHostTable = this.resolveFkHostTable.bind(this);
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const fkHostTable = yield* resolveFkHostTable(field);
+      const selfKeyName = yield* field.selfKeyNameString();
+      const foreignKeyName = yield* field.foreignKeyNameString();
+      const schemaBuilder = fkHostTable.schema
+        ? params.db.schema.withSchema(fkHostTable.schema)
+        : params.db.schema;
+      const constraintName = `index_${selfKeyName}_${foreignKeyName}`;
+      const builder = schemaBuilder
+        .createTable(fkHostTable.tableName)
+        .ifNotExists()
+        .addColumn('__id', 'serial', (col) => col.primaryKey())
+        .addColumn(selfKeyName, 'text')
+        .addColumn(foreignKeyName, 'text')
+        .addUniqueConstraint(constraintName, [selfKeyName, foreignKeyName]);
+      return ok([builder]);
+    });
+  }
+
+  private buildLinkOrderMetaStatements(
+    field: LinkField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    if (!this.shouldPersistOrderColumnMeta(field)) return ok([]);
+
+    const update = this.params.db
+      .updateTable('field')
+      .set({ meta: JSON.stringify({ hasOrderColumn: true }) })
+      .where('id', '=', field.id().toString());
+    return ok([update]);
+  }
+
+  private shouldPersistOrderColumnMeta(field: LinkField): boolean {
+    const relationship = field.relationship().toString();
+    if (relationship === 'oneMany' && field.isOneWay()) return false;
+    return true;
   }
 
   private resolveFkHostTable(
@@ -308,16 +376,16 @@ export class PostgresTableSchemaFieldCreateVisitor
     if (dependencies.length === 0) return ok([]);
 
     const toFieldId = field.id().toString();
-    const values = dependencies.map((dependency) => {
-      const referenceId = getRandomString(25);
-      return sql`(${referenceId}, ${toFieldId}, ${dependency.toString()})`;
-    });
+    const values = dependencies.map((dependency) => ({
+      id: getRandomString(25),
+      to_field_id: toFieldId,
+      from_field_id: dependency.toString(),
+    }));
 
-    const insert = sql`
-      insert into reference (id, to_field_id, from_field_id)
-      values ${sql.join(values, sql`, `)}
-      on conflict (to_field_id, from_field_id) do nothing
-    `;
+    const insert = this.params.db
+      .insertInto('reference')
+      .values(values)
+      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
     // TODO: task_reference insertion is handled by a separate spec.
     return ok([insert]);
   }
@@ -327,12 +395,38 @@ export class PostgresTableSchemaFieldCreateVisitor
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     const toFieldId = field.id().toString();
     const fromFieldId = field.lookupFieldId().toString();
-    const referenceId = getRandomString(25);
-    const insert = sql`
-      insert into reference (id, to_field_id, from_field_id)
-      values (${referenceId}, ${toFieldId}, ${fromFieldId})
-      on conflict (to_field_id, from_field_id) do nothing
-    `;
+    const insert = this.params.db
+      .insertInto('reference')
+      .values({
+        id: getRandomString(25),
+        to_field_id: toFieldId,
+        from_field_id: fromFieldId,
+      })
+      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
+    return ok([insert]);
+  }
+
+  private buildRollupReferenceStatements(
+    field: RollupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const toFieldId = field.id().toString();
+    const linkFieldId = field.linkFieldId().toString();
+    const lookupFieldId = field.lookupFieldId().toString();
+    const insert = this.params.db
+      .insertInto('reference')
+      .values([
+        {
+          id: getRandomString(25),
+          to_field_id: toFieldId,
+          from_field_id: linkFieldId,
+        },
+        {
+          id: getRandomString(25),
+          to_field_id: toFieldId,
+          from_field_id: lookupFieldId,
+        },
+      ])
+      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
     return ok([insert]);
   }
 }

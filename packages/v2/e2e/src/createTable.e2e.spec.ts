@@ -152,6 +152,72 @@ describe('v2 http createTable (e2e)', () => {
     expect(body.data.events.some((e) => e.name === 'TableCreated')).toBe(true);
   });
 
+  it('allows creating two tables with the same name', async () => {
+    const first = await createTable(buildPayload('Same Name'));
+    const second = await createTable(buildPayload('Same Name'));
+
+    expect(first.name).toBe('Same Name');
+    expect(second.name).toBe('Same Name');
+    expect(first.id).not.toBe(second.id);
+    expect(first.baseId).toBe(baseId);
+    expect(second.baseId).toBe(baseId);
+  });
+
+  it('creates tables when rollup and formula fields are declared before dependencies', async () => {
+    const foreignTable = await createTable({
+      baseId,
+      name: 'Companies',
+      fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+    });
+
+    const foreignPrimaryField = foreignTable.fields.find((field) => field.isPrimary);
+    expect(foreignPrimaryField).toBeDefined();
+    if (!foreignPrimaryField) return;
+
+    const linkFieldId = createFieldId();
+    const amountFieldId = createFieldId();
+
+    const payload: ICreateTableCommandInput = {
+      baseId,
+      name: 'Out Of Order',
+      fields: [
+        {
+          type: 'rollup',
+          name: 'Rollup Total',
+          options: { expression: 'counta({values})' },
+          config: {
+            linkFieldId,
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryField.id,
+          },
+        },
+        {
+          type: 'formula',
+          name: 'Score',
+          options: { expression: `{${amountFieldId}} + 1` },
+        },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Company',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id,
+            lookupFieldId: foreignPrimaryField.id,
+          },
+        },
+        { type: 'number', id: amountFieldId, name: 'Amount' },
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+      ],
+    };
+
+    const created = await createTable(payload);
+    const types = created.fields.map((field) => field.type);
+    expect(types).toContain('rollup');
+    expect(types).toContain('formula');
+    expect(types).toContain('link');
+  });
+
   describe('link fields', () => {
     it('creates symmetric link fields for all relationships', async () => {
       const foreignTable = await createTable({

@@ -14,6 +14,7 @@ import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
+import type { RollupField } from '../types/RollupField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
@@ -68,6 +69,14 @@ export class LinkForeignTableReferenceVisitor
 
   visitFormulaField(_: FormulaField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
     return ok([]);
+  }
+
+  visitRollupField(field: RollupField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([
+      {
+        foreignTableId: field.foreignTableId(),
+      },
+    ]);
   }
 
   visitSingleSelectField(

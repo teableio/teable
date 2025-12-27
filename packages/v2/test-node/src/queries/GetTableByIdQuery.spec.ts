@@ -1,5 +1,5 @@
 import { GetTableByIdQuery } from '@teable/v2-core';
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 
 describe('GetTableByIdQuery', () => {
   it('creates queries from valid input', () => {
@@ -7,11 +7,11 @@ describe('GetTableByIdQuery', () => {
       baseId: `bse${'a'.repeat(16)}`,
       tableId: `tbl${'a'.repeat(16)}`,
     });
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
   });
 
   it('rejects invalid input', () => {
-    expect(GetTableByIdQuery.create({ baseId: 1, tableId: 'tbl' }).isErr()).toBe(true);
-    expect(GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' }).isErr()).toBe(true);
+    GetTableByIdQuery.create({ baseId: 1, tableId: 'tbl' })._unsafeUnwrapErr();
+    GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' })._unsafeUnwrapErr();
   });
 });

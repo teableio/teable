@@ -17,7 +17,7 @@
       "@teable/core": ["../../packages/core/src"],
       "@teable/openapi": ["../../packages/openapi/src"],
       "@teable/db-main-prisma": ["../../packages/db-main-prisma/src"],
-      "@teable/v2-*": ["../../packages/v2/*"]
+      "@teable/v2-*": ["../../packages/v2/*/src/index"]
     },
     "types": ["vitest/globals", "node"]
   },

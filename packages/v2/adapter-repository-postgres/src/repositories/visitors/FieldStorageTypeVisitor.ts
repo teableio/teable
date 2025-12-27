@@ -16,6 +16,7 @@ import type {
   Table,
   UserField,
   FormulaField,
+  RollupField,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -70,6 +71,10 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
   }
 
   visitFormulaField(field: FormulaField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitRollupField(field: RollupField): Result<IFieldStorageType, string> {
     return this.setTypeFromValueType(field);
   }
 

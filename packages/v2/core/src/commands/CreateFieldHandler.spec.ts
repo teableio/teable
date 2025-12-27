@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { FieldCreationSideEffectFlow } from '../application/services/FieldCreationSideEffectFlow';
+import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -28,9 +28,9 @@ import { CreateFieldHandler } from './CreateFieldHandler';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
-  return { actorId: actorIdResult.value };
+  actorIdResult._unsafeUnwrap();
+  actorIdResult._unsafeUnwrap();
+  return { actorId: actorIdResult._unsafeUnwrap() };
 };
 
 class InMemoryTableRepository implements ITableRepository {
@@ -171,13 +171,13 @@ describe('CreateFieldHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
       tableRepository,
       tableUpdateFlow
     );
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
-      fieldCreationSideEffectFlow,
+      fieldCreationSideEffectService,
       eventBus,
       logger
     );
@@ -212,12 +212,10 @@ describe('CreateFieldHandler', () => {
           },
         },
       });
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) continue;
+      commandResult._unsafeUnwrap();
 
-      const result = await handler.handle(createContext(), commandResult.value);
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) continue;
+      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+      result._unsafeUnwrap();
 
       const updatedForeign = tableRepository.tables.find(
         (table) => table.id().toString() === foreignTableId
@@ -243,11 +241,10 @@ describe('CreateFieldHandler', () => {
         },
       },
     });
-    expect(selfCommand.isOk()).toBe(true);
-    if (selfCommand.isErr()) return;
+    selfCommand._unsafeUnwrap();
+
     const selfResult = await handler.handle(createContext(), selfCommand.value);
-    expect(selfResult.isOk()).toBe(true);
-    if (selfResult.isErr()) return;
+    selfResult._unsafeUnwrap();
 
     const selfTable = tableRepository.tables.find((table) => table.id().toString() === hostTableId);
     expect(selfTable).toBeDefined();

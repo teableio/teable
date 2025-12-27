@@ -6,12 +6,12 @@ describe('ViewType', () => {
   it('accepts known view types', () => {
     const types = ['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin'] as const;
     for (const type of types) {
-      expect(ViewType.create(type).isOk()).toBe(true);
+      ViewType.create(type)._unsafeUnwrap();
     }
   });
 
   it('rejects unknown view types', () => {
-    expect(ViewType.create('unknown').isErr()).toBe(true);
+    ViewType.create('unknown')._unsafeUnwrapErr();
   });
 
   it('creates view types via constructors', () => {

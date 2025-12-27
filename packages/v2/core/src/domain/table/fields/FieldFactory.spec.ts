@@ -11,6 +11,7 @@ import {
   createMultipleSelectField,
   createNumberField,
   createRatingField,
+  createRollupField,
   createSingleLineTextField,
   createSingleSelectField,
   createTextField,
@@ -37,6 +38,8 @@ import { NumberShowAs } from './types/NumberShowAs';
 import { RatingColor } from './types/RatingColor';
 import { RatingIcon } from './types/RatingIcon';
 import { RatingMax } from './types/RatingMax';
+import { RollupExpression } from './types/RollupExpression';
+import { RollupFieldConfig } from './types/RollupFieldConfig';
 import { SelectAutoNewOptions } from './types/SelectAutoNewOptions';
 import { SelectDefaultValue } from './types/SelectDefaultValue';
 import { SelectOption } from './types/SelectOption';
@@ -93,6 +96,7 @@ describe('FieldFactory', () => {
       isActive: true,
     });
     const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
+    const rollupExpressionResult = RollupExpression.create('countall({values})');
     const linkConfigResult = LinkFieldConfig.create({
       relationship: LinkRelationship.manyOne().toString(),
       foreignTableId: `tbl${'b'.repeat(16)}`,
@@ -101,199 +105,224 @@ describe('FieldFactory', () => {
       selfKeyName: '__id',
       foreignKeyName: '__fk_link',
     });
+    const rollupConfigResult = RollupFieldConfig.create({
+      linkFieldId: `fld${'b'.repeat(16)}`,
+      foreignTableId: `tbl${'b'.repeat(16)}`,
+      lookupFieldId: `fld${'c'.repeat(16)}`,
+    });
 
-    expect(
-      [
-        idResult,
-        nameResult,
-        optionResult,
-        showAsResult,
-        textDefaultResult,
-        formattingResult,
-        numberShowAsResult,
-        numberDefaultResult,
-        ratingMaxResult,
-        ratingIconResult,
-        ratingColorResult,
-        selectDefaultResult,
-        selectAutoResult,
-        checkboxDefaultResult,
-        dateFormattingResult,
-        dateDefaultResult,
-        userMultiplicityResult,
-        userNotificationResult,
-        userDefaultResult,
-        buttonLabelResult,
-        buttonColorResult,
-        buttonMaxResult,
-        buttonResetResult,
-        buttonWorkflowResult,
-        formulaExpressionResult,
-        linkConfigResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      idResult.isErr() ||
-      nameResult.isErr() ||
-      optionResult.isErr() ||
-      showAsResult.isErr() ||
-      textDefaultResult.isErr() ||
-      formattingResult.isErr() ||
-      numberShowAsResult.isErr() ||
-      numberDefaultResult.isErr() ||
-      ratingMaxResult.isErr() ||
-      ratingIconResult.isErr() ||
-      ratingColorResult.isErr() ||
-      selectDefaultResult.isErr() ||
-      selectAutoResult.isErr() ||
-      checkboxDefaultResult.isErr() ||
-      dateFormattingResult.isErr() ||
-      dateDefaultResult.isErr() ||
-      userMultiplicityResult.isErr() ||
-      userNotificationResult.isErr() ||
-      userDefaultResult.isErr() ||
-      buttonLabelResult.isErr() ||
-      buttonColorResult.isErr() ||
-      buttonMaxResult.isErr() ||
-      buttonResetResult.isErr() ||
-      buttonWorkflowResult.isErr() ||
-      formulaExpressionResult.isErr() ||
-      linkConfigResult.isErr()
-    )
-      return;
+    [
+      idResult,
+      nameResult,
+      optionResult,
+      showAsResult,
+      textDefaultResult,
+      formattingResult,
+      numberShowAsResult,
+      numberDefaultResult,
+      ratingMaxResult,
+      ratingIconResult,
+      ratingColorResult,
+      selectDefaultResult,
+      selectAutoResult,
+      checkboxDefaultResult,
+      dateFormattingResult,
+      dateDefaultResult,
+      userMultiplicityResult,
+      userNotificationResult,
+      userDefaultResult,
+      buttonLabelResult,
+      buttonColorResult,
+      buttonMaxResult,
+      buttonResetResult,
+      buttonWorkflowResult,
+      formulaExpressionResult,
+      rollupExpressionResult,
+      linkConfigResult,
+      rollupConfigResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    idResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
+    optionResult._unsafeUnwrap();
+    showAsResult._unsafeUnwrap();
+    textDefaultResult._unsafeUnwrap();
+    formattingResult._unsafeUnwrap();
+    numberShowAsResult._unsafeUnwrap();
+    numberDefaultResult._unsafeUnwrap();
+    ratingMaxResult._unsafeUnwrap();
+    ratingIconResult._unsafeUnwrap();
+    ratingColorResult._unsafeUnwrap();
+    selectDefaultResult._unsafeUnwrap();
+    selectAutoResult._unsafeUnwrap();
+    checkboxDefaultResult._unsafeUnwrap();
+    dateFormattingResult._unsafeUnwrap();
+    dateDefaultResult._unsafeUnwrap();
+    userMultiplicityResult._unsafeUnwrap();
+    userNotificationResult._unsafeUnwrap();
+    userDefaultResult._unsafeUnwrap();
+    buttonLabelResult._unsafeUnwrap();
+    buttonColorResult._unsafeUnwrap();
+    buttonMaxResult._unsafeUnwrap();
+    buttonResetResult._unsafeUnwrap();
+    buttonWorkflowResult._unsafeUnwrap();
+    formulaExpressionResult._unsafeUnwrap();
+    rollupExpressionResult._unsafeUnwrap();
+    linkConfigResult._unsafeUnwrap();
+    rollupConfigResult._unsafeUnwrap();
 
-    const id = idResult.value;
-    const name = nameResult.value;
-    const option = optionResult.value;
+    const id = idResult._unsafeUnwrap();
+    const name = nameResult._unsafeUnwrap();
+    const option = optionResult._unsafeUnwrap();
 
     const singleText = createSingleLineTextField({
       id,
       name,
-      showAs: showAsResult.value,
-      defaultValue: textDefaultResult.value,
+      showAs: showAsResult._unsafeUnwrap(),
+      defaultValue: textDefaultResult._unsafeUnwrap(),
     });
-    expect(singleText.isOk()).toBe(true);
-    if (singleText.isErr()) return;
+    singleText._unsafeUnwrap();
+
     expect(singleText.value.type().toString()).toBe('singleLineText');
 
     const textAlias = createTextField({ id, name });
-    expect(textAlias.isOk()).toBe(true);
+    textAlias._unsafeUnwrap();
 
-    const longText = createLongTextField({ id, name, defaultValue: textDefaultResult.value });
-    expect(longText.isOk()).toBe(true);
-    if (longText.isErr()) return;
+    const longText = createLongTextField({
+      id,
+      name,
+      defaultValue: textDefaultResult._unsafeUnwrap(),
+    });
+    longText._unsafeUnwrap();
+
     expect(longText.value.type().toString()).toBe('longText');
 
     const number = createNumberField({
       id,
       name,
-      formatting: formattingResult.value,
-      showAs: numberShowAsResult.value,
-      defaultValue: numberDefaultResult.value,
+      formatting: formattingResult._unsafeUnwrap(),
+      showAs: numberShowAsResult._unsafeUnwrap(),
+      defaultValue: numberDefaultResult._unsafeUnwrap(),
     });
-    expect(number.isOk()).toBe(true);
-    if (number.isErr()) return;
+    number._unsafeUnwrap();
+
     expect(number.value.type().toString()).toBe('number');
 
     const rating = createRatingField({
       id,
       name,
-      max: ratingMaxResult.value,
-      icon: ratingIconResult.value,
-      color: ratingColorResult.value,
+      max: ratingMaxResult._unsafeUnwrap(),
+      icon: ratingIconResult._unsafeUnwrap(),
+      color: ratingColorResult._unsafeUnwrap(),
     });
-    expect(rating.isOk()).toBe(true);
-    if (rating.isErr()) return;
+    rating._unsafeUnwrap();
+
     expect(rating.value.type().toString()).toBe('rating');
 
     const formula = createFormulaField({
       id,
       name,
-      expression: formulaExpressionResult.value,
+      expression: formulaExpressionResult._unsafeUnwrap(),
       resultType: {
         cellValueType: CellValueType.number(),
         isMultipleCellValue: CellValueMultiplicity.single(),
       },
     });
-    expect(formula.isOk()).toBe(true);
+    formula._unsafeUnwrap();
+
+    const valuesFieldId = createFieldId('c')._unsafeUnwrap();
+    const valuesFieldName = FieldName.create('Values')._unsafeUnwrap();
+    const valuesField = createNumberField({
+      id: valuesFieldId,
+      name: valuesFieldName,
+    })._unsafeUnwrap();
+    const rollup = createRollupField({
+      id,
+      name,
+      config: rollupConfigResult._unsafeUnwrap(),
+      expression: rollupExpressionResult._unsafeUnwrap(),
+      valuesField,
+    });
+    rollup._unsafeUnwrap();
+
+    expect(rollup.value.type().toString()).toBe('rollup');
 
     const singleSelect = createSingleSelectField({
       id,
       name,
       options: [option],
-      defaultValue: selectDefaultResult.value,
-      preventAutoNewOptions: selectAutoResult.value,
+      defaultValue: selectDefaultResult._unsafeUnwrap(),
+      preventAutoNewOptions: selectAutoResult._unsafeUnwrap(),
     });
-    expect(singleSelect.isOk()).toBe(true);
-    if (singleSelect.isErr()) return;
+    singleSelect._unsafeUnwrap();
+
     expect(singleSelect.value.type().toString()).toBe('singleSelect');
 
     const multipleSelect = createMultipleSelectField({
       id,
       name,
       options: [option],
-      defaultValue: selectDefaultResult.value,
-      preventAutoNewOptions: selectAutoResult.value,
+      defaultValue: selectDefaultResult._unsafeUnwrap(),
+      preventAutoNewOptions: selectAutoResult._unsafeUnwrap(),
     });
-    expect(multipleSelect.isOk()).toBe(true);
-    if (multipleSelect.isErr()) return;
+    multipleSelect._unsafeUnwrap();
+
     expect(multipleSelect.value.type().toString()).toBe('multipleSelect');
 
     const checkbox = createCheckboxField({
       id,
       name,
-      defaultValue: checkboxDefaultResult.value,
+      defaultValue: checkboxDefaultResult._unsafeUnwrap(),
     });
-    expect(checkbox.isOk()).toBe(true);
-    if (checkbox.isErr()) return;
+    checkbox._unsafeUnwrap();
+
     expect(checkbox.value.type().toString()).toBe('checkbox');
 
     const attachment = createAttachmentField({ id, name });
-    expect(attachment.isOk()).toBe(true);
-    if (attachment.isErr()) return;
+    attachment._unsafeUnwrap();
+
     expect(attachment.value.type().toString()).toBe('attachment');
 
     const dateField = createDateField({
       id,
       name,
-      formatting: dateFormattingResult.value,
-      defaultValue: dateDefaultResult.value,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+      defaultValue: dateDefaultResult._unsafeUnwrap(),
     });
-    expect(dateField.isOk()).toBe(true);
-    if (dateField.isErr()) return;
+    dateField._unsafeUnwrap();
+
     expect(dateField.value.type().toString()).toBe('date');
 
     const userField = createUserField({
       id,
       name,
-      isMultiple: userMultiplicityResult.value,
-      shouldNotify: userNotificationResult.value,
-      defaultValue: userDefaultResult.value,
+      isMultiple: userMultiplicityResult._unsafeUnwrap(),
+      shouldNotify: userNotificationResult._unsafeUnwrap(),
+      defaultValue: userDefaultResult._unsafeUnwrap(),
     });
-    expect(userField.isOk()).toBe(true);
-    if (userField.isErr()) return;
+    userField._unsafeUnwrap();
+
     expect(userField.value.type().toString()).toBe('user');
 
     const buttonField = createButtonField({
       id,
       name,
-      label: buttonLabelResult.value,
-      color: buttonColorResult.value,
-      maxCount: buttonMaxResult.value,
-      resetCount: buttonResetResult.value,
-      workflow: buttonWorkflowResult.value,
+      label: buttonLabelResult._unsafeUnwrap(),
+      color: buttonColorResult._unsafeUnwrap(),
+      maxCount: buttonMaxResult._unsafeUnwrap(),
+      resetCount: buttonResetResult._unsafeUnwrap(),
+      workflow: buttonWorkflowResult._unsafeUnwrap(),
     });
-    expect(buttonField.isOk()).toBe(true);
-    if (buttonField.isErr()) return;
+    buttonField._unsafeUnwrap();
+
     expect(buttonField.value.type().toString()).toBe('button');
 
     const linkField = createLinkField({
       id,
       name,
-      config: linkConfigResult.value,
+      config: linkConfigResult._unsafeUnwrap(),
     });
-    expect(linkField.isOk()).toBe(true);
-    if (linkField.isErr()) return;
+    linkField._unsafeUnwrap();
+
     expect(linkField.value.type().toString()).toBe('link');
   });
 });

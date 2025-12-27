@@ -11,6 +11,7 @@ import {
   createCheckboxField,
   createDateField,
   createFormulaField,
+  createRollupFieldPending,
   createNewLinkField,
   createLongTextField,
   createMultipleSelectField,
@@ -49,6 +50,8 @@ import {
 import { RatingColor, ratingColorValues } from '../domain/table/fields/types/RatingColor';
 import { RatingIcon, ratingIconValues } from '../domain/table/fields/types/RatingIcon';
 import { RatingMax } from '../domain/table/fields/types/RatingMax';
+import { RollupExpression } from '../domain/table/fields/types/RollupExpression';
+import { RollupFieldConfig } from '../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
@@ -173,8 +176,6 @@ const buttonOptionsSchema = z.object({
 const formulaFormattingSchema = z.union([numberFormattingSchema, dateFormattingSchema]);
 
 const formulaShowAsSchema = z.union([singleLineTextShowAsSchema, numberShowAsSchema]);
-// Rehydration-only fields must never be accepted from create input.
-const rehydratedOnlySchema = z.never().optional();
 
 const formulaOptionsSchema = z.object({
   expression: z.string(),
@@ -185,46 +186,62 @@ const formulaOptionsSchema = z.object({
 
 const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
 
-const linkOptionsSchema = z.object({
-  baseId: z.string().optional(),
-  relationship: linkRelationshipSchema,
-  foreignTableId: z.string(),
-  lookupFieldId: z.string(),
-  isOneWay: z.boolean().optional(),
-  fkHostTableName: rehydratedOnlySchema,
-  selfKeyName: rehydratedOnlySchema,
-  foreignKeyName: rehydratedOnlySchema,
-  symmetricFieldId: z.string().optional(),
-  filterByViewId: z.string().nullable().optional(),
-  visibleFieldIds: z.array(z.string()).nullable().optional(),
-});
+const linkOptionsSchema = z
+  .object({
+    baseId: z.string().optional(),
+    relationship: linkRelationshipSchema,
+    foreignTableId: z.string(),
+    lookupFieldId: z.string(),
+    isOneWay: z.boolean().optional(),
+    symmetricFieldId: z.string().optional(),
+    filterByViewId: z.string().nullable().optional(),
+    visibleFieldIds: z.array(z.string()).nullable().optional(),
+  })
+  .strict();
+
+const rollupOptionsSchema = z
+  .object({
+    expression: z.string(),
+    timeZone: z.enum(TIME_ZONE_LIST).optional(),
+    formatting: formulaFormattingSchema.optional(),
+    showAs: formulaShowAsSchema.optional(),
+  })
+  .strict();
+
+const rollupConfigSchema = z
+  .object({
+    linkFieldId: z.string(),
+    foreignTableId: z.string(),
+    lookupFieldId: z.string(),
+  })
+  .strict();
 
 export const tableFieldInputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('singleLineText'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: singleLineTextOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('longText'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: longTextOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('number'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: numberOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('rating'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     max: z.number().optional(),
     options: ratingOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
@@ -232,71 +249,176 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('singleSelect'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('multipleSelect'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('checkbox'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: checkboxOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('attachment'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('date'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: dateOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('user'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: userOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('button'),
     id: z.string().optional(),
-    name: z.string(),
+    name: z.string().optional(),
     options: buttonOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
-  z.object({
-    type: z.literal('formula'),
-    id: z.string().optional(),
-    name: z.string(),
-    options: formulaOptionsSchema,
-    cellValueType: rehydratedOnlySchema,
-    isMultipleCellValue: rehydratedOnlySchema,
-    isPrimary: z.boolean().optional(),
-  }),
-  z.object({
-    type: z.literal('link'),
-    id: z.string().optional(),
-    name: z.string(),
-    options: linkOptionsSchema,
-    meta: rehydratedOnlySchema,
-    isPrimary: z.boolean().optional(),
-  }),
+  z
+    .object({
+      type: z.literal('formula'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: formulaOptionsSchema,
+      isPrimary: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('link'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: linkOptionsSchema,
+      isPrimary: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('rollup'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: rollupOptionsSchema,
+      config: rollupConfigSchema,
+      isPrimary: z.boolean().optional(),
+    })
+    .strict(),
 ]);
 
 export type ITableFieldInput = z.output<typeof tableFieldInputSchema>;
+export type ResolvedTableFieldInput = ITableFieldInput & { name: string };
+
+const getUniqName = (name: string, existNames: ReadonlyArray<string>): string => {
+  if (!existNames.includes(name)) return name;
+
+  let baseName = name;
+  let num = 2;
+
+  if (Number.isNaN(Number(name))) {
+    const match = name.match(/^(.*)(\b\d+)$/);
+    if (match) {
+      baseName = match[1]?.trim() ?? name;
+      num = Number.parseInt(match[2] ?? `${num}`, 10);
+    }
+  }
+
+  while (existNames.includes(`${baseName} ${num}`)) {
+    num += 1;
+  }
+
+  return `${baseName} ${num}`;
+};
+
+const defaultFieldName = (field: ITableFieldInput): string => {
+  if (field.isPrimary === true) return 'Name';
+  switch (field.type) {
+    case 'singleLineText':
+      return 'Label';
+    case 'longText':
+      return 'Notes';
+    case 'number':
+      return 'Number';
+    case 'rating':
+      return 'Rating';
+    case 'singleSelect':
+      return 'Select';
+    case 'multipleSelect':
+      return 'Tags';
+    case 'checkbox':
+      return 'Done';
+    case 'attachment':
+      return 'Attachments';
+    case 'date':
+      return 'Date';
+    case 'user': {
+      const isMultiple = Boolean(
+        (field as { options?: { isMultiple?: boolean } }).options?.isMultiple
+      );
+      return isMultiple ? 'Collaborators' : 'Collaborator';
+    }
+    case 'button':
+      return 'Button';
+    case 'formula':
+      return 'Calculation';
+    case 'rollup':
+      return 'Rollup';
+    case 'link':
+      return 'Link';
+    default:
+      return 'Field';
+  }
+};
+
+export const resolveTableFieldInputName = (
+  field: ITableFieldInput,
+  existingNames: ReadonlyArray<string>
+): Result<ResolvedTableFieldInput, string> => {
+  if (typeof field.name === 'string') {
+    const trimmed = field.name.trim();
+    if (trimmed.length === 0) return err('FieldName is required');
+    return FieldName.create(trimmed).map((name) => ({ ...field, name: name.toString() }));
+  }
+
+  const baseName = defaultFieldName(field);
+  const uniqueName = getUniqName(baseName, existingNames);
+  return FieldName.create(uniqueName).map((name) => ({ ...field, name: name.toString() }));
+};
+
+export const resolveTableFieldInputs = (
+  fields: ReadonlyArray<ITableFieldInput>,
+  existingNames: ReadonlyArray<string>
+): Result<ReadonlyArray<ResolvedTableFieldInput>, string> => {
+  const resolved: ResolvedTableFieldInput[] = [];
+  const names = [...existingNames];
+
+  for (const field of fields) {
+    const nameResult = resolveTableFieldInputName(field, names);
+    if (nameResult.isErr()) return err(nameResult.error);
+    resolved.push(nameResult.value);
+    names.push(nameResult.value.name);
+  }
+
+  return ok(resolved);
+};
 
 export interface ICreateTableFieldSpec {
   applyTo(builder: TableBuilder): void;
@@ -577,6 +699,78 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateFormulaFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateRollupFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly config: RollupFieldConfig,
+    private readonly expression: RollupExpression,
+    private readonly timeZone: TimeZone | undefined,
+    private readonly formatting: FormulaFormatting | undefined,
+    private readonly showAs: FormulaShowAs | undefined
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      config: RollupFieldConfig;
+      expression: RollupExpression;
+      timeZone?: TimeZone;
+      formatting?: FormulaFormatting;
+      showAs?: FormulaShowAs;
+    }
+  ): CreateRollupFieldSpec {
+    return new CreateRollupFieldSpec(
+      id,
+      name,
+      options.config,
+      options.expression,
+      options.timeZone,
+      options.formatting,
+      options.showAs
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder
+      .field()
+      .rollup()
+      .withName(this.name)
+      .withConfig(this.config)
+      .withExpression(this.expression);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.timeZone) fieldBuilder.withTimeZone(this.timeZone);
+    if (this.formatting) fieldBuilder.withFormatting(this.formatting);
+    if (this.showAs) fieldBuilder.withShowAs(this.showAs);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) =>
+      createRollupFieldPending({
+        id,
+        name: this.name,
+        config: this.config,
+        expression: this.expression,
+        timeZone: this.timeZone,
+        formatting: this.formatting,
+        showAs: this.showAs,
+      })
+    );
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateRollupFieldSpec {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1080,7 +1274,7 @@ const resolveFieldId = (id?: FieldId): Result<FieldId, string> =>
   id ? ok(id) : FieldId.generate();
 
 export const parseTableFieldSpec = (
-  field: ITableFieldInput,
+  field: ResolvedTableFieldInput,
   options: { isPrimary: boolean }
 ): Result<ICreateTableFieldSpec, string> => {
   return optional(field.id, FieldId.create).andThen((id) =>
@@ -1143,6 +1337,26 @@ export const parseTableFieldSpec = (
                     formatting,
                     showAs,
                   })
+                )
+              )
+            )
+          )
+        )
+        .with({ type: 'rollup' }, (field) =>
+          RollupExpression.create(field.options.expression).andThen((expression) =>
+            RollupFieldConfig.create(field.config).andThen((config) =>
+              optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                  parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                    CreateRollupFieldSpec.create(id, name, {
+                      isPrimary: options.isPrimary,
+                      config,
+                      expression,
+                      timeZone,
+                      formatting,
+                      showAs,
+                    })
+                  )
                 )
               )
             )

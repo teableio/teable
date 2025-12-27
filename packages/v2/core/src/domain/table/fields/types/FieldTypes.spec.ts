@@ -36,6 +36,9 @@ import { RatingColor } from './RatingColor';
 import { RatingField } from './RatingField';
 import { RatingIcon } from './RatingIcon';
 import { RatingMax } from './RatingMax';
+import { RollupExpression } from './RollupExpression';
+import { RollupField } from './RollupField';
+import { RollupFieldConfig } from './RollupFieldConfig';
 import { SelectAutoNewOptions } from './SelectAutoNewOptions';
 import { SelectDefaultValue } from './SelectDefaultValue';
 import { SelectOption } from './SelectOption';
@@ -65,6 +68,9 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   }
   visitFormulaField(): ReturnType<IFieldVisitor<string>['visitFormulaField']> {
     return ok('formula');
+  }
+  visitRollupField(): ReturnType<IFieldVisitor<string>['visitRollupField']> {
+    return ok('rollup');
   }
   visitSingleSelectField(): ReturnType<IFieldVisitor<string>['visitSingleSelectField']> {
     return ok('singleSelect');
@@ -136,6 +142,7 @@ describe('Field types', () => {
       isActive: true,
     });
     const formulaExpressionResult = FormulaExpression.create('{fld123} + 1');
+    const rollupExpressionResult = RollupExpression.create('countall({values})');
     const foreignTableIdResult = TableId.create(`tbl${'b'.repeat(16)}`);
     const lookupFieldIdResult = createFieldId('b');
     const symmetricFieldIdResult = createFieldId('c');
@@ -151,274 +158,312 @@ describe('Field types', () => {
       filterByViewId: `viw${'c'.repeat(16)}`,
       visibleFieldIds: [`fld${'b'.repeat(16)}`],
     });
+    const rollupConfigResult = RollupFieldConfig.create({
+      linkFieldId: `fld${'d'.repeat(16)}`,
+      foreignTableId: `tbl${'b'.repeat(16)}`,
+      lookupFieldId: `fld${'e'.repeat(16)}`,
+    });
 
-    expect(
-      [
-        idResult,
-        nameResult,
-        optionResult,
-        showAsResult,
-        textDefaultResult,
-        formattingResult,
-        numberShowAsResult,
-        numberDefaultResult,
-        ratingMaxResult,
-        ratingIconResult,
-        ratingColorResult,
-        selectDefaultResult,
-        selectAutoResult,
-        checkboxDefaultResult,
-        dateFormattingResult,
-        dateDefaultResult,
-        userMultiplicityResult,
-        userNotificationResult,
-        userDefaultResult,
-        buttonLabelResult,
-        buttonColorResult,
-        buttonMaxResult,
-        buttonResetResult,
-        buttonWorkflowResult,
-        formulaExpressionResult,
-        foreignTableIdResult,
-        lookupFieldIdResult,
-        symmetricFieldIdResult,
-        viewIdResult,
-        linkConfigResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      idResult.isErr() ||
-      nameResult.isErr() ||
-      optionResult.isErr() ||
-      showAsResult.isErr() ||
-      textDefaultResult.isErr() ||
-      formattingResult.isErr() ||
-      numberShowAsResult.isErr() ||
-      numberDefaultResult.isErr() ||
-      ratingMaxResult.isErr() ||
-      ratingIconResult.isErr() ||
-      ratingColorResult.isErr() ||
-      selectDefaultResult.isErr() ||
-      selectAutoResult.isErr() ||
-      checkboxDefaultResult.isErr() ||
-      dateFormattingResult.isErr() ||
-      dateDefaultResult.isErr() ||
-      userMultiplicityResult.isErr() ||
-      userNotificationResult.isErr() ||
-      userDefaultResult.isErr() ||
-      buttonLabelResult.isErr() ||
-      buttonColorResult.isErr() ||
-      buttonMaxResult.isErr() ||
-      buttonResetResult.isErr() ||
-      buttonWorkflowResult.isErr() ||
-      formulaExpressionResult.isErr() ||
-      foreignTableIdResult.isErr() ||
-      lookupFieldIdResult.isErr() ||
-      symmetricFieldIdResult.isErr() ||
-      viewIdResult.isErr() ||
-      linkConfigResult.isErr()
-    )
-      return;
+    [
+      idResult,
+      nameResult,
+      optionResult,
+      showAsResult,
+      textDefaultResult,
+      formattingResult,
+      numberShowAsResult,
+      numberDefaultResult,
+      ratingMaxResult,
+      ratingIconResult,
+      ratingColorResult,
+      selectDefaultResult,
+      selectAutoResult,
+      checkboxDefaultResult,
+      dateFormattingResult,
+      dateDefaultResult,
+      userMultiplicityResult,
+      userNotificationResult,
+      userDefaultResult,
+      buttonLabelResult,
+      buttonColorResult,
+      buttonMaxResult,
+      buttonResetResult,
+      buttonWorkflowResult,
+      formulaExpressionResult,
+      rollupExpressionResult,
+      foreignTableIdResult,
+      lookupFieldIdResult,
+      symmetricFieldIdResult,
+      viewIdResult,
+      linkConfigResult,
+      rollupConfigResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    idResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
+    optionResult._unsafeUnwrap();
+    showAsResult._unsafeUnwrap();
+    textDefaultResult._unsafeUnwrap();
+    formattingResult._unsafeUnwrap();
+    numberShowAsResult._unsafeUnwrap();
+    numberDefaultResult._unsafeUnwrap();
+    ratingMaxResult._unsafeUnwrap();
+    ratingIconResult._unsafeUnwrap();
+    ratingColorResult._unsafeUnwrap();
+    selectDefaultResult._unsafeUnwrap();
+    selectAutoResult._unsafeUnwrap();
+    checkboxDefaultResult._unsafeUnwrap();
+    dateFormattingResult._unsafeUnwrap();
+    dateDefaultResult._unsafeUnwrap();
+    userMultiplicityResult._unsafeUnwrap();
+    userNotificationResult._unsafeUnwrap();
+    userDefaultResult._unsafeUnwrap();
+    buttonLabelResult._unsafeUnwrap();
+    buttonColorResult._unsafeUnwrap();
+    buttonMaxResult._unsafeUnwrap();
+    buttonResetResult._unsafeUnwrap();
+    buttonWorkflowResult._unsafeUnwrap();
+    formulaExpressionResult._unsafeUnwrap();
+    rollupExpressionResult._unsafeUnwrap();
+    foreignTableIdResult._unsafeUnwrap();
+    lookupFieldIdResult._unsafeUnwrap();
+    symmetricFieldIdResult._unsafeUnwrap();
+    viewIdResult._unsafeUnwrap();
+    linkConfigResult._unsafeUnwrap();
+    rollupConfigResult._unsafeUnwrap();
 
-    const id = idResult.value;
-    const name = nameResult.value;
-    const option = optionResult.value;
+    const id = idResult._unsafeUnwrap();
+    const name = nameResult._unsafeUnwrap();
+    const option = optionResult._unsafeUnwrap();
 
     const visitor = new RecordingFieldVisitor();
 
     const singleText = SingleLineTextField.create({
       id,
       name,
-      showAs: showAsResult.value,
-      defaultValue: textDefaultResult.value,
+      showAs: showAsResult._unsafeUnwrap(),
+      defaultValue: textDefaultResult._unsafeUnwrap(),
     });
-    expect(singleText.isOk()).toBe(true);
-    if (singleText.isErr()) return;
-    expect(singleText.value.showAs()).toBe(showAsResult.value);
-    expect(singleText.value.defaultValue()).toBe(textDefaultResult.value);
+    singleText._unsafeUnwrap();
+
+    expect(singleText.value.showAs()).toBe(showAsResult._unsafeUnwrap());
+    expect(singleText.value.defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
     const singleAccept = singleText.value.accept(visitor);
-    expect(singleAccept.isOk()).toBe(true);
-    if (singleAccept.isErr()) return;
+    singleAccept._unsafeUnwrap();
+
     expect(singleAccept.value).toBe('singleLineText');
 
-    const longText = LongTextField.create({ id, name, defaultValue: textDefaultResult.value });
-    expect(longText.isOk()).toBe(true);
-    if (longText.isErr()) return;
-    expect(longText.value.defaultValue()).toBe(textDefaultResult.value);
+    const longText = LongTextField.create({
+      id,
+      name,
+      defaultValue: textDefaultResult._unsafeUnwrap(),
+    });
+    longText._unsafeUnwrap();
+
+    expect(longText.value.defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
     const longAccept = longText.value.accept(visitor);
-    expect(longAccept.isOk()).toBe(true);
-    if (longAccept.isErr()) return;
+    longAccept._unsafeUnwrap();
+
     expect(longAccept.value).toBe('longText');
 
     const number = NumberField.create({
       id,
       name,
-      formatting: formattingResult.value,
-      showAs: numberShowAsResult.value,
-      defaultValue: numberDefaultResult.value,
+      formatting: formattingResult._unsafeUnwrap(),
+      showAs: numberShowAsResult._unsafeUnwrap(),
+      defaultValue: numberDefaultResult._unsafeUnwrap(),
     });
-    expect(number.isOk()).toBe(true);
-    if (number.isErr()) return;
-    expect(number.value.formatting()).toBe(formattingResult.value);
-    expect(number.value.showAs()).toBe(numberShowAsResult.value);
-    expect(number.value.defaultValue()).toBe(numberDefaultResult.value);
+    number._unsafeUnwrap();
+
+    expect(number.value.formatting()).toBe(formattingResult._unsafeUnwrap());
+    expect(number.value.showAs()).toBe(numberShowAsResult._unsafeUnwrap());
+    expect(number.value.defaultValue()).toBe(numberDefaultResult._unsafeUnwrap());
     const numberAccept = number.value.accept(visitor);
-    expect(numberAccept.isOk()).toBe(true);
-    if (numberAccept.isErr()) return;
+    numberAccept._unsafeUnwrap();
+
     expect(numberAccept.value).toBe('number');
 
     const rating = RatingField.create({
       id,
       name,
-      max: ratingMaxResult.value,
-      icon: ratingIconResult.value,
-      color: ratingColorResult.value,
+      max: ratingMaxResult._unsafeUnwrap(),
+      icon: ratingIconResult._unsafeUnwrap(),
+      color: ratingColorResult._unsafeUnwrap(),
     });
-    expect(rating.isOk()).toBe(true);
-    if (rating.isErr()) return;
-    expect(rating.value.ratingMax()).toBe(ratingMaxResult.value);
-    expect(rating.value.ratingIcon()).toBe(ratingIconResult.value);
-    expect(rating.value.ratingColor()).toBe(ratingColorResult.value);
+    rating._unsafeUnwrap();
+
+    expect(rating.value.ratingMax()).toBe(ratingMaxResult._unsafeUnwrap());
+    expect(rating.value.ratingIcon()).toBe(ratingIconResult._unsafeUnwrap());
+    expect(rating.value.ratingColor()).toBe(ratingColorResult._unsafeUnwrap());
     const ratingAccept = rating.value.accept(visitor);
-    expect(ratingAccept.isOk()).toBe(true);
-    if (ratingAccept.isErr()) return;
+    ratingAccept._unsafeUnwrap();
+
     expect(ratingAccept.value).toBe('rating');
 
     const formula = FormulaField.create({
       id,
       name,
-      expression: formulaExpressionResult.value,
+      expression: formulaExpressionResult._unsafeUnwrap(),
       resultType: {
         cellValueType: CellValueType.number(),
         isMultipleCellValue: CellValueMultiplicity.single(),
       },
     });
-    expect(formula.isOk()).toBe(true);
-    if (formula.isErr()) return;
+    formula._unsafeUnwrap();
+
     const formulaAccept = formula.value.accept(visitor);
-    expect(formulaAccept.isOk()).toBe(true);
-    if (formulaAccept.isErr()) return;
+    formulaAccept._unsafeUnwrap();
+
     expect(formulaAccept.value).toBe('formula');
+
+    const valuesFieldIdResult = createFieldId('c');
+    const valuesFieldNameResult = FieldName.create('Values');
+    valuesFieldIdResult._unsafeUnwrap();
+    valuesFieldNameResult._unsafeUnwrap();
+    valuesFieldIdResult._unsafeUnwrap();
+    valuesFieldNameResult._unsafeUnwrap();
+    const valuesField = NumberField.create({
+      id: valuesFieldIdResult._unsafeUnwrap(),
+      name: valuesFieldNameResult._unsafeUnwrap(),
+    });
+    valuesField._unsafeUnwrap();
+
+    const rollup = RollupField.create({
+      id,
+      name,
+      config: rollupConfigResult._unsafeUnwrap(),
+      expression: rollupExpressionResult._unsafeUnwrap(),
+      valuesField: valuesField.value,
+    });
+    rollup._unsafeUnwrap();
+
+    const rollupAccept = rollup.value.accept(visitor);
+    rollupAccept._unsafeUnwrap();
+
+    expect(rollupAccept.value).toBe('rollup');
 
     const singleSelect = SingleSelectField.create({
       id,
       name,
       options: [option],
-      defaultValue: selectDefaultResult.value,
-      preventAutoNewOptions: selectAutoResult.value,
+      defaultValue: selectDefaultResult._unsafeUnwrap(),
+      preventAutoNewOptions: selectAutoResult._unsafeUnwrap(),
     });
-    expect(singleSelect.isOk()).toBe(true);
-    if (singleSelect.isErr()) return;
+    singleSelect._unsafeUnwrap();
+
     expect(singleSelect.value.selectOptions().length).toBe(1);
-    expect(singleSelect.value.defaultValue()).toBe(selectDefaultResult.value);
-    expect(singleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult.value);
+    expect(singleSelect.value.defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
+    expect(singleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult._unsafeUnwrap());
     const singleSelectAccept = singleSelect.value.accept(visitor);
-    expect(singleSelectAccept.isOk()).toBe(true);
-    if (singleSelectAccept.isErr()) return;
+    singleSelectAccept._unsafeUnwrap();
+
     expect(singleSelectAccept.value).toBe('singleSelect');
 
     const multipleSelect = MultipleSelectField.create({
       id,
       name,
       options: [option],
-      defaultValue: selectDefaultResult.value,
-      preventAutoNewOptions: selectAutoResult.value,
+      defaultValue: selectDefaultResult._unsafeUnwrap(),
+      preventAutoNewOptions: selectAutoResult._unsafeUnwrap(),
     });
-    expect(multipleSelect.isOk()).toBe(true);
-    if (multipleSelect.isErr()) return;
+    multipleSelect._unsafeUnwrap();
+
     expect(multipleSelect.value.selectOptions().length).toBe(1);
-    expect(multipleSelect.value.defaultValue()).toBe(selectDefaultResult.value);
-    expect(multipleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult.value);
+    expect(multipleSelect.value.defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
+    expect(multipleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult._unsafeUnwrap());
     const multipleSelectAccept = multipleSelect.value.accept(visitor);
-    expect(multipleSelectAccept.isOk()).toBe(true);
-    if (multipleSelectAccept.isErr()) return;
+    multipleSelectAccept._unsafeUnwrap();
+
     expect(multipleSelectAccept.value).toBe('multipleSelect');
 
-    const checkbox = CheckboxField.create({ id, name, defaultValue: checkboxDefaultResult.value });
-    expect(checkbox.isOk()).toBe(true);
-    if (checkbox.isErr()) return;
-    expect(checkbox.value.defaultValue()).toBe(checkboxDefaultResult.value);
+    const checkbox = CheckboxField.create({
+      id,
+      name,
+      defaultValue: checkboxDefaultResult._unsafeUnwrap(),
+    });
+    checkbox._unsafeUnwrap();
+
+    expect(checkbox.value.defaultValue()).toBe(checkboxDefaultResult._unsafeUnwrap());
     const checkboxAccept = checkbox.value.accept(visitor);
-    expect(checkboxAccept.isOk()).toBe(true);
-    if (checkboxAccept.isErr()) return;
+    checkboxAccept._unsafeUnwrap();
+
     expect(checkboxAccept.value).toBe('checkbox');
 
     const attachment = AttachmentField.create({ id, name });
-    expect(attachment.isOk()).toBe(true);
-    if (attachment.isErr()) return;
+    attachment._unsafeUnwrap();
+
     const attachmentAccept = attachment.value.accept(visitor);
-    expect(attachmentAccept.isOk()).toBe(true);
-    if (attachmentAccept.isErr()) return;
+    attachmentAccept._unsafeUnwrap();
+
     expect(attachmentAccept.value).toBe('attachment');
 
     const dateField = DateField.create({
       id,
       name,
-      formatting: dateFormattingResult.value,
-      defaultValue: dateDefaultResult.value,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+      defaultValue: dateDefaultResult._unsafeUnwrap(),
     });
-    expect(dateField.isOk()).toBe(true);
-    if (dateField.isErr()) return;
-    expect(dateField.value.formatting()).toBe(dateFormattingResult.value);
-    expect(dateField.value.defaultValue()).toBe(dateDefaultResult.value);
+    dateField._unsafeUnwrap();
+
+    expect(dateField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
+    expect(dateField.value.defaultValue()).toBe(dateDefaultResult._unsafeUnwrap());
     const dateAccept = dateField.value.accept(visitor);
-    expect(dateAccept.isOk()).toBe(true);
-    if (dateAccept.isErr()) return;
+    dateAccept._unsafeUnwrap();
+
     expect(dateAccept.value).toBe('date');
 
     const userField = UserField.create({
       id,
       name,
-      isMultiple: userMultiplicityResult.value,
-      shouldNotify: userNotificationResult.value,
-      defaultValue: userDefaultResult.value,
+      isMultiple: userMultiplicityResult._unsafeUnwrap(),
+      shouldNotify: userNotificationResult._unsafeUnwrap(),
+      defaultValue: userDefaultResult._unsafeUnwrap(),
     });
-    expect(userField.isOk()).toBe(true);
-    if (userField.isErr()) return;
-    expect(userField.value.multiplicity()).toBe(userMultiplicityResult.value);
-    expect(userField.value.notification()).toBe(userNotificationResult.value);
-    expect(userField.value.defaultValue()).toBe(userDefaultResult.value);
+    userField._unsafeUnwrap();
+
+    expect(userField.value.multiplicity()).toBe(userMultiplicityResult._unsafeUnwrap());
+    expect(userField.value.notification()).toBe(userNotificationResult._unsafeUnwrap());
+    expect(userField.value.defaultValue()).toBe(userDefaultResult._unsafeUnwrap());
     const userAccept = userField.value.accept(visitor);
-    expect(userAccept.isOk()).toBe(true);
-    if (userAccept.isErr()) return;
+    userAccept._unsafeUnwrap();
+
     expect(userAccept.value).toBe('user');
 
     const buttonField = ButtonField.create({
       id,
       name,
-      label: buttonLabelResult.value,
-      color: buttonColorResult.value,
-      maxCount: buttonMaxResult.value,
-      resetCount: buttonResetResult.value,
-      workflow: buttonWorkflowResult.value,
+      label: buttonLabelResult._unsafeUnwrap(),
+      color: buttonColorResult._unsafeUnwrap(),
+      maxCount: buttonMaxResult._unsafeUnwrap(),
+      resetCount: buttonResetResult._unsafeUnwrap(),
+      workflow: buttonWorkflowResult._unsafeUnwrap(),
     });
-    expect(buttonField.isOk()).toBe(true);
-    if (buttonField.isErr()) return;
-    expect(buttonField.value.label()).toBe(buttonLabelResult.value);
-    expect(buttonField.value.color()).toBe(buttonColorResult.value);
-    expect(buttonField.value.maxCount()).toBe(buttonMaxResult.value);
-    expect(buttonField.value.resetCount()).toBe(buttonResetResult.value);
-    expect(buttonField.value.workflow()).toBe(buttonWorkflowResult.value);
+    buttonField._unsafeUnwrap();
+
+    expect(buttonField.value.label()).toBe(buttonLabelResult._unsafeUnwrap());
+    expect(buttonField.value.color()).toBe(buttonColorResult._unsafeUnwrap());
+    expect(buttonField.value.maxCount()).toBe(buttonMaxResult._unsafeUnwrap());
+    expect(buttonField.value.resetCount()).toBe(buttonResetResult._unsafeUnwrap());
+    expect(buttonField.value.workflow()).toBe(buttonWorkflowResult._unsafeUnwrap());
     const buttonAccept = buttonField.value.accept(visitor);
-    expect(buttonAccept.isOk()).toBe(true);
-    if (buttonAccept.isErr()) return;
+    buttonAccept._unsafeUnwrap();
+
     expect(buttonAccept.value).toBe('button');
 
-    const linkField = LinkField.create({ id, name, config: linkConfigResult.value });
-    expect(linkField.isOk()).toBe(true);
-    if (linkField.isErr()) return;
+    const linkField = LinkField.create({ id, name, config: linkConfigResult._unsafeUnwrap() });
+    linkField._unsafeUnwrap();
+
     expect(linkField.value.relationship().equals(LinkRelationship.manyOne())).toBe(true);
     expect(linkField.value.isMultipleValue()).toBe(false);
     const orderColumnResult = linkField.value.orderColumnName();
-    expect(orderColumnResult.isOk()).toBe(true);
-    if (orderColumnResult.isErr()) return;
-    expect(orderColumnResult.value).toBe('__fk_field_order');
+    orderColumnResult._unsafeUnwrap();
+
+    expect(orderColumnResult._unsafeUnwrap()).toBe('__fk_field_order');
     const linkAccept = linkField.value.accept(visitor);
-    expect(linkAccept.isOk()).toBe(true);
-    if (linkAccept.isErr()) return;
+    linkAccept._unsafeUnwrap();
+
     expect(linkAccept.value).toBe('link');
 
     const noopVisitor = new NoopFieldVisitor();
-    expect(buttonField.value.accept(noopVisitor).isOk()).toBe(true);
+    buttonField.value.accept(noopVisitor)._unsafeUnwrap();
   });
 });

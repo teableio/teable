@@ -24,47 +24,42 @@ describe('RenameTableHandler', () => {
       name: 'Original',
       fields: [{ type: 'singleLineText', name: 'Title' }],
     });
-    expect(createCommandResult.isOk()).toBe(true);
-    if (createCommandResult.isErr()) return;
+    createCommandResult._unsafeUnwrap();
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
 
     const createResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createCommandResult.value
+      createCommandResult._unsafeUnwrap()
     );
-    expect(createResult.isOk()).toBe(true);
-    if (createResult.isErr()) return;
+    createResult._unsafeUnwrap();
 
-    const tableId = createResult.value.table.id();
+    const tableId = createResult._unsafeUnwrap().table.id();
     const renameCommandResult = RenameTableCommand.create({
       baseId: baseId.toString(),
       tableId: tableId.toString(),
       name: 'Renamed',
     });
-    expect(renameCommandResult.isOk()).toBe(true);
-    if (renameCommandResult.isErr()) return;
+    renameCommandResult._unsafeUnwrap();
 
     const renameResult = await commandBus.execute<RenameTableCommand, RenameTableResult>(
       context,
-      renameCommandResult.value
+      renameCommandResult._unsafeUnwrap()
     );
-    expect(renameResult.isOk()).toBe(true);
-    if (renameResult.isErr()) return;
+    renameResult._unsafeUnwrap();
 
-    expect(renameResult.value.table.name().toString()).toBe('Renamed');
+    expect(renameResult._unsafeUnwrap().table.name().toString()).toBe('Renamed');
     expect(eventBus.events().some((event) => event instanceof TableRenamed)).toBe(true);
 
     const specResult = Table.specs(baseId).byId(tableId).build();
-    expect(specResult.isOk()).toBe(true);
-    if (specResult.isErr()) return;
+    specResult._unsafeUnwrap();
 
-    const savedResult = await tableRepository.findOne(context, specResult.value);
-    expect(savedResult.isOk()).toBe(true);
-    if (savedResult.isErr()) return;
-    expect(savedResult.value.name().toString()).toBe('Renamed');
+    const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
+    savedResult._unsafeUnwrap();
+
+    expect(savedResult._unsafeUnwrap().name().toString()).toBe('Renamed');
   });
 });

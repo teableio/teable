@@ -40,12 +40,8 @@ class MapResolver implements IHandlerResolver {
 }
 
 const createContext = (): IExecutionContext => {
-  const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) {
-    throw new Error('ActorId required for tests');
-  }
-  return { actorId: actorIdResult.value };
+  const actorId = ActorId.create('system')._unsafeUnwrap();
+  return { actorId };
 };
 
 describe('MemoryCommandBus', () => {
@@ -66,8 +62,8 @@ describe('MemoryCommandBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryCommandBus(resolver);
     const result = await bus.execute(createContext(), new PingCommand());
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value).toBe('pong');
   });
 
@@ -75,10 +71,8 @@ describe('MemoryCommandBus', () => {
     class MissingCommand {}
     const bus = new MemoryCommandBus(new MapResolver());
     const result = await bus.execute(createContext(), new MissingCommand());
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Missing command handler');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('Missing command handler');
   });
 
   it('handles handler exceptions and middleware errors', async () => {
@@ -104,17 +98,11 @@ describe('MemoryCommandBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryCommandBus(resolver);
     const handlerResult = await bus.execute(createContext(), new CrashCommand());
-    expect(handlerResult.isErr()).toBe(true);
-    if (handlerResult.isErr()) {
-      expect(handlerResult.error).toContain('boom');
-    }
+    expect(handlerResult._unsafeUnwrapErr()).toContain('boom');
 
     const busWithMiddleware = new MemoryCommandBus(resolver, [middleware]);
     const middlewareResult = await busWithMiddleware.execute(createContext(), new CrashCommand());
-    expect(middlewareResult.isErr()).toBe(true);
-    if (middlewareResult.isErr()) {
-      expect(middlewareResult.error).toContain('middleware');
-    }
+    expect(middlewareResult._unsafeUnwrapErr()).toContain('middleware');
   });
 });
 
@@ -136,8 +124,8 @@ describe('MemoryQueryBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryQueryBus(resolver);
     const result = await bus.execute(createContext(), new PingQuery());
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value).toBe('pong');
   });
 
@@ -145,10 +133,8 @@ describe('MemoryQueryBus', () => {
     class MissingQuery {}
     const bus = new MemoryQueryBus(new MapResolver());
     const result = await bus.execute(createContext(), new MissingQuery());
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Missing query handler');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('Missing query handler');
   });
 
   it('handles handler exceptions and middleware errors', async () => {
@@ -174,17 +160,11 @@ describe('MemoryQueryBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryQueryBus(resolver);
     const handlerResult = await bus.execute(createContext(), new CrashQuery());
-    expect(handlerResult.isErr()).toBe(true);
-    if (handlerResult.isErr()) {
-      expect(handlerResult.error).toContain('boom');
-    }
+    expect(handlerResult._unsafeUnwrapErr()).toContain('boom');
 
     const busWithMiddleware = new MemoryQueryBus(resolver, [middleware]);
     const middlewareResult = await busWithMiddleware.execute(createContext(), new CrashQuery());
-    expect(middlewareResult.isErr()).toBe(true);
-    if (middlewareResult.isErr()) {
-      expect(middlewareResult.error).toContain('middleware');
-    }
+    expect(middlewareResult._unsafeUnwrapErr()).toContain('middleware');
   });
 });
 
@@ -214,12 +194,12 @@ describe('MemoryEventBus', () => {
     const context = createContext();
     const event = new PingEvent();
     const publishResult = await bus.publish(context, event);
-    expect(publishResult.isOk()).toBe(true);
+    publishResult._unsafeUnwrap();
     expect(bus.events().length).toBe(1);
     expect(handled).toBe(1);
 
     const publishManyResult = await bus.publishMany(context, [event]);
-    expect(publishManyResult.isOk()).toBe(true);
+    publishManyResult._unsafeUnwrap();
     expect(bus.events().length).toBe(2);
   });
 
@@ -261,16 +241,10 @@ describe('MemoryEventBus', () => {
     const context = createContext();
 
     const failResult = await bus.publish(context, new FailingEvent());
-    expect(failResult.isErr()).toBe(true);
-    if (failResult.isErr()) {
-      expect(failResult.error).toBe('fail');
-    }
+    expect(failResult._unsafeUnwrapErr()).toBe('fail');
 
     const throwResult = await bus.publish(context, new ThrowingEvent());
-    expect(throwResult.isErr()).toBe(true);
-    if (throwResult.isErr()) {
-      expect(throwResult.error).toContain('boom');
-    }
+    expect(throwResult._unsafeUnwrapErr()).toContain('boom');
   });
 });
 
@@ -279,62 +253,53 @@ describe('MemoryTableRepository', () => {
     const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
     const tableNameResult = TableName.create('Memory');
     const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+    [baseIdResult, tableNameResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
+    tableResult._unsafeUnwrap();
 
     const repo = new MemoryTableRepository();
     const context = createContext();
-    const insertResult = await repo.insert(context, tableResult.value);
-    expect(insertResult.isOk()).toBe(true);
-    const duplicateResult = await repo.insert(context, tableResult.value);
-    expect(duplicateResult.isErr()).toBe(true);
+    const insertResult = await repo.insert(context, tableResult._unsafeUnwrap());
+    insertResult._unsafeUnwrap();
+    const duplicateResult = await repo.insert(context, tableResult._unsafeUnwrap());
+    duplicateResult._unsafeUnwrapErr();
 
     const findResult = await repo.findOne(context, {
-      isSatisfiedBy: (table) => table.id().equals(tableResult.value.id()),
+      isSatisfiedBy: (table) => table.id().equals(tableResult._unsafeUnwrap().id()),
       mutate: (table) => ok(table),
       accept: () => ok(undefined),
     });
-    expect(findResult.isOk()).toBe(true);
+    findResult._unsafeUnwrap();
 
     const missResult = await repo.findOne(context, {
       isSatisfiedBy: () => false,
       mutate: (table) => ok(table),
       accept: () => ok(undefined),
     });
-    expect(missResult.isErr()).toBe(true);
+    missResult._unsafeUnwrapErr();
   });
 
   it('sorts and paginates results', async () => {
-    const baseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
-    const tableNameA = TableName.create('Alpha');
-    const tableNameB = TableName.create('Beta');
-    const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameA, tableNameB, fieldNameResult].every((r) => r.isOk())).toBe(
-      true
-    );
-    if (baseIdResult.isErr() || tableNameA.isErr() || tableNameB.isErr() || fieldNameResult.isErr())
-      return;
+    const baseId = BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap();
+    const tableNameA = TableName.create('Alpha')._unsafeUnwrap();
+    const tableNameB = TableName.create('Beta')._unsafeUnwrap();
+    const fieldName = FieldName.create('Title')._unsafeUnwrap();
 
     const buildTable = (name: TableName) => {
-      const builder = Table.builder().withBaseId(baseIdResult.value).withName(name);
-      builder.field().singleLineText().withName(fieldNameResult.value).done();
+      const builder = Table.builder().withBaseId(baseId).withName(name);
+      builder.field().singleLineText().withName(fieldName).done();
       builder.view().defaultGrid().done();
-      const result = builder.build();
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return undefined;
-      return result.value;
+      return builder.build()._unsafeUnwrap();
     };
 
     const tableA = buildTable(tableNameA.value);
     const tableB = buildTable(tableNameB.value);
-    if (!tableA || !tableB) return;
 
     const repo = new MemoryTableRepository();
     const context = createContext();
@@ -342,15 +307,16 @@ describe('MemoryTableRepository', () => {
     await repo.insert(context, tableB);
 
     const sortResult = Sort.create([{ key: TableSortKey.name(), direction: SortDirection.desc() }]);
-    expect(sortResult.isOk()).toBe(true);
-    if (sortResult.isErr()) return;
+    sortResult._unsafeUnwrap();
 
     const limitResult = PageLimit.create(1);
     const offsetResult = PageOffset.create(1);
-    expect([limitResult, offsetResult].every((r) => r.isOk())).toBe(true);
-    if (limitResult.isErr() || offsetResult.isErr()) return;
+    [limitResult, offsetResult].forEach((r) => r._unsafeUnwrap());
 
-    const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
+    const pagination = OffsetPagination.create(
+      limitResult._unsafeUnwrap(),
+      offsetResult._unsafeUnwrap()
+    );
 
     const allSpec = {
       isSatisfiedBy: () => true,
@@ -359,13 +325,13 @@ describe('MemoryTableRepository', () => {
     };
 
     const sortedResult = await repo.find(context, allSpec, {
-      sort: sortResult.value,
+      sort: sortResult._unsafeUnwrap(),
       pagination,
     });
-    expect(sortedResult.isOk()).toBe(true);
-    if (sortedResult.isErr()) return;
-    expect(sortedResult.value.length).toBe(1);
-    expect(sortedResult.value[0]?.name().toString()).toBe('Alpha');
+    sortedResult._unsafeUnwrap();
+
+    expect(sortedResult._unsafeUnwrap().length).toBe(1);
+    expect(sortedResult._unsafeUnwrap()[0]?.name().toString()).toBe('Alpha');
 
     const bogusSortResult = Sort.create([
       {
@@ -373,12 +339,16 @@ describe('MemoryTableRepository', () => {
         direction: SortDirection.asc(),
       },
     ]);
-    expect(bogusSortResult.isOk()).toBe(true);
-    if (bogusSortResult.isErr()) return;
+    bogusSortResult._unsafeUnwrap();
 
-    const bogusResult = await repo.find(context, allSpec, { sort: bogusSortResult.value });
-    expect(bogusResult.isOk()).toBe(true);
-    if (bogusResult.isErr()) return;
-    expect(bogusResult.value.map((table) => table.name().toString())).toEqual(['Alpha', 'Beta']);
+    const bogusResult = await repo.find(context, allSpec, {
+      sort: bogusSortResult._unsafeUnwrap(),
+    });
+    bogusResult._unsafeUnwrap();
+
+    expect(bogusResult._unsafeUnwrap().map((table) => table.name().toString())).toEqual([
+      'Alpha',
+      'Beta',
+    ]);
   });
 });

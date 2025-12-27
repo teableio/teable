@@ -13,6 +13,7 @@ import {
   type ICreateTableFieldSpec,
   type ITableFieldInput,
   parseTableFieldSpec,
+  resolveTableFieldInputs,
   tableFieldInputSchema,
 } from './TableFieldSpecs';
 
@@ -166,11 +167,17 @@ export class CreateTableCommand {
 
     const primaryIndex = primaryIndexes[0] ?? 0;
 
-    const specs = fieldsToUse.map((field, index) =>
-      parseTableFieldSpec(field, { isPrimary: index === primaryIndex })
+    const fieldsWithPrimaryFlag = fieldsToUse.map((field, index) =>
+      index === primaryIndex && field.isPrimary !== true ? { ...field, isPrimary: true } : field
     );
 
-    return sequence(specs);
+    return resolveTableFieldInputs(fieldsWithPrimaryFlag, []).andThen((resolvedFields) => {
+      const specs = resolvedFields.map((field, index) =>
+        parseTableFieldSpec(field, { isPrimary: index === primaryIndex })
+      );
+
+      return sequence(specs);
+    });
   }
 
   private static parseViews(

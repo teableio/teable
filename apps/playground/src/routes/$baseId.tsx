@@ -225,7 +225,7 @@ function PlaygroundBaseLayout() {
 
   const handleCreateTemplate = (template: TableTemplateDefinition) => {
     createTableMutation.reset();
-    createTableMutation.mutate(template.createInput(baseId, `Playground Table ${Date.now()}`));
+    createTableMutation.mutate(template.createInput(baseId, template.name));
   };
 
   const handleDeleteTable = (table: ITableDto) => {

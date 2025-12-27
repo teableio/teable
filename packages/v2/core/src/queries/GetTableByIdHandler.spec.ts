@@ -13,44 +13,25 @@ import { GetTableByIdHandler } from './GetTableByIdHandler';
 import { GetTableByIdQuery } from './GetTableByIdQuery';
 
 const createContext = (): IExecutionContext => {
-  const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
-  return { actorId: actorIdResult.value };
+  const actorId = ActorId.create('system')._unsafeUnwrap();
+  return { actorId };
 };
 
 const buildTable = (baseIdSeed: string, tableIdSeed: string, name: string) => {
-  const baseIdResult = BaseId.create(`bse${baseIdSeed.repeat(16)}`);
-  const tableIdResult = TableId.create(`tbl${tableIdSeed.repeat(16)}`);
-  const tableNameResult = TableName.create(name);
-  const fieldNameResult = FieldName.create('Title');
-  expect(
-    [baseIdResult, tableIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())
-  ).toBe(true);
-  if (
-    baseIdResult.isErr() ||
-    tableIdResult.isErr() ||
-    tableNameResult.isErr() ||
-    fieldNameResult.isErr()
-  )
-    return undefined;
+  const baseId = BaseId.create(`bse${baseIdSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${tableIdSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create(name)._unsafeUnwrap();
+  const fieldName = FieldName.create('Title')._unsafeUnwrap();
 
-  const builder = Table.builder()
-    .withBaseId(baseIdResult.value)
-    .withId(tableIdResult.value)
-    .withName(tableNameResult.value);
-  builder.field().singleLineText().withName(fieldNameResult.value).done();
+  const builder = Table.builder().withBaseId(baseId).withId(tableId).withName(tableName);
+  builder.field().singleLineText().withName(fieldName).done();
   builder.view().defaultGrid().done();
-  const buildResult = builder.build();
-  expect(buildResult.isOk()).toBe(true);
-  if (buildResult.isErr()) return undefined;
-  return buildResult.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('GetTableByIdHandler', () => {
   it('returns tables from repository', async () => {
     const table = buildTable('a', 'a', 'Alpha');
-    if (!table) return;
 
     const repo = new MemoryTableRepository();
     await repo.insert(createContext(), table);
@@ -59,34 +40,26 @@ describe('GetTableByIdHandler', () => {
       baseId: table.baseId().toString(),
       tableId: table.id().toString(),
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
-
     const handler = new GetTableByIdHandler(repo, new NoopLogger());
-    const result = await handler.handle(createContext(), queryResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
-    expect(result.value.table.id().equals(table.id())).toBe(true);
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+    const payload = result._unsafeUnwrap();
+
+    expect(payload.table.id().equals(table.id())).toBe(true);
   });
 
   it('maps not found errors', async () => {
     const tableIdResult = TableId.create(`tbl${'b'.repeat(16)}`);
     const baseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
-    expect([tableIdResult, baseIdResult].every((r) => r.isOk())).toBe(true);
-    if (tableIdResult.isErr() || baseIdResult.isErr()) return;
+    const tableId = tableIdResult._unsafeUnwrap();
+    const baseId = baseIdResult._unsafeUnwrap();
 
     const queryResult = GetTableByIdQuery.create({
-      baseId: baseIdResult.value.toString(),
-      tableId: tableIdResult.value.toString(),
+      baseId: baseId.toString(),
+      tableId: tableId.toString(),
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
 
     const handler = new GetTableByIdHandler(new MemoryTableRepository(), new NoopLogger());
-    const result = await handler.handle(createContext(), queryResult.value);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBe('Table not found');
-    }
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+    expect(result._unsafeUnwrapErr()).toBe('Table not found');
   });
 });

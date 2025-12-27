@@ -25,30 +25,19 @@ import { RenameTableCommand } from './RenameTableCommand';
 import { RenameTableHandler } from './RenameTableHandler';
 
 const createContext = (): IExecutionContext => {
-  const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
-  return { actorId: actorIdResult.value };
+  const actorId = ActorId.create('system')._unsafeUnwrap();
+  return { actorId };
 };
 
 const buildTable = (baseIdSeed: string, name: string): Table => {
-  const baseIdResult = BaseId.create(`bse${baseIdSeed.repeat(16)}`);
-  const tableNameResult = TableName.create(name);
-  const fieldNameResult = FieldName.create('Title');
-  expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-  if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) {
-    throw new Error('Failed to build table');
-  }
+  const baseId = BaseId.create(`bse${baseIdSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create(name)._unsafeUnwrap();
+  const fieldName = FieldName.create('Title')._unsafeUnwrap();
 
-  const builder = TableAggregate.builder()
-    .withBaseId(baseIdResult.value)
-    .withName(tableNameResult.value);
-  builder.field().singleLineText().withName(fieldNameResult.value).done();
+  const builder = TableAggregate.builder().withBaseId(baseId).withName(tableName);
+  builder.field().singleLineText().withName(fieldName).done();
   builder.view().defaultGrid().done();
-  const buildResult = builder.build();
-  expect(buildResult.isOk()).toBe(true);
-  if (buildResult.isErr()) throw new Error('Failed to build table');
-  return buildResult.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 class FakeTableRepository implements ITableRepository {
@@ -88,12 +77,10 @@ class FakeTableRepository implements ITableRepository {
     this.tables = this.tables.map((current) => {
       if (!current.id().equals(targetTable.id())) return current;
       const mutateResult = mutateSpec.mutate(current);
-      if (mutateResult.isErr()) {
-        throw new Error(mutateResult.error);
-      }
+      const updatedTable = mutateResult._unsafeUnwrap();
       updated = true;
-      this.updated.push(mutateResult.value);
-      return mutateResult.value;
+      this.updated.push(updatedTable);
+      return updatedTable;
     });
     if (!updated) return err('Not found');
     return ok(undefined);
@@ -192,13 +179,11 @@ describe('RenameTableHandler', () => {
       tableId: table.id().toString(),
       name: 'New Name',
     });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const handler = new RenameTableHandler(flow, logger);
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
 
     expect(repo.updated).toHaveLength(1);
     expect(result.value.table.name().toString()).toBe('New Name');
@@ -224,13 +209,10 @@ describe('RenameTableHandler', () => {
       tableId: table.id().toString(),
       name: 'Renamed',
     });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBe('Table not found');
-    }
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toBe('Table not found');
   });
 });

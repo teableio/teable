@@ -23,13 +23,15 @@ const buildFormulaField = (
   const nameResult = FieldName.create(`Formula ${seed}`);
   const expressionResult = FormulaExpression.create('1');
 
-  expect([idResult, nameResult, expressionResult].every((r) => r.isOk())).toBe(true);
-  if (idResult.isErr() || nameResult.isErr() || expressionResult.isErr()) return;
+  [idResult, nameResult, expressionResult].forEach((r) => r._unsafeUnwrap());
+  idResult._unsafeUnwrap();
+  nameResult._unsafeUnwrap();
+  expressionResult._unsafeUnwrap();
 
   return FormulaField.create({
-    id: idResult.value,
-    name: nameResult.value,
-    expression: expressionResult.value,
+    id: idResult._unsafeUnwrap(),
+    name: nameResult._unsafeUnwrap(),
+    expression: expressionResult._unsafeUnwrap(),
     timeZone: TimeZone.default(),
     ...overrides,
   });
@@ -38,73 +40,71 @@ const buildFormulaField = (
 describe('FormulaField', () => {
   it('creates formula fields and manages result types', () => {
     const fieldResult = buildFormulaField('a');
-    expect(fieldResult?.isOk()).toBe(true);
-    if (!fieldResult || fieldResult.isErr()) return;
-    const field = fieldResult.value;
+    fieldResult?._unsafeUnwrap();
+
+    const field = fieldResult._unsafeUnwrap();
 
     expect(field.computed().toBoolean()).toBe(true);
-    expect(field.cellValueType().isErr()).toBe(true);
-    expect(field.isMultipleCellValue().isErr()).toBe(true);
+    field.cellValueType()._unsafeUnwrapErr();
+    field.isMultipleCellValue()._unsafeUnwrapErr();
 
     const setResult = field.setResultType(CellValueType.number(), CellValueMultiplicity.single());
-    expect(setResult.isOk()).toBe(true);
-    expect(field.cellValueType().isOk()).toBe(true);
-    expect(field.isMultipleCellValue().isOk()).toBe(true);
+    setResult._unsafeUnwrap();
+    field.cellValueType()._unsafeUnwrap();
+    field.isMultipleCellValue()._unsafeUnwrap();
 
     const sameResult = field.setResultType(CellValueType.number(), CellValueMultiplicity.single());
-    expect(sameResult.isOk()).toBe(true);
+    sameResult._unsafeUnwrap();
 
     const typeMismatch = field.setResultType(
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
-    expect(typeMismatch.isErr()).toBe(true);
+    typeMismatch._unsafeUnwrapErr();
 
     const multiplicityMismatch = field.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
-    expect(multiplicityMismatch.isErr()).toBe(true);
+    multiplicityMismatch._unsafeUnwrapErr();
 
     const sameExpression = field.setExpression(field.expression());
-    expect(sameExpression.isOk()).toBe(true);
+    sameExpression._unsafeUnwrap();
     const newExpression = FormulaExpression.create('2 + 2');
-    expect(newExpression.isOk()).toBe(true);
-    if (newExpression.isErr()) return;
+    newExpression._unsafeUnwrap();
+
     const updateExpression = field.setExpression(newExpression.value);
-    expect(updateExpression.isOk()).toBe(true);
+    updateExpression._unsafeUnwrap();
   });
 
   it('applies and validates formatting', () => {
     const unsetResult = buildFormulaField('b');
-    expect(unsetResult?.isOk()).toBe(true);
-    if (!unsetResult || unsetResult.isErr()) return;
-    const unsetField = unsetResult.value;
+    unsetResult?._unsafeUnwrap();
+
+    const unsetField = unsetResult._unsafeUnwrap();
     const unsetFormatting = unsetField.setFormatting(NumberFormatting.default());
-    expect(unsetFormatting.isErr()).toBe(true);
+    unsetFormatting._unsafeUnwrapErr();
 
     const fieldResult = buildFormulaField('c');
-    expect(fieldResult?.isOk()).toBe(true);
-    if (!fieldResult || fieldResult.isErr()) return;
-    const field = fieldResult.value;
-    expect(field.setResultType(CellValueType.number(), CellValueMultiplicity.single()).isOk()).toBe(
-      true
-    );
+    fieldResult?._unsafeUnwrap();
+
+    const field = fieldResult._unsafeUnwrap();
+    field.setResultType(CellValueType.number(), CellValueMultiplicity.single())._unsafeUnwrap();
 
     const setFormatting = field.setFormatting(NumberFormatting.default());
-    expect(setFormatting.isOk()).toBe(true);
+    setFormatting._unsafeUnwrap();
     const setFormattingAgain = field.setFormatting(NumberFormatting.default());
-    expect(setFormattingAgain.isErr()).toBe(true);
+    setFormattingAgain._unsafeUnwrapErr();
 
     const invalidFormattingField = buildFormulaField('d');
-    expect(invalidFormattingField?.isOk()).toBe(true);
-    if (!invalidFormattingField || invalidFormattingField.isErr()) return;
+    invalidFormattingField?._unsafeUnwrap();
+
     const invalidField = invalidFormattingField.value;
-    expect(
-      invalidField.setResultType(CellValueType.number(), CellValueMultiplicity.single()).isOk()
-    ).toBe(true);
+    invalidField
+      .setResultType(CellValueType.number(), CellValueMultiplicity.single())
+      ._unsafeUnwrap();
     const invalidFormatting = invalidField.setFormatting(DateTimeFormatting.default());
-    expect(invalidFormatting.isErr()).toBe(true);
+    invalidFormatting._unsafeUnwrapErr();
   });
 
   it('validates showAs and cell type combinations', () => {
@@ -119,93 +119,95 @@ describe('FormulaField', () => {
       color: 'blue',
     });
     const textShowAs = SingleLineTextShowAs.create({ type: 'email' });
-    expect([singleShowAs, multiShowAs, textShowAs].every((r) => r.isOk())).toBe(true);
-    if (singleShowAs.isErr() || multiShowAs.isErr() || textShowAs.isErr()) return;
+    [singleShowAs, multiShowAs, textShowAs].forEach((r) => r._unsafeUnwrap());
+    singleShowAs._unsafeUnwrap();
+    multiShowAs._unsafeUnwrap();
+    textShowAs._unsafeUnwrap();
 
     const singleShowAsField = buildFormulaField('e', { showAs: singleShowAs.value });
-    expect(singleShowAsField?.isOk()).toBe(true);
-    if (!singleShowAsField || singleShowAsField.isErr()) return;
+    singleShowAsField?._unsafeUnwrap();
+
     const singleResult = singleShowAsField.value.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
-    expect(singleResult.isErr()).toBe(true);
+    singleResult._unsafeUnwrapErr();
 
     const multiShowAsField = buildFormulaField('f', { showAs: multiShowAs.value });
-    expect(multiShowAsField?.isOk()).toBe(true);
-    if (!multiShowAsField || multiShowAsField.isErr()) return;
+    multiShowAsField?._unsafeUnwrap();
+
     const multiResult = multiShowAsField.value.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.single()
     );
-    expect(multiResult.isErr()).toBe(true);
+    multiResult._unsafeUnwrapErr();
 
     const okShowAsField = buildFormulaField('g', { showAs: multiShowAs.value });
-    expect(okShowAsField?.isOk()).toBe(true);
-    if (!okShowAsField || okShowAsField.isErr()) return;
+    okShowAsField?._unsafeUnwrap();
+
     const okResult = okShowAsField.value.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
-    expect(okResult.isOk()).toBe(true);
+    okResult._unsafeUnwrap();
 
     const stringWithNumberShowAs = buildFormulaField('h', { showAs: multiShowAs.value });
-    expect(stringWithNumberShowAs?.isOk()).toBe(true);
-    if (!stringWithNumberShowAs || stringWithNumberShowAs.isErr()) return;
+    stringWithNumberShowAs?._unsafeUnwrap();
+
     const stringShowAsError = stringWithNumberShowAs.value.setResultType(
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
-    expect(stringShowAsError.isErr()).toBe(true);
+    stringShowAsError._unsafeUnwrapErr();
 
     const stringWithTextShowAs = buildFormulaField('i', { showAs: textShowAs.value });
-    expect(stringWithTextShowAs?.isOk()).toBe(true);
-    if (!stringWithTextShowAs || stringWithTextShowAs.isErr()) return;
+    stringWithTextShowAs?._unsafeUnwrap();
+
     const stringShowAsOk = stringWithTextShowAs.value.setResultType(
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
-    expect(stringShowAsOk.isOk()).toBe(true);
+    stringShowAsOk._unsafeUnwrap();
 
     const dateTimeWithFormatting = buildFormulaField('j', {
       formatting: DateTimeFormatting.default(),
     });
-    expect(dateTimeWithFormatting?.isOk()).toBe(true);
-    if (!dateTimeWithFormatting || dateTimeWithFormatting.isErr()) return;
+    dateTimeWithFormatting?._unsafeUnwrap();
+
     const dateTimeOk = dateTimeWithFormatting.value.setResultType(
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
-    expect(dateTimeOk.isOk()).toBe(true);
+    dateTimeOk._unsafeUnwrap();
 
     const dateTimeWithShowAs = buildFormulaField('k', { showAs: textShowAs.value });
-    expect(dateTimeWithShowAs?.isOk()).toBe(true);
-    if (!dateTimeWithShowAs || dateTimeWithShowAs.isErr()) return;
+    dateTimeWithShowAs?._unsafeUnwrap();
+
     const dateTimeShowAsError = dateTimeWithShowAs.value.setResultType(
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
-    expect(dateTimeShowAsError.isErr()).toBe(true);
+    dateTimeShowAsError._unsafeUnwrapErr();
 
     const booleanWithFormatting = buildFormulaField('l', {
       formatting: NumberFormatting.default(),
     });
-    expect(booleanWithFormatting?.isOk()).toBe(true);
-    if (!booleanWithFormatting || booleanWithFormatting.isErr()) return;
+    booleanWithFormatting?._unsafeUnwrap();
+
     const booleanFormattingError = booleanWithFormatting.value.setResultType(
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
-    expect(booleanFormattingError.isErr()).toBe(true);
+    booleanFormattingError._unsafeUnwrapErr();
 
     const booleanOk = buildFormulaField('m');
-    expect(booleanOk?.isOk()).toBe(true);
-    if (!booleanOk || booleanOk.isErr()) return;
+    booleanOk?._unsafeUnwrap();
+
     const booleanResult = booleanOk.value.setResultType(
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
-    expect(booleanResult.isOk()).toBe(true);
+    booleanResult._unsafeUnwrap();
   });
 
   it('provides defaults and meta behavior', () => {
@@ -222,23 +224,22 @@ describe('FormulaField', () => {
     expect(stringDefaults.formatting).toBeUndefined();
 
     const metaResult = FormulaMeta.rehydrate({ persistedAsGeneratedColumn: true });
-    expect(metaResult.isOk()).toBe(true);
-    if (metaResult.isErr()) return;
+    metaResult._unsafeUnwrap();
 
-    const fieldWithMeta = buildFormulaField('n', { meta: metaResult.value });
-    expect(fieldWithMeta?.isOk()).toBe(true);
-    if (!fieldWithMeta || fieldWithMeta.isErr()) return;
+    const fieldWithMeta = buildFormulaField('n', { meta: metaResult._unsafeUnwrap() });
+    fieldWithMeta?._unsafeUnwrap();
+
     const persisted = fieldWithMeta.value.isPersistedAsGeneratedColumn();
-    expect(persisted.isOk()).toBe(true);
-    if (persisted.isErr()) return;
+    persisted._unsafeUnwrap();
+
     expect(persisted.value).toBe(true);
 
     const fieldWithoutMeta = buildFormulaField('o');
-    expect(fieldWithoutMeta?.isOk()).toBe(true);
-    if (!fieldWithoutMeta || fieldWithoutMeta.isErr()) return;
+    fieldWithoutMeta?._unsafeUnwrap();
+
     const notPersisted = fieldWithoutMeta.value.isPersistedAsGeneratedColumn();
-    expect(notPersisted.isOk()).toBe(true);
-    if (notPersisted.isErr()) return;
+    notPersisted._unsafeUnwrap();
+
     expect(notPersisted.value).toBe(false);
   });
 });

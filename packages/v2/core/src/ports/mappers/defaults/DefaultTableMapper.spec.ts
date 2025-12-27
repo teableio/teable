@@ -1,4 +1,3 @@
-import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../domain/base/BaseId';
@@ -56,17 +55,10 @@ import { DefaultTableMapper } from './DefaultTableMapper';
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 const createViewId = (seed: string) => ViewId.create(`viw${seed.repeat(16)}`);
 
-const unwrap = <T>(result: Result<T, string>): T => {
-  if (result.isErr()) {
-    throw new Error(result.error);
-  }
-  return result.value;
-};
-
 const buildTable = () => {
-  const baseId = unwrap(BaseId.create(`bse${'a'.repeat(16)}`));
-  const tableId = unwrap(TableId.create(`tbl${'a'.repeat(16)}`));
-  const name = unwrap(TableName.create('Mapper'));
+  const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap();
+  const name = TableName.create('Mapper')._unsafeUnwrap();
 
   const fieldIds = [
     createFieldId('a'),
@@ -106,7 +98,7 @@ const buildTable = () => {
     dueId,
     ownerId,
     actionId,
-  ] = fieldIds.map(unwrap);
+  ] = fieldIds.map((f) => f._unsafeUnwrap());
 
   const [
     titleName,
@@ -120,228 +112,195 @@ const buildTable = () => {
     dueName,
     ownerName,
     actionName,
-  ] = fieldNames.map(unwrap);
+  ] = fieldNames.map((f) => f._unsafeUnwrap());
 
-  const showAs = unwrap(SingleLineTextShowAs.create({ type: 'email' }));
-  const textDefault = unwrap(TextDefaultValue.create('hello'));
-  const formatting = unwrap(
-    NumberFormatting.create({
-      type: 'currency',
-      precision: 2,
-      symbol: '$',
-    })
-  );
-  const numberDefault = unwrap(NumberDefaultValue.create(10));
-  const ratingMax = unwrap(RatingMax.create(5));
-  const ratingIcon = unwrap(RatingIcon.create('star'));
-  const ratingColor = unwrap(RatingColor.create('yellowBright'));
-  const optionTodo = unwrap(SelectOption.create({ name: 'Todo', color: 'blue' }));
-  const optionDone = unwrap(SelectOption.create({ name: 'Done', color: 'green' }));
-  const selectDefault = unwrap(SelectDefaultValue.create('Todo'));
+  const showAs = SingleLineTextShowAs.create({ type: 'email' })._unsafeUnwrap();
+  const textDefault = TextDefaultValue.create('hello')._unsafeUnwrap();
+  const formatting = NumberFormatting.create({
+    type: 'currency',
+    precision: 2,
+    symbol: '$',
+  })._unsafeUnwrap();
+  const numberDefault = NumberDefaultValue.create(10)._unsafeUnwrap();
+  const ratingMax = RatingMax.create(5)._unsafeUnwrap();
+  const ratingIcon = RatingIcon.create('star')._unsafeUnwrap();
+  const ratingColor = RatingColor.create('yellowBright')._unsafeUnwrap();
+  const optionTodo = SelectOption.create({ name: 'Todo', color: 'blue' })._unsafeUnwrap();
+  const optionDone = SelectOption.create({ name: 'Done', color: 'green' })._unsafeUnwrap();
+  const selectDefault = SelectDefaultValue.create('Todo')._unsafeUnwrap();
   const selectPrevent = SelectAutoNewOptions.prevent();
-  const dateFormatting = unwrap(
-    DateTimeFormatting.create({
-      date: 'YYYY-MM-DD',
-      time: 'HH:mm',
-      timeZone: 'utc',
-    })
-  );
-  const dateDefault = unwrap(DateDefaultValue.create('now'));
-  const userMultiplicity = unwrap(UserMultiplicity.create(true));
-  const userNotification = unwrap(UserNotification.create(false));
-  const userDefault = unwrap(UserDefaultValue.create(['me']));
-  const buttonLabel = unwrap(ButtonLabel.create('Run'));
-  const buttonColor = unwrap(FieldColor.create('teal'));
-  const buttonMax = unwrap(ButtonMaxCount.create(3));
-  const buttonReset = unwrap(ButtonResetCount.create(true));
-  const buttonWorkflow = unwrap(
-    ButtonWorkflow.create({
-      id: `wfl${'a'.repeat(16)}`,
-      name: 'Deploy',
-      isActive: true,
-    })
-  );
+  const dateFormatting = DateTimeFormatting.create({
+    date: 'YYYY-MM-DD',
+    time: 'HH:mm',
+    timeZone: 'utc',
+  })._unsafeUnwrap();
+  const dateDefault = DateDefaultValue.create('now')._unsafeUnwrap();
+  const userMultiplicity = UserMultiplicity.create(true)._unsafeUnwrap();
+  const userNotification = UserNotification.create(false)._unsafeUnwrap();
+  const userDefault = UserDefaultValue.create(['me'])._unsafeUnwrap();
+  const buttonLabel = ButtonLabel.create('Run')._unsafeUnwrap();
+  const buttonColor = FieldColor.create('teal')._unsafeUnwrap();
+  const buttonMax = ButtonMaxCount.create(3)._unsafeUnwrap();
+  const buttonReset = ButtonResetCount.create(true)._unsafeUnwrap();
+  const buttonWorkflow = ButtonWorkflow.create({
+    id: `wfl${'a'.repeat(16)}`,
+    name: 'Deploy',
+    isActive: true,
+  })._unsafeUnwrap();
 
   const fields = [
-    unwrap(
-      SingleLineTextField.create({
-        id: titleId,
-        name: titleName,
-        showAs,
-      })
-    ),
-    unwrap(
-      LongTextField.create({
-        id: descriptionId,
-        name: descriptionName,
-        defaultValue: textDefault,
-      })
-    ),
-    unwrap(
-      NumberField.create({
-        id: amountId,
-        name: amountName,
-        formatting,
-        defaultValue: numberDefault,
-      })
-    ),
-    unwrap(
-      RatingField.create({
-        id: ratingId,
-        name: ratingName,
-        max: ratingMax,
-        icon: ratingIcon,
-        color: ratingColor,
-      })
-    ),
-    unwrap(
-      SingleSelectField.create({
-        id: statusId,
-        name: statusName,
-        options: [optionTodo, optionDone],
-        defaultValue: selectDefault,
-      })
-    ),
-    unwrap(
-      MultipleSelectField.create({
-        id: tagsId,
-        name: tagsName,
-        options: [optionTodo, optionDone],
-        preventAutoNewOptions: selectPrevent,
-      })
-    ),
-    unwrap(CheckboxField.create({ id: doneId, name: doneName })),
-    unwrap(AttachmentField.create({ id: filesId, name: filesName })),
-    unwrap(
-      DateField.create({
-        id: dueId,
-        name: dueName,
-        formatting: dateFormatting,
-        defaultValue: dateDefault,
-      })
-    ),
-    unwrap(
-      UserField.create({
-        id: ownerId,
-        name: ownerName,
-        isMultiple: userMultiplicity,
-        shouldNotify: userNotification,
-        defaultValue: userDefault,
-      })
-    ),
-    unwrap(
-      ButtonField.create({
-        id: actionId,
-        name: actionName,
-        label: buttonLabel,
-        color: buttonColor,
-        maxCount: buttonMax,
-        resetCount: buttonReset,
-        workflow: buttonWorkflow,
-      })
-    ),
+    SingleLineTextField.create({
+      id: titleId,
+      name: titleName,
+      showAs,
+    })._unsafeUnwrap(),
+
+    LongTextField.create({
+      id: descriptionId,
+      name: descriptionName,
+      defaultValue: textDefault,
+    })._unsafeUnwrap(),
+
+    NumberField.create({
+      id: amountId,
+      name: amountName,
+      formatting,
+      defaultValue: numberDefault,
+    })._unsafeUnwrap(),
+
+    RatingField.create({
+      id: ratingId,
+      name: ratingName,
+      max: ratingMax,
+      icon: ratingIcon,
+      color: ratingColor,
+    })._unsafeUnwrap(),
+
+    SingleSelectField.create({
+      id: statusId,
+      name: statusName,
+      options: [optionTodo, optionDone],
+      defaultValue: selectDefault,
+    })._unsafeUnwrap(),
+
+    MultipleSelectField.create({
+      id: tagsId,
+      name: tagsName,
+      options: [optionTodo, optionDone],
+      preventAutoNewOptions: selectPrevent,
+    })._unsafeUnwrap(),
+    CheckboxField.create({ id: doneId, name: doneName })._unsafeUnwrap(),
+    AttachmentField.create({ id: filesId, name: filesName })._unsafeUnwrap(),
+
+    DateField.create({
+      id: dueId,
+      name: dueName,
+      formatting: dateFormatting,
+      defaultValue: dateDefault,
+    })._unsafeUnwrap(),
+
+    UserField.create({
+      id: ownerId,
+      name: ownerName,
+      isMultiple: userMultiplicity,
+      shouldNotify: userNotification,
+      defaultValue: userDefault,
+    })._unsafeUnwrap(),
+
+    ButtonField.create({
+      id: actionId,
+      name: actionName,
+      label: buttonLabel,
+      color: buttonColor,
+      maxCount: buttonMax,
+      resetCount: buttonReset,
+      workflow: buttonWorkflow,
+    })._unsafeUnwrap(),
   ];
 
   const views = [
-    unwrap(
-      GridView.create({
-        id: unwrap(createViewId('a')),
-        name: unwrap(ViewName.create('Grid')),
-      })
-    ),
-    unwrap(
-      KanbanView.create({
-        id: unwrap(createViewId('b')),
-        name: unwrap(ViewName.create('Kanban')),
-      })
-    ),
-    unwrap(
-      GalleryView.create({
-        id: unwrap(createViewId('c')),
-        name: unwrap(ViewName.create('Gallery')),
-      })
-    ),
-    unwrap(
-      CalendarView.create({
-        id: unwrap(createViewId('d')),
-        name: unwrap(ViewName.create('Calendar')),
-      })
-    ),
-    unwrap(
-      FormView.create({
-        id: unwrap(createViewId('e')),
-        name: unwrap(ViewName.create('Form')),
-      })
-    ),
-    unwrap(
-      PluginView.create({
-        id: unwrap(createViewId('f')),
-        name: unwrap(ViewName.create('Plugin')),
-      })
-    ),
+    GridView.create({
+      id: createViewId('a')._unsafeUnwrap(),
+      name: ViewName.create('Grid')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
+
+    KanbanView.create({
+      id: createViewId('b')._unsafeUnwrap(),
+      name: ViewName.create('Kanban')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
+
+    GalleryView.create({
+      id: createViewId('c')._unsafeUnwrap(),
+      name: ViewName.create('Gallery')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
+
+    CalendarView.create({
+      id: createViewId('d')._unsafeUnwrap(),
+      name: ViewName.create('Calendar')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
+
+    FormView.create({
+      id: createViewId('e')._unsafeUnwrap(),
+      name: ViewName.create('Form')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
+
+    PluginView.create({
+      id: createViewId('f')._unsafeUnwrap(),
+      name: ViewName.create('Plugin')._unsafeUnwrap(),
+    })._unsafeUnwrap(),
   ];
 
   views.forEach((view) => {
-    const columnMeta = unwrap(
-      ViewColumnMeta.forView({
-        viewType: view.type(),
-        fields,
-        primaryFieldId: titleId,
-      })
-    );
-    unwrap(view.setColumnMeta(columnMeta));
+    const columnMeta = ViewColumnMeta.forView({
+      viewType: view.type(),
+      fields,
+      primaryFieldId: titleId,
+    })._unsafeUnwrap();
+    view.setColumnMeta(columnMeta)._unsafeUnwrap();
   });
 
-  return unwrap(
-    Table.rehydrate({
-      id: tableId,
-      baseId,
-      name,
-      fields,
-      views,
-      primaryFieldId: titleId,
-    })
-  );
+  return Table.rehydrate({
+    id: tableId,
+    baseId,
+    name,
+    fields,
+    views,
+    primaryFieldId: titleId,
+  })._unsafeUnwrap();
 };
 
 const buildFormulaTable = () => {
-  const baseId = unwrap(BaseId.create(`bse${'f'.repeat(16)}`));
-  const tableId = unwrap(TableId.create(`tbl${'f'.repeat(16)}`));
-  const name = unwrap(TableName.create('Formula'));
-  const fieldId = unwrap(FieldId.create(`fld${'f'.repeat(16)}`));
-  const fieldName = unwrap(FieldName.create('Total'));
-  const expression = unwrap(FormulaExpression.create('1'));
-  const field = unwrap(
-    FormulaField.create({
-      id: fieldId,
-      name: fieldName,
-      expression,
-    })
-  );
-  unwrap(field.setResultType(CellValueType.number(), CellValueMultiplicity.single()));
+  const baseId = BaseId.create(`bse${'f'.repeat(16)}`)._unsafeUnwrap();
+  const tableId = TableId.create(`tbl${'f'.repeat(16)}`)._unsafeUnwrap();
+  const name = TableName.create('Formula')._unsafeUnwrap();
+  const fieldId = FieldId.create(`fld${'f'.repeat(16)}`)._unsafeUnwrap();
+  const fieldName = FieldName.create('Total')._unsafeUnwrap();
+  const expression = FormulaExpression.create('1')._unsafeUnwrap();
+  const field = FormulaField.create({
+    id: fieldId,
+    name: fieldName,
+    expression,
+  })._unsafeUnwrap();
+  field.setResultType(CellValueType.number(), CellValueMultiplicity.single())._unsafeUnwrap();
 
-  const viewId = unwrap(ViewId.create(`viw${'f'.repeat(16)}`));
-  const viewName = unwrap(ViewName.create('Grid'));
-  const view = unwrap(GridView.create({ id: viewId, name: viewName }));
-  const columnMeta = unwrap(
-    ViewColumnMeta.forView({
-      viewType: view.type(),
-      fields: [field],
-      primaryFieldId: fieldId,
-    })
-  );
-  unwrap(view.setColumnMeta(columnMeta));
+  const viewId = ViewId.create(`viw${'f'.repeat(16)}`)._unsafeUnwrap();
+  const viewName = ViewName.create('Grid')._unsafeUnwrap();
+  const view = GridView.create({ id: viewId, name: viewName })._unsafeUnwrap();
+  const columnMeta = ViewColumnMeta.forView({
+    viewType: view.type(),
+    fields: [field],
+    primaryFieldId: fieldId,
+  })._unsafeUnwrap();
+  view.setColumnMeta(columnMeta)._unsafeUnwrap();
 
-  return unwrap(
-    Table.rehydrate({
-      id: tableId,
-      baseId,
-      name,
-      fields: [field],
-      views: [view],
-      primaryFieldId: fieldId,
-    })
-  );
+  return Table.rehydrate({
+    id: tableId,
+    baseId,
+    name,
+    fields: [field],
+    views: [view],
+    primaryFieldId: fieldId,
+  })._unsafeUnwrap();
 };
 
 describe('DefaultTableMapper', () => {
@@ -351,27 +310,26 @@ describe('DefaultTableMapper', () => {
 
     const mapper = new DefaultTableMapper();
     const dtoResult = mapper.toDTO(table);
-    expect(dtoResult.isOk()).toBe(true);
-    if (dtoResult.isErr()) return;
+    dtoResult._unsafeUnwrap();
 
-    const dto = { ...dtoResult.value };
+    const dto = { ...dtoResult._unsafeUnwrap() };
     dto.dbTableName = 'db_table';
     dto.fields = dto.fields.map((field, index) =>
       index === 0 ? { ...field, dbFieldName: 'db_field' } : field
     );
 
     const domainResult = mapper.toDomain(dto);
-    expect(domainResult.isOk()).toBe(true);
-    if (domainResult.isErr()) return;
-    const mapped = domainResult.value;
+    domainResult._unsafeUnwrap();
+
+    const mapped = domainResult._unsafeUnwrap();
     expect(mapped.baseId().equals(table.baseId())).toBe(true);
     expect(mapped.name().equals(table.name())).toBe(true);
     expect(mapped.fields().length).toBe(table.fields().length);
     expect(mapped.views().length).toBe(table.views().length);
-    expect(mapped.dbTableName().isOk()).toBe(true);
+    mapped.dbTableName()._unsafeUnwrap();
 
     const fieldDbNameResult = mapped.fields()[0]?.dbFieldName();
-    expect(fieldDbNameResult?.isOk()).toBe(true);
+    fieldDbNameResult?._unsafeUnwrap();
   });
 
   it('marks formula fields as computed in persistence dto', () => {
@@ -379,10 +337,9 @@ describe('DefaultTableMapper', () => {
 
     const mapper = new DefaultTableMapper();
     const dtoResult = mapper.toDTO(table);
-    expect(dtoResult.isOk()).toBe(true);
-    if (dtoResult.isErr()) return;
+    dtoResult._unsafeUnwrap();
 
-    const formulaField = dtoResult.value.fields[0];
+    const formulaField = dtoResult._unsafeUnwrap().fields[0];
     expect(formulaField?.type).toBe('formula');
     expect(formulaField?.isComputed).toBe(true);
   });

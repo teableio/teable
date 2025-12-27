@@ -14,6 +14,7 @@ import {
   FieldName,
   type FormulaField,
   FormulaExpression,
+  RollupExpression,
   CellValueMultiplicity,
   CellValueType,
   LinkFieldConfig,
@@ -54,12 +55,14 @@ import {
   createPluginView,
   createRatingField,
   createFormulaField,
+  createRollupFieldPending,
   createSingleLineTextField,
   createSingleSelectField,
   createUserField,
   type Field,
   type View,
   TimeZone,
+  RollupFieldConfig,
 } from '@teable/v2-core';
 
 import { err, ok, type Result } from 'neverthrow';
@@ -174,6 +177,28 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
                         dto.cellValueType,
                         dto.isMultipleCellValue
                       ).map(() => field)
+                    )
+                  )
+                )
+              )
+            );
+          }
+          case 'rollup': {
+            const options = dto.options;
+            return RollupExpression.create(options.expression).andThen((expression) =>
+              RollupFieldConfig.create(dto.config).andThen((config) =>
+                optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                      createRollupFieldPending({
+                        id,
+                        name,
+                        config,
+                        expression,
+                        timeZone,
+                        formatting,
+                        showAs,
+                      })
                     )
                   )
                 )

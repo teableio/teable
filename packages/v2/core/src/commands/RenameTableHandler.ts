@@ -5,9 +5,10 @@ import type { Result } from 'neverthrow';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
-import type { IExecutionContext } from '../ports/ExecutionContext';
+import { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import { v2CoreTokens } from '../ports/tokens';
+import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { RenameTableCommand } from './RenameTableCommand';
 
@@ -32,6 +33,7 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
     private readonly logger: LoggerPort.ILogger
   ) {}
 
+  @TraceSpan()
   async handle(
     context: IExecutionContext,
     command: RenameTableCommand

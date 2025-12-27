@@ -18,13 +18,14 @@ import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
+import type { RollupField } from '../types/RollupField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 import type { IFieldVisitor } from './IFieldVisitor';
 
 export type FieldCreationSideEffect = {
-  foreignTableId: TableId;
+  foreignTable: Table;
   mutateSpec: ISpecification<Table, ITableSpecVisitor>;
 };
 
@@ -38,7 +39,7 @@ export type FieldCreationSideEffectContext = {
 export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreationSideEffects> {
   private constructor(
     private readonly table: Table,
-    private readonly foreignTablesById: ReadonlyMap<string, ForeignTable>
+    private readonly foreignTablesById: ReadonlyMap<string, Table>
   ) {}
 
   static collect(
@@ -54,9 +55,9 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
   }
 
   static create(context: FieldCreationSideEffectContext): FieldCreationSideEffectVisitor {
-    const foreignTablesById = new Map<string, ForeignTable>();
+    const foreignTablesById = new Map<string, Table>();
     for (const table of context.foreignTables) {
-      foreignTablesById.set(table.id().toString(), ForeignTable.from(table));
+      foreignTablesById.set(table.id().toString(), table);
     }
     return new FieldCreationSideEffectVisitor(context.table, foreignTablesById);
   }
@@ -78,6 +79,10 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
   }
 
   visitFormulaField(_: FormulaField): Result<FieldCreationSideEffects, string> {
+    return ok([]);
+  }
+
+  visitRollupField(_: RollupField): Result<FieldCreationSideEffects, string> {
     return ok([]);
   }
 
@@ -117,16 +122,16 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
     const foreignTable = foreignTableResult.value;
 
     return field
-      .buildSymmetricField({ foreignTable, hostTable: this.table })
+      .buildSymmetricField({ foreignTable: ForeignTable.from(foreignTable), hostTable: this.table })
       .map((symmetricField) => [
         {
-          foreignTableId: field.foreignTableId(),
+          foreignTable,
           mutateSpec: TableAddFieldSpec.create(symmetricField),
         },
       ]);
   }
 
-  private foreignTable(tableId: TableId): Result<ForeignTable, string> {
+  private foreignTable(tableId: TableId): Result<Table, string> {
     const table = this.foreignTablesById.get(tableId.toString());
     if (!table) return err('Foreign table not loaded');
     return ok(table);

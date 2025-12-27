@@ -9,7 +9,7 @@ describe('DateTimeFormatting', () => {
       time: TimeFormatting.Hour24,
       timeZone: 'utc',
     });
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
   });
 
   it('rejects invalid time zone', () => {
@@ -18,7 +18,7 @@ describe('DateTimeFormatting', () => {
       time: TimeFormatting.Hour12,
       timeZone: 'invalid/zone',
     });
-    expect(result.isErr()).toBe(true);
+    result._unsafeUnwrapErr();
   });
 
   it('supports defaults and dto mapping', () => {
@@ -33,8 +33,8 @@ describe('DateTimeFormatting', () => {
       time: TimeFormatting.Hour24,
       timeZone: 'utc',
     });
-    expect(custom.isOk()).toBe(true);
-    if (custom.isErr()) return;
+    custom._unsafeUnwrap();
+
     expect(custom.value.equals(custom.value)).toBe(true);
     expect(custom.value.toDto()).toEqual({
       date: 'YYYY/MM/DD',

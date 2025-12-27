@@ -100,6 +100,19 @@ export type IFormulaFieldMetaDTO = {
   persistedAsGeneratedColumn?: boolean;
 };
 
+export type IRollupFieldOptionsDTO = {
+  expression: string;
+  timeZone?: string;
+  formatting?: IFormulaFieldFormattingDTO;
+  showAs?: IFormulaFieldShowAsDTO;
+};
+
+export type IRollupFieldConfigDTO = {
+  linkFieldId: string;
+  foreignTableId: string;
+  lookupFieldId: string;
+};
+
 export type ILinkFieldOptionsDTO = {
   baseId?: string;
   relationship: 'oneOne' | 'manyMany' | 'oneMany' | 'manyOne';
@@ -137,6 +150,13 @@ export type ITableFieldPersistenceDTO =
       type: 'formula';
       options: IFormulaFieldOptionsDTO;
       meta?: IFormulaFieldMetaDTO;
+      cellValueType?: string;
+      isMultipleCellValue?: boolean;
+    })
+  | (ITableFieldBaseDTO & {
+      type: 'rollup';
+      options: IRollupFieldOptionsDTO;
+      config?: IRollupFieldConfigDTO;
       cellValueType?: string;
       isMultipleCellValue?: boolean;
     })

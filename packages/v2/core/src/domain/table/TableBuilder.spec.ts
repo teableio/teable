@@ -4,9 +4,13 @@ import { BaseId } from '../base/BaseId';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FormulaExpression } from './fields/types/FormulaExpression';
+import type { FormulaField } from './fields/types/FormulaField';
 import type { LinkField } from './fields/types/LinkField';
 import { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { RatingMax } from './fields/types/RatingMax';
+import { RollupExpression } from './fields/types/RollupExpression';
+import type { RollupField } from './fields/types/RollupField';
+import { RollupFieldConfig } from './fields/types/RollupFieldConfig';
 import { SelectOption } from './fields/types/SelectOption';
 import { Table } from './Table';
 import { TableId } from './TableId';
@@ -21,47 +25,52 @@ describe('TableBuilder', () => {
   it('builds a table with fields and a view', () => {
     const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
     const tableNameResult = TableName.create('My Table');
-    expect([baseIdResult, tableNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr()) return;
+    [baseIdResult, tableNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
 
     const titleNameResult = FieldName.create('Title');
     const amountNameResult = FieldName.create('Amount');
     const starsNameResult = FieldName.create('Stars');
     const statusNameResult = FieldName.create('Status');
-    expect(
-      [titleNameResult, amountNameResult, starsNameResult, statusNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      titleNameResult.isErr() ||
-      amountNameResult.isErr() ||
-      starsNameResult.isErr() ||
-      statusNameResult.isErr()
-    )
-      return;
+    [titleNameResult, amountNameResult, starsNameResult, statusNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    titleNameResult._unsafeUnwrap();
+    amountNameResult._unsafeUnwrap();
+    starsNameResult._unsafeUnwrap();
+    statusNameResult._unsafeUnwrap();
 
     const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
     const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
-    expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-    if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
+    [todoOptionResult, doneOptionResult].forEach((r) => r._unsafeUnwrap());
+    todoOptionResult._unsafeUnwrap();
+    doneOptionResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(titleNameResult.value).done();
-    builder.field().number().withName(amountNameResult.value).done();
-    builder.field().rating().withName(starsNameResult.value).withMax(RatingMax.five()).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
+    builder.field().number().withName(amountNameResult._unsafeUnwrap()).done();
+    builder
+      .field()
+      .rating()
+      .withName(starsNameResult._unsafeUnwrap())
+      .withMax(RatingMax.five())
+      .done();
     builder
       .field()
       .singleSelect()
-      .withName(statusNameResult.value)
-      .withOptions([todoOptionResult.value, doneOptionResult.value])
+      .withName(statusNameResult._unsafeUnwrap())
+      .withOptions([todoOptionResult._unsafeUnwrap(), doneOptionResult._unsafeUnwrap()])
       .done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
 
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     expect(table.fields().length).toBe(4);
     expect(table.views().length).toBe(1);
     expect(table.views()[0]?.type().toString()).toBe('grid');
@@ -71,8 +80,9 @@ describe('TableBuilder', () => {
   it('builds a table with all base field types', () => {
     const baseIdResult = BaseId.create(`bse${'f'.repeat(16)}`);
     const tableNameResult = TableName.create('All Fields');
-    expect([baseIdResult, tableNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr()) return;
+    [baseIdResult, tableNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
 
     const namesResult = [
       FieldName.create('Title'),
@@ -87,8 +97,8 @@ describe('TableBuilder', () => {
       FieldName.create('Owner'),
       FieldName.create('Action'),
     ];
-    expect(namesResult.every((r) => r.isOk())).toBe(true);
-    if (namesResult.some((r) => r.isErr())) return;
+    namesResult.forEach((r) => r._unsafeUnwrap());
+    namesResult.forEach((r) => r._unsafeUnwrap());
 
     const [
       titleName,
@@ -106,13 +116,16 @@ describe('TableBuilder', () => {
 
     const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
     const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
-    expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-    if (todoOptionResult.isErr() || doneOptionResult.isErr()) return;
+    [todoOptionResult, doneOptionResult].forEach((r) => r._unsafeUnwrap());
+    todoOptionResult._unsafeUnwrap();
+    doneOptionResult._unsafeUnwrap();
 
-    const todoOption = todoOptionResult.value;
-    const doneOption = doneOptionResult.value;
+    const todoOption = todoOptionResult._unsafeUnwrap();
+    const doneOption = doneOptionResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
     builder.field().singleLineText().withName(titleName).done();
     builder.field().longText().withName(descriptionName).done();
     builder.field().number().withName(amountName).done();
@@ -137,10 +150,9 @@ describe('TableBuilder', () => {
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     expect(table.fields().map((f) => f.type().toString())).toEqual([
       'singleLineText',
       'longText',
@@ -160,11 +172,15 @@ describe('TableBuilder', () => {
     const baseIdResult = BaseId.create(`bse${'b'.repeat(16)}`);
     const tableNameResult = TableName.create('My Table');
     const titleNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameResult, titleNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || titleNameResult.isErr()) return;
+    [baseIdResult, tableNameResult, titleNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    titleNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(titleNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
     builder.view().kanban().defaultName().done();
     builder.view().calendar().defaultName().done();
@@ -173,17 +189,14 @@ describe('TableBuilder', () => {
     builder.view().plugin().defaultName().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    expect(buildResult.value.views().map((v) => v.type().toString())).toEqual([
-      'grid',
-      'kanban',
-      'calendar',
-      'gallery',
-      'form',
-      'plugin',
-    ]);
+    expect(
+      buildResult
+        ._unsafeUnwrap()
+        .views()
+        .map((v) => v.type().toString())
+    ).toEqual(['grid', 'kanban', 'calendar', 'gallery', 'form', 'plugin']);
   });
 
   it('builds link fields for all relationships with self references', () => {
@@ -205,31 +218,19 @@ describe('TableBuilder', () => {
       createFieldId('m'),
     ];
 
-    expect(
-      [
-        baseIdResult,
-        tableIdResult,
-        tableNameResult,
-        primaryNameResult,
-        primaryFieldIdResult,
-        ...linkNamesResult,
-        ...linkFieldIdsResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      primaryNameResult.isErr() ||
-      primaryFieldIdResult.isErr() ||
-      linkNamesResult.some((r) => r.isErr()) ||
-      linkFieldIdsResult.some((r) => r.isErr())
-    )
-      return;
+    [
+      baseIdResult,
+      tableIdResult,
+      tableNameResult,
+      primaryNameResult,
+      primaryFieldIdResult,
+      ...linkNamesResult,
+      ...linkFieldIdsResult,
+    ].forEach((r) => r._unsafeUnwrap());
 
-    const baseId = baseIdResult.value;
-    const tableId = tableIdResult.value;
-    const primaryFieldId = primaryFieldIdResult.value;
+    const baseId = baseIdResult._unsafeUnwrap();
+    const tableId = tableIdResult._unsafeUnwrap();
+    const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
     const [oneOneName, manyManyName, oneManyName, manyOneName] = linkNamesResult.map((r) =>
       r._unsafeUnwrap()
     );
@@ -240,12 +241,12 @@ describe('TableBuilder', () => {
     const builder = Table.builder()
       .withId(tableId)
       .withBaseId(baseId)
-      .withName(tableNameResult.value);
+      .withName(tableNameResult._unsafeUnwrap());
     builder
       .field()
       .singleLineText()
       .withId(primaryFieldId)
-      .withName(primaryNameResult.value)
+      .withName(primaryNameResult._unsafeUnwrap())
       .primary()
       .done();
 
@@ -260,52 +261,41 @@ describe('TableBuilder', () => {
     const manyManyConfig = buildConfig('manyMany');
     const oneManyConfig = buildConfig('oneMany');
     const manyOneConfig = buildConfig('manyOne');
-    expect(
-      [oneOneConfig, manyManyConfig, oneManyConfig, manyOneConfig].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      oneOneConfig.isErr() ||
-      manyManyConfig.isErr() ||
-      oneManyConfig.isErr() ||
-      manyOneConfig.isErr()
-    )
-      return;
 
     builder
       .field()
       .link()
       .withId(oneOneId)
       .withName(oneOneName)
-      .withConfig(oneOneConfig.value)
+      .withConfig(oneOneConfig._unsafeUnwrap())
       .done();
     builder
       .field()
       .link()
       .withId(manyManyId)
       .withName(manyManyName)
-      .withConfig(manyManyConfig.value)
+      .withConfig(manyManyConfig._unsafeUnwrap())
       .done();
     builder
       .field()
       .link()
       .withId(oneManyId)
       .withName(oneManyName)
-      .withConfig(oneManyConfig.value)
+      .withConfig(oneManyConfig._unsafeUnwrap())
       .done();
     builder
       .field()
       .link()
       .withId(manyOneId)
       .withName(manyOneName)
-      .withConfig(manyOneConfig.value)
+      .withConfig(manyOneConfig._unsafeUnwrap())
       .done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     const linkFields = table.fields().filter((f) => f.type().toString() === 'link') as LinkField[];
     expect(linkFields).toHaveLength(4);
 
@@ -326,17 +316,16 @@ describe('TableBuilder', () => {
     const fkOneOne = oneOne.fkHostTableNameString();
     const fkOneMany = oneMany.fkHostTableNameString();
     const fkManyOne = manyOne.fkHostTableNameString();
-    expect([fkOneOne, fkOneMany, fkManyOne].every((r) => r.isOk())).toBe(true);
-    if (fkOneOne.isErr() || fkOneMany.isErr() || fkManyOne.isErr()) return;
-    expect(fkOneOne.value).toBe(fkHost);
-    expect(fkOneMany.value).toBe(fkHost);
-    expect(fkManyOne.value).toBe(fkHost);
+    expect(fkOneOne._unsafeUnwrap()).toBe(fkHost);
+    expect(fkOneMany._unsafeUnwrap()).toBe(fkHost);
+    expect(fkManyOne._unsafeUnwrap()).toBe(fkHost);
 
     const fkManyMany = manyMany.fkHostTableNameString();
-    expect(fkManyMany.isOk()).toBe(true);
-    if (fkManyMany.isErr()) return;
+
     expect(
-      fkManyMany.value.startsWith(`${baseId.toString()}.junction_${manyManyId.toString()}`)
+      fkManyMany
+        ._unsafeUnwrap()
+        .startsWith(`${baseId.toString()}.junction_${manyManyId.toString()}`)
     ).toBe(true);
     expect(manyMany.symmetricFieldId()).toBeDefined();
   });
@@ -348,45 +337,47 @@ describe('TableBuilder', () => {
     const amountNameResult = FieldName.create('Amount');
     const scoreNameResult = FieldName.create('Score');
     const actionNameResult = FieldName.create('Action');
-    expect(
-      [
-        baseIdResult,
-        tableNameResult,
-        titleNameResult,
-        amountNameResult,
-        scoreNameResult,
-        actionNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      titleNameResult.isErr() ||
-      amountNameResult.isErr() ||
-      scoreNameResult.isErr() ||
-      actionNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      tableNameResult,
+      titleNameResult,
+      amountNameResult,
+      scoreNameResult,
+      actionNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    titleNameResult._unsafeUnwrap();
+    amountNameResult._unsafeUnwrap();
+    scoreNameResult._unsafeUnwrap();
+    actionNameResult._unsafeUnwrap();
 
     const primaryIdResult = FieldId.generate();
-    expect(primaryIdResult.isOk()).toBe(true);
-    if (primaryIdResult.isErr()) return;
-    const primaryId = primaryIdResult.value;
+    primaryIdResult._unsafeUnwrap();
+
+    const primaryId = primaryIdResult._unsafeUnwrap();
 
     const expressionResult = FormulaExpression.create(`{${primaryId.toString()}} + 1`);
-    expect(expressionResult.isOk()).toBe(true);
-    if (expressionResult.isErr()) return;
+    expressionResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(titleNameResult.value).done();
-    builder.field().number().withId(primaryId).withName(amountNameResult.value).primary().done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
+    builder
+      .field()
+      .number()
+      .withId(primaryId)
+      .withName(amountNameResult._unsafeUnwrap())
+      .primary()
+      .done();
     builder
       .field()
       .formula()
-      .withName(scoreNameResult.value)
-      .withExpression(expressionResult.value)
+      .withName(scoreNameResult._unsafeUnwrap())
+      .withExpression(expressionResult._unsafeUnwrap())
       .done();
-    builder.field().button().withName(actionNameResult.value).done();
+    builder.field().button().withName(actionNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
     builder.view().kanban().defaultName().done();
     builder.view().gallery().defaultName().done();
@@ -395,10 +386,9 @@ describe('TableBuilder', () => {
     builder.view().plugin().defaultName().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     const fieldIds = table.fields().map((field) => field.id().toString());
     const primaryFieldId = table.primaryFieldId().toString();
     const expectedOrder = [
@@ -417,10 +407,9 @@ describe('TableBuilder', () => {
 
     for (const [type, view] of viewsByType.entries()) {
       const metaResult = view.columnMeta();
-      expect(metaResult.isOk()).toBe(true);
-      if (metaResult.isErr()) return;
+      metaResult._unsafeUnwrap();
 
-      const meta = metaResult.value.toDto();
+      const meta = metaResult._unsafeUnwrap().toDto();
       expect(Object.keys(meta).sort()).toEqual([...fieldIds].sort());
       expectedOrder.forEach((fieldId, index) => {
         expect(meta[fieldId]?.order).toBe(index);
@@ -431,10 +420,10 @@ describe('TableBuilder', () => {
       }
     }
 
-    const formMeta = viewsByType.get('form')?.columnMeta();
-    expect(formMeta?.isOk()).toBe(true);
-    if (formMeta?.isOk()) {
-      const meta = formMeta.value.toDto();
+    const formMetaResult = viewsByType.get('form')?.columnMeta();
+    const formMeta = formMetaResult?._unsafeUnwrap();
+    if (formMeta) {
+      const meta = formMeta.toDto();
       expect(meta[fieldIdsByName.get('Title')!]?.visible).toBe(true);
       expect(meta[fieldIdsByName.get('Amount')!]?.visible).toBe(true);
       expect(meta[fieldIdsByName.get('Score')!]?.visible).toBeUndefined();
@@ -443,10 +432,10 @@ describe('TableBuilder', () => {
 
     const primaryVisibleTypes = ['kanban', 'gallery', 'calendar'] as const;
     primaryVisibleTypes.forEach((type) => {
-      const meta = viewsByType.get(type)?.columnMeta();
-      expect(meta?.isOk()).toBe(true);
-      if (meta?.isOk()) {
-        expect(meta.value.toDto()[primaryFieldId]?.visible).toBe(true);
+      const metaResult = viewsByType.get(type)?.columnMeta();
+      const meta = metaResult?._unsafeUnwrap();
+      if (meta) {
+        expect(meta.toDto()[primaryFieldId]?.visible).toBe(true);
       }
     });
   });
@@ -456,28 +445,129 @@ describe('TableBuilder', () => {
     const tableNameResult = TableName.create('My Table');
     const titleNameResult = FieldName.create('Title');
     const amountNameResult = FieldName.create('Amount');
-    expect(
-      [baseIdResult, tableNameResult, titleNameResult, amountNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      titleNameResult.isErr() ||
-      amountNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, titleNameResult, amountNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    titleNameResult._unsafeUnwrap();
+    amountNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(titleNameResult.value).done();
-    builder.field().number().withName(amountNameResult.value).primary().done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
+    builder.field().number().withName(amountNameResult._unsafeUnwrap()).primary().done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
+  });
+
+  it('builds even when rollup and formula inputs reference fields declared later', () => {
+    const baseIdResult = createBaseId('o');
+    const tableNameResult = TableName.create('Out Of Order');
+    const titleNameResult = FieldName.create('Title');
+    const amountNameResult = FieldName.create('Amount');
+    const scoreNameResult = FieldName.create('Score');
+    const linkNameResult = FieldName.create('Company');
+    const rollupNameResult = FieldName.create('Rollup Total');
+    const amountFieldIdResult = createFieldId('p');
+    const linkFieldIdResult = createFieldId('q');
+    const lookupFieldIdResult = createFieldId('r');
+    const foreignTableIdResult = createTableId('s');
+
+    [
+      baseIdResult,
+      tableNameResult,
+      titleNameResult,
+      amountNameResult,
+      scoreNameResult,
+      linkNameResult,
+      rollupNameResult,
+      amountFieldIdResult,
+      linkFieldIdResult,
+      lookupFieldIdResult,
+      foreignTableIdResult,
+    ].forEach((r) => r._unsafeUnwrap());
+
+    const amountFieldId = amountFieldIdResult._unsafeUnwrap();
+    const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+    const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+    const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+
+    const formulaExpressionResult = FormulaExpression.create(`{${amountFieldId.toString()}} + 1`);
+    const linkConfigResult = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+    });
+    const rollupConfigResult = RollupFieldConfig.create({
+      linkFieldId: linkFieldId.toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+    });
+    const rollupExpressionResult = RollupExpression.create('counta({values})');
+
+    [formulaExpressionResult, linkConfigResult, rollupConfigResult, rollupExpressionResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).primary().done();
+    builder
+      .field()
+      .rollup()
+      .withName(rollupNameResult._unsafeUnwrap())
+      .withConfig(rollupConfigResult._unsafeUnwrap())
+      .withExpression(rollupExpressionResult._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .formula()
+      .withName(scoreNameResult._unsafeUnwrap())
+      .withExpression(formulaExpressionResult._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkFieldId)
+      .withName(linkNameResult._unsafeUnwrap())
+      .withConfig(linkConfigResult._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(amountFieldId)
+      .withName(amountNameResult._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const buildResult = builder.build();
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
+    const formulaField = table.fields().find((field) => field.type().toString() === 'formula') as
+      | FormulaField
+      | undefined;
+    const rollupField = table.fields().find((field) => field.type().toString() === 'rollup') as
+      | RollupField
+      | undefined;
+    expect(formulaField).toBeDefined();
+    expect(rollupField).toBeDefined();
+    if (!formulaField || !rollupField) return;
+    expect(formulaField.dependencies().some((id) => id.equals(amountFieldId))).toBe(true);
+    expect(rollupField.configDto()).toEqual({
+      linkFieldId: linkFieldId.toString(),
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+    });
   });
 
   it('rejects multiple primary fields', () => {
@@ -485,122 +575,128 @@ describe('TableBuilder', () => {
     const tableNameResult = TableName.create('My Table');
     const titleNameResult = FieldName.create('Title');
     const amountNameResult = FieldName.create('Amount');
-    expect(
-      [baseIdResult, tableNameResult, titleNameResult, amountNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      titleNameResult.isErr() ||
-      amountNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, titleNameResult, amountNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    titleNameResult._unsafeUnwrap();
+    amountNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(titleNameResult.value).primary().done();
-    builder.field().number().withName(amountNameResult.value).primary().done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).primary().done();
+    builder.field().number().withName(amountNameResult._unsafeUnwrap()).primary().done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('primary');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('primary');
   });
 
   it('requires at least one field', () => {
     const baseIdResult = BaseId.create(`bse${'e'.repeat(16)}`);
     const tableNameResult = TableName.create('My Table');
-    expect([baseIdResult, tableNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr()) return;
+    [baseIdResult, tableNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
 
     const buildResult = Table.builder()
-      .withBaseId(baseIdResult.value)
-      .withName(tableNameResult.value)
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap())
       .view()
       .defaultGrid()
       .done()
       .build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('at least one Field');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('at least one Field');
   });
 
   it('requires a base id', () => {
     const tableNameResult = TableName.create('My Table');
-    expect(tableNameResult.isOk()).toBe(true);
-    if (tableNameResult.isErr()) return;
+    tableNameResult._unsafeUnwrap();
 
     const buildResult = Table.builder()
-      .withName(tableNameResult.value)
+      .withName(tableNameResult._unsafeUnwrap())
       .view()
       .defaultGrid()
       .done()
       .build();
 
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('BaseId is required');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('BaseId is required');
   });
 
   it('requires a table name', () => {
     const baseIdResult = createBaseId('f');
     const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || fieldNameResult.isErr()) return;
+    [baseIdResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
     const buildResult = Table.builder()
-      .withBaseId(baseIdResult.value)
+      .withBaseId(baseIdResult._unsafeUnwrap())
       .field()
       .singleLineText()
-      .withName(fieldNameResult.value)
+      .withName(fieldNameResult._unsafeUnwrap())
       .done()
       .view()
       .defaultGrid()
       .done()
       .build();
 
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('TableName is required');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('TableName is required');
   });
 
   it('requires at least one view', () => {
     const baseIdResult = createBaseId('g');
     const tableNameResult = TableName.create('No Views');
     const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+    [baseIdResult, tableNameResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
     const buildResult = Table.builder()
-      .withBaseId(baseIdResult.value)
-      .withName(tableNameResult.value)
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap())
       .field()
       .singleLineText()
-      .withName(fieldNameResult.value)
+      .withName(fieldNameResult._unsafeUnwrap())
       .done()
       .build();
 
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('at least one View');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('at least one View');
   });
 
   it('rejects duplicate field names', () => {
     const baseIdResult = createBaseId('h');
     const tableNameResult = TableName.create('Duplicate Fields');
     const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+    [baseIdResult, tableNameResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.field().number().withName(fieldNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.field().number().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('Field names must be unique');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('Field names must be unique');
   });
 
   it('rejects duplicate view names', () => {
@@ -608,46 +704,49 @@ describe('TableBuilder', () => {
     const tableNameResult = TableName.create('Duplicate Views');
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    viewNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
-    builder.view().kanban().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
+    builder.view().kanban().withName(viewNameResult._unsafeUnwrap()).done();
 
     const buildResult = builder.build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('View names must be unique');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('View names must be unique');
   });
 
   it('captures missing field and view names', () => {
     const baseIdResult = createBaseId('j');
     const tableNameResult = TableName.create('Missing Names');
     const fieldNameResult = FieldName.create('Title');
-    expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return;
+    [baseIdResult, tableNameResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
     builder.field().number().done();
     builder.view().grid().done();
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('FieldName is required');
-    expect(buildResult.error).toContain('ViewName is required');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('FieldName is required');
+    expect(buildResult._unsafeUnwrapErr()).toContain('ViewName is required');
   });
 
   it('uses provided table id and validates primary field existence', () => {
@@ -656,32 +755,27 @@ describe('TableBuilder', () => {
     const tableNameResult = TableName.create('Explicit Id');
     const fieldNameResult = FieldName.create('Title');
     const missingPrimaryIdResult = createFieldId('x');
-    expect(
-      [baseIdResult, tableIdResult, tableNameResult, fieldNameResult, missingPrimaryIdResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      missingPrimaryIdResult.isErr()
-    )
-      return;
+    [baseIdResult, tableIdResult, tableNameResult, fieldNameResult, missingPrimaryIdResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    missingPrimaryIdResult._unsafeUnwrap();
 
     const builder = Table.builder()
-      .withId(tableIdResult.value)
-      .withBaseId(baseIdResult.value)
-      .withName(tableNameResult.value);
-    builder.markPrimaryFieldId(missingPrimaryIdResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
+      .withId(tableIdResult._unsafeUnwrap())
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.markPrimaryFieldId(missingPrimaryIdResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isErr()).toBe(true);
-    if (buildResult.isOk()) return;
-    expect(buildResult.error).toContain('Primary Field must exist');
+    buildResult._unsafeUnwrapErr();
+
+    expect(buildResult._unsafeUnwrapErr()).toContain('Primary Field must exist');
   });
 
   it('honors explicit table id on successful build', () => {
@@ -689,28 +783,25 @@ describe('TableBuilder', () => {
     const tableIdResult = createTableId('l');
     const tableNameResult = TableName.create('Explicit Table');
     const fieldNameResult = FieldName.create('Title');
-    expect(
-      [baseIdResult, tableIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableIdResult, tableNameResult, fieldNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
     const builder = Table.builder()
-      .withId(tableIdResult.value)
-      .withBaseId(baseIdResult.value)
-      .withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
+      .withId(tableIdResult._unsafeUnwrap())
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    expect(buildResult.value.id().equals(tableIdResult.value)).toBe(true);
+    buildResult._unsafeUnwrap();
+
+    expect(buildResult._unsafeUnwrap().id().equals(tableIdResult._unsafeUnwrap())).toBe(true);
   });
 
   describe('link fields', () => {
@@ -722,60 +813,54 @@ describe('TableBuilder', () => {
       const foreignTableIdResult = createTableId('i');
       const lookupFieldIdResult = createFieldId('j');
 
-      expect(
-        [
-          baseIdResult,
-          tableNameResult,
-          titleNameResult,
-          linkNameResult,
-          foreignTableIdResult,
-          lookupFieldIdResult,
-        ].every((r) => r.isOk())
-      ).toBe(true);
-      if (
-        baseIdResult.isErr() ||
-        tableNameResult.isErr() ||
-        titleNameResult.isErr() ||
-        linkNameResult.isErr() ||
-        foreignTableIdResult.isErr() ||
-        lookupFieldIdResult.isErr()
-      )
-        return;
+      [
+        baseIdResult,
+        tableNameResult,
+        titleNameResult,
+        linkNameResult,
+        foreignTableIdResult,
+        lookupFieldIdResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      baseIdResult._unsafeUnwrap();
+      tableNameResult._unsafeUnwrap();
+      titleNameResult._unsafeUnwrap();
+      linkNameResult._unsafeUnwrap();
+      foreignTableIdResult._unsafeUnwrap();
+      lookupFieldIdResult._unsafeUnwrap();
 
       const linkConfigResult = LinkFieldConfig.create({
         relationship: 'manyOne',
-        foreignTableId: foreignTableIdResult.value.toString(),
-        lookupFieldId: lookupFieldIdResult.value.toString(),
+        foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+        lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
         fkHostTableName: 'link_relations',
         selfKeyName: '__self_id',
         foreignKeyName: '__foreign_id',
       });
-      expect(linkConfigResult.isOk()).toBe(true);
-      if (linkConfigResult.isErr()) return;
+      linkConfigResult._unsafeUnwrap();
 
       const builder = Table.builder()
-        .withBaseId(baseIdResult.value)
-        .withName(tableNameResult.value);
-      builder.field().singleLineText().withName(titleNameResult.value).primary().done();
+        .withBaseId(baseIdResult._unsafeUnwrap())
+        .withName(tableNameResult._unsafeUnwrap());
+      builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).primary().done();
       builder
         .field()
         .link()
-        .withName(linkNameResult.value)
-        .withConfig(linkConfigResult.value)
+        .withName(linkNameResult._unsafeUnwrap())
+        .withConfig(linkConfigResult._unsafeUnwrap())
         .done();
       builder.view().defaultGrid().done();
 
       const buildResult = builder.build();
-      expect(buildResult.isOk()).toBe(true);
-      if (buildResult.isErr()) return;
+      buildResult._unsafeUnwrap();
 
-      const linkField = buildResult.value
+      const linkField = buildResult
+        ._unsafeUnwrap()
         .fields()
         .find((field) => field.type().toString() === 'link') as LinkField | undefined;
       expect(linkField).toBeDefined();
       if (!linkField) return;
-      expect(linkField.foreignTableId().equals(foreignTableIdResult.value)).toBe(true);
-      expect(linkField.lookupFieldId().equals(lookupFieldIdResult.value)).toBe(true);
+      expect(linkField.foreignTableId().equals(foreignTableIdResult._unsafeUnwrap())).toBe(true);
+      expect(linkField.lookupFieldId().equals(lookupFieldIdResult._unsafeUnwrap())).toBe(true);
       expect(linkField.relationship().toString()).toBe('manyOne');
       expect(linkField.hasOrderColumn()).toBe(false);
     });

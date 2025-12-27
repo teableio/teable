@@ -26,25 +26,24 @@ describe('Table', () => {
     const tableNameResult = TableName.create('My Table');
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    viewNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    const table = buildResult.value;
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
 
     const events = table.pullDomainEvents();
     expect(events.length).toBe(1);
@@ -67,30 +66,28 @@ describe('Table', () => {
     const tableNameResult = TableName.create('Archive');
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    viewNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    const table = buildResult.value;
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
 
     table.pullDomainEvents();
     const deleteResult = table.markDeleted();
-    expect(deleteResult.isOk()).toBe(true);
-    if (deleteResult.isErr()) return;
+    deleteResult._unsafeUnwrap();
 
     const events = table.pullDomainEvents();
     expect(events.length).toBe(1);
@@ -107,56 +104,29 @@ describe('Table', () => {
     const viewNameResult = ViewName.create('Grid');
     const dbNameResult = DbTableName.rehydrate('db_table');
 
-    expect(
-      [
-        baseIdResult,
-        tableIdResult,
-        tableNameResult,
-        fieldIdResult,
-        fieldNameResult,
-        viewIdResult,
-        viewNameResult,
-        dbNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldIdResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewIdResult.isErr() ||
-      viewNameResult.isErr() ||
-      dbNameResult.isErr()
-    )
-      return;
-
     const fieldResult = SingleLineTextField.create({
-      id: fieldIdResult.value,
-      name: fieldNameResult.value,
+      id: fieldIdResult._unsafeUnwrap(),
+      name: fieldNameResult._unsafeUnwrap(),
     });
     const viewResult = GridView.create({
-      id: viewIdResult.value,
-      name: viewNameResult.value,
+      id: viewIdResult._unsafeUnwrap(),
+      name: viewNameResult._unsafeUnwrap(),
     });
-    expect([fieldResult, viewResult].every((r) => r.isOk())).toBe(true);
-    if (fieldResult.isErr() || viewResult.isErr()) return;
 
     const tableResult = Table.rehydrate({
-      id: tableIdResult.value,
-      baseId: baseIdResult.value,
-      name: tableNameResult.value,
-      fields: [fieldResult.value],
-      views: [viewResult.value],
-      primaryFieldId: fieldIdResult.value,
-      dbTableName: dbNameResult.value,
+      id: tableIdResult._unsafeUnwrap(),
+      baseId: baseIdResult._unsafeUnwrap(),
+      name: tableNameResult._unsafeUnwrap(),
+      fields: [fieldResult._unsafeUnwrap()],
+      views: [viewResult._unsafeUnwrap()],
+      primaryFieldId: fieldIdResult._unsafeUnwrap(),
+      dbTableName: dbNameResult._unsafeUnwrap(),
     });
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
+    tableResult._unsafeUnwrap();
 
-    const table = tableResult.value;
+    const table = tableResult._unsafeUnwrap();
     expect(table.pullDomainEvents()).toEqual([]);
-    expect(table.dbTableName().isOk()).toBe(true);
+    table.dbTableName()._unsafeUnwrap();
   });
 
   it('rejects invalid rehydrate data', () => {
@@ -167,54 +137,36 @@ describe('Table', () => {
     const otherFieldIdResult = createFieldId('c');
     const viewIdResult = createViewId('b');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [
-        baseIdResult,
-        tableIdResult,
-        tableNameResult,
-        fieldIdResult,
-        otherFieldIdResult,
-        viewIdResult,
-        viewNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldIdResult.isErr() ||
-      otherFieldIdResult.isErr() ||
-      viewIdResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
 
     const emptyFields = Table.rehydrate({
-      id: tableIdResult.value,
-      baseId: baseIdResult.value,
-      name: tableNameResult.value,
+      id: tableIdResult._unsafeUnwrap(),
+      baseId: baseIdResult._unsafeUnwrap(),
+      name: tableNameResult._unsafeUnwrap(),
       fields: [],
       views: [],
-      primaryFieldId: fieldIdResult.value,
+      primaryFieldId: fieldIdResult._unsafeUnwrap(),
     });
-    expect(emptyFields.isErr()).toBe(true);
+    emptyFields._unsafeUnwrapErr();
 
     const missingPrimary = Table.rehydrate({
-      id: tableIdResult.value,
-      baseId: baseIdResult.value,
-      name: tableNameResult.value,
+      id: tableIdResult._unsafeUnwrap(),
+      baseId: baseIdResult._unsafeUnwrap(),
+      name: tableNameResult._unsafeUnwrap(),
       fields: [
         SingleLineTextField.create({
-          id: fieldIdResult.value,
+          id: fieldIdResult._unsafeUnwrap(),
           name: FieldName.create('Title')._unsafeUnwrap(),
         })._unsafeUnwrap(),
       ],
       views: [
-        GridView.create({ id: viewIdResult.value, name: viewNameResult.value })._unsafeUnwrap(),
+        GridView.create({
+          id: viewIdResult._unsafeUnwrap(),
+          name: viewNameResult._unsafeUnwrap(),
+        })._unsafeUnwrap(),
       ],
-      primaryFieldId: otherFieldIdResult.value,
+      primaryFieldId: otherFieldIdResult._unsafeUnwrap(),
     });
-    expect(missingPrimary.isErr()).toBe(true);
+    missingPrimary._unsafeUnwrapErr();
   });
 
   it('manages db table name lifecycle', () => {
@@ -222,37 +174,30 @@ describe('Table', () => {
     const tableNameResult = TableName.create('Db Name');
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    const table = buildResult.value;
+    buildResult._unsafeUnwrap();
 
-    expect(table.dbTableName().isErr()).toBe(true);
+    const table = buildResult._unsafeUnwrap();
+
+    table.dbTableName()._unsafeUnwrapErr();
 
     const dbNameResult = DbTableName.rehydrate('db_table');
     const otherDbNameResult = DbTableName.rehydrate('db_table_other');
-    expect([dbNameResult, otherDbNameResult].every((r) => r.isOk())).toBe(true);
-    if (dbNameResult.isErr() || otherDbNameResult.isErr()) return;
+    [dbNameResult, otherDbNameResult].forEach((r) => r._unsafeUnwrap());
+    dbNameResult._unsafeUnwrap();
+    otherDbNameResult._unsafeUnwrap();
 
-    expect(table.setDbTableName(dbNameResult.value).isOk()).toBe(true);
-    expect(table.dbTableName().isOk()).toBe(true);
-    expect(table.setDbTableName(dbNameResult.value).isOk()).toBe(true);
-    expect(table.setDbTableName(otherDbNameResult.value).isErr()).toBe(true);
+    table.setDbTableName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
+    table.dbTableName()._unsafeUnwrap();
+    table.setDbTableName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
+    table.setDbTableName(otherDbNameResult._unsafeUnwrap())._unsafeUnwrapErr();
   });
 
   it('updates table name immutably and emits TableRenamed', () => {
@@ -261,34 +206,22 @@ describe('Table', () => {
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
     const nextNameResult = TableName.create('Renamed');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult, nextNameResult].every((r) =>
-        r.isOk()
-      )
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr() ||
-      nextNameResult.isErr()
-    )
-      return;
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    const table = buildResult.value;
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
     table.pullDomainEvents();
 
-    const updateResult = table.update((mutator) => mutator.rename(nextNameResult.value));
-    expect(updateResult.isOk()).toBe(true);
-    if (updateResult.isErr()) return;
+    const updateResult = table.update((mutator) => mutator.rename(nextNameResult._unsafeUnwrap()));
+    updateResult._unsafeUnwrap();
 
-    const updatedTable = updateResult.value.table;
+    const updatedTable = updateResult._unsafeUnwrap().table;
     expect(updatedTable).not.toBe(table);
     expect(updatedTable.name().toString()).toBe('Renamed');
     expect(table.name().toString()).toBe('Original');
@@ -305,59 +238,41 @@ describe('Table', () => {
     const viewNameResult = ViewName.create('Grid');
     const newFieldIdResult = createFieldId('h');
     const newFieldNameResult = FieldName.create('Status');
-    expect(
-      [
-        baseIdResult,
-        tableNameResult,
-        fieldNameResult,
-        viewNameResult,
-        newFieldIdResult,
-        newFieldNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr() ||
-      newFieldIdResult.isErr() ||
-      newFieldNameResult.isErr()
-    )
-      return;
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
+    buildResult._unsafeUnwrap();
 
-    const table = buildResult.value;
+    const table = buildResult._unsafeUnwrap();
     const metaResult = table.views()[0]?.columnMeta();
-    expect(metaResult?.isOk()).toBe(true);
-    if (!metaResult || metaResult.isErr()) return;
-    const existingMeta = metaResult.value.toDto();
+    metaResult?._unsafeUnwrap();
+
+    const existingMeta = metaResult._unsafeUnwrap().toDto();
     const existingOrders = Object.values(existingMeta).map((entry) => entry.order);
     const maxOrder = existingOrders.length ? Math.max(...existingOrders) : -1;
 
     const newFieldResult = SingleLineTextField.create({
-      id: newFieldIdResult.value,
-      name: newFieldNameResult.value,
+      id: newFieldIdResult._unsafeUnwrap(),
+      name: newFieldNameResult._unsafeUnwrap(),
     });
-    expect(newFieldResult.isOk()).toBe(true);
-    if (newFieldResult.isErr()) return;
+    newFieldResult._unsafeUnwrap();
 
-    const updateResult = table.update((mutator) => mutator.addField(newFieldResult.value));
-    expect(updateResult.isOk()).toBe(true);
-    if (updateResult.isErr()) return;
+    const updateResult = table.update((mutator) =>
+      mutator.addField(newFieldResult._unsafeUnwrap())
+    );
+    updateResult._unsafeUnwrap();
 
-    const updatedTable = updateResult.value.table;
+    const updatedTable = updateResult._unsafeUnwrap().table;
     expect(updatedTable.fields().length).toBe(2);
     const nextMetaResult = updatedTable.views()[0]?.columnMeta();
-    expect(nextMetaResult?.isOk()).toBe(true);
-    if (!nextMetaResult || nextMetaResult.isErr()) return;
-    const nextMeta = nextMetaResult.value.toDto();
-    const addedEntry = nextMeta[newFieldIdResult.value.toString()];
+    nextMetaResult?._unsafeUnwrap();
+
+    const nextMeta = nextMetaResult._unsafeUnwrap().toDto();
+    const addedEntry = nextMeta[newFieldIdResult._unsafeUnwrap().toString()];
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
@@ -368,25 +283,24 @@ describe('Table', () => {
     const tableNameResult = TableName.create('Copies');
     const fieldNameResult = FieldName.create('Title');
     const viewNameResult = ViewName.create('Grid');
-    expect(
-      [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableNameResult.isErr() ||
-      fieldNameResult.isErr() ||
-      viewNameResult.isErr()
-    )
-      return;
+    [baseIdResult, tableNameResult, fieldNameResult, viewNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    viewNameResult._unsafeUnwrap();
 
-    const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-    builder.field().singleLineText().withName(fieldNameResult.value).done();
-    builder.view().grid().withName(viewNameResult.value).done();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
+    builder.view().grid().withName(viewNameResult._unsafeUnwrap()).done();
 
     const buildResult = builder.build();
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-    const table = buildResult.value;
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
 
     const fields = [...table.fields()];
     fields.push(fields[0]);
@@ -398,37 +312,35 @@ describe('Table', () => {
 
     expect(table.fieldIds().length).toBe(1);
     expect(table.viewIds().length).toBe(1);
-    expect(table.primaryField().isOk()).toBe(true);
+    table.primaryField()._unsafeUnwrap();
   });
 });
 
 describe('TableName', () => {
   it('validates table names', () => {
-    expect(TableName.create('Project').isOk()).toBe(true);
-    expect(TableName.create('').isErr()).toBe(true);
+    TableName.create('Project')._unsafeUnwrap();
+    TableName.create('')._unsafeUnwrapErr();
   });
 
   it('compares table names by value', () => {
-    const left = TableName.create('A');
-    const right = TableName.create('A');
-    const other = TableName.create('B');
-    expect([left, right, other].every((r) => r.isOk())).toBe(true);
-    if (left.isErr() || right.isErr() || other.isErr()) return;
-    expect(left.value.equals(right.value)).toBe(true);
-    expect(left.value.equals(other.value)).toBe(false);
-    expect(left.value.toString()).toBe('A');
+    const left = TableName.create('A')._unsafeUnwrap();
+    const right = TableName.create('A')._unsafeUnwrap();
+    const other = TableName.create('B')._unsafeUnwrap();
+    expect(left.equals(right)).toBe(true);
+    expect(left.equals(other)).toBe(false);
+    expect(left.toString()).toBe('A');
   });
 });
 
 describe('DbTableName', () => {
   it('rehydrates and validates db table names', () => {
-    expect(DbTableName.rehydrate('table_name').isOk()).toBe(true);
-    expect(DbTableName.rehydrate('').isErr()).toBe(true);
+    DbTableName.rehydrate('table_name')._unsafeUnwrap();
+    DbTableName.rehydrate('')._unsafeUnwrapErr();
   });
 
   it('requires rehydrate before accessing value', () => {
     const empty = DbTableName.empty();
     expect(empty.isRehydrated()).toBe(false);
-    expect(empty.value().isErr()).toBe(true);
+    empty.value()._unsafeUnwrapErr();
   });
 });

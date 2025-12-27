@@ -24,89 +24,83 @@ describe('LinkForeignTableReferenceVisitor', () => {
     const otherLinkFieldNameResult = FieldName.create('Link 2');
     const duplicateLinkFieldIdResult = createFieldId('h');
 
-    expect(
-      [
-        baseIdResult,
-        foreignTableIdResult,
-        otherForeignTableIdResult,
-        lookupFieldIdResult,
-        linkFieldIdResult,
-        linkFieldNameResult,
-        otherLinkFieldIdResult,
-        otherLinkFieldNameResult,
-        duplicateLinkFieldIdResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      foreignTableIdResult.isErr() ||
-      otherForeignTableIdResult.isErr() ||
-      lookupFieldIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr() ||
-      otherLinkFieldIdResult.isErr() ||
-      otherLinkFieldNameResult.isErr() ||
-      duplicateLinkFieldIdResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      foreignTableIdResult,
+      otherForeignTableIdResult,
+      lookupFieldIdResult,
+      linkFieldIdResult,
+      linkFieldNameResult,
+      otherLinkFieldIdResult,
+      otherLinkFieldNameResult,
+      duplicateLinkFieldIdResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    foreignTableIdResult._unsafeUnwrap();
+    otherForeignTableIdResult._unsafeUnwrap();
+    lookupFieldIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
+    otherLinkFieldIdResult._unsafeUnwrap();
+    otherLinkFieldNameResult._unsafeUnwrap();
+    duplicateLinkFieldIdResult._unsafeUnwrap();
 
     const configResult = LinkFieldConfig.create({
-      baseId: baseIdResult.value.toString(),
+      baseId: baseIdResult._unsafeUnwrap().toString(),
       relationship: 'manyOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: lookupFieldIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
     });
     const duplicateConfigResult = LinkFieldConfig.create({
       relationship: 'manyOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: lookupFieldIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
     });
     const otherConfigResult = LinkFieldConfig.create({
       relationship: 'manyOne',
-      foreignTableId: otherForeignTableIdResult.value.toString(),
-      lookupFieldId: lookupFieldIdResult.value.toString(),
+      foreignTableId: otherForeignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
     });
-    expect([configResult, duplicateConfigResult, otherConfigResult].every((r) => r.isOk())).toBe(
-      true
-    );
-    if (configResult.isErr() || duplicateConfigResult.isErr() || otherConfigResult.isErr()) return;
+    [configResult, duplicateConfigResult, otherConfigResult].forEach((r) => r._unsafeUnwrap());
+    configResult._unsafeUnwrap();
+    duplicateConfigResult._unsafeUnwrap();
+    otherConfigResult._unsafeUnwrap();
 
     const linkFieldResult = LinkField.create({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
     });
     const duplicateFieldResult = LinkField.create({
-      id: duplicateLinkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: duplicateConfigResult.value,
+      id: duplicateLinkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: duplicateConfigResult._unsafeUnwrap(),
     });
     const otherLinkFieldResult = LinkField.create({
-      id: otherLinkFieldIdResult.value,
-      name: otherLinkFieldNameResult.value,
-      config: otherConfigResult.value,
+      id: otherLinkFieldIdResult._unsafeUnwrap(),
+      name: otherLinkFieldNameResult._unsafeUnwrap(),
+      config: otherConfigResult._unsafeUnwrap(),
     });
-    expect(
-      [linkFieldResult, duplicateFieldResult, otherLinkFieldResult].every((r) => r.isOk())
-    ).toBe(true);
-    if (linkFieldResult.isErr() || duplicateFieldResult.isErr() || otherLinkFieldResult.isErr())
-      return;
+    [linkFieldResult, duplicateFieldResult, otherLinkFieldResult].forEach((r) => r._unsafeUnwrap());
+    linkFieldResult._unsafeUnwrap();
+    duplicateFieldResult._unsafeUnwrap();
+    otherLinkFieldResult._unsafeUnwrap();
 
     const visitor = new LinkForeignTableReferenceVisitor();
     const result = visitor.collect([
-      linkFieldResult.value,
-      duplicateFieldResult.value,
-      otherLinkFieldResult.value,
+      linkFieldResult._unsafeUnwrap(),
+      duplicateFieldResult._unsafeUnwrap(),
+      otherLinkFieldResult._unsafeUnwrap(),
     ]);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value).toHaveLength(2);
 
     const crossBase = result.value.find((ref) =>
-      ref.foreignTableId.equals(foreignTableIdResult.value)
+      ref.foreignTableId.equals(foreignTableIdResult._unsafeUnwrap())
     );
     expect(crossBase).toBeDefined();
     if (!crossBase) return;
-    expect(crossBase.baseId?.equals(baseIdResult.value)).toBe(true);
+    expect(crossBase.baseId?.equals(baseIdResult._unsafeUnwrap())).toBe(true);
   });
 });

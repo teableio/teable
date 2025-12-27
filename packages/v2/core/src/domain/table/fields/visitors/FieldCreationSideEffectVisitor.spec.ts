@@ -24,26 +24,20 @@ const buildTable = (params: {
 }) => {
   const nameResult = TableName.create(params.tableName);
   const primaryNameResult = FieldName.create(params.primaryFieldName);
-  expect([nameResult, primaryNameResult].every((r) => r.isOk())).toBe(true);
-  if (nameResult.isErr() || primaryNameResult.isErr()) {
-    throw new Error('Invalid table setup');
-  }
+  [nameResult, primaryNameResult].forEach((r) => r._unsafeUnwrap());
   const builder = Table.builder()
     .withId(params.tableId)
     .withBaseId(params.baseId)
-    .withName(nameResult.value);
+    .withName(nameResult._unsafeUnwrap());
   builder
     .field()
     .singleLineText()
     .withId(params.primaryFieldId)
-    .withName(primaryNameResult.value)
+    .withName(primaryNameResult._unsafeUnwrap())
     .primary()
     .done();
   builder.view().defaultGrid().done();
-  const result = builder.build();
-  expect(result.isOk()).toBe(true);
-  if (result.isErr()) throw new Error('Table build failed');
-  return result.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('FieldCreationSideEffectVisitor', () => {
@@ -56,75 +50,71 @@ describe('FieldCreationSideEffectVisitor', () => {
     const linkFieldIdResult = createFieldId('f');
     const linkFieldNameResult = FieldName.create('Link');
 
-    expect(
-      [
-        baseIdResult,
-        hostTableIdResult,
-        foreignTableIdResult,
-        hostPrimaryIdResult,
-        foreignPrimaryIdResult,
-        linkFieldIdResult,
-        linkFieldNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      hostTableIdResult.isErr() ||
-      foreignTableIdResult.isErr() ||
-      hostPrimaryIdResult.isErr() ||
-      foreignPrimaryIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      hostTableIdResult,
+      foreignTableIdResult,
+      hostPrimaryIdResult,
+      foreignPrimaryIdResult,
+      linkFieldIdResult,
+      linkFieldNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    hostTableIdResult._unsafeUnwrap();
+    foreignTableIdResult._unsafeUnwrap();
+    hostPrimaryIdResult._unsafeUnwrap();
+    foreignPrimaryIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
-    const baseId = baseIdResult.value;
+    const baseId = baseIdResult._unsafeUnwrap();
     const hostTable = buildTable({
       baseId,
-      tableId: hostTableIdResult.value,
+      tableId: hostTableIdResult._unsafeUnwrap(),
       tableName: 'Host',
-      primaryFieldId: hostPrimaryIdResult.value,
+      primaryFieldId: hostPrimaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Host Name',
     });
     const foreignTable = buildTable({
       baseId,
-      tableId: foreignTableIdResult.value,
+      tableId: foreignTableIdResult._unsafeUnwrap(),
       tableName: 'Foreign',
-      primaryFieldId: foreignPrimaryIdResult.value,
+      primaryFieldId: foreignPrimaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Foreign Name',
     });
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: foreignPrimaryIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: foreignPrimaryIdResult._unsafeUnwrap().toString(),
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
     const linkFieldResult = createNewLinkField({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
       baseId,
-      hostTableId: hostTableIdResult.value,
+      hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    linkFieldResult._unsafeUnwrap();
 
-    const sideEffectsResult = FieldCreationSideEffectVisitor.collect([linkFieldResult.value], {
-      table: hostTable,
-      foreignTables: [foreignTable],
-    });
-    expect(sideEffectsResult.isOk()).toBe(true);
-    if (sideEffectsResult.isErr()) return;
-    expect(sideEffectsResult.value).toHaveLength(1);
+    const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
+      [linkFieldResult._unsafeUnwrap()],
+      {
+        table: hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+    sideEffectsResult._unsafeUnwrap();
 
-    const [effect] = sideEffectsResult.value;
+    expect(sideEffectsResult._unsafeUnwrap()).toHaveLength(1);
+
+    const [effect] = sideEffectsResult._unsafeUnwrap();
     const mutateResult = effect.mutateSpec.mutate(foreignTable);
-    expect(mutateResult.isOk()).toBe(true);
-    if (mutateResult.isErr()) return;
-    const updated = mutateResult.value;
+    mutateResult._unsafeUnwrap();
+
+    const updated = mutateResult._unsafeUnwrap();
 
     const symmetricField = updated.fields().find((f) => f.type().toString() === 'link') as
       | LinkField
@@ -132,7 +122,7 @@ describe('FieldCreationSideEffectVisitor', () => {
     expect(symmetricField).toBeDefined();
     if (!symmetricField) return;
     expect(symmetricField.relationship().toString()).toBe('oneMany');
-    expect(symmetricField.symmetricFieldId()?.equals(linkFieldIdResult.value)).toBe(true);
+    expect(symmetricField.symmetricFieldId()?.equals(linkFieldIdResult._unsafeUnwrap())).toBe(true);
   });
 
   it('skips one-way links', () => {
@@ -144,70 +134,66 @@ describe('FieldCreationSideEffectVisitor', () => {
     const linkFieldIdResult = createFieldId('l');
     const linkFieldNameResult = FieldName.create('Link');
 
-    expect(
-      [
-        baseIdResult,
-        hostTableIdResult,
-        foreignTableIdResult,
-        hostPrimaryIdResult,
-        foreignPrimaryIdResult,
-        linkFieldIdResult,
-        linkFieldNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      hostTableIdResult.isErr() ||
-      foreignTableIdResult.isErr() ||
-      hostPrimaryIdResult.isErr() ||
-      foreignPrimaryIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      hostTableIdResult,
+      foreignTableIdResult,
+      hostPrimaryIdResult,
+      foreignPrimaryIdResult,
+      linkFieldIdResult,
+      linkFieldNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    hostTableIdResult._unsafeUnwrap();
+    foreignTableIdResult._unsafeUnwrap();
+    hostPrimaryIdResult._unsafeUnwrap();
+    foreignPrimaryIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
-    const baseId = baseIdResult.value;
+    const baseId = baseIdResult._unsafeUnwrap();
     const hostTable = buildTable({
       baseId,
-      tableId: hostTableIdResult.value,
+      tableId: hostTableIdResult._unsafeUnwrap(),
       tableName: 'Host',
-      primaryFieldId: hostPrimaryIdResult.value,
+      primaryFieldId: hostPrimaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Host Name',
     });
     const foreignTable = buildTable({
       baseId,
-      tableId: foreignTableIdResult.value,
+      tableId: foreignTableIdResult._unsafeUnwrap(),
       tableName: 'Foreign',
-      primaryFieldId: foreignPrimaryIdResult.value,
+      primaryFieldId: foreignPrimaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Foreign Name',
     });
 
     const configResult = LinkFieldConfig.create({
       relationship: 'oneMany',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: foreignPrimaryIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: foreignPrimaryIdResult._unsafeUnwrap().toString(),
       isOneWay: true,
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
     const linkFieldResult = createNewLinkField({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
       baseId,
-      hostTableId: hostTableIdResult.value,
+      hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    linkFieldResult._unsafeUnwrap();
 
-    const sideEffectsResult = FieldCreationSideEffectVisitor.collect([linkFieldResult.value], {
-      table: hostTable,
-      foreignTables: [foreignTable],
-    });
-    expect(sideEffectsResult.isOk()).toBe(true);
-    if (sideEffectsResult.isErr()) return;
-    expect(sideEffectsResult.value).toHaveLength(0);
+    const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
+      [linkFieldResult._unsafeUnwrap()],
+      {
+        table: hostTable,
+        foreignTables: [foreignTable],
+      }
+    );
+    sideEffectsResult._unsafeUnwrap();
+
+    expect(sideEffectsResult._unsafeUnwrap()).toHaveLength(0);
   });
 
   it('supports self-referencing links', () => {
@@ -217,63 +203,59 @@ describe('FieldCreationSideEffectVisitor', () => {
     const linkFieldIdResult = createFieldId('p');
     const linkFieldNameResult = FieldName.create('Link');
 
-    expect(
-      [baseIdResult, tableIdResult, primaryIdResult, linkFieldIdResult, linkFieldNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      tableIdResult.isErr() ||
-      primaryIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    baseIdResult._unsafeUnwrap();
+    tableIdResult._unsafeUnwrap();
+    primaryIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
-    const baseId = baseIdResult.value;
+    const baseId = baseIdResult._unsafeUnwrap();
     const table = buildTable({
       baseId,
-      tableId: tableIdResult.value,
+      tableId: tableIdResult._unsafeUnwrap(),
       tableName: 'Self',
-      primaryFieldId: primaryIdResult.value,
+      primaryFieldId: primaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Name',
     });
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyMany',
-      foreignTableId: tableIdResult.value.toString(),
-      lookupFieldId: primaryIdResult.value.toString(),
+      foreignTableId: tableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: primaryIdResult._unsafeUnwrap().toString(),
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
     const linkFieldResult = createNewLinkField({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
       baseId,
-      hostTableId: tableIdResult.value,
+      hostTableId: tableIdResult._unsafeUnwrap(),
     });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    linkFieldResult._unsafeUnwrap();
 
-    const sideEffectsResult = FieldCreationSideEffectVisitor.collect([linkFieldResult.value], {
-      table,
-      foreignTables: [table],
-    });
-    expect(sideEffectsResult.isOk()).toBe(true);
-    if (sideEffectsResult.isErr()) return;
-    expect(sideEffectsResult.value).toHaveLength(1);
-
-    const [effect] = sideEffectsResult.value;
-    expect(effect.foreignTableId.equals(tableIdResult.value)).toBe(true);
-    const updatedResult = effect.mutateSpec.mutate(table);
-    expect(updatedResult.isOk()).toBe(true);
-    if (updatedResult.isErr()) return;
-    expect(updatedResult.value.fields().filter((f) => f.type().toString() === 'link')).toHaveLength(
-      1
+    const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
+      [linkFieldResult._unsafeUnwrap()],
+      {
+        table,
+        foreignTables: [table],
+      }
     );
+    sideEffectsResult._unsafeUnwrap();
+
+    expect(sideEffectsResult._unsafeUnwrap()).toHaveLength(1);
+
+    const [effect] = sideEffectsResult._unsafeUnwrap();
+    expect(effect.foreignTable.id().equals(tableIdResult._unsafeUnwrap())).toBe(true);
+    const updatedResult = effect.mutateSpec.mutate(table);
+    updatedResult._unsafeUnwrap();
+
+    expect(
+      updatedResult
+        ._unsafeUnwrap()
+        .fields()
+        .filter((f) => f.type().toString() === 'link')
+    ).toHaveLength(1);
   });
 
   it('errors when foreign table is missing', () => {
@@ -285,59 +267,55 @@ describe('FieldCreationSideEffectVisitor', () => {
     const linkFieldIdResult = createFieldId('v');
     const linkFieldNameResult = FieldName.create('Link');
 
-    expect(
-      [
-        baseIdResult,
-        hostTableIdResult,
-        foreignTableIdResult,
-        hostPrimaryIdResult,
-        foreignPrimaryIdResult,
-        linkFieldIdResult,
-        linkFieldNameResult,
-      ].every((r) => r.isOk())
-    ).toBe(true);
-    if (
-      baseIdResult.isErr() ||
-      hostTableIdResult.isErr() ||
-      foreignTableIdResult.isErr() ||
-      hostPrimaryIdResult.isErr() ||
-      foreignPrimaryIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    [
+      baseIdResult,
+      hostTableIdResult,
+      foreignTableIdResult,
+      hostPrimaryIdResult,
+      foreignPrimaryIdResult,
+      linkFieldIdResult,
+      linkFieldNameResult,
+    ].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    hostTableIdResult._unsafeUnwrap();
+    foreignTableIdResult._unsafeUnwrap();
+    hostPrimaryIdResult._unsafeUnwrap();
+    foreignPrimaryIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
-    const baseId = baseIdResult.value;
+    const baseId = baseIdResult._unsafeUnwrap();
     const hostTable = buildTable({
       baseId,
-      tableId: hostTableIdResult.value,
+      tableId: hostTableIdResult._unsafeUnwrap(),
       tableName: 'Host',
-      primaryFieldId: hostPrimaryIdResult.value,
+      primaryFieldId: hostPrimaryIdResult._unsafeUnwrap(),
       primaryFieldName: 'Host Name',
     });
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: foreignPrimaryIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: foreignPrimaryIdResult._unsafeUnwrap().toString(),
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
     const linkFieldResult = createNewLinkField({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config: configResult._unsafeUnwrap(),
       baseId,
-      hostTableId: hostTableIdResult.value,
+      hostTableId: hostTableIdResult._unsafeUnwrap(),
     });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    linkFieldResult._unsafeUnwrap();
 
-    const sideEffectsResult = FieldCreationSideEffectVisitor.collect([linkFieldResult.value], {
-      table: hostTable,
-      foreignTables: [],
-    });
-    expect(sideEffectsResult.isErr()).toBe(true);
+    const sideEffectsResult = FieldCreationSideEffectVisitor.collect(
+      [linkFieldResult._unsafeUnwrap()],
+      {
+        table: hostTable,
+        foreignTables: [],
+      }
+    );
+    sideEffectsResult._unsafeUnwrapErr();
   });
 });

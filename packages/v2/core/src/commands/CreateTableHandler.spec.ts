@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { FieldCreationSideEffectFlow } from '../application/services/FieldCreationSideEffectFlow';
+import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -18,7 +18,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { ILogger } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -28,9 +27,9 @@ import { CreateTableHandler } from './CreateTableHandler';
 
 const createContext = (): IExecutionContext => {
   const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
-  return { actorId: actorIdResult.value };
+  actorIdResult._unsafeUnwrap();
+  actorIdResult._unsafeUnwrap();
+  return { actorId: actorIdResult._unsafeUnwrap() };
 };
 
 class FakeTableRepository implements ITableRepository {
@@ -127,26 +126,6 @@ class FakeEventBus implements IEventBus {
   }
 }
 
-class FakeLogger implements ILogger {
-  readonly messages: string[] = [];
-
-  debug(message: string): void {
-    this.messages.push(message);
-  }
-
-  info(message: string): void {
-    this.messages.push(message);
-  }
-
-  warn(message: string): void {
-    this.messages.push(message);
-  }
-
-  error(message: string): void {
-    this.messages.push(message);
-  }
-}
-
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
 
@@ -173,13 +152,11 @@ const createCommand = (baseIdSeed: string) => {
 describe('CreateTableHandler', () => {
   it('builds tables and publishes events', async () => {
     const commandResult = createCommand('a');
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -187,7 +164,7 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
       tableRepository,
       tableUpdateFlow
     );
@@ -195,15 +172,13 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
-      fieldCreationSideEffectFlow,
+      fieldCreationSideEffectService,
       eventBus,
-      logger,
       unitOfWork
     );
 
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrap();
 
     expect(tableRepository.inserted.length).toBe(1);
     expect(schemaRepository.inserted.length).toBe(1);
@@ -229,13 +204,11 @@ describe('CreateTableHandler', () => {
       ],
       views: [{ type: 'grid' }],
     });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -243,24 +216,21 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
       tableRepository,
       tableUpdateFlow
     );
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
-      fieldCreationSideEffectFlow,
+      fieldCreationSideEffectService,
       eventBus,
-      logger,
       unitOfWork
     );
 
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
 
-    const table = result.value.table;
+    const table = result._unsafeUnwrap().table;
     const formulaField = table.fields().find((field) => field.type().toString() === 'formula') as
       | FormulaField
       | undefined;
@@ -269,19 +239,17 @@ describe('CreateTableHandler', () => {
 
     expect(formulaField.dependencies().map((id) => id.toString())).toEqual([numberFieldId]);
     const typeResult = formulaField.cellValueType();
-    expect(typeResult.isOk()).toBe(true);
+    typeResult._unsafeUnwrap();
   });
 
   it('returns errors from repositories and event bus', async () => {
     const commandResult = createCommand('b');
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
     tableRepository.failInsert = 'insert failed';
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -289,7 +257,7 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
       tableRepository,
       tableUpdateFlow
     );
@@ -297,33 +265,24 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
-      fieldCreationSideEffectFlow,
+      fieldCreationSideEffectService,
       eventBus,
-      logger,
       unitOfWork
     );
 
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBe('insert failed');
-    }
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toBe('insert failed');
 
     tableRepository.failInsert = undefined;
     schemaRepository.failInsert = 'schema failed';
-    const schemaResult = await handler.handle(createContext(), commandResult.value);
-    expect(schemaResult.isErr()).toBe(true);
-    if (schemaResult.isErr()) {
-      expect(schemaResult.error).toBe('schema failed');
-    }
+    const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(schemaResult._unsafeUnwrapErr()).toBe('schema failed');
 
     schemaRepository.failInsert = undefined;
     eventBus.failPublish = 'publish failed';
-    const publishResult = await handler.handle(createContext(), commandResult.value);
-    expect(publishResult.isErr()).toBe(true);
-    if (publishResult.isErr()) {
-      expect(publishResult.error).toBe('publish failed');
-    }
+    const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    expect(publishResult._unsafeUnwrapErr()).toBe('publish failed');
   });
 
   it('fails when the command produces an invalid table', async () => {
@@ -336,13 +295,11 @@ describe('CreateTableHandler', () => {
       ],
       views: [{ type: 'grid' }],
     });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -350,7 +307,7 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
       tableRepository,
       tableUpdateFlow
     );
@@ -358,17 +315,14 @@ describe('CreateTableHandler', () => {
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
-      fieldCreationSideEffectFlow,
+      fieldCreationSideEffectService,
       eventBus,
-      logger,
       unitOfWork
     );
 
-    const result = await handler.handle(createContext(), commandResult.value);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Field names must be unique');
-    }
+    const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('Field names must be unique');
   });
 
   describe('link fields', () => {
@@ -411,7 +365,6 @@ describe('CreateTableHandler', () => {
       tableRepository.inserted.push(foreignTable);
       const schemaRepository = new FakeTableSchemaRepository();
       const eventBus = new FakeEventBus();
-      const logger = new FakeLogger();
       const unitOfWork = new FakeUnitOfWork();
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
@@ -419,16 +372,15 @@ describe('CreateTableHandler', () => {
         eventBus,
         unitOfWork
       );
-      const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      const fieldCreationSideEffectService = new FieldCreationSideEffectService(
         tableRepository,
         tableUpdateFlow
       );
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
-        fieldCreationSideEffectFlow,
+        fieldCreationSideEffectService,
         eventBus,
-        logger,
         unitOfWork
       );
 
@@ -451,12 +403,10 @@ describe('CreateTableHandler', () => {
           ],
           views: [{ type: 'grid' }],
         });
-        expect(commandResult.isOk()).toBe(true);
-        if (commandResult.isErr()) continue;
+        commandResult._unsafeUnwrap();
 
-        const result = await handler.handle(createContext(), commandResult.value);
-        expect(result.isOk()).toBe(true);
-        if (result.isErr()) continue;
+        const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
+        result._unsafeUnwrap();
 
         const updatedForeign = tableRepository.inserted.find((table) =>
           table.id().equals(foreignTable.id())
@@ -479,7 +429,6 @@ describe('CreateTableHandler', () => {
       const tableRepository = new FakeTableRepository();
       const schemaRepository = new FakeTableSchemaRepository();
       const eventBus = new FakeEventBus();
-      const logger = new FakeLogger();
       const unitOfWork = new FakeUnitOfWork();
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
@@ -487,16 +436,15 @@ describe('CreateTableHandler', () => {
         eventBus,
         unitOfWork
       );
-      const fieldCreationSideEffectFlow = new FieldCreationSideEffectFlow(
+      const fieldCreationSideEffectService = new FieldCreationSideEffectService(
         tableRepository,
         tableUpdateFlow
       );
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
-        fieldCreationSideEffectFlow,
+        fieldCreationSideEffectService,
         eventBus,
-        logger,
         unitOfWork
       );
 
@@ -518,14 +466,11 @@ describe('CreateTableHandler', () => {
         ],
         views: [{ type: 'grid' }],
       });
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
+      commandResult._unsafeUnwrap();
 
-      const result = await handler.handle(createContext(), commandResult.value);
-      expect(result.isOk()).toBe(true);
-      if (result.isErr()) return;
+      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
 
-      const created = result.value.table;
+      const created = result._unsafeUnwrap().table;
       expect(created.id().toString()).toBe(tableId);
       const linkFields = created.fields().filter((field) => field.type().toString() === 'link');
       expect(linkFields.length).toBeGreaterThan(0);

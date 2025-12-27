@@ -10,16 +10,18 @@ const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
 describe('FieldName', () => {
   it('validates field names', () => {
-    expect(FieldName.create('Title').isOk()).toBe(true);
-    expect(FieldName.create('').isErr()).toBe(true);
+    FieldName.create('Title')._unsafeUnwrap();
+    FieldName.create('')._unsafeUnwrapErr();
   });
 
   it('compares field names by value', () => {
     const left = FieldName.create('A');
     const right = FieldName.create('A');
     const other = FieldName.create('B');
-    expect([left, right, other].every((r) => r.isOk())).toBe(true);
-    if (left.isErr() || right.isErr() || other.isErr()) return;
+    [left, right, other].forEach((r) => r._unsafeUnwrap());
+    left._unsafeUnwrap();
+    right._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(left.value.equals(right.value)).toBe(true);
     expect(left.value.equals(other.value)).toBe(false);
     expect(left.value.toString()).toBe('A');
@@ -28,22 +30,22 @@ describe('FieldName', () => {
 
 describe('DbFieldName', () => {
   it('rehydrates and validates', () => {
-    expect(DbFieldName.rehydrate('db_field').isOk()).toBe(true);
-    expect(DbFieldName.rehydrate('').isErr()).toBe(true);
+    DbFieldName.rehydrate('db_field')._unsafeUnwrap();
+    DbFieldName.rehydrate('')._unsafeUnwrapErr();
   });
 
   it('requires rehydrate before access', () => {
     const empty = DbFieldName.empty();
     expect(empty.isRehydrated()).toBe(false);
-    expect(empty.value().isErr()).toBe(true);
+    empty.value()._unsafeUnwrapErr();
   });
 });
 
 describe('FieldType', () => {
   it('accepts known types and rejects unknown', () => {
-    expect(FieldType.create('singleLineText').isOk()).toBe(true);
-    expect(FieldType.create('link').isOk()).toBe(true);
-    expect(FieldType.create('unknown').isErr()).toBe(true);
+    FieldType.create('singleLineText')._unsafeUnwrap();
+    FieldType.create('link')._unsafeUnwrap();
+    FieldType.create('unknown')._unsafeUnwrapErr();
   });
 
   it('exposes constructors', () => {
@@ -66,28 +68,30 @@ describe('Field', () => {
   it('manages db field names', () => {
     const fieldIdResult = createFieldId('a');
     const fieldNameResult = FieldName.create('Title');
-    expect([fieldIdResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-    if (fieldIdResult.isErr() || fieldNameResult.isErr()) return;
+    [fieldIdResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+    fieldIdResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
 
     const fieldResult = SingleLineTextField.create({
-      id: fieldIdResult.value,
-      name: fieldNameResult.value,
+      id: fieldIdResult._unsafeUnwrap(),
+      name: fieldNameResult._unsafeUnwrap(),
     });
-    expect(fieldResult.isOk()).toBe(true);
-    if (fieldResult.isErr()) return;
-    const field = fieldResult.value;
+    fieldResult._unsafeUnwrap();
 
-    expect(field.dbFieldName().isErr()).toBe(true);
-    expect(field.setDbFieldName(DbFieldName.empty()).isErr()).toBe(true);
+    const field = fieldResult._unsafeUnwrap();
+
+    field.dbFieldName()._unsafeUnwrapErr();
+    field.setDbFieldName(DbFieldName.empty())._unsafeUnwrapErr();
 
     const dbNameResult = DbFieldName.rehydrate('db_field');
     const otherDbNameResult = DbFieldName.rehydrate('db_field_other');
-    expect([dbNameResult, otherDbNameResult].every((r) => r.isOk())).toBe(true);
-    if (dbNameResult.isErr() || otherDbNameResult.isErr()) return;
+    [dbNameResult, otherDbNameResult].forEach((r) => r._unsafeUnwrap());
+    dbNameResult._unsafeUnwrap();
+    otherDbNameResult._unsafeUnwrap();
 
-    expect(field.setDbFieldName(dbNameResult.value).isOk()).toBe(true);
-    expect(field.dbFieldName().isOk()).toBe(true);
-    expect(field.setDbFieldName(dbNameResult.value).isOk()).toBe(true);
-    expect(field.setDbFieldName(otherDbNameResult.value).isErr()).toBe(true);
+    field.setDbFieldName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
+    field.dbFieldName()._unsafeUnwrap();
+    field.setDbFieldName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
+    field.setDbFieldName(otherDbNameResult._unsafeUnwrap())._unsafeUnwrapErr();
   });
 });

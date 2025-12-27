@@ -307,3 +307,4 @@ v2 uses a layered test strategy. The same behavior should usually be asserted **
 - After substantial changes, run `pnpm -C packages/v2/<pkg> typecheck` and `pnpm -C packages/v2/<pkg> lint` for each affected package and report any failures.
 - Resolve any TypeScript errors before marking the task complete.
 - Run eslint with auto-fix (`pnpm -C packages/v2/<pkg> lint -- --fix` or `pnpm -C packages/v2/<pkg> fix-all-files`) and format the touched files before completion.
+- Every task completion must include formatting/fix steps for touched v2 packages (eslint auto-fix or equivalent).

@@ -35,24 +35,22 @@ describe('CreateTableHandler (db)', () => {
     const db = container.resolve<Kysely<V1Db>>(v2PostgresDbTokens.db);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const context = { actorId: actorIdResult.value };
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
 
     const createTableResult = CreateTableCommand.create(
       allFieldTypesTemplate.createInput(baseId.toString(), 'DB Table')
     );
-    expect(createTableResult.isOk()).toBe(true);
-    if (createTableResult.isErr()) return;
+    createTableResult._unsafeUnwrap();
 
     const execResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      createTableResult.value
+      createTableResult._unsafeUnwrap()
     );
-    expect(execResult.isOk()).toBe(true);
-    if (execResult.isErr()) return;
+    execResult._unsafeUnwrap();
 
-    const table = execResult.value.table;
+    const table = execResult._unsafeUnwrap().table;
     const tableId = table.id().toString();
     const fieldIds = table.fields().map((field) => field.id().toString());
 
@@ -93,10 +91,10 @@ describe('CreateTableHandler (db)', () => {
       if (!row) return;
       expect(row.type).toBe(view.type().toString());
       const metaResult = view.columnMeta();
-      expect(metaResult.isOk()).toBe(true);
-      if (metaResult.isErr()) return;
+      metaResult._unsafeUnwrap();
+
       const dbMeta = JSON.parse(row.column_meta ?? '{}') as Record<string, { order: number }>;
-      expect(dbMeta).toEqual(metaResult.value.toDto());
+      expect(dbMeta).toEqual(metaResult._unsafeUnwrap().toDto());
     }
 
     const parts = String(tableMetaRow.db_table_name).split('.');

@@ -36,6 +36,9 @@ import { RatingColor } from './fields/types/RatingColor';
 import { RatingField } from './fields/types/RatingField';
 import { RatingIcon } from './fields/types/RatingIcon';
 import { RatingMax } from './fields/types/RatingMax';
+import type { RollupExpression } from './fields/types/RollupExpression';
+import { RollupField, type RollupFormatting, type RollupShowAs } from './fields/types/RollupField';
+import type { RollupFieldConfig } from './fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from './fields/types/SelectAutoNewOptions';
 import type { SelectDefaultValue } from './fields/types/SelectDefaultValue';
 import type { SelectOption } from './fields/types/SelectOption';
@@ -85,6 +88,8 @@ const fieldNameRequiredError = 'FieldName is required';
 const viewNameRequiredError = 'ViewName is required';
 const formulaExpressionRequiredError = 'Formula expression is required';
 const linkConfigRequiredError = 'LinkFieldConfig is required';
+const rollupExpressionRequiredError = 'Rollup expression is required';
+const rollupConfigRequiredError = 'RollupFieldConfig is required';
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -274,6 +279,10 @@ export class TableFieldBuilder {
 
   formula(): FormulaFieldBuilder {
     return new FormulaFieldBuilder(this.parent, this.sink);
+  }
+
+  rollup(): RollupFieldBuilder {
+    return new RollupFieldBuilder(this.parent, this.sink);
   }
 
   singleSelect(): SingleSelectFieldBuilder {
@@ -625,6 +634,124 @@ export class FormulaFieldBuilder {
         showAs: this.showAs,
         dependencies: this.dependencies,
       }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class RollupFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private config: RollupFieldConfig | undefined;
+  private expression: RollupExpression | undefined;
+  private valuesField: Field | undefined;
+  private timeZone: TimeZone | undefined;
+  private formatting: RollupFormatting | undefined;
+  private showAs: RollupShowAs | undefined;
+  private dependencies: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): RollupFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): RollupFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withConfig(config: RollupFieldConfig): RollupFieldBuilder {
+    this.config = config;
+    return this;
+  }
+
+  withExpression(expression: RollupExpression): RollupFieldBuilder {
+    this.expression = expression;
+    return this;
+  }
+
+  withValuesField(valuesField: Field): RollupFieldBuilder {
+    this.valuesField = valuesField;
+    return this;
+  }
+
+  withTimeZone(timeZone: TimeZone): RollupFieldBuilder {
+    this.timeZone = timeZone;
+    return this;
+  }
+
+  withFormatting(formatting: RollupFormatting): RollupFieldBuilder {
+    this.formatting = formatting;
+    return this;
+  }
+
+  withShowAs(showAs: RollupShowAs): RollupFieldBuilder {
+    this.showAs = showAs;
+    return this;
+  }
+
+  withDependencies(dependencies: ReadonlyArray<FieldId>): RollupFieldBuilder {
+    this.dependencies = [...dependencies];
+    return this;
+  }
+
+  primary(): RollupFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const config = this.config;
+    if (!config) {
+      this.sink.addError(rollupConfigRequiredError);
+      return this.parent;
+    }
+    const expression = this.expression;
+    if (!expression) {
+      this.sink.addError(rollupExpressionRequiredError);
+      return this.parent;
+    }
+    const valuesField = this.valuesField;
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      (valuesField
+        ? RollupField.create({
+            id,
+            name,
+            config,
+            expression,
+            valuesField,
+            timeZone: this.timeZone,
+            formatting: this.formatting,
+            showAs: this.showAs,
+            dependencies: this.dependencies,
+          })
+        : RollupField.createPending({
+            id,
+            name,
+            config,
+            expression,
+            timeZone: this.timeZone,
+            formatting: this.formatting,
+            showAs: this.showAs,
+            dependencies: this.dependencies,
+          })
+      ).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })

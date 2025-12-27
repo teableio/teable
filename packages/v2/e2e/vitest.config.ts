@@ -1,10 +1,20 @@
+/* eslint-disable @typescript-eslint/naming-convention */
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defineConfig, configDefaults } from 'vitest/config';
 
 const testFiles = ['./src/**/*.{test,spec}.{js,ts}'];
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: {
+    alias: {
+      '@teable/formula': resolve(rootDir, '../../formula/src/index.ts'),
+    },
+  },
   cacheDir: '../../../.cache/vitest/v2-e2e',
   test: {
     globals: true,

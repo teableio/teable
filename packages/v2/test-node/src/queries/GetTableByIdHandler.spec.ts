@@ -47,37 +47,32 @@ describe('GetTableByIdHandler', () => {
       ],
     });
 
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
+    actorIdResult._unsafeUnwrap();
 
-    const context = { actorId: actorIdResult.value };
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
     const createResult = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      commandResult.value
+      commandResult._unsafeUnwrap()
     );
-    expect(createResult.isOk()).toBe(true);
-    if (createResult.isErr()) return;
+    createResult._unsafeUnwrap();
 
     const queryResult = GetTableByIdQuery.create({
       baseId: baseId.toString(),
-      tableId: createResult.value.table.id().toString(),
+      tableId: createResult._unsafeUnwrap().table.id().toString(),
     });
 
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
     const result = await queryBus.execute<GetTableByIdQuery, GetTableByIdResult>(
       context,
-      queryResult.value
+      queryResult._unsafeUnwrap()
     );
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
 
-    expect(result.value.table.id().equals(createResult.value.table.id())).toBe(true);
+    expect(result.value.table.id().equals(createResult._unsafeUnwrap().table.id())).toBe(true);
     expect(result.value.table.baseId().equals(baseId)).toBe(true);
 
     const table = result.value.table;
@@ -90,13 +85,13 @@ describe('GetTableByIdHandler', () => {
 
     const valueTypeVisitor = new FieldValueTypeVisitor();
     const scoreType = scoreField.accept(valueTypeVisitor);
-    expect(scoreType.isOk()).toBe(true);
-    if (scoreType.isErr()) return;
+    scoreType._unsafeUnwrap();
+
     expect(scoreType.value.cellValueType.toString()).toBe('number');
 
     const scoreLabelType = scoreLabelField.accept(valueTypeVisitor);
-    expect(scoreLabelType.isOk()).toBe(true);
-    if (scoreLabelType.isErr()) return;
+    scoreLabelType._unsafeUnwrap();
+
     expect(scoreLabelType.value.cellValueType.toString()).toBe('string');
   });
 
@@ -105,29 +100,24 @@ describe('GetTableByIdHandler', () => {
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
+    actorIdResult._unsafeUnwrap();
 
     const tableIdResult = TableId.generate();
-    expect(tableIdResult.isOk()).toBe(true);
-    if (tableIdResult.isErr()) return;
+    tableIdResult._unsafeUnwrap();
 
     const queryResult = GetTableByIdQuery.create({
       baseId: baseId.toString(),
-      tableId: tableIdResult.value.toString(),
+      tableId: tableIdResult._unsafeUnwrap().toString(),
     });
 
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
     const result = await queryBus.execute<GetTableByIdQuery, GetTableByIdResult>(
-      { actorId: actorIdResult.value },
-      queryResult.value
+      { actorId: actorIdResult._unsafeUnwrap() },
+      queryResult._unsafeUnwrap()
     );
 
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBe('Table not found');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toBe('Table not found');
   });
 });

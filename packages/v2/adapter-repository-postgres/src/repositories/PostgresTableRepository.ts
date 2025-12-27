@@ -47,19 +47,15 @@ export class PostgresTableRepository implements core.ITableRepository {
         )
       `;
       const existingDbTableNameResult = table.dbTableName().andThen((name) => name.value());
-      const dbTableName = existingDbTableNameResult.isOk()
-        ? existingDbTableNameResult.value
-        : joinDbTableName(baseId, convertNameToValidCharacter(table.name().toString(), 40));
-      if (existingDbTableNameResult.isErr()) {
-        const existing = await trx
-          .selectFrom('table_meta')
-          .select(['id'])
-          .where('base_id', '=', baseId)
-          .where('db_table_name', '=', dbTableName)
-          .where('deleted_time', 'is', null)
-          .executeTakeFirst();
-        if (existing) return err('DbTableName already exists');
-      }
+      const dbTableNameResult = existingDbTableNameResult.isOk()
+        ? ok(existingDbTableNameResult.value)
+        : await this.resolveDbTableName(
+            trx,
+            baseId,
+            convertNameToValidCharacter(table.name().toString(), 40)
+          );
+      if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
+      const dbTableName = dbTableNameResult.value;
 
       const dtoResult = this.tableMapper.toDTO(table);
       if (dtoResult.isErr()) return err(dtoResult.error);
@@ -345,6 +341,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'cell_value_type',
                 'is_multiple_cell_value',
                 'is_primary',
+                'lookup_linked_field_id',
+                'lookup_options',
                 'db_field_name',
               ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
@@ -421,6 +419,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'cell_value_type',
                 'is_multiple_cell_value',
                 'is_primary',
+                'lookup_linked_field_id',
+                'lookup_options',
                 'db_field_name',
               ])
               .where(sql<boolean>`${sql.ref('field.table_id')} = ${sql.ref('table_meta.id')}`)
@@ -593,6 +593,8 @@ export class PostgresTableRepository implements core.ITableRepository {
           cell_value_type: string | null;
           is_multiple_cell_value: boolean | null;
           is_primary: boolean | null;
+          lookup_linked_field_id: string | null;
+          lookup_options: string | null;
           db_field_name: string | null;
         }>)
       : [];
@@ -635,6 +637,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     meta: string | null;
     cell_value_type: string | null;
     is_multiple_cell_value: boolean | null;
+    lookup_linked_field_id: string | null;
+    lookup_options: string | null;
     db_field_name: string | null;
   }): core.ITableFieldPersistenceDTO {
     const parsed = this.parseOptions(row.options);
@@ -644,6 +648,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     const metaParsed = this.parseOptions(row.meta);
     const hasMeta = Object.keys(metaParsed).length > 0;
     const asMeta = <T>(): T | undefined => (hasMeta ? (metaParsed as T) : undefined);
+    const lookupParsed = this.parseOptions(row.lookup_options);
+    const hasLookupOptions = Object.keys(lookupParsed).length > 0;
+    const asLookupOptions = <T>(): T | undefined =>
+      hasLookupOptions ? (lookupParsed as T) : undefined;
 
     if (row.type === 'rating') {
       const options = {
@@ -690,6 +698,20 @@ export class PostgresTableRepository implements core.ITableRepository {
         type: 'formula',
         options: asOptions<core.IFormulaFieldOptionsDTO>() ?? { expression: '' },
         meta: asMeta<core.IFormulaFieldMetaDTO>(),
+        cellValueType: row.cell_value_type ?? undefined,
+        isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
+        dbFieldName,
+      };
+    }
+    if (row.type === 'rollup') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'rollup',
+        options: asOptions<core.IRollupFieldOptionsDTO>() ?? {
+          expression: 'countall({values})',
+        },
+        config: asLookupOptions<core.IRollupFieldConfigDTO>(),
         cellValueType: row.cell_value_type ?? undefined,
         isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
         dbFieldName,
@@ -857,6 +879,36 @@ export class PostgresTableRepository implements core.ITableRepository {
     });
 
     return this.sequenceResults(fieldResults).map(() => undefined);
+  }
+
+  private async resolveDbTableName(
+    trx: Kysely<V1TeableDatabase>,
+    baseId: string,
+    baseName: string
+  ): Promise<Result<string, string>> {
+    const exists = async (candidate: string): Promise<boolean> => {
+      const existing = await trx
+        .selectFrom('table_meta')
+        .select(['id'])
+        .where('base_id', '=', baseId)
+        .where('db_table_name', '=', candidate)
+        .where('deleted_time', 'is', null)
+        .executeTakeFirst();
+      return Boolean(existing);
+    };
+
+    const initial = joinDbTableName(baseId, baseName);
+    if (!(await exists(initial))) return ok(initial);
+
+    const maxLength = 40;
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const suffix = `_${core.getRandomString(6)}`;
+      const trimmedBase = baseName.substring(0, Math.max(0, maxLength - suffix.length));
+      const candidate = joinDbTableName(baseId, `${trimmedBase}${suffix}`);
+      if (!(await exists(candidate))) return ok(candidate);
+    }
+
+    return err('DbTableName already exists');
   }
 
   private async buildTableDbMeta(

@@ -16,7 +16,6 @@ module.exports = {
   ignorePatterns: [...getDefaultIgnorePatterns()],
   extends: [
     '@teable/eslint-config-bases/typescript',
-    '@teable/eslint-config-bases/sonar',
     '@teable/eslint-config-bases/regexp',
     '@teable/eslint-config-bases/jest',
     // Apply prettier and disable incompatible rules

@@ -8,12 +8,13 @@ describe('PageLimit', () => {
   it('validates limits', () => {
     const limit = PageLimit.create(10);
     const other = PageLimit.create(10);
-    expect([limit, other].every((r) => r.isOk())).toBe(true);
-    if (limit.isErr() || other.isErr()) return;
+    [limit, other].forEach((r) => r._unsafeUnwrap());
+    limit._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(limit.value.toNumber()).toBe(10);
     expect(limit.value.equals(other.value)).toBe(true);
-    expect(PageLimit.create(0).isErr()).toBe(true);
-    expect(PageLimit.create(-1).isErr()).toBe(true);
+    PageLimit.create(0)._unsafeUnwrapErr();
+    PageLimit.create(-1)._unsafeUnwrapErr();
   });
 });
 
@@ -21,11 +22,12 @@ describe('PageOffset', () => {
   it('validates offsets', () => {
     const offset = PageOffset.create(5);
     const other = PageOffset.create(5);
-    expect([offset, other].every((r) => r.isOk())).toBe(true);
-    if (offset.isErr() || other.isErr()) return;
+    [offset, other].forEach((r) => r._unsafeUnwrap());
+    offset._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(offset.value.toNumber()).toBe(5);
     expect(offset.value.equals(other.value)).toBe(true);
-    expect(PageOffset.create(-1).isErr()).toBe(true);
+    PageOffset.create(-1)._unsafeUnwrapErr();
   });
 
   it('provides zero helper', () => {
@@ -37,13 +39,17 @@ describe('OffsetPagination', () => {
   it('wraps limit and offset', () => {
     const limitResult = PageLimit.create(20);
     const offsetResult = PageOffset.create(10);
-    expect([limitResult, offsetResult].every((r) => r.isOk())).toBe(true);
-    if (limitResult.isErr() || offsetResult.isErr()) return;
-    const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
-    expect(pagination.limit()).toBe(limitResult.value);
-    expect(pagination.offset()).toBe(offsetResult.value);
+    [limitResult, offsetResult].forEach((r) => r._unsafeUnwrap());
+    limitResult._unsafeUnwrap();
+    offsetResult._unsafeUnwrap();
+    const pagination = OffsetPagination.create(
+      limitResult._unsafeUnwrap(),
+      offsetResult._unsafeUnwrap()
+    );
+    expect(pagination.limit()).toBe(limitResult._unsafeUnwrap());
+    expect(pagination.offset()).toBe(offsetResult._unsafeUnwrap());
 
-    const withDefaultOffset = OffsetPagination.create(limitResult.value);
+    const withDefaultOffset = OffsetPagination.create(limitResult._unsafeUnwrap());
     expect(withDefaultOffset.offset().toNumber()).toBe(0);
   });
 });

@@ -15,6 +15,7 @@ import {
   type NumberShowAs,
   type FormulaField,
   type RatingField,
+  type RollupField,
   type Result,
   type SingleLineTextField,
   type SingleSelectField,
@@ -130,6 +131,15 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
         pushToken(tokens, 'showAs', dto.type);
       }
     }
+    return ok(formatTokens(tokens));
+  }
+
+  visitRollupField(field: RollupField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'expr', field.expression().toString());
+    pushToken(tokens, 'link', field.linkFieldId().toString());
+    pushToken(tokens, 'foreign', field.foreignTableId().toString());
+    pushToken(tokens, 'lookup', field.lookupFieldId().toString());
     return ok(formatTokens(tokens));
   }
 

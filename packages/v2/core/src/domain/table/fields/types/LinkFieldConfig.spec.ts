@@ -13,12 +13,14 @@ describe('LinkFieldConfig', () => {
     const fieldIdResult = createFieldId('a');
     const symmetricIdResult = createFieldId('b');
     const fkHostResult = DbTableName.rehydrate('schema.table');
-    expect([fieldIdResult, symmetricIdResult, fkHostResult].every((r) => r.isOk())).toBe(true);
-    if (fieldIdResult.isErr() || symmetricIdResult.isErr() || fkHostResult.isErr()) return;
+    [fieldIdResult, symmetricIdResult, fkHostResult].forEach((r) => r._unsafeUnwrap());
+    fieldIdResult._unsafeUnwrap();
+    symmetricIdResult._unsafeUnwrap();
+    fkHostResult._unsafeUnwrap();
 
-    const fieldId = fieldIdResult.value;
-    const symmetricFieldId = symmetricIdResult.value;
-    const fkHostTableName = fkHostResult.value;
+    const fieldId = fieldIdResult._unsafeUnwrap();
+    const symmetricFieldId = symmetricIdResult._unsafeUnwrap();
+    const fkHostTableName = fkHostResult._unsafeUnwrap();
 
     const manyMany = LinkFieldConfig.buildDbConfig({
       fkHostTableName,
@@ -27,8 +29,8 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    expect(manyMany.isOk()).toBe(true);
-    if (manyMany.isErr()) return;
+    manyMany._unsafeUnwrap();
+
     expect(manyMany.value.selfKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${symmetricFieldId.toString()}`
     );
@@ -43,8 +45,8 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    expect(manyOne.isOk()).toBe(true);
-    if (manyOne.isErr()) return;
+    manyOne._unsafeUnwrap();
+
     expect(manyOne.value.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
     expect(manyOne.value.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
 
@@ -55,8 +57,8 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    expect(oneOne.isOk()).toBe(true);
-    if (oneOne.isErr()) return;
+    oneOne._unsafeUnwrap();
+
     expect(oneOne.value.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
     expect(oneOne.value.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
 
@@ -67,8 +69,8 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    expect(oneMany.isOk()).toBe(true);
-    if (oneMany.isErr()) return;
+    oneMany._unsafeUnwrap();
+
     expect(oneMany.value.selfKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${symmetricFieldId.toString()}`
     );
@@ -79,23 +81,25 @@ describe('LinkFieldConfig', () => {
     const fieldIdResult = createFieldId('c');
     const symmetricIdResult = createFieldId('d');
     const fkHostResult = DbTableName.rehydrate('schema.oneway');
-    expect([fieldIdResult, symmetricIdResult, fkHostResult].every((r) => r.isOk())).toBe(true);
-    if (fieldIdResult.isErr() || symmetricIdResult.isErr() || fkHostResult.isErr()) return;
+    [fieldIdResult, symmetricIdResult, fkHostResult].forEach((r) => r._unsafeUnwrap());
+    fieldIdResult._unsafeUnwrap();
+    symmetricIdResult._unsafeUnwrap();
+    fkHostResult._unsafeUnwrap();
 
     const configResult = LinkFieldConfig.buildDbConfig({
-      fkHostTableName: fkHostResult.value,
+      fkHostTableName: fkHostResult._unsafeUnwrap(),
       relationship: LinkRelationship.oneMany(),
-      fieldId: fieldIdResult.value,
-      symmetricFieldId: symmetricIdResult.value,
+      fieldId: fieldIdResult._unsafeUnwrap(),
+      symmetricFieldId: symmetricIdResult._unsafeUnwrap(),
       isOneWay: true,
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
-    expect(configResult.value.selfKeyName.value()._unsafeUnwrap()).toBe(
-      `__fk_${symmetricIdResult.value.toString()}`
+    configResult._unsafeUnwrap();
+
+    expect(configResult._unsafeUnwrap().selfKeyName.value()._unsafeUnwrap()).toBe(
+      `__fk_${symmetricIdResult._unsafeUnwrap().toString()}`
     );
-    expect(configResult.value.foreignKeyName.value()._unsafeUnwrap()).toBe(
-      `__fk_${fieldIdResult.value.toString()}`
+    expect(configResult._unsafeUnwrap().foreignKeyName.value()._unsafeUnwrap()).toBe(
+      `__fk_${fieldIdResult._unsafeUnwrap().toString()}`
     );
   });
 
@@ -103,25 +107,23 @@ describe('LinkFieldConfig', () => {
     const fkHostResult = DbTableName.rehydrate('schema.swap');
     const selfKeyResult = DbFieldName.rehydrate('__self');
     const foreignKeyResult = DbFieldName.rehydrate('__foreign');
-    expect([fkHostResult, selfKeyResult, foreignKeyResult].every((r) => r.isOk())).toBe(true);
-    if (fkHostResult.isErr() || selfKeyResult.isErr() || foreignKeyResult.isErr()) return;
+    [fkHostResult, selfKeyResult, foreignKeyResult].forEach((r) => r._unsafeUnwrap());
+    fkHostResult._unsafeUnwrap();
+    selfKeyResult._unsafeUnwrap();
+    foreignKeyResult._unsafeUnwrap();
 
-    const fkHostNameResult = fkHostResult.value.value();
-    const selfKeyNameResult = selfKeyResult.value.value();
-    const foreignKeyNameResult = foreignKeyResult.value.value();
-    expect([fkHostNameResult, selfKeyNameResult, foreignKeyNameResult].every((r) => r.isOk())).toBe(
-      true
-    );
-    if (fkHostNameResult.isErr() || selfKeyNameResult.isErr() || foreignKeyNameResult.isErr())
-      return;
+    const fkHostNameResult = fkHostResult._unsafeUnwrap().value();
+    const selfKeyNameResult = selfKeyResult._unsafeUnwrap().value();
+    const foreignKeyNameResult = foreignKeyResult._unsafeUnwrap().value();
+    [fkHostNameResult, selfKeyNameResult, foreignKeyNameResult].forEach((r) => r._unsafeUnwrap());
 
     const swapped = LinkFieldConfig.swapDbConfig({
-      fkHostTableName: fkHostNameResult.value,
-      selfKeyName: selfKeyNameResult.value,
-      foreignKeyName: foreignKeyNameResult.value,
+      fkHostTableName: fkHostNameResult._unsafeUnwrap(),
+      selfKeyName: selfKeyNameResult._unsafeUnwrap(),
+      foreignKeyName: foreignKeyNameResult._unsafeUnwrap(),
     });
-    expect(swapped.isOk()).toBe(true);
-    if (swapped.isErr()) return;
+    swapped._unsafeUnwrap();
+
     expect(swapped.value.selfKeyName.value()._unsafeUnwrap()).toBe('__foreign');
     expect(swapped.value.foreignKeyName.value()._unsafeUnwrap()).toBe('__self');
 
@@ -133,40 +135,38 @@ describe('LinkFieldConfig', () => {
       selfKeyName: '__self',
       foreignKeyName: '__foreign',
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
-    const conflictResult = configResult.value.withDbConfig({
+    const conflictResult = configResult._unsafeUnwrap().withDbConfig({
       fkHostTableName: DbTableName.rehydrate('schema.conflict')._unsafeUnwrap(),
-      selfKeyName: selfKeyResult.value,
-      foreignKeyName: foreignKeyResult.value,
+      selfKeyName: selfKeyResult._unsafeUnwrap(),
+      foreignKeyName: foreignKeyResult._unsafeUnwrap(),
     });
-    expect(conflictResult.isErr()).toBe(true);
+    conflictResult._unsafeUnwrapErr();
   });
 
   it('sets symmetric field id only once', () => {
     const symmetricIdResult = createFieldId('i');
     const otherIdResult = createFieldId('j');
-    expect([symmetricIdResult, otherIdResult].every((r) => r.isOk())).toBe(true);
-    if (symmetricIdResult.isErr() || otherIdResult.isErr()) return;
+    [symmetricIdResult, otherIdResult].forEach((r) => r._unsafeUnwrap());
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyOne',
       foreignTableId: `tbl${'k'.repeat(16)}`,
       lookupFieldId: `fld${'l'.repeat(16)}`,
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
-    const first = configResult.value.withSymmetricFieldId(symmetricIdResult.value);
-    expect(first.isOk()).toBe(true);
-    if (first.isErr()) return;
+    const first = configResult
+      ._unsafeUnwrap()
+      .withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
+    first._unsafeUnwrap();
 
-    const same = first.value.withSymmetricFieldId(symmetricIdResult.value);
-    expect(same.isOk()).toBe(true);
+    const same = first.value.withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
+    same._unsafeUnwrap();
 
-    const different = first.value.withSymmetricFieldId(otherIdResult.value);
-    expect(different.isErr()).toBe(true);
+    const different = first.value.withSymmetricFieldId(otherIdResult._unsafeUnwrap());
+    different._unsafeUnwrapErr();
   });
 
   it('handles db config getters and visibility settings', () => {
@@ -177,10 +177,9 @@ describe('LinkFieldConfig', () => {
       filterByViewId: null,
       visibleFieldIds: null,
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
-    const config = configResult.value;
+    const config = configResult._unsafeUnwrap();
     expect(config.hasDbConfig()).toBe(false);
     expect(config.visibleFieldIds()).toBeNull();
     expect(config.filterByViewId()).toBeNull();
@@ -192,10 +191,9 @@ describe('LinkFieldConfig', () => {
       filterByViewId: `viw${'e'.repeat(16)}`,
       visibleFieldIds: [`fld${'d'.repeat(16)}`],
     });
-    expect(withIdsResult.isOk()).toBe(true);
-    if (withIdsResult.isErr()) return;
+    withIdsResult._unsafeUnwrap();
 
-    const withIds = withIdsResult.value;
+    const withIds = withIdsResult._unsafeUnwrap();
     expect(withIds.visibleFieldIds()?.length).toBe(1);
     expect(withIds.filterByViewId()?.toString()).toBe(`viw${'e'.repeat(16)}`);
   });
@@ -209,10 +207,9 @@ describe('LinkFieldConfig', () => {
       selfKeyName: '__self',
       foreignKeyName: '__foreign',
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
+    configResult._unsafeUnwrap();
 
-    const config = configResult.value;
+    const config = configResult._unsafeUnwrap();
     const fkHost = DbTableName.rehydrate('schema.host')._unsafeUnwrap();
     const selfKey = DbFieldName.rehydrate('__self')._unsafeUnwrap();
     const foreignKey = DbFieldName.rehydrate('__foreign')._unsafeUnwrap();
@@ -222,38 +219,39 @@ describe('LinkFieldConfig', () => {
       selfKeyName: selfKey,
       foreignKeyName: foreignKey,
     });
-    expect(fkConflict.isErr()).toBe(true);
+    fkConflict._unsafeUnwrapErr();
 
     const selfConflict = config.withDbConfig({
       fkHostTableName: fkHost,
       selfKeyName: DbFieldName.rehydrate('__self_alt')._unsafeUnwrap(),
       foreignKeyName: foreignKey,
     });
-    expect(selfConflict.isErr()).toBe(true);
+    selfConflict._unsafeUnwrapErr();
 
     const foreignConflict = config.withDbConfig({
       fkHostTableName: fkHost,
       selfKeyName: selfKey,
       foreignKeyName: DbFieldName.rehydrate('__foreign_alt')._unsafeUnwrap(),
     });
-    expect(foreignConflict.isErr()).toBe(true);
+    foreignConflict._unsafeUnwrapErr();
   });
 
   it('returns errors for unsupported relationships in buildDbConfig', () => {
     const fkHostResult = DbTableName.rehydrate('schema.unsupported');
     const fieldIdResult = createFieldId('k');
-    expect([fkHostResult, fieldIdResult].every((r) => r.isOk())).toBe(true);
-    if (fkHostResult.isErr() || fieldIdResult.isErr()) return;
+    [fkHostResult, fieldIdResult].forEach((r) => r._unsafeUnwrap());
+    fkHostResult._unsafeUnwrap();
+    fieldIdResult._unsafeUnwrap();
 
     const fakeRelationship = { toString: () => 'unsupported' } as unknown as LinkRelationship;
     const result = LinkFieldConfig.buildDbConfig({
-      fkHostTableName: fkHostResult.value,
+      fkHostTableName: fkHostResult._unsafeUnwrap(),
       relationship: fakeRelationship,
-      fieldId: fieldIdResult.value,
+      fieldId: fieldIdResult._unsafeUnwrap(),
       symmetricFieldId: undefined,
       isOneWay: false,
     });
-    expect(result.isErr()).toBe(true);
+    result._unsafeUnwrapErr();
   });
 
   it('compares optional, nullable, and array values', () => {
@@ -272,11 +270,12 @@ describe('LinkFieldConfig', () => {
       filterByViewId: undefined,
       visibleFieldIds: null,
     });
-    expect([configAResult, configBResult].every((r) => r.isOk())).toBe(true);
-    if (configAResult.isErr() || configBResult.isErr()) return;
+    [configAResult, configBResult].forEach((r) => r._unsafeUnwrap());
+    configAResult._unsafeUnwrap();
+    configBResult._unsafeUnwrap();
 
-    const configA = configAResult.value;
-    const configB = configBResult.value;
+    const configA = configAResult._unsafeUnwrap();
+    const configB = configBResult._unsafeUnwrap();
     expect(configA.equals(configA)).toBe(true);
     expect(configA.equals(configB)).toBe(false);
   });

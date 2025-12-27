@@ -3,9 +3,9 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
-import type { Field } from '../domain/table/fields/Field';
 import { TableId } from '../domain/table/TableId';
-import { parseTableFieldSpec, tableFieldInputSchema } from './TableFieldSpecs';
+import type { ITableFieldInput } from './TableFieldSpecs';
+import { tableFieldInputSchema } from './TableFieldSpecs';
 
 export const createFieldInputSchema = z.object({
   baseId: z.string(),
@@ -19,7 +19,7 @@ export class CreateFieldCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
-    readonly field: Field
+    readonly field: ITableFieldInput
   ) {}
 
   static create(raw: unknown): Result<CreateFieldCommand, string> {
@@ -31,10 +31,8 @@ export class CreateFieldCommand {
     }
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
-      TableId.create(parsed.data.tableId).andThen((tableId) =>
-        parseTableFieldSpec(parsed.data.field, { isPrimary: false })
-          .andThen((spec) => spec.createField({ baseId, tableId }))
-          .map((field) => new CreateFieldCommand(baseId, tableId, field))
+      TableId.create(parsed.data.tableId).map(
+        (tableId) => new CreateFieldCommand(baseId, tableId, parsed.data.field)
       )
     );
   }

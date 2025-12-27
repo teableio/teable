@@ -45,16 +45,18 @@ class RecordingViewVisitor implements IViewVisitor<string> {
 
 describe('ViewName', () => {
   it('validates view names', () => {
-    expect(ViewName.create('Grid').isOk()).toBe(true);
-    expect(ViewName.create('').isErr()).toBe(true);
+    ViewName.create('Grid')._unsafeUnwrap();
+    ViewName.create('')._unsafeUnwrapErr();
   });
 
   it('compares view names by value', () => {
     const left = ViewName.create('A');
     const right = ViewName.create('A');
     const other = ViewName.create('B');
-    expect([left, right, other].every((r) => r.isOk())).toBe(true);
-    if (left.isErr() || right.isErr() || other.isErr()) return;
+    [left, right, other].forEach((r) => r._unsafeUnwrap());
+    left._unsafeUnwrap();
+    right._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(left.value.equals(right.value)).toBe(true);
     expect(left.value.equals(other.value)).toBe(false);
   });
@@ -64,11 +66,12 @@ describe('View types and visitors', () => {
   it('creates view types and accepts visitors', () => {
     const idResult = createViewId('a');
     const nameResult = ViewName.create('Grid');
-    expect([idResult, nameResult].every((r) => r.isOk())).toBe(true);
-    if (idResult.isErr() || nameResult.isErr()) return;
+    [idResult, nameResult].forEach((r) => r._unsafeUnwrap());
+    idResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
 
-    const id = idResult.value;
-    const name = nameResult.value;
+    const id = idResult._unsafeUnwrap();
+    const name = nameResult._unsafeUnwrap();
     const visitor = new RecordingViewVisitor();
 
     const grid = GridView.create({ id, name });
@@ -78,58 +81,56 @@ describe('View types and visitors', () => {
     const form = FormView.create({ id, name });
     const plugin = PluginView.create({ id, name });
 
-    expect([grid, kanban, gallery, calendar, form, plugin].every((r) => r.isOk())).toBe(true);
-    if (
-      grid.isErr() ||
-      kanban.isErr() ||
-      gallery.isErr() ||
-      calendar.isErr() ||
-      form.isErr() ||
-      plugin.isErr()
-    )
-      return;
+    [grid, kanban, gallery, calendar, form, plugin].forEach((r) => r._unsafeUnwrap());
+    grid._unsafeUnwrap();
+    kanban._unsafeUnwrap();
+    gallery._unsafeUnwrap();
+    calendar._unsafeUnwrap();
+    form._unsafeUnwrap();
+    plugin._unsafeUnwrap();
 
     const gridAccept = grid.value.accept(visitor);
-    expect(gridAccept.isOk()).toBe(true);
-    if (gridAccept.isErr()) return;
+    gridAccept._unsafeUnwrap();
+
     expect(gridAccept.value).toBe('grid');
 
     const kanbanAccept = kanban.value.accept(visitor);
-    expect(kanbanAccept.isOk()).toBe(true);
-    if (kanbanAccept.isErr()) return;
+    kanbanAccept._unsafeUnwrap();
+
     expect(kanbanAccept.value).toBe('kanban');
 
     const galleryAccept = gallery.value.accept(visitor);
-    expect(galleryAccept.isOk()).toBe(true);
-    if (galleryAccept.isErr()) return;
+    galleryAccept._unsafeUnwrap();
+
     expect(galleryAccept.value).toBe('gallery');
 
     const calendarAccept = calendar.value.accept(visitor);
-    expect(calendarAccept.isOk()).toBe(true);
-    if (calendarAccept.isErr()) return;
+    calendarAccept._unsafeUnwrap();
+
     expect(calendarAccept.value).toBe('calendar');
 
     const formAccept = form.value.accept(visitor);
-    expect(formAccept.isOk()).toBe(true);
-    if (formAccept.isErr()) return;
+    formAccept._unsafeUnwrap();
+
     expect(formAccept.value).toBe('form');
 
     const pluginAccept = plugin.value.accept(visitor);
-    expect(pluginAccept.isOk()).toBe(true);
-    if (pluginAccept.isErr()) return;
+    pluginAccept._unsafeUnwrap();
+
     expect(pluginAccept.value).toBe('plugin');
 
     const noopVisitor = new NoopViewVisitor();
-    expect(grid.value.accept(noopVisitor).isOk()).toBe(true);
+    grid.value.accept(noopVisitor)._unsafeUnwrap();
   });
 
   it('creates views via factory helpers', () => {
     const idResult = createViewId('b');
     const nameResult = ViewName.create('All Records');
-    expect([idResult, nameResult].every((r) => r.isOk())).toBe(true);
-    if (idResult.isErr() || nameResult.isErr()) return;
+    [idResult, nameResult].forEach((r) => r._unsafeUnwrap());
+    idResult._unsafeUnwrap();
+    nameResult._unsafeUnwrap();
 
-    const params = { id: idResult.value, name: nameResult.value };
+    const params = { id: idResult._unsafeUnwrap(), name: nameResult._unsafeUnwrap() };
     const results = [
       createGridView(params),
       createKanbanView(params),
@@ -138,6 +139,6 @@ describe('View types and visitors', () => {
       createFormView(params),
       createPluginView(params),
     ];
-    expect(results.every((r) => r.isOk())).toBe(true);
+    results.forEach((r) => r._unsafeUnwrap());
   });
 });

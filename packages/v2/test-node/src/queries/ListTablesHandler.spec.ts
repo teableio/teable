@@ -22,15 +22,15 @@ const createTable = async (
     name,
     fields: [{ type: 'singleLineText', name: 'Name' }],
   });
-  expect(commandResult.isOk()).toBe(true);
-  if (commandResult.isErr()) return undefined;
+  commandResult._unsafeUnwrap();
+  undefined;
 
   const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
     { actorId },
-    commandResult.value
+    commandResult._unsafeUnwrap()
   );
-  expect(result.isOk()).toBe(true);
-  if (result.isErr()) return undefined;
+  result._unsafeUnwrap();
+  undefined;
   return result.value.table;
 };
 
@@ -41,29 +41,26 @@ describe('ListTablesHandler', () => {
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const actorId = actorIdResult.value;
+    actorIdResult._unsafeUnwrap();
+
+    const actorId = actorIdResult._unsafeUnwrap();
 
     const otherBaseIdResult = BaseId.generate();
-    expect(otherBaseIdResult.isOk()).toBe(true);
-    if (otherBaseIdResult.isErr()) return;
+    otherBaseIdResult._unsafeUnwrap();
 
     await createTable(commandBus, baseId, 'Gamma', actorId);
     await createTable(commandBus, baseId, 'Alpha', actorId);
     await createTable(commandBus, baseId, 'Beta', actorId);
-    await createTable(commandBus, otherBaseIdResult.value, 'Other', actorId);
+    await createTable(commandBus, otherBaseIdResult._unsafeUnwrap(), 'Other', actorId);
 
     const queryResult = ListTablesQuery.create({ baseId: baseId.toString() });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
     const result = await queryBus.execute<ListTablesQuery, ListTablesResult>(
       { actorId },
-      queryResult.value
+      queryResult._unsafeUnwrap()
     );
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
 
     const names = result.value.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
@@ -76,9 +73,9 @@ describe('ListTablesHandler', () => {
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const actorId = actorIdResult.value;
+    actorIdResult._unsafeUnwrap();
+
+    const actorId = actorIdResult._unsafeUnwrap();
 
     await createTable(commandBus, baseId, 'Alpha', actorId);
     await createTable(commandBus, baseId, 'Beta', actorId);
@@ -91,15 +88,13 @@ describe('ListTablesHandler', () => {
       limit: 1,
       offset: 1,
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
     const result = await queryBus.execute<ListTablesQuery, ListTablesResult>(
       { actorId },
-      queryResult.value
+      queryResult._unsafeUnwrap()
     );
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
 
     const names = result.value.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Beta']);
@@ -111,9 +106,9 @@ describe('ListTablesHandler', () => {
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
 
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
-    const actorId = actorIdResult.value;
+    actorIdResult._unsafeUnwrap();
+
+    const actorId = actorIdResult._unsafeUnwrap();
 
     await createTable(commandBus, baseId, 'Alpha', actorId);
     await createTable(commandBus, baseId, 'Beta', actorId);
@@ -123,15 +118,13 @@ describe('ListTablesHandler', () => {
       baseId: baseId.toString(),
       q: 'Al',
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
     const result = await queryBus.execute<ListTablesQuery, ListTablesResult>(
       { actorId },
-      queryResult.value
+      queryResult._unsafeUnwrap()
     );
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
 
     const names = result.value.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Alpha']);

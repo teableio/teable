@@ -4,20 +4,21 @@ import { SingleLineTextShowAs } from './SingleLineTextShowAs';
 
 describe('SingleLineTextShowAs', () => {
   it('accepts supported showAs types', () => {
-    expect(SingleLineTextShowAs.create({ type: 'url' }).isOk()).toBe(true);
-    expect(SingleLineTextShowAs.create({ type: 'email' }).isOk()).toBe(true);
-    expect(SingleLineTextShowAs.create({ type: 'phone' }).isOk()).toBe(true);
+    SingleLineTextShowAs.create({ type: 'url' })._unsafeUnwrap();
+    SingleLineTextShowAs.create({ type: 'email' })._unsafeUnwrap();
+    SingleLineTextShowAs.create({ type: 'phone' })._unsafeUnwrap();
   });
 
   it('rejects unsupported showAs types', () => {
-    expect(SingleLineTextShowAs.create({ type: 'link' }).isErr()).toBe(true);
+    SingleLineTextShowAs.create({ type: 'link' })._unsafeUnwrapErr();
   });
 
   it('compares showAs values and maps to dto', () => {
     const left = SingleLineTextShowAs.create({ type: 'url' });
     const right = SingleLineTextShowAs.create({ type: 'url' });
-    expect([left, right].every((r) => r.isOk())).toBe(true);
-    if (left.isErr() || right.isErr()) return;
+    [left, right].forEach((r) => r._unsafeUnwrap());
+    left._unsafeUnwrap();
+    right._unsafeUnwrap();
     expect(left.value.equals(right.value)).toBe(true);
     expect(left.value.type()).toBe('url');
     expect(left.value.toDto()).toEqual({ type: 'url' });

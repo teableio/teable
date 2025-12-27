@@ -8,10 +8,15 @@ import type { FormulaField } from './types/FormulaField';
 import type { MultipleSelectField } from './types/MultipleSelectField';
 import type { NumberField } from './types/NumberField';
 import type { RatingField } from './types/RatingField';
+import type { RollupField } from './types/RollupField';
 import type { UserField } from './types/UserField';
 
 export function isFormulaField(f: Field): f is FormulaField {
   return f.type().equals(FieldType.formula());
+}
+
+export function isRollupField(f: Field): f is RollupField {
+  return f.type().equals(FieldType.rollup());
 }
 
 export function isNumericField(f: Field): f is NumberField | RatingField {

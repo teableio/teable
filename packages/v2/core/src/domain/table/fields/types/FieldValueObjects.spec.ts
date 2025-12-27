@@ -33,29 +33,31 @@ describe('SelectOptionName/Id', () => {
     const name = SelectOptionName.create('Option');
     const otherName = SelectOptionName.create('Option');
     const differentName = SelectOptionName.create('Other');
-    expect([name, otherName, differentName].every((r) => r.isOk())).toBe(true);
-    if (name.isErr() || otherName.isErr() || differentName.isErr()) return;
+    [name, otherName, differentName].forEach((r) => r._unsafeUnwrap());
+    name._unsafeUnwrap();
+    otherName._unsafeUnwrap();
+    differentName._unsafeUnwrap();
     expect(name.value.equals(otherName.value)).toBe(true);
     expect(name.value.equals(differentName.value)).toBe(false);
-    expect(SelectOptionName.create('').isErr()).toBe(true);
+    SelectOptionName.create('')._unsafeUnwrapErr();
 
     const idResult = SelectOptionId.generate();
-    expect(idResult.isOk()).toBe(true);
-    if (idResult.isErr()) return;
-    expect(idResult.value.toString()).toMatch(/^cho/);
-    const sameId = SelectOptionId.create(idResult.value.toString());
-    expect(sameId.isOk()).toBe(true);
-    if (sameId.isErr()) return;
-    expect(idResult.value.equals(sameId.value)).toBe(true);
-    expect(SelectOptionId.create('').isErr()).toBe(true);
+    idResult._unsafeUnwrap();
+
+    expect(idResult._unsafeUnwrap().toString()).toMatch(/^cho/);
+    const sameId = SelectOptionId.create(idResult._unsafeUnwrap().toString());
+    sameId._unsafeUnwrap();
+
+    expect(idResult._unsafeUnwrap().equals(sameId.value)).toBe(true);
+    SelectOptionId.create('')._unsafeUnwrapErr();
   });
 });
 
 describe('SelectOption', () => {
   it('creates options and maps to dto', () => {
     const result = SelectOption.create({ name: 'Todo', color: 'blue' });
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     const dto = result.value.toDto();
     expect(dto.name).toBe('Todo');
     expect(dto.color).toBe('blue');
@@ -65,8 +67,10 @@ describe('SelectOption', () => {
     const one = SelectOption.create({ id: 'cho12345678', name: 'Todo', color: 'blue' });
     const two = SelectOption.create({ id: 'cho12345678', name: 'Todo', color: 'blue' });
     const other = SelectOption.create({ id: 'cho87654321', name: 'Done', color: 'green' });
-    expect([one, two, other].every((r) => r.isOk())).toBe(true);
-    if (one.isErr() || two.isErr() || other.isErr()) return;
+    [one, two, other].forEach((r) => r._unsafeUnwrap());
+    one._unsafeUnwrap();
+    two._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(one.value.equals(two.value)).toBe(true);
     expect(one.value.equals(other.value)).toBe(false);
   });
@@ -76,9 +80,10 @@ describe('SelectDefaultValue', () => {
   it('handles single and multiple values', () => {
     const single = SelectDefaultValue.create('Todo');
     const multiple = SelectDefaultValue.create(['Todo', 'Done']);
-    expect(single.isOk()).toBe(true);
-    expect(multiple.isOk()).toBe(true);
-    if (single.isErr() || multiple.isErr()) return;
+    single._unsafeUnwrap();
+    multiple._unsafeUnwrap();
+    single._unsafeUnwrap();
+    multiple._unsafeUnwrap();
     expect(single.value.isMultiple()).toBe(false);
     expect(multiple.value.isMultiple()).toBe(true);
     expect(single.value.toDto()).toBe('Todo');
@@ -88,7 +93,7 @@ describe('SelectDefaultValue', () => {
   });
 
   it('rejects invalid values', () => {
-    expect(SelectDefaultValue.create(1).isErr()).toBe(true);
+    SelectDefaultValue.create(1)._unsafeUnwrapErr();
   });
 });
 
@@ -97,11 +102,11 @@ describe('SelectAutoNewOptions', () => {
     const allow = SelectAutoNewOptions.allow();
     const prevent = SelectAutoNewOptions.prevent();
     const created = SelectAutoNewOptions.create(true);
-    expect(created.isOk()).toBe(true);
-    if (created.isErr()) return;
+    created._unsafeUnwrap();
+
     expect(allow.equals(prevent)).toBe(false);
     expect(prevent.equals(created.value)).toBe(true);
-    expect(SelectAutoNewOptions.create('nope').isErr()).toBe(true);
+    SelectAutoNewOptions.create('nope')._unsafeUnwrapErr();
     expect(SelectAutoNewOptions.allow().toBoolean()).toBe(false);
     expect(SelectAutoNewOptions.prevent().toBoolean()).toBe(true);
   });
@@ -112,11 +117,11 @@ describe('FieldComputed', () => {
     const computed = FieldComputed.computed();
     const manual = FieldComputed.manual();
     const created = FieldComputed.create(true);
-    expect(created.isOk()).toBe(true);
-    if (created.isErr()) return;
+    created._unsafeUnwrap();
+
     expect(computed.equals(manual)).toBe(false);
     expect(computed.equals(created.value)).toBe(true);
-    expect(FieldComputed.create('nope').isErr()).toBe(true);
+    FieldComputed.create('nope')._unsafeUnwrapErr();
     expect(computed.toBoolean()).toBe(true);
     expect(manual.toBoolean()).toBe(false);
   });
@@ -128,23 +133,26 @@ describe('SelectOptions', () => {
     const optionTwo = SelectOption.create({ name: 'Done', color: 'green' });
     const duplicate = SelectOption.create({ name: 'Todo', color: 'blue' });
     const defaultValue = SelectDefaultValue.create('Todo');
-    expect([optionOne, optionTwo, duplicate, defaultValue].every((r) => r.isOk())).toBe(true);
-    if (optionOne.isErr() || optionTwo.isErr() || duplicate.isErr() || defaultValue.isErr()) return;
+    [optionOne, optionTwo, duplicate, defaultValue].forEach((r) => r._unsafeUnwrap());
+    optionOne._unsafeUnwrap();
+    optionTwo._unsafeUnwrap();
+    duplicate._unsafeUnwrap();
+    defaultValue._unsafeUnwrap();
 
     const uniqueResult = validateSelectOptions(
       [optionOne.value, optionTwo.value],
       defaultValue.value
     );
-    expect(uniqueResult.isOk()).toBe(true);
+    uniqueResult._unsafeUnwrap();
 
     const duplicateResult = validateSelectOptions([optionOne.value, duplicate.value]);
-    expect(duplicateResult.isErr()).toBe(true);
+    duplicateResult._unsafeUnwrapErr();
 
     const invalidDefault = SelectDefaultValue.create('Missing');
-    expect(invalidDefault.isOk()).toBe(true);
-    if (invalidDefault.isErr()) return;
+    invalidDefault._unsafeUnwrap();
+
     const invalidResult = validateSelectOptions([optionOne.value], invalidDefault.value);
-    expect(invalidResult.isErr()).toBe(true);
+    invalidResult._unsafeUnwrapErr();
   });
 });
 
@@ -152,11 +160,12 @@ describe('FieldColor', () => {
   it('validates and compares colors', () => {
     const color = FieldColor.create('blue');
     const other = FieldColor.create('blue');
-    expect([color, other].every((r) => r.isOk())).toBe(true);
-    if (color.isErr() || other.isErr()) return;
+    [color, other].forEach((r) => r._unsafeUnwrap());
+    color._unsafeUnwrap();
+    other._unsafeUnwrap();
     expect(color.value.equals(other.value)).toBe(true);
     expect(FieldColor.from('teal').toString()).toBe('teal');
-    expect(FieldColor.create('invalid').isErr()).toBe(true);
+    FieldColor.create('invalid')._unsafeUnwrapErr();
   });
 });
 
@@ -170,8 +179,11 @@ describe('Button types', () => {
       name: 'Deploy',
       isActive: true,
     });
-    expect([label, count, reset, workflow].every((r) => r.isOk())).toBe(true);
-    if (label.isErr() || count.isErr() || reset.isErr() || workflow.isErr()) return;
+    [label, count, reset, workflow].forEach((r) => r._unsafeUnwrap());
+    label._unsafeUnwrap();
+    count._unsafeUnwrap();
+    reset._unsafeUnwrap();
+    workflow._unsafeUnwrap();
 
     expect(label.value.toString()).toBe('Run');
     expect(ButtonLabel.default().toString()).toBe('Button');
@@ -189,10 +201,10 @@ describe('Button types', () => {
   });
 
   it('rejects invalid workflows and labels', () => {
-    expect(ButtonLabel.create(1).isErr()).toBe(true);
-    expect(ButtonWorkflow.create({ id: 'bad' }).isErr()).toBe(true);
+    ButtonLabel.create(1)._unsafeUnwrapErr();
+    ButtonWorkflow.create({ id: 'bad' })._unsafeUnwrapErr();
     const emptyWorkflow = ButtonWorkflow.create(null);
-    expect(emptyWorkflow.isOk()).toBe(true);
+    emptyWorkflow._unsafeUnwrap();
   });
 });
 
@@ -202,8 +214,11 @@ describe('Defaults and rating values', () => {
     const number = NumberDefaultValue.create(5);
     const checkbox = CheckboxDefaultValue.create(false);
     const date = DateDefaultValue.create('now');
-    expect([text, number, checkbox, date].every((r) => r.isOk())).toBe(true);
-    if (text.isErr() || number.isErr() || checkbox.isErr() || date.isErr()) return;
+    [text, number, checkbox, date].forEach((r) => r._unsafeUnwrap());
+    text._unsafeUnwrap();
+    number._unsafeUnwrap();
+    checkbox._unsafeUnwrap();
+    date._unsafeUnwrap();
     expect(text.value.toString()).toBe('hello');
     expect(text.value.equals(text.value)).toBe(true);
     expect(number.value.toNumber()).toBe(5);
@@ -212,15 +227,17 @@ describe('Defaults and rating values', () => {
     expect(checkbox.value.equals(checkbox.value)).toBe(true);
     expect(date.value.toString()).toBe('now');
     expect(date.value.equals(date.value)).toBe(true);
-    expect(NumberDefaultValue.create('bad').isErr()).toBe(true);
+    NumberDefaultValue.create('bad')._unsafeUnwrapErr();
   });
 
   it('validates rating values', () => {
     const max = RatingMax.create(5);
     const icon = RatingIcon.create('star');
     const color = RatingColor.create('yellowBright');
-    expect([max, icon, color].every((r) => r.isOk())).toBe(true);
-    if (max.isErr() || icon.isErr() || color.isErr()) return;
+    [max, icon, color].forEach((r) => r._unsafeUnwrap());
+    max._unsafeUnwrap();
+    icon._unsafeUnwrap();
+    color._unsafeUnwrap();
     expect(max.value.toNumber()).toBe(5);
     expect(max.value.equals(max.value)).toBe(true);
     expect(icon.value.toString()).toBe('star');
@@ -238,8 +255,11 @@ describe('User values', () => {
     const single = UserMultiplicity.single();
     const notify = UserNotification.create(true);
     const defaults = UserDefaultValue.create(['me', 'usr123']);
-    expect([me, user, notify, defaults].every((r) => r.isOk())).toBe(true);
-    if (me.isErr() || user.isErr() || notify.isErr() || defaults.isErr()) return;
+    [me, user, notify, defaults].forEach((r) => r._unsafeUnwrap());
+    me._unsafeUnwrap();
+    user._unsafeUnwrap();
+    notify._unsafeUnwrap();
+    defaults._unsafeUnwrap();
 
     expect(me.value.isMe()).toBe(true);
     expect(user.value.isMe()).toBe(false);
@@ -261,8 +281,10 @@ describe('Link field values', () => {
     const reverse = LinkRelationship.manyOne();
     const meta = LinkFieldMeta.create({ hasOrderColumn: true });
     const emptyMeta = LinkFieldMeta.create(undefined);
-    expect([relationship, meta, emptyMeta].every((r) => r.isOk())).toBe(true);
-    if (relationship.isErr() || meta.isErr() || emptyMeta.isErr()) return;
+    [relationship, meta, emptyMeta].forEach((r) => r._unsafeUnwrap());
+    relationship._unsafeUnwrap();
+    meta._unsafeUnwrap();
+    emptyMeta._unsafeUnwrap();
     expect(relationship.value.isMultipleValue()).toBe(true);
     expect(relationship.value.reverse().equals(reverse)).toBe(true);
     expect(meta.value?.hasOrderColumn()).toBe(true);
@@ -285,28 +307,28 @@ describe('Link field values', () => {
       visibleFieldIds: [`fld${'c'.repeat(16)}`, `fld${'d'.repeat(16)}`],
     });
 
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
-    const config = configResult.value;
+    configResult._unsafeUnwrap();
+
+    const config = configResult._unsafeUnwrap();
     expect(config.baseId()?.toString()).toBe(`bse${'a'.repeat(16)}`);
     expect(config.relationship().equals(LinkRelationship.oneMany())).toBe(true);
     expect(config.isOneWay()).toBe(true);
     expect(config.isMultipleValue()).toBe(true);
     const orderResult = config.orderColumnName();
-    expect(orderResult.isOk()).toBe(true);
-    if (orderResult.isErr()) return;
-    expect(orderResult.value).toBe('__id_order');
+    orderResult._unsafeUnwrap();
+
+    expect(orderResult._unsafeUnwrap()).toBe('__id_order');
     const dtoResult = config.toDto();
-    expect(dtoResult.isOk()).toBe(true);
-    if (dtoResult.isErr()) return;
-    expect(dtoResult.value.foreignTableId).toBe(`tbl${'b'.repeat(16)}`);
+    dtoResult._unsafeUnwrap();
+
+    expect(dtoResult._unsafeUnwrap().foreignTableId).toBe(`tbl${'b'.repeat(16)}`);
   });
 });
 
 describe('TimeZone', () => {
   it('validates time zones', () => {
-    expect(TimeZone.create('utc').isOk()).toBe(true);
+    TimeZone.create('utc')._unsafeUnwrap();
     expect(TimeZone.utc().toString()).toBe('utc');
-    expect(TimeZone.create('Bad/Zone').isErr()).toBe(true);
+    TimeZone.create('Bad/Zone')._unsafeUnwrapErr();
   });
 });

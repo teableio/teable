@@ -8,20 +8,20 @@ describe('NumberFormatting', () => {
       type: NumberFormattingType.Decimal,
       precision: 2,
     });
-    expect(decimalResult.isOk()).toBe(true);
+    decimalResult._unsafeUnwrap();
 
     const percentResult = NumberFormatting.create({
       type: NumberFormattingType.Percent,
       precision: 0,
     });
-    expect(percentResult.isOk()).toBe(true);
+    percentResult._unsafeUnwrap();
 
     const currencyResult = NumberFormatting.create({
       type: NumberFormattingType.Currency,
       precision: 2,
       symbol: '$',
     });
-    expect(currencyResult.isOk()).toBe(true);
+    currencyResult._unsafeUnwrap();
   });
 
   it('rejects invalid precision or missing currency symbol', () => {
@@ -29,13 +29,13 @@ describe('NumberFormatting', () => {
       type: NumberFormattingType.Decimal,
       precision: 6,
     });
-    expect(invalidPrecisionResult.isErr()).toBe(true);
+    invalidPrecisionResult._unsafeUnwrapErr();
 
     const missingSymbolResult = NumberFormatting.create({
       type: NumberFormattingType.Currency,
       precision: 2,
     });
-    expect(missingSymbolResult.isErr()).toBe(true);
+    missingSymbolResult._unsafeUnwrapErr();
   });
 
   it('exposes defaults and dto mapping', () => {
@@ -48,14 +48,14 @@ describe('NumberFormatting', () => {
       precision: 2,
       symbol: '€',
     });
-    expect(currencyResult.isOk()).toBe(true);
-    if (currencyResult.isErr()) return;
-    expect(currencyResult.value.symbol()).toBe('€');
-    expect(currencyResult.value.toDto()).toEqual({
+    currencyResult._unsafeUnwrap();
+
+    expect(currencyResult._unsafeUnwrap().symbol()).toBe('€');
+    expect(currencyResult._unsafeUnwrap().toDto()).toEqual({
       type: NumberFormattingType.Currency,
       precision: 2,
       symbol: '€',
     });
-    expect(currencyResult.value.equals(currencyResult.value)).toBe(true);
+    expect(currencyResult._unsafeUnwrap().equals(currencyResult._unsafeUnwrap())).toBe(true);
   });
 });

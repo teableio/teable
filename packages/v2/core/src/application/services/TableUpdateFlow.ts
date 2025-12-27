@@ -63,7 +63,6 @@ export class TableUpdateFlow {
     context: IExecutionContext,
     target: TableUpdateTarget,
     mutate: TableUpdateMutate,
-    inTransaction?: TableUpdateTransactionHook,
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, string>> {
     const tableRepository = this.tableRepository;
@@ -93,9 +92,6 @@ export class TableUpdateFlow {
             return err(updateResult.error);
           }
           yield* await tableSchemaRepository.update(transactionContext, updatedTable, mutateSpec);
-          if (inTransaction) {
-            yield* await inTransaction(transactionContext, updatedTable, mutateSpec);
-          }
           return ok(undefined);
         });
         return await resultAsync;

@@ -9,43 +9,41 @@ const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
 
 describe('FormulaExpression', () => {
   it('validates expression input', () => {
-    expect(FormulaExpression.create('1 + 1').isOk()).toBe(true);
-    expect(FormulaExpression.create(123).isErr()).toBe(true);
+    FormulaExpression.create('1 + 1')._unsafeUnwrap();
+    FormulaExpression.create(123)._unsafeUnwrapErr();
   });
 
   it('extracts referenced field ids', () => {
     const idResult = createFieldId('a');
-    expect(idResult.isOk()).toBe(true);
-    if (idResult.isErr()) return;
+    idResult._unsafeUnwrap();
 
-    const expression = FormulaExpression.create(`{${idResult.value.toString()}} + 1`);
-    expect(expression.isOk()).toBe(true);
-    if (expression.isErr()) return;
+    const expression = FormulaExpression.create(`{${idResult._unsafeUnwrap().toString()}} + 1`);
+    expression._unsafeUnwrap();
 
     const refsResult = expression.value.getReferencedFieldIds();
-    expect(refsResult.isOk()).toBe(true);
-    if (refsResult.isErr()) return;
-    expect(refsResult.value.map((id) => id.toString())).toEqual([idResult.value.toString()]);
+    refsResult._unsafeUnwrap();
+
+    expect(refsResult._unsafeUnwrap().map((id) => id.toString())).toEqual([
+      idResult._unsafeUnwrap().toString(),
+    ]);
   });
 
   it('rejects invalid referenced field ids', () => {
     const expression = FormulaExpression.create('{badField} + 1');
-    expect(expression.isOk()).toBe(true);
-    if (expression.isErr()) return;
+    expression._unsafeUnwrap();
 
     const refsResult = expression.value.getReferencedFieldIds();
-    expect(refsResult.isErr()).toBe(true);
+    refsResult._unsafeUnwrapErr();
   });
 
   it('infers value types from dependencies', () => {
     const idResult = createFieldId('b');
-    expect(idResult.isOk()).toBe(true);
-    if (idResult.isErr()) return;
-    const fieldId = idResult.value;
+    idResult._unsafeUnwrap();
+
+    const fieldId = idResult._unsafeUnwrap();
 
     const numberExpression = FormulaExpression.create(`{${fieldId.toString()}} + 1`);
-    expect(numberExpression.isOk()).toBe(true);
-    if (numberExpression.isErr()) return;
+    numberExpression._unsafeUnwrap();
 
     const numberResult = numberExpression.value.getParsedValueType([
       {
@@ -56,18 +54,17 @@ describe('FormulaExpression', () => {
         },
       },
     ]);
-    expect(numberResult.isOk()).toBe(true);
-    if (numberResult.isErr()) return;
-    expect(numberResult.value.cellValueType.equals(CellValueType.number())).toBe(true);
-    expect(numberResult.value.isMultipleCellValue.equals(CellValueMultiplicity.single())).toBe(
-      true
-    );
+    numberResult._unsafeUnwrap();
+
+    expect(numberResult._unsafeUnwrap().cellValueType.equals(CellValueType.number())).toBe(true);
+    expect(
+      numberResult._unsafeUnwrap().isMultipleCellValue.equals(CellValueMultiplicity.single())
+    ).toBe(true);
 
     const stringExpression = FormulaExpression.create(
       `CONCATENATE("Score: ", {${fieldId.toString()}})`
     );
-    expect(stringExpression.isOk()).toBe(true);
-    if (stringExpression.isErr()) return;
+    stringExpression._unsafeUnwrap();
 
     const stringResult = stringExpression.value.getParsedValueType([
       {
@@ -78,11 +75,11 @@ describe('FormulaExpression', () => {
         },
       },
     ]);
-    expect(stringResult.isOk()).toBe(true);
-    if (stringResult.isErr()) return;
-    expect(stringResult.value.cellValueType.equals(CellValueType.string())).toBe(true);
-    expect(stringResult.value.isMultipleCellValue.equals(CellValueMultiplicity.single())).toBe(
-      true
-    );
+    stringResult._unsafeUnwrap();
+
+    expect(stringResult._unsafeUnwrap().cellValueType.equals(CellValueType.string())).toBe(true);
+    expect(
+      stringResult._unsafeUnwrap().isMultipleCellValue.equals(CellValueMultiplicity.single())
+    ).toBe(true);
   });
 });

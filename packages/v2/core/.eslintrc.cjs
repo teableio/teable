@@ -23,6 +23,7 @@ module.exports = {
   ],
   rules: {
     '@typescript-eslint/naming-convention': 'off',
+    '@typescript-eslint/no-this-alias': 'off',
     'no-console': 'error',
   },
   overrides: [

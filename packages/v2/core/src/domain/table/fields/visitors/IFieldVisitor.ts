@@ -10,6 +10,7 @@ import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
+import type { RollupField } from '../types/RollupField';
 import type { SingleLineTextField } from '../types/SingleLineTextField';
 import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
@@ -20,6 +21,7 @@ export interface IFieldVisitor<T = void> {
   visitNumberField(field: NumberField): Result<T, string>;
   visitRatingField(field: RatingField): Result<T, string>;
   visitFormulaField(field: FormulaField): Result<T, string>;
+  visitRollupField(field: RollupField): Result<T, string>;
   visitSingleSelectField(field: SingleSelectField): Result<T, string>;
   visitMultipleSelectField(field: MultipleSelectField): Result<T, string>;
   visitCheckboxField(field: CheckboxField): Result<T, string>;

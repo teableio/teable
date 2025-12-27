@@ -83,7 +83,12 @@ export const resolveFormulaFields = (table: Table): Result<void, string> => {
   for (const field of fields) {
     if (field.type().equals(FieldType.formula())) continue;
     const typeResult = field.accept(valueTypeVisitor);
-    if (typeResult.isErr()) return err(typeResult.error);
+    if (typeResult.isErr()) {
+      if (field.type().equals(FieldType.rollup())) {
+        continue;
+      }
+      return err(typeResult.error);
+    }
     valueTypes.push({ id: field.id(), valueType: typeResult.value });
   }
 

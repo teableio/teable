@@ -71,6 +71,7 @@ export class Table extends AggregateRoot<TableId> {
     return TableBuilder.create(factory);
   }
 
+  // TODO: instance method
   static specs(baseId: BaseId, options?: { includeBaseId?: boolean }): TableSpecBuilder {
     return TableSpecBuilder.create(baseId, options);
   }

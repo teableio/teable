@@ -8,6 +8,7 @@ import {
   type Table,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { ColumnDefinitionBuilder, CompiledQuery, CreateTableBuilder, Kysely } from 'kysely';
 import { sql } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
@@ -23,7 +24,7 @@ import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
     @inject(v2PostgresDbTokens.db)
-    private readonly db: Kysely<unknown>
+    private readonly db: Kysely<V1TeableDatabase>
   ) {}
 
   @TraceSpan()

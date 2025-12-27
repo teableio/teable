@@ -47,10 +47,12 @@ class SpyVisitor implements ISpecVisitor {
 class TestFilterVisitor extends AbstractSpecFilterVisitor<string> {
   clone(): this {
     const next = new TestFilterVisitor() as this;
-    const current = this.where();
-    if (current.isOk()) {
-      next.addCond(current.value);
-    }
+    this.where().match(
+      (current) => {
+        next.addCond(current)._unsafeUnwrap();
+      },
+      () => undefined
+    );
     return next;
   }
 
@@ -105,22 +107,22 @@ describe('spec visitors', () => {
 
   it('tracks where conditions in AbstractSpecFilterVisitor', () => {
     const visitor = new TestFilterVisitor();
-    expect(visitor.where().isErr()).toBe(true);
+    visitor.where()._unsafeUnwrapErr();
 
     const first = visitor.addCond('A');
-    expect(first.isOk()).toBe(true);
+    first._unsafeUnwrap();
     const second = visitor.addCond('B');
-    expect(second.isOk()).toBe(true);
+    second._unsafeUnwrap();
     const whereResult = visitor.where();
-    expect(whereResult.isOk()).toBe(true);
-    if (whereResult.isErr()) return;
-    expect(whereResult.value).toBe('(A AND B)');
+    whereResult._unsafeUnwrap();
+
+    expect(whereResult._unsafeUnwrap()).toBe('(A AND B)');
 
     const clone = visitor.clone();
     const cloneWhere = clone.where();
-    expect(cloneWhere.isOk()).toBe(true);
-    if (cloneWhere.isErr()) return;
-    expect(cloneWhere.value).toBe('(A AND B)');
+    cloneWhere._unsafeUnwrap();
+
+    expect(cloneWhere._unsafeUnwrap()).toBe('(A AND B)');
   });
 });
 
@@ -140,28 +142,28 @@ describe('AndSpec/OrSpec/NotSpec', () => {
     const andSpecInstance = new AndSpec(left, right);
     expect(andSpecInstance.isSatisfiedBy('left-right')).toBe(true);
     const andResult = andSpecInstance.mutate('left-right');
-    expect(andResult.isOk()).toBe(true);
-    if (andResult.isErr()) return;
-    expect(andResult.value).toBe('left-right-L-R');
+    andResult._unsafeUnwrap();
+
+    expect(andResult._unsafeUnwrap()).toBe('left-right-L-R');
 
     const orSpecInstance = new OrSpec(left, right);
     expect(orSpecInstance.isSatisfiedBy('left-only')).toBe(true);
     const orResult = orSpecInstance.mutate('left-only');
-    expect(orResult.isOk()).toBe(true);
-    if (orResult.isErr()) return;
-    expect(orResult.value).toBe('left-only-L');
+    orResult._unsafeUnwrap();
+
+    expect(orResult._unsafeUnwrap()).toBe('left-only-L');
 
     const missResult = orSpecInstance.mutate('neither');
-    expect(missResult.isOk()).toBe(true);
-    if (missResult.isErr()) return;
-    expect(missResult.value).toBe('neither');
+    missResult._unsafeUnwrap();
+
+    expect(missResult._unsafeUnwrap()).toBe('neither');
 
     const notSpecInstance = new NotSpec(left);
     expect(notSpecInstance.isSatisfiedBy('left-only')).toBe(false);
     const notResult = notSpecInstance.mutate('left-only');
-    expect(notResult.isOk()).toBe(true);
-    if (notResult.isErr()) return;
-    expect(notResult.value).toBe('left-only');
+    notResult._unsafeUnwrap();
+
+    expect(notResult._unsafeUnwrap()).toBe('left-only');
   });
 
   it('accepts standard visitors', () => {
@@ -179,7 +181,7 @@ describe('AndSpec/OrSpec/NotSpec', () => {
 
     const andSpecInstance = new AndSpec(left, right);
     const andResult = andSpecInstance.accept(visitor);
-    expect(andResult.isOk()).toBe(true);
+    andResult._unsafeUnwrap();
     expect(visitor.calls[0]).toBe('AndSpec');
     expect(visitor.calls.length).toBe(3);
   });
@@ -198,21 +200,17 @@ describe('AndSpec/OrSpec/NotSpec', () => {
 
     const orVisitor = new TestFilterVisitor();
     const orSpecInstance = new OrSpec(left, right);
-    const orResult = orSpecInstance.accept(orVisitor);
-    expect(orResult.isOk()).toBe(true);
+    orSpecInstance.accept(orVisitor)._unsafeUnwrap();
     const orWhere = orVisitor.where();
-    expect(orWhere.isOk()).toBe(true);
-    if (orWhere.isErr()) return;
-    expect(orWhere.value).toBe('(LEFT OR RIGHT)');
+
+    expect(orWhere._unsafeUnwrap()).toBe('(LEFT OR RIGHT)');
 
     const notVisitor = new TestFilterVisitor();
     const notSpecInstance = new NotSpec(left);
-    const notResult = notSpecInstance.accept(notVisitor);
-    expect(notResult.isOk()).toBe(true);
+    notSpecInstance.accept(notVisitor)._unsafeUnwrap();
     const notWhere = notVisitor.where();
-    expect(notWhere.isOk()).toBe(true);
-    if (notWhere.isErr()) return;
-    expect(notWhere.value).toBe('(NOT LEFT)');
+
+    expect(notWhere._unsafeUnwrap()).toBe('(NOT LEFT)');
   });
 
   it('exposes helper factories', () => {
@@ -226,22 +224,20 @@ describe('AndSpec/OrSpec/NotSpec', () => {
       () => true,
       (value) => value
     );
-    expect(andSpec(left, right).isOk()).toBe(true);
-    expect(orSpec(left, right).isOk()).toBe(true);
-    expect(notSpec(left).isOk()).toBe(true);
+    andSpec(left, right)._unsafeUnwrap();
+    orSpec(left, right)._unsafeUnwrap();
+    notSpec(left)._unsafeUnwrap();
   });
 });
 
 describe('SpecBuilder', () => {
   it('fails when empty or errored', () => {
     const emptyResult = new TestSpecBuilder().build();
-    expect(emptyResult.isErr()).toBe(true);
+    emptyResult._unsafeUnwrapErr();
 
     const errorResult = new TestSpecBuilder().fail('Bad spec').build();
-    expect(errorResult.isErr()).toBe(true);
-    if (errorResult.isErr()) {
-      expect(errorResult.error).toContain('Bad spec');
-    }
+    errorResult._unsafeUnwrapErr();
+    expect(errorResult._unsafeUnwrapErr()).toContain('Bad spec');
   });
 
   it('builds combined specifications', () => {
@@ -258,15 +254,15 @@ describe('SpecBuilder', () => {
 
     const andBuilder = new TestSpecBuilder().add(left).add(right);
     const andResult = andBuilder.build();
-    expect(andResult.isOk()).toBe(true);
-    if (andResult.isErr()) return;
-    expect(andResult.value instanceof AndSpec).toBe(true);
+    andResult._unsafeUnwrap();
+
+    expect(andResult._unsafeUnwrap() instanceof AndSpec).toBe(true);
 
     const orBuilder = new TestSpecBuilder('or').add(left).add(right);
     const orResult = orBuilder.build();
-    expect(orResult.isOk()).toBe(true);
-    if (orResult.isErr()) return;
-    expect(orResult.value instanceof OrSpec).toBe(true);
+    orResult._unsafeUnwrap();
+
+    expect(orResult._unsafeUnwrap() instanceof OrSpec).toBe(true);
   });
 
   it('adds groups through child builders', () => {
@@ -285,19 +281,17 @@ describe('SpecBuilder', () => {
     builder.add(left);
     builder.andGroup((child) => child.add(right));
     const result = builder.build();
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
-    expect(result.value instanceof AndSpec).toBe(true);
+    result._unsafeUnwrap();
+
+    expect(result._unsafeUnwrap() instanceof AndSpec).toBe(true);
   });
 
   it('reports group errors', () => {
     const builder = new TestSpecBuilder();
     builder.andGroup((child) => child.fail('Group error'));
     const result = builder.build();
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('Group error');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('Group error');
   });
 
   it('supports noop visitor', () => {
@@ -308,6 +302,6 @@ describe('SpecBuilder', () => {
     );
     const visitor = new NoopSpecVisitor();
     const result = spec.accept(visitor);
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
   });
 });

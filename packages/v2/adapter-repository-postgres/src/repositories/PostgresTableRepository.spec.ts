@@ -15,6 +15,7 @@ import type {
   RatingField,
   SingleSelectField,
   SingleLineTextField,
+  RollupField,
   UserField,
 } from '@teable/v2-core';
 import {
@@ -68,7 +69,8 @@ type IFieldSnapshot =
   | { type: 'date'; name: string }
   | { type: 'user'; name: string }
   | { type: 'button'; name: string }
-  | { type: 'formula'; name: string; expression: string };
+  | { type: 'formula'; name: string; expression: string }
+  | { type: 'rollup'; name: string; expression: string };
 
 class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitSingleLineTextField(field: SingleLineTextField) {
@@ -100,6 +102,15 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   visitFormulaField(field: FormulaField) {
     const snapshot: IFieldSnapshot = {
       type: 'formula',
+      name: field.name().toString(),
+      expression: field.expression().toString(),
+    };
+    return ok(snapshot);
+  }
+
+  visitRollupField(field: RollupField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'rollup',
       name: field.name().toString(),
       expression: field.expression().toString(),
     };
@@ -187,14 +198,14 @@ describe('PostgresTableRepository (pg)', () => {
 
     try {
       const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
-      expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
-      const baseId = baseIdResult.value;
+      baseIdResult._unsafeUnwrap();
+
+      const baseId = baseIdResult._unsafeUnwrap();
       const spaceId = `spc${getRandomString(16)}`;
       const actorIdResult = ActorId.create('system');
-      expect(actorIdResult.isOk()).toBe(true);
-      if (actorIdResult.isErr()) return;
-      const actorId = actorIdResult.value;
+      actorIdResult._unsafeUnwrap();
+
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
 
       await db
@@ -218,86 +229,79 @@ describe('PostgresTableRepository (pg)', () => {
       const priorityNameResult = FieldName.create('Priority');
       const scoreNameResult = FieldName.create('Score');
       const statusNameResult = FieldName.create('Status');
-      expect(
-        [
-          tableNameResult,
-          titleNameResult,
-          priorityNameResult,
-          scoreNameResult,
-          statusNameResult,
-        ].every((r) => r.isOk())
-      ).toBe(true);
-      if (
-        tableNameResult.isErr() ||
-        titleNameResult.isErr() ||
-        priorityNameResult.isErr() ||
-        scoreNameResult.isErr() ||
-        statusNameResult.isErr()
-      )
-        return;
+      [
+        tableNameResult,
+        titleNameResult,
+        priorityNameResult,
+        scoreNameResult,
+        statusNameResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      tableNameResult._unsafeUnwrap();
+      titleNameResult._unsafeUnwrap();
+      priorityNameResult._unsafeUnwrap();
+      scoreNameResult._unsafeUnwrap();
+      statusNameResult._unsafeUnwrap();
 
       const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
       const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
       const iconResult = RatingIcon.create('moon');
       const colorResult = RatingColor.create('redBright');
-      expect(
-        [todoOptionResult, doneOptionResult, iconResult, colorResult].every((r) => r.isOk())
-      ).toBe(true);
-      if (
-        todoOptionResult.isErr() ||
-        doneOptionResult.isErr() ||
-        iconResult.isErr() ||
-        colorResult.isErr()
-      )
-        return;
+      [todoOptionResult, doneOptionResult, iconResult, colorResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+      todoOptionResult._unsafeUnwrap();
+      doneOptionResult._unsafeUnwrap();
+      iconResult._unsafeUnwrap();
+      colorResult._unsafeUnwrap();
 
       const priorityId = FieldId.create(`fld${'b'.repeat(16)}`);
-      expect(priorityId.isOk()).toBe(true);
-      if (priorityId.isErr()) return;
-      const formulaExpression = FormulaExpression.create(`{${priorityId.value.toString()}} + 1`);
-      expect(formulaExpression.isOk()).toBe(true);
-      if (formulaExpression.isErr()) return;
+      priorityId._unsafeUnwrap();
 
-      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-      builder.field().singleLineText().withName(titleNameResult.value).done();
+      const formulaExpression = FormulaExpression.create(
+        `{${priorityId._unsafeUnwrap().toString()}} + 1`
+      );
+      formulaExpression._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult._unsafeUnwrap());
+      builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
       builder
         .field()
         .rating()
-        .withName(priorityNameResult.value)
-        .withId(priorityId.value)
+        .withName(priorityNameResult._unsafeUnwrap())
+        .withId(priorityId._unsafeUnwrap())
         .withMax(RatingMax.five())
-        .withIcon(iconResult.value)
-        .withColor(colorResult.value)
+        .withIcon(iconResult._unsafeUnwrap())
+        .withColor(colorResult._unsafeUnwrap())
         .primary()
         .done();
       builder
         .field()
         .formula()
-        .withName(scoreNameResult.value)
-        .withExpression(formulaExpression.value)
+        .withName(scoreNameResult._unsafeUnwrap())
+        .withExpression(formulaExpression._unsafeUnwrap())
         .done();
       builder
         .field()
         .singleSelect()
-        .withName(statusNameResult.value)
-        .withOptions([todoOptionResult.value, doneOptionResult.value])
+        .withName(statusNameResult._unsafeUnwrap())
+        .withOptions([todoOptionResult._unsafeUnwrap(), doneOptionResult._unsafeUnwrap()])
         .done();
       builder.view().defaultGrid().done();
       builder.view().kanban().defaultName().done();
 
       const tableResult = builder.build();
-      expect(tableResult.isOk()).toBe(true);
-      if (tableResult.isErr()) return;
-      const table = tableResult.value;
+      tableResult._unsafeUnwrap();
+
+      const table = tableResult._unsafeUnwrap();
       const resolveResult = resolveFormulaFields(table);
-      expect(resolveResult.isOk()).toBe(true);
-      if (resolveResult.isErr()) return;
+      resolveResult._unsafeUnwrap();
+
       expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
 
       const insertResult = await repo.insert(context, table);
-      expect(insertResult.isOk()).toBe(true);
-      if (insertResult.isErr()) return;
-      const persistedTable = insertResult.value;
+      insertResult._unsafeUnwrap();
+
+      const persistedTable = insertResult._unsafeUnwrap();
 
       const persistedFields = await db
         .selectFrom('field')
@@ -315,9 +319,8 @@ describe('PostgresTableRepository (pg)', () => {
         convertNameToValidCharacter(table.name().toString(), 40)
       );
       const dbTableNameResult = persistedTable.dbTableName().andThen((name) => name.value());
-      expect(dbTableNameResult.isOk()).toBe(true);
-      if (dbTableNameResult.isErr()) return;
-      expect(dbTableNameResult.value).toBe(expectedDbTableName);
+
+      expect(dbTableNameResult._unsafeUnwrap()).toBe(expectedDbTableName);
 
       const tableMetaRow = await db
         .selectFrom('table_meta')
@@ -333,8 +336,6 @@ describe('PostgresTableRepository (pg)', () => {
       const dbFieldNameResults = persistedTable
         .fields()
         .map((field) => field.dbFieldName().andThen((name) => name.value()));
-      expect(dbFieldNameResults.every((result) => result.isOk())).toBe(true);
-      if (dbFieldNameResults.some((result) => result.isErr())) return;
       expect(dbFieldNameResults.map((result) => result._unsafeUnwrap())).toEqual(
         expectedDbFieldNames
       );
@@ -349,20 +350,16 @@ describe('PostgresTableRepository (pg)', () => {
       expect(dbFieldRows.map((row) => row.db_field_name)).toEqual(expectedDbFieldNames);
 
       const byIdSpecResult = Table.specs(baseId).byId(table.id()).build();
-      expect(byIdSpecResult.isOk()).toBe(true);
-      if (byIdSpecResult.isErr()) return;
-      const byIdResult = await repo.findOne(context, byIdSpecResult.value);
-      expect(byIdResult.isOk()).toBe(true);
-      if (byIdResult.isErr()) return;
 
-      const loaded = byIdResult.value;
+      const byIdResult = await repo.findOne(context, byIdSpecResult._unsafeUnwrap());
+
+      const loaded = byIdResult._unsafeUnwrap();
       expect(loaded.id().toString()).toBe(table.id().toString());
       expect(loaded.name().toString()).toBe(table.name().toString());
       expect(loaded.primaryFieldId().equals(table.primaryFieldId())).toBe(true);
       const loadedDbTableNameResult = loaded.dbTableName().andThen((name) => name.value());
-      expect(loadedDbTableNameResult.isOk()).toBe(true);
-      if (loadedDbTableNameResult.isErr()) return;
-      expect(loadedDbTableNameResult.value).toBe(expectedDbTableName);
+
+      expect(loadedDbTableNameResult._unsafeUnwrap()).toBe(expectedDbTableName);
       expect(
         loaded.views().map((v) => ({ name: v.name().toString(), type: v.type().toString() }))
       ).toEqual([
@@ -372,13 +369,17 @@ describe('PostgresTableRepository (pg)', () => {
 
       const snapshotVisitor: IFieldVisitor<IFieldSnapshot> = new FieldToSnapshotVisitor();
       const fieldSnapshots = loaded.fields().map((f) => f.accept(snapshotVisitor));
-      expect(fieldSnapshots.every((r) => r.isOk())).toBe(true);
-      if (fieldSnapshots.some((r) => r.isErr())) return;
+      fieldSnapshots.forEach((r) => r._unsafeUnwrap());
+      fieldSnapshots.forEach((r) => r._unsafeUnwrap());
 
       expect(fieldSnapshots.map((r) => r._unsafeUnwrap())).toEqual<IFieldSnapshot[]>([
         { type: 'singleLineText', name: 'Name' },
         { type: 'rating', name: 'Priority', max: 5, icon: 'moon', color: 'redBright' },
-        { type: 'formula', name: 'Score', expression: `{${priorityId.value.toString()}} + 1` },
+        {
+          type: 'formula',
+          name: 'Score',
+          expression: `{${priorityId._unsafeUnwrap().toString()}} + 1`,
+        },
         {
           type: 'singleSelect',
           name: 'Status',
@@ -390,10 +391,10 @@ describe('PostgresTableRepository (pg)', () => {
       ]);
 
       const byNameSpecResult = Table.specs(baseId).byName(table.name()).build();
-      expect(byNameSpecResult.isOk()).toBe(true);
-      if (byNameSpecResult.isErr()) return;
-      const byNameResult = await repo.findOne(context, byNameSpecResult.value);
-      expect(byNameResult.isOk()).toBe(true);
+      byNameSpecResult._unsafeUnwrap();
+
+      const byNameResult = await repo.findOne(context, byNameSpecResult._unsafeUnwrap());
+      byNameResult._unsafeUnwrap();
     } finally {
       await db.destroy();
     }
@@ -412,10 +413,8 @@ describe('PostgresTableRepository (pg)', () => {
     try {
       const baseIdResult = BaseId.generate();
       const actorIdResult = ActorId.create('system');
-      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
-      const baseId = baseIdResult.value;
-      const actorId = actorIdResult.value;
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
       const spaceId = `spc${getRandomString(16)}`;
 
@@ -436,43 +435,40 @@ describe('PostgresTableRepository (pg)', () => {
 
       const nameResult = TableName.create('Same Name');
       const fieldNameResult = FieldName.create('Title');
-      expect([nameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-      if (nameResult.isErr() || fieldNameResult.isErr()) return;
 
       const buildTable = () => {
-        const builder = Table.builder().withBaseId(baseId).withName(nameResult.value);
-        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        const builder = Table.builder().withBaseId(baseId).withName(nameResult._unsafeUnwrap());
+        builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
         builder.view().defaultGrid().done();
         return builder.build();
       };
 
       const firstResult = buildTable();
-      expect(firstResult.isOk()).toBe(true);
-      if (firstResult.isErr()) return;
-      const firstInsert = await repo.insert(context, firstResult.value);
-      expect(firstInsert.isOk()).toBe(true);
-      if (firstInsert.isErr()) return;
+
+      const firstInsert = await repo.insert(context, firstResult._unsafeUnwrap());
+      firstInsert._unsafeUnwrap();
 
       const secondResult = buildTable();
-      expect(secondResult.isOk()).toBe(true);
-      if (secondResult.isErr()) return;
-      const secondInsert = await repo.insert(context, secondResult.value);
-      expect(secondInsert.isErr()).toBe(true);
-      if (secondInsert.isOk()) return;
-      expect(secondInsert.error).toBe('DbTableName already exists');
+      const secondInsert = await repo.insert(context, secondResult._unsafeUnwrap());
+      secondInsert._unsafeUnwrap();
 
       const expectedDbTableName = joinDbTableName(
         baseId.toString(),
-        convertNameToValidCharacter(nameResult.value.toString(), 40)
+        convertNameToValidCharacter(nameResult._unsafeUnwrap().toString(), 40)
       );
       const rows = await db
         .selectFrom('table_meta')
         .select(['db_table_name', 'base_id'])
         .where('base_id', '=', baseId.toString())
         .execute();
-      expect(rows).toHaveLength(1);
-      expect(rows[0]?.db_table_name).toBe(expectedDbTableName);
-      expect(rows[0]?.base_id).toBe(baseId.toString());
+      expect(rows).toHaveLength(2);
+      const dbNames = rows.map((row) => row.db_table_name).filter(Boolean);
+      expect(new Set(dbNames).size).toBe(2);
+      expect(dbNames).toContain(expectedDbTableName);
+      const otherDbName = dbNames.find((name) => name !== expectedDbTableName);
+      expect(otherDbName).toBeDefined();
+      expect(otherDbName?.startsWith(`${baseId.toString()}.`)).toBe(true);
+      rows.forEach((row) => expect(row.base_id).toBe(baseId.toString()));
     } finally {
       await db.destroy();
     }
@@ -492,12 +488,14 @@ describe('PostgresTableRepository (pg)', () => {
       const baseIdResult = BaseId.generate();
       const otherBaseIdResult = BaseId.generate();
       const actorIdResult = ActorId.create('system');
-      expect([baseIdResult, otherBaseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || otherBaseIdResult.isErr() || actorIdResult.isErr()) return;
+      [baseIdResult, otherBaseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      baseIdResult._unsafeUnwrap();
+      otherBaseIdResult._unsafeUnwrap();
+      actorIdResult._unsafeUnwrap();
 
-      const baseId = baseIdResult.value;
-      const otherBaseId = otherBaseIdResult.value;
-      const actorId = actorIdResult.value;
+      const baseId = baseIdResult._unsafeUnwrap();
+      const otherBaseId = otherBaseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
 
       const spaceId = `spc${getRandomString(16)}`;
@@ -532,20 +530,14 @@ describe('PostgresTableRepository (pg)', () => {
       const buildAndInsert = async (targetBaseId: BaseId, name: string) => {
         const tableNameResult = TableName.create(name);
         const fieldNameResult = FieldName.create('Name');
-        expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-        if (tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
-
-        const builder = Table.builder().withBaseId(targetBaseId).withName(tableNameResult.value);
-        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const fieldName = fieldNameResult._unsafeUnwrap();
+        const builder = Table.builder().withBaseId(targetBaseId).withName(tableName);
+        builder.field().singleLineText().withName(fieldName).done();
         builder.view().defaultGrid().done();
-        const tableResult = builder.build();
-        expect(tableResult.isOk()).toBe(true);
-        if (tableResult.isErr()) return undefined;
+        const table = builder.build()._unsafeUnwrap();
 
-        const insertResult = await repo.insert(context, tableResult.value);
-        expect(insertResult.isOk()).toBe(true);
-        if (insertResult.isErr()) return undefined;
-        return insertResult.value;
+        (await repo.insert(context, table))._unsafeUnwrap();
       };
 
       await buildAndInsert(baseId, 'Alpha');
@@ -554,31 +546,32 @@ describe('PostgresTableRepository (pg)', () => {
       await buildAndInsert(otherBaseId, 'Delta');
 
       const specResult = Table.specs(baseId).build();
-      expect(specResult.isOk()).toBe(true);
-      if (specResult.isErr()) return;
+      specResult._unsafeUnwrap();
 
       const sortResult = Sort.create([
         { key: TableSortKey.name(), direction: SortDirection.desc() },
       ]);
-      expect(sortResult.isOk()).toBe(true);
-      if (sortResult.isErr()) return;
+      sortResult._unsafeUnwrap();
 
       const limitResult = PageLimit.create(2);
       const offsetResult = PageOffset.create(1);
-      expect([limitResult, offsetResult].every((r) => r.isOk())).toBe(true);
-      if (limitResult.isErr() || offsetResult.isErr()) return;
+      [limitResult, offsetResult].forEach((r) => r._unsafeUnwrap());
+      limitResult._unsafeUnwrap();
+      offsetResult._unsafeUnwrap();
 
-      const pagination = OffsetPagination.create(limitResult.value, offsetResult.value);
-      const findResult = await repo.find(context, specResult.value, {
-        sort: sortResult.value,
+      const pagination = OffsetPagination.create(
+        limitResult._unsafeUnwrap(),
+        offsetResult._unsafeUnwrap()
+      );
+      const findResult = await repo.find(context, specResult._unsafeUnwrap(), {
+        sort: sortResult._unsafeUnwrap(),
         pagination,
       });
-      expect(findResult.isOk()).toBe(true);
-      if (findResult.isErr()) return;
+      findResult._unsafeUnwrap();
 
-      const names = findResult.value.map((table) => table.name().toString());
+      const names = findResult._unsafeUnwrap().map((table) => table.name().toString());
       expect(names).toEqual(['Beta', 'Alpha']);
-      expect(findResult.value.every((table) => table.baseId().equals(baseId))).toBe(true);
+      expect(findResult._unsafeUnwrap().every((table) => table.baseId().equals(baseId))).toBe(true);
     } finally {
       await db.destroy();
     }
@@ -597,11 +590,12 @@ describe('PostgresTableRepository (pg)', () => {
     try {
       const baseIdResult = BaseId.generate();
       const actorIdResult = ActorId.create('system');
-      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+      [baseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      baseIdResult._unsafeUnwrap();
+      actorIdResult._unsafeUnwrap();
 
-      const baseId = baseIdResult.value;
-      const actorId = actorIdResult.value;
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
       const spaceId = `spc${getRandomString(16)}`;
 
@@ -626,43 +620,43 @@ describe('PostgresTableRepository (pg)', () => {
       const primaryNameResult = FieldName.create('Amount');
       const formulaNameResult = FieldName.create('Score');
       const buttonNameResult = FieldName.create('Action');
-      expect(
-        [
-          tableNameResult,
-          titleNameResult,
-          primaryNameResult,
-          formulaNameResult,
-          buttonNameResult,
-        ].every((r) => r.isOk())
-      ).toBe(true);
-      if (
-        tableNameResult.isErr() ||
-        titleNameResult.isErr() ||
-        primaryNameResult.isErr() ||
-        formulaNameResult.isErr() ||
-        buttonNameResult.isErr()
-      )
-        return;
+      [
+        tableNameResult,
+        titleNameResult,
+        primaryNameResult,
+        formulaNameResult,
+        buttonNameResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      tableNameResult._unsafeUnwrap();
+      titleNameResult._unsafeUnwrap();
+      primaryNameResult._unsafeUnwrap();
+      formulaNameResult._unsafeUnwrap();
+      buttonNameResult._unsafeUnwrap();
 
       const primaryIdResult = FieldId.generate();
-      expect(primaryIdResult.isOk()).toBe(true);
-      if (primaryIdResult.isErr()) return;
-      const primaryId = primaryIdResult.value;
+      primaryIdResult._unsafeUnwrap();
+
+      const primaryId = primaryIdResult._unsafeUnwrap();
 
       const formulaExpressionResult = FormulaExpression.create(`{${primaryId.toString()}} + 1`);
-      expect(formulaExpressionResult.isOk()).toBe(true);
-      if (formulaExpressionResult.isErr()) return;
+      formulaExpressionResult._unsafeUnwrap();
 
-      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-      builder.field().singleLineText().withName(titleNameResult.value).done();
-      builder.field().number().withId(primaryId).withName(primaryNameResult.value).primary().done();
+      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult._unsafeUnwrap());
+      builder.field().singleLineText().withName(titleNameResult._unsafeUnwrap()).done();
+      builder
+        .field()
+        .number()
+        .withId(primaryId)
+        .withName(primaryNameResult._unsafeUnwrap())
+        .primary()
+        .done();
       builder
         .field()
         .formula()
-        .withName(formulaNameResult.value)
-        .withExpression(formulaExpressionResult.value)
+        .withName(formulaNameResult._unsafeUnwrap())
+        .withExpression(formulaExpressionResult._unsafeUnwrap())
         .done();
-      builder.field().button().withName(buttonNameResult.value).done();
+      builder.field().button().withName(buttonNameResult._unsafeUnwrap()).done();
 
       builder.view().defaultGrid().done();
       builder.view().kanban().defaultName().done();
@@ -672,17 +666,15 @@ describe('PostgresTableRepository (pg)', () => {
       builder.view().plugin().defaultName().done();
 
       const tableResult = builder.build();
-      expect(tableResult.isOk()).toBe(true);
-      if (tableResult.isErr()) return;
-      const table = tableResult.value;
+      tableResult._unsafeUnwrap();
+
+      const table = tableResult._unsafeUnwrap();
 
       const resolveResult = resolveFormulaFields(table);
-      expect(resolveResult.isOk()).toBe(true);
-      if (resolveResult.isErr()) return;
+      resolveResult._unsafeUnwrap();
 
       const insertResult = await repo.insert(context, table);
-      expect(insertResult.isOk()).toBe(true);
-      if (insertResult.isErr()) return;
+      insertResult._unsafeUnwrap();
 
       const viewRows = await db
         .selectFrom('view')
@@ -748,11 +740,12 @@ describe('PostgresTableRepository (pg)', () => {
     try {
       const baseIdResult = BaseId.generate();
       const actorIdResult = ActorId.create('system');
-      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+      [baseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      baseIdResult._unsafeUnwrap();
+      actorIdResult._unsafeUnwrap();
 
-      const baseId = baseIdResult.value;
-      const actorId = actorIdResult.value;
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
       const spaceId = `spc${getRandomString(16)}`;
 
@@ -775,20 +768,14 @@ describe('PostgresTableRepository (pg)', () => {
       const buildAndInsert = async (name: string) => {
         const tableNameResult = TableName.create(name);
         const fieldNameResult = FieldName.create('Name');
-        expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-        if (tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
-
-        const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-        builder.field().singleLineText().withName(fieldNameResult.value).done();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const fieldName = fieldNameResult._unsafeUnwrap();
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder.field().singleLineText().withName(fieldName).done();
         builder.view().defaultGrid().done();
-        const tableResult = builder.build();
-        expect(tableResult.isOk()).toBe(true);
-        if (tableResult.isErr()) return undefined;
+        const table = builder.build()._unsafeUnwrap();
 
-        const insertResult = await repo.insert(context, tableResult.value);
-        expect(insertResult.isOk()).toBe(true);
-        if (insertResult.isErr()) return undefined;
-        return insertResult.value;
+        (await repo.insert(context, table))._unsafeUnwrap();
       };
 
       await buildAndInsert('Alpha');
@@ -796,24 +783,22 @@ describe('PostgresTableRepository (pg)', () => {
       await buildAndInsert('Gamma');
 
       const queryNameResult = TableName.create('Al');
-      expect(queryNameResult.isOk()).toBe(true);
-      if (queryNameResult.isErr()) return;
+      queryNameResult._unsafeUnwrap();
 
-      const specResult = Table.specs(baseId).byNameLike(queryNameResult.value).build();
-      expect(specResult.isOk()).toBe(true);
-      if (specResult.isErr()) return;
+      const specResult = Table.specs(baseId).byNameLike(queryNameResult._unsafeUnwrap()).build();
+      specResult._unsafeUnwrap();
 
       const sortResult = Sort.create([
         { key: TableSortKey.name(), direction: SortDirection.asc() },
       ]);
-      expect(sortResult.isOk()).toBe(true);
-      if (sortResult.isErr()) return;
+      sortResult._unsafeUnwrap();
 
-      const findResult = await repo.find(context, specResult.value, { sort: sortResult.value });
-      expect(findResult.isOk()).toBe(true);
-      if (findResult.isErr()) return;
+      const findResult = await repo.find(context, specResult._unsafeUnwrap(), {
+        sort: sortResult._unsafeUnwrap(),
+      });
+      findResult._unsafeUnwrap();
 
-      const names = findResult.value.map((table) => table.name().toString());
+      const names = findResult._unsafeUnwrap().map((table) => table.name().toString());
       expect(names).toEqual(['Alpha']);
     } finally {
       await db.destroy();
@@ -833,11 +818,12 @@ describe('PostgresTableRepository (pg)', () => {
     try {
       const baseIdResult = BaseId.generate();
       const actorIdResult = ActorId.create('system');
-      expect([baseIdResult, actorIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || actorIdResult.isErr()) return;
+      [baseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      baseIdResult._unsafeUnwrap();
+      actorIdResult._unsafeUnwrap();
 
-      const baseId = baseIdResult.value;
-      const actorId = actorIdResult.value;
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
       const context = { actorId };
       const spaceId = `spc${getRandomString(16)}`;
 
@@ -859,38 +845,35 @@ describe('PostgresTableRepository (pg)', () => {
 
       const tableNameResult = TableName.create('Before');
       const fieldNameResult = FieldName.create('Name');
-      expect([tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-      if (tableNameResult.isErr() || fieldNameResult.isErr()) return;
+      [tableNameResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+      tableNameResult._unsafeUnwrap();
+      fieldNameResult._unsafeUnwrap();
 
-      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult.value);
-      builder.field().singleLineText().withName(fieldNameResult.value).done();
+      const builder = Table.builder().withBaseId(baseId).withName(tableNameResult._unsafeUnwrap());
+      builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).done();
       builder.view().defaultGrid().done();
       const tableResult = builder.build();
-      expect(tableResult.isOk()).toBe(true);
-      if (tableResult.isErr()) return;
+      tableResult._unsafeUnwrap();
 
-      const insertResult = await repo.insert(context, tableResult.value);
-      expect(insertResult.isOk()).toBe(true);
-      if (insertResult.isErr()) return;
-      const inserted = insertResult.value;
+      const insertResult = await repo.insert(context, tableResult._unsafeUnwrap());
+      insertResult._unsafeUnwrap();
+
+      const inserted = insertResult._unsafeUnwrap();
 
       const whereSpecResult = Table.specs(baseId).byId(inserted.id()).build();
-      expect(whereSpecResult.isOk()).toBe(true);
-      if (whereSpecResult.isErr()) return;
+      whereSpecResult._unsafeUnwrap();
 
       const nextNameResult = TableName.create('After');
-      expect(nextNameResult.isOk()).toBe(true);
-      if (nextNameResult.isErr()) return;
+      nextNameResult._unsafeUnwrap();
 
-      const mutateSpec = TableByNameSpec.create(nextNameResult.value);
+      const mutateSpec = TableByNameSpec.create(nextNameResult._unsafeUnwrap());
       const updateResult = await repo.updateOne(context, inserted, mutateSpec);
-      expect(updateResult.isOk()).toBe(true);
-      if (updateResult.isErr()) return;
+      updateResult._unsafeUnwrap();
 
-      const findResult = await repo.findOne(context, whereSpecResult.value);
-      expect(findResult.isOk()).toBe(true);
-      if (findResult.isErr()) return;
-      expect(findResult.value.name().toString()).toBe('After');
+      const findResult = await repo.findOne(context, whereSpecResult._unsafeUnwrap());
+      findResult._unsafeUnwrap();
+
+      expect(findResult._unsafeUnwrap().name().toString()).toBe('After');
     } finally {
       await db.destroy();
     }

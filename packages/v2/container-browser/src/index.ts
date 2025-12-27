@@ -6,7 +6,7 @@ import {
   NoopTableRepository,
   NoopTableSchemaRepository,
   NoopUnitOfWork,
-  FieldCreationSideEffectFlow,
+  FieldCreationSideEffectService,
   TableUpdateFlow,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -31,7 +31,7 @@ export const registerV2BrowserNoopDependencies = (
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.fieldCreationSideEffectFlow, FieldCreationSideEffectFlow, {
+  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.logger, NoopLogger, {

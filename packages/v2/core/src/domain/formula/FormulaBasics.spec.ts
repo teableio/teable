@@ -66,23 +66,23 @@ describe('formula basics', () => {
       new TypedValue('text', CellValueType.String),
       new Concatenate()
     );
-    expect(sameType.isOk()).toBe(true);
-    if (sameType.isErr()) return;
+    sameType._unsafeUnwrap();
+
     expect(sameType.value.type).toBe(CellValueType.String);
 
     const converted = converter.convertTypedValue(
       new TypedValue(1, CellValueType.Number),
       new Concatenate()
     );
-    expect(converted.isOk()).toBe(true);
-    if (converted.isErr()) return;
+    converted._unsafeUnwrap();
+
     expect(converted.value.type).toBe(CellValueType.String);
 
     const emptyAccept = converter.convertTypedValue(
       new TypedValue(1, CellValueType.Number),
       new Today()
     );
-    expect(emptyAccept.isErr()).toBe(true);
+    emptyAccept._unsafeUnwrapErr();
   });
 
   describe('FormulaTypeVisitor', () => {
@@ -90,126 +90,116 @@ describe('formula basics', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const numberPlus = parseRoot('1 + 2').accept(visitor);
-      expect(numberPlus.isOk()).toBe(true);
-      if (numberPlus.isErr()) return;
+      numberPlus._unsafeUnwrap();
+
       expect(numberPlus.value.type).toBe(CellValueType.Number);
 
       const stringPlus = parseRoot('"a" + 1').accept(visitor);
-      expect(stringPlus.isOk()).toBe(true);
-      if (stringPlus.isErr()) return;
+      stringPlus._unsafeUnwrap();
+
       expect(stringPlus.value.type).toBe(CellValueType.String);
 
       const minus = parseRoot('1 - 2').accept(visitor);
-      expect(minus.isOk()).toBe(true);
-      if (minus.isErr()) return;
+      minus._unsafeUnwrap();
+
       expect(minus.value.type).toBe(CellValueType.Number);
 
       const comparison = parseRoot('1 > 0').accept(visitor);
-      expect(comparison.isOk()).toBe(true);
-      if (comparison.isErr()) return;
+      comparison._unsafeUnwrap();
+
       expect(comparison.value.type).toBe(CellValueType.Boolean);
 
       const ampersand = parseRoot('"a" & "b"').accept(visitor);
-      expect(ampersand.isOk()).toBe(true);
-      if (ampersand.isErr()) return;
+      ampersand._unsafeUnwrap();
+
       expect(ampersand.value.type).toBe(CellValueType.String);
 
       const brackets = parseRoot('(1)').accept(visitor);
-      expect(brackets.isOk()).toBe(true);
-      if (brackets.isErr()) return;
+      brackets._unsafeUnwrap();
+
       expect(brackets.value.type).toBe(CellValueType.Number);
 
       const unary = parseRoot('-1').accept(visitor);
-      expect(unary.isOk()).toBe(true);
-      if (unary.isErr()) return;
+      unary._unsafeUnwrap();
+
       expect(unary.value.type).toBe(CellValueType.Number);
 
       const decimal = parseRoot('1.5').accept(visitor);
-      expect(decimal.isOk()).toBe(true);
-      if (decimal.isErr()) return;
+      decimal._unsafeUnwrap();
+
       expect(decimal.value.type).toBe(CellValueType.Number);
 
       const booleanLiteral = parseRoot('TRUE').accept(visitor);
-      expect(booleanLiteral.isOk()).toBe(true);
-      if (booleanLiteral.isErr()) return;
+      booleanLiteral._unsafeUnwrap();
+
       expect(booleanLiteral.value.type).toBe(CellValueType.Boolean);
     });
 
     it('resolves field references and handles missing fields', () => {
       const visitorWithDeps = new FormulaTypeVisitor(dependencies);
       const reference = parseRoot(`{${fieldId}}`).accept(visitorWithDeps);
-      expect(reference.isOk()).toBe(true);
-      if (reference.isErr()) return;
+      reference._unsafeUnwrap();
+
       expect(reference.value.type).toBe(CellValueType.Number);
       expect(reference.value.isMultiple).toBe(false);
 
       const missing = parseRoot(`{${fieldId}}`).accept(new FormulaTypeVisitor({}));
-      expect(missing.isErr()).toBe(true);
-      if (missing.isErr()) {
-        expect(missing.error).toContain(`FieldId ${fieldId} is a invalid field id`);
-      }
+      missing._unsafeUnwrapErr();
+      expect(missing._unsafeUnwrapErr()).toContain(`FieldId ${fieldId} is a invalid field id`);
 
       const invalidContext = {
         IDENTIFIER_VARIABLE: () => undefined,
       } as unknown as FieldReferenceCurlyContext;
       const invalid = visitorWithDeps.visitFieldReferenceCurly(invalidContext);
-      expect(invalid.isErr()).toBe(true);
-      if (invalid.isErr()) {
-        expect(invalid.error).toContain('FieldId {} is a invalid field id');
-      }
+      invalid._unsafeUnwrapErr();
+      expect(invalid._unsafeUnwrapErr()).toContain('FieldId {} is a invalid field id');
     });
 
     it('handles function calls and aliases', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const blank = parseRoot('BLANK()').accept(visitor);
-      expect(blank.isOk()).toBe(true);
-      if (blank.isErr()) return;
+      blank._unsafeUnwrap();
+
       expect(blank.value.isBlank).toBe(true);
 
       const alias = parseRoot('ARRAYJOIN("a")').accept(visitor);
-      expect(alias.isOk()).toBe(true);
-      if (alias.isErr()) return;
+      alias._unsafeUnwrap();
+
       expect(alias.value.type).toBe(CellValueType.String);
 
       const isError = parseRoot(`IS_ERROR({${fieldId}})`).accept(visitor);
-      expect(isError.isOk()).toBe(true);
-      if (isError.isErr()) return;
+      isError._unsafeUnwrap();
+
       expect(isError.value.type).toBe(CellValueType.Boolean);
 
       const unknown = parseRoot('UNKNOWN()').accept(visitor);
-      expect(unknown.isErr()).toBe(true);
-      if (unknown.isErr()) {
-        expect(unknown.error).toContain('Function name UNKNOWN is not found');
-      }
+      unknown._unsafeUnwrapErr();
+      expect(unknown._unsafeUnwrapErr()).toContain('Function name UNKNOWN is not found');
 
       const sumMissing = parseRoot(`SUM({${fieldId}})`).accept(visitor);
-      expect(sumMissing.isErr()).toBe(true);
-      if (sumMissing.isErr()) {
-        expect(sumMissing.error).toContain(`FieldId ${fieldId} is a invalid field id`);
-      }
+      sumMissing._unsafeUnwrapErr();
+      expect(sumMissing._unsafeUnwrapErr()).toContain(`FieldId ${fieldId} is a invalid field id`);
 
       const invalidParam = parseRoot('TODAY(1)').accept(visitor);
-      expect(invalidParam.isErr()).toBe(true);
-      if (invalidParam.isErr()) {
-        expect(invalidParam.error).toContain('no acceptable value types');
-      }
+      invalidParam._unsafeUnwrapErr();
+      expect(invalidParam._unsafeUnwrapErr()).toContain('no acceptable value types');
     });
 
     it('propagates expression errors in unary, binary, and return types', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const unaryError = parseRoot(`-{${fieldId}}`).accept(visitor);
-      expect(unaryError.isErr()).toBe(true);
+      unaryError._unsafeUnwrapErr();
 
       const binaryLeftError = parseRoot(`{${fieldId}} + 1`).accept(visitor);
-      expect(binaryLeftError.isErr()).toBe(true);
+      binaryLeftError._unsafeUnwrapErr();
 
       const binaryRightError = parseRoot(`1 + {${fieldId}}`).accept(visitor);
-      expect(binaryRightError.isErr()).toBe(true);
+      binaryRightError._unsafeUnwrapErr();
 
       const returnTypeError = parseRoot('SUM()').accept(visitor);
-      expect(returnTypeError.isErr()).toBe(true);
+      returnTypeError._unsafeUnwrapErr();
     });
 
     it('falls back to string for unsupported binary operators', () => {
@@ -253,9 +243,9 @@ describe('formula basics', () => {
       const defaultResult = (
         visitor as unknown as { defaultResult: () => Result<TypedValue, string> }
       ).defaultResult();
-      expect(defaultResult.isOk()).toBe(true);
-      if (defaultResult.isErr()) return;
-      expect(defaultResult.value.type).toBe(CellValueType.String);
+      defaultResult._unsafeUnwrap();
+
+      expect(defaultResult._unsafeUnwrap().type).toBe(CellValueType.String);
     });
   });
 });

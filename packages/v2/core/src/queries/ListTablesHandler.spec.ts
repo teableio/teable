@@ -14,33 +14,25 @@ import { ListTablesHandler } from './ListTablesHandler';
 import { ListTablesQuery } from './ListTablesQuery';
 
 const createContext = (): IExecutionContext => {
-  const actorIdResult = ActorId.create('system');
-  expect(actorIdResult.isOk()).toBe(true);
-  if (actorIdResult.isErr()) throw new Error('ActorId required for tests');
-  return { actorId: actorIdResult.value };
+  const actorId = ActorId.create('system')._unsafeUnwrap();
+  return { actorId };
 };
 
 const buildTable = (baseIdSeed: string, name: string) => {
-  const baseIdResult = BaseId.create(`bse${baseIdSeed.repeat(16)}`);
-  const tableNameResult = TableName.create(name);
-  const fieldNameResult = FieldName.create('Title');
-  expect([baseIdResult, tableNameResult, fieldNameResult].every((r) => r.isOk())).toBe(true);
-  if (baseIdResult.isErr() || tableNameResult.isErr() || fieldNameResult.isErr()) return undefined;
+  const baseId = BaseId.create(`bse${baseIdSeed.repeat(16)}`)._unsafeUnwrap();
+  const tableName = TableName.create(name)._unsafeUnwrap();
+  const fieldName = FieldName.create('Title')._unsafeUnwrap();
 
-  const builder = Table.builder().withBaseId(baseIdResult.value).withName(tableNameResult.value);
-  builder.field().singleLineText().withName(fieldNameResult.value).done();
+  const builder = Table.builder().withBaseId(baseId).withName(tableName);
+  builder.field().singleLineText().withName(fieldName).done();
   builder.view().defaultGrid().done();
-  const buildResult = builder.build();
-  expect(buildResult.isOk()).toBe(true);
-  if (buildResult.isErr()) return undefined;
-  return buildResult.value;
+  return builder.build()._unsafeUnwrap();
 };
 
 describe('ListTablesHandler', () => {
   it('lists tables with sorting and pagination', async () => {
     const tableA = buildTable('a', 'Alpha');
     const tableB = buildTable('a', 'Beta');
-    if (!tableA || !tableB) return;
 
     const repo = new MemoryTableRepository();
     const context = createContext();
@@ -54,22 +46,17 @@ describe('ListTablesHandler', () => {
       limit: 1,
       offset: 0,
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
-
     const handler = new ListTablesHandler(repo, new NoopLogger());
-    const result = await handler.handle(context, queryResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const result = await handler.handle(context, queryResult._unsafeUnwrap());
+    const payload = result._unsafeUnwrap();
 
-    expect(result.value.tables.length).toBe(1);
-    expect(result.value.tables[0]?.name().toString()).toBe('Beta');
+    expect(payload.tables.length).toBe(1);
+    expect(payload.tables[0]?.name().toString()).toBe('Beta');
   });
 
   it('filters by name query', async () => {
     const tableA = buildTable('b', 'Alpha');
     const tableB = buildTable('b', 'Beta');
-    if (!tableA || !tableB) return;
 
     const repo = new MemoryTableRepository();
     const context = createContext();
@@ -80,27 +67,20 @@ describe('ListTablesHandler', () => {
       baseId: tableA.baseId().toString(),
       q: 'Alp',
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
-
     const handler = new ListTablesHandler(repo, new NoopLogger());
-    const result = await handler.handle(context, queryResult.value);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    const result = await handler.handle(context, queryResult._unsafeUnwrap());
+    const payload = result._unsafeUnwrap();
 
-    expect(result.value.tables.map((table) => table.name().toString())).toEqual(['Alpha']);
+    expect(payload.tables.map((table) => table.name().toString())).toEqual(['Alpha']);
   });
 
   it('returns repository errors', async () => {
     const baseIdResult = BaseId.create(`bse${'c'.repeat(16)}`);
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
+    const baseId = baseIdResult._unsafeUnwrap();
 
     const queryResult = ListTablesQuery.create({
-      baseId: baseIdResult.value.toString(),
+      baseId: baseId.toString(),
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
 
     const repo: ITableRepository = {
       insert: async () => err('nope'),
@@ -111,10 +91,7 @@ describe('ListTablesHandler', () => {
     };
 
     const handler = new ListTablesHandler(repo, new NoopLogger());
-    const result = await handler.handle(createContext(), queryResult.value);
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toBe('repository error');
-    }
+    const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
+    expect(result._unsafeUnwrapErr()).toBe('repository error');
   });
 });

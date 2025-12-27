@@ -85,11 +85,8 @@ class TestHandler {
 }
 
 const createContext = (tracer?: ITracer): IExecutionContext => {
-  const actorIdResult = ActorId.create('system');
-  if (actorIdResult.isErr()) {
-    throw new Error('ActorId required');
-  }
-  return { actorId: actorIdResult.value, tracer };
+  const actorId = ActorId.create('system')._unsafeUnwrap();
+  return { actorId, tracer };
 };
 
 describe('TraceSpan', () => {
@@ -99,7 +96,7 @@ describe('TraceSpan', () => {
     const context = createContext(tracer);
 
     const result = await handler.handle(context, new PayloadMessage());
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
     expect(tracer.spans.length).toBe(1);
     const span = tracer.spans[0];
     expect(span.name).toContain('TestHandler.handle');
@@ -113,7 +110,7 @@ describe('TraceSpan', () => {
     const context = createContext(tracer);
 
     const result = await handler.fail(context, new PayloadMessage());
-    expect(result.isErr()).toBe(true);
+    result._unsafeUnwrapErr();
     expect(tracer.spans.length).toBe(1);
     const span = tracer.spans[0].span;
     expect(span.errors).toContain('failed');
@@ -125,10 +122,8 @@ describe('TraceSpan', () => {
     const context = createContext(tracer);
 
     const result = await handler.crash(context, new PayloadMessage());
-    expect(result.isErr()).toBe(true);
-    if (result.isErr()) {
-      expect(result.error).toContain('boom');
-    }
+    result._unsafeUnwrapErr();
+    expect(result._unsafeUnwrapErr()).toContain('boom');
     const span = tracer.spans[0].span;
     expect(span.errors[0]).toContain('boom');
   });
@@ -139,11 +134,11 @@ describe('TraceSpan', () => {
     const context = createContext(tracer);
 
     const handleResult = await handler.handle(context, null as unknown as PayloadMessage);
-    expect(handleResult.isOk()).toBe(true);
+    handleResult._unsafeUnwrap();
     expect(tracer.spans[0]?.attributes?.message).toBe('unknown');
 
     const crashResult = await handler.throwObject(context, new PayloadMessage());
-    expect(crashResult.isErr()).toBe(true);
+    crashResult._unsafeUnwrapErr();
     const span = tracer.spans[1]?.span;
     expect(span?.errors[0]).toContain('boom');
   });
@@ -160,6 +155,6 @@ describe('TraceSpan', () => {
     const handler = new TestHandler(brokenTracer);
     const context = createContext();
     const result = await handler.handle(context, new PayloadMessage());
-    expect(result.isOk()).toBe(true);
+    result._unsafeUnwrap();
   });
 });

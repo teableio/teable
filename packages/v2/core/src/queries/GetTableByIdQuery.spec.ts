@@ -8,22 +8,22 @@ describe('GetTableByIdQuery', () => {
   it('creates query with validated ids', () => {
     const baseIdResult = BaseId.create(`bse${'a'.repeat(16)}`);
     const tableIdResult = TableId.create(`tbl${'b'.repeat(16)}`);
-    expect([baseIdResult, tableIdResult].every((r) => r.isOk())).toBe(true);
-    if (baseIdResult.isErr() || tableIdResult.isErr()) return;
+    [baseIdResult, tableIdResult].forEach((r) => r._unsafeUnwrap());
+    baseIdResult._unsafeUnwrap();
+    tableIdResult._unsafeUnwrap();
 
     const queryResult = GetTableByIdQuery.create({
-      baseId: baseIdResult.value.toString(),
-      tableId: tableIdResult.value.toString(),
+      baseId: baseIdResult._unsafeUnwrap().toString(),
+      tableId: tableIdResult._unsafeUnwrap().toString(),
     });
-    expect(queryResult.isOk()).toBe(true);
-    if (queryResult.isErr()) return;
+    queryResult._unsafeUnwrap();
 
-    expect(queryResult.value.baseId.equals(baseIdResult.value)).toBe(true);
-    expect(queryResult.value.tableId.equals(tableIdResult.value)).toBe(true);
+    expect(queryResult._unsafeUnwrap().baseId.equals(baseIdResult._unsafeUnwrap())).toBe(true);
+    expect(queryResult._unsafeUnwrap().tableId.equals(tableIdResult._unsafeUnwrap())).toBe(true);
   });
 
   it('rejects invalid input', () => {
-    expect(GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' }).isErr()).toBe(true);
-    expect(GetTableByIdQuery.create({ baseId: 'bse' + 'a'.repeat(16) }).isErr()).toBe(true);
+    GetTableByIdQuery.create({ baseId: 'bad', tableId: 'bad' })._unsafeUnwrapErr();
+    GetTableByIdQuery.create({ baseId: 'bse' + 'a'.repeat(16) })._unsafeUnwrapErr();
   });
 });

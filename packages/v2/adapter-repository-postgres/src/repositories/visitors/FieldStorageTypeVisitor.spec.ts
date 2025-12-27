@@ -11,51 +11,43 @@ import {
   TableName,
   resolveFormulaFields,
 } from '@teable/v2-core';
-import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { FieldStorageTypeVisitor } from './FieldStorageTypeVisitor';
 
-const unwrap = <T>(result: Result<T, string>): T => {
-  if (result.isErr()) {
-    throw new Error(result.error);
-  }
-  return result.value;
-};
-
 describe('FieldStorageTypeVisitor', () => {
   it('maps field types to v1 storage type strings', () => {
-    const baseId = unwrap(BaseId.create(`bse${'a'.repeat(16)}`));
-    const tableName = unwrap(TableName.create('Projects'));
-    const titleName = unwrap(FieldName.create('Name'));
-    const descriptionName = unwrap(FieldName.create('Description'));
-    const amountName = unwrap(FieldName.create('Amount'));
-    const ratingName = unwrap(FieldName.create('Rating'));
-    const scoreName = unwrap(FieldName.create('Score'));
-    const statusName = unwrap(FieldName.create('Status'));
-    const tagsName = unwrap(FieldName.create('Tags'));
-    const doneName = unwrap(FieldName.create('Done'));
-    const filesName = unwrap(FieldName.create('Files'));
-    const dueDateName = unwrap(FieldName.create('Due Date'));
-    const ownerName = unwrap(FieldName.create('Owner'));
-    const actionName = unwrap(FieldName.create('Action'));
-    const linkName = unwrap(FieldName.create('Related'));
-    const todoOption = unwrap(SelectOption.create({ name: 'Todo', color: 'blue' }));
-    const doneOption = unwrap(SelectOption.create({ name: 'Done', color: 'red' }));
-    const amountId = unwrap(FieldId.create(`fld${'a'.repeat(16)}`));
-    const formulaExpression = unwrap(FormulaExpression.create(`{${amountId.toString()}} * 2`));
-    const foreignTableId = unwrap(TableId.create(`tbl${'b'.repeat(16)}`));
-    const lookupFieldId = unwrap(FieldId.create(`fld${'b'.repeat(16)}`));
-    const linkConfig = unwrap(
-      LinkFieldConfig.create({
-        relationship: 'manyOne',
-        foreignTableId: foreignTableId.toString(),
-        lookupFieldId: lookupFieldId.toString(),
-        fkHostTableName: 'link_relations',
-        selfKeyName: '__self_id',
-        foreignKeyName: '__foreign_id',
-      })
-    );
+    const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
+    const tableName = TableName.create('Projects')._unsafeUnwrap();
+    const titleName = FieldName.create('Name')._unsafeUnwrap();
+    const descriptionName = FieldName.create('Description')._unsafeUnwrap();
+    const amountName = FieldName.create('Amount')._unsafeUnwrap();
+    const ratingName = FieldName.create('Rating')._unsafeUnwrap();
+    const scoreName = FieldName.create('Score')._unsafeUnwrap();
+    const statusName = FieldName.create('Status')._unsafeUnwrap();
+    const tagsName = FieldName.create('Tags')._unsafeUnwrap();
+    const doneName = FieldName.create('Done')._unsafeUnwrap();
+    const filesName = FieldName.create('Files')._unsafeUnwrap();
+    const dueDateName = FieldName.create('Due Date')._unsafeUnwrap();
+    const ownerName = FieldName.create('Owner')._unsafeUnwrap();
+    const actionName = FieldName.create('Action')._unsafeUnwrap();
+    const linkName = FieldName.create('Related')._unsafeUnwrap();
+    const todoOption = SelectOption.create({ name: 'Todo', color: 'blue' })._unsafeUnwrap();
+    const doneOption = SelectOption.create({ name: 'Done', color: 'red' })._unsafeUnwrap();
+    const amountId = FieldId.create(`fld${'a'.repeat(16)}`)._unsafeUnwrap();
+    const formulaExpression = FormulaExpression.create(
+      `{${amountId.toString()}} * 2`
+    )._unsafeUnwrap();
+    const foreignTableId = TableId.create(`tbl${'b'.repeat(16)}`)._unsafeUnwrap();
+    const lookupFieldId = FieldId.create(`fld${'b'.repeat(16)}`)._unsafeUnwrap();
+    const linkConfig = LinkFieldConfig.create({
+      relationship: 'manyOne',
+      foreignTableId: foreignTableId.toString(),
+      lookupFieldId: lookupFieldId.toString(),
+      fkHostTableName: 'link_relations',
+      selfKeyName: '__self_id',
+      foreignKeyName: '__foreign_id',
+    })._unsafeUnwrap();
 
     const builder = Table.builder().withBaseId(baseId).withName(tableName);
     builder.field().singleLineText().withName(titleName).done();
@@ -83,14 +75,13 @@ describe('FieldStorageTypeVisitor', () => {
     builder.field().link().withName(linkName).withConfig(linkConfig).done();
     builder.view().defaultGrid().done();
 
-    const table = unwrap(builder.build());
+    const table = builder.build()._unsafeUnwrap();
     const resolveResult = resolveFormulaFields(table);
-    expect(resolveResult.isOk()).toBe(true);
-    if (resolveResult.isErr()) return;
+    resolveResult._unsafeUnwrap();
+
     const visitor = new FieldStorageTypeVisitor();
     const applyResult = visitor.apply(table);
-    expect(applyResult.isOk()).toBe(true);
-    if (applyResult.isErr()) return;
+    applyResult._unsafeUnwrap();
 
     const typesById = visitor.typesById();
     const storageTypes = table.fields().map((field) => typesById.get(field.id().toString()));

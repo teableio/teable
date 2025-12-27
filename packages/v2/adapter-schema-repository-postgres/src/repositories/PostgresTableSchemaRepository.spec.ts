@@ -2,7 +2,7 @@
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
-import type { IExecutionContext, ITableSchemaRepository } from '@teable/v2-core';
+import type { IExecutionContext, ITableRepository, ITableSchemaRepository } from '@teable/v2-core';
 import {
   ActorId,
   BaseId,
@@ -15,6 +15,8 @@ import {
   LinkFieldConfig,
   LinkFieldMeta,
   RatingMax,
+  RollupExpression,
+  RollupFieldConfig,
   SelectOption,
   Table,
   TableName,
@@ -24,11 +26,12 @@ import {
   UserMultiplicity,
   v2CoreTokens,
   resolveFormulaFields,
+  FieldForeignTableValidationVisitor,
 } from '@teable/v2-core';
+import { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
-import { ok, safeTry } from 'neverthrow';
-import type { Result } from 'neverthrow';
+import { ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
@@ -46,15 +49,6 @@ const baseRecordColumnTypes: Record<string, string> = {
   __created_by: 'text',
   __last_modified_by: 'text',
   __version: 'int4',
-};
-
-const unwrapResult = <T>(result: Result<T, string>): T => {
-  const unwrapped = safeTry<T, string>(function* () {
-    const value = yield* result;
-    return ok(value);
-  });
-  if (unwrapped.isOk()) return unwrapped.value;
-  throw new Error(unwrapped.error);
 };
 
 const resolveExpectedUdtName = (
@@ -79,7 +73,7 @@ const resolveExpectedUdtName = (
 };
 
 const fetchColumnTypes = async (
-  db: Kysely<unknown>,
+  db: Kysely<V1TeableDatabase>,
   tableName: string,
   schemaName = 'public'
 ): Promise<Map<string, string>> => {
@@ -107,34 +101,32 @@ describe('PostgresTableSchemaRepository (pg)', () => {
   it('creates record table and field columns', async () => {
     const c = testContainer.container;
 
-    const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
       const testSchemaName = createSchemaName();
       const baseIdResult = BaseId.generate();
-      expect(baseIdResult.isOk()).toBe(true);
-      const baseId = unwrapResult(baseIdResult);
+      baseIdResult._unsafeUnwrap();
+      const baseId = baseIdResult._unsafeUnwrap();
 
       const tableNameResult = TableName.create('Project Items');
       const titleNameResult = FieldName.create('Task Name');
       const ratingNameResult = FieldName.create('Priority Level');
       const statusNameResult = FieldName.create('Status');
-      expect(
-        [tableNameResult, titleNameResult, ratingNameResult, statusNameResult].every((r) =>
-          r.isOk()
-        )
-      ).toBe(true);
-      const tableName = unwrapResult(tableNameResult);
-      const titleName = unwrapResult(titleNameResult);
-      const ratingName = unwrapResult(ratingNameResult);
-      const statusName = unwrapResult(statusNameResult);
+      [tableNameResult, titleNameResult, ratingNameResult, statusNameResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+      const tableName = tableNameResult._unsafeUnwrap();
+      const titleName = titleNameResult._unsafeUnwrap();
+      const ratingName = ratingNameResult._unsafeUnwrap();
+      const statusName = statusNameResult._unsafeUnwrap();
 
       const todoOptionResult = SelectOption.create({ name: 'Todo', color: 'blue' });
       const doneOptionResult = SelectOption.create({ name: 'Done', color: 'red' });
-      expect([todoOptionResult, doneOptionResult].every((r) => r.isOk())).toBe(true);
-      const todoOption = unwrapResult(todoOptionResult);
-      const doneOption = unwrapResult(doneOptionResult);
+      [todoOptionResult, doneOptionResult].forEach((r) => r._unsafeUnwrap());
+      const todoOption = todoOptionResult._unsafeUnwrap();
+      const doneOption = doneOptionResult._unsafeUnwrap();
 
       const builder = Table.builder().withBaseId(baseId).withName(tableName);
       builder.field().singleLineText().withName(titleName).done();
@@ -148,8 +140,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       builder.view().defaultGrid().done();
 
       const tableResult = builder.build();
-      expect(tableResult.isOk()).toBe(true);
-      const table = unwrapResult(tableResult);
+      tableResult._unsafeUnwrap();
+      const table = tableResult._unsafeUnwrap();
 
       const dbTableName = joinDbTableName(
         testSchemaName,
@@ -159,11 +151,11 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const fieldDbNames: string[] = [];
 
       const dbTableNameResult = DbTableName.rehydrate(dbTableName);
-      expect(dbTableNameResult.isOk()).toBe(true);
-      const dbTableNameValue = unwrapResult(dbTableNameResult);
+      dbTableNameResult._unsafeUnwrap();
+      const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
       const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-      expect(setTableDbNameResult.isOk()).toBe(true);
-      unwrapResult(setTableDbNameResult);
+      setTableDbNameResult._unsafeUnwrap();
+      setTableDbNameResult._unsafeUnwrap();
 
       for (const field of table.fields()) {
         const baseName = convertNameToValidCharacter(field.name().toString(), 40);
@@ -171,27 +163,27 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         reservedNames.add(dbFieldName);
         fieldDbNames.push(dbFieldName);
         const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
-        expect(dbFieldNameResult.isOk()).toBe(true);
-        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
+        dbFieldNameResult._unsafeUnwrap();
+        const dbFieldNameValue = dbFieldNameResult._unsafeUnwrap();
         const setFieldDbNameResult = field.setDbFieldName(dbFieldNameValue);
-        expect(setFieldDbNameResult.isOk()).toBe(true);
-        unwrapResult(setFieldDbNameResult);
+        setFieldDbNameResult._unsafeUnwrap();
+        setFieldDbNameResult._unsafeUnwrap();
       }
 
       const actorIdResult = ActorId.create('system');
-      expect(actorIdResult.isOk()).toBe(true);
-      const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
       const insertResult = await repo.insert(context, table);
-      expect(insertResult.isOk()).toBe(true);
-      unwrapResult(insertResult);
+      insertResult._unsafeUnwrap();
+      insertResult._unsafeUnwrap();
 
       const expectedBaseColumns = baseRecordColumnNames;
       const expectedFieldColumns = fieldDbNames;
 
       const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-      expect(splitResult.isOk()).toBe(true);
-      const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+      splitResult._unsafeUnwrap();
+      const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
       const actualSchemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string }>`
         select column_name as "columnName"
@@ -210,10 +202,152 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     }
   });
 
+  it('creates rollup columns and reference entries', async () => {
+    const c = testContainer.container;
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+    try {
+      const testSchemaName = createSchemaName();
+      const baseId = BaseId.generate()._unsafeUnwrap();
+
+      const foreignTableName = TableName.create('Foreign')._unsafeUnwrap();
+      const foreignBuilder = Table.builder().withBaseId(baseId).withName(foreignTableName);
+      const foreignLookupFieldId = FieldId.generate()._unsafeUnwrap();
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .number()
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .withId(foreignLookupFieldId)
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+
+      const hostTableName = TableName.create('Host')._unsafeUnwrap();
+      const hostBuilder = Table.builder().withBaseId(baseId).withName(hostTableName);
+      const linkFieldId = FieldId.generate()._unsafeUnwrap();
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+        fkHostTableName: `${testSchemaName}.link_relations_rollup`,
+        selfKeyName: '__self_id',
+        foreignKeyName: '__foreign_id',
+      })._unsafeUnwrap();
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Name')._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withName(FieldName.create('Links')._unsafeUnwrap())
+        .withId(linkFieldId)
+        .withConfig(linkConfig)
+        .done();
+      const rollupConfig = RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignLookupFieldId.toString(),
+      })._unsafeUnwrap();
+      const valuesField = foreignTable
+        .fields()
+        .find((field) => field.id().equals(foreignLookupFieldId));
+      expect(valuesField).toBeTruthy();
+      if (!valuesField) return;
+
+      hostBuilder
+        .field()
+        .rollup()
+        .withName(FieldName.create('Total')._unsafeUnwrap())
+        .withConfig(rollupConfig)
+        .withExpression(RollupExpression.create('countall({values})')._unsafeUnwrap())
+        .withValuesField(valuesField)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+
+      const rollupFields = hostTable
+        .fields()
+        .filter((field) => field.type().toString() === 'rollup');
+      const resolveRollupResult = FieldForeignTableValidationVisitor.validate(rollupFields, {
+        table: hostTable,
+        foreignTables: [foreignTable],
+      });
+      resolveRollupResult._unsafeUnwrap();
+
+      const dbTableName = joinDbTableName(
+        testSchemaName,
+        convertNameToValidCharacter(hostTable.name().toString(), 40)
+      );
+      const dbTableNameValue = DbTableName.rehydrate(dbTableName)._unsafeUnwrap();
+      hostTable.setDbTableName(dbTableNameValue)._unsafeUnwrap();
+
+      const reservedNames = new Set(baseRecordColumnNames);
+      for (const field of hostTable.fields()) {
+        const baseName = convertNameToValidCharacter(field.name().toString(), 40);
+        const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
+        reservedNames.add(dbFieldName);
+        const dbFieldNameValue = DbFieldName.rehydrate(dbFieldName)._unsafeUnwrap();
+        field.setDbFieldName(dbFieldNameValue)._unsafeUnwrap();
+      }
+
+      const context: IExecutionContext = { actorId: ActorId.create('system')._unsafeUnwrap() };
+      const insertResult = await repo.insert(context, hostTable);
+      insertResult._unsafeUnwrap();
+
+      const rollupField = hostTable.fields().find((f) => f.type().toString() === 'rollup');
+      expect(rollupField).toBeTruthy();
+      if (!rollupField) return;
+      const rollupDbNameResult = rollupField.dbFieldName().andThen((name) => name.value());
+      rollupDbNameResult._unsafeUnwrap();
+
+      const rollupDbName = rollupDbNameResult._unsafeUnwrap();
+
+      const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+      splitResult._unsafeUnwrap();
+      const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
+      const actualSchemaName = schema ?? 'public';
+      const columnTypes = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+
+      const rollupValueTypeResult = rollupField.accept(new FieldValueTypeVisitor());
+      rollupValueTypeResult._unsafeUnwrap();
+
+      const expectedUdtName = resolveExpectedUdtName(
+        rollupField.type().toString(),
+        rollupValueTypeResult._unsafeUnwrap().cellValueType.toString(),
+        rollupValueTypeResult._unsafeUnwrap().isMultipleCellValue.toBoolean()
+      );
+      expect(columnTypes.get(rollupDbName)).toBe(expectedUdtName);
+
+      const references = await db
+        .selectFrom('reference')
+        .select(['from_field_id'])
+        .where('to_field_id', '=', rollupField.id().toString())
+        .execute();
+      const fromFieldIds = references.map((row) => row.from_field_id).sort();
+      expect(fromFieldIds).toEqual(
+        [linkFieldId.toString(), foreignLookupFieldId.toString()].sort()
+      );
+    } finally {
+      // no cleanup required
+      void 0;
+    }
+  });
+
   it('uses v1-compatible column types for fields', async () => {
     const c = testContainer.container;
 
-    const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
     let tableForCleanup: Table | undefined;
     let contextForCleanup: IExecutionContext | undefined;
@@ -221,8 +355,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     try {
       const testSchemaName = createSchemaName();
       const baseIdResult = BaseId.generate();
-      expect(baseIdResult.isOk()).toBe(true);
-      const baseId = unwrapResult(baseIdResult);
+      baseIdResult._unsafeUnwrap();
+      const baseId = baseIdResult._unsafeUnwrap();
 
       const tableNameResult = TableName.create('DDL Column Types');
       const titleNameResult = FieldName.create('Title');
@@ -253,54 +387,28 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const bugOptionResult = SelectOption.create({ name: 'Bug', color: 'red' });
       const featureOptionResult = SelectOption.create({ name: 'Feature', color: 'yellow' });
 
-      expect(
-        [
-          tableNameResult,
-          titleNameResult,
-          descriptionNameResult,
-          amountNameResult,
-          ratingNameResult,
-          scoreNameResult,
-          scoreLabelNameResult,
-          statusNameResult,
-          tagsNameResult,
-          doneNameResult,
-          filesNameResult,
-          dueNameResult,
-          ownerNameResult,
-          actionNameResult,
-          titleFieldIdResult,
-          amountFieldIdResult,
-          scoreExpressionResult,
-          scoreLabelExpressionResult,
-          todoOptionResult,
-          doneOptionResult,
-          bugOptionResult,
-          featureOptionResult,
-        ].every((r) => r.isOk())
-      ).toBe(true);
-      const tableName = unwrapResult(tableNameResult);
-      const titleName = unwrapResult(titleNameResult);
-      const descriptionName = unwrapResult(descriptionNameResult);
-      const amountName = unwrapResult(amountNameResult);
-      const ratingName = unwrapResult(ratingNameResult);
-      const scoreName = unwrapResult(scoreNameResult);
-      const scoreLabelName = unwrapResult(scoreLabelNameResult);
-      const statusName = unwrapResult(statusNameResult);
-      const tagsName = unwrapResult(tagsNameResult);
-      const doneName = unwrapResult(doneNameResult);
-      const filesName = unwrapResult(filesNameResult);
-      const dueName = unwrapResult(dueNameResult);
-      const ownerName = unwrapResult(ownerNameResult);
-      const actionName = unwrapResult(actionNameResult);
-      const titleFieldId = unwrapResult(titleFieldIdResult);
-      const amountFieldId = unwrapResult(amountFieldIdResult);
-      const scoreExpression = unwrapResult(scoreExpressionResult);
-      const scoreLabelExpression = unwrapResult(scoreLabelExpressionResult);
-      const todoOption = unwrapResult(todoOptionResult);
-      const doneOption = unwrapResult(doneOptionResult);
-      const bugOption = unwrapResult(bugOptionResult);
-      const featureOption = unwrapResult(featureOptionResult);
+      const tableName = tableNameResult._unsafeUnwrap();
+      const titleName = titleNameResult._unsafeUnwrap();
+      const descriptionName = descriptionNameResult._unsafeUnwrap();
+      const amountName = amountNameResult._unsafeUnwrap();
+      const ratingName = ratingNameResult._unsafeUnwrap();
+      const scoreName = scoreNameResult._unsafeUnwrap();
+      const scoreLabelName = scoreLabelNameResult._unsafeUnwrap();
+      const statusName = statusNameResult._unsafeUnwrap();
+      const tagsName = tagsNameResult._unsafeUnwrap();
+      const doneName = doneNameResult._unsafeUnwrap();
+      const filesName = filesNameResult._unsafeUnwrap();
+      const dueName = dueNameResult._unsafeUnwrap();
+      const ownerName = ownerNameResult._unsafeUnwrap();
+      const actionName = actionNameResult._unsafeUnwrap();
+      const titleFieldId = titleFieldIdResult._unsafeUnwrap();
+      const amountFieldId = amountFieldIdResult._unsafeUnwrap();
+      const scoreExpression = scoreExpressionResult._unsafeUnwrap();
+      const scoreLabelExpression = scoreLabelExpressionResult._unsafeUnwrap();
+      const todoOption = todoOptionResult._unsafeUnwrap();
+      const doneOption = doneOptionResult._unsafeUnwrap();
+      const bugOption = bugOptionResult._unsafeUnwrap();
+      const featureOption = featureOptionResult._unsafeUnwrap();
 
       const builder = Table.builder().withBaseId(baseId).withName(tableName);
       builder.field().singleLineText().withName(titleName).withId(titleFieldId).primary().done();
@@ -339,23 +447,23 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       builder.view().defaultGrid().done();
 
       const tableResult = builder.build();
-      expect(tableResult.isOk()).toBe(true);
-      const table = unwrapResult(tableResult);
+      tableResult._unsafeUnwrap();
+      const table = tableResult._unsafeUnwrap();
 
       const resolveResult = resolveFormulaFields(table);
-      expect(resolveResult.isOk()).toBe(true);
-      unwrapResult(resolveResult);
+      resolveResult._unsafeUnwrap();
+      resolveResult._unsafeUnwrap();
 
       const dbTableName = joinDbTableName(
         testSchemaName,
         convertNameToValidCharacter(table.name().toString(), 40)
       );
       const dbTableNameResult = DbTableName.rehydrate(dbTableName);
-      expect(dbTableNameResult.isOk()).toBe(true);
-      const dbTableNameValue = unwrapResult(dbTableNameResult);
+      dbTableNameResult._unsafeUnwrap();
+      const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
       const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-      expect(setTableDbNameResult.isOk()).toBe(true);
-      unwrapResult(setTableDbNameResult);
+      setTableDbNameResult._unsafeUnwrap();
+      setTableDbNameResult._unsafeUnwrap();
       tableForCleanup = table;
 
       const reservedNames = new Set(baseRecordColumnNames);
@@ -364,25 +472,25 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
         reservedNames.add(dbFieldName);
         const dbFieldNameResult = DbFieldName.rehydrate(dbFieldName);
-        expect(dbFieldNameResult.isOk()).toBe(true);
-        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
+        dbFieldNameResult._unsafeUnwrap();
+        const dbFieldNameValue = dbFieldNameResult._unsafeUnwrap();
         const setFieldDbNameResult = field.setDbFieldName(dbFieldNameValue);
-        expect(setFieldDbNameResult.isOk()).toBe(true);
-        unwrapResult(setFieldDbNameResult);
+        setFieldDbNameResult._unsafeUnwrap();
+        setFieldDbNameResult._unsafeUnwrap();
       }
 
       const actorIdResult = ActorId.create('system');
-      expect(actorIdResult.isOk()).toBe(true);
-      const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
       contextForCleanup = context;
 
       const insertResult = await repo.insert(context, table);
-      expect(insertResult.isOk()).toBe(true);
-      unwrapResult(insertResult);
+      insertResult._unsafeUnwrap();
+      insertResult._unsafeUnwrap();
 
       const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-      expect(splitResult.isOk()).toBe(true);
-      const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+      splitResult._unsafeUnwrap();
+      const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
       const actualSchemaName = schema ?? 'public';
       const columnsResult = await sql<{ columnName: string; udtName: string }>`
         select column_name as "columnName", udt_name as "udtName"
@@ -397,11 +505,11 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
       for (const field of table.fields()) {
         const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
-        expect(dbFieldNameResult.isOk()).toBe(true);
+        dbFieldNameResult._unsafeUnwrap();
         const valueTypeResult = field.accept(valueTypeVisitor);
-        expect(valueTypeResult.isOk()).toBe(true);
-        const dbFieldNameValue = unwrapResult(dbFieldNameResult);
-        const valueType = unwrapResult(valueTypeResult);
+        valueTypeResult._unsafeUnwrap();
+        const dbFieldNameValue = dbFieldNameResult._unsafeUnwrap();
+        const valueType = valueTypeResult._unsafeUnwrap();
 
         const expectedType = resolveExpectedUdtName(
           field.type().toString(),
@@ -431,10 +539,93 @@ describe('PostgresTableSchemaRepository (pg)', () => {
   });
 
   describe('link fields ddl', () => {
+    it('persists link order meta after schema insert', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const tableRepo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+      const schemaRepo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      const baseIdResult = BaseId.generate();
+      const tableNameResult = TableName.create('Link Meta Table');
+      const primaryNameResult = FieldName.create('Title');
+      const linkNameResult = FieldName.create('Related');
+      const primaryFieldIdResult = FieldId.generate();
+      const linkFieldIdResult = FieldId.generate();
+      const foreignTableIdResult = TableId.generate();
+      const lookupFieldIdResult = FieldId.generate();
+      const baseId = baseIdResult._unsafeUnwrap();
+      const tableName = tableNameResult._unsafeUnwrap();
+      const primaryName = primaryNameResult._unsafeUnwrap();
+      const linkName = linkNameResult._unsafeUnwrap();
+      const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+      const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+      const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+      const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+
+      const linkConfigResult = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: foreignTableId.toString(),
+        lookupFieldId: lookupFieldId.toString(),
+        fkHostTableName: 'link_relations_meta',
+        selfKeyName: '__self_id',
+        foreignKeyName: '__foreign_id',
+      });
+      linkConfigResult._unsafeUnwrap();
+      const linkConfig = linkConfigResult._unsafeUnwrap();
+
+      const builder = Table.builder().withBaseId(baseId).withName(tableName);
+      builder
+        .field()
+        .singleLineText()
+        .withName(primaryName)
+        .withId(primaryFieldId)
+        .primary()
+        .done();
+      builder.view().defaultGrid().done();
+      const baseTableResult = builder.build();
+      baseTableResult._unsafeUnwrap();
+      const baseTable = baseTableResult._unsafeUnwrap();
+
+      const linkFieldResult = createNewLinkField({
+        id: linkFieldId,
+        name: linkName,
+        config: linkConfig,
+        baseId,
+        hostTableId: baseTable.id(),
+      });
+      linkFieldResult._unsafeUnwrap();
+      const linkFieldValue = linkFieldResult._unsafeUnwrap();
+
+      const tableResult = baseTable.addField(linkFieldValue);
+      tableResult._unsafeUnwrap();
+      const table = tableResult._unsafeUnwrap();
+
+      const actorIdResult = ActorId.create('system');
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
+
+      const persistedTableResult = await tableRepo.insert(context, table);
+      persistedTableResult._unsafeUnwrap();
+      const persistedTable = persistedTableResult._unsafeUnwrap();
+
+      const schemaInsertResult = await schemaRepo.insert(context, persistedTable);
+      schemaInsertResult._unsafeUnwrap();
+      schemaInsertResult._unsafeUnwrap();
+
+      const metaRow = await db
+        .selectFrom('field')
+        .select(['meta'])
+        .where('id', '=', linkFieldId.toString())
+        .executeTakeFirst();
+      const meta = metaRow?.meta ? JSON.parse(metaRow.meta) : null;
+      expect(meta).toEqual({ hasOrderColumn: true });
+    });
+
     it('creates manyMany join table columns', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -448,28 +639,26 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const foreignTableIdResult = TableId.generate();
         const lookupFieldIdResult = FieldId.generate();
         const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
-        expect(
-          [
-            baseIdResult,
-            tableNameResult,
-            primaryNameResult,
-            linkNameResult,
-            primaryFieldIdResult,
-            linkFieldIdResult,
-            foreignTableIdResult,
-            lookupFieldIdResult,
-            linkMetaResult,
-          ].every((r) => r.isOk())
-        ).toBe(true);
-        const baseId = unwrapResult(baseIdResult);
-        const tableName = unwrapResult(tableNameResult);
-        const primaryName = unwrapResult(primaryNameResult);
-        const linkName = unwrapResult(linkNameResult);
-        const primaryFieldId = unwrapResult(primaryFieldIdResult);
-        const linkFieldId = unwrapResult(linkFieldIdResult);
-        const foreignTableId = unwrapResult(foreignTableIdResult);
-        const lookupFieldId = unwrapResult(lookupFieldIdResult);
-        const linkMeta = unwrapResult(linkMetaResult);
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+          linkMetaResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+        const linkMeta = linkMetaResult._unsafeUnwrap();
 
         const linkConfigResult = LinkFieldConfig.create({
           relationship: 'manyMany',
@@ -479,8 +668,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
-        expect(linkConfigResult.isOk()).toBe(true);
-        const linkConfig = unwrapResult(linkConfigResult);
+        linkConfigResult._unsafeUnwrap();
+        const linkConfig = linkConfigResult._unsafeUnwrap();
 
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
@@ -492,8 +681,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           .done();
         builder.view().defaultGrid().done();
         const baseTableResult = builder.build();
-        expect(baseTableResult.isOk()).toBe(true);
-        const baseTable = unwrapResult(baseTableResult);
+        baseTableResult._unsafeUnwrap();
+        const baseTable = baseTableResult._unsafeUnwrap();
 
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
@@ -503,19 +692,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           baseId,
           hostTableId: baseTable.id(),
         });
-        expect(linkFieldResult.isOk()).toBe(true);
-        const linkFieldValue = unwrapResult(linkFieldResult);
+        linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
 
         const tableResult = baseTable.addField(linkFieldValue);
-        expect(tableResult.isOk()).toBe(true);
-        const table = unwrapResult(tableResult);
+        tableResult._unsafeUnwrap();
+        const table = tableResult._unsafeUnwrap();
 
         const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mm`);
-        expect(dbTableNameResult.isOk()).toBe(true);
-        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
         const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        expect(setTableDbNameResult.isOk()).toBe(true);
-        unwrapResult(setTableDbNameResult);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
 
         const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
         const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
@@ -525,23 +714,23 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const primaryDbNameResult = DbFieldName.rehydrate('title');
         const linkDbNameResult = DbFieldName.rehydrate('link_value_mm');
-        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
-        const primaryDbName = unwrapResult(primaryDbNameResult);
-        const linkDbName = unwrapResult(linkDbNameResult);
-        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
-        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
 
         const actorIdResult = ActorId.create('system');
-        expect(actorIdResult.isOk()).toBe(true);
-        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+        actorIdResult._unsafeUnwrap();
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
         const insertResult = await repo.insert(context, table);
-        expect(insertResult.isOk()).toBe(true);
-        unwrapResult(insertResult);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
 
         const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-        expect(splitResult.isOk()).toBe(true);
-        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        splitResult._unsafeUnwrap();
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
         const actualSchemaName = schema ?? 'public';
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_mm')).toBe('jsonb');
@@ -549,11 +738,11 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(hostColumns.has('__foreign_id')).toBe(false);
 
         const joinSplit = DbTableName.rehydrate(`${testSchemaName}.link_relations_mm`);
-        expect(joinSplit.isOk()).toBe(true);
-        const joinDbTableName = unwrapResult(joinSplit);
+        joinSplit._unsafeUnwrap();
+        const joinDbTableName = joinSplit._unsafeUnwrap();
         const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
-        expect(joinTable.isOk()).toBe(true);
-        const joinTableInfo = unwrapResult(joinTable);
+        joinTable._unsafeUnwrap();
+        const joinTableInfo = joinTable._unsafeUnwrap();
         const joinSchema = joinTableInfo.schema ?? 'public';
         const joinColumns = await fetchColumnTypes(db, joinTableInfo.tableName, joinSchema);
         expect(joinColumns.get('__self_id')).toBe('text');
@@ -568,7 +757,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates oneMany foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -582,28 +771,26 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const foreignTableIdResult = TableId.generate();
         const lookupFieldIdResult = FieldId.generate();
         const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
-        expect(
-          [
-            baseIdResult,
-            tableNameResult,
-            primaryNameResult,
-            linkNameResult,
-            primaryFieldIdResult,
-            linkFieldIdResult,
-            foreignTableIdResult,
-            lookupFieldIdResult,
-            linkMetaResult,
-          ].every((r) => r.isOk())
-        ).toBe(true);
-        const baseId = unwrapResult(baseIdResult);
-        const tableName = unwrapResult(tableNameResult);
-        const primaryName = unwrapResult(primaryNameResult);
-        const linkName = unwrapResult(linkNameResult);
-        const primaryFieldId = unwrapResult(primaryFieldIdResult);
-        const linkFieldId = unwrapResult(linkFieldIdResult);
-        const foreignTableId = unwrapResult(foreignTableIdResult);
-        const lookupFieldId = unwrapResult(lookupFieldIdResult);
-        const linkMeta = unwrapResult(linkMetaResult);
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+          linkMetaResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+        const linkMeta = linkMetaResult._unsafeUnwrap();
 
         const linkConfigResult = LinkFieldConfig.create({
           relationship: 'oneMany',
@@ -613,8 +800,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
-        expect(linkConfigResult.isOk()).toBe(true);
-        const linkConfig = unwrapResult(linkConfigResult);
+        linkConfigResult._unsafeUnwrap();
+        const linkConfig = linkConfigResult._unsafeUnwrap();
 
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
@@ -626,8 +813,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           .done();
         builder.view().defaultGrid().done();
         const baseTableResult = builder.build();
-        expect(baseTableResult.isOk()).toBe(true);
-        const baseTable = unwrapResult(baseTableResult);
+        baseTableResult._unsafeUnwrap();
+        const baseTable = baseTableResult._unsafeUnwrap();
 
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
@@ -637,19 +824,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           baseId,
           hostTableId: baseTable.id(),
         });
-        expect(linkFieldResult.isOk()).toBe(true);
-        const linkFieldValue = unwrapResult(linkFieldResult);
+        linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
 
         const tableResult = baseTable.addField(linkFieldValue);
-        expect(tableResult.isOk()).toBe(true);
-        const table = unwrapResult(tableResult);
+        tableResult._unsafeUnwrap();
+        const table = tableResult._unsafeUnwrap();
 
         const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_om`);
-        expect(dbTableNameResult.isOk()).toBe(true);
-        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
         const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        expect(setTableDbNameResult.isOk()).toBe(true);
-        unwrapResult(setTableDbNameResult);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
 
         const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
         const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
@@ -659,23 +846,23 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const primaryDbNameResult = DbFieldName.rehydrate('title');
         const linkDbNameResult = DbFieldName.rehydrate('link_value_om');
-        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
-        const primaryDbName = unwrapResult(primaryDbNameResult);
-        const linkDbName = unwrapResult(linkDbNameResult);
-        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
-        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
 
         const actorIdResult = ActorId.create('system');
-        expect(actorIdResult.isOk()).toBe(true);
-        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+        actorIdResult._unsafeUnwrap();
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
         const insertResult = await repo.insert(context, table);
-        expect(insertResult.isOk()).toBe(true);
-        unwrapResult(insertResult);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
 
         const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-        expect(splitResult.isOk()).toBe(true);
-        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        splitResult._unsafeUnwrap();
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
         const actualSchemaName = schema ?? 'public';
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_om')).toBe('jsonb');
@@ -687,10 +874,140 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       }
     });
 
+    it('creates oneMany one-way join table columns', async () => {
+      const c = testContainer.container;
+
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      try {
+        const testSchemaName = createSchemaName();
+        const baseIdResult = BaseId.generate();
+        const tableNameResult = TableName.create('Link Host OneMany OneWay');
+        const primaryNameResult = FieldName.create('Title');
+        const linkNameResult = FieldName.create('Related');
+        const primaryFieldIdResult = FieldId.generate();
+        const linkFieldIdResult = FieldId.generate();
+        const foreignTableIdResult = TableId.generate();
+        const lookupFieldIdResult = FieldId.generate();
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+
+        const linkConfigResult = LinkFieldConfig.create({
+          relationship: 'oneMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          isOneWay: true,
+          fkHostTableName: 'link_relations_om_oneway',
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        });
+        linkConfigResult._unsafeUnwrap();
+        const linkConfig = linkConfigResult._unsafeUnwrap();
+
+        const builder = Table.builder().withBaseId(baseId).withName(tableName);
+        builder
+          .field()
+          .singleLineText()
+          .withName(primaryName)
+          .withId(primaryFieldId)
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const baseTableResult = builder.build();
+        baseTableResult._unsafeUnwrap();
+        const baseTable = baseTableResult._unsafeUnwrap();
+
+        const linkFieldResult = createNewLinkField({
+          id: linkFieldId,
+          name: linkName,
+          config: linkConfig,
+          baseId,
+          hostTableId: baseTable.id(),
+        });
+        linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+
+        const tableResult = baseTable.addField(linkFieldValue);
+        tableResult._unsafeUnwrap();
+        const table = tableResult._unsafeUnwrap();
+
+        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_om_oneway`);
+        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
+        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
+
+        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
+        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        expect(primaryField).toBeDefined();
+        expect(linkField).toBeDefined();
+        if (!primaryField || !linkField) return;
+
+        const primaryDbNameResult = DbFieldName.rehydrate('title');
+        const linkDbNameResult = DbFieldName.rehydrate('link_value_om_oneway');
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
+
+        const actorIdResult = ActorId.create('system');
+        actorIdResult._unsafeUnwrap();
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
+
+        const insertResult = await repo.insert(context, table);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
+
+        const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
+        splitResult._unsafeUnwrap();
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
+        const actualSchemaName = schema ?? 'public';
+        const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
+        expect(hostColumns.get('link_value_om_oneway')).toBe('jsonb');
+        expect(hostColumns.has('__self_id')).toBe(false);
+        expect(hostColumns.has('__foreign_id')).toBe(false);
+
+        const joinSplit = DbTableName.rehydrate(`${testSchemaName}.link_relations_om_oneway`);
+        joinSplit._unsafeUnwrap();
+        const joinDbTableName = joinSplit._unsafeUnwrap();
+        const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+        joinTable._unsafeUnwrap();
+        const joinTableInfo = joinTable._unsafeUnwrap();
+        const joinSchema = joinTableInfo.schema ?? 'public';
+        const joinColumns = await fetchColumnTypes(db, joinTableInfo.tableName, joinSchema);
+        expect(joinColumns.has('__id')).toBe(true);
+        expect(joinColumns.get('__self_id')).toBe('text');
+        expect(joinColumns.get('__foreign_id')).toBe('text');
+        expect(joinColumns.has('__order')).toBe(false);
+      } finally {
+        // no cleanup required
+        void 0;
+      }
+    });
+
     it('creates manyOne foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -703,26 +1020,24 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const linkFieldIdResult = FieldId.generate();
         const foreignTableIdResult = TableId.generate();
         const lookupFieldIdResult = FieldId.generate();
-        expect(
-          [
-            baseIdResult,
-            tableNameResult,
-            primaryNameResult,
-            linkNameResult,
-            primaryFieldIdResult,
-            linkFieldIdResult,
-            foreignTableIdResult,
-            lookupFieldIdResult,
-          ].every((r) => r.isOk())
-        ).toBe(true);
-        const baseId = unwrapResult(baseIdResult);
-        const tableName = unwrapResult(tableNameResult);
-        const primaryName = unwrapResult(primaryNameResult);
-        const linkName = unwrapResult(linkNameResult);
-        const primaryFieldId = unwrapResult(primaryFieldIdResult);
-        const linkFieldId = unwrapResult(linkFieldIdResult);
-        const foreignTableId = unwrapResult(foreignTableIdResult);
-        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
 
         const linkConfigResult = LinkFieldConfig.create({
           relationship: 'manyOne',
@@ -732,8 +1047,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
-        expect(linkConfigResult.isOk()).toBe(true);
-        const linkConfig = unwrapResult(linkConfigResult);
+        linkConfigResult._unsafeUnwrap();
+        const linkConfig = linkConfigResult._unsafeUnwrap();
 
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
@@ -745,8 +1060,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           .done();
         builder.view().defaultGrid().done();
         const baseTableResult = builder.build();
-        expect(baseTableResult.isOk()).toBe(true);
-        const baseTable = unwrapResult(baseTableResult);
+        baseTableResult._unsafeUnwrap();
+        const baseTable = baseTableResult._unsafeUnwrap();
 
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
@@ -755,19 +1070,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           baseId,
           hostTableId: baseTable.id(),
         });
-        expect(linkFieldResult.isOk()).toBe(true);
-        const linkFieldValue = unwrapResult(linkFieldResult);
+        linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
 
         const tableResult = baseTable.addField(linkFieldValue);
-        expect(tableResult.isOk()).toBe(true);
-        const table = unwrapResult(tableResult);
+        tableResult._unsafeUnwrap();
+        const table = tableResult._unsafeUnwrap();
 
         const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mo`);
-        expect(dbTableNameResult.isOk()).toBe(true);
-        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
         const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        expect(setTableDbNameResult.isOk()).toBe(true);
-        unwrapResult(setTableDbNameResult);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
 
         const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
         const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
@@ -777,23 +1092,23 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const primaryDbNameResult = DbFieldName.rehydrate('title');
         const linkDbNameResult = DbFieldName.rehydrate('link_value_mo');
-        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
-        const primaryDbName = unwrapResult(primaryDbNameResult);
-        const linkDbName = unwrapResult(linkDbNameResult);
-        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
-        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
 
         const actorIdResult = ActorId.create('system');
-        expect(actorIdResult.isOk()).toBe(true);
-        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+        actorIdResult._unsafeUnwrap();
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
         const insertResult = await repo.insert(context, table);
-        expect(insertResult.isOk()).toBe(true);
-        unwrapResult(insertResult);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
 
         const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-        expect(splitResult.isOk()).toBe(true);
-        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        splitResult._unsafeUnwrap();
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
         const actualSchemaName = schema ?? 'public';
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_mo')).toBe('jsonb');
@@ -807,7 +1122,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates oneOne foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -820,26 +1135,24 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const linkFieldIdResult = FieldId.generate();
         const foreignTableIdResult = TableId.generate();
         const lookupFieldIdResult = FieldId.generate();
-        expect(
-          [
-            baseIdResult,
-            tableNameResult,
-            primaryNameResult,
-            linkNameResult,
-            primaryFieldIdResult,
-            linkFieldIdResult,
-            foreignTableIdResult,
-            lookupFieldIdResult,
-          ].every((r) => r.isOk())
-        ).toBe(true);
-        const baseId = unwrapResult(baseIdResult);
-        const tableName = unwrapResult(tableNameResult);
-        const primaryName = unwrapResult(primaryNameResult);
-        const linkName = unwrapResult(linkNameResult);
-        const primaryFieldId = unwrapResult(primaryFieldIdResult);
-        const linkFieldId = unwrapResult(linkFieldIdResult);
-        const foreignTableId = unwrapResult(foreignTableIdResult);
-        const lookupFieldId = unwrapResult(lookupFieldIdResult);
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          foreignTableIdResult,
+          lookupFieldIdResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const foreignTableId = foreignTableIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
 
         const linkConfigResult = LinkFieldConfig.create({
           relationship: 'oneOne',
@@ -849,8 +1162,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
-        expect(linkConfigResult.isOk()).toBe(true);
-        const linkConfig = unwrapResult(linkConfigResult);
+        linkConfigResult._unsafeUnwrap();
+        const linkConfig = linkConfigResult._unsafeUnwrap();
 
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
@@ -862,8 +1175,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           .done();
         builder.view().defaultGrid().done();
         const baseTableResult = builder.build();
-        expect(baseTableResult.isOk()).toBe(true);
-        const baseTable = unwrapResult(baseTableResult);
+        baseTableResult._unsafeUnwrap();
+        const baseTable = baseTableResult._unsafeUnwrap();
 
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
@@ -872,19 +1185,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           baseId,
           hostTableId: baseTable.id(),
         });
-        expect(linkFieldResult.isOk()).toBe(true);
-        const linkFieldValue = unwrapResult(linkFieldResult);
+        linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
 
         const tableResult = baseTable.addField(linkFieldValue);
-        expect(tableResult.isOk()).toBe(true);
-        const table = unwrapResult(tableResult);
+        tableResult._unsafeUnwrap();
+        const table = tableResult._unsafeUnwrap();
 
         const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_oo`);
-        expect(dbTableNameResult.isOk()).toBe(true);
-        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
         const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        expect(setTableDbNameResult.isOk()).toBe(true);
-        unwrapResult(setTableDbNameResult);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
 
         const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
         const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
@@ -894,23 +1207,23 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const primaryDbNameResult = DbFieldName.rehydrate('title');
         const linkDbNameResult = DbFieldName.rehydrate('link_value_oo');
-        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
-        const primaryDbName = unwrapResult(primaryDbNameResult);
-        const linkDbName = unwrapResult(linkDbNameResult);
-        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
-        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
 
         const actorIdResult = ActorId.create('system');
-        expect(actorIdResult.isOk()).toBe(true);
-        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+        actorIdResult._unsafeUnwrap();
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
         const insertResult = await repo.insert(context, table);
-        expect(insertResult.isOk()).toBe(true);
-        unwrapResult(insertResult);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
 
         const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-        expect(splitResult.isOk()).toBe(true);
-        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        splitResult._unsafeUnwrap();
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
         const actualSchemaName = schema ?? 'public';
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_oo')).toBe('jsonb');
@@ -923,7 +1236,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates self-referencing link fields for all relationships', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<unknown>>(v2PostgresDbTokens.db);
+      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       const cases = [
@@ -994,38 +1307,33 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           ? LinkFieldMeta.create({ hasOrderColumn: true })
           : ok(undefined);
 
-        expect(
-          [
-            baseIdResult,
-            tableNameResult,
-            primaryNameResult,
-            linkNameResult,
-            primaryFieldIdResult,
-            linkFieldIdResult,
-            lookupFieldIdResult,
-            linkMetaResult,
-          ].every((r) => r.isOk())
-        ).toBe(true);
-        if (
-          baseIdResult.isErr() ||
-          tableNameResult.isErr() ||
-          primaryNameResult.isErr() ||
-          linkNameResult.isErr() ||
-          primaryFieldIdResult.isErr() ||
-          linkFieldIdResult.isErr() ||
-          lookupFieldIdResult.isErr() ||
-          linkMetaResult.isErr()
-        )
-          continue;
+        [
+          baseIdResult,
+          tableNameResult,
+          primaryNameResult,
+          linkNameResult,
+          primaryFieldIdResult,
+          linkFieldIdResult,
+          lookupFieldIdResult,
+          linkMetaResult,
+        ].forEach((r) => r._unsafeUnwrap());
+        baseIdResult._unsafeUnwrap();
+        tableNameResult._unsafeUnwrap();
+        primaryNameResult._unsafeUnwrap();
+        linkNameResult._unsafeUnwrap();
+        primaryFieldIdResult._unsafeUnwrap();
+        linkFieldIdResult._unsafeUnwrap();
+        lookupFieldIdResult._unsafeUnwrap();
+        linkMetaResult._unsafeUnwrap();
 
-        const baseId = unwrapResult(baseIdResult);
-        const tableName = unwrapResult(tableNameResult);
-        const primaryName = unwrapResult(primaryNameResult);
-        const linkName = unwrapResult(linkNameResult);
-        const primaryFieldId = unwrapResult(primaryFieldIdResult);
-        const linkFieldId = unwrapResult(linkFieldIdResult);
-        const lookupFieldId = unwrapResult(lookupFieldIdResult);
-        const linkMeta = unwrapResult(linkMetaResult);
+        const baseId = baseIdResult._unsafeUnwrap();
+        const tableName = tableNameResult._unsafeUnwrap();
+        const primaryName = primaryNameResult._unsafeUnwrap();
+        const linkName = linkNameResult._unsafeUnwrap();
+        const primaryFieldId = primaryFieldIdResult._unsafeUnwrap();
+        const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+        const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
+        const linkMeta = linkMetaResult._unsafeUnwrap();
 
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
@@ -1037,9 +1345,9 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           .done();
         builder.view().defaultGrid().done();
         const baseTableResult = builder.build();
-        expect(baseTableResult.isOk()).toBe(true);
-        if (baseTableResult.isErr()) continue;
-        const baseTable = unwrapResult(baseTableResult);
+        baseTableResult._unsafeUnwrap();
+
+        const baseTable = baseTableResult._unsafeUnwrap();
 
         const linkConfigResult = LinkFieldConfig.create({
           relationship: entry.relationship,
@@ -1049,9 +1357,9 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
-        expect(linkConfigResult.isOk()).toBe(true);
-        if (linkConfigResult.isErr()) continue;
-        const linkConfig = unwrapResult(linkConfigResult);
+        linkConfigResult._unsafeUnwrap();
+
+        const linkConfig = linkConfigResult._unsafeUnwrap();
 
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
@@ -1061,22 +1369,22 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           baseId,
           hostTableId: baseTable.id(),
         });
-        expect(linkFieldResult.isOk()).toBe(true);
-        if (linkFieldResult.isErr()) continue;
-        const linkFieldValue = unwrapResult(linkFieldResult);
+        linkFieldResult._unsafeUnwrap();
+
+        const linkFieldValue = linkFieldResult._unsafeUnwrap();
 
         const tableResult = baseTable.addField(linkFieldValue);
-        expect(tableResult.isOk()).toBe(true);
-        if (tableResult.isErr()) continue;
-        const table = unwrapResult(tableResult);
+        tableResult._unsafeUnwrap();
+
+        const table = tableResult._unsafeUnwrap();
 
         const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.${entry.hostTableName}`);
-        expect(dbTableNameResult.isOk()).toBe(true);
-        if (dbTableNameResult.isErr()) continue;
-        const dbTableNameValue = unwrapResult(dbTableNameResult);
+        dbTableNameResult._unsafeUnwrap();
+
+        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
         const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        expect(setTableDbNameResult.isOk()).toBe(true);
-        unwrapResult(setTableDbNameResult);
+        setTableDbNameResult._unsafeUnwrap();
+        setTableDbNameResult._unsafeUnwrap();
 
         const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
         const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
@@ -1086,26 +1394,27 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const primaryDbNameResult = DbFieldName.rehydrate('title');
         const linkDbNameResult = DbFieldName.rehydrate(entry.linkColumn);
-        expect([primaryDbNameResult, linkDbNameResult].every((r) => r.isOk())).toBe(true);
-        if (primaryDbNameResult.isErr() || linkDbNameResult.isErr()) continue;
-        const primaryDbName = unwrapResult(primaryDbNameResult);
-        const linkDbName = unwrapResult(linkDbNameResult);
-        expect(primaryField.setDbFieldName(primaryDbName).isOk()).toBe(true);
-        expect(linkField.setDbFieldName(linkDbName).isOk()).toBe(true);
+        [primaryDbNameResult, linkDbNameResult].forEach((r) => r._unsafeUnwrap());
+        primaryDbNameResult._unsafeUnwrap();
+        linkDbNameResult._unsafeUnwrap();
+        const primaryDbName = primaryDbNameResult._unsafeUnwrap();
+        const linkDbName = linkDbNameResult._unsafeUnwrap();
+        primaryField.setDbFieldName(primaryDbName)._unsafeUnwrap();
+        linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
 
         const actorIdResult = ActorId.create('system');
-        expect(actorIdResult.isOk()).toBe(true);
-        if (actorIdResult.isErr()) continue;
-        const context: IExecutionContext = { actorId: unwrapResult(actorIdResult) };
+        actorIdResult._unsafeUnwrap();
+
+        const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
 
         const insertResult = await repo.insert(context, table);
-        expect(insertResult.isOk()).toBe(true);
-        unwrapResult(insertResult);
+        insertResult._unsafeUnwrap();
+        insertResult._unsafeUnwrap();
 
         const splitResult = dbTableNameValue.split({ defaultSchema: 'public' });
-        expect(splitResult.isOk()).toBe(true);
-        if (splitResult.isErr()) continue;
-        const { schema, tableName: dbTableNameFromSplit } = unwrapResult(splitResult);
+        splitResult._unsafeUnwrap();
+
+        const { schema, tableName: dbTableNameFromSplit } = splitResult._unsafeUnwrap();
         const actualSchemaName = schema ?? 'public';
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         for (const [column, expectedType] of Object.entries(entry.expectHostTypes)) {
@@ -1115,13 +1424,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         if (entry.expectJoin) {
           const joinSplit = DbTableName.rehydrate(`${testSchemaName}.${entry.fkHostTableName}`);
-          expect(joinSplit.isOk()).toBe(true);
-          if (joinSplit.isErr()) continue;
-          const joinDbTableName = unwrapResult(joinSplit);
+          joinSplit._unsafeUnwrap();
+
+          const joinDbTableName = joinSplit._unsafeUnwrap();
           const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
-          expect(joinTable.isOk()).toBe(true);
-          if (joinTable.isErr()) continue;
-          const joinInfo = unwrapResult(joinTable);
+          joinTable._unsafeUnwrap();
+
+          const joinInfo = joinTable._unsafeUnwrap();
           const joinSchema = joinInfo.schema ?? 'public';
           const joinColumns = await fetchColumnTypes(db, joinInfo.tableName, joinSchema);
           expect(joinColumns.get('__self_id')).toBe('text');

@@ -7,8 +7,14 @@ import {
 } from '@tanstack/react-form';
 import { toast } from 'sonner';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
-import { type ITableFieldInput, tableFieldInputSchema } from '@teable/v2-core';
+import {
+  ROLLUP_FUNCTIONS,
+  TIME_ZONE_LIST,
+  type ITableFieldInput,
+  tableFieldInputSchema,
+} from '@teable/v2-core';
 import type { IListTablesOkResponseDto, ITableDto } from '@teable/v2-contract-http';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +40,9 @@ type FieldOptionsValue = Extract<ITableFieldInput, { options?: unknown }>['optio
 type FieldFormValues = Omit<ITableFieldInput, 'options'> & { options?: FieldOptionsValue };
 type FieldFormValidator = Validator<FieldFormValues, StandardSchemaV1<FieldFormValues>>;
 type LinkFieldOptions = Extract<ITableFieldInput, { type: 'link' }>['options'];
+type RollupFieldConfig = Extract<ITableFieldInput, { type: 'rollup' }>['config'];
+type RollupFieldOptions = Extract<ITableFieldInput, { type: 'rollup' }>['options'];
+type FieldType = ITableFieldInput['type'];
 
 export type FieldFormApi = ReactFormApi<FieldFormValues, FieldFormValidator>;
 
@@ -66,6 +75,10 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
     })
   );
 
+  const typeDrafts = useRef<
+    Partial<Record<FieldType, { options?: FieldOptionsValue; config?: RollupFieldConfig }>>
+  >({});
+
   const defaultLinkOptions = (): LinkFieldOptions => {
     const tables = tablesQuery.data ?? [];
     const candidates = tables.filter((table) => table.id !== tableId);
@@ -82,6 +95,54 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
       foreignTableId: target.id,
       lookupFieldId: lookupField.id,
     } as any;
+  };
+
+  const defaultRollupConfig = (): RollupFieldConfig => {
+    const tables = tablesQuery.data ?? [];
+    const currentTable = tables.find((table) => table.id === tableId);
+    const linkField = currentTable?.fields.find((field) => field.type === 'link') as
+      | Extract<ITableDto['fields'][number], { type: 'link' }>
+      | undefined;
+    if (!linkField || linkField.type !== 'link') {
+      return {} as any;
+    }
+    const foreignTableId = linkField.options?.foreignTableId;
+    const foreignTable = tables.find((table) => table.id === foreignTableId);
+    const lookupField =
+      foreignTable?.fields.find((field) => field.isPrimary) ?? foreignTable?.fields[0];
+    return {
+      linkFieldId: linkField.id,
+      foreignTableId: foreignTableId ?? '',
+      lookupFieldId: lookupField?.id ?? linkField.options?.lookupFieldId ?? '',
+    } as any;
+  };
+
+  const defaultRollupOptions = (): RollupFieldOptions => {
+    return {
+      expression: ROLLUP_FUNCTIONS[0],
+      timeZone: TIME_ZONE_LIST[0],
+    } as any;
+  };
+
+  const defaultFormulaOptions = () => {
+    return {
+      expression: '1',
+    } as any;
+  };
+
+  const getDefaultValuesForType = (
+    type: FieldType
+  ): { options?: FieldOptionsValue; config?: RollupFieldConfig } => {
+    switch (type) {
+      case 'link':
+        return { options: defaultLinkOptions() };
+      case 'formula':
+        return { options: defaultFormulaOptions() };
+      case 'rollup':
+        return { options: defaultRollupOptions(), config: defaultRollupConfig() };
+      default:
+        return { options: {} };
+    }
   };
 
   const form = useForm<FieldFormValues, FieldFormValidator>({
@@ -140,12 +201,38 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
             <Select
               value={field.state.value}
               onValueChange={(value) => {
-                field.handleChange(value as any);
-                if (value === 'link') {
-                  form.setFieldValue('options', defaultLinkOptions() as any);
-                } else {
-                  form.setFieldValue('options', {} as any);
+                const nextType = value as FieldType;
+                const currentType = form.getFieldValue('type') as FieldType;
+                const currentOptions = form.getFieldValue('options') as
+                  | FieldOptionsValue
+                  | undefined;
+                const currentConfig = form.getFieldValue('config' as any) as
+                  | RollupFieldConfig
+                  | undefined;
+                typeDrafts.current[currentType] = {
+                  options: currentOptions,
+                  config: currentConfig,
+                };
+
+                const draft = typeDrafts.current[nextType];
+                const defaults = getDefaultValuesForType(nextType);
+                const nextOptions = draft?.options ?? defaults.options;
+                const nextConfig =
+                  nextType === 'rollup' ? draft?.config ?? defaults.config : undefined;
+
+                const nextValues: FieldFormValues = {
+                  ...form.state.values,
+                  type: nextType,
+                  options: nextOptions,
+                };
+
+                if (nextType === 'rollup') {
+                  (nextValues as FieldFormValues & { config?: RollupFieldConfig }).config =
+                    nextConfig;
                 }
+
+                form.reset(nextValues);
+                field.handleChange(nextType as any);
               }}
             >
               <SelectTrigger>
@@ -165,6 +252,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 <SelectItem value="button">Button</SelectItem>
                 <SelectItem value="formula">Formula</SelectItem>
                 <SelectItem value="link">Link</SelectItem>
+                <SelectItem value="rollup">Rollup</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -175,6 +263,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
         selector={(state) => state.values.type}
         children={(type) => (
           <FieldFormOptions
+            key={type}
             type={type}
             form={form as FieldFormApi}
             tableId={tableId}
@@ -191,7 +280,10 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
         <form.Subscribe
           selector={(state) => [state.canSubmit, state.isSubmitting] as const}
           children={([canSubmit, isSubmitting]) => (
-            <Button type="submit" disabled={!canSubmit || isSubmitting}>
+            <Button
+              type="submit"
+              disabled={!canSubmit || isSubmitting || createFieldMutation.isPending}
+            >
               {createFieldMutation.isPending ? 'Creating...' : 'Create Field'}
             </Button>
           )}

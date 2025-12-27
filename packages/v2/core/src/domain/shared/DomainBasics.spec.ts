@@ -49,36 +49,38 @@ class TestAggregate extends AggregateRoot<ActorId> {
 describe('ActorId', () => {
   it('creates valid ids and rejects invalid values', () => {
     const okResult = ActorId.create('system');
-    expect(okResult.isOk()).toBe(true);
-    if (okResult.isErr()) return;
-    expect(okResult.value.toString()).toBe('system');
+    okResult._unsafeUnwrap();
+
+    expect(okResult._unsafeUnwrap().toString()).toBe('system');
 
     const badResult = ActorId.create('');
-    expect(badResult.isErr()).toBe(true);
+    badResult._unsafeUnwrapErr();
   });
 
   it('compares ids by value', () => {
     const leftResult = ActorId.create('a');
     const rightResult = ActorId.create('a');
     const otherResult = ActorId.create('b');
-    expect([leftResult, rightResult, otherResult].every((result) => result.isOk())).toBe(true);
-    if (leftResult.isErr() || rightResult.isErr() || otherResult.isErr()) return;
-    expect(leftResult.value.equals(rightResult.value)).toBe(true);
-    expect(leftResult.value.equals(otherResult.value)).toBe(false);
+    [leftResult, rightResult, otherResult].forEach((result) => result._unsafeUnwrap());
+    leftResult._unsafeUnwrap();
+    rightResult._unsafeUnwrap();
+    otherResult._unsafeUnwrap();
+    expect(leftResult._unsafeUnwrap().equals(rightResult._unsafeUnwrap())).toBe(true);
+    expect(leftResult._unsafeUnwrap().equals(otherResult._unsafeUnwrap())).toBe(false);
   });
 });
 
 describe('DomainEventName', () => {
   it('creates event names and handles tableCreated', () => {
     const result = DomainEventName.create('CustomEvent');
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
+
     expect(result.value.toString()).toBe('CustomEvent');
     expect(DomainEventName.tableCreated().toString()).toBe('TableCreated');
   });
 
   it('rejects invalid event names', () => {
-    expect(DomainEventName.create('').isErr()).toBe(true);
+    DomainEventName.create('')._unsafeUnwrapErr();
   });
 });
 
@@ -86,19 +88,17 @@ describe('OccurredAt', () => {
   it('creates instances from dates and compares by time', () => {
     const now = new Date('2024-01-01T00:00:00.000Z');
     const result = OccurredAt.create(now);
-    expect(result.isOk()).toBe(true);
-    if (result.isErr()) return;
+    result._unsafeUnwrap();
 
     const sameTime = OccurredAt.create(new Date('2024-01-01T00:00:00.000Z'));
-    expect(sameTime.isOk()).toBe(true);
-    if (sameTime.isErr()) return;
+    sameTime._unsafeUnwrap();
 
     expect(result.value.equals(sameTime.value)).toBe(true);
     expect(result.value.toDate().toISOString()).toBe('2024-01-01T00:00:00.000Z');
   });
 
   it('rejects invalid inputs', () => {
-    expect(OccurredAt.create('now').isErr()).toBe(true);
+    OccurredAt.create('now')._unsafeUnwrapErr();
   });
 });
 
@@ -117,7 +117,7 @@ describe('RehydratedValueObject', () => {
     const empty = TestRehydratedValue.empty();
     expect(empty.isRehydrated()).toBe(false);
     const valueResult = empty.value();
-    expect(valueResult.isErr()).toBe(true);
+    valueResult._unsafeUnwrapErr();
   });
 
   it('returns value after rehydrate and compares by raw value', () => {
@@ -125,7 +125,7 @@ describe('RehydratedValueObject', () => {
     const right = TestRehydratedValue.rehydrate('name');
     const other = TestRehydratedValue.rehydrate('other');
     expect(left.isRehydrated()).toBe(true);
-    expect(left.value().isOk()).toBe(true);
+    left.value()._unsafeUnwrap();
     expect(left.equals(right)).toBe(true);
     expect(left.equals(other)).toBe(false);
   });
@@ -134,10 +134,9 @@ describe('RehydratedValueObject', () => {
 describe('AggregateRoot', () => {
   it('collects and clears domain events', () => {
     const actorIdResult = ActorId.create('system');
-    expect(actorIdResult.isOk()).toBe(true);
-    if (actorIdResult.isErr()) return;
+    actorIdResult._unsafeUnwrap();
 
-    const aggregate = new TestAggregate(actorIdResult.value);
+    const aggregate = new TestAggregate(actorIdResult._unsafeUnwrap());
     const event = {
       name: DomainEventName.tableCreated(),
       occurredAt: OccurredAt.now(),

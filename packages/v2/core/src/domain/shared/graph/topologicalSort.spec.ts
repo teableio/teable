@@ -10,8 +10,10 @@ describe('topologicalSort', () => {
     const a = createFieldId('a');
     const b = createFieldId('b');
     const c = createFieldId('c');
-    expect([a, b, c].every((r) => r.isOk())).toBe(true);
-    if (a.isErr() || b.isErr() || c.isErr()) return;
+    [a, b, c].forEach((r) => r._unsafeUnwrap());
+    a._unsafeUnwrap();
+    b._unsafeUnwrap();
+    c._unsafeUnwrap();
 
     const result = topologicalSort([
       { id: a.value, dependencies: [] },
@@ -30,8 +32,9 @@ describe('topologicalSort', () => {
   it('detects simple cycles', () => {
     const a = createFieldId('d');
     const b = createFieldId('e');
-    expect([a, b].every((r) => r.isOk())).toBe(true);
-    if (a.isErr() || b.isErr()) return;
+    [a, b].forEach((r) => r._unsafeUnwrap());
+    a._unsafeUnwrap();
+    b._unsafeUnwrap();
 
     const result = topologicalSort([
       { id: a.value, dependencies: [b.value] },
@@ -46,8 +49,7 @@ describe('topologicalSort', () => {
 
   it('detects self cycles', () => {
     const a = createFieldId('f');
-    expect(a.isOk()).toBe(true);
-    if (a.isErr()) return;
+    a._unsafeUnwrap();
 
     const result = topologicalSort([{ id: a.value, dependencies: [a.value] }]);
     expect(result.cycles.length).toBeGreaterThan(0);

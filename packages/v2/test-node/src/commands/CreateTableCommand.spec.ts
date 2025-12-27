@@ -9,10 +9,9 @@ describe('CreateTableCommand', () => {
       fields: [],
     });
 
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
+    commandResult._unsafeUnwrap();
 
-    const command = commandResult.value;
+    const command = commandResult._unsafeUnwrap();
     const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
     for (const field of command.fields) {
       field.applyTo(builder);
@@ -22,10 +21,9 @@ describe('CreateTableCommand', () => {
     }
 
     const tableResult = builder.build();
-    expect(tableResult.isOk()).toBe(true);
-    if (tableResult.isErr()) return;
+    tableResult._unsafeUnwrap();
 
-    const table = tableResult.value;
+    const table = tableResult._unsafeUnwrap();
     expect(table.fields().length).toBe(1);
     expect(table.fields()[0]?.name().toString()).toBe('Name');
     expect(table.views().length).toBe(1);
@@ -34,7 +32,7 @@ describe('CreateTableCommand', () => {
 
   it('rejects invalid input', () => {
     const result = CreateTableCommand.create({ name: 'Bad' });
-    expect(result.isErr()).toBe(true);
+    result._unsafeUnwrapErr();
   });
 
   it('rejects multiple primary fields', () => {
@@ -46,6 +44,6 @@ describe('CreateTableCommand', () => {
         { type: 'longText', name: 'Notes', isPrimary: true },
       ],
     });
-    expect(result.isErr()).toBe(true);
+    result._unsafeUnwrapErr();
   });
 });

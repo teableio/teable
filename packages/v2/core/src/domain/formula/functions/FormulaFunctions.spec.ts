@@ -95,52 +95,52 @@ describe('formula functions', () => {
   describe('array functions', () => {
     it('validates count function params', () => {
       const countAll = new CountAll();
-      expect(countAll.validateParams([]).isErr()).toBe(true);
-      expect(countAll.validateParams([stringValue]).isOk()).toBe(true);
-      expect(countAll.getReturnType().isOk()).toBe(true);
-      expect(countAll.getReturnType([stringValue]).isOk()).toBe(true);
+      countAll.validateParams([])._unsafeUnwrapErr();
+      countAll.validateParams([stringValue])._unsafeUnwrap();
+      countAll.getReturnType()._unsafeUnwrap();
+      countAll.getReturnType([stringValue])._unsafeUnwrap();
 
       const countA = new CountA();
-      expect(countA.validateParams([]).isErr()).toBe(true);
-      expect(countA.validateParams([stringValue]).isOk()).toBe(true);
-      expect(countA.getReturnType().isOk()).toBe(true);
-      expect(countA.getReturnType([stringValue]).isOk()).toBe(true);
+      countA.validateParams([])._unsafeUnwrapErr();
+      countA.validateParams([stringValue])._unsafeUnwrap();
+      countA.getReturnType()._unsafeUnwrap();
+      countA.getReturnType([stringValue])._unsafeUnwrap();
 
       const count = new Count();
-      expect(count.validateParams([]).isErr()).toBe(true);
-      expect(count.validateParams([stringValue]).isOk()).toBe(true);
-      expect(count.getReturnType().isOk()).toBe(true);
-      expect(count.getReturnType([stringValue]).isOk()).toBe(true);
+      count.validateParams([])._unsafeUnwrapErr();
+      count.validateParams([stringValue])._unsafeUnwrap();
+      count.getReturnType()._unsafeUnwrap();
+      count.getReturnType([stringValue])._unsafeUnwrap();
     });
 
     it('validates array string functions', () => {
       const arrayJoin = new ArrayJoin();
-      expect(arrayJoin.validateParams([]).isErr()).toBe(true);
-      expect(arrayJoin.validateParams([stringValue]).isOk()).toBe(true);
-      expect(arrayJoin.getReturnType().isOk()).toBe(true);
-      expect(arrayJoin.getReturnType([stringValue]).isOk()).toBe(true);
+      arrayJoin.validateParams([])._unsafeUnwrapErr();
+      arrayJoin.validateParams([stringValue])._unsafeUnwrap();
+      arrayJoin.getReturnType()._unsafeUnwrap();
+      arrayJoin.getReturnType([stringValue])._unsafeUnwrap();
     });
 
     it('infers union return types', () => {
       const unionFunctions = [new ArrayUnique(), new ArrayFlatten(), new ArrayCompact()];
       for (const func of unionFunctions) {
-        expect(func.validateParams([]).isErr()).toBe(true);
-        expect(func.validateParams([stringValue]).isOk()).toBe(true);
+        func.validateParams([])._unsafeUnwrapErr();
+        func.validateParams([stringValue])._unsafeUnwrap();
 
         const empty = func.getReturnType();
-        expect(empty.isOk()).toBe(true);
-        if (empty.isErr()) continue;
+        empty._unsafeUnwrap();
+
         expect(empty.value.isMultiple).toBe(true);
 
         const same = func.getReturnType([numberValue, numberValue]);
-        expect(same.isOk()).toBe(true);
-        if (same.isErr()) continue;
+        same._unsafeUnwrap();
+
         expect(same.value.type).toBe(CellValueType.Number);
         expect(same.value.isMultiple).toBe(true);
 
         const mixed = func.getReturnType([numberValue, stringValue]);
-        expect(mixed.isOk()).toBe(true);
-        if (mixed.isErr()) continue;
+        mixed._unsafeUnwrap();
+
         expect(mixed.value.type).toBe(CellValueType.String);
         expect(mixed.value.isMultiple).toBe(true);
       }
@@ -164,71 +164,71 @@ describe('formula functions', () => {
         new Log(),
       ];
 
-      expect(numericOnly[0].validateParams([]).isErr()).toBe(true);
-      expect(numericOnly[0].validateParams([stringValue]).isErr()).toBe(true);
+      numericOnly[0].validateParams([])._unsafeUnwrapErr();
+      numericOnly[0].validateParams([stringValue])._unsafeUnwrapErr();
 
       for (const func of numericOnly) {
-        expect(func.validateParams([numberValue]).isOk()).toBe(true);
-        expect(func.getReturnType().isOk()).toBe(true);
-        expect(func.getReturnType([numberValue]).isOk()).toBe(true);
+        func.validateParams([numberValue])._unsafeUnwrap();
+        func.getReturnType()._unsafeUnwrap();
+        func.getReturnType([numberValue])._unsafeUnwrap();
       }
     });
 
     it('validates max and min type rules', () => {
       const max = new Max();
-      expect(max.validateParams([stringValue]).isErr()).toBe(true);
-      expect(max.validateParams([dateValue]).isOk()).toBe(true);
+      max.validateParams([stringValue])._unsafeUnwrapErr();
+      max.validateParams([dateValue])._unsafeUnwrap();
       const maxReturn = max.getReturnType([dateValue]);
-      expect(maxReturn.isOk()).toBe(true);
-      if (maxReturn.isErr()) return;
+      maxReturn._unsafeUnwrap();
+
       expect(maxReturn.value.type).toBe(CellValueType.DateTime);
 
       const min = new Min();
-      expect(min.validateParams([booleanValue]).isErr()).toBe(true);
-      expect(min.validateParams([numberValue]).isOk()).toBe(true);
+      min.validateParams([booleanValue])._unsafeUnwrapErr();
+      min.validateParams([numberValue])._unsafeUnwrap();
       const minReturn = min.getReturnType([numberValue]);
-      expect(minReturn.isOk()).toBe(true);
-      if (minReturn.isErr()) return;
+      minReturn._unsafeUnwrap();
+
       expect(minReturn.value.type).toBe(CellValueType.Number);
     });
 
     it('validates length-constrained numeric functions', () => {
       const sqrt = new Sqrt();
-      expect(sqrt.validateParams([]).isErr()).toBe(true);
-      expect(sqrt.validateParams([stringValue]).isErr()).toBe(true);
-      expect(sqrt.validateParams([numberValue]).isOk()).toBe(true);
+      sqrt.validateParams([])._unsafeUnwrapErr();
+      sqrt.validateParams([stringValue])._unsafeUnwrapErr();
+      sqrt.validateParams([numberValue])._unsafeUnwrap();
 
       const exp = new Exp();
-      expect(exp.validateParams([]).isErr()).toBe(true);
-      expect(exp.validateParams([numberValue]).isOk()).toBe(true);
+      exp.validateParams([])._unsafeUnwrapErr();
+      exp.validateParams([numberValue])._unsafeUnwrap();
 
       const power = new Power();
-      expect(power.validateParams([numberValue]).isErr()).toBe(true);
-      expect(power.validateParams([numberValue, numberValue]).isOk()).toBe(true);
+      power.validateParams([numberValue])._unsafeUnwrapErr();
+      power.validateParams([numberValue, numberValue])._unsafeUnwrap();
 
       const mod = new Mod();
-      expect(mod.validateParams([numberValue]).isErr()).toBe(true);
-      expect(mod.validateParams([numberValue, numberValue]).isOk()).toBe(true);
+      mod.validateParams([numberValue])._unsafeUnwrapErr();
+      mod.validateParams([numberValue, numberValue])._unsafeUnwrap();
 
       const value = new Value();
-      expect(value.validateParams([]).isErr()).toBe(true);
-      expect(value.validateParams([numberValue]).isErr()).toBe(true);
-      expect(value.validateParams([stringValue]).isOk()).toBe(true);
+      value.validateParams([])._unsafeUnwrapErr();
+      value.validateParams([numberValue])._unsafeUnwrapErr();
+      value.validateParams([stringValue])._unsafeUnwrap();
     });
   });
 
   describe('logical functions', () => {
     it('infers return types for IF', () => {
       const func = new If();
-      expect(func.validateParams([booleanValue, stringValue]).isErr()).toBe(true);
+      func.validateParams([booleanValue, stringValue])._unsafeUnwrapErr();
 
       const blankThen = func.getReturnType([
         booleanValue,
         valueOf(CellValueType.String, { isBlank: true }),
         numberValue,
       ]);
-      expect(blankThen.isOk()).toBe(true);
-      if (blankThen.isErr()) return;
+      blankThen._unsafeUnwrap();
+
       expect(blankThen.value.type).toBe(CellValueType.Number);
 
       const blankElse = func.getReturnType([
@@ -236,8 +236,8 @@ describe('formula functions', () => {
         stringValue,
         valueOf(CellValueType.Number, { isBlank: true }),
       ]);
-      expect(blankElse.isOk()).toBe(true);
-      if (blankElse.isErr()) return;
+      blankElse._unsafeUnwrap();
+
       expect(blankElse.value.type).toBe(CellValueType.String);
 
       const sameType = func.getReturnType([
@@ -245,26 +245,26 @@ describe('formula functions', () => {
         valueOf(CellValueType.String, { isMultiple: true }),
         valueOf(CellValueType.String, { isMultiple: true }),
       ]);
-      expect(sameType.isOk()).toBe(true);
-      if (sameType.isErr()) return;
+      sameType._unsafeUnwrap();
+
       expect(sameType.value.type).toBe(CellValueType.String);
       const sameTypeMultiple =
         'isMultiple' in sameType.value ? sameType.value.isMultiple : undefined;
       expect(sameTypeMultiple).toBe(true);
 
       const mismatch = func.getReturnType([booleanValue, stringValue, numberValue]);
-      expect(mismatch.isOk()).toBe(true);
-      if (mismatch.isErr()) return;
+      mismatch._unsafeUnwrap();
+
       expect(mismatch.value.type).toBe(CellValueType.String);
     });
 
     it('infers return types for SWITCH', () => {
       const func = new Switch();
-      expect(func.validateParams([stringValue]).isErr()).toBe(true);
+      func.validateParams([stringValue])._unsafeUnwrapErr();
 
       const short = func.getReturnType([stringValue, numberValue]);
-      expect(short.isOk()).toBe(true);
-      if (short.isErr()) return;
+      short._unsafeUnwrap();
+
       expect(short.value.type).toBe(CellValueType.Number);
 
       const detailed = func.getReturnType([
@@ -275,8 +275,8 @@ describe('formula functions', () => {
         valueOf(CellValueType.String, { isMultiple: false }),
         valueOf(CellValueType.Number, { isMultiple: false }),
       ]);
-      expect(detailed.isOk()).toBe(true);
-      if (detailed.isErr()) return;
+      detailed._unsafeUnwrap();
+
       expect(detailed.value.type).toBe(CellValueType.String);
       const detailedMultiple =
         'isMultiple' in detailed.value ? detailed.value.isMultiple : undefined;
@@ -285,36 +285,36 @@ describe('formula functions', () => {
 
     it('validates boolean combinators', () => {
       const and = new And();
-      expect(and.validateParams([]).isErr()).toBe(true);
-      expect(and.validateParams([booleanValue]).isOk()).toBe(true);
+      and.validateParams([])._unsafeUnwrapErr();
+      and.validateParams([booleanValue])._unsafeUnwrap();
 
       const or = new Or();
-      expect(or.validateParams([]).isErr()).toBe(true);
-      expect(or.validateParams([booleanValue]).isOk()).toBe(true);
+      or.validateParams([])._unsafeUnwrapErr();
+      or.validateParams([booleanValue])._unsafeUnwrap();
 
       const xor = new Xor();
-      expect(xor.validateParams([]).isErr()).toBe(true);
-      expect(xor.validateParams([booleanValue]).isOk()).toBe(true);
-      expect(xor.getReturnType().isOk()).toBe(true);
-      expect(xor.getReturnType([booleanValue]).isOk()).toBe(true);
+      xor.validateParams([])._unsafeUnwrapErr();
+      xor.validateParams([booleanValue])._unsafeUnwrap();
+      xor.getReturnType()._unsafeUnwrap();
+      xor.getReturnType([booleanValue])._unsafeUnwrap();
 
       const not = new Not();
-      expect(not.validateParams([booleanValue, booleanValue]).isErr()).toBe(true);
-      expect(not.validateParams([booleanValue]).isOk()).toBe(true);
-      expect(not.getReturnType().isOk()).toBe(true);
-      expect(not.getReturnType([booleanValue]).isOk()).toBe(true);
+      not.validateParams([booleanValue, booleanValue])._unsafeUnwrapErr();
+      not.validateParams([booleanValue])._unsafeUnwrap();
+      not.getReturnType()._unsafeUnwrap();
+      not.getReturnType([booleanValue])._unsafeUnwrap();
 
       const blank = new Blank();
-      expect(blank.validateParams([]).isOk()).toBe(true);
-      expect(blank.getReturnType().isOk()).toBe(true);
+      blank.validateParams([])._unsafeUnwrap();
+      blank.getReturnType()._unsafeUnwrap();
 
       const formulaError = new FormulaError();
-      expect(formulaError.validateParams([]).isOk()).toBe(true);
-      expect(formulaError.getReturnType().isOk()).toBe(true);
+      formulaError.validateParams([])._unsafeUnwrap();
+      formulaError.getReturnType()._unsafeUnwrap();
 
       const isError = new IsError();
-      expect(isError.validateParams([stringValue, stringValue]).isErr()).toBe(true);
-      expect(isError.validateParams([stringValue]).isOk()).toBe(true);
+      isError.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
+      isError.validateParams([stringValue])._unsafeUnwrap();
     });
   });
 
@@ -322,37 +322,33 @@ describe('formula functions', () => {
     it('validates at-least-one text functions', () => {
       const atLeastOne = [new Concatenate(), new Find(), new Search(), new Left(), new Right()];
       for (const func of atLeastOne) {
-        expect(func.validateParams([]).isErr()).toBe(true);
-        expect(func.validateParams([stringValue]).isOk()).toBe(true);
-        expect(func.getReturnType().isOk()).toBe(true);
-        expect(func.getReturnType([stringValue]).isOk()).toBe(true);
+        func.validateParams([])._unsafeUnwrapErr();
+        func.validateParams([stringValue])._unsafeUnwrap();
+        func.getReturnType()._unsafeUnwrap();
+        func.getReturnType([stringValue])._unsafeUnwrap();
       }
     });
 
     it('validates text functions with longer signatures', () => {
       const mid = new Mid();
-      expect(mid.validateParams([stringValue, numberValue]).isErr()).toBe(true);
-      expect(mid.validateParams([stringValue, numberValue, numberValue]).isOk()).toBe(true);
+      mid.validateParams([stringValue, numberValue])._unsafeUnwrapErr();
+      mid.validateParams([stringValue, numberValue, numberValue])._unsafeUnwrap();
 
       const replace = new Replace();
-      expect(replace.validateParams([stringValue, numberValue, stringValue]).isErr()).toBe(true);
-      expect(
-        replace.validateParams([stringValue, numberValue, numberValue, stringValue]).isOk()
-      ).toBe(true);
+      replace.validateParams([stringValue, numberValue, stringValue])._unsafeUnwrapErr();
+      replace.validateParams([stringValue, numberValue, numberValue, stringValue])._unsafeUnwrap();
 
       const regExpReplace = new RegExpReplace();
-      expect(regExpReplace.validateParams([stringValue, stringValue]).isErr()).toBe(true);
-      expect(regExpReplace.validateParams([stringValue, stringValue, stringValue]).isOk()).toBe(
-        true
-      );
+      regExpReplace.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
+      regExpReplace.validateParams([stringValue, stringValue, stringValue])._unsafeUnwrap();
 
       const substitute = new Substitute();
-      expect(substitute.validateParams([stringValue, stringValue]).isErr()).toBe(true);
-      expect(substitute.validateParams([stringValue, stringValue, stringValue]).isOk()).toBe(true);
+      substitute.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
+      substitute.validateParams([stringValue, stringValue, stringValue])._unsafeUnwrap();
 
       const rept = new Rept();
-      expect(rept.validateParams([stringValue]).isErr()).toBe(true);
-      expect(rept.validateParams([stringValue, numberValue]).isOk()).toBe(true);
+      rept.validateParams([stringValue])._unsafeUnwrapErr();
+      rept.validateParams([stringValue, numberValue])._unsafeUnwrap();
     });
 
     it('validates exact-length text functions', () => {
@@ -366,10 +362,10 @@ describe('formula functions', () => {
       ];
 
       for (const func of exact) {
-        expect(func.validateParams([stringValue, stringValue]).isErr()).toBe(true);
-        expect(func.validateParams([stringValue]).isOk()).toBe(true);
-        expect(func.getReturnType().isOk()).toBe(true);
-        expect(func.getReturnType([stringValue]).isOk()).toBe(true);
+        func.validateParams([stringValue, stringValue])._unsafeUnwrapErr();
+        func.validateParams([stringValue])._unsafeUnwrap();
+        func.getReturnType()._unsafeUnwrap();
+        func.getReturnType([stringValue])._unsafeUnwrap();
       }
     });
   });
@@ -389,10 +385,10 @@ describe('formula functions', () => {
       ];
 
       for (const func of exact) {
-        expect(func.validateParams([]).isErr()).toBe(true);
-        expect(func.validateParams([dateValue]).isOk()).toBe(true);
-        expect(func.getReturnType().isOk()).toBe(true);
-        expect(func.getReturnType([dateValue]).isOk()).toBe(true);
+        func.validateParams([])._unsafeUnwrapErr();
+        func.validateParams([dateValue])._unsafeUnwrap();
+        func.getReturnType()._unsafeUnwrap();
+        func.getReturnType([dateValue])._unsafeUnwrap();
       }
     });
 
@@ -413,26 +409,26 @@ describe('formula functions', () => {
       ];
 
       for (const { func, params } of atLeast) {
-        expect(func.validateParams([]).isErr()).toBe(true);
-        expect(func.validateParams(params).isOk()).toBe(true);
-        expect(func.getReturnType().isOk()).toBe(true);
-        expect(func.getReturnType(params).isOk()).toBe(true);
+        func.validateParams([])._unsafeUnwrapErr();
+        func.validateParams(params)._unsafeUnwrap();
+        func.getReturnType()._unsafeUnwrap();
+        func.getReturnType(params)._unsafeUnwrap();
       }
     });
 
     it('handles system-provided date-time functions', () => {
       const today = new Today();
-      expect(today.validateParams([]).isOk()).toBe(true);
-      expect(today.getReturnType().isOk()).toBe(true);
+      today.validateParams([])._unsafeUnwrap();
+      today.getReturnType()._unsafeUnwrap();
 
       const now = new Now();
-      expect(now.validateParams([]).isOk()).toBe(true);
-      expect(now.getReturnType().isOk()).toBe(true);
-      expect(now.getReturnType([dateValue]).isOk()).toBe(true);
+      now.validateParams([])._unsafeUnwrap();
+      now.getReturnType()._unsafeUnwrap();
+      now.getReturnType([dateValue])._unsafeUnwrap();
 
       const created = new CreatedTime();
-      expect(created.validateParams([]).isOk()).toBe(true);
-      expect(created.getReturnType().isOk()).toBe(true);
+      created.validateParams([])._unsafeUnwrap();
+      created.getReturnType()._unsafeUnwrap();
     });
 
     it('validates last modified time params', () => {
@@ -444,41 +440,41 @@ describe('formula functions', () => {
       const withField = valueOf(CellValueType.Number, { field: fieldRef });
       const func = new LastModifiedTime();
 
-      expect(func.validateParams([]).isOk()).toBe(true);
-      expect(func.validateParams([numberValue]).isErr()).toBe(true);
-      expect(func.validateParams([withField]).isOk()).toBe(true);
-      expect(func.getReturnType([withField]).isOk()).toBe(true);
+      func.validateParams([])._unsafeUnwrap();
+      func.validateParams([numberValue])._unsafeUnwrapErr();
+      func.validateParams([withField])._unsafeUnwrap();
+      func.getReturnType([withField])._unsafeUnwrap();
     });
   });
 
   describe('system functions', () => {
     it('infers TextAll return type', () => {
       const func = new TextAll();
-      expect(func.validateParams([]).isErr()).toBe(true);
-      expect(func.validateParams([stringValue]).isOk()).toBe(true);
-      expect(func.getReturnType().isOk()).toBe(true);
+      func.validateParams([])._unsafeUnwrapErr();
+      func.validateParams([stringValue])._unsafeUnwrap();
+      func.getReturnType()._unsafeUnwrap();
 
       const multiple = func.getReturnType([valueOf(CellValueType.String, { isMultiple: true })]);
-      expect(multiple.isOk()).toBe(true);
-      if (multiple.isErr()) return;
+      multiple._unsafeUnwrap();
+
       const multipleResult = 'isMultiple' in multiple.value ? multiple.value.isMultiple : undefined;
       expect(multipleResult).toBe(true);
 
       const single = func.getReturnType([stringValue]);
-      expect(single.isOk()).toBe(true);
-      if (single.isErr()) return;
+      single._unsafeUnwrap();
+
       const singleResult = 'isMultiple' in single.value ? single.value.isMultiple : undefined;
       expect(singleResult).toBeUndefined();
     });
 
     it('exposes record metadata return types', () => {
       const recordId = new RecordId();
-      expect(recordId.validateParams([]).isOk()).toBe(true);
-      expect(recordId.getReturnType().isOk()).toBe(true);
+      recordId.validateParams([])._unsafeUnwrap();
+      recordId.getReturnType()._unsafeUnwrap();
 
       const autoNumber = new AutoNumber();
-      expect(autoNumber.validateParams([]).isOk()).toBe(true);
-      expect(autoNumber.getReturnType().isOk()).toBe(true);
+      autoNumber.validateParams([])._unsafeUnwrap();
+      autoNumber.getReturnType()._unsafeUnwrap();
     });
   });
 });

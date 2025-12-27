@@ -9,6 +9,7 @@ import {
   TableUpdateViewColumnMetaSpec,
   type ITableSpecVisitor,
 } from '@teable/v2-core';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -18,7 +19,7 @@ import {
 } from './PostgresTableSchemaFieldCreateVisitor';
 
 type TableSchemaUpdateVisitorParams = {
-  db: Kysely<unknown>;
+  db: Kysely<V1TeableDatabase>;
   schema: string | null;
   tableName: string;
   tableId: string;

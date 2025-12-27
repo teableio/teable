@@ -6,11 +6,12 @@ describe('TableSortKey', () => {
   it('validates sort keys', () => {
     const name = TableSortKey.create('name');
     const id = TableSortKey.create('id');
-    expect([name, id].every((r) => r.isOk())).toBe(true);
-    if (name.isErr() || id.isErr()) return;
+    [name, id].forEach((r) => r._unsafeUnwrap());
+    name._unsafeUnwrap();
+    id._unsafeUnwrap();
     expect(name.value.toString()).toBe('name');
     expect(id.value.toString()).toBe('id');
-    expect(TableSortKey.create('other').isErr()).toBe(true);
+    TableSortKey.create('other')._unsafeUnwrapErr();
   });
 
   it('exposes helpers and equality', () => {

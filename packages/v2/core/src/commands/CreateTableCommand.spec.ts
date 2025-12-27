@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../domain/base/BaseId';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
+import type { RollupField } from '../domain/table/fields/types/RollupField';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
 import { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -23,22 +24,12 @@ const buildFromCommand = (command: CreateTableCommand) => {
 
 describe('CreateTableCommand', () => {
   it('creates command with default field and view', () => {
-    const baseIdResult = createBaseId('a');
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
-
-    const commandResult = CreateTableCommand.create({
-      baseId: baseIdResult.value.toString(),
+    const baseId = createBaseId('a')._unsafeUnwrap();
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
       name: 'Default Table',
-    });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
-
-    const buildResult = buildFromCommand(commandResult.value);
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-
-    const table = buildResult.value;
+    })._unsafeUnwrap();
+    const table = buildFromCommand(command)._unsafeUnwrap();
     expect(table.fields().length).toBe(1);
     expect(table.fields()[0]?.type().toString()).toBe('singleLineText');
     expect(table.fields()[0]?.name().toString()).toBe('Name');
@@ -48,15 +39,13 @@ describe('CreateTableCommand', () => {
   });
 
   it('creates command with all field types and view types', () => {
-    const baseIdResult = createBaseId('b');
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
+    const baseId = createBaseId('b')._unsafeUnwrap();
 
     const amountFieldId = 'fldaaaaaaaaaaaaaaaa';
     const formulaFieldId = 'fldbbbbbbbbbbbbbbbb';
 
-    const commandResult = CreateTableCommand.create({
-      baseId: baseIdResult.value.toString(),
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
       name: 'Complex Table',
       fields: [
         {
@@ -153,15 +142,8 @@ describe('CreateTableCommand', () => {
         { type: 'form' },
         { type: 'plugin' },
       ],
-    });
-    expect(commandResult.isOk()).toBe(true);
-    if (commandResult.isErr()) return;
-
-    const buildResult = buildFromCommand(commandResult.value);
-    expect(buildResult.isOk()).toBe(true);
-    if (buildResult.isErr()) return;
-
-    const table = buildResult.value;
+    })._unsafeUnwrap();
+    const table = buildFromCommand(command)._unsafeUnwrap();
     expect(table.fields().map((field) => field.type().toString())).toEqual([
       'singleLineText',
       'longText',
@@ -200,62 +182,110 @@ describe('CreateTableCommand', () => {
     expect(firstView?.name().toString()).toBe('Main');
   });
 
+  it('creates command with rollup field input', () => {
+    const baseId = createBaseId('r')._unsafeUnwrap();
+
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'k'.repeat(16)}`;
+
+    const command = CreateTableCommand.create({
+      baseId: baseId.toString(),
+      name: 'Rollup Table',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Link',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId,
+            lookupFieldId,
+          },
+        },
+        {
+          type: 'rollup',
+          name: 'Rollup Total',
+          options: {
+            expression: 'counta({values})',
+            formatting: { type: 'decimal', precision: 2 },
+          },
+          config: {
+            linkFieldId,
+            foreignTableId,
+            lookupFieldId,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    })._unsafeUnwrap();
+    const table = buildFromCommand(command)._unsafeUnwrap();
+    const rollupField = table.fields().find((field) => field.type().toString() === 'rollup') as
+      | RollupField
+      | undefined;
+    expect(rollupField).toBeDefined();
+    if (!rollupField) return;
+    expect(rollupField.expression().toString()).toBe('counta({values})');
+    expect(rollupField.configDto()).toEqual({
+      linkFieldId,
+      foreignTableId,
+      lookupFieldId,
+    });
+  });
+
   it('rejects invalid input and conflicting primary fields', () => {
-    expect(CreateTableCommand.create({ baseId: 'bad', name: 'Table' }).isErr()).toBe(true);
+    expect(
+      CreateTableCommand.create({ baseId: 'bad', name: 'Table' })._unsafeUnwrapErr()
+    ).toBeTruthy();
 
-    const baseIdResult = createBaseId('c');
-    expect(baseIdResult.isOk()).toBe(true);
-    if (baseIdResult.isErr()) return;
-
-    const multiplePrimaryResult = CreateTableCommand.create({
-      baseId: baseIdResult.value.toString(),
+    const baseId = createBaseId('c')._unsafeUnwrap();
+    const multiplePrimaryError = CreateTableCommand.create({
+      baseId: baseId.toString(),
       name: 'Primary',
       fields: [
         { type: 'singleLineText', name: 'A', isPrimary: true },
         { type: 'singleLineText', name: 'B', isPrimary: true },
       ],
       views: [{ type: 'grid' }],
-    });
-    expect(multiplePrimaryResult.isErr()).toBe(true);
-    if (multiplePrimaryResult.isErr()) {
-      expect(multiplePrimaryResult.error).toContain('primary Field');
-    }
+    })._unsafeUnwrapErr();
+    expect(multiplePrimaryError).toContain('primary Field');
 
-    const badFieldNameResult = CreateTableCommand.create({
-      baseId: baseIdResult.value.toString(),
-      name: 'Bad Name',
-      fields: [{ type: 'singleLineText', name: '', isPrimary: true }],
-      views: [{ type: 'grid' }],
-    });
-    expect(badFieldNameResult.isErr()).toBe(true);
+    expect(
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Bad Name',
+        fields: [{ type: 'singleLineText', name: '', isPrimary: true }],
+        views: [{ type: 'grid' }],
+      })._unsafeUnwrapErr()
+    ).toBeTruthy();
 
-    const badSelectResult = CreateTableCommand.create({
-      baseId: baseIdResult.value.toString(),
-      name: 'Bad Select',
-      fields: [
-        {
-          type: 'singleSelect',
-          name: 'Status',
-          options: { choices: [{ name: '', color: 'blue' }] },
-        },
-      ],
-      views: [{ type: 'grid' }],
-    });
-    expect(badSelectResult.isErr()).toBe(true);
+    expect(
+      CreateTableCommand.create({
+        baseId: baseId.toString(),
+        name: 'Bad Select',
+        fields: [
+          {
+            type: 'singleSelect',
+            name: 'Status',
+            options: { choices: [{ name: '', color: 'blue' }] },
+          },
+        ],
+        views: [{ type: 'grid' }],
+      })._unsafeUnwrapErr()
+    ).toBeTruthy();
   });
 
   describe('link fields', () => {
     it('builds link fields from input', () => {
-      const baseIdResult = createBaseId('d');
-      expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
+      const baseId = createBaseId('d')._unsafeUnwrap();
 
       const foreignTableId = `tbl${'c'.repeat(16)}`;
       const lookupFieldId = `fld${'d'.repeat(16)}`;
       const linkFieldId = `fld${'e'.repeat(16)}`;
 
-      const commandResult = CreateTableCommand.create({
-        baseId: baseIdResult.value.toString(),
+      const command = CreateTableCommand.create({
+        baseId: baseId.toString(),
         name: 'Link Table',
         fields: [
           { type: 'singleLineText', name: 'Name', isPrimary: true },
@@ -271,16 +301,8 @@ describe('CreateTableCommand', () => {
           },
         ],
         views: [{ type: 'grid' }],
-      });
-
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
-
-      const buildResult = buildFromCommand(commandResult.value);
-      expect(buildResult.isOk()).toBe(true);
-      if (buildResult.isErr()) return;
-
-      const table = buildResult.value;
+      })._unsafeUnwrap();
+      const table = buildFromCommand(command)._unsafeUnwrap();
       const linkField = table.fields().find((field) => field.type().toString() === 'link') as
         | LinkField
         | undefined;
@@ -294,18 +316,16 @@ describe('CreateTableCommand', () => {
     });
 
     it('supports all relationships including self references', () => {
-      const baseIdResult = createBaseId('x');
-      const tableIdResult = createTableId('y');
-      expect([baseIdResult, tableIdResult].every((r) => r.isOk())).toBe(true);
-      if (baseIdResult.isErr() || tableIdResult.isErr()) return;
+      const baseId = createBaseId('x')._unsafeUnwrap();
+      const tableId = createTableId('y')._unsafeUnwrap();
 
-      const tableId = tableIdResult.value.toString();
+      const tableIdValue = tableId.toString();
       const lookupFieldId = `fld${'z'.repeat(16)}`;
       const relationshipCases = ['oneOne', 'manyMany', 'oneMany', 'manyOne'] as const;
 
-      const commandResult = CreateTableCommand.create({
-        baseId: baseIdResult.value.toString(),
-        tableId,
+      const command = CreateTableCommand.create({
+        baseId: baseId.toString(),
+        tableId: tableIdValue,
         name: 'Self Link Table',
         fields: [
           { type: 'singleLineText', name: 'Name', id: lookupFieldId, isPrimary: true },
@@ -315,22 +335,14 @@ describe('CreateTableCommand', () => {
             name: `Link ${relationship}`,
             options: {
               relationship,
-              foreignTableId: tableId,
+              foreignTableId: tableIdValue,
               lookupFieldId,
             },
           })),
         ],
         views: [{ type: 'grid' }],
-      });
-
-      expect(commandResult.isOk()).toBe(true);
-      if (commandResult.isErr()) return;
-
-      const buildResult = buildFromCommand(commandResult.value);
-      expect(buildResult.isOk()).toBe(true);
-      if (buildResult.isErr()) return;
-
-      const table = buildResult.value;
+      })._unsafeUnwrap();
+      const table = buildFromCommand(command)._unsafeUnwrap();
       const linkFields = table.fields().filter((field) => field.type().toString() === 'link') as
         | LinkField[]
         | undefined;
@@ -339,18 +351,18 @@ describe('CreateTableCommand', () => {
 
       const relationships = linkFields.map((field) => field.relationship().toString());
       expect(relationships.sort()).toEqual([...relationshipCases].sort());
-      expect(linkFields.every((field) => field.foreignTableId().toString() === tableId)).toBe(true);
+      expect(linkFields.every((field) => field.foreignTableId().toString() === tableIdValue)).toBe(
+        true
+      );
     });
   });
 
   describe('rehydrated-only fields', () => {
     it('rejects link meta in input', () => {
-      const baseIdResult = createBaseId('e');
-      expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
+      const baseId = createBaseId('e')._unsafeUnwrap();
 
-      const commandResult = CreateTableCommand.create({
-        baseId: baseIdResult.value.toString(),
+      const error = CreateTableCommand.create({
+        baseId: baseId.toString(),
         name: 'Link Meta',
         fields: [
           { type: 'singleLineText', name: 'Name', isPrimary: true },
@@ -365,18 +377,15 @@ describe('CreateTableCommand', () => {
             meta: { hasOrderColumn: true },
           },
         ],
-      });
-
-      expect(commandResult.isErr()).toBe(true);
+      })._unsafeUnwrapErr();
+      expect(error).toBeTruthy();
     });
 
     it('rejects formula result type in input', () => {
-      const baseIdResult = createBaseId('f');
-      expect(baseIdResult.isOk()).toBe(true);
-      if (baseIdResult.isErr()) return;
+      const baseId = createBaseId('f')._unsafeUnwrap();
 
-      const commandResult = CreateTableCommand.create({
-        baseId: baseIdResult.value.toString(),
+      const error = CreateTableCommand.create({
+        baseId: baseId.toString(),
         name: 'Formula Result Type',
         fields: [
           { type: 'singleLineText', name: 'Name', isPrimary: true },
@@ -388,9 +397,8 @@ describe('CreateTableCommand', () => {
             isMultipleCellValue: false,
           },
         ],
-      });
-
-      expect(commandResult.isErr()).toBe(true);
+      })._unsafeUnwrapErr();
+      expect(error).toBeTruthy();
     });
   });
 });

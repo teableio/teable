@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, it } from 'vitest';
 
 import { TableId } from '../../TableId';
 import { FieldId } from '../FieldId';
@@ -16,37 +16,27 @@ describe('NoopFieldVisitor', () => {
     const lookupFieldIdResult = createFieldId('b');
     const linkFieldIdResult = createFieldId('c');
     const linkFieldNameResult = FieldName.create('Link');
-    expect(
-      [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].every(
-        (r) => r.isOk()
-      )
-    ).toBe(true);
-    if (
-      foreignTableIdResult.isErr() ||
-      lookupFieldIdResult.isErr() ||
-      linkFieldIdResult.isErr() ||
-      linkFieldNameResult.isErr()
-    )
-      return;
+    [foreignTableIdResult, lookupFieldIdResult, linkFieldIdResult, linkFieldNameResult].forEach(
+      (r) => r._unsafeUnwrap()
+    );
+    foreignTableIdResult._unsafeUnwrap();
+    lookupFieldIdResult._unsafeUnwrap();
+    linkFieldIdResult._unsafeUnwrap();
+    linkFieldNameResult._unsafeUnwrap();
 
     const configResult = LinkFieldConfig.create({
       relationship: 'oneOne',
-      foreignTableId: foreignTableIdResult.value.toString(),
-      lookupFieldId: lookupFieldIdResult.value.toString(),
+      foreignTableId: foreignTableIdResult._unsafeUnwrap().toString(),
+      lookupFieldId: lookupFieldIdResult._unsafeUnwrap().toString(),
     });
-    expect(configResult.isOk()).toBe(true);
-    if (configResult.isErr()) return;
-
-    const linkFieldResult = LinkField.create({
-      id: linkFieldIdResult.value,
-      name: linkFieldNameResult.value,
-      config: configResult.value,
-    });
-    expect(linkFieldResult.isOk()).toBe(true);
-    if (linkFieldResult.isErr()) return;
+    const config = configResult._unsafeUnwrap();
+    const linkField = LinkField.create({
+      id: linkFieldIdResult._unsafeUnwrap(),
+      name: linkFieldNameResult._unsafeUnwrap(),
+      config,
+    })._unsafeUnwrap();
 
     const visitor = new NoopFieldVisitor();
-    const result = linkFieldResult.value.accept(visitor);
-    expect(result.isOk()).toBe(true);
+    linkField.accept(visitor)._unsafeUnwrap();
   });
 });

@@ -35,6 +35,9 @@ import type { RatingColor } from './types/RatingColor';
 import { RatingField } from './types/RatingField';
 import type { RatingIcon } from './types/RatingIcon';
 import type { RatingMax } from './types/RatingMax';
+import type { RollupExpression } from './types/RollupExpression';
+import { RollupField, type RollupFormatting, type RollupShowAs } from './types/RollupField';
+import type { RollupFieldConfig } from './types/RollupFieldConfig';
 import type { SelectAutoNewOptions } from './types/SelectAutoNewOptions';
 import type { SelectDefaultValue } from './types/SelectDefaultValue';
 import type { SelectOption } from './types/SelectOption';
@@ -90,6 +93,29 @@ export const createFormulaField = (params: {
   resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
   dependencies?: ReadonlyArray<FieldId>;
 }): Result<Field, string> => FormulaField.create(params);
+
+export const createRollupField = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: RollupFieldConfig;
+  expression: RollupExpression;
+  valuesField: Field;
+  timeZone?: TimeZone;
+  formatting?: RollupFormatting;
+  showAs?: RollupShowAs;
+  dependencies?: ReadonlyArray<FieldId>;
+}): Result<Field, string> => RollupField.create(params);
+
+export const createRollupFieldPending = (params: {
+  id: FieldId;
+  name: FieldName;
+  config: RollupFieldConfig;
+  expression: RollupExpression;
+  timeZone?: TimeZone;
+  formatting?: RollupFormatting;
+  showAs?: RollupShowAs;
+  dependencies?: ReadonlyArray<FieldId>;
+}): Result<Field, string> => RollupField.createPending(params);
 
 export const createSelectField = (params: {
   id: FieldId;

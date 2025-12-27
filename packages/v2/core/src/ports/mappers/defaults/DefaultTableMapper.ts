@@ -38,6 +38,9 @@ import { RatingColor } from '../../../domain/table/fields/types/RatingColor';
 import { RatingField } from '../../../domain/table/fields/types/RatingField';
 import { RatingIcon } from '../../../domain/table/fields/types/RatingIcon';
 import { RatingMax } from '../../../domain/table/fields/types/RatingMax';
+import { RollupExpression } from '../../../domain/table/fields/types/RollupExpression';
+import { RollupField } from '../../../domain/table/fields/types/RollupField';
+import { RollupFieldConfig } from '../../../domain/table/fields/types/RollupFieldConfig';
 import { SelectAutoNewOptions } from '../../../domain/table/fields/types/SelectAutoNewOptions';
 import { SelectDefaultValue } from '../../../domain/table/fields/types/SelectDefaultValue';
 import { SelectOption } from '../../../domain/table/fields/types/SelectOption';
@@ -78,6 +81,8 @@ import type {
   ILongTextFieldOptionsDTO,
   INumberFieldOptionsDTO,
   IRatingFieldOptionsDTO,
+  IRollupFieldConfigDTO,
+  IRollupFieldOptionsDTO,
   ISelectFieldOptionsDTO,
   ISingleLineTextFieldOptionsDTO,
   IUserFieldOptionsDTO,
@@ -236,6 +241,39 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
           isComputed,
         }))
       );
+  }
+
+  visitRollupField(field: RollupField): Result<ITableFieldPersistenceDTO, string> {
+    const options: IRollupFieldOptionsDTO = {
+      expression: field.expression().toString(),
+    };
+    const timeZone = field.timeZone();
+    if (timeZone) options.timeZone = timeZone.toString();
+    const formatting = field.formatting();
+    if (formatting) options.formatting = formatting.toDto();
+    const showAs = field.showAs();
+    if (showAs) options.showAs = showAs.toDto();
+    const config: IRollupFieldConfigDTO = field.configDto();
+    const isComputed = field.computed().toBoolean();
+
+    return field
+      .cellValueType()
+      .andThen((cellValueType) =>
+        field.isMultipleCellValue().map((isMultipleCellValue) => ({
+          cellValueType,
+          isMultipleCellValue,
+        }))
+      )
+      .map(({ cellValueType, isMultipleCellValue }) => ({
+        id: field.id().toString(),
+        name: field.name().toString(),
+        type: 'rollup' as const,
+        options,
+        config,
+        cellValueType: cellValueType.toString(),
+        isMultipleCellValue: isMultipleCellValue.toBoolean(),
+        isComputed,
+      }));
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, string> {
@@ -512,6 +550,36 @@ export class DefaultTableMapper implements ITableMapper {
                               meta,
                               ...(resultType ? { resultType } : {}),
                             })
+                        )
+                      )
+                    )
+                  )
+                )
+              );
+            })
+            .with({ type: 'rollup' }, (dto) => {
+              const options = dto.options;
+              const configRaw = dto.config;
+              if (!configRaw) return err('RollupField config is required');
+              return RollupFieldConfig.create(configRaw).andThen((config) =>
+                RollupExpression.create(options.expression).andThen((expression) =>
+                  optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+                    parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                      parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                        parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
+                          (resultType) => {
+                            if (!resultType) return err('RollupField result type is required');
+                            return RollupField.rehydrate({
+                              id,
+                              name,
+                              config,
+                              expression,
+                              timeZone,
+                              formatting,
+                              showAs,
+                              resultType,
+                            });
+                          }
                         )
                       )
                     )
