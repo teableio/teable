@@ -51,6 +51,8 @@ export enum HttpErrorCode {
   GATEWAY_TIMEOUT = 'gateway_timeout',
   // Unknown error code
   UNKNOWN_ERROR_CODE = 'unknown_error_code',
+  // Network error - client-side network issue, not server error
+  NETWORK_ERROR = 'network_error',
   /** view */
   VIEW_NOT_FOUND = 'view_not_found',
   /** automation */

@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Connexion à la base de données non disponible",
     "gatewayTimeout": "Temps d'attente de la passerelle",
     "unknownErrorCode": "Code d'erreur inconnu",
+    "networkError": "Problème de connexion réseau",
     "requestTimeout": "Temps d'attente de la requête dépassé",
     "failedDependency": "Échec de dépendance",
     "automationNodeParseError": "Erreur d'analyse du nœud d'automatisation",

@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Veritabanı Bağlantısı Mevcut Değil",
     "gatewayTimeout": "Ağ Geçidi Zaman Aşımı",
     "unknownErrorCode": "Bilinmeyen Hata Kodu",
+    "networkError": "Ağ bağlantı sorunu",
     "requestTimeout": "İstek Zaman Aşımı",
     "failedDependency": "Bağımlılık Hatası",
     "automationNodeParseError": "Otomasyon Düğümü Ayrıştırma Hatası",

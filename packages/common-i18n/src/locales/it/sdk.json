@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Connessione al database non disponibile",
     "gatewayTimeout": "Timeout del gateway",
     "unknownErrorCode": "Codice errore sconosciuto",
+    "networkError": "Problema di connessione di rete",
     "requestTimeout": "Timeout della richiesta",
     "failedDependency": "Errore di dipendenza",
     "automationNodeParseError": "Errore di analisi del nodo di automazione",

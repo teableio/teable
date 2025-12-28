@@ -897,6 +897,7 @@
     "databaseConnectionUnavailable": "Conexión de base de datos no disponible",
     "gatewayTimeout": "Tiempo de espera de puerta de enlace",
     "unknownErrorCode": "Código de error desconocido",
+    "networkError": "Problema de conexión de red",
     "requestTimeout": "El tiempo de espera de la solicitud ha excedido",
     "failedDependency": "Dependencia fallida",
     "automationNodeParseError": "Error de análisis del nodo de automatización",

@@ -25,4 +25,5 @@ export const ErrorCodeToStatusMap: Record<HttpErrorCode, number> = {
   [HttpErrorCode.AUTOMATION_NODE_PARSE_ERROR]: 400,
   [HttpErrorCode.AUTOMATION_NODE_NEED_TEST]: 400,
   [HttpErrorCode.AUTOMATION_NODE_TEST_OUTDATED]: 400,
+  [HttpErrorCode.NETWORK_ERROR]: 0,
 };

@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "数据库当前不可用",
     "gatewayTimeout": "服务器未及时收到上游服务器的响应",
     "unknownErrorCode": "发生未知错误",
+    "networkError": "网络连接问题",
     "requestTimeout": "请求超时",
     "failedDependency": "依赖操作失败",
     "automationNodeParseError": "自动化节点解析错误",

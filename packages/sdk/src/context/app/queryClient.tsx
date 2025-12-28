@@ -1,5 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from '@tanstack/react-query';
 import type { ICustomHttpExceptionData, IHttpError, ILocalization } from '@teable/core';
+import { HttpErrorCode } from '@teable/core';
 import { sonner } from '@teable/ui-lib';
 import {
   UsageLimitModalType,
@@ -8,6 +9,11 @@ import {
 import type { ILocaleFunction, TKey } from './i18n';
 
 const { toast } = sonner;
+
+// Network error toast deduplication - only show once per cooldown period
+const NETWORK_ERROR_TOAST_ID = 'network-error-toast';
+const NETWORK_ERROR_COOLDOWN_MS = 10 * 1000; // 10 seconds cooldown
+let lastNetworkErrorTime = 0;
 
 export function toCamelCaseErrorCode(errorCode: string): string {
   return errorCode
@@ -34,6 +40,25 @@ export const getHttpErrorMessage = (error: unknown, t: ILocaleFunction, prefix?:
 
 export const errorRequestHandler = (error: unknown, t?: ILocaleFunction) => {
   const { code, message, status } = error as IHttpError;
+
+  // Network errors - show a gentler warning, deduplicated with cooldown
+  // These are typically transient client-side issues, not server errors
+  if (code === HttpErrorCode.NETWORK_ERROR) {
+    const now = Date.now();
+    // Skip if within cooldown period (prevents toast spam when multiple APIs fail)
+    if (now - lastNetworkErrorTime < NETWORK_ERROR_COOLDOWN_MS) {
+      return;
+    }
+    lastNetworkErrorTime = now;
+
+    // Show a gentle warning with fixed id to prevent duplicates
+    toast.warning(t ? t('httpErrors.networkError') : 'Network connection issue', {
+      id: NETWORK_ERROR_TOAST_ID,
+      duration: 3000,
+    });
+    return;
+  }
+
   // no authentication
   if (status === 401) {
     window.location.href = `/auth/login?redirect=${encodeURIComponent(window.location.href)}`;

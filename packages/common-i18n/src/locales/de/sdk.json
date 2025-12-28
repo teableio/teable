@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Datenbankverbindung nicht verfügbar",
     "gatewayTimeout": "Gateway Timeout",
     "unknownErrorCode": "Unbekannter Fehlercode",
+    "networkError": "Netzwerkverbindungsproblem",
     "requestTimeout": "Operationen außerhalb des Bereichs",
     "failedDependency": "Abhängigkeitsfehler",
     "automationNodeParseError": "Automatisierungsknoten-Analysefehler",

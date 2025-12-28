@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Database connection unavailable",
     "gatewayTimeout": "Gateway timeout",
     "unknownErrorCode": "Unknown error code",
+    "networkError": "Network connection issue",
     "requestTimeout": "Request timeout",
     "failedDependency": "Failed dependency",
     "automationNodeParseError": "Automation node parse error",

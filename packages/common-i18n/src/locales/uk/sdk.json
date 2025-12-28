@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "Недоступна база даних",
     "gatewayTimeout": "Таймаут шлюза",
     "unknownErrorCode": "Невідомий код помилки",
+    "networkError": "Проблема з підключенням до мережі",
     "requestTimeout": "Таймаут запиту",
     "failedDependency": "Залежність не виконана",
     "automationNodeParseError": "Помилка аналізу вузла автоматизації",

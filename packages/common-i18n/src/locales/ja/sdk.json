@@ -885,6 +885,7 @@
     "databaseConnectionUnavailable": "データベース接続不可",
     "gatewayTimeout": "ゲートウェイタイムアウト",
     "unknownErrorCode": "不明なエラーコード",
+    "networkError": "ネットワーク接続の問題",
     "requestTimeout": "要求タイムアウト",
     "failedDependency": "依存操作失敗",
     "automationNodeParseError": "自動化ノード解析エラー",
