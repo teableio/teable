@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 import { ValueObject } from '../shared/ValueObject';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
+import type { FieldName } from './fields/FieldName';
 import type { Table } from './Table';
 import type { TableId } from './TableId';
 
@@ -32,5 +33,9 @@ export class ForeignTable extends ValueObject {
     const field = this.tableValue.fields().find((candidate) => candidate.id().equals(fieldId));
     if (!field) return err('Field not found in ForeignTable');
     return ok(field);
+  }
+
+  generateFieldName(baseName: FieldName): Result<FieldName, string> {
+    return this.tableValue.generateFieldName(baseName);
   }
 }

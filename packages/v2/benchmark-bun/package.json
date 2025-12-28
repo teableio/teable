@@ -24,7 +24,7 @@
     "clean": "rimraf ./dist ./coverage ./tsconfig.tsbuildinfo ./tsconfig.build.tsbuildinfo ./.eslintcache",
     "lint": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --cache --cache-location ../../../.cache/eslint/v2-benchmark-bun.eslintcache",
     "typecheck": "tsc --project ./tsconfig.json --noEmit",
-    "bench": "bun run --bun src/run.ts",
+    "bench": "bun run --bun --tsconfig-override ./tsconfig.json src/run.ts",
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {

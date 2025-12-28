@@ -326,24 +326,8 @@ export class LinkField extends Field {
     hostTable: Table,
     foreignTable: ForeignTable
   ): Result<FieldName, string> {
-    if (!foreignTable.id().equals(hostTable.id())) return ok(this.name());
-
-    const existingNames = hostTable.fields().map((field) => field.name());
-    if (!existingNames.some((name) => name.equals(this.name()))) {
-      return ok(this.name());
-    }
-
-    const baseName = this.name().toString();
-    for (let index = 1; index <= 100; index += 1) {
-      const suffix = index === 1 ? ' (linked)' : ` (linked ${index})`;
-      const candidateResult = FieldName.create(`${baseName}${suffix}`);
-      if (candidateResult.isErr()) return err(candidateResult.error);
-      const candidate = candidateResult.value;
-      if (!existingNames.some((name) => name.equals(candidate))) {
-        return ok(candidate);
-      }
-    }
-
-    return err('Failed to generate unique FieldName');
+    const baseNameResult = FieldName.create(hostTable.name().toString());
+    if (baseNameResult.isErr()) return err(baseNameResult.error);
+    return foreignTable.generateFieldName(baseNameResult.value);
   }
 }

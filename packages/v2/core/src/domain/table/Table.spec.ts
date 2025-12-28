@@ -278,6 +278,39 @@ describe('Table', () => {
     expect(addedEntry.order).toBe(maxOrder + 1);
   });
 
+  it('generates unique field names', () => {
+    const baseIdResult = createBaseId('h');
+    const tableNameResult = TableName.create('Generate');
+    const fieldNameResult = FieldName.create('Generate');
+    const linkedNameResult = FieldName.create('Generate (linked)');
+    [baseIdResult, tableNameResult, fieldNameResult, linkedNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+    baseIdResult._unsafeUnwrap();
+    tableNameResult._unsafeUnwrap();
+    fieldNameResult._unsafeUnwrap();
+    linkedNameResult._unsafeUnwrap();
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(fieldNameResult._unsafeUnwrap()).primary().done();
+    builder.field().singleLineText().withName(linkedNameResult._unsafeUnwrap()).done();
+    builder.view().defaultGrid().done();
+    const buildResult = builder.build();
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
+
+    const uniqueResult = table.generateFieldName(FieldName.create('Fresh')._unsafeUnwrap());
+    uniqueResult._unsafeUnwrap();
+    expect(uniqueResult._unsafeUnwrap().toString()).toBe('Fresh');
+
+    const conflictResult = table.generateFieldName(fieldNameResult._unsafeUnwrap());
+    conflictResult._unsafeUnwrap();
+    expect(conflictResult._unsafeUnwrap().toString()).toBe('Generate (linked 2)');
+  });
+
   it('exposes copies of fields and views', () => {
     const baseIdResult = createBaseId('e');
     const tableNameResult = TableName.create('Copies');

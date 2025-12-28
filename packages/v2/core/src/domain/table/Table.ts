@@ -10,6 +10,7 @@ import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
+import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
 import {
   LinkForeignTableReferenceVisitor,
@@ -131,6 +132,26 @@ export class Table extends AggregateRoot<TableId> {
 
   fields(): ReadonlyArray<Field> {
     return [...this.fieldsValue];
+  }
+
+  generateFieldName(baseName: FieldName): Result<FieldName, string> {
+    const existingNames = this.fieldsValue.map((field) => field.name());
+    if (!existingNames.some((name) => name.equals(baseName))) {
+      return ok(baseName);
+    }
+
+    const baseValue = baseName.toString();
+    for (let index = 1; index <= 100; index += 1) {
+      const suffix = index === 1 ? ' (linked)' : ` (linked ${index})`;
+      const candidateResult = FieldName.create(`${baseValue}${suffix}`);
+      if (candidateResult.isErr()) return err(candidateResult.error);
+      const candidate = candidateResult.value;
+      if (!existingNames.some((name) => name.equals(candidate))) {
+        return ok(candidate);
+      }
+    }
+
+    return err('Failed to generate unique FieldName');
   }
 
   primaryFieldId(): FieldId {

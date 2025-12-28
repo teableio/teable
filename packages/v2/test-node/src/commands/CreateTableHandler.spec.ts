@@ -64,20 +64,24 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
     expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
-    expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[0].id())).toBe(
-      true
-    );
-    expect(result.value.table.baseId().equals(baseId)).toBe(true);
+    expect(
+      result
+        ._unsafeUnwrap()
+        .table.primaryFieldId()
+        .equals(result._unsafeUnwrap().table.fields()[0].id())
+    ).toBe(true);
+    expect(result._unsafeUnwrap().table.baseId().equals(baseId)).toBe(true);
 
-    const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
+    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
     const savedTable = savedResult._unsafeUnwrap();
-    expect(savedTable.primaryFieldId().equals(result.value.table.primaryFieldId())).toBe(true);
+    expect(savedTable.primaryFieldId().equals(result._unsafeUnwrap().table.primaryFieldId())).toBe(
+      true
+    );
   });
 
   it('supports non-text primary field', async () => {
@@ -119,20 +123,25 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
-    expect(result.value.table.primaryFieldId().equals(result.value.table.fields()[1].id())).toBe(
-      true
-    );
+    expect(
+      result
+        ._unsafeUnwrap()
+        .table.primaryFieldId()
+        .equals(result._unsafeUnwrap().table.fields()[1].id())
+    ).toBe(true);
 
-    const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
+    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
     savedResult._unsafeUnwrap();
 
     expect(
-      savedResult._unsafeUnwrap().primaryFieldId().equals(result.value.table.primaryFieldId())
+      savedResult
+        ._unsafeUnwrap()
+        .primaryFieldId()
+        .equals(result._unsafeUnwrap().table.primaryFieldId())
     ).toBe(true);
   });
 
@@ -155,9 +164,8 @@ describe('CreateTableHandler', () => {
       context,
       foreignCommandResult._unsafeUnwrap()
     );
-    foreignResult._unsafeUnwrap();
 
-    const foreignTable = foreignResult.value.table;
+    const foreignTable = foreignResult._unsafeUnwrap().table;
     const lookupFieldId = foreignTable.primaryFieldId().toString();
     const linkFieldId = `fld${'l'.repeat(16)}`;
     const numberFieldId = `fld${'n'.repeat(16)}`;
@@ -195,15 +203,13 @@ describe('CreateTableHandler', () => {
         { type: 'singleLineText', name: 'Name', isPrimary: true },
       ],
     });
-    commandResult._unsafeUnwrap();
 
     const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
-    const createdTable = result.value.table;
+    const createdTable = result._unsafeUnwrap().table;
     const formulaField = createdTable
       .fields()
       .find((field) => field.type().toString() === 'formula') as FormulaField | undefined;
@@ -236,24 +242,19 @@ describe('CreateTableHandler', () => {
       fields: [{ type: 'singleLineText', name: 'Name' }],
     });
 
-    commandResultOne._unsafeUnwrap();
-    commandResultTwo._unsafeUnwrap();
-    commandResultOne._unsafeUnwrap();
-    commandResultTwo._unsafeUnwrap();
-
     const resultOne = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      commandResultOne.value
+      commandResultOne._unsafeUnwrap()
     );
-    resultOne._unsafeUnwrap();
 
     const resultTwo = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       context,
-      commandResultTwo.value
+      commandResultTwo._unsafeUnwrap()
     );
-    resultTwo._unsafeUnwrap();
 
-    expect(resultOne.value.table.id().equals(resultTwo.value.table.id())).toBe(false);
+    expect(resultOne._unsafeUnwrap().table.id().equals(resultTwo._unsafeUnwrap().table.id())).toBe(
+      false
+    );
   });
 
   it('creates tables with all base field types', async () => {
@@ -348,9 +349,13 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
-    expect(result.value.table.fields().map((f) => f.type().toString())).toEqual([
+    expect(
+      result
+        ._unsafeUnwrap()
+        .table.fields()
+        .map((f) => f.type().toString())
+    ).toEqual([
       'singleLineText',
       'longText',
       'number',
@@ -386,15 +391,21 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
-    expect(result.value.table.views().map((v) => v.type().toString())).toEqual(['kanban', 'grid']);
-    expect(result.value.table.views().map((v) => v.name().toString())).toEqual([
-      'Kanban',
-      'All Records',
-    ]);
+    expect(
+      result
+        ._unsafeUnwrap()
+        .table.views()
+        .map((v) => v.type().toString())
+    ).toEqual(['kanban', 'grid']);
+    expect(
+      result
+        ._unsafeUnwrap()
+        .table.views()
+        .map((v) => v.name().toString())
+    ).toEqual(['Kanban', 'All Records']);
 
-    const specResult = Table.specs(baseId).byId(result.value.table.id()).build();
+    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
@@ -492,9 +503,8 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
-    const table = result.value.table;
+    const table = result._unsafeUnwrap().table;
     const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
     const scoreField = byId.get(scoreId);
     const scoreLabelField = byId.get(scoreLabelId);
@@ -511,16 +521,14 @@ describe('CreateTableHandler', () => {
 
     const valueTypeVisitor = new FieldValueTypeVisitor();
     const scoreType = scoreField.accept(valueTypeVisitor);
-    scoreType._unsafeUnwrap();
 
-    expect(scoreType.value.cellValueType.toString()).toBe('number');
-    expect(scoreType.value.isMultipleCellValue.toBoolean()).toBe(false);
+    expect(scoreType._unsafeUnwrap().cellValueType.toString()).toBe('number');
+    expect(scoreType._unsafeUnwrap().isMultipleCellValue.toBoolean()).toBe(false);
 
     const scoreLabelType = scoreLabelField.accept(valueTypeVisitor);
-    scoreLabelType._unsafeUnwrap();
 
-    expect(scoreLabelType.value.cellValueType.toString()).toBe('string');
-    expect(scoreLabelType.value.isMultipleCellValue.toBoolean()).toBe(false);
+    expect(scoreLabelType._unsafeUnwrap().cellValueType.toString()).toBe('string');
+    expect(scoreLabelType._unsafeUnwrap().isMultipleCellValue.toBoolean()).toBe(false);
   });
 
   it('rejects formula cycles', async () => {
@@ -597,10 +605,9 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
 
     expect(handledEvents.length).toBe(1);
-    expect(handledEvents[0].tableId.equals(result.value.table.id())).toBe(true);
+    expect(handledEvents[0].tableId.equals(result._unsafeUnwrap().table.id())).toBe(true);
   });
 
   describe('link fields', () => {
@@ -656,7 +663,6 @@ describe('CreateTableHandler', () => {
         context,
         commandResult._unsafeUnwrap()
       );
-      result._unsafeUnwrap();
 
       const specResult = Table.specs(baseId).byId(foreignTable.id()).build();
       specResult._unsafeUnwrap();
@@ -674,8 +680,8 @@ describe('CreateTableHandler', () => {
       expect(linkField).toBeDefined();
       if (!linkField) return;
 
-      expect(linkField.name().toString()).toBe('Company');
-      expect(linkField.foreignTableId().equals(result.value.table.id())).toBe(true);
+      expect(linkField.name().toString()).toBe('Projects');
+      expect(linkField.foreignTableId().equals(result._unsafeUnwrap().table.id())).toBe(true);
       expect(linkField.symmetricFieldId()?.toString()).toBe(linkFieldId);
       expect(linkField.relationship().toString()).toBe('oneMany');
       expect(linkField.hasOrderColumn()).toBe(false);

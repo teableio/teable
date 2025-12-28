@@ -513,6 +513,7 @@ describe('LinkField', () => {
     expect(symmetric.lookupFieldId().equals(hostPrimaryId)).toBe(true);
     expect(symmetric.symmetricFieldId()?.equals(linkFieldId)).toBe(true);
     expect(symmetric.meta()?.hasOrderColumn()).toBe(true);
+    expect(symmetric.name().toString()).toBe('Host');
 
     const symmetricSelfKey = symmetric.selfKeyNameString();
     const symmetricForeignKey = symmetric.foreignKeyNameString();
@@ -580,11 +581,12 @@ describe('LinkField', () => {
     const primaryFieldIdResult = createFieldId('x');
     const linkFieldIdResult = createFieldId('w');
     const linkFieldNameResult = FieldName.create('Link');
+    const tableName = 'Host';
 
     const builder = Table.builder()
       .withId(tableIdResult._unsafeUnwrap())
       .withBaseId(baseIdResult._unsafeUnwrap())
-      .withName(TableName.create('Host')._unsafeUnwrap());
+      .withName(TableName.create(tableName)._unsafeUnwrap());
     builder
       .field()
       .singleLineText()
@@ -593,11 +595,11 @@ describe('LinkField', () => {
       .primary()
       .done();
 
-    const linkBaseName = linkFieldNameResult._unsafeUnwrap().toString();
+    const baseName = tableName;
     const allNames = [
-      linkBaseName,
-      `${linkBaseName} (linked)`,
-      ...Array.from({ length: 99 }, (_, i) => `${linkBaseName} (linked ${i + 2})`),
+      baseName,
+      `${baseName} (linked)`,
+      ...Array.from({ length: 99 }, (_, i) => `${baseName} (linked ${i + 2})`),
     ];
     for (const name of allNames) {
       const nameResult = FieldName.create(name);

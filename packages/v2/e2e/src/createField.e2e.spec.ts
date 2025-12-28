@@ -450,4 +450,95 @@ describe('v2 http createField (e2e)', () => {
     const selfLinks = selfParsed.data.data.table.fields.filter((field) => field.type === 'link');
     expect(selfLinks.length).toBeGreaterThan(1);
   });
+
+  it('names symmetric link fields using the host table name', async () => {
+    const hostCreateResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Projects',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      }),
+    });
+
+    const hostRaw = await hostCreateResponse.json();
+    const hostParsed = createTableOkResponseSchema.safeParse(hostRaw);
+    expect(hostParsed.success).toBe(true);
+    if (!hostParsed.success || !hostParsed.data.ok) {
+      throw new Error(`Failed to create host table: ${JSON.stringify(hostRaw)}`);
+    }
+    const hostTableId = hostParsed.data.data.table.id;
+    const hostPrimaryField = hostParsed.data.data.table.fields.find((field) => field.isPrimary);
+    if (!hostPrimaryField) {
+      throw new Error('Failed to resolve host primary field');
+    }
+
+    const foreignCreateResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        name: 'Companies',
+        fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+      }),
+    });
+
+    const foreignRaw = await foreignCreateResponse.json();
+    const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
+    expect(foreignParsed.success).toBe(true);
+    if (!foreignParsed.success || !foreignParsed.data.ok) {
+      throw new Error(`Failed to create foreign table: ${JSON.stringify(foreignRaw)}`);
+    }
+    const newForeignTableId = foreignParsed.data.data.table.id;
+    const foreignPrimaryField = foreignParsed.data.data.table.fields.find(
+      (field) => field.isPrimary
+    );
+    if (!foreignPrimaryField) {
+      throw new Error('Failed to resolve foreign primary field');
+    }
+
+    const linkFieldId = createFieldId();
+    const linkResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId: hostTableId,
+        field: {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Company',
+          options: {
+            relationship: 'manyOne',
+            foreignTableId: newForeignTableId,
+            lookupFieldId: foreignPrimaryField.id,
+          },
+        },
+      }),
+    });
+
+    const linkRaw = await linkResponse.json();
+    if (linkResponse.status !== 200) {
+      throw new Error(`CreateField failed: ${JSON.stringify(linkRaw)}`);
+    }
+    expect(linkResponse.status).toBe(200);
+
+    const getResponse = await fetch(
+      `${baseUrl}/tables/get?baseId=${baseId}&tableId=${newForeignTableId}`,
+      { method: 'GET' }
+    );
+    expect(getResponse.status).toBe(200);
+    const getRaw = await getResponse.json();
+    const getParsed = getTableByIdOkResponseSchema.safeParse(getRaw);
+    expect(getParsed.success).toBe(true);
+    if (!getParsed.success || !getParsed.data.ok) return;
+
+    const symmetricField = getParsed.data.data.table.fields.find(
+      (field) => field.type === 'link' && field.options.symmetricFieldId === linkFieldId
+    );
+    expect(symmetricField).toBeDefined();
+    if (!symmetricField) return;
+    expect(symmetricField.name).toBe('Projects');
+  });
 });

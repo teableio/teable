@@ -5,7 +5,7 @@ import { RPCHandler } from '@orpc/server/fetch';
 import { onError } from '@orpc/server';
 import { SpanStatusCode, trace } from '@opentelemetry/api';
 import { createFileRoute } from '@tanstack/react-router';
-import { v2PinoLogger } from '@teable/v2-adapter-logger-pino';
+import { playgroundPinoLogger } from '@/server/playgroundLogger';
 import { v2OrpcRouter } from '@/server/v2OrpcRouter';
 import { extractRequestContext } from '@/server/traceContext';
 import { applyTraceHeaders } from '@/server/traceResponseHeaders';
@@ -20,7 +20,7 @@ const generateRequestId = (): string => {
 const handler = new RPCHandler(v2OrpcRouter, {
   plugins: [
     new LoggingHandlerPlugin({
-      logger: v2PinoLogger,
+      logger: playgroundPinoLogger,
       generateId: generateRequestId,
       logRequestResponse: true,
       logRequestAbort: true,
@@ -43,7 +43,7 @@ const handler = new RPCHandler(v2OrpcRouter, {
         span.setStatus({ code: SpanStatusCode.ERROR, message });
       }
       const errorObject = error instanceof Error ? error : new Error(String(error));
-      v2PinoLogger.error(errorObject, 'oRPC handler error');
+      playgroundPinoLogger.error(errorObject, 'oRPC handler error');
     }),
   ],
 });
