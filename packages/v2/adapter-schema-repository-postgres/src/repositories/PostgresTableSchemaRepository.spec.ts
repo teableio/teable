@@ -26,7 +26,7 @@ import {
   UserMultiplicity,
   v2CoreTokens,
   resolveFormulaFields,
-  FieldForeignTableValidationVisitor,
+  validateForeignTablesForFields,
 } from '@teable/v2-core';
 import { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
@@ -279,8 +279,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const rollupFields = hostTable
         .fields()
         .filter((field) => field.type().toString() === 'rollup');
-      const resolveRollupResult = FieldForeignTableValidationVisitor.validate(rollupFields, {
-        table: hostTable,
+      const resolveRollupResult = validateForeignTablesForFields(rollupFields, {
+        hostTable,
         foreignTables: [foreignTable],
       });
       resolveRollupResult._unsafeUnwrap();

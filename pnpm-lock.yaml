@@ -1149,7 +1149,7 @@ importers:
         version: 1.13.0(@opentelemetry/api@1.9.0)(@opentelemetry/instrumentation@0.201.1(@opentelemetry/api@1.9.0))
       '@orpc/server':
         specifier: ^1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@orpc/tanstack-query':
         specifier: ^1.13.0
         version: 1.13.0(@opentelemetry/api@1.9.0)(@orpc/client@1.13.0(@opentelemetry/api@1.9.0))(@tanstack/query-core@5.90.12)
@@ -2788,7 +2788,7 @@ importers:
         version: 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/server':
         specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@teable/v2-adapter-db-postgres-bun-sql':
         specifier: workspace:*
         version: link:../adapter-db-postgres-bun-sql
@@ -2804,6 +2804,18 @@ importers:
       '@teable/v2-contract-http':
         specifier: workspace:*
         version: link:../contract-http
+      '@teable/v2-contract-http-client':
+        specifier: workspace:*
+        version: link:../contract-http-client
+      '@teable/v2-contract-http-express':
+        specifier: workspace:*
+        version: link:../contract-http-express
+      '@teable/v2-contract-http-fastify':
+        specifier: workspace:*
+        version: link:../contract-http-fastify
+      '@teable/v2-contract-http-hono':
+        specifier: workspace:*
+        version: link:../contract-http-hono
       '@teable/v2-contract-http-implementation':
         specifier: workspace:*
         version: link:../contract-http-implementation
@@ -2819,6 +2831,12 @@ importers:
       '@teable/v2-table-templates':
         specifier: workspace:*
         version: link:../table-templates
+      express:
+        specifier: 4.21.1
+        version: 4.21.1
+      fastify:
+        specifier: 4.29.1
+        version: 4.29.1
       kysely:
         specifier: 0.28.9
         version: 0.28.9
@@ -2832,6 +2850,9 @@ importers:
       '@teable/v2-tsdown-config':
         specifier: workspace:*
         version: link:../tsdown-config
+      '@types/express':
+        specifier: 4.17.21
+        version: 4.17.21
       '@types/node':
         specifier: 22.18.0
         version: 22.18.0
@@ -3460,7 +3481,7 @@ importers:
     dependencies:
       '@orpc/server':
         specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@teable/v2-container-node':
         specifier: workspace:*
         version: link:../container-node
@@ -3515,7 +3536,7 @@ importers:
         version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
       '@orpc/server':
         specifier: 1.13.0
-        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+        version: 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@teable/v2-contract-http':
         specifier: workspace:*
         version: link:../contract-http
@@ -27321,7 +27342,7 @@ snapshots:
   '@orpc/experimental-pino@1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(pino@10.1.0)(ws@8.18.3)':
     dependencies:
       '@orpc/client': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/server': 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+      '@orpc/server': 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
       pino: 10.1.0
     transitivePeerDependencies:
@@ -27343,7 +27364,7 @@ snapshots:
       '@orpc/server': 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.0)
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)(fastify@4.29.1)
       '@orpc/standard-server-node': 1.13.0(@opentelemetry/api@1.9.0)
       rxjs: 7.8.1
     optionalDependencies:
@@ -27385,7 +27406,7 @@ snapshots:
       '@orpc/contract': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/interop': 1.13.0
       '@orpc/openapi-client': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/server': 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)
+      '@orpc/server': 1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
       json-schema-typed: 8.0.2
@@ -27402,6 +27423,26 @@ snapshots:
       '@opentelemetry/instrumentation': 0.201.1(@opentelemetry/api@1.9.0)
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
 
+  '@orpc/server@1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(fastify@4.29.1)(ws@8.18.3)':
+    dependencies:
+      '@orpc/client': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/contract': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/interop': 1.13.0
+      '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-aws-lambda': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)(fastify@4.29.1)
+      '@orpc/standard-server-fetch': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-node': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-peer': 1.13.0(@opentelemetry/api@1.9.0)
+      cookie: 1.1.1
+    optionalDependencies:
+      crossws: 0.4.1(srvx@0.9.8)
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - '@opentelemetry/api'
+      - fastify
+
   '@orpc/server@1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.0)':
     dependencies:
       '@orpc/client': 1.13.0(@opentelemetry/api@1.9.0)
@@ -27410,7 +27451,7 @@ snapshots:
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server-aws-lambda': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)
+      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)(fastify@4.29.1)
       '@orpc/standard-server-fetch': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server-node': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server-peer': 1.13.0(@opentelemetry/api@1.9.0)
@@ -27418,26 +27459,6 @@ snapshots:
     optionalDependencies:
       crossws: 0.4.1(srvx@0.9.8)
       ws: 8.18.0
-    transitivePeerDependencies:
-      - '@opentelemetry/api'
-      - fastify
-
-  '@orpc/server@1.13.0(@opentelemetry/api@1.9.0)(crossws@0.4.1(srvx@0.9.8))(ws@8.18.3)':
-    dependencies:
-      '@orpc/client': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/contract': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/interop': 1.13.0
-      '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-aws-lambda': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-fastify': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-fetch': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-node': 1.13.0(@opentelemetry/api@1.9.0)
-      '@orpc/standard-server-peer': 1.13.0(@opentelemetry/api@1.9.0)
-      cookie: 1.1.1
-    optionalDependencies:
-      crossws: 0.4.1(srvx@0.9.8)
-      ws: 8.18.3
     transitivePeerDependencies:
       - '@opentelemetry/api'
       - fastify
@@ -27458,11 +27479,13 @@ snapshots:
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
-  '@orpc/standard-server-fastify@1.13.0(@opentelemetry/api@1.9.0)':
+  '@orpc/standard-server-fastify@1.13.0(@opentelemetry/api@1.9.0)(fastify@4.29.1)':
     dependencies:
       '@orpc/shared': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server': 1.13.0(@opentelemetry/api@1.9.0)
       '@orpc/standard-server-node': 1.13.0(@opentelemetry/api@1.9.0)
+    optionalDependencies:
+      fastify: 4.29.1
     transitivePeerDependencies:
       - '@opentelemetry/api'
 
@@ -38995,7 +39018,7 @@ snapshots:
 
   light-my-request@5.14.0:
     dependencies:
-      cookie: 0.7.1
+      cookie: 0.7.2
       process-warning: 3.0.0
       set-cookie-parser: 2.7.2
 

@@ -1,8 +1,9 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok, safeTry } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
@@ -36,6 +37,8 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
     private readonly tableSchemaRepository: TableSchemaRepositoryPort.ITableSchemaRepository,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: ForeignTableLoaderService,
     @inject(v2CoreTokens.eventBus)
     private readonly eventBus: EventBusPort.IEventBus,
     @inject(v2CoreTokens.unitOfWork)
@@ -49,11 +52,33 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
   ): Promise<Result<CreateTableResult, string>> {
     const handler = this;
     return safeTry<CreateTableResult, string>(async function* () {
+      const foreignTableReferences = yield* command.foreignTableReferences();
+      const selfTableId = command.tableId;
+      const referencesToLoad = selfTableId
+        ? foreignTableReferences.filter(
+            (reference) => !reference.foreignTableId.equals(selfTableId)
+          )
+        : foreignTableReferences;
+      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
+        baseId: command.baseId,
+        references: referencesToLoad,
+      });
+      const includeSelf =
+        selfTableId !== undefined &&
+        foreignTableReferences.some((reference) => reference.foreignTableId.equals(selfTableId));
+
       const span = context.tracer?.startSpan('teable.CreateTableHandler.handle.buildTable');
-      const table = yield* buildTable(command);
+      const table = yield* buildTable(command, { foreignTables, includeSelf });
       span?.end();
 
       const tableFields = table.fields();
+      const foreignTablesForSideEffects = includeSelf
+        ? [
+            ...new Map(
+              [...foreignTables, table].map((value) => [value.id().toString(), value] as const)
+            ).values(),
+          ]
+        : foreignTables;
       const transactionResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
@@ -64,11 +89,14 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
                 table
               );
               yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
-              const sideEffectEvents = yield* await handler.fieldCreationSideEffectService.execute({
-                context: transactionContext,
-                table,
-                fields: tableFields,
-              });
+              const sideEffectEvents = yield* await handler.fieldCreationSideEffectService.execute(
+                transactionContext,
+                {
+                  table,
+                  fields: tableFields,
+                  foreignTables: foreignTablesForSideEffects,
+                }
+              );
               return ok<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, string>({
                 table: persistedTable,
                 sideEffectEvents,

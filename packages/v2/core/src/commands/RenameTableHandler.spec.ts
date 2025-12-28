@@ -16,7 +16,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { ILogger } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -129,26 +128,6 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
   }
 }
 
-class FakeLogger implements ILogger {
-  readonly messages: string[] = [];
-
-  debug(message: string): void {
-    this.messages.push(message);
-  }
-
-  info(message: string): void {
-    this.messages.push(message);
-  }
-
-  warn(message: string): void {
-    this.messages.push(message);
-  }
-
-  error(message: string): void {
-    this.messages.push(message);
-  }
-}
-
 class FakeUnitOfWork implements IUnitOfWork {
   transactions: IExecutionContext[] = [];
 
@@ -170,7 +149,6 @@ describe('RenameTableHandler', () => {
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const flow = new TableUpdateFlow(repo, schemaRepo, eventBus, unitOfWork);
 
@@ -179,14 +157,12 @@ describe('RenameTableHandler', () => {
       tableId: table.id().toString(),
       name: 'New Name',
     });
-    commandResult._unsafeUnwrap();
 
-    const handler = new RenameTableHandler(flow, logger);
+    const handler = new RenameTableHandler(flow);
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    result._unsafeUnwrap();
 
     expect(repo.updated).toHaveLength(1);
-    expect(result.value.table.name().toString()).toBe('New Name');
+    expect(result._unsafeUnwrap().table.name().toString()).toBe('New Name');
     expect(eventBus.published.some((event) => event instanceof TableRenamed)).toBe(true);
     expect(unitOfWork.transactions.length).toBe(1);
   });
@@ -200,8 +176,7 @@ describe('RenameTableHandler', () => {
         new FakeTableSchemaRepository(),
         new FakeEventBus(),
         new FakeUnitOfWork()
-      ),
-      new FakeLogger()
+      )
     );
 
     const commandResult = RenameTableCommand.create({
@@ -209,7 +184,6 @@ describe('RenameTableHandler', () => {
       tableId: table.id().toString(),
       name: 'Renamed',
     });
-    commandResult._unsafeUnwrap();
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrapErr();

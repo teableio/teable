@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { BaseId } from '../domain/base/BaseId';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
+import { TableUpdateCommand } from './TableUpdateCommand';
 
 export const renameTableInputSchema = z.object({
   baseId: z.string(),
@@ -14,12 +15,14 @@ export const renameTableInputSchema = z.object({
 
 export type IRenameTableCommandInput = z.input<typeof renameTableInputSchema>;
 
-export class RenameTableCommand {
+export class RenameTableCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
     readonly tableName: TableName
-  ) {}
+  ) {
+    super(baseId, tableId);
+  }
 
   static create(raw: unknown): Result<RenameTableCommand, string> {
     const parsed = renameTableInputSchema.safeParse(raw);

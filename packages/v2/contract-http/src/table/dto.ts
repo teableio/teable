@@ -427,25 +427,29 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (showAs) options.showAs = showAs.toDto();
     const config: RollupConfigDto = field.configDto();
 
-    return field
-      .cellValueType()
-      .andThen((cellValueType) =>
-        field.isMultipleCellValue().map((isMultipleCellValue) => ({
-          cellValueType,
-          isMultipleCellValue,
-        }))
-      )
-      .map(({ cellValueType, isMultipleCellValue }) => ({
-        id: field.id().toString(),
-        name: field.name().toString(),
-        dbFieldName: this.optionalDbFieldName(field),
-        type: 'rollup',
-        options,
-        config,
-        cellValueType: cellValueType.toString(),
-        isMultipleCellValue: isMultipleCellValue.toBoolean(),
-        isPrimary: field.id().equals(this.primaryFieldId),
-      }));
+    const base = {
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'rollup' as const,
+      options,
+      config,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    };
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    });
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, string> {

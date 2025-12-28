@@ -3,12 +3,13 @@ import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repositor
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
+  FieldCreationSideEffectService,
+  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
   NoopLogger,
   NoopTracer,
-  FieldCreationSideEffectService,
   TableUpdateFlow,
   v2CoreTokens,
   type ICommandBusMiddleware,
@@ -58,6 +59,9 @@ export const registerV2NodePgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
     lifecycle: Lifecycle.Singleton,
   });
 

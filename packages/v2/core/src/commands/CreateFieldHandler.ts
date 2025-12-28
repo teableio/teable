@@ -3,11 +3,11 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
-import * as EventBusPort from '../ports/EventBus';
 import { IExecutionContext } from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -34,8 +34,8 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
     private readonly tableUpdateFlow: TableUpdateFlow,
     @inject(v2CoreTokens.fieldCreationSideEffectService)
     private readonly fieldCreationSideEffectService: FieldCreationSideEffectService,
-    @inject(v2CoreTokens.eventBus)
-    private readonly eventBus: EventBusPort.IEventBus
+    @inject(v2CoreTokens.foreignTableLoaderService)
+    private readonly foreignTableLoaderService: ForeignTableLoaderService
   ) {}
 
   @TraceSpan()
@@ -45,7 +45,11 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
   ): Promise<Result<CreateFieldResult, string>> {
     const handler = this;
     return safeTry<CreateFieldResult, string>(async function* () {
-      const sideEffectEvents: IDomainEvent[] = [];
+      const foreignTableReferences = yield* command.foreignTableReferences();
+      const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
+        baseId: command.baseId,
+        references: foreignTableReferences,
+      });
       let createdField: Field | undefined;
       const updateResult = yield* await handler.tableUpdateFlow.execute(
         context,
@@ -59,30 +63,30 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
               )
               .andThen((field) => {
                 createdField = field;
-                return table.update((mutator) => mutator.addField(field));
+                return table.update((mutator) => mutator.addField(field, { foreignTables }));
               })
           );
         },
         {
-          deferPublish: true,
-          prepare: async (transactionContext, updatedTable) => {
-            const hookResult = safeTry<void, string>(async function* () {
-              if (!createdField) return err('Field not created');
-              const sideEffects = yield* await handler.fieldCreationSideEffectService.execute({
-                context: transactionContext,
-                table: updatedTable,
-                fields: [createdField],
-              });
-              sideEffectEvents.push(...sideEffects);
-              return ok(undefined);
-            });
-            return await hookResult;
+          hooks: {
+            afterPersist: async (transactionContext, updatedTable) =>
+              safeTry<ReadonlyArray<IDomainEvent>, string>(async function* () {
+                if (!createdField) return err('Field not created');
+                const events = yield* await handler.fieldCreationSideEffectService.execute(
+                  transactionContext,
+                  {
+                    table: updatedTable,
+                    fields: [createdField],
+                    foreignTables,
+                  }
+                );
+
+                return ok(events);
+              }),
           },
         }
       );
-      const events = [...updateResult.events, ...sideEffectEvents];
-      yield* await handler.eventBus.publishMany(context, events);
-      return ok(CreateFieldResult.create(updateResult.table, events));
+      return ok(CreateFieldResult.create(updateResult.table, updateResult.events));
     });
   }
 }

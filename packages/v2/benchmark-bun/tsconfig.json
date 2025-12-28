@@ -21,8 +21,13 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-container-bun-test": ["../container-bun-test/src"],
+      "@teable/v2-contract-http-client": ["../contract-http-client/src"],
+      "@teable/v2-contract-http-express": ["../contract-http-express/src"],
+      "@teable/v2-contract-http-fastify": ["../contract-http-fastify/src"],
+      "@teable/v2-contract-http-hono": ["../contract-http-hono/src"],
       "@teable/v2-contract-http-implementation": ["../contract-http-implementation/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],
+      "@teable/v2-contract-http-openapi": ["../contract-http-openapi/src"],
       "@teable/v2-adapter-schema-repository-postgres": [
         "../adapter-schema-repository-postgres/src"
       ],
@@ -45,6 +50,11 @@
   "include": [
     "src",
     "../container-bun-test/src",
+    "../contract-http-client/src",
+    "../contract-http-express/src",
+    "../contract-http-fastify/src",
+    "../contract-http-hono/src",
+    "../contract-http-openapi/src",
     "../contract-http-implementation/src",
     "../contract-http/src",
     "../adapter-schema-repository-postgres/src",

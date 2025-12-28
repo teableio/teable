@@ -12,6 +12,7 @@ import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
+import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
@@ -256,13 +257,19 @@ export class Table extends AggregateRoot<TableId> {
     return ok(nextTable);
   }
 
-  addField(field: Field): Result<Table, string> {
+  addField(
+    field: Field,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): Result<Table, string> {
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
       return err('Field already exists');
     }
     if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
       return err('Field names must be unique');
     }
+
+    const validationResult = this.validateForeignTables([field], options?.foreignTables);
+    if (validationResult.isErr()) return err(validationResult.error);
 
     const nextFields = [...this.fieldsValue, field];
     const nextViewsResult = this.cloneViewsWithField(nextFields, field);
@@ -285,6 +292,14 @@ export class Table extends AggregateRoot<TableId> {
       if (!field.type().equals(FieldType.formula())) return ok(nextTable);
       return resolveFormulaFields(nextTable).map(() => nextTable);
     });
+  }
+
+  private validateForeignTables(
+    fields: ReadonlyArray<Field>,
+    foreignTables?: ReadonlyArray<Table>
+  ): Result<void, string> {
+    if (!foreignTables || foreignTables.length === 0) return ok(undefined);
+    return validateForeignTablesForFields(fields, { hostTable: this, foreignTables });
   }
 
   private cloneWithName(nextName: TableName): Result<Table, string> {

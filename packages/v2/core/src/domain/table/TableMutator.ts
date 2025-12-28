@@ -32,8 +32,11 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
-  addField(field: Field): TableMutateSpecBuilder {
-    const nextTableResult = this.currentTable.addField(field);
+  addField(
+    field: Field,
+    options?: { foreignTables?: ReadonlyArray<Table> }
+  ): TableMutateSpecBuilder {
+    const nextTableResult = this.currentTable.addField(field, options);
     if (nextTableResult.isErr()) {
       this.recordError(nextTableResult.error);
       return this;
@@ -92,8 +95,8 @@ export class TableMutator {
     return this;
   }
 
-  addField(field: Field): TableMutator {
-    this.builder.addField(field);
+  addField(field: Field, options?: { foreignTables?: ReadonlyArray<Table> }): TableMutator {
+    this.builder.addField(field, options);
     this.hasUpdates = true;
     return this;
   }

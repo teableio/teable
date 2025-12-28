@@ -12,6 +12,7 @@ export class TableByIdsSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
   private constructor(private readonly tableIdsValue: ReadonlyArray<TableId>) {}
 
   static create(tableIds: ReadonlyArray<TableId>): TableByIdsSpec {
+    // TODO: unique tableIds
     return new TableByIdsSpec([...tableIds]);
   }
 

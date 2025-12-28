@@ -1,24 +1,19 @@
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import { BaseId } from '../../../base/BaseId';
-import { Table } from '../../Table';
-import { TableName } from '../../TableName';
-import type { Field } from '../Field';
-import { FieldId } from '../FieldId';
-import { FieldName } from '../FieldName';
-import { LinkFieldConfig } from '../types/LinkFieldConfig';
-import { RollupExpression } from '../types/RollupExpression';
-import type { RollupField } from '../types/RollupField';
-import { RollupFieldConfig } from '../types/RollupFieldConfig';
-import { FieldForeignTableValidationVisitor } from './FieldForeignTableValidationVisitor';
+import { BaseId } from '../../base/BaseId';
+import { Table } from '../Table';
+import { TableName } from '../TableName';
+import type { Field } from './Field';
+import { FieldId } from './FieldId';
+import { FieldName } from './FieldName';
+import { validateForeignTablesForFields } from './ForeignTableRelatedField';
+import { LinkFieldConfig } from './types/LinkFieldConfig';
+import { RollupExpression } from './types/RollupExpression';
+import type { RollupField } from './types/RollupField';
+import { RollupFieldConfig } from './types/RollupFieldConfig';
 
-const unwrap = <T>(result: Result<T, string>): T => {
-  if (result.isErr()) {
-    throw new Error(result.error);
-  }
-  return result.value;
-};
+const unwrap = <T>(result: Result<T, string>): T => result._unsafeUnwrap();
 
 const buildForeignTable = (baseId: BaseId) => {
   const builder = Table.builder()
@@ -93,7 +88,7 @@ const buildHostTable = (
   return unwrap(builder.build());
 };
 
-describe('FieldForeignTableValidationVisitor (rollup)', () => {
+describe('ForeignTableValidation (rollup)', () => {
   it('resolves rollup field result types from foreign tables', () => {
     const baseId = unwrap(BaseId.generate());
     const foreign = buildForeignTable(baseId);
@@ -104,11 +99,10 @@ describe('FieldForeignTableValidationVisitor (rollup)', () => {
     });
 
     const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
-    const result = FieldForeignTableValidationVisitor.validate(rollupFields, {
-      table: host,
+    validateForeignTablesForFields(rollupFields, {
+      hostTable: host,
       foreignTables: [foreign.table],
-    });
-    result._unsafeUnwrap();
+    })._unsafeUnwrap();
 
     const rollup = host.fields().find((f) => f.type().toString() === 'rollup') as RollupField;
     const cellValueType = unwrap(rollup.cellValueType());
@@ -132,13 +126,12 @@ describe('FieldForeignTableValidationVisitor (rollup)', () => {
     });
 
     const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
-    const result = FieldForeignTableValidationVisitor.validate(rollupFields, {
-      table: host,
+    const error = validateForeignTablesForFields(rollupFields, {
+      hostTable: host,
       foreignTables: [foreign.table],
-    });
-    result._unsafeUnwrapErr();
+    })._unsafeUnwrapErr();
 
-    expect(result.error).toBe('RollupField link field not found');
+    expect(error).toBe('RollupField link field not found');
   });
 
   it('fails when foreign table is missing', () => {
@@ -151,13 +144,12 @@ describe('FieldForeignTableValidationVisitor (rollup)', () => {
     });
 
     const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
-    const result = FieldForeignTableValidationVisitor.validate(rollupFields, {
-      table: host,
+    const error = validateForeignTablesForFields(rollupFields, {
+      hostTable: host,
       foreignTables: [],
-    });
-    result._unsafeUnwrapErr();
+    })._unsafeUnwrapErr();
 
-    expect(result.error).toBe('RollupField foreign table not loaded');
+    expect(error).toBe('RollupField foreign table not loaded');
   });
 
   it('fails when lookup field is missing', () => {
@@ -171,12 +163,11 @@ describe('FieldForeignTableValidationVisitor (rollup)', () => {
     });
 
     const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
-    const result = FieldForeignTableValidationVisitor.validate(rollupFields, {
-      table: host,
+    const error = validateForeignTablesForFields(rollupFields, {
+      hostTable: host,
       foreignTables: [foreign.table],
-    });
-    result._unsafeUnwrapErr();
+    })._unsafeUnwrapErr();
 
-    expect(result.error).toBe('RollupField lookup field not found');
+    expect(error).toBe('RollupField lookup field not found');
   });
 });

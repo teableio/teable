@@ -3,9 +3,15 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
 import type { ITableFieldInput } from './TableFieldSpecs';
-import { tableFieldInputSchema } from './TableFieldSpecs';
+import {
+  parseTableFieldSpec,
+  resolveTableFieldInputName,
+  tableFieldInputSchema,
+} from './TableFieldSpecs';
+import { TableUpdateCommand } from './TableUpdateCommand';
 
 export const createFieldInputSchema = z.object({
   baseId: z.string(),
@@ -15,12 +21,14 @@ export const createFieldInputSchema = z.object({
 
 export type ICreateFieldCommandInput = z.input<typeof createFieldInputSchema>;
 
-export class CreateFieldCommand {
+export class CreateFieldCommand extends TableUpdateCommand {
   private constructor(
     readonly baseId: BaseId,
     readonly tableId: TableId,
     readonly field: ITableFieldInput
-  ) {}
+  ) {
+    super(baseId, tableId);
+  }
 
   static create(raw: unknown): Result<CreateFieldCommand, string> {
     const parsed = createFieldInputSchema.safeParse(raw);
@@ -33,6 +41,14 @@ export class CreateFieldCommand {
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(
         (tableId) => new CreateFieldCommand(baseId, tableId, parsed.data.field)
+      )
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return resolveTableFieldInputName(this.field, []).andThen((resolved) =>
+      parseTableFieldSpec(resolved, { isPrimary: false }).andThen((spec) =>
+        spec.foreignTableReferences()
       )
     );
   }

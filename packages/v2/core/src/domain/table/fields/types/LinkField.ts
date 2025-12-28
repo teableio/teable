@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../../base/BaseId';
 import { DbTableName } from '../../DbTableName';
-import type { ForeignTable } from '../../ForeignTable';
+import { ForeignTable } from '../../ForeignTable';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { ViewId } from '../../views/ViewId';
@@ -12,6 +12,10 @@ import { Field } from '../Field';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import {
   LinkFieldConfig,
@@ -21,7 +25,7 @@ import {
 import type { LinkFieldMeta, LinkFieldMetaValue } from './LinkFieldMeta';
 import type { LinkRelationship } from './LinkRelationship';
 
-export class LinkField extends Field {
+export class LinkField extends Field implements ForeignTableRelatedField {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -235,6 +239,20 @@ export class LinkField extends Field {
     );
   }
 
+  validateForeignTables(context: ForeignTableValidationContext): Result<void, string> {
+    const foreignTableResult = this.resolveForeignTable(context.foreignTables);
+    if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+    const foreignTable = foreignTableResult.value;
+
+    const lookupResult = this.lookupField(foreignTable);
+    if (lookupResult.isErr()) return err(lookupResult.error);
+
+    const visibleResult = this.visibleFields(foreignTable);
+    if (visibleResult.isErr()) return err(visibleResult.error);
+
+    return ok(undefined);
+  }
+
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
     return visitor.visitLinkField(this);
   }
@@ -329,5 +347,11 @@ export class LinkField extends Field {
     const baseNameResult = FieldName.create(hostTable.name().toString());
     if (baseNameResult.isErr()) return err(baseNameResult.error);
     return foreignTable.generateFieldName(baseNameResult.value);
+  }
+
+  private resolveForeignTable(foreignTables: ReadonlyArray<Table>): Result<ForeignTable, string> {
+    const table = foreignTables.find((candidate) => candidate.id().equals(this.foreignTableId()));
+    if (!table) return err('Foreign table not loaded');
+    return ok(ForeignTable.from(table));
   }
 }

@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -18,7 +19,6 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { ILogger } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -102,23 +102,6 @@ class FakeEventBus implements IEventBus {
   }
 }
 
-class FakeLogger implements ILogger {
-  readonly messages: string[] = [];
-
-  debug(message: string): void {
-    this.messages.push(message);
-  }
-  info(message: string): void {
-    this.messages.push(message);
-  }
-  warn(message: string): void {
-    this.messages.push(message);
-  }
-  error(message: string): void {
-    this.messages.push(message);
-  }
-}
-
 class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
@@ -163,7 +146,6 @@ describe('CreateFieldHandler', () => {
     const tableRepository = new InMemoryTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
-    const logger = new FakeLogger();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
@@ -171,15 +153,12 @@ describe('CreateFieldHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-      tableRepository,
-      tableUpdateFlow
-    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateFieldHandler(
       tableUpdateFlow,
       fieldCreationSideEffectService,
-      eventBus,
-      logger
+      foreignTableLoaderService
     );
 
     tableRepository.tables.push(
@@ -241,9 +220,8 @@ describe('CreateFieldHandler', () => {
         },
       },
     });
-    selfCommand._unsafeUnwrap();
 
-    const selfResult = await handler.handle(createContext(), selfCommand.value);
+    const selfResult = await handler.handle(createContext(), selfCommand._unsafeUnwrap());
     selfResult._unsafeUnwrap();
 
     const selfTable = tableRepository.tables.find((table) => table.id().toString() === hostTableId);

@@ -1,13 +1,17 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { ForeignTable } from '../../ForeignTable';
+import { ForeignTable } from '../../ForeignTable';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
 import { FieldType } from '../FieldType';
+import type {
+  ForeignTableRelatedField,
+  ForeignTableValidationContext,
+} from '../ForeignTableRelatedField';
 import { FieldValueTypeVisitor } from '../visitors/FieldValueTypeVisitor';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import type { CellValueMultiplicity } from './CellValueMultiplicity';
@@ -40,7 +44,7 @@ type RollupValuesType = {
   isMultipleCellValue: CellValueMultiplicity;
 };
 
-export class RollupField extends Field {
+export class RollupField extends Field implements ForeignTableRelatedField {
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -292,6 +296,38 @@ export class RollupField extends Field {
 
   private rehydrateResultType(resultType: RollupResultType): Result<void, string> {
     return this.applyResultType(resultType);
+  }
+
+  validateForeignTables(context: ForeignTableValidationContext): Result<void, string> {
+    const linkFieldId = this.linkFieldId();
+    const linkField = context.hostTable
+      .fields()
+      .find((candidate) => candidate.id().equals(linkFieldId));
+    if (!linkField) return err('RollupField link field not found');
+    if (linkField.type().toString() !== 'link') {
+      return err('RollupField link field must be a LinkField');
+    }
+
+    const foreignTable = context.foreignTables.find((candidate) =>
+      candidate.id().equals(this.foreignTableId())
+    );
+    if (!foreignTable) return err('RollupField foreign table not loaded');
+
+    const lookupField = ForeignTable.from(foreignTable)
+      .fieldById(this.lookupFieldId())
+      .mapErr(() => 'RollupField lookup field not found');
+    if (lookupField.isErr()) return err(lookupField.error);
+
+    const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
+    if (valuesTypeResult.isErr()) return err(valuesTypeResult.error);
+
+    const resolveResult = this.resolveResultType({
+      cellValueType: valuesTypeResult.value.cellValueType,
+      isMultipleCellValue: valuesTypeResult.value.isMultipleCellValue,
+    });
+    if (resolveResult.isErr()) return err(resolveResult.error);
+
+    return this.setDependencies([linkFieldId]);
   }
 
   accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {

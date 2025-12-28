@@ -7,6 +7,7 @@ import type { Field } from './fields/Field';
 import { createNewLinkField } from './fields/FieldFactory';
 import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
+import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { AttachmentField } from './fields/types/AttachmentField';
 import { ButtonField } from './fields/types/ButtonField';
 import { ButtonLabel } from './fields/types/ButtonLabel';
@@ -76,6 +77,11 @@ export interface ITableBuildProps {
   dbTableName?: DbTableName;
 }
 
+export type TableBuildOptions = {
+  foreignTables?: ReadonlyArray<Table>;
+  includeSelf?: boolean;
+};
+
 export type ITableFactory = (props: ITableBuildProps) => Table;
 
 export interface ITableBuilderSink {
@@ -142,7 +148,7 @@ export class TableBuilder {
     return new TableViewBuilder(this, this.sink());
   }
 
-  build(): Result<Table, string> {
+  build(options?: TableBuildOptions): Result<Table, string> {
     const tableName = this.tableName;
     if (!tableName) return err('TableName is required');
     const baseId = this.baseId;
@@ -177,6 +183,8 @@ export class TableBuilder {
         views: [...this.views],
         primaryFieldId,
       });
+      const validationResult = this.validateForeignTables(table, options);
+      if (validationResult.isErr()) return err(validationResult.error);
       const resolveResult = resolveFormulaFields(table);
       if (resolveResult.isErr()) return err(resolveResult.error);
       return ok(table);
@@ -252,6 +260,18 @@ export class TableBuilder {
       if (setResult.isErr()) return err(setResult.error);
     }
     return ok(undefined);
+  }
+
+  private validateForeignTables(table: Table, options?: TableBuildOptions): Result<void, string> {
+    const foreignTables = [...(options?.foreignTables ?? [])];
+    if (options?.includeSelf) {
+      foreignTables.push(table);
+    }
+    if (foreignTables.length === 0) return ok(undefined);
+    return validateForeignTablesForFields(table.fields(), {
+      hostTable: table,
+      foreignTables,
+    });
   }
 }
 

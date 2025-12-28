@@ -1,6 +1,7 @@
 import {
   BaseId,
   FieldCreationSideEffectService,
+  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
@@ -38,6 +39,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow);
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService);
+  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService);
   c.registerInstance(v2CoreTokens.logger, new NoopLogger());
   c.registerInstance(v2CoreTokens.tracer, new NoopTracer());
 

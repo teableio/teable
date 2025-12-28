@@ -23,8 +23,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldId.ts` - Role: value object; Purpose: FieldId validation and generation.
 - `FieldName.ts` - Role: value object; Purpose: FieldName validation and wrapping.
 - `FieldType.ts` - Role: value object; Purpose: field type enumeration wrapper.
+- `ForeignTableRelatedField.ts` - Role: interface + helper; Purpose: validate cross-table references in field types.
+- `ForeignTableValidation.spec.ts` - Role: tests; Purpose: cover rollup foreign table validation.
 - `visitors/FieldCreationSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field creation.
-- `visitors/FieldForeignTableValidationVisitor.ts` - Role: visitor; Purpose: validate cross-table references for link/rollup fields.
 - `visitors/FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
 - `visitors/LinkForeignTableReferenceVisitor.ts` - Role: visitor; Purpose: collect foreign table references from link fields.
 - `fieldPredicates.ts` - Role: functional utils; Purpose: predicates to check field types

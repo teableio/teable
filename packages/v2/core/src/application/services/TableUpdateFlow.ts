@@ -2,13 +2,12 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { BaseId } from '../../domain/base/BaseId';
+import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
-import type { TableId } from '../../domain/table/TableId';
 import type { TableUpdateResult } from '../../domain/table/TableMutator';
 import * as EventBusPort from '../../ports/EventBus';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -18,25 +17,26 @@ import { v2CoreTokens } from '../../ports/tokens';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 
 type TableUpdateMutate = (table: Table) => Result<TableUpdateResult, string>;
-type TableUpdateTransactionHook = (
+type TableUpdateFlowHook = (
   context: IExecutionContext,
   table: Table,
   mutateSpec: ISpecification<Table, ITableSpecVisitor>
-) => Promise<Result<void, string>>;
+) => Promise<Result<ReadonlyArray<IDomainEvent>, string>>;
 
 type TableUpdateTarget =
   | {
       table: Table;
     }
-  | {
-      baseId: BaseId;
-      tableId: TableId;
-    };
+  | TableUpdateCommand;
 
 type TableUpdateFlowOptions = {
   publishEvents?: boolean;
-  deferPublish?: boolean;
-  prepare?: TableUpdateTransactionHook;
+  hooks?: TableUpdateFlowHooks;
+};
+
+type TableUpdateFlowHooks = {
+  prepare?: TableUpdateFlowHook;
+  afterPersist?: TableUpdateFlowHook;
 };
 
 export type TableUpdateFlowResult = {
@@ -65,45 +65,59 @@ export class TableUpdateFlow {
     mutate: TableUpdateMutate,
     options?: TableUpdateFlowOptions
   ): Promise<Result<TableUpdateFlowResult, string>> {
-    const tableRepository = this.tableRepository;
-    const tableSchemaRepository = this.tableSchemaRepository;
-    const unitOfWork = this.unitOfWork;
-    const eventBus = this.eventBus;
-    const resolveTable = this.resolveTable.bind(this);
-    const result = await safeTry<TableUpdateFlowResult, string>(async function* () {
-      const table = yield* await resolveTable(context, target);
+    const publishEvents = options?.publishEvents ?? true;
+    const handler = this;
+    return await safeTry<TableUpdateFlowResult, string>(async function* () {
+      const events: IDomainEvent[] = [];
+      const table = yield* await handler.resolveTable(context, target);
+
       const span = context.tracer?.startSpan('teable.TableUpdateFlow.mutate');
       const updated = yield* mutate(table);
       span?.end();
+
       const updatedTable = updated.table;
+      events.push(...updatedTable.pullDomainEvents());
+
       const mutateSpec = updated.mutateSpec;
-      yield* await unitOfWork.withTransaction(context, async (transactionContext) => {
-        const resultAsync = safeTry<void, string>(async function* () {
-          if (options?.prepare) {
-            yield* await options.prepare(transactionContext, updatedTable, mutateSpec);
+      yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
+        return safeTry<void, string>(async function* () {
+          if (options?.hooks?.prepare) {
+            const prepareEvents = yield* await options.hooks.prepare(
+              transactionContext,
+              updatedTable,
+              mutateSpec
+            );
+            events.push(...prepareEvents);
           }
-          const updateResult = await tableRepository.updateOne(
+
+          yield* await handler.tableRepository.updateOne(
             transactionContext,
             updatedTable,
             mutateSpec
           );
-          if (updateResult.isErr()) {
-            if (updateResult.error === 'Not found') return err('Table not found');
-            return err(updateResult.error);
+          yield* await handler.tableSchemaRepository.update(
+            transactionContext,
+            updatedTable,
+            mutateSpec
+          );
+
+          if (options?.hooks?.afterPersist) {
+            const afterPersistEvents = yield* await options.hooks.afterPersist(
+              transactionContext,
+              updatedTable,
+              mutateSpec
+            );
+            events.push(...afterPersistEvents);
           }
-          yield* await tableSchemaRepository.update(transactionContext, updatedTable, mutateSpec);
           return ok(undefined);
         });
-        return await resultAsync;
       });
-      const events = updatedTable.pullDomainEvents();
-      const shouldPublish = options?.deferPublish ? false : options?.publishEvents ?? true;
-      if (shouldPublish) {
-        yield* await eventBus.publishMany(context, events);
+
+      if (publishEvents) {
+        yield* await handler.eventBus.publishMany(context, events);
       }
       return ok({ table: updatedTable, events });
     });
-    return result;
   }
 
   private async resolveTable(

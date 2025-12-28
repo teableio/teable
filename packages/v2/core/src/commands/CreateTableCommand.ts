@@ -4,12 +4,14 @@ import { match } from 'ts-pattern';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
-import type { TableBuilder } from '../domain/table/TableBuilder';
+import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuilder';
 import { TableId } from '../domain/table/TableId';
 import { TableName } from '../domain/table/TableName';
 import { ViewName } from '../domain/table/views/ViewName';
 import {
+  collectForeignTableReferences,
   type ICreateTableFieldSpec,
   type ITableFieldInput,
   parseTableFieldSpec,
@@ -149,6 +151,10 @@ export class CreateTableCommand {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return collectForeignTableReferences(this.fields);
+  }
+
   private static parseFields(
     rawFields: ReadonlyArray<ITableFieldInput>
   ): Result<ReadonlyArray<ICreateTableFieldSpec>, string> {
@@ -215,7 +221,10 @@ export class CreateTableCommand {
   }
 }
 
-export function buildTable(command: CreateTableCommand): Result<Table, string> {
+export function buildTable(
+  command: CreateTableCommand,
+  options?: TableBuildOptions
+): Result<Table, string> {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
   if (command.tableId) {
     builder.withId(command.tableId);
@@ -229,8 +238,5 @@ export function buildTable(command: CreateTableCommand): Result<Table, string> {
     viewSpec.applyTo(builder);
   }
 
-  const tableResult = builder.build();
-  if (tableResult.isErr()) return err(tableResult.error);
-
-  return ok(tableResult.value);
+  return builder.build(options);
 }

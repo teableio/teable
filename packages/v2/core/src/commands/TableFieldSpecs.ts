@@ -64,6 +64,7 @@ import { TIME_ZONE_LIST, TimeZone } from '../domain/table/fields/types/TimeZone'
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
+import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { TableBuilder } from '../domain/table/TableBuilder';
 import type { TableId } from '../domain/table/TableId';
 
@@ -424,7 +425,33 @@ export const resolveTableFieldInputs = (
 export interface ICreateTableFieldSpec {
   applyTo(builder: TableBuilder): void;
   createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string>;
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string>;
 }
+
+const uniqueForeignTableReferences = (
+  refs: ReadonlyArray<LinkForeignTableReference>
+): ReadonlyArray<LinkForeignTableReference> => {
+  const unique: LinkForeignTableReference[] = [];
+  const seen = new Set<string>();
+  for (const ref of refs) {
+    const baseKey = ref.baseId ? ref.baseId.toString() : 'local';
+    const key = `${baseKey}:${ref.foreignTableId.toString()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(ref);
+  }
+  return unique;
+};
+
+export const collectForeignTableReferences = (
+  specs: ReadonlyArray<ICreateTableFieldSpec>
+): Result<ReadonlyArray<LinkForeignTableReference>, string> => {
+  return specs
+    .reduce<
+      Result<ReadonlyArray<LinkForeignTableReference>, string>
+    >((acc, spec) => acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])), ok([]))
+    .map((refs) => uniqueForeignTableReferences(refs));
+};
 
 class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
   private constructor(
@@ -472,6 +499,10 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateSingleLineTextFieldSpec {
@@ -510,6 +541,10 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
     return resolveFieldId(this.id).andThen((id) =>
       createLongTextField({ id, name: this.name, defaultValue: this.defaultValue })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -571,6 +606,10 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateNumberFieldSpec {
@@ -628,6 +667,10 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
         color: this.color,
       })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -695,6 +738,10 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
         showAs: this.showAs,
       })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -769,6 +816,14 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([
+      {
+        foreignTableId: this.config.foreignTableId(),
+      },
+    ]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateRollupFieldSpec {
@@ -807,6 +862,15 @@ class CreateLinkFieldSpec implements ICreateTableFieldSpec {
     return resolveFieldId(this.id).andThen((id) =>
       createNewLinkField({ id, name: this.name, config: this.config, baseId, hostTableId: tableId })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([
+      {
+        foreignTableId: this.config.foreignTableId(),
+        baseId: this.config.baseId(),
+      },
+    ]);
   }
 
   private isPrimary = false;
@@ -873,6 +937,10 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateSingleSelectFieldSpec {
@@ -937,6 +1005,10 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateMultipleSelectFieldSpec {
@@ -977,6 +1049,10 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateCheckboxFieldSpec {
@@ -1009,6 +1085,10 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
     if (this.isPrimary) return err('Primary field updates are not supported');
     return resolveFieldId(this.id).andThen((id) => createAttachmentField({ id, name: this.name }));
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -1060,6 +1140,10 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
         defaultValue: this.defaultValue,
       })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -1119,6 +1203,10 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
         defaultValue: this.defaultValue,
       })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;
@@ -1188,6 +1276,10 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
         workflow: this.workflow,
       })
     );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
   }
 
   private isPrimary = false;

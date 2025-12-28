@@ -6,7 +6,8 @@ import {
 } from '@teable/v2-table-templates';
 import { Bench } from 'tinybench';
 
-import { createBunBenchContext } from './bench-context';
+import type { IBunBenchTarget } from './bench-context';
+import { createBunBenchTargets } from './bench-context';
 
 const benchOptions = {
   iterations: 0,
@@ -16,13 +17,13 @@ const benchOptions = {
   throws: true,
 };
 
-const createTableName = (scenario: string): string => {
+const createTableName = (framework: string, scenario: string): string => {
   const random = Math.random().toString(36).slice(2, 8);
-  return `Bench_Bun_${scenario}_${Date.now()}_${random}`;
+  return `Bench_Bun_${framework}_${scenario}_${Date.now()}_${random}`;
 };
 
 export const runCreateTableBench = async (): Promise<void> => {
-  const context = await createBunBenchContext();
+  const context = await createBunBenchTargets();
 
   try {
     const simpleFields = createSimpleFields();
@@ -30,14 +31,18 @@ export const runCreateTableBench = async (): Promise<void> => {
     const fields200 = createTextColumns(200);
     const fields1000 = createTextColumns(1000);
 
-    const runCreateTable = async (scenario: string, fields: ICreateTableRequestDto['fields']) => {
+    const runCreateTable = async (
+      target: IBunBenchTarget,
+      scenario: string,
+      fields: ICreateTableRequestDto['fields']
+    ) => {
       const input = {
         baseId: context.baseId,
-        name: createTableName(scenario),
+        name: createTableName(target.name, scenario),
         fields,
       };
 
-      const response = await context.client.tables.create(input);
+      const response = await target.client.tables.create(input);
       if (!response.ok) {
         throw new Error('Create table failed');
       }
@@ -49,9 +54,11 @@ export const runCreateTableBench = async (): Promise<void> => {
       fields: ICreateTableRequestDto['fields']
     ) => {
       const bench = new Bench(benchOptions);
-      bench.add(`bun: create table: ${label}`, async () => {
-        await runCreateTable(scenario, fields);
-      });
+      for (const target of context.targets) {
+        bench.add(`${target.name}: create table: ${label}`, async () => {
+          await runCreateTable(target, scenario, fields);
+        });
+      }
 
       console.log(`[bun-bench] running create table benchmarks: ${label}`);
       await bench.run();

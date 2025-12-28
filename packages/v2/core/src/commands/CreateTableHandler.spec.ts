@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
+import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
@@ -164,15 +165,14 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-      tableRepository,
-      tableUpdateFlow
-    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
 
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
       fieldCreationSideEffectService,
+      foreignTableLoaderService,
       eventBus,
       unitOfWork
     );
@@ -216,14 +216,13 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-      tableRepository,
-      tableUpdateFlow
-    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
       fieldCreationSideEffectService,
+      foreignTableLoaderService,
       eventBus,
       unitOfWork
     );
@@ -257,15 +256,14 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-      tableRepository,
-      tableUpdateFlow
-    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
 
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
       fieldCreationSideEffectService,
+      foreignTableLoaderService,
       eventBus,
       unitOfWork
     );
@@ -307,15 +305,14 @@ describe('CreateTableHandler', () => {
       eventBus,
       unitOfWork
     );
-    const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-      tableRepository,
-      tableUpdateFlow
-    );
+    const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+    const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
 
     const handler = new CreateTableHandler(
       tableRepository,
       schemaRepository,
       fieldCreationSideEffectService,
+      foreignTableLoaderService,
       eventBus,
       unitOfWork
     );
@@ -372,14 +369,13 @@ describe('CreateTableHandler', () => {
         eventBus,
         unitOfWork
       );
-      const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-        tableRepository,
-        tableUpdateFlow
-      );
+      const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+      const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
         fieldCreationSideEffectService,
+        foreignTableLoaderService,
         eventBus,
         unitOfWork
       );
@@ -436,14 +432,13 @@ describe('CreateTableHandler', () => {
         eventBus,
         unitOfWork
       );
-      const fieldCreationSideEffectService = new FieldCreationSideEffectService(
-        tableRepository,
-        tableUpdateFlow
-      );
+      const fieldCreationSideEffectService = new FieldCreationSideEffectService(tableUpdateFlow);
+      const foreignTableLoaderService = new ForeignTableLoaderService(tableRepository);
       const handler = new CreateTableHandler(
         tableRepository,
         schemaRepository,
         fieldCreationSideEffectService,
+        foreignTableLoaderService,
         eventBus,
         unitOfWork
       );

@@ -255,25 +255,28 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     if (showAs) options.showAs = showAs.toDto();
     const config: IRollupFieldConfigDTO = field.configDto();
     const isComputed = field.computed().toBoolean();
-
-    return field
-      .cellValueType()
-      .andThen((cellValueType) =>
-        field.isMultipleCellValue().map((isMultipleCellValue) => ({
-          cellValueType,
-          isMultipleCellValue,
-        }))
-      )
-      .map(({ cellValueType, isMultipleCellValue }) => ({
-        id: field.id().toString(),
-        name: field.name().toString(),
-        type: 'rollup' as const,
-        options,
-        config,
-        cellValueType: cellValueType.toString(),
-        isMultipleCellValue: isMultipleCellValue.toBoolean(),
-        isComputed,
-      }));
+    const base = {
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'rollup' as const,
+      options,
+      config,
+      isComputed,
+    };
+    const resultType = field.cellValueType().andThen((cellValueType) =>
+      field.isMultipleCellValue().map((isMultipleCellValue) => ({
+        cellValueType,
+        isMultipleCellValue,
+      }))
+    );
+    if (resultType.isErr()) {
+      return ok(base);
+    }
+    return ok({
+      ...base,
+      cellValueType: resultType.value.cellValueType.toString(),
+      isMultipleCellValue: resultType.value.isMultipleCellValue.toBoolean(),
+    });
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, string> {
@@ -567,19 +570,27 @@ export class DefaultTableMapper implements ITableMapper {
                     parseFormulaFormatting(options.formatting).andThen((formatting) =>
                       parseFormulaShowAs(options.showAs).andThen((showAs) =>
                         parseFormulaResultType(dto.cellValueType, dto.isMultipleCellValue).andThen(
-                          (resultType) => {
-                            if (!resultType) return err('RollupField result type is required');
-                            return RollupField.rehydrate({
-                              id,
-                              name,
-                              config,
-                              expression,
-                              timeZone,
-                              formatting,
-                              showAs,
-                              resultType,
-                            });
-                          }
+                          (resultType) =>
+                            resultType
+                              ? RollupField.rehydrate({
+                                  id,
+                                  name,
+                                  config,
+                                  expression,
+                                  timeZone,
+                                  formatting,
+                                  showAs,
+                                  resultType,
+                                })
+                              : RollupField.createPending({
+                                  id,
+                                  name,
+                                  config,
+                                  expression,
+                                  timeZone,
+                                  formatting,
+                                  showAs,
+                                })
                         )
                       )
                     )

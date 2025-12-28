@@ -1,4 +1,6 @@
 import {
+  FieldCreationSideEffectService,
+  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
@@ -6,7 +8,6 @@ import {
   NoopTableRepository,
   NoopTableSchemaRepository,
   NoopUnitOfWork,
-  FieldCreationSideEffectService,
   TableUpdateFlow,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -32,6 +33,9 @@ export const registerV2BrowserNoopDependencies = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.logger, NoopLogger, {
