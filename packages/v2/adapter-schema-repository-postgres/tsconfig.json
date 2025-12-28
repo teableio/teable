@@ -21,8 +21,10 @@
     "outDir": "dist",
     "paths": {
       "@teable/v2-container-node-test": ["../container-node-test/src"],
-      "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-adapter-logger-console": ["../adapter-logger-console/src"],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
+      "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"]
     },
@@ -31,9 +33,11 @@
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
   "include": [
     "src",
+    "../adapter-db-postgres-pg/src",
+    "../adapter-logger-console/src",
+    "../adapter-repository-postgres/src",
     "../container-node-test/src",
     "../core/src",
-    "../adapter-db-postgres-pg/src",
     "../di/src",
     "../postgres-schema/src"
   ]

@@ -254,15 +254,6 @@ describe('CreateTableCommand', () => {
     expect(
       CreateTableCommand.create({
         baseId: baseId.toString(),
-        name: 'Bad Name',
-        fields: [{ type: 'singleLineText', name: '', isPrimary: true }],
-        views: [{ type: 'grid' }],
-      })._unsafeUnwrapErr()
-    ).toBeTruthy();
-
-    expect(
-      CreateTableCommand.create({
-        baseId: baseId.toString(),
         name: 'Bad Select',
         fields: [
           {

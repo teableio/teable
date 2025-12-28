@@ -1,6 +1,14 @@
-import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
-import { v2PostgresDbConfigSchema } from '@teable/v2-adapter-db-postgres-pg';
+import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
+import { Kysely } from 'kysely';
+import { z } from 'zod';
 
-export const v2PostgresDdlAdapterConfigSchema = v2PostgresDbConfigSchema;
+const dbSchema = z.custom<Kysely<V1TeableDatabase>>(
+  (value) => value instanceof Kysely,
+  'Invalid Kysely database instance'
+);
 
-export type IV2PostgresDdlAdapterConfig = IV2PostgresDbConfig;
+export const v2PostgresDdlAdapterConfigSchema = z.object({
+  db: dbSchema,
+});
+
+export type IV2PostgresDdlAdapterConfig = z.infer<typeof v2PostgresDdlAdapterConfigSchema>;

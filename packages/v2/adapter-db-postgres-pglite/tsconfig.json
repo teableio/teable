@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "display": "@teable/v2-adapter-repository-postgres",
+  "display": "@teable/v2-adapter-db-postgres-pglite",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
     "module": "ESNext",
@@ -20,12 +20,11 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
       "@teable/v2-core": ["../core/src"],
-      "@teable/v2-di": ["../di/src"],
-      "@teable/v2-postgres-schema": ["../postgres-schema/src"]
-    },
-    "types": ["vitest/globals"]
+      "@teable/v2-di": ["../di/src"]
+    }
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src", "../core/src", "../di/src", "../postgres-schema/src"]
+  "include": ["src", "../adapter-db-postgres-pg/src", "../core/src", "../di/src"]
 }

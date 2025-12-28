@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
 import type { IExecutionContext, ITableRepository, ITableSchemaRepository } from '@teable/v2-core';
@@ -101,7 +100,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
   it('creates record table and field columns', async () => {
     const c = testContainer.container;
 
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const db = testContainer.db;
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
@@ -205,7 +204,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
   it('creates rollup columns and reference entries', async () => {
     const c = testContainer.container;
 
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const db = testContainer.db;
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
@@ -347,7 +346,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
   it('uses v1-compatible column types for fields', async () => {
     const c = testContainer.container;
 
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const db = testContainer.db;
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
     let tableForCleanup: Table | undefined;
     let contextForCleanup: IExecutionContext | undefined;
@@ -542,7 +541,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('persists link order meta after schema insert', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const tableRepo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
       const schemaRepo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
@@ -625,7 +624,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates manyMany join table columns', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -757,7 +756,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates oneMany foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -877,7 +876,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates oneMany one-way join table columns', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -1007,7 +1006,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates manyOne foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -1122,7 +1121,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates oneOne foreign key columns on host table', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
@@ -1236,7 +1235,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     it('creates self-referencing link fields for all relationships', async () => {
       const c = testContainer.container;
 
-      const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+      const db = testContainer.db;
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       const cases = [

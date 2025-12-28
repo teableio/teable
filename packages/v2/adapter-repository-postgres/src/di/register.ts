@@ -1,4 +1,3 @@
-import { registerV2PostgresDb, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { DefaultTableMapper, v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
@@ -22,17 +21,14 @@ export const registerV2PostgresStateAdapter = async (
 
   const config = parsed.data;
 
-  if (!c.isRegistered(v2PostgresDbTokens.db)) {
-    await registerV2PostgresDb(c, config);
-  }
-
-  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+  const db = config.db as Kysely<V1TeableDatabase>;
   const ensureSchema = config.ensureSchema ?? false;
   if (ensureSchema) {
     await ensureV1MetaSchema(db);
   }
 
   c.registerInstance(v2PostgresStateTokens.config, config);
+  c.registerInstance(v2PostgresStateTokens.db, db);
 
   c.register(v2PostgresStateTokens.tableMapper, DefaultTableMapper, {
     lifecycle: Lifecycle.Singleton,

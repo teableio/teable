@@ -1,5 +1,9 @@
 import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
-import { PostgresUnitOfWork, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  PostgresUnitOfWork,
+  registerV2PostgresDb,
+  v2PostgresDbTokens,
+} from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
@@ -28,6 +32,7 @@ export interface IV2BunTestContainer {
   tableRepository: ITableRepository;
   eventBus: MemoryEventBus;
   baseId: BaseId;
+  db: Kysely<V1TeableDatabase>;
   dispose(): Promise<void>;
 }
 
@@ -57,12 +62,18 @@ export const createV2BunTestContainer = async (
     await options.registerDb(c, dbConfig);
   }
 
+  if (!c.isRegistered(v2PostgresDbTokens.db)) {
+    await registerV2PostgresDb(c, dbConfig);
+  }
+
+  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+
   await registerV2PostgresStateAdapter(c, {
-    ...dbConfig,
+    db,
     ensureSchema: true,
   });
 
-  await registerV2PostgresDdlAdapter(c, dbConfig);
+  await registerV2PostgresDdlAdapter(c, { db });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
@@ -90,7 +101,6 @@ export const createV2BunTestContainer = async (
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
 
-  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
     throw new Error(baseIdResult.error);
@@ -120,6 +130,7 @@ export const createV2BunTestContainer = async (
     tableRepository,
     eventBus,
     baseId,
+    db,
     dispose: async () => {
       try {
         await db.destroy();

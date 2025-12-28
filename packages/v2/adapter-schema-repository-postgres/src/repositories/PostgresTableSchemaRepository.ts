@@ -1,4 +1,3 @@
-import { resolvePostgresDb, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
   TraceSpan,
   type IExecutionContext,
@@ -9,11 +8,18 @@ import {
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { ColumnDefinitionBuilder, CompiledQuery, CreateTableBuilder, Kysely } from 'kysely';
-import { sql } from 'kysely';
+import {
+  Kysely,
+  sql,
+  type ColumnDefinitionBuilder,
+  type CompiledQuery,
+  type CreateTableBuilder,
+  type Transaction,
+} from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { v2PostgresDdlTokens } from '../di/tokens';
 import {
   ICreateTableBuilderRef,
   PostgresTableSchemaFieldCreateVisitor,
@@ -23,7 +29,7 @@ import { TableSchemaUpdateVisitor } from '../visitors/TableSchemaUpdateVisitor';
 @injectable()
 export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   constructor(
-    @inject(v2PostgresDbTokens.db)
+    @inject(v2PostgresDdlTokens.db)
     private readonly db: Kysely<V1TeableDatabase>
   ) {}
 
@@ -134,6 +140,26 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     });
   }
 }
+
+type PostgresTransactionContext<DB> = {
+  kind: 'unitOfWorkTransaction';
+  db: Transaction<DB>;
+};
+
+const getPostgresTransaction = <DB>(context: IExecutionContext): Transaction<DB> | null => {
+  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
+  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
+    return transaction.db as Transaction<DB>;
+  }
+  return null;
+};
+
+const resolvePostgresDb = <DB>(
+  db: Kysely<DB>,
+  context: IExecutionContext
+): Kysely<DB> | Transaction<DB> => {
+  return getPostgresTransaction<DB>(context) ?? db;
+};
 
 const describeError = (error: unknown): string => {
   if (error instanceof Error) {

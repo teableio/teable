@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import type {
   AttachmentField,
   ButtonField,
@@ -47,7 +46,7 @@ import {
 import { container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import type { Kysely } from 'kysely';
+import { Kysely, PostgresDialect } from 'kysely';
 import { err, ok } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -55,6 +54,20 @@ type StartedPostgreSqlContainer = Awaited<ReturnType<PostgreSqlContainer['start'
 
 import { registerV2PostgresStateAdapter } from '../di/register';
 import { convertNameToValidCharacter, joinDbTableName } from '../naming';
+
+const createPgDb = async (connectionString: string): Promise<Kysely<V1TeableDatabase>> => {
+  const pg = (await import('pg')) as typeof import('pg') & { default?: typeof import('pg') };
+  const Pool = pg.Pool ?? pg.default?.Pool;
+  if (!Pool) {
+    throw new Error('Missing pg.Pool');
+  }
+
+  return new Kysely<V1TeableDatabase>({
+    dialect: new PostgresDialect({
+      pool: new Pool({ connectionString }),
+    }),
+  });
+};
 
 type IFieldSnapshot =
   | { type: 'singleLineText'; name: string }
@@ -191,12 +204,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('saves and loads a table by specs', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -405,12 +417,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('rejects duplicate db table names within a base', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -479,12 +490,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('finds tables with sort and pagination', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -582,12 +592,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('initializes column meta for all view types', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -732,12 +741,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('filters tables by name like spec', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -810,12 +818,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('persists rollup lookup options with link metadata', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {
@@ -976,12 +983,11 @@ describe('PostgresTableRepository (pg)', () => {
 
   it('updates table name with mutate spec', async () => {
     const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
     await registerV2PostgresStateAdapter(c, {
-      pg: { connectionString: pgContainer.getConnectionUri() },
+      db,
       ensureSchema: true,
     });
-
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
     const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
 
     try {

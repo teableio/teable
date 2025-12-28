@@ -20,11 +20,25 @@
     "rootDir": "../",
     "outDir": "dist",
     "paths": {
+      "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-adapter-db-postgres-pglite": ["../adapter-db-postgres-pglite/src"],
+      "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
+      "@teable/v2-adapter-schema-repository-postgres": [
+        "../adapter-schema-repository-postgres/src"
+      ],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-di": ["../di/src"]
     },
     "types": ["vitest/globals"]
   },
   "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
-  "include": ["src", "../core/src", "../di/src"]
+  "include": [
+    "src",
+    "../adapter-db-postgres-pg/src",
+    "../adapter-db-postgres-pglite/src",
+    "../adapter-repository-postgres/src",
+    "../adapter-schema-repository-postgres/src",
+    "../core/src",
+    "../di/src"
+  ]
 }

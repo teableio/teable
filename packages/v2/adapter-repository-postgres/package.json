@@ -31,7 +31,6 @@
   },
   "dependencies": {
     "@teable/v2-core": "workspace:*",
-    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
     "kysely": "0.28.9",
@@ -46,6 +45,7 @@
     "@types/pg": "8.16.0",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",
+    "pg": "8.11.5",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "@testcontainers/postgresql": "11.10.0",

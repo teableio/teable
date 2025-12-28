@@ -5,10 +5,7 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
-import {
-  ensureV1MetaSchema,
-  registerV2PostgresStateAdapter,
-} from '@teable/v2-adapter-repository-postgres';
+import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { ITableRepository } from '@teable/v2-core';
 import {
@@ -36,6 +33,7 @@ export interface IV2NodeTestContainer {
   tableRepository: ITableRepository;
   eventBus: MemoryEventBus;
   baseId: BaseId;
+  db: Kysely<V1TeableDatabase>;
   dispose(): Promise<void>;
 }
 
@@ -79,20 +77,18 @@ export const createV2NodeTestContainer = async (
 
   const ensureSchema = options.ensureSchema ?? true;
 
-  if (!c.isRegistered(v2PostgresDbTokens.db) && (ensureSchema || options.seedBase)) {
+  if (!c.isRegistered(v2PostgresDbTokens.db)) {
     await registerV2PostgresDb(c, dbConfig);
   }
 
+  const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+
   await registerV2PostgresStateAdapter(c, {
-    ...dbConfig,
+    db,
     ensureSchema,
   });
-  if (ensureSchema) {
-    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
-    await ensureV1MetaSchema(db);
-  }
 
-  await registerV2PostgresDdlAdapter(c, dbConfig);
+  await registerV2PostgresDdlAdapter(c, { db });
 
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
@@ -126,10 +122,7 @@ export const createV2NodeTestContainer = async (
   const baseId = baseIdResult.value;
   const shouldSeedBase = options.seedBase ?? true;
   const shouldSeedSpace = shouldSeedBase;
-  const db = c.isRegistered(v2PostgresDbTokens.db)
-    ? c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db)
-    : undefined;
-  if (shouldSeedBase && db) {
+  if (shouldSeedBase) {
     const spaceId = `spc${getRandomString(16)}`;
     const actorId = 'system';
 
@@ -164,11 +157,10 @@ export const createV2NodeTestContainer = async (
     tableRepository,
     eventBus,
     baseId,
+    db,
     dispose: async () => {
       try {
-        if (db) {
-          await db.destroy();
-        }
+        await db.destroy();
       } finally {
         if (pgContainer) {
           await pgContainer.stop();
