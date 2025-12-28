@@ -182,7 +182,10 @@ function PlaygroundSidebar({
           <SidebarGroup className="shrink-0 py-2">
             <SidebarGroupLabel className="h-6">Base</SidebarGroupLabel>
             <SidebarGroupContent>
-              <form className="flex items-center gap-1.5 px-2" onSubmit={handleBaseSubmit}>
+              <form
+                className="flex items-center gap-1.5 px-2 group-data-[collapsible=icon]:hidden"
+                onSubmit={handleBaseSubmit}
+              >
                 <SidebarInput
                   type="text"
                   placeholder="Base ID"
@@ -209,7 +212,7 @@ function PlaygroundSidebar({
           <SidebarGroup className="shrink-0 pb-4">
             <SidebarGroupLabel className="h-6">Tables</SidebarGroupLabel>
             <SidebarGroupContent>
-              <div className="px-2">
+              <div className="px-2 group-data-[collapsible=icon]:hidden">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <SidebarInput

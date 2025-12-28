@@ -20,7 +20,6 @@ import {
   type SingleSelectField,
   type UserField,
   type ITableRepository,
-  Table,
 } from '@teable/v2-core';
 import { describe, expect, it } from 'vitest';
 
@@ -375,7 +374,7 @@ describe('CreateFieldHandler', () => {
       entry.assert(currentTable);
     }
 
-    const foreignSpecResult = Table.specs(baseId).byId(foreignTable.id()).build();
+    const foreignSpecResult = foreignTable.specs().byId(foreignTable.id()).build();
     foreignSpecResult._unsafeUnwrap();
 
     const foreignResult = await tableRepository.findOne(context, foreignSpecResult._unsafeUnwrap());

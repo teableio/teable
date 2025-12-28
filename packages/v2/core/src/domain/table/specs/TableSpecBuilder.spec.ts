@@ -36,9 +36,7 @@ describe('TableSpecBuilder', () => {
     );
     if (!table || !otherBaseTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
-      .byName(nameResult._unsafeUnwrap())
-      .build();
+    const specResult = table.specs().byName(nameResult._unsafeUnwrap()).build();
     specResult._unsafeUnwrap();
 
     expect(specResult._unsafeUnwrap().isSatisfiedBy(table)).toBe(true);
@@ -61,10 +59,7 @@ describe('TableSpecBuilder', () => {
     );
     if (!table || !otherBaseTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
-      .withoutBaseId()
-      .byName(nameResult._unsafeUnwrap())
-      .build();
+    const specResult = table.specs().withoutBaseId().byName(nameResult._unsafeUnwrap()).build();
     specResult._unsafeUnwrap();
 
     expect(specResult._unsafeUnwrap().isSatisfiedBy(table)).toBe(true);
@@ -84,7 +79,8 @@ describe('TableSpecBuilder', () => {
     const otherTable = buildTable(baseIdResult._unsafeUnwrap(), otherNameResult._unsafeUnwrap());
     if (!table || !otherTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
+    const specResult = table
+      .specs()
       .orGroup((b) => b.byName(nameResult._unsafeUnwrap()).byName(otherNameResult._unsafeUnwrap()))
       .build();
     specResult._unsafeUnwrap();
@@ -106,7 +102,8 @@ describe('TableSpecBuilder', () => {
     const otherTable = buildTable(baseIdResult._unsafeUnwrap(), otherNameResult._unsafeUnwrap());
     if (!table || !otherTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
+    const specResult = table
+      .specs()
       .not((b) => b.byName(nameResult._unsafeUnwrap()))
       .build();
     specResult._unsafeUnwrap();
@@ -130,9 +127,7 @@ describe('TableSpecBuilder', () => {
     const otherTable = buildTable(baseIdResult._unsafeUnwrap(), otherNameResult._unsafeUnwrap());
     if (!table || !otherTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
-      .byNameLike(queryNameResult._unsafeUnwrap())
-      .build();
+    const specResult = table.specs().byNameLike(queryNameResult._unsafeUnwrap()).build();
     specResult._unsafeUnwrap();
 
     expect(specResult._unsafeUnwrap().isSatisfiedBy(table)).toBe(true);
@@ -152,10 +147,7 @@ describe('TableSpecBuilder', () => {
     const otherTable = buildTable(baseIdResult._unsafeUnwrap(), otherNameResult._unsafeUnwrap());
     if (!table || !otherTable) return;
 
-    const specResult = Table.specs(baseIdResult._unsafeUnwrap())
-      .withoutBaseId()
-      .byIds([table.id()])
-      .build();
+    const specResult = table.specs().withoutBaseId().byIds([table.id()]).build();
     specResult._unsafeUnwrap();
 
     expect(specResult._unsafeUnwrap().isSatisfiedBy(table)).toBe(true);

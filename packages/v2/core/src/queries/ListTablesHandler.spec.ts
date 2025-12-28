@@ -46,7 +46,7 @@ describe('ListTablesHandler', () => {
       limit: 1,
       offset: 0,
     });
-    const handler = new ListTablesHandler(repo, new NoopLogger());
+    const handler = new ListTablesHandler(repo);
     const result = await handler.handle(context, queryResult._unsafeUnwrap());
     const payload = result._unsafeUnwrap();
 
@@ -67,7 +67,7 @@ describe('ListTablesHandler', () => {
       baseId: tableA.baseId().toString(),
       q: 'Alp',
     });
-    const handler = new ListTablesHandler(repo, new NoopLogger());
+    const handler = new ListTablesHandler(repo);
     const result = await handler.handle(context, queryResult._unsafeUnwrap());
     const payload = result._unsafeUnwrap();
 
@@ -90,7 +90,7 @@ describe('ListTablesHandler', () => {
       delete: async () => err('nope'),
     };
 
-    const handler = new ListTablesHandler(repo, new NoopLogger());
+    const handler = new ListTablesHandler(repo);
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
     expect(result._unsafeUnwrapErr()).toBe('repository error');
   });

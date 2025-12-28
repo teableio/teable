@@ -578,9 +578,9 @@ type PlaygroundMetaLayoutProps = {
 
 function PlaygroundMetaLayout({ table, baseId, tableId, isLoading }: PlaygroundMetaLayoutProps) {
   return (
-    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
       <TableSchemaCard table={table} />
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <TableViewsCard views={table.views()} />
         <TableConnectionCard
           baseId={baseId}
@@ -611,9 +611,9 @@ function PlaygroundJsonLayout({
   isLoading,
 }: PlaygroundJsonLayoutProps) {
   return (
-    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
       <TableJsonCard table={table} tableJson={tableJson} tableJsonError={tableJsonError} />
-      <div className="space-y-6">
+      <div className="space-y-6 min-w-0">
         <TableViewsCard views={table.views()} />
         <TableConnectionCard
           baseId={baseId}
@@ -639,7 +639,7 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
   };
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="py-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
           <TableIcon className="h-4 w-4 text-muted-foreground" />
@@ -720,7 +720,7 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
   };
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="min-w-0 overflow-hidden">
       <CardHeader className="border-b border-border/60 py-3">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
           <FileJson className="h-4 w-4 text-muted-foreground" />
@@ -795,7 +795,7 @@ function TableViewsCard({ views }: TableViewsCardProps) {
   });
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="py-3">
         <CardTitle className="text-sm font-semibold">Views</CardTitle>
       </CardHeader>
@@ -905,22 +905,28 @@ function TableConnectionCard({ baseId, tableId, table, isLoading }: TableConnect
   const resolvedTableId = tableIdValue || tableId;
 
   return (
-    <Card>
+    <Card className="min-w-0">
       <CardHeader className="py-3">
         <CardTitle className="text-sm font-semibold">Connection</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-xs text-muted-foreground">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <span>Base ID</span>
-          <code className="text-[11px] text-foreground font-mono">{baseIdValue || baseId}</code>
+          <code className="break-all text-[11px] text-foreground font-mono sm:text-right">
+            {baseIdValue || baseId}
+          </code>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <span>Table ID</span>
-          <code className="text-[11px] text-foreground font-mono">{resolvedTableId}</code>
+          <code className="break-all text-[11px] text-foreground font-mono sm:text-right">
+            {resolvedTableId}
+          </code>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <span>DB Table</span>
-          <code className="text-[11px] text-foreground font-mono">{dbTableName ?? '-'}</code>
+          <code className="break-all text-[11px] text-foreground font-mono sm:text-right">
+            {dbTableName ?? '-'}
+          </code>
         </div>
         <div className="flex items-center justify-between">
           <span>Status</span>

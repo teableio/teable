@@ -5,7 +5,6 @@ import {
   RenameTableCommand,
   type CreateTableResult,
   type RenameTableResult,
-  Table,
   TableRenamed,
   v2CoreTokens,
   type ICommandBus,
@@ -50,11 +49,12 @@ describe('RenameTableHandler', () => {
       renameCommandResult._unsafeUnwrap()
     );
     renameResult._unsafeUnwrap();
+    const renamedTable = renameResult._unsafeUnwrap().table;
 
-    expect(renameResult._unsafeUnwrap().table.name().toString()).toBe('Renamed');
+    expect(renamedTable.name().toString()).toBe('Renamed');
     expect(eventBus.events().some((event) => event instanceof TableRenamed)).toBe(true);
 
-    const specResult = Table.specs(baseId).byId(tableId).build();
+    const specResult = renamedTable.specs().byId(renamedTable.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());

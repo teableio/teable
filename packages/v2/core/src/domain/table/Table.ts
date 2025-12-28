@@ -72,9 +72,12 @@ export class Table extends AggregateRoot<TableId> {
     return TableBuilder.create(factory);
   }
 
-  // TODO: instance method
-  static specs(baseId: BaseId, options?: { includeBaseId?: boolean }): TableSpecBuilder {
-    return TableSpecBuilder.create(baseId, options);
+  static specs(baseId: BaseId): TableSpecBuilder {
+    return TableSpecBuilder.create(baseId);
+  }
+
+  specs(): TableSpecBuilder {
+    return TableSpecBuilder.create(this.baseIdValue);
   }
 
   static rehydrate(props: ITableBuildProps): Result<Table, string> {

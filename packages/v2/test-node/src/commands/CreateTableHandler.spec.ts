@@ -12,10 +12,10 @@ import {
   type LinkField,
   type FormulaField,
   type RollupField,
+  type Table,
   type ITableSchemaRepository,
   type ITableSpecVisitor,
   FieldValueTypeVisitor,
-  Table,
   TableCreated,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -64,24 +64,18 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
+    const createdTable = result._unsafeUnwrap().table;
 
     expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
-    expect(
-      result
-        ._unsafeUnwrap()
-        .table.primaryFieldId()
-        .equals(result._unsafeUnwrap().table.fields()[0].id())
-    ).toBe(true);
-    expect(result._unsafeUnwrap().table.baseId().equals(baseId)).toBe(true);
+    expect(createdTable.primaryFieldId().equals(createdTable.fields()[0].id())).toBe(true);
+    expect(createdTable.baseId().equals(baseId)).toBe(true);
 
-    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
+    const specResult = createdTable.specs().byId(createdTable.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
     const savedTable = savedResult._unsafeUnwrap();
-    expect(savedTable.primaryFieldId().equals(result._unsafeUnwrap().table.primaryFieldId())).toBe(
-      true
-    );
+    expect(savedTable.primaryFieldId().equals(createdTable.primaryFieldId())).toBe(true);
   });
 
   it('supports non-text primary field', async () => {
@@ -123,26 +117,19 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
+    const createdTable = result._unsafeUnwrap().table;
 
-    expect(
-      result
-        ._unsafeUnwrap()
-        .table.primaryFieldId()
-        .equals(result._unsafeUnwrap().table.fields()[1].id())
-    ).toBe(true);
+    expect(createdTable.primaryFieldId().equals(createdTable.fields()[1].id())).toBe(true);
 
-    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
+    const specResult = createdTable.specs().byId(createdTable.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
     savedResult._unsafeUnwrap();
 
-    expect(
-      savedResult
-        ._unsafeUnwrap()
-        .primaryFieldId()
-        .equals(result._unsafeUnwrap().table.primaryFieldId())
-    ).toBe(true);
+    expect(savedResult._unsafeUnwrap().primaryFieldId().equals(createdTable.primaryFieldId())).toBe(
+      true
+    );
   });
 
   it('creates tables when rollup and formula fields reference later inputs', async () => {
@@ -391,21 +378,12 @@ describe('CreateTableHandler', () => {
       context,
       commandResult._unsafeUnwrap()
     );
+    const createdTable = result._unsafeUnwrap().table;
 
-    expect(
-      result
-        ._unsafeUnwrap()
-        .table.views()
-        .map((v) => v.type().toString())
-    ).toEqual(['kanban', 'grid']);
-    expect(
-      result
-        ._unsafeUnwrap()
-        .table.views()
-        .map((v) => v.name().toString())
-    ).toEqual(['Kanban', 'All Records']);
+    expect(createdTable.views().map((v) => v.type().toString())).toEqual(['kanban', 'grid']);
+    expect(createdTable.views().map((v) => v.name().toString())).toEqual(['Kanban', 'All Records']);
 
-    const specResult = Table.specs(baseId).byId(result._unsafeUnwrap().table.id()).build();
+    const specResult = createdTable.specs().byId(createdTable.id()).build();
     specResult._unsafeUnwrap();
 
     const savedResult = await tableRepository.findOne(context, specResult._unsafeUnwrap());
@@ -664,7 +642,7 @@ describe('CreateTableHandler', () => {
         commandResult._unsafeUnwrap()
       );
 
-      const specResult = Table.specs(baseId).byId(foreignTable.id()).build();
+      const specResult = foreignTable.specs().byId(foreignTable.id()).build();
       specResult._unsafeUnwrap();
 
       const updatedForeignResult = await tableRepository.findOne(

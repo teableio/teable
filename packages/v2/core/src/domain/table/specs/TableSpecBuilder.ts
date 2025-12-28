@@ -24,10 +24,8 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
     super(mode);
   }
 
-  static create(baseId: BaseId, options?: { includeBaseId?: boolean }): TableSpecBuilder {
-    const builder = new TableSpecBuilder(baseId, 'and');
-    if (options?.includeBaseId === false) builder.includeBaseId = false;
-    return builder;
+  static create(baseId: BaseId): TableSpecBuilder {
+    return new TableSpecBuilder(baseId, 'and');
   }
 
   withoutBaseId(): TableSpecBuilder {

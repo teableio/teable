@@ -352,7 +352,7 @@ describe('PostgresTableRepository (pg)', () => {
         .execute();
       expect(dbFieldRows.map((row) => row.db_field_name)).toEqual(expectedDbFieldNames);
 
-      const byIdSpecResult = Table.specs(baseId).byId(table.id()).build();
+      const byIdSpecResult = table.specs().byId(table.id()).build();
 
       const byIdResult = await repo.findOne(context, byIdSpecResult._unsafeUnwrap());
 
@@ -393,7 +393,7 @@ describe('PostgresTableRepository (pg)', () => {
         },
       ]);
 
-      const byNameSpecResult = Table.specs(baseId).byName(table.name()).build();
+      const byNameSpecResult = table.specs().byName(table.name()).build();
       byNameSpecResult._unsafeUnwrap();
 
       const byNameResult = await repo.findOne(context, byNameSpecResult._unsafeUnwrap());
@@ -1029,7 +1029,7 @@ describe('PostgresTableRepository (pg)', () => {
 
       const inserted = insertResult._unsafeUnwrap();
 
-      const whereSpecResult = Table.specs(baseId).byId(inserted.id()).build();
+      const whereSpecResult = inserted.specs().byId(inserted.id()).build();
       whereSpecResult._unsafeUnwrap();
 
       const nextNameResult = TableName.create('After');
