@@ -56,6 +56,15 @@ describe('CreateFieldCommand', () => {
     commandResult._unsafeUnwrap();
   });
 
+  it('generates a default name when input name is blank', () => {
+    const resolved = resolveTableFieldInputName(
+      { type: 'singleLineText', name: '   ' },
+      []
+    )._unsafeUnwrap();
+
+    expect(resolved.name).toBe('Label');
+  });
+
   it('rejects primary field updates', () => {
     const commandResult = CreateFieldCommand.create({
       baseId,

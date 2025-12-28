@@ -25,6 +25,7 @@ import {
   FieldName,
   FormulaExpression,
   getRandomString,
+  LinkFieldConfig,
   OffsetPagination,
   PageLimit,
   PageOffset,
@@ -32,6 +33,8 @@ import {
   RatingIcon,
   RatingMax,
   resolveFormulaFields,
+  RollupExpression,
+  RollupFieldConfig,
   SelectOption,
   Sort,
   SortDirection,
@@ -800,6 +803,172 @@ describe('PostgresTableRepository (pg)', () => {
 
       const names = findResult._unsafeUnwrap().map((table) => table.name().toString());
       expect(names).toEqual(['Alpha']);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('persists rollup lookup options with link metadata', async () => {
+    const c = container.createChildContainer();
+    await registerV2PostgresStateAdapter(c, {
+      pg: { connectionString: pgContainer.getConnectionUri() },
+      ensureSchema: true,
+    });
+
+    const db = c.resolve<Kysely<V1TeableDatabase>>(v2PostgresDbTokens.db);
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      [baseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Rollup Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Rollup Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const foreignTableNameResult = TableName.create('Foreign');
+      const foreignPrimaryNameResult = FieldName.create('Title');
+      const foreignValueNameResult = FieldName.create('Amount');
+      [foreignTableNameResult, foreignPrimaryNameResult, foreignValueNameResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+
+      const foreignValueIdResult = FieldId.generate();
+      foreignValueIdResult._unsafeUnwrap();
+      const foreignValueId = foreignValueIdResult._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder()
+        .withBaseId(baseId)
+        .withName(foreignTableNameResult._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(foreignPrimaryNameResult._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder
+        .field()
+        .number()
+        .withId(foreignValueId)
+        .withName(foreignValueNameResult._unsafeUnwrap())
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+
+      const foreignTableResult = foreignBuilder.build();
+      foreignTableResult._unsafeUnwrap();
+      const foreignTable = foreignTableResult._unsafeUnwrap();
+      (await repo.insert(context, foreignTable))._unsafeUnwrap();
+
+      const valuesField = foreignTable.fields().find((field) => field.id().equals(foreignValueId));
+      expect(valuesField).toBeDefined();
+      if (!valuesField) return;
+
+      const hostTableNameResult = TableName.create('Host');
+      const hostPrimaryNameResult = FieldName.create('Name');
+      const linkFieldNameResult = FieldName.create('Link');
+      const rollupFieldNameResult = FieldName.create('Total');
+      [
+        hostTableNameResult,
+        hostPrimaryNameResult,
+        linkFieldNameResult,
+        rollupFieldNameResult,
+      ].forEach((r) => r._unsafeUnwrap());
+
+      const linkFieldIdResult = FieldId.generate();
+      const rollupFieldIdResult = FieldId.generate();
+      [linkFieldIdResult, rollupFieldIdResult].forEach((r) => r._unsafeUnwrap());
+      const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+      const rollupFieldId = rollupFieldIdResult._unsafeUnwrap();
+
+      const linkConfigResult = LinkFieldConfig.create({
+        relationship: 'manyOne',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignValueId.toString(),
+      });
+      linkConfigResult._unsafeUnwrap();
+
+      const rollupConfigResult = RollupFieldConfig.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignValueId.toString(),
+      });
+      rollupConfigResult._unsafeUnwrap();
+
+      const rollupExpressionResult = RollupExpression.create('sum({values})');
+      rollupExpressionResult._unsafeUnwrap();
+
+      const hostBuilder = Table.builder()
+        .withBaseId(baseId)
+        .withName(hostTableNameResult._unsafeUnwrap());
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(hostPrimaryNameResult._unsafeUnwrap())
+        .primary()
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(linkFieldNameResult._unsafeUnwrap())
+        .withConfig(linkConfigResult._unsafeUnwrap())
+        .done();
+      hostBuilder
+        .field()
+        .rollup()
+        .withId(rollupFieldId)
+        .withName(rollupFieldNameResult._unsafeUnwrap())
+        .withConfig(rollupConfigResult._unsafeUnwrap())
+        .withExpression(rollupExpressionResult._unsafeUnwrap())
+        .withValuesField(valuesField)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+
+      const hostTableResult = hostBuilder.build();
+      hostTableResult._unsafeUnwrap();
+      const hostTable = hostTableResult._unsafeUnwrap();
+      (await repo.insert(context, hostTable))._unsafeUnwrap();
+
+      const rollupRow = await db
+        .selectFrom('field')
+        .select(['lookup_options', 'lookup_linked_field_id'])
+        .where('id', '=', rollupFieldId.toString())
+        .where('deleted_time', 'is', null)
+        .executeTakeFirst();
+
+      expect(rollupRow?.lookup_linked_field_id).toBe(linkFieldId.toString());
+      expect(rollupRow?.lookup_options).toBeDefined();
+
+      const lookupOptions = rollupRow?.lookup_options
+        ? (JSON.parse(rollupRow.lookup_options) as Record<string, unknown>)
+        : {};
+
+      expect(lookupOptions.linkFieldId).toBe(linkFieldId.toString());
+      expect(lookupOptions.foreignTableId).toBe(foreignTable.id().toString());
+      expect(lookupOptions.lookupFieldId).toBe(foreignValueId.toString());
+      expect(lookupOptions.relationship).toBe('manyOne');
+      expect(lookupOptions.fkHostTableName).toBe(
+        `${baseId.toString()}.${hostTable.id().toString()}`
+      );
+      expect(lookupOptions.selfKeyName).toBe('__id');
+      expect(lookupOptions.foreignKeyName).toBe(`__fk_${linkFieldId.toString()}`);
     } finally {
       await db.destroy();
     }

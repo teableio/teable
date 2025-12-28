@@ -33,7 +33,8 @@
       "@teable/v2-adapter-db-postgres-bun-sql": ["../adapter-db-postgres-bun-sql/src"],
       "@teable/v2-adapter-db-postgres-postgresjs": ["../adapter-db-postgres-postgresjs/src"],
       "@teable/v2-di": ["../di/src"],
-      "@teable/v2-postgres-schema": ["../postgres-schema/src"]
+      "@teable/v2-postgres-schema": ["../postgres-schema/src"],
+      "@teable/formula": ["../../formula/src"]
     },
     "types": ["node"]
   },
@@ -51,6 +52,7 @@
     "../adapter-db-postgres-bun-sql/src",
     "../adapter-db-postgres-postgresjs/src",
     "../di/src",
-    "../postgres-schema/src"
+    "../postgres-schema/src",
+    "../../formula/src"
   ]
 }

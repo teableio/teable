@@ -394,8 +394,9 @@ export const resolveTableFieldInputName = (
 ): Result<ResolvedTableFieldInput, string> => {
   if (typeof field.name === 'string') {
     const trimmed = field.name.trim();
-    if (trimmed.length === 0) return err('FieldName is required');
-    return FieldName.create(trimmed).map((name) => ({ ...field, name: name.toString() }));
+    if (trimmed.length > 0) {
+      return FieldName.create(trimmed).map((name) => ({ ...field, name: name.toString() }));
+    }
   }
 
   const baseName = defaultFieldName(field);
