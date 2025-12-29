@@ -7,6 +7,7 @@ import {
   getTableById,
   type CreateAccessTokenVo,
 } from '@teable/openapi';
+import { MarkdownPreview } from '@teable/sdk';
 import { useBaseId, useTableId } from '@teable/sdk/hooks';
 import {
   Button,
@@ -123,23 +124,6 @@ const generateAIContext = (
 
   return `# Table: ${tableName}
 ${tableDescription ? `\nDescription: ${tableDescription}\n` : ''}
-## Fields
-${fieldDescriptions}
-
-## API Configuration
-- **Base URL**: ${baseUrl}
-- **Table ID**: ${tableId}
-- **API Token**: ${displayToken}
-- **Endpoint**: \`${baseUrl}/api/table/${tableId}/record\`
-
-## Authentication
-All requests require the \`Authorization\` header:
-\`\`\`
-Authorization: Bearer ${displayToken}
-\`\`\`
-
----
-
 ## API Operations
 
 ### 1. Read Records (GET)
@@ -241,6 +225,25 @@ curl -X PATCH "${baseUrl}/api/table/${tableId}/record/{recordId}" \\
 curl -X DELETE "${baseUrl}/api/table/${tableId}/record/{recordId}" \\
   -H "Authorization: Bearer ${displayToken}"
 \`\`\`
+
+---
+
+## API Configuration
+- **Base URL**: ${baseUrl}
+- **Table ID**: ${tableId}
+- **API Token**: ${displayToken}
+- **Endpoint**: \`${baseUrl}/api/table/${tableId}/record\`
+
+## Authentication
+All requests require the \`Authorization\` header:
+\`\`\`
+Authorization: Bearer ${displayToken}
+\`\`\`
+
+---
+
+## Fields
+${fieldDescriptions}
 
 ---
 
@@ -351,17 +354,8 @@ export const APIDialog = ({ children }: APIDialogProps) => {
     );
   }, [tableInfo, fields, currentUrl, tableId, generatedToken]);
 
-  const handleCopy = useCallback(() => {
-    const textArea = document.createElement('textarea');
-    textArea.value = aiContext;
-    textArea.style.position = 'fixed';
-    textArea.style.left = '-999999px';
-    textArea.style.top = '-999999px';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textArea);
+  const handleCopy = useCallback(async () => {
+    await navigator.clipboard.writeText(aiContext);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [aiContext]);
@@ -372,7 +366,7 @@ export const APIDialog = ({ children }: APIDialogProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-h-[90vh] max-w-4xl">
+      <DialogContent className="flex max-h-[90vh] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Code2 className="size-5" />
@@ -392,7 +386,7 @@ export const APIDialog = ({ children }: APIDialogProps) => {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="ai-context">
+          <TabsContent value="ai-context" className="w-full overflow-hidden">
             {isDataLoading ? (
               <div className="flex h-64 items-center justify-center">
                 <Loader2 className="size-8 animate-spin text-muted-foreground" />
@@ -413,11 +407,16 @@ export const APIDialog = ({ children }: APIDialogProps) => {
 
                 <div className="flex items-center justify-between gap-4">
                   {generatedToken ? (
-                    <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
-                      <Check className="size-4" />
-                      {t('table:toolbar.others.api.tokenInfo', {
-                        expiry: new Date(generatedToken.expiredTime).toLocaleDateString(),
-                      })}
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+                        <Check className="size-4" />
+                        {t('table:toolbar.others.api.tokenCreatedSuccess')}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {t('table:toolbar.others.api.tokenInfo', {
+                          expiry: new Date(generatedToken.expiredTime).toLocaleDateString(),
+                        })}
+                      </div>
                     </div>
                   ) : (
                     <Button
@@ -448,14 +447,14 @@ export const APIDialog = ({ children }: APIDialogProps) => {
                     ) : (
                       <>
                         <Copy className="size-4" />
-                        {t('table:toolbar.others.api.copyToClipboard')}
+                        {t('table:toolbar.others.api.copy')}
                       </>
                     )}
                   </Button>
                 </div>
 
                 <ScrollArea className="h-[400px] rounded-lg border bg-muted/20 p-4">
-                  <pre className="whitespace-pre-wrap text-sm">{aiContext}</pre>
+                  <MarkdownPreview>{aiContext}</MarkdownPreview>
                 </ScrollArea>
               </div>
             )}

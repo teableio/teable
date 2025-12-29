@@ -53,8 +53,9 @@
         "confirmExpiry": "Token 有效期为 1 年。",
         "confirmButton": "确认创建",
         "tokenInfo": "Token 过期时间：{{expiry}}",
+        "tokenCreatedSuccess": "Token 创建成功！点击复制即可使用。",
         "copied": "已复制！",
-        "copyToClipboard": "复制到剪贴板",
+        "copy": "复制",
         "advancedDesc": "打开高级 API 查询构建器，获取更多自定义选项。",
         "openAdvanced": "打开查询构建器"
       },

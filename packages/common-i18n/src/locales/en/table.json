@@ -53,8 +53,9 @@
         "confirmExpiry": "The token will be valid for 1 year.",
         "confirmButton": "Confirm & Create",
         "tokenInfo": "Token expires: {{expiry}}",
+        "tokenCreatedSuccess": "Token created successfully! Click copy to use it with your AI assistant.",
         "copied": "Copied!",
-        "copyToClipboard": "Copy to Clipboard",
+        "copy": "Copy",
         "advancedDesc": "Open the advanced API query builder for more customization options.",
         "openAdvanced": "Open Query Builder"
       },
