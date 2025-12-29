@@ -7,7 +7,7 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
-import { IExecutionContext } from '../ports/ExecutionContext';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../ports/tokens';
@@ -47,7 +47,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
 
   @TraceSpan()
   async handle(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     command: CreateTableCommand
   ): Promise<Result<CreateTableResult, string>> {
     const handler = this;

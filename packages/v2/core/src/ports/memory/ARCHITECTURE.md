@@ -10,6 +10,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain memory adapters.
+- `AsyncMemoryEventBus.ts` - Role: IEventBus async impl; Purpose: enqueue events and dispatch handlers in background.
 - `MemoryCommandBus.ts` - Role: ICommandBus memory impl; Purpose: resolve handler and execute command.
 - `MemoryEventBus.ts` - Role: IEventBus memory impl; Purpose: invoke registered event handlers.
 - `MemoryPorts.spec.ts` - Role: memory port tests; Purpose: validate bus/repository behavior.

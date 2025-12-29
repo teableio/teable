@@ -7,12 +7,13 @@ import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repositor
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
+  AsyncMemoryEventBus,
   FieldCreationSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
-  MemoryEventBus,
   MemoryQueryBus,
   NoopLogger,
+  NoopRealtimeEngine,
   NoopTracer,
   TableUpdateFlow,
   v2CoreTokens,
@@ -33,6 +34,20 @@ export interface IV2NodePgContainerOptions {
   commandBusMiddlewares?: ReadonlyArray<ICommandBusMiddleware>;
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
 }
+
+const createEventHandlerLogger = (
+  logger: ILogger,
+  handlerName: string,
+  eventName: string
+): ILogger => {
+  const baseLogger = logger
+    .scope('eventHandler', { name: handlerName })
+    .scope('event', { name: eventName });
+  if (handlerName.endsWith('Projection')) {
+    return baseLogger.scope('projection', { name: handlerName });
+  }
+  return baseLogger;
+};
 
 export const registerV2NodePgDependencies = async (
   c: DependencyContainer = container,
@@ -70,25 +85,39 @@ export const registerV2NodePgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
 
+  const logger = options.logger ?? new NoopLogger();
+  c.registerInstance(v2CoreTokens.logger, logger);
+
   c.registerInstance(
     v2CoreTokens.commandBus,
     new MemoryCommandBus(c, options.commandBusMiddlewares)
   );
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
-  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
-
-  if (options.logger) {
-    c.registerInstance(v2CoreTokens.logger, options.logger);
-  } else {
-    c.register(v2CoreTokens.logger, NoopLogger, {
-      lifecycle: Lifecycle.Singleton,
-    });
-  }
+  c.registerInstance(
+    v2CoreTokens.eventBus,
+    new AsyncMemoryEventBus(c, {
+      onError: ({ error, event, handlerName }) => {
+        const eventName = event.name.toString();
+        const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);
+        scopedLogger.error('Async event handler failed', {
+          error,
+          event: eventName,
+          handler: handlerName,
+        });
+      },
+    })
+  );
 
   if (options.tracer) {
     c.registerInstance(v2CoreTokens.tracer, options.tracer);
   } else {
     c.register(v2CoreTokens.tracer, NoopTracer, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
+    c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
       lifecycle: Lifecycle.Singleton,
     });
   }

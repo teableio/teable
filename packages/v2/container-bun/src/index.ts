@@ -7,10 +7,10 @@ import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repositor
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
+  AsyncMemoryEventBus,
   FieldCreationSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
-  MemoryEventBus,
   MemoryQueryBus,
   NoopLogger,
   NoopTracer,
@@ -36,6 +36,20 @@ export interface IV2BunPgContainerOptions {
   queryBusMiddlewares?: ReadonlyArray<IQueryBusMiddleware>;
   env?: IEnvRecord;
 }
+
+const createEventHandlerLogger = (
+  logger: ILogger,
+  handlerName: string,
+  eventName: string
+): ILogger => {
+  const baseLogger = logger
+    .scope('eventHandler', { name: handlerName })
+    .scope('event', { name: eventName });
+  if (handlerName.endsWith('Projection')) {
+    return baseLogger.scope('projection', { name: handlerName });
+  }
+  return baseLogger;
+};
 
 const resolveBunEnv = (): IEnvRecord | undefined => {
   const bun = (globalThis as Record<string, unknown>)['Bun'] as { env?: IEnvRecord } | undefined;
@@ -89,20 +103,28 @@ export const registerV2BunPgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
 
+  const logger = options.logger ?? new NoopLogger();
+  c.registerInstance(v2CoreTokens.logger, logger);
+
   c.registerInstance(
     v2CoreTokens.commandBus,
     new MemoryCommandBus(c, options.commandBusMiddlewares)
   );
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
-  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
-
-  if (options.logger) {
-    c.registerInstance(v2CoreTokens.logger, options.logger);
-  } else {
-    c.register(v2CoreTokens.logger, NoopLogger, {
-      lifecycle: Lifecycle.Singleton,
-    });
-  }
+  c.registerInstance(
+    v2CoreTokens.eventBus,
+    new AsyncMemoryEventBus(c, {
+      onError: ({ error, event, handlerName }) => {
+        const eventName = event.name.toString();
+        const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);
+        scopedLogger.error('Async event handler failed', {
+          error,
+          event: eventName,
+          handler: handlerName,
+        });
+      },
+    })
+  );
 
   if (options.tracer) {
     c.registerInstance(v2CoreTokens.tracer, options.tracer);

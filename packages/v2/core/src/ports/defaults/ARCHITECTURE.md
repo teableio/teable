@@ -12,6 +12,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe default adapters.
 - `NoopEventBus.ts` - Role: IEventBus default; Purpose: ignore event publishing.
 - `NoopLogger.ts` - Role: ILogger default; Purpose: swallow log output.
+- `NoopRealtimeEngine.ts` - Role: IRealtimeEngine default; Purpose: ignore realtime effects.
 - `NoopPorts.spec.ts` - Role: default port tests; Purpose: verify no-op behavior.
 - `NoopTableRepository.ts` - Role: ITableRepository default; Purpose: empty responses or not-found.
 - `NoopTableSchemaRepository.ts` - Role: ITableSchemaRepository default; Purpose: ignore schema writes.

@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { TraceSpan, isTraceSpanWrapped } from '../ports/TraceSpan';
 
 export interface IQueryHandler<TQuery, TResult> {
   handle(context: IExecutionContext, query: TQuery): Promise<Result<TResult, string>>;
@@ -19,6 +20,15 @@ const queryHandlerRegistry = new Map<QueryType<unknown>, QueryHandlerClass<unkno
 export const QueryHandler =
   <TQuery>(query: QueryType<TQuery>) =>
   (target: QueryHandlerClass<TQuery, unknown>): void => {
+    const descriptor = Object.getOwnPropertyDescriptor(target.prototype, 'handle');
+    if (
+      descriptor &&
+      typeof descriptor.value === 'function' &&
+      !isTraceSpanWrapped(descriptor.value)
+    ) {
+      TraceSpan()(target.prototype, 'handle', descriptor);
+      Object.defineProperty(target.prototype, 'handle', descriptor);
+    }
     queryHandlerRegistry.set(query, target as QueryHandlerClass<unknown, unknown>);
   };
 

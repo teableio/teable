@@ -19,6 +19,8 @@ const v2ServerPackages = [
   '@teable/v2-postgres-schema',
   '@teable/v2-adapter-repository-postgres',
   '@teable/v2-adapter-schema-repository-postgres',
+  '@teable/v2-adapter-realtime-broadcastchannel',
+  '@teable/v2-adapter-realtime-sharedb',
   '@teable/v2-di',
 ];
 const sourceOnlyPackages = ['@teable/formula'];

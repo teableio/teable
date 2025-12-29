@@ -13,8 +13,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableCreated.ts` - Role: domain event; Purpose: payload for table creation.
 - `TableDeleted.ts` - Role: domain event; Purpose: payload for table deletion.
 - `TableRenamed.ts` - Role: domain event; Purpose: payload for table rename.
+- `FieldCreated.ts` - Role: domain event; Purpose: payload for field creation.
 
 ## Examples
 
 - `packages/v2/core/src/domain/table/Table.ts` - TableCreated emission location.
 - `packages/v2/core/src/domain/table/Table.ts` - TableDeleted emission location.
+- `packages/v2/core/src/domain/table/Table.ts` - FieldCreated emission location.

@@ -6,6 +6,7 @@ describe('ports/defaults index', () => {
   it('re-exports noop implementations', () => {
     expect(defaults).toHaveProperty('NoopEventBus');
     expect(defaults).toHaveProperty('NoopLogger');
+    expect(defaults).toHaveProperty('NoopRealtimeEngine');
     expect(defaults).toHaveProperty('NoopUnitOfWork');
   });
 });

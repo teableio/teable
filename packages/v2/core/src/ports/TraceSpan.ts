@@ -14,6 +14,17 @@ type TraceAttributes =
   | SpanAttributes
   | ((context: IExecutionContext, message: unknown) => SpanAttributes);
 
+const traceSpanWrappedSymbol = Symbol('v2.traceSpanWrapped');
+
+type TraceSpanWrapped = {
+  [traceSpanWrappedSymbol]?: true;
+};
+
+export const isTraceSpanWrapped = (value: unknown): boolean => {
+  if (typeof value !== 'function') return false;
+  return Boolean((value as TraceSpanWrapped)[traceSpanWrappedSymbol]);
+};
+
 const noopSpan: ISpan = {
   setAttribute(_key: string, _value: SpanAttributeValue) {},
   setAttributes(_attributes: SpanAttributes) {},
@@ -117,6 +128,8 @@ export const TraceSpan =
         }
       }
     };
+
+    (descriptor.value as TraceSpanWrapped)[traceSpanWrappedSymbol] = true;
 
     return descriptor;
   };

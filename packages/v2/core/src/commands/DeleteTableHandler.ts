@@ -6,7 +6,7 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
-import { IExecutionContext } from '../ports/ExecutionContext';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import * as TableSchemaRepositoryPort from '../ports/TableSchemaRepository';
@@ -45,13 +45,15 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
 
   @TraceSpan()
   async handle(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     command: DeleteTableCommand
   ): Promise<Result<DeleteTableResult, string>> {
-    this.logger.debug('DeleteTableHandler.start', {
-      actorId: context.actorId.toString(),
+    const logger = this.logger.scope('command', { name: DeleteTableHandler.name }).child({
       baseId: command.baseId.toString(),
       tableId: command.tableId.toString(),
+    });
+    logger.debug('DeleteTableHandler.start', {
+      actorId: context.actorId.toString(),
     });
 
     const tableRepository = this.tableRepository;
@@ -80,9 +82,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
       return ok(DeleteTableResult.create(table, events));
     });
     if (result.isOk()) {
-      this.logger.debug('DeleteTableHandler.success', {
-        baseId: command.baseId.toString(),
-        tableId: command.tableId.toString(),
+      logger.debug('DeleteTableHandler.success', {
         eventCount: result.value.events.length,
       });
     }

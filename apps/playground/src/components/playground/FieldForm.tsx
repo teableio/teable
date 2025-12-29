@@ -6,7 +6,7 @@ import {
   type StandardSchemaV1,
 } from '@tanstack/react-form';
 import { toast } from 'sonner';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useRef } from 'react';
 import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import {
@@ -47,7 +47,6 @@ type FieldType = ITableFieldInput['type'];
 export type FieldFormApi = ReactFormApi<FieldFormValues, FieldFormValidator>;
 
 export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormProps) {
-  const queryClient = useQueryClient();
   const orpc = createTanstackQueryUtils(useOrpcClient());
   const validatorAdapter = standardSchemaValidator() as FieldFormValidator;
 
@@ -61,12 +60,6 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
   const createFieldMutation = useMutation(
     orpc.tables.createField.mutationOptions({
       onSuccess: () => {
-        toast.success('Field created successfully');
-        void queryClient.invalidateQueries({
-          queryKey: orpc.tables.getById.queryKey({
-            input: { baseId, tableId },
-          }),
-        });
         onSuccess();
       },
       onError: (error: any) => {

@@ -22,6 +22,8 @@ import { EventHandler, type IEventHandler } from '../EventHandler';
 import type { IExecutionContext } from '../ExecutionContext';
 import type { IHandlerResolver, IClassToken } from '../HandlerResolver';
 import type { IQueryBusMiddleware } from '../QueryBus';
+import type { AsyncEventBusError, AsyncEventBusScheduler } from './AsyncMemoryEventBus';
+import { AsyncMemoryEventBus } from './AsyncMemoryEventBus';
 import { MemoryCommandBus } from './MemoryCommandBus';
 import { MemoryEventBus } from './MemoryEventBus';
 import { MemoryQueryBus } from './MemoryQueryBus';
@@ -245,6 +247,85 @@ describe('MemoryEventBus', () => {
 
     const throwResult = await bus.publish(context, new ThrowingEvent());
     expect(throwResult._unsafeUnwrapErr()).toContain('boom');
+  });
+});
+
+describe('AsyncMemoryEventBus', () => {
+  it('publishes events without waiting for handlers', async () => {
+    class PingEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    let handled = 0;
+
+    @EventHandler(PingEvent)
+    class PingEventHandler implements IEventHandler<PingEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: PingEvent
+      ): ReturnType<IEventHandler<PingEvent>['handle']> {
+        handled += 1;
+        return ok(undefined);
+      }
+    }
+    expect(PingEventHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, { schedule });
+    const context = createContext();
+    const publishResult = await bus.publish(context, new PingEvent());
+    publishResult._unsafeUnwrap();
+
+    expect(handled).toBe(0);
+    expect(tasks.length).toBe(1);
+
+    await tasks.shift()?.();
+
+    expect(handled).toBe(1);
+  });
+
+  it('records handler errors via onError', async () => {
+    class FailingEvent implements IDomainEvent {
+      readonly name = DomainEventName.tableCreated();
+      readonly occurredAt = OccurredAt.now();
+    }
+
+    @EventHandler(FailingEvent)
+    class FailingEventHandler implements IEventHandler<FailingEvent> {
+      async handle(
+        _context: IExecutionContext,
+        _event: FailingEvent
+      ): ReturnType<IEventHandler<FailingEvent>['handle']> {
+        return err('fail');
+      }
+    }
+    expect(FailingEventHandler).toBeDefined();
+
+    const tasks: Array<() => Promise<void>> = [];
+    const errors: AsyncEventBusError[] = [];
+    const schedule: AsyncEventBusScheduler = (task) => {
+      tasks.push(task);
+    };
+
+    const resolver = new MapResolver();
+    const bus = new AsyncMemoryEventBus(resolver, {
+      schedule,
+      onError: (error) => errors.push(error),
+    });
+    const context = createContext();
+    const publishResult = await bus.publish(context, new FailingEvent());
+    publishResult._unsafeUnwrap();
+
+    await tasks.shift()?.();
+
+    expect(errors.length).toBe(1);
+    expect(errors[0]?.error).toBe('fail');
   });
 });
 

@@ -1,8 +1,15 @@
 import pino, { type Logger, type LoggerOptions } from 'pino';
 
+const resolveEnv = (key: string): string | undefined => {
+  if (typeof process === 'undefined') {
+    return undefined;
+  }
+  return process.env?.[key];
+};
+
 const defaultOptions: LoggerOptions = {
   name: 'teable-v2',
-  level: process.env.TEABLE_LOG_LEVEL ?? process.env.LOG_LEVEL ?? 'info',
+  level: resolveEnv('TEABLE_LOG_LEVEL') ?? resolveEnv('LOG_LEVEL') ?? 'info',
 };
 
 export const createV2PinoLogger = (options: LoggerOptions = {}): Logger =>

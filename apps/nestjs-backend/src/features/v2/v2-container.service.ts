@@ -2,9 +2,14 @@ import type { OnModuleDestroy } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import {
+  ShareDbPubSubPublisher,
+  registerV2ShareDbRealtime,
+} from '@teable/v2-adapter-realtime-sharedb';
 import { createV2NodePgContainer } from '@teable/v2-container-node';
 import type { DependencyContainer } from '@teable/v2-di' with { 'resolution-mode': 'import' };
 import { PinoLogger } from 'nestjs-pino';
+import { ShareDbService } from '../../share-db/share-db.service';
 import { CommandBusTracingMiddleware } from './v2-command-bus-tracing.middleware';
 import { PinoLoggerAdapter } from './v2-logger.adapter';
 import { QueryBusTracingMiddleware } from './v2-query-bus-tracing.middleware';
@@ -16,7 +21,8 @@ export class V2ContainerService implements OnModuleDestroy {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly pinoLogger: PinoLogger
+    private readonly pinoLogger: PinoLogger,
+    private readonly shareDbService: ShareDbService
   ) {}
 
   async getContainer(): Promise<DependencyContainer> {
@@ -32,6 +38,11 @@ export class V2ContainerService implements OnModuleDestroy {
         tracer,
         commandBusMiddlewares,
         queryBusMiddlewares,
+      }).then((container) => {
+        registerV2ShareDbRealtime(container, {
+          publisher: new ShareDbPubSubPublisher(this.shareDbService.pubsub),
+        });
+        return container;
       });
     }
 

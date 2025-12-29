@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
 import { SandboxOrpcProvider } from '@/lib/orpc/SandboxOrpcProvider';
-import { PlaygroundTableRoute } from '@/routes/$baseId.$tableId';
+import { PlaygroundTableRoute } from '@/components/playground/PlaygroundTableRoute';
 
 export const Route = createFileRoute('/sandbox/$baseId/$tableId')({
   component: SandboxTableRoute,

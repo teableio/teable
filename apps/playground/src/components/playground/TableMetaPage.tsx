@@ -1,5 +1,12 @@
 import { mapTableToDto, type ITableDto } from '@teable/v2-contract-http';
-import type { Field, Table as TableAggregate, View, ViewColumnMetaValue } from '@teable/v2-core';
+import type {
+  Field,
+  ITableFieldPersistenceDTO,
+  ITablePersistenceDTO,
+  Table as TableAggregate,
+  View,
+  ViewColumnMetaValue,
+} from '@teable/v2-core';
 import type { TableTemplateDefinition } from '@teable/v2-table-templates';
 import {
   Copy,
@@ -52,6 +59,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 
 const formatViewLabel = (view: View): string =>
@@ -110,7 +118,7 @@ const getDbTableName = (table: TableAggregate): string | null => {
   return nameResult.isOk() ? nameResult.value : null;
 };
 
-const tableTabValues = ['table', 'json'] as const;
+const tableTabValues = ['table', 'json', 'realtime'] as const;
 type TableMetaTab = (typeof tableTabValues)[number];
 
 const isTableMetaTab = (value: string): value is TableMetaTab =>
@@ -141,6 +149,12 @@ type TableMetaPageProps = {
   tableId: string;
   table: TableAggregate | null;
   eventCount: number | null;
+  realtimeSnapshot: ITablePersistenceDTO | null;
+  realtimeStatus: ShareDbDocStatus;
+  realtimeError: string | null;
+  realtimeFieldSnapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
+  realtimeFieldStatus: ShareDbDocStatus;
+  realtimeFieldError: string | null;
   isInitialLoading: boolean;
   isLoading: boolean;
   isCreating: boolean;
@@ -148,6 +162,7 @@ type TableMetaPageProps = {
   isRenaming: boolean;
   errorMessage: string | null;
   onRefresh: () => void;
+  onFieldCreated: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
@@ -158,7 +173,12 @@ export function TableMetaPage({
   baseId,
   tableId,
   table,
-  eventCount,
+  realtimeSnapshot,
+  realtimeStatus,
+  realtimeError,
+  realtimeFieldSnapshots,
+  realtimeFieldStatus,
+  realtimeFieldError,
   isInitialLoading,
   isLoading,
   isCreating,
@@ -166,6 +186,7 @@ export function TableMetaPage({
   isRenaming,
   errorMessage,
   onRefresh,
+  onFieldCreated,
   templates,
   onCreateTemplate,
   onDelete,
@@ -194,6 +215,7 @@ export function TableMetaPage({
         isDeleting={isDeleting}
         isRenaming={isRenaming}
         onRefresh={onRefresh}
+        onFieldCreated={onFieldCreated}
         templates={templates}
         onCreateTemplate={onCreateTemplate}
         onDelete={onDelete}
@@ -226,6 +248,12 @@ export function TableMetaPage({
                 >
                   JSON
                 </TabsTrigger>
+                <TabsTrigger
+                  value="realtime"
+                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                >
+                  Realtime
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="table" className="mt-0 outline-none">
                 <PlaygroundMetaLayout
@@ -240,6 +268,20 @@ export function TableMetaPage({
                   table={table}
                   tableJson={tableJson}
                   tableJsonError={tableJsonError}
+                  baseId={baseId}
+                  tableId={tableId}
+                  isLoading={isLoading}
+                />
+              </TabsContent>
+              <TabsContent value="realtime" className="mt-0">
+                <PlaygroundRealtimeLayout
+                  table={table}
+                  realtimeSnapshot={realtimeSnapshot}
+                  realtimeStatus={realtimeStatus}
+                  realtimeError={realtimeError}
+                  realtimeFieldSnapshots={realtimeFieldSnapshots}
+                  realtimeFieldStatus={realtimeFieldStatus}
+                  realtimeFieldError={realtimeFieldError}
                   baseId={baseId}
                   tableId={tableId}
                   isLoading={isLoading}
@@ -261,6 +303,7 @@ type PlaygroundHeaderProps = {
   isDeleting: boolean;
   isRenaming: boolean;
   onRefresh: () => void;
+  onFieldCreated: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
@@ -275,6 +318,7 @@ function PlaygroundHeader({
   isDeleting,
   isRenaming,
   onRefresh,
+  onFieldCreated,
   templates,
   onCreateTemplate,
   onDelete,
@@ -364,7 +408,7 @@ function PlaygroundHeader({
           <FieldCreateDialog
             baseId={baseId}
             tableId={table.id().toString()}
-            onSuccess={onRefresh}
+            onSuccess={onFieldCreated}
           />
         )}
         <CreateTableDropdown
@@ -626,6 +670,59 @@ function PlaygroundJsonLayout({
   );
 }
 
+type PlaygroundRealtimeLayoutProps = {
+  table: TableAggregate;
+  realtimeSnapshot: ITablePersistenceDTO | null;
+  realtimeStatus: ShareDbDocStatus;
+  realtimeError: string | null;
+  realtimeFieldSnapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
+  realtimeFieldStatus: ShareDbDocStatus;
+  realtimeFieldError: string | null;
+  baseId: string;
+  tableId: string;
+  isLoading: boolean;
+};
+
+function PlaygroundRealtimeLayout({
+  table,
+  realtimeSnapshot,
+  realtimeStatus,
+  realtimeError,
+  realtimeFieldSnapshots,
+  realtimeFieldStatus,
+  realtimeFieldError,
+  baseId,
+  tableId,
+  isLoading,
+}: PlaygroundRealtimeLayoutProps) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+      <div className="space-y-6 min-w-0">
+        <RealtimeSnapshotCard
+          snapshot={realtimeSnapshot}
+          status={realtimeStatus}
+          error={realtimeError}
+          title="ShareDB Table Snapshot"
+        />
+        <RealtimeFieldsCard
+          snapshots={realtimeFieldSnapshots}
+          status={realtimeFieldStatus}
+          error={realtimeFieldError}
+        />
+      </div>
+      <div className="space-y-6 min-w-0">
+        <TableViewsCard views={table.views()} />
+        <TableConnectionCard
+          baseId={baseId}
+          tableId={tableId}
+          table={table}
+          isLoading={isLoading}
+        />
+      </div>
+    </div>
+  );
+}
+
 type TableSchemaCardProps = {
   table: TableAggregate;
 };
@@ -770,6 +867,82 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
         )}
       </CardContent>
     </Card>
+  );
+}
+
+type RealtimeSnapshotCardProps = {
+  snapshot: unknown;
+  status: ShareDbDocStatus;
+  error: string | null;
+  title: string;
+};
+
+const formatRealtimeStatusLabel = (status: ShareDbDocStatus): string => {
+  if (status === 'ready') return 'Live';
+  if (status === 'connecting') return 'Connecting';
+  if (status === 'error') return 'Error';
+  return 'Idle';
+};
+
+const resolveRealtimeStatusVariant = (
+  status: ShareDbDocStatus
+): 'secondary' | 'outline' | 'destructive' => {
+  if (status === 'ready') return 'secondary';
+  if (status === 'error') return 'destructive';
+  return 'outline';
+};
+
+function RealtimeSnapshotCard({ snapshot, status, error, title }: RealtimeSnapshotCardProps) {
+  const statusLabel = formatRealtimeStatusLabel(status);
+  const statusVariant = resolveRealtimeStatusVariant(status);
+
+  return (
+    <Card className="min-w-0 overflow-hidden">
+      <CardHeader className="border-b border-border/60 py-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <FileJson className="h-4 w-4 text-muted-foreground" />
+          {title}
+          <Badge
+            variant={statusVariant}
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {statusLabel}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        {error ? (
+          <div className="px-6 py-4 text-sm text-destructive">Realtime error: {error}</div>
+        ) : !snapshot ? (
+          <div className="px-6 py-4 text-sm text-muted-foreground">
+            Waiting for ShareDB snapshot.
+          </div>
+        ) : (
+          <ScrollArea className="h-[60vh] min-h-[320px]">
+            <div className="px-6 pb-6 pt-4 text-xs font-mono text-foreground">
+              <JsonView data={snapshot} shouldExpandNode={shouldExpandJsonNode} clickToExpandNode />
+            </div>
+          </ScrollArea>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+type RealtimeFieldsCardProps = {
+  snapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
+  status: ShareDbDocStatus;
+  error: string | null;
+};
+
+function RealtimeFieldsCard({ snapshots, status, error }: RealtimeFieldsCardProps) {
+  return (
+    <RealtimeSnapshotCard
+      snapshot={snapshots}
+      status={status}
+      error={error}
+      title="ShareDB Field Query"
+    />
   );
 }
 

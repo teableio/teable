@@ -33,10 +33,12 @@ export class GetTableByIdHandler implements IQueryHandler<GetTableByIdQuery, Get
     context: IExecutionContext,
     query: GetTableByIdQuery
   ): Promise<Result<GetTableByIdResult, string>> {
-    this.logger.debug('GetTableByIdHandler.start', {
-      actorId: context.actorId.toString(),
+    const logger = this.logger.scope('query', { name: GetTableByIdHandler.name }).child({
       baseId: query.baseId.toString(),
       tableId: query.tableId.toString(),
+    });
+    logger.debug('GetTableByIdHandler.start', {
+      actorId: context.actorId.toString(),
     });
 
     const specResult = TableAggregate.specs(query.baseId).byId(query.tableId).build();
@@ -47,10 +49,7 @@ export class GetTableByIdHandler implements IQueryHandler<GetTableByIdQuery, Get
       if (tableResult.error === 'Not found') return err('Table not found');
       return err(tableResult.error);
     }
-    this.logger.debug('GetTableByIdHandler.success', {
-      baseId: query.baseId.toString(),
-      tableId: query.tableId.toString(),
-    });
+    logger.debug('GetTableByIdHandler.success');
 
     return ok(GetTableByIdResult.create(tableResult.value));
   }

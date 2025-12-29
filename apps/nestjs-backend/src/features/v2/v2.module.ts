@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ORPCModule } from '@orpc/nest';
 import type { Response } from 'express';
+import { ShareDbModule } from '../../share-db/share-db.module';
 import { V2ContainerService } from './v2-container.service';
 import { V2OpenApiController } from './v2-openapi.controller';
 import { V2Controller } from './v2.controller';
@@ -76,6 +77,7 @@ const toErrorMessage = (body: unknown): string => {
         },
       ],
     }),
+    ShareDbModule,
   ],
   controllers: [V2Controller, V2OpenApiController],
   providers: [V2ContainerService],

@@ -7,7 +7,7 @@ import type { Field } from '../../domain/table/fields/Field';
 import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
 import type { Table } from '../../domain/table/Table';
 import { TableUpdateResult } from '../../domain/table/TableMutator';
-import { IExecutionContext } from '../../ports/ExecutionContext';
+import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import { v2CoreTokens } from '../../ports/tokens';
 import { TraceSpan } from '../../ports/TraceSpan';
 import { TableUpdateFlow } from './TableUpdateFlow';
@@ -19,7 +19,7 @@ export type FieldCreationSideEffectServiceInput = {
 };
 
 @injectable()
-// Application service: coordinates repositories and update flow for cross-table side effects.
+// Application service: coordinates repositories and update flow for cross-table side effects .
 // Domain logic lives in visitors/specs; this class only orchestrates persistence and events.
 export class FieldCreationSideEffectService {
   constructor(
@@ -29,7 +29,7 @@ export class FieldCreationSideEffectService {
 
   @TraceSpan()
   async execute(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     input: FieldCreationSideEffectServiceInput
   ): Promise<Result<ReadonlyArray<IDomainEvent>, string>> {
     const service = this;

@@ -7,6 +7,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Define external dependencies as ports (bus, repositories, unit of work, logging, tracing).
 - Provide handler resolver and tracing decorator.
 - Expose DI tokens for container registration.
+- Keep logging contextual via child loggers and scoped metadata.
 
 ## Subfolders
 
@@ -24,6 +25,9 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `HandlerResolver.ts` - Role: container adapter; Purpose: resolve handlers by token.
 - `Logger.ts` - Role: logging port; Purpose: abstract logging.
 - `QueryBus.ts` - Role: port interface; Purpose: define IQueryBus + middleware contract.
+- `RealtimeChange.ts` - Role: realtime model; Purpose: describe change operations.
+- `RealtimeDocId.ts` - Role: realtime value object; Purpose: validate doc identifiers.
+- `RealtimeEngine.ts` - Role: realtime port; Purpose: abstract realtime storage and fanout.
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
 - `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.
 - `TableSchemaRepository.ts` - Role: schema port; Purpose: persist physical table schema.
@@ -37,3 +41,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Examples
 
 - `packages/v2/core/src/ports/memory/MemoryCommandBus.ts` - Handler registry + resolver usage.
+- `packages/v2/core/src/ports/memory/AsyncMemoryEventBus.ts` - Non-blocking event dispatch for fire-and-forget handlers.

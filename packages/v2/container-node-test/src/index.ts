@@ -17,6 +17,7 @@ import {
   MemoryEventBus,
   MemoryQueryBus,
   MemoryTableRepository,
+  NoopRealtimeEngine,
   NoopTracer,
   TableUpdateFlow,
   v2CoreTokens,
@@ -106,6 +107,11 @@ export const createV2NodeTestContainer = async (
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
   });
+  if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
+    c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
 
   const commandBus = new MemoryCommandBus(c);
   const queryBus = new MemoryQueryBus(c);

@@ -7,12 +7,13 @@ import type { IV2PostgresStateAdapterConfig } from '@teable/v2-adapter-repositor
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
+  AsyncMemoryEventBus,
   FieldCreationSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
-  MemoryEventBus,
   MemoryQueryBus,
   NoopLogger,
+  NoopRealtimeEngine,
   NoopTableRepository,
   NoopTableSchemaRepository,
   NoopTracer,
@@ -41,6 +42,20 @@ export interface IV2BrowserPgliteContainerOptions {
 
 const resolvePgliteDataDir = (options: IV2BrowserPgliteContainerOptions): string => {
   return options.connectionString ?? defaultPgliteDataDir;
+};
+
+const createEventHandlerLogger = (
+  logger: ILogger,
+  handlerName: string,
+  eventName: string
+): ILogger => {
+  const baseLogger = logger
+    .scope('eventHandler', { name: handlerName })
+    .scope('event', { name: eventName });
+  if (handlerName.endsWith('Projection')) {
+    return baseLogger.scope('projection', { name: handlerName });
+  }
+  return baseLogger;
 };
 
 export const registerV2BrowserPgliteDependencies = async (
@@ -77,25 +92,39 @@ export const registerV2BrowserPgliteDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
 
+  const logger = options.logger ?? new NoopLogger();
+  c.registerInstance(v2CoreTokens.logger, logger);
+
   c.registerInstance(
     v2CoreTokens.commandBus,
     new MemoryCommandBus(c, options.commandBusMiddlewares)
   );
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c, options.queryBusMiddlewares));
-  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
-
-  if (options.logger) {
-    c.registerInstance(v2CoreTokens.logger, options.logger);
-  } else {
-    c.register(v2CoreTokens.logger, NoopLogger, {
-      lifecycle: Lifecycle.Singleton,
-    });
-  }
+  c.registerInstance(
+    v2CoreTokens.eventBus,
+    new AsyncMemoryEventBus(c, {
+      onError: ({ error, event, handlerName }) => {
+        const eventName = event.name.toString();
+        const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);
+        scopedLogger.error('Async event handler failed', {
+          error,
+          event: eventName,
+          handler: handlerName,
+        });
+      },
+    })
+  );
 
   if (options.tracer) {
     c.registerInstance(v2CoreTokens.tracer, options.tracer);
   } else {
     c.register(v2CoreTokens.tracer, NoopTracer, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
+
+  if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
+    c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
       lifecycle: Lifecycle.Singleton,
     });
   }
@@ -112,9 +141,24 @@ export const registerV2BrowserNoopDependencies = (
   c.register(v2CoreTokens.tableSchemaRepository, NoopTableSchemaRepository, {
     lifecycle: Lifecycle.Singleton,
   });
+  const logger = new NoopLogger();
+  c.registerInstance(v2CoreTokens.logger, logger);
   c.registerInstance(v2CoreTokens.commandBus, new MemoryCommandBus(c));
   c.registerInstance(v2CoreTokens.queryBus, new MemoryQueryBus(c));
-  c.registerInstance(v2CoreTokens.eventBus, new MemoryEventBus(c));
+  c.registerInstance(
+    v2CoreTokens.eventBus,
+    new AsyncMemoryEventBus(c, {
+      onError: ({ error, event, handlerName }) => {
+        const eventName = event.name.toString();
+        const scopedLogger = createEventHandlerLogger(logger, handlerName, eventName);
+        scopedLogger.error('Async event handler failed', {
+          error,
+          event: eventName,
+          handler: handlerName,
+        });
+      },
+    })
+  );
   c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -127,12 +171,14 @@ export const registerV2BrowserNoopDependencies = (
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.logger, NoopLogger, {
-    lifecycle: Lifecycle.Singleton,
-  });
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
   });
+  if (!c.isRegistered(v2CoreTokens.realtimeEngine)) {
+    c.register(v2CoreTokens.realtimeEngine, NoopRealtimeEngine, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
   return c;
 };
 

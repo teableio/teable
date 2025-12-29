@@ -5,6 +5,7 @@ import { AggregateRoot } from '../shared/AggregateRoot';
 
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import { DbTableName } from './DbTableName';
+import { FieldCreated } from './events/FieldCreated';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
@@ -289,8 +290,18 @@ export class Table extends AggregateRoot<TableId> {
     }
 
     return Table.rehydrate(props).andThen((nextTable) => {
-      if (!field.type().equals(FieldType.formula())) return ok(nextTable);
-      return resolveFormulaFields(nextTable).map(() => nextTable);
+      const resolved = field.type().equals(FieldType.formula())
+        ? resolveFormulaFields(nextTable)
+        : ok(undefined);
+      if (resolved.isErr()) return err(resolved.error);
+      nextTable.addDomainEvent(
+        FieldCreated.create({
+          tableId: nextTable.id(),
+          baseId: nextTable.baseId(),
+          fieldId: field.id(),
+        })
+      );
+      return ok(nextTable);
     });
   }
 

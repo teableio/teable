@@ -157,11 +157,6 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
           }),
           { ok: true, data: { table: created } }
         );
-        void queryClient.invalidateQueries({
-          queryKey: orpc.tables.list.queryKey({
-            input: { baseId },
-          }),
-        });
         void navigate({
           to: env.routes.table,
           params: { baseId, tableId: created.id },

@@ -1,8 +1,17 @@
+import { createContextualLogger, createLogScopeContext } from '@teable/v2-core';
 import type { ILogger, LogContext } from '@teable/v2-core';
 import type { Logger as PinoLogger } from 'pino';
 
 export class PinoLoggerAdapter implements ILogger {
   constructor(private readonly logger: PinoLogger) {}
+
+  child(context: LogContext): ILogger {
+    return createContextualLogger(this, context);
+  }
+
+  scope(scope: string, context?: LogContext): ILogger {
+    return this.child(createLogScopeContext(scope, context ?? {}));
+  }
 
   debug(message: string, context?: LogContext): void {
     if (context) {

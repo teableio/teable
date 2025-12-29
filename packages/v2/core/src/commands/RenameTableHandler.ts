@@ -5,7 +5,7 @@ import type { Result } from 'neverthrow';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
-import { IExecutionContext } from '../ports/ExecutionContext';
+import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -32,7 +32,7 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
 
   @TraceSpan()
   async handle(
-    context: IExecutionContext,
+    context: ExecutionContextPort.IExecutionContext,
     command: RenameTableCommand
   ): Promise<Result<RenameTableResult, string>> {
     const handler = this;

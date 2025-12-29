@@ -9,8 +9,11 @@ import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisit
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
 
+import { RealtimeDocId } from '../RealtimeDocId';
+
 import { NoopEventBus } from './NoopEventBus';
 import { NoopLogger } from './NoopLogger';
+import { NoopRealtimeEngine } from './NoopRealtimeEngine';
 import { NoopTableRepository } from './NoopTableRepository';
 import { NoopTableSchemaRepository } from './NoopTableSchemaRepository';
 import { NoopTracer } from './NoopTracer';
@@ -80,6 +83,33 @@ describe('NoopLogger', () => {
     expect(() => logger.info('info')).not.toThrow();
     expect(() => logger.warn('warn')).not.toThrow();
     expect(() => logger.error('error')).not.toThrow();
+  });
+
+  it('creates contextual loggers without throwing', () => {
+    const logger = new NoopLogger();
+    expect(() => logger.child({ requestId: 'req-1' }).debug('debug')).not.toThrow();
+    expect(() => logger.scope('handler', { name: 'TestHandler' }).info('info')).not.toThrow();
+  });
+});
+
+describe('NoopRealtimeEngine', () => {
+  it('accepts changes without errors', async () => {
+    const engine = new NoopRealtimeEngine();
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+    const docIdResult = RealtimeDocId.create('doc-1');
+    const docId = docIdResult._unsafeUnwrap();
+
+    (await engine.ensure(context, docId, { title: 'init' }))._unsafeUnwrap();
+    (
+      await engine.applyChange(context, docId, {
+        type: 'set',
+        path: ['title'],
+        value: 'next',
+      })
+    )._unsafeUnwrap();
   });
 });
 

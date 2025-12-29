@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { TraceSpan, isTraceSpanWrapped } from '../ports/TraceSpan';
 
 export interface ICommandHandler<TCommand, TResult> {
   handle(context: IExecutionContext, command: TCommand): Promise<Result<TResult, string>>;
@@ -22,6 +23,15 @@ const commandHandlerRegistry = new Map<
 export const CommandHandler =
   <TCommand>(command: CommandType<TCommand>) =>
   (target: CommandHandlerClass<TCommand, unknown>): void => {
+    const descriptor = Object.getOwnPropertyDescriptor(target.prototype, 'handle');
+    if (
+      descriptor &&
+      typeof descriptor.value === 'function' &&
+      !isTraceSpanWrapped(descriptor.value)
+    ) {
+      TraceSpan()(target.prototype, 'handle', descriptor);
+      Object.defineProperty(target.prototype, 'handle', descriptor);
+    }
     commandHandlerRegistry.set(command, target as CommandHandlerClass<unknown, unknown>);
   };
 

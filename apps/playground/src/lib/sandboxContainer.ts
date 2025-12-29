@@ -1,4 +1,6 @@
 import { v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pglite';
+import { PinoLoggerAdapter, createV2PinoLogger } from '@teable/v2-adapter-logger-pino';
+import { registerV2BroadcastChannelRealtime } from '@teable/v2-adapter-realtime-broadcastchannel';
 import { createV2BrowserContainer } from '@teable/v2-container-browser';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -15,6 +17,14 @@ import {
 let containerPromise: Promise<DependencyContainer> | undefined;
 let spaceSeedPromise: Promise<void> | undefined;
 const baseSeedPromises = new Map<string, Promise<void>>();
+const sandboxLogLevel = import.meta.env.VITE_LOG_LEVEL ?? (import.meta.env.DEV ? 'debug' : 'info');
+const sandboxLogger = new PinoLoggerAdapter(
+  createV2PinoLogger({
+    name: 'teable-sandbox',
+    level: sandboxLogLevel,
+    browser: { asObject: true },
+  })
+);
 
 const ensureSandboxSpace = async (db: Kysely<V1TeableDatabase>): Promise<void> => {
   const existingSpace = await db
@@ -81,7 +91,9 @@ export const createSandboxContainer = async (): Promise<DependencyContainer> => 
       const container = await createV2BrowserContainer({
         ensureSchema: true,
         connectionString: SANDBOX_PGLITE_CONNECTION_STRING,
+        logger: sandboxLogger,
       });
+      registerV2BroadcastChannelRealtime(container);
       await ensureSandboxBase(container, SANDBOX_BASE_ID, SANDBOX_BASE_NAME);
       return container;
     })();

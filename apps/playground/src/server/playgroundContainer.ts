@@ -5,6 +5,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { playgroundLogger } from './playgroundLogger';
+import { registerPlaygroundShareDbRealtime } from './shareDbServer';
 
 import {
   PLAYGROUND_ACTOR_ID,
@@ -79,6 +80,7 @@ export const createPlaygroundContainer = async (): Promise<DependencyContainer> 
         logger: playgroundLogger,
         tracer: v2Tracer,
       });
+      await registerPlaygroundShareDbRealtime(container);
       await ensurePlaygroundSeed(container);
       return container;
     })();

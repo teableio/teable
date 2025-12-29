@@ -10,6 +10,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 ## Subfolders
 
+- `projections/` - Projection types and handler decorator alias (EventHandler-based).
 - `services/` - Application service implementations (orchestration only).
 
 ## Files

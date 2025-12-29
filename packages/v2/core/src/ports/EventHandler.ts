@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { IExecutionContext } from './ExecutionContext';
+import { TraceSpan, isTraceSpanWrapped } from './TraceSpan';
 
 export interface IEventHandler<TEvent extends IDomainEvent> {
   handle(context: IExecutionContext, event: TEvent): Promise<Result<void, string>>;
@@ -23,6 +24,15 @@ const eventHandlerRegistry = new Map<
 export const EventHandler =
   <TEvent extends IDomainEvent>(event: EventType<TEvent>) =>
   (target: EventHandlerClass<TEvent>): void => {
+    const descriptor = Object.getOwnPropertyDescriptor(target.prototype, 'handle');
+    if (
+      descriptor &&
+      typeof descriptor.value === 'function' &&
+      !isTraceSpanWrapped(descriptor.value)
+    ) {
+      TraceSpan()(target.prototype, 'handle', descriptor);
+      Object.defineProperty(target.prototype, 'handle', descriptor);
+    }
     const existing = eventHandlerRegistry.get(event) ?? [];
     if (!existing.includes(target as EventHandlerClass<IDomainEvent>)) {
       existing.push(target as EventHandlerClass<IDomainEvent>);

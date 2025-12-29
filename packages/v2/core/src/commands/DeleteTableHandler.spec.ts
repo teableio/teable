@@ -15,7 +15,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
-import type { ILogger } from '../ports/Logger';
+import type { ILogger, LogContext } from '../ports/Logger';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -123,6 +123,14 @@ class FakeEventBus implements IEventBus {
 
 class FakeLogger implements ILogger {
   readonly messages: string[] = [];
+
+  child(_: LogContext): ILogger {
+    return this;
+  }
+
+  scope(_: string, __?: LogContext): ILogger {
+    return this;
+  }
 
   debug(message: string): void {
     this.messages.push(message);

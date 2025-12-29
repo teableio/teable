@@ -33,6 +33,9 @@ export const registerV2PostgresStateAdapter = async (
   c.register(v2PostgresStateTokens.tableMapper, DefaultTableMapper, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(v2CoreTokens.tableMapper, DefaultTableMapper, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(v2CoreTokens.tableRepository, PostgresTableRepository, {
     lifecycle: Lifecycle.Singleton,
   });

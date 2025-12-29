@@ -1,0 +1,35 @@
+import type {
+  IExecutionContext,
+  IRealtimeEngine,
+  RealtimeChange,
+  RealtimeDocId,
+} from '@teable/v2-core';
+import { inject, injectable } from '@teable/v2-di';
+import type { Result } from 'neverthrow';
+
+import { BroadcastChannelRealtimeHub } from './BroadcastChannelRealtimeHub';
+import { v2BroadcastChannelTokens } from './di/tokens';
+
+@injectable()
+export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
+  constructor(
+    @inject(v2BroadcastChannelTokens.hub)
+    private readonly hub: BroadcastChannelRealtimeHub
+  ) {}
+
+  async ensure(
+    _context: IExecutionContext,
+    docId: RealtimeDocId,
+    initial: unknown
+  ): Promise<Result<void, string>> {
+    return this.hub.ensure(docId, initial);
+  }
+
+  async applyChange(
+    _context: IExecutionContext,
+    docId: RealtimeDocId,
+    change: RealtimeChange
+  ): Promise<Result<void, string>> {
+    return this.hub.applyChange(docId, change);
+  }
+}
