@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
-import { RegularOrpcProvider } from '@/lib/orpc/RegularOrpcProvider';
+import { RemoteOrpcProvider } from '@/lib/orpc/RemoteOrpcProvider';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
@@ -25,9 +25,9 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
 function PlaygroundTableRouteWrapper() {
   const { baseId, tableId } = Route.useParams();
   return (
-    <RegularOrpcProvider>
+    <RemoteOrpcProvider>
       <PlaygroundTableRoute baseId={baseId} tableId={tableId} />
-    </RegularOrpcProvider>
+    </RemoteOrpcProvider>
   );
 }
 

@@ -21,7 +21,7 @@ if (import.meta.env.SSR) {
   }) as V2OrpcClient;
 }
 
-export const getRegularOrpcClient = (): V2OrpcClient => {
+export const getRemoteOrpcClient = (): V2OrpcClient => {
   if (import.meta.env.SSR) {
     if (!serverClient) {
       throw new Error('Server ORPC client is not initialized.');

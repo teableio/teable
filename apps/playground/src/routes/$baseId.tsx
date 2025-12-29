@@ -29,7 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { RegularOrpcProvider } from '@/lib/orpc/RegularOrpcProvider';
+import { RemoteOrpcProvider } from '@/lib/orpc/RemoteOrpcProvider';
 import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { resolveBaseName, usePlaygroundEnvironment } from '@/lib/playground/environment';
 
@@ -59,9 +59,9 @@ const filterTablesByNameLike = (
 function PlaygroundBaseRoute() {
   const { baseId } = Route.useParams();
   return (
-    <RegularOrpcProvider>
+    <RemoteOrpcProvider>
       <PlaygroundBaseLayout baseId={baseId} />
-    </RegularOrpcProvider>
+    </RemoteOrpcProvider>
   );
 }
 

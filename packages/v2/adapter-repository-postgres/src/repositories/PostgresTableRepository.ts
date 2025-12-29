@@ -509,10 +509,10 @@ export class PostgresTableRepository implements core.ITableRepository {
       if (statementsResult.isErr()) return err(statementsResult.error);
       if (statementsResult.value.length === 0) return ok(undefined);
 
-      const batch = combineCompiledQueriesAsSql(
+      await executeCompiledQueries(
+        db,
         statementsResult.value.map((statement) => statement.compile())
       );
-      await batch.execute(db);
 
       return ok(undefined);
     } catch (error) {
@@ -952,32 +952,11 @@ const describeError = (error: unknown): string => {
   }
 };
 
-const combineCompiledQueriesAsSql = (
+const executeCompiledQueries = async <DB>(
+  db: Kysely<DB> | Transaction<DB>,
   compiled: ReadonlyArray<CompiledQuery>
-): ReturnType<typeof sql> => {
-  const statements = compiled.map(compileWithLiterals);
-  return sql.join(statements, sql.raw(';\n'));
-};
-
-const compileWithLiterals = (compiled: CompiledQuery): ReturnType<typeof sql> => {
-  const parts: Array<ReturnType<typeof sql>> = [];
-  const parameters = compiled.parameters;
-  let lastIndex = 0;
-  const placeholder = /\$(\d+)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = placeholder.exec(compiled.sql)) !== null) {
-    const before = compiled.sql.slice(lastIndex, match.index);
-    if (before) parts.push(sql.raw(before));
-    const parameterIndex = Number(match[1]) - 1;
-    const value = parameters[parameterIndex] ?? null;
-    parts.push(sql.lit(value));
-    lastIndex = match.index + match[0].length;
+): Promise<void> => {
+  for (const statement of compiled) {
+    await db.executeQuery(statement);
   }
-
-  const tail = compiled.sql.slice(lastIndex);
-  if (tail) parts.push(sql.raw(tail));
-  if (parts.length === 0) return sql.raw(compiled.sql);
-
-  return sql.join(parts, sql.raw(''));
 };

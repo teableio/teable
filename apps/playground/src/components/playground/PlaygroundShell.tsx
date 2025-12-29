@@ -2,15 +2,14 @@ import type { ITableDto } from '@teable/v2-contract-http';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
   ArrowRight,
+  ChevronDown,
+  FlaskConical,
   GalleryVerticalEnd,
-  LogOut,
-  MoreVertical,
+  Globe,
   Search,
-  Settings,
   Table as TableIcon,
   Trash2,
   TriangleAlert,
-  User,
 } from 'lucide-react';
 import { useEffect, useState, useRef, type FormEvent, type ReactNode } from 'react';
 import {
@@ -54,7 +53,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { usePlaygroundEnvironment } from '@/lib/playground/environment';
+import {
+  usePlaygroundEnvironment,
+  resolvePlaygroundEnvironment,
+} from '@/lib/playground/environment';
+import { cn } from '@/lib/utils';
 
 type PlaygroundShellProps = {
   baseId: string;
@@ -81,21 +84,41 @@ export function PlaygroundShell({
   isDeletingTable,
   children,
 }: PlaygroundShellProps) {
+  const env = usePlaygroundEnvironment();
+  const isSandbox = env.kind === 'sandbox';
+
   return (
-    <SidebarProvider>
-      <PlaygroundSidebar
-        baseId={baseId}
-        activeTableId={activeTableId}
-        tables={tables}
-        isInitialLoading={isInitialLoading}
-        errorMessage={errorMessage}
-        searchValue={searchValue}
-        onSearchChange={onSearchChange}
-        onDeleteTable={onDeleteTable}
-        isDeletingTable={isDeletingTable}
-      />
-      <SidebarInset className="h-svh overflow-hidden">{children}</SidebarInset>
-    </SidebarProvider>
+    <div
+      className={cn(
+        'relative min-h-svh bg-background',
+        isSandbox &&
+          'rounded-2xl ring-2 ring-emerald-400/70 ring-offset-4 ring-offset-emerald-50/50'
+      )}
+    >
+      {isSandbox ? (
+        <div className="pointer-events-none absolute left-1/2 top-0 z-20 -translate-x-1/2">
+          <div className="rounded-b-2xl border border-emerald-700/50 bg-emerald-600 px-4 py-1 text-[10px] font-semibold tracking-[0.24em] text-emerald-50 shadow-sm">
+            SANDBOX
+          </div>
+        </div>
+      ) : null}
+      <div className={cn('min-h-svh bg-background', isSandbox && 'rounded-2xl overflow-hidden')}>
+        <SidebarProvider>
+          <PlaygroundSidebar
+            baseId={baseId}
+            activeTableId={activeTableId}
+            tables={tables}
+            isInitialLoading={isInitialLoading}
+            errorMessage={errorMessage}
+            searchValue={searchValue}
+            onSearchChange={onSearchChange}
+            onDeleteTable={onDeleteTable}
+            isDeletingTable={isDeletingTable}
+          />
+          <SidebarInset className="h-svh overflow-hidden">{children}</SidebarInset>
+        </SidebarProvider>
+      </div>
+    </div>
   );
 }
 
@@ -124,6 +147,10 @@ function PlaygroundSidebar({
 }: PlaygroundSidebarProps) {
   const navigate = useNavigate();
   const env = usePlaygroundEnvironment();
+  const isSandbox = env.kind === 'sandbox';
+  const sandboxEnv = resolvePlaygroundEnvironment('/sandbox');
+  const remoteEnv = resolvePlaygroundEnvironment('/');
+  const activeEnv = isSandbox ? sandboxEnv : remoteEnv;
   const [nextBaseId, setNextBaseId] = useState(baseId);
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -159,6 +186,38 @@ function PlaygroundSidebar({
     if (!deleteTarget) return;
     onDeleteTable(deleteTarget);
     setDeleteTarget(null);
+  };
+
+  const readStoredValue = (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'string') return parsed.trim() || null;
+      if (parsed === null || parsed === undefined) return null;
+    } catch {
+      return raw.trim() || null;
+    }
+    return null;
+  };
+
+  const resolveTargetPath = (target: typeof activeEnv) => {
+    if (typeof window === 'undefined') {
+      return { to: target.routes.base, params: { baseId: target.defaults.baseId } };
+    }
+    const storedBaseId = readStoredValue(target.storageKeys.baseId);
+    const storedTableId = readStoredValue(target.storageKeys.tableId);
+    const baseId = storedBaseId || target.defaults.baseId;
+    if (storedTableId) {
+      return { to: target.routes.table, params: { baseId, tableId: storedTableId } };
+    }
+    return { to: target.routes.base, params: { baseId } };
+  };
+
+  const handleEnvSwitch = (target: typeof activeEnv) => {
+    const next = resolveTargetPath(target);
+    void navigate({ ...next, search: {} });
   };
 
   return (
@@ -299,49 +358,62 @@ function PlaygroundSidebar({
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuButton
                     size="lg"
+                    tooltip="Environment"
                     className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                   >
-                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                      <User className="size-4" />
+                    <div
+                      className={cn(
+                        'flex size-9 items-center justify-center rounded-lg border',
+                        isSandbox
+                          ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-600'
+                          : 'border-sky-500/50 bg-sky-500/10 text-sky-600'
+                      )}
+                    >
+                      {isSandbox ? (
+                        <FlaskConical className="size-5" />
+                      ) : (
+                        <Globe className="size-5" />
+                      )}
                     </div>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">Teable v2</span>
-                      <span className="truncate text-xs text-muted-foreground">demo@teable.io</span>
+                    <div className="flex flex-1 items-center justify-between gap-3 group-data-[collapsible=icon]:hidden">
+                      <div className="flex flex-col text-left leading-tight">
+                        <span className="text-[11px] font-medium text-muted-foreground">
+                          Environment
+                        </span>
+                        <span className="text-sm font-semibold">
+                          {isSandbox ? 'Sandbox' : 'Remote'}
+                        </span>
+                      </div>
+                      <ChevronDown className="size-4 opacity-60" />
                     </div>
-                    <MoreVertical className="ml-auto size-4" />
                   </SidebarMenuButton>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
+                  side="top"
+                  align="start"
+                  sideOffset={6}
                 >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                        <User className="size-4" />
-                      </div>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">Teable v2</span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          demo@teable.io
-                        </span>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
+                  <DropdownMenuLabel className="text-xs">Switch environment</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuGroup>
-                    <DropdownMenuItem>
-                      <Settings className="mr-2 size-4" />
-                      Settings
+                    <DropdownMenuItem
+                      className="gap-2 py-2 text-sm"
+                      onSelect={() => handleEnvSwitch(remoteEnv)}
+                      disabled={activeEnv.kind === 'remote'}
+                    >
+                      <Globe className="mr-2 size-4 text-sky-600" />
+                      Remote
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="gap-2 py-2 text-sm"
+                      onSelect={() => handleEnvSwitch(sandboxEnv)}
+                      disabled={activeEnv.kind === 'sandbox'}
+                    >
+                      <FlaskConical className="mr-2 size-4 text-emerald-600" />
+                      Sandbox
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem>
-                    <LogOut className="mr-2 size-4" />
-                    Log out
-                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </SidebarMenuItem>
