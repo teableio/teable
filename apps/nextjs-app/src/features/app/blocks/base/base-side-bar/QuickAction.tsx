@@ -70,7 +70,19 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
           </kbd>
         )}
       </Button>
-      <CommandDialog open={open} onOpenChange={setOpen}>
+      <CommandDialog
+        open={open}
+        onOpenChange={setOpen}
+        commandProps={{
+          filter: (value, search, keywords) => {
+            const searchLower = search.toLowerCase();
+            if (keywords?.some((keyword) => keyword.toLowerCase().includes(searchLower))) {
+              return 1;
+            }
+            return 0;
+          },
+        }}
+      >
         <CommandInput placeholder={t('common:quickAction.placeHolder')} />
         <CommandList>
           <CommandEmpty>{t('common:noResult')}</CommandEmpty>

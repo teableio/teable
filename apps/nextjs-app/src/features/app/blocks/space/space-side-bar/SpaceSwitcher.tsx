@@ -171,7 +171,17 @@ export const SpaceSwitcher = () => {
         </PopoverTrigger>
 
         <PopoverContent className="min-w-[360px] p-0" align="start">
-          <Command value={highlightedValue} onValueChange={setHighlightedValue}>
+          <Command
+            value={highlightedValue}
+            onValueChange={setHighlightedValue}
+            filter={(value, search, keywords) => {
+              const searchLower = search.toLowerCase();
+              if (keywords?.some((keyword) => keyword.toLowerCase().includes(searchLower))) {
+                return 1;
+              }
+              return 0;
+            }}
+          >
             <div className="px-4 pb-2 pt-4">
               <p className="pb-2 text-sm font-semibold ">
                 {t('space:allSpaces')} ({spaceList?.length || 0})
