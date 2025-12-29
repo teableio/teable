@@ -10,7 +10,10 @@ const createPgDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> 
 
   // Use standard import to ensure OTel patch is picked up correctly
   const pg = await import('pg');
-  const Pool = pg.Pool || (pg.default as any)?.Pool;
+  const Pool = pg.Pool ?? (hasPgDefault(pg) ? pg.default.Pool : undefined);
+  if (!Pool) {
+    throw new Error('Missing pg.Pool');
+  }
 
   return new Kysely<DB>({
     dialect: new PostgresDialect({
@@ -23,4 +26,14 @@ export const createV2PostgresDb = async <DB = unknown>(
   config: IV2PostgresDbConfig
 ): Promise<Kysely<DB>> => {
   return createPgDb<DB>(config);
+};
+
+type PgDefaultExport = { Pool: typeof import('pg').Pool };
+
+const hasPgDefault = (
+  value: typeof import('pg')
+): value is typeof import('pg') & {
+  default: PgDefaultExport;
+} => {
+  return 'default' in value && !!value.default && 'Pool' in value.default;
 };

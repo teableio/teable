@@ -54,6 +54,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
 type PlaygroundShellProps = {
   baseId: string;
@@ -122,6 +123,7 @@ function PlaygroundSidebar({
   isDeletingTable,
 }: PlaygroundSidebarProps) {
   const navigate = useNavigate();
+  const env = usePlaygroundEnvironment();
   const [nextBaseId, setNextBaseId] = useState(baseId);
   const [deleteTarget, setDeleteTarget] = useState<ITableDto | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -147,7 +149,7 @@ function PlaygroundSidebar({
     event.preventDefault();
     if (!canSwitchBase) return;
     void navigate({
-      to: '/$baseId',
+      to: env.routes.base,
       params: { baseId: trimmedBaseId },
       search: {},
     });
@@ -257,7 +259,7 @@ function PlaygroundSidebar({
                           <SidebarMenuItem key={table.id}>
                             <SidebarMenuButton asChild isActive={isActive} size="sm">
                               <Link
-                                to="/$baseId/$tableId"
+                                to={env.routes.table}
                                 params={{ baseId, tableId: table.id }}
                                 search={searchValue ? { q: searchValue } : {}}
                               >

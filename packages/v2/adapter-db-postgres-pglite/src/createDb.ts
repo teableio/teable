@@ -1,6 +1,6 @@
-import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
+import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-shared';
 import { Kysely } from 'kysely';
-import { KyselyPGlite } from 'kysely-pglite';
+import { KyselyPGlite } from './kyselyPgliteBrowser';
 
 const createPostgresPgliteDb = async <DB>(config: IV2PostgresDbConfig): Promise<Kysely<DB>> => {
   // PGlite uses a data directory or "memory://" for in-memory databases.

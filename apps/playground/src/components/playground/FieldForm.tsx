@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { getOrpcClient } from '@/lib/orpcClient';
+import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
 import { FieldFormOptions } from './FieldFormOptions';
 
 interface FieldFormProps {
@@ -48,7 +48,7 @@ export type FieldFormApi = ReactFormApi<FieldFormValues, FieldFormValidator>;
 
 export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormProps) {
   const queryClient = useQueryClient();
-  const orpc = createTanstackQueryUtils(getOrpcClient());
+  const orpc = createTanstackQueryUtils(useOrpcClient());
   const validatorAdapter = standardSchemaValidator() as FieldFormValidator;
 
   const tablesQuery = useQuery<IListTablesOkResponseDto, Error, ReadonlyArray<ITableDto>>(

@@ -6,7 +6,7 @@ Declaration: If the folder I belong to changes, please update me.
 
 - Provide the Kysely Postgres.js dialect backed by `postgres`.
 - Register a Kysely instance into the shared Postgres DB tokens.
-- Re-export shared Postgres tokens/config and UnitOfWork from the pg adapter.
+- Re-export shared Postgres tokens/config and UnitOfWork from the shared adapter package.
 
 ## Subfolders
 

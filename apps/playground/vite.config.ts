@@ -1,5 +1,6 @@
 import { defineConfig, loadEnv } from 'vite';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { devtools } from '@tanstack/devtools-vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
@@ -14,6 +15,8 @@ const v2ServerPackages = [
   '@teable/v2-contract-http-implementation',
   '@teable/v2-container-node',
   '@teable/v2-adapter-db-postgres-pg',
+  '@teable/v2-adapter-db-postgres-pglite',
+  '@teable/v2-adapter-db-postgres-shared',
   '@teable/v2-postgres-schema',
   '@teable/v2-adapter-repository-postgres',
   '@teable/v2-adapter-schema-repository-postgres',
@@ -21,7 +24,7 @@ const v2ServerPackages = [
 ];
 const sourceOnlyPackages = ['@teable/formula'];
 
-const nodeExternalDeps = ['pg', 'pg-pool', 'kysely'];
+const nodeExternalDeps = ['pg', 'pg-pool', 'kysely', '@electric-sql/pglite'];
 
 const PLAYGROUND_PORT = 3100;
 const v2PackagePrefix = '@teable/v2-';
@@ -59,6 +62,17 @@ const config = defineConfig(({ mode }) => {
     resolve: {
       // Force v2 packages to resolve to source for dev without dist outputs.
       alias: [
+        {
+          find: 'kysely-pglite',
+          replacement: path.resolve(envDir, './src/lib/kyselyPgliteBrowser.ts'),
+        },
+        {
+          find: '@teable/v2-contract-http-implementation/handlers',
+          replacement: path.resolve(
+            envDir,
+            '../../packages/v2/contract-http-implementation/src/handlers/index.ts'
+          ),
+        },
         ...v2Aliases,
         {
           find: '@teable/formula',

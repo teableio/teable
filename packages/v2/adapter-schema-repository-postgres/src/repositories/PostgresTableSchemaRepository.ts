@@ -75,7 +75,7 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         compiledStatements.push(builderRef.builder.compile());
         compiledStatements.push(...fieldStatements.map((statement) => statement.compile(db)));
 
-        await combineCompiledQueriesAsSql(compiledStatements).execute(db);
+        await executeCompiledQueries(db, compiledStatements);
       } catch (error) {
         return err(`Failed to insert table schema: ${describeError(error)}`);
       }
@@ -108,10 +108,10 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
       if (statements.length === 0) return ok(undefined);
 
       try {
-        const batch = combineCompiledQueriesAsSql(
+        await executeCompiledQueries(
+          db,
           statements.map((statement) => statement.compile(db))
         );
-        await batch.execute(db);
       } catch (error) {
         return err(`Failed to update table schema: ${describeError(error)}`);
       }
@@ -174,32 +174,11 @@ const describeError = (error: unknown): string => {
   }
 };
 
-const combineCompiledQueriesAsSql = (
+const executeCompiledQueries = async <DB>(
+  db: Kysely<DB> | Transaction<DB>,
   compiled: ReadonlyArray<CompiledQuery>
-): ReturnType<typeof sql> => {
-  const statements = compiled.map(compileWithLiterals);
-  return sql.join(statements, sql.raw(';\n'));
-};
-
-const compileWithLiterals = (compiled: CompiledQuery): ReturnType<typeof sql> => {
-  const parts: Array<ReturnType<typeof sql>> = [];
-  const parameters = compiled.parameters;
-  let lastIndex = 0;
-  const placeholder = /\$(\d+)/g;
-  let match: RegExpExecArray | null;
-
-  while ((match = placeholder.exec(compiled.sql)) !== null) {
-    const before = compiled.sql.slice(lastIndex, match.index);
-    if (before) parts.push(sql.raw(before));
-    const parameterIndex = Number(match[1]) - 1;
-    const value = parameters[parameterIndex] ?? null;
-    parts.push(sql.lit(value));
-    lastIndex = match.index + match[0].length;
+): Promise<void> => {
+  for (const statement of compiled) {
+    await db.executeQuery(statement);
   }
-
-  const tail = compiled.sql.slice(lastIndex);
-  if (tail) parts.push(sql.raw(tail));
-  if (parts.length === 0) return sql.raw(compiled.sql);
-
-  return sql.join(parts, sql.raw(''));
 };

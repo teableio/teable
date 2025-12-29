@@ -1,4 +1,4 @@
-import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
+import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-shared';
 import { Kysely } from 'kysely';
 import { PostgresJSDialect } from 'kysely-postgres-js';
 import postgres from 'postgres';

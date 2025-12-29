@@ -1,5 +1,8 @@
-import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-pg';
-import { v2PostgresDbConfigSchema, v2PostgresDbTokens } from '@teable/v2-adapter-db-postgres-pg';
+import type { IV2PostgresDbConfig } from '@teable/v2-adapter-db-postgres-shared';
+import {
+  v2PostgresDbConfigSchema,
+  v2PostgresDbTokens,
+} from '@teable/v2-adapter-db-postgres-shared';
 import type { DependencyContainer } from '@teable/v2-di';
 import { container } from '@teable/v2-di';
 

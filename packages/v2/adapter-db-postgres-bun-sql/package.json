@@ -28,7 +28,7 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-db-postgres-shared": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "kysely": "0.28.9",
     "kysely-bun-sql": "0.2.0"

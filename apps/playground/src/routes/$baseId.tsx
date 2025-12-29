@@ -29,15 +29,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { getOrpcClient } from '@/lib/orpcClient';
-import {
-  PLAYGROUND_BASE_ID,
-  PLAYGROUND_BASE_NAME,
-  PLAYGROUND_BASE_ID_STORAGE_KEY,
-  PLAYGROUND_TABLE_ID_STORAGE_KEY,
-} from '@/lib/playground/constants';
+import { RegularOrpcProvider } from '@/lib/orpc/RegularOrpcProvider';
+import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import { resolveBaseName, usePlaygroundEnvironment } from '@/lib/playground/environment';
 
-export const Route = createFileRoute('/$baseId')({ component: PlaygroundBaseLayout });
+export const Route = createFileRoute('/$baseId')({ component: PlaygroundBaseRoute });
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) return error.message;
@@ -60,18 +56,31 @@ const filterTablesByNameLike = (
   });
 };
 
-function PlaygroundBaseLayout() {
+function PlaygroundBaseRoute() {
   const { baseId } = Route.useParams();
-  const tableMatch = useMatch({ from: '/$baseId/$tableId', shouldThrow: false });
+  return (
+    <RegularOrpcProvider>
+      <PlaygroundBaseLayout baseId={baseId} />
+    </RegularOrpcProvider>
+  );
+}
+
+type PlaygroundBaseLayoutProps = {
+  baseId: string;
+};
+
+export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
+  const env = usePlaygroundEnvironment();
+  const tableMatch = useMatch({ from: env.routes.table, shouldThrow: false });
   const activeTableId = tableMatch?.params.tableId ?? null;
-  const baseName = baseId === PLAYGROUND_BASE_ID ? PLAYGROUND_BASE_NAME : baseId;
+  const baseName = resolveBaseName(env, baseId);
   const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
-    PLAYGROUND_BASE_ID_STORAGE_KEY,
+    env.storageKeys.baseId,
     null,
     { initializeWithValue: false }
   );
   const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
-    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    env.storageKeys.tableId,
     null,
     { initializeWithValue: false }
   );
@@ -86,7 +95,7 @@ function PlaygroundBaseLayout() {
   const searchQuery = debouncedSearch?.trim() ?? '';
   const isSearchSynced = trimmedSearch === searchQuery;
 
-  const orpc = createTanstackQueryUtils(getOrpcClient());
+  const orpc = createTanstackQueryUtils(useOrpcClient());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const tablesQuery = useQuery<IListTablesOkResponseDto, unknown, ReadonlyArray<ITableDto>>(
@@ -154,7 +163,7 @@ function PlaygroundBaseLayout() {
           }),
         });
         void navigate({
-          to: '/$baseId/$tableId',
+          to: env.routes.table,
           params: { baseId, tableId: created.id },
         });
       },
@@ -200,7 +209,7 @@ function PlaygroundBaseLayout() {
         }
 
         if (activeTableId === deletedId) {
-          void navigate({ to: '/$baseId', params: { baseId } });
+          void navigate({ to: env.routes.base, params: { baseId } });
         }
 
         void queryClient.invalidateQueries({
@@ -432,6 +441,7 @@ type PlaygroundTablesCardProps = {
 };
 
 function PlaygroundTablesCard({ baseId, tables, searchValue }: PlaygroundTablesCardProps) {
+  const env = usePlaygroundEnvironment();
   const search = searchValue ? { q: searchValue } : {};
 
   return (
@@ -458,7 +468,7 @@ function PlaygroundTablesCard({ baseId, tables, searchValue }: PlaygroundTablesC
               <TableRow key={table.id}>
                 <TableCell className="font-medium">
                   <Link
-                    to="/$baseId/$tableId"
+                    to={env.routes.table}
                     params={{ baseId, tableId: table.id }}
                     search={search}
                     className="inline-flex items-center gap-2"
@@ -476,7 +486,7 @@ function PlaygroundTablesCard({ baseId, tables, searchValue }: PlaygroundTablesC
                 <TableCell className="text-right">
                   <Button variant="outline" size="sm" asChild>
                     <Link
-                      to="/$baseId/$tableId"
+                      to={env.routes.table}
                       params={{ baseId, tableId: table.id }}
                       search={search}
                     >

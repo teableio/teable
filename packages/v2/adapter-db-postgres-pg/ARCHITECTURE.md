@@ -5,7 +5,7 @@ Declaration: If the folder I belong to changes, please update me.
 ## Responsibilities
 
 - Provide the Kysely Postgres dialect backed by the `pg` driver.
-- Own shared Postgres DB tokens/config schema and the UnitOfWork implementation.
+- Re-export shared Postgres DB tokens/config schema and the UnitOfWork implementation from the shared adapter package.
 - Expose DI helpers for registering the database into containers.
 
 ## Subfolders
@@ -14,7 +14,7 @@ Declaration: If the folder I belong to changes, please update me.
 
 ## Files
 
-- `src/config.ts` - Postgres connection config schema.
+- `src/config.ts` - Re-exported Postgres connection config schema.
 - `src/createDb.ts` - Kysely + `pg` dialect factory.
-- `src/unitOfWork.ts` - Transaction wrapper for v2 UnitOfWork.
+- `src/unitOfWork.ts` - Re-exported transaction wrapper for v2 UnitOfWork.
 - `src/index.ts` - Package public exports.

@@ -8,14 +8,13 @@ import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 
 import { TableMetaPage } from '@/components/playground/TableMetaPage';
-import { getOrpcClient } from '@/lib/orpcClient';
-import {
-  PLAYGROUND_BASE_ID,
-  PLAYGROUND_BASE_ID_STORAGE_KEY,
-  PLAYGROUND_TABLE_ID_STORAGE_KEY,
-} from '@/lib/playground/constants';
+import { RegularOrpcProvider } from '@/lib/orpc/RegularOrpcProvider';
+import { useOrpcClient } from '@/lib/orpc/OrpcClientContext';
+import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
-export const Route = createFileRoute('/$baseId/$tableId')({ component: PlaygroundTableRoute });
+export const Route = createFileRoute('/$baseId/$tableId')({
+  component: PlaygroundTableRouteWrapper,
+});
 
 const getErrorMessage = (error: unknown, fallback: string): string => {
   if (error instanceof Error) return error.message;
@@ -23,14 +22,13 @@ const getErrorMessage = (error: unknown, fallback: string): string => {
   return fallback;
 };
 
-function PlaygroundTableRoute() {
+function PlaygroundTableRouteWrapper() {
   const { baseId, tableId } = Route.useParams();
-
-  if (tableId === 'new') {
-    return <Navigate to="/$baseId" params={{ baseId }} replace />;
-  }
-
-  return <PlaygroundTableDetail baseId={baseId} tableId={tableId} />;
+  return (
+    <RegularOrpcProvider>
+      <PlaygroundTableRoute baseId={baseId} tableId={tableId} />
+    </RegularOrpcProvider>
+  );
 }
 
 type PlaygroundTableDetailProps = {
@@ -38,21 +36,32 @@ type PlaygroundTableDetailProps = {
   tableId: string;
 };
 
+export function PlaygroundTableRoute({ baseId, tableId }: PlaygroundTableDetailProps) {
+  const env = usePlaygroundEnvironment();
+
+  if (tableId === 'new') {
+    return <Navigate to={env.routes.base} params={{ baseId }} replace />;
+  }
+
+  return <PlaygroundTableDetail baseId={baseId} tableId={tableId} />;
+}
+
 function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) {
+  const env = usePlaygroundEnvironment();
   const [eventCount, setEventCount] = useState<number | null>(null);
   const navigate = useNavigate();
   const [storedBaseId, setStoredBaseId] = useLocalStorage<string | null>(
-    PLAYGROUND_BASE_ID_STORAGE_KEY,
+    env.storageKeys.baseId,
     null,
     { initializeWithValue: false }
   );
   const [storedTableId, setStoredTableId, removeStoredTableId] = useLocalStorage<string | null>(
-    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    env.storageKeys.tableId,
     null,
     { initializeWithValue: false }
   );
 
-  const orpc = createTanstackQueryUtils(getOrpcClient());
+  const orpc = createTanstackQueryUtils(useOrpcClient());
   const queryClient = useQueryClient();
 
   const tableQuery = useQuery(
@@ -88,7 +97,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
           }),
         });
         void navigate({
-          to: '/$baseId/$tableId',
+          to: env.routes.table,
           params: { baseId, tableId: created.id },
         });
       },
@@ -129,7 +138,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
           exact: false,
         });
 
-        void navigate({ to: '/$baseId', params: { baseId } });
+        void navigate({ to: env.routes.base, params: { baseId } });
       },
       onError: (error) => {
         toast.error(getErrorMessage(error, 'Failed to delete table'));

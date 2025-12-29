@@ -1,5 +1,4 @@
 import { ORPCError, implement } from '@orpc/server';
-import { createV2NodePgContainer } from '@teable/v2-container-node';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { v2Contract } from '@teable/v2-contract-http';
 import {
@@ -24,10 +23,14 @@ export interface IV2OrpcRouterOptions {
 
 export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
   let defaultContainerPromise: Promise<IHandlerResolver> | undefined;
+  const createDefaultContainer = async (): Promise<IHandlerResolver> => {
+    const { createV2NodePgContainer } = await import('@teable/v2-container-node');
+    return createV2NodePgContainer();
+  };
   const createContainer =
     options.createContainer ??
     (() => {
-      if (!defaultContainerPromise) defaultContainerPromise = createV2NodePgContainer();
+      if (!defaultContainerPromise) defaultContainerPromise = createDefaultContainer();
       return defaultContainerPromise;
     });
   const createExecutionContext =

@@ -3,27 +3,26 @@ import { useEffect, useState } from 'react';
 import { useLocalStorage } from 'usehooks-ts';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  PLAYGROUND_BASE_ID,
-  PLAYGROUND_BASE_ID_STORAGE_KEY,
-  PLAYGROUND_TABLE_ID_STORAGE_KEY,
-} from '@/lib/playground/constants';
+import { usePlaygroundEnvironment } from '@/lib/playground/environment';
 
 export const Route = createFileRoute('/')({ component: PlaygroundIndex });
 
 type RedirectTarget =
   | { to: '/$baseId'; params: { baseId: string } }
   | { to: '/$baseId/$tableId'; params: { baseId: string; tableId: string } }
+  | { to: '/sandbox/$baseId'; params: { baseId: string } }
+  | { to: '/sandbox/$baseId/$tableId'; params: { baseId: string; tableId: string } }
   | null;
 
-function PlaygroundIndex() {
+export function PlaygroundIndex() {
+  const env = usePlaygroundEnvironment();
   const [target, setTarget] = useState<RedirectTarget>(null);
   const [hasHydrated, setHasHydrated] = useState(false);
-  const [storedBaseId] = useLocalStorage<string | null>(PLAYGROUND_BASE_ID_STORAGE_KEY, null, {
+  const [storedBaseId] = useLocalStorage<string | null>(env.storageKeys.baseId, null, {
     initializeWithValue: false,
   });
   const [storedTableId, , removeStoredTableId] = useLocalStorage<string | null>(
-    PLAYGROUND_TABLE_ID_STORAGE_KEY,
+    env.storageKeys.tableId,
     null,
     { initializeWithValue: false }
   );
@@ -34,27 +33,35 @@ function PlaygroundIndex() {
 
   useEffect(() => {
     if (!hasHydrated) return;
-    const baseId = storedBaseId && storedBaseId.trim() ? storedBaseId : PLAYGROUND_BASE_ID;
+    const baseId = storedBaseId && storedBaseId.trim() ? storedBaseId : env.defaults.baseId;
     const tableId = storedTableId && storedTableId.trim() ? storedTableId : null;
 
     if (!storedBaseId || !storedBaseId.trim()) {
       if (tableId) {
         removeStoredTableId();
       }
-      setTarget({ to: '/$baseId', params: { baseId } });
+      setTarget({ to: env.routes.base, params: { baseId } });
       return;
     }
 
     if (tableId) {
       setTarget({
-        to: '/$baseId/$tableId',
+        to: env.routes.table,
         params: { baseId, tableId },
       });
       return;
     }
 
-    setTarget({ to: '/$baseId', params: { baseId } });
-  }, [hasHydrated, removeStoredTableId, storedBaseId, storedTableId]);
+    setTarget({ to: env.routes.base, params: { baseId } });
+  }, [
+    env.defaults.baseId,
+    env.routes.base,
+    env.routes.table,
+    hasHydrated,
+    removeStoredTableId,
+    storedBaseId,
+    storedTableId,
+  ]);
 
   if (target) {
     return <Navigate to={target.to} params={target.params} replace />;
