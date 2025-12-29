@@ -29,9 +29,9 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teamwork/websocket-json-stream": "2.0.0",
     "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
+    "@teamwork/websocket-json-stream": "2.0.0",
     "neverthrow": "8.2.0",
     "sharedb": "4.1.2"
   },
@@ -40,6 +40,7 @@
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "22.18.0",
     "@types/sharedb": "3.3.10",
+    "@types/ws": "8.18.1",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",
     "prettier": "3.2.5",
@@ -47,6 +48,7 @@
     "tsdown": "0.18.1",
     "typescript": "5.4.3",
     "vite-tsconfig-paths": "4.3.2",
-    "vitest": "4.0.16"
+    "vitest": "4.0.16",
+    "ws": "8.18.3"
   }
 }

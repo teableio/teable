@@ -2836,6 +2836,9 @@ importers:
       '@types/sharedb':
         specifier: 3.3.10
         version: 3.3.10
+      '@types/ws':
+        specifier: 8.18.1
+        version: 8.18.1
       '@vitest/coverage-v8':
         specifier: 4.0.16
         version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -2860,6 +2863,9 @@ importers:
       vitest:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
+      ws:
+        specifier: 8.18.3
+        version: 8.18.3
 
   packages/v2/adapter-realtime-yjs:
     dependencies:
@@ -3941,6 +3947,9 @@ importers:
 
   packages/v2/e2e:
     dependencies:
+      '@teable/v2-adapter-realtime-sharedb':
+        specifier: workspace:*
+        version: link:../adapter-realtime-sharedb
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
@@ -3953,6 +3962,12 @@ importers:
       express:
         specifier: 4.21.1
         version: 4.21.1
+      sharedb:
+        specifier: 4.1.2
+        version: 4.1.2
+      ws:
+        specifier: 8.17.1
+        version: 8.17.1
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3966,6 +3981,12 @@ importers:
       '@types/node':
         specifier: 22.18.0
         version: 22.18.0
+      '@types/sharedb':
+        specifier: 3.3.10
+        version: 3.3.10
+      '@types/ws':
+        specifier: 8.5.12
+        version: 8.5.12
       '@vitest/coverage-v8':
         specifier: 4.0.16
         version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -11550,6 +11571,9 @@ packages:
 
   '@types/which@3.0.4':
     resolution: {integrity: sha512-liyfuo/106JdlgSchJzXEQCVArk0CvevqPote8F8HgWgJ3dRCcTHgJIsLDuee0kxk/mhbInzIZk3QWSZJ8R+2w==}
+
+  '@types/ws@8.18.1':
+    resolution: {integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==}
 
   '@types/ws@8.5.10':
     resolution: {integrity: sha512-vmQSUcfalpIq0R9q7uTo2lXs6eGIpt9wtnLdMv9LVpIjCA/+ufZRozlVoVelIYixx1ugCBKDhn89vnsEGOCx9A==}
@@ -22965,6 +22989,18 @@ packages:
       utf-8-validate:
         optional: true
 
+  ws@8.17.1:
+    resolution: {integrity: sha512-6XQFvXTkbfUOZOKKILFG1PDK2NDQs4azKQl26T0YS5CxqWLgXajbPZ+h4gZekJyRqFU8pvnbAbbs/3TgRPy+GQ==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   ws@8.18.0:
     resolution: {integrity: sha512-8VbfWfHLbbwu3+N6OKsOMpBdT4kXPDDB9cJk2bJ6mh9ucxdlnNvH1e+roYkKmN9Nxw2yjz7VzeO9oOz2zJ04Pw==}
     engines: {node: '>=10.0.0'}
@@ -32667,6 +32703,10 @@ snapshots:
   '@types/webpack-env@1.18.5': {}
 
   '@types/which@3.0.4': {}
+
+  '@types/ws@8.18.1':
+    dependencies:
+      '@types/node': 22.18.0
 
   '@types/ws@8.5.10':
     dependencies:
@@ -46869,6 +46909,8 @@ snapshots:
   ws@7.5.10: {}
 
   ws@8.16.0: {}
+
+  ws@8.17.1: {}
 
   ws@8.18.0: {}
 

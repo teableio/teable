@@ -57,7 +57,7 @@ describe('v2 http createField (e2e)', () => {
       body: JSON.stringify(payload),
     });
     const rawBody = await response.json();
-    if (response.status !== 200) {
+    if (response.status !== 201) {
       throw new Error(`CreateTable failed: ${JSON.stringify(rawBody)}`);
     }
     const parsed = createTableOkResponseSchema.safeParse(rawBody);
@@ -65,6 +65,7 @@ describe('v2 http createField (e2e)', () => {
     if (!parsed.success || !parsed.data.ok) {
       throw new Error(`Failed to create table: ${JSON.stringify(rawBody)}`);
     }
+    expect(response.status).toBe(201);
     return parsed.data.data.table;
   };
 
