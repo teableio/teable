@@ -62,10 +62,6 @@ const config = defineConfig(({ mode }) => {
       // Force v2 packages to resolve to source for dev without dist outputs.
       alias: [
         {
-          find: 'kysely-pglite',
-          replacement: path.resolve(envDir, './src/lib/kyselyPgliteBrowser.ts'),
-        },
-        {
           find: '@teable/v2-contract-http-implementation/handlers',
           replacement: path.resolve(
             envDir,

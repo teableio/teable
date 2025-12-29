@@ -24,7 +24,6 @@
     "paths": {
       "@/*": ["./src/*"],
       "@teable/v2-*": ["../../packages/v2/*/src/index"],
-      "kysely-pglite": ["./src/lib/kyselyPgliteBrowser.ts"],
       "@teable/v2-contract-http-implementation/handlers": [
         "../../packages/v2/contract-http-implementation/src/handlers/index.ts"
       ]

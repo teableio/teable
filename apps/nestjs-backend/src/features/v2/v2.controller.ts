@@ -4,7 +4,7 @@ import { v2Contract } from '@teable/v2-contract-http';
 import {
   executeCreateTableEndpoint,
   executeGetTableByIdEndpoint,
-} from '@teable/v2-contract-http-implementation';
+} from '@teable/v2-contract-http-implementation/handlers';
 import { ActorId, v2CoreTokens } from '@teable/v2-core';
 import type {
   IQueryBus,

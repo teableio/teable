@@ -14,6 +14,12 @@
       "import": "./dist/index.js",
       "module": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./handlers": {
+      "types": "./dist/handlers/index.d.ts",
+      "import": "./dist/handlers/index.js",
+      "module": "./dist/handlers/index.js",
+      "require": "./dist/handlers/index.cjs"
     }
   },
   "files": [
