@@ -2,6 +2,7 @@ import {
   AbstractSpecFilterVisitor,
   type ITableSpecVisitor,
   TableAddFieldSpec,
+  TableRemoveFieldSpec,
   TableUpdateViewColumnMetaSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
@@ -29,6 +30,10 @@ export class TableWhereVisitor
 
   visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, string> {
     return err('TableAddFieldSpec is not supported for table filters');
+  }
+
+  visitTableRemoveField(_: TableRemoveFieldSpec): Result<ITableMetaWhere, string> {
+    return err('TableRemoveFieldSpec is not supported for table filters');
   }
 
   visitTableUpdateViewColumnMeta(

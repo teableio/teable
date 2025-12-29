@@ -56,4 +56,27 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, string>> {
     return err('Not implemented');
   }
+
+  async delete(context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, string>> {
+    const docIdResult = RealtimeDocIdValue.parse(docId);
+    if (docIdResult.isErr()) return err(docIdResult.error);
+
+    const { collection, docId: documentId } = docIdResult.value;
+    const op: ShareDbOp = {
+      create: undefined,
+      del: true,
+      op: undefined,
+      src: context.actorId.toString(),
+      seq: 1,
+      v: 1,
+      m: {
+        ts: Date.now(),
+      },
+      c: collection,
+      d: documentId,
+    };
+
+    const channels = [collection, `${collection}.${documentId}`];
+    return this.publisher.publish(channels, op);
+  }
 }

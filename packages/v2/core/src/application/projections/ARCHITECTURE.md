@@ -15,3 +15,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `RealtimeProjection.ts` - Role: marker type; Purpose: label projections that target realtime engines.
 - `TableCreatedRealtimeProjection.ts` - Role: realtime projection; Purpose: publish table snapshots on create.
 - `FieldCreatedRealtimeProjection.ts` - Role: realtime projection; Purpose: publish field snapshots on create.
+- `FieldDeletedRealtimeProjection.ts` - Role: realtime projection; Purpose: delete field snapshots on remove.

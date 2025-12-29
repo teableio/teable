@@ -9,12 +9,15 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-reposito
 import {
   AsyncMemoryEventBus,
   FieldCreationSideEffectService,
+  FieldDeletionSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopLogger,
   NoopRealtimeEngine,
   NoopTableRepository,
+  NoopTableRecordQueryRepository,
+  NoopTableRecordRepository,
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
@@ -88,6 +91,9 @@ export const registerV2BrowserPgliteDependencies = async (
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
+  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
+    lifecycle: Lifecycle.Singleton,
+  });
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -136,6 +142,12 @@ export const registerV2BrowserNoopDependencies = (
   c: DependencyContainer = container
 ): DependencyContainer => {
   c.register(v2CoreTokens.tableRepository, NoopTableRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRecordQueryRepository, NoopTableRecordQueryRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.tableRecordRepository, NoopTableRecordRepository, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.tableSchemaRepository, NoopTableSchemaRepository, {

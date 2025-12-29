@@ -1,5 +1,6 @@
 import {
   FieldCreatedRealtimeProjection,
+  FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
   v2CoreTokens,
 } from '@teable/v2-core';
@@ -26,10 +27,18 @@ export const registerV2ShareDbRealtime = (
   c.register(v2CoreTokens.realtimeEngine, ShareDbRealtimeEngine, {
     lifecycle: Lifecycle.Singleton,
   });
+  const hasTableDeps =
+    c.isRegistered(v2CoreTokens.tableRepository) && c.isRegistered(v2CoreTokens.tableMapper);
+  if (!hasTableDeps) {
+    throw new Error('ShareDB realtime requires tableRepository and tableMapper registrations');
+  }
   c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(FieldDeletedRealtimeProjection, FieldDeletedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

@@ -1,12 +1,15 @@
 import {
   BaseId,
   FieldCreationSideEffectService,
+  FieldDeletionSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
   MemoryTableRepository,
   NoopLogger,
+  NoopTableRecordQueryRepository,
+  NoopTableRecordRepository,
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
@@ -32,6 +35,8 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   const queryBus = new MemoryQueryBus(c);
 
   c.registerInstance(v2CoreTokens.tableRepository, tableRepository);
+  c.registerInstance(v2CoreTokens.tableRecordQueryRepository, new NoopTableRecordQueryRepository());
+  c.registerInstance(v2CoreTokens.tableRecordRepository, new NoopTableRecordRepository());
   c.registerInstance(v2CoreTokens.tableSchemaRepository, new NoopTableSchemaRepository());
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
@@ -39,6 +44,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
   c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow);
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService);
+  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService);
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService);
   c.registerInstance(v2CoreTokens.logger, new NoopLogger());
   c.registerInstance(v2CoreTokens.tracer, new NoopTracer());

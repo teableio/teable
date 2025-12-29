@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
 import { DbTableName } from './DbTableName';
+import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
@@ -276,6 +277,48 @@ describe('Table', () => {
     expect(addedEntry).toBeTruthy();
     if (!addedEntry) return;
     expect(addedEntry.order).toBe(maxOrder + 1);
+  });
+
+  it('removes a field and updates view column meta', () => {
+    const baseIdResult = createBaseId('x');
+    const tableNameResult = TableName.create('Remove Field');
+    const primaryNameResult = FieldName.create('Title');
+    const extraNameResult = FieldName.create('Status');
+    [baseIdResult, tableNameResult, primaryNameResult, extraNameResult].forEach((r) =>
+      r._unsafeUnwrap()
+    );
+
+    const extraName = extraNameResult._unsafeUnwrap();
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder.field().singleLineText().withName(primaryNameResult._unsafeUnwrap()).primary().done();
+    builder.field().singleLineText().withName(extraName).done();
+    builder.view().defaultGrid().done();
+    const buildResult = builder.build();
+    buildResult._unsafeUnwrap();
+
+    const table = buildResult._unsafeUnwrap();
+    table.pullDomainEvents();
+
+    const fieldToRemove = table.fields().find((field) => field.name().equals(extraName));
+    if (!fieldToRemove) throw new Error('Missing field to remove');
+    const fieldId = fieldToRemove.id();
+
+    const updateResult = table.update((mutator) => mutator.removeField(fieldId));
+    updateResult._unsafeUnwrap();
+    const updatedTable = updateResult._unsafeUnwrap().table;
+
+    expect(updatedTable.fields().length).toBe(1);
+    expect(updatedTable.fields().some((field) => field.id().equals(fieldId))).toBe(false);
+
+    const metaResult = updatedTable.views()[0]?.columnMeta();
+    metaResult?._unsafeUnwrap();
+    const meta = metaResult?._unsafeUnwrap().toDto() ?? {};
+    expect(meta[fieldId.toString()]).toBeUndefined();
+
+    const events = updatedTable.pullDomainEvents();
+    expect(events.some((event) => event instanceof FieldDeleted)).toBe(true);
   });
 
   it('generates unique field names', () => {

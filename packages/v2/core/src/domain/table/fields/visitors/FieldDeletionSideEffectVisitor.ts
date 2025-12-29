@@ -1,0 +1,140 @@
+import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
+
+import type { ISpecification } from '../../../shared/specification/ISpecification';
+import { ForeignTable } from '../../ForeignTable';
+import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
+import { TableRemoveFieldSpec } from '../../specs/TableRemoveFieldSpec';
+import type { Table } from '../../Table';
+import type { TableId } from '../../TableId';
+import type { Field } from '../Field';
+import type { AttachmentField } from '../types/AttachmentField';
+import type { ButtonField } from '../types/ButtonField';
+import type { CheckboxField } from '../types/CheckboxField';
+import type { DateField } from '../types/DateField';
+import type { FormulaField } from '../types/FormulaField';
+import type { LinkField } from '../types/LinkField';
+import type { LongTextField } from '../types/LongTextField';
+import type { MultipleSelectField } from '../types/MultipleSelectField';
+import type { NumberField } from '../types/NumberField';
+import type { RatingField } from '../types/RatingField';
+import type { RollupField } from '../types/RollupField';
+import type { SingleLineTextField } from '../types/SingleLineTextField';
+import type { SingleSelectField } from '../types/SingleSelectField';
+import type { UserField } from '../types/UserField';
+import type { IFieldVisitor } from './IFieldVisitor';
+
+export type FieldDeletionSideEffect = {
+  foreignTable: Table;
+  mutateSpec: ISpecification<Table, ITableSpecVisitor>;
+};
+
+export type FieldDeletionSideEffects = ReadonlyArray<FieldDeletionSideEffect>;
+
+export type FieldDeletionSideEffectContext = {
+  table: Table;
+  foreignTables: ReadonlyArray<Table>;
+};
+
+export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeletionSideEffects> {
+  private constructor(
+    private readonly table: Table,
+    private readonly foreignTablesById: ReadonlyMap<string, Table>
+  ) {}
+
+  static collect(
+    fields: ReadonlyArray<Field>,
+    context: FieldDeletionSideEffectContext
+  ): Result<FieldDeletionSideEffects, string> {
+    const visitor = FieldDeletionSideEffectVisitor.create(context);
+    return fields.reduce<Result<FieldDeletionSideEffects, string>>(
+      (acc, field) =>
+        acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])),
+      ok([])
+    );
+  }
+
+  static create(context: FieldDeletionSideEffectContext): FieldDeletionSideEffectVisitor {
+    const foreignTablesById = new Map<string, Table>();
+    for (const table of context.foreignTables) {
+      foreignTablesById.set(table.id().toString(), table);
+    }
+    return new FieldDeletionSideEffectVisitor(context.table, foreignTablesById);
+  }
+
+  visitSingleLineTextField(_: SingleLineTextField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitLongTextField(_: LongTextField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitNumberField(_: NumberField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitRatingField(_: RatingField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitFormulaField(_: FormulaField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitRollupField(_: RollupField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitSingleSelectField(_: SingleSelectField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitMultipleSelectField(_: MultipleSelectField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitCheckboxField(_: CheckboxField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitAttachmentField(_: AttachmentField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitDateField(_: DateField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitUserField(_: UserField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitButtonField(_: ButtonField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitLinkField(field: LinkField): Result<FieldDeletionSideEffects, string> {
+    if (field.isOneWay()) return ok([]);
+
+    const foreignTableResult = this.foreignTable(field.foreignTableId());
+    if (foreignTableResult.isErr()) return err(foreignTableResult.error);
+    const foreignTable = foreignTableResult.value;
+
+    return field.symmetricField(ForeignTable.from(foreignTable)).map((symmetricField) => {
+      if (!symmetricField) return [];
+      return [
+        {
+          foreignTable,
+          mutateSpec: TableRemoveFieldSpec.create(symmetricField),
+        },
+      ];
+    });
+  }
+
+  private foreignTable(tableId: TableId): Result<Table, string> {
+    const table = this.foreignTablesById.get(tableId.toString());
+    if (!table) return err('Foreign table not loaded');
+    return ok(table);
+  }
+}

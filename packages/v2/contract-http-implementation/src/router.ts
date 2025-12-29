@@ -11,6 +11,7 @@ import {
 
 import { executeCreateFieldEndpoint } from './handlers/tables/createField';
 import { executeCreateTableEndpoint } from './handlers/tables/createTable';
+import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
@@ -96,6 +97,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
 
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateFieldEndpoint(executionContext, input, commandBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+  });
+
+  const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeDeleteFieldEndpoint(executionContext, input, commandBus);
 
     if (result.status === 200) return result.body;
 
@@ -242,6 +276,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     tables: {
       create: tablesCreate,
       createField: tablesCreateField,
+      deleteField: tablesDeleteField,
       delete: tablesDelete,
       getById: tablesGetById,
       list: tablesList,

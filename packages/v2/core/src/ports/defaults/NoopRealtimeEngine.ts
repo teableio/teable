@@ -22,4 +22,8 @@ export class NoopRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, string>> {
     return ok(undefined);
   }
+
+  async delete(_context: IExecutionContext, _docId: RealtimeDocId): Promise<Result<void, string>> {
+    return ok(undefined);
+  }
 }

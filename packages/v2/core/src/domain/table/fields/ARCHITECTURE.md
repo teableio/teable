@@ -26,6 +26,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ForeignTableRelatedField.ts` - Role: interface + helper; Purpose: validate cross-table references in field types.
 - `ForeignTableValidation.spec.ts` - Role: tests; Purpose: cover rollup foreign table validation.
 - `visitors/FieldCreationSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field creation.
+- `visitors/FieldDeletionSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field deletion.
 - `visitors/FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.
 - `visitors/LinkForeignTableReferenceVisitor.ts` - Role: visitor; Purpose: collect foreign table references from link fields.
 - `fieldPredicates.ts` - Role: functional utils; Purpose: predicates to check field types

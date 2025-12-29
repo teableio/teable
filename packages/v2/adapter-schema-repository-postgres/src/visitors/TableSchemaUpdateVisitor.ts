@@ -1,6 +1,7 @@
 import {
   AbstractSpecFilterVisitor,
   TableAddFieldSpec,
+  TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableByIdsSpec,
@@ -17,6 +18,7 @@ import {
   PostgresTableSchemaFieldCreateVisitor,
   TableSchemaStatementBuilder,
 } from './PostgresTableSchemaFieldCreateVisitor';
+import { PostgresTableSchemaFieldDeleteVisitor } from './PostgresTableSchemaFieldDeleteVisitor';
 
 type TableSchemaUpdateVisitorParams = {
   db: Kysely<V1TeableDatabase>;
@@ -37,6 +39,18 @@ export class TableSchemaUpdateVisitor
     spec: TableAddFieldSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
+    const addCond = this.addCond.bind(this);
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const statements = yield* spec.field().accept(fieldVisitor);
+      yield* addCond(statements);
+      return ok(statements);
+    });
+  }
+
+  visitTableRemoveField(
+    spec: TableRemoveFieldSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
       const statements = yield* spec.field().accept(fieldVisitor);

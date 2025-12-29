@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import { ActorId, RealtimeDocId } from '@teable/v2-core';
 import ShareDb from 'sharedb';
 import type { Doc } from 'sharedb/lib/client';
@@ -240,6 +241,48 @@ const waitNothingPending = <T>(doc: Doc<T>): Promise<void> =>
     doc.whenNothingPending(() => resolve());
   });
 
+const waitDocDeleted = <T>(doc: Doc<T>, timeoutMs = 5000): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let settled = false;
+
+    const cleanup = () => {
+      doc.removeListener('del', onDelete);
+      doc.removeListener('error', onError);
+      clearTimeout(timeout);
+    };
+
+    const settle = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) {
+        reject(error);
+      } else {
+        resolve();
+      }
+    };
+
+    const onError = (error: unknown) => {
+      const err = error instanceof Error ? error : new Error(String(error));
+      settle(err);
+    };
+
+    const onDelete = () => {
+      settle();
+    };
+
+    const timeout = setTimeout(() => {
+      settle(new Error('ShareDB doc delete timed out'));
+    }, timeoutMs);
+
+    doc.on('del', onDelete);
+    doc.on('error', onError);
+
+    if (doc.type === null) {
+      settle();
+    }
+  });
+
 describe('ShareDbRealtimeEngine', () => {
   let runtime: ShareDbRuntime | undefined;
 
@@ -321,6 +364,41 @@ describe('ShareDbRealtimeEngine', () => {
     } finally {
       clientA.dispose();
       clientB.dispose();
+    }
+  });
+
+  it('delivers delete ops to subscribed clients', async () => {
+    if (!runtime) throw new Error('Missing ShareDB runtime');
+
+    const actorId = ActorId.create('test-actor')._unsafeUnwrap();
+    const context = { actorId };
+    const collection = 'tbl_test';
+    const documentId = 'doc_delete';
+    const docId = RealtimeDocId.fromParts(collection, documentId)._unsafeUnwrap();
+    const initial = { id: documentId, name: 'To Delete' };
+
+    const engine = new ShareDbRealtimeEngine(new ShareDbBackendPublisher(runtime.backend));
+    const ensureResult = await engine.ensure(context, docId, initial);
+    expect(ensureResult.isOk()).toBe(true);
+    if (ensureResult.isErr()) return;
+
+    const client = createShareDbClientDoc<typeof initial>({
+      url: runtime.url,
+      collection,
+      docId: documentId,
+    });
+
+    try {
+      await client.ready;
+      const deleted = waitDocDeleted(client.doc);
+      const deleteResult = await engine.delete(context, docId);
+      expect(deleteResult.isOk()).toBe(true);
+      if (deleteResult.isErr()) return;
+      await deleted;
+      expect(client.doc.type).toBe(null);
+      expect(client.doc.data).toBe(null);
+    } finally {
+      client.dispose();
     }
   });
 });

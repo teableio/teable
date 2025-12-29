@@ -1,8 +1,11 @@
 export const v2CoreTokens = {
   tableRepository: Symbol('v2.core.tableRepository'),
+  tableRecordQueryRepository: Symbol('v2.core.tableRecordQueryRepository'),
+  tableRecordRepository: Symbol('v2.core.tableRecordRepository'),
   tableSchemaRepository: Symbol('v2.core.tableSchemaRepository'),
   tableUpdateFlow: Symbol('v2.core.tableUpdateFlow'),
   fieldCreationSideEffectService: Symbol('v2.core.fieldCreationSideEffectService'),
+  fieldDeletionSideEffectService: Symbol('v2.core.fieldDeletionSideEffectService'),
   foreignTableLoaderService: Symbol('v2.core.foreignTableLoaderService'),
   tableMapper: Symbol('v2.core.tableMapper'),
   commandBus: Symbol('v2.core.commandBus'),

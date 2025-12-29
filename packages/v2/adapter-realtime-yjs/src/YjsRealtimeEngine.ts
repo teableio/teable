@@ -1,3 +1,4 @@
+/* eslint-disable sonarjs/no-duplicate-string */
 import type {
   IExecutionContext,
   IRealtimeEngine,
@@ -21,6 +22,10 @@ export class YjsRealtimeEngine implements IRealtimeEngine {
     _docId: RealtimeDocId,
     _change: RealtimeChange
   ): Promise<Result<void, string>> {
+    return err('Not implemented');
+  }
+
+  async delete(_context: IExecutionContext, _docId: RealtimeDocId): Promise<Result<void, string>> {
     return err('Not implemented');
   }
 }

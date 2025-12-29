@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableCreated } from '../../domain/table/events/TableCreated';
@@ -14,6 +14,7 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { ProjectionHandler } from './Projection';
 
 const tableCollectionPrefix = 'tbl';
+const fieldCollectionPrefix = 'fld';
 
 @ProjectionHandler(TableCreated)
 @injectable()
@@ -39,11 +40,31 @@ export class TableCreatedRealtimeProjection implements IEventHandler<TableCreate
 
     const snapshotResult = this.tableMapper.toDTO(tableResult.value);
     if (snapshotResult.isErr()) return err(snapshotResult.error);
+    const snapshot = snapshotResult.value;
 
     const collection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
     const docIdResult = RealtimeDocId.fromParts(collection, event.tableId.toString());
     if (docIdResult.isErr()) return err(docIdResult.error);
 
-    return this.realtimeEngine.ensure(context, docIdResult.value, snapshotResult.value);
+    const ensureTableResult = await this.realtimeEngine.ensure(
+      context,
+      docIdResult.value,
+      snapshot
+    );
+    if (ensureTableResult.isErr()) return err(ensureTableResult.error);
+
+    const fieldCollection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
+    for (const field of snapshot.fields) {
+      const fieldDocIdResult = RealtimeDocId.fromParts(fieldCollection, field.id);
+      if (fieldDocIdResult.isErr()) return err(fieldDocIdResult.error);
+      const ensureFieldResult = await this.realtimeEngine.ensure(
+        context,
+        fieldDocIdResult.value,
+        field
+      );
+      if (ensureFieldResult.isErr()) return err(ensureFieldResult.error);
+    }
+
+    return ok(undefined);
   }
 }

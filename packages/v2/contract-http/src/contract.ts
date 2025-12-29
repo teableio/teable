@@ -2,6 +2,7 @@ import { oc } from '@orpc/contract';
 import {
   createFieldInputSchema,
   createTableInputSchema,
+  deleteFieldInputSchema,
   deleteTableInputSchema,
   getTableByIdInputSchema,
   listTablesInputSchema,
@@ -10,6 +11,7 @@ import {
 
 import { createFieldOkResponseSchema } from './table/createField';
 import { createTableErrorResponseSchema, createTableOkResponseSchema } from './table/createTable';
+import { deleteFieldOkResponseSchema } from './table/deleteField';
 import { deleteTableErrorResponseSchema, deleteTableOkResponseSchema } from './table/deleteTable';
 import { getTableByIdOkResponseSchema } from './table/getTableById';
 import { listTablesOkResponseSchema } from './table/listTables';
@@ -17,6 +19,7 @@ import { renameTableOkResponseSchema } from './table/renameTable';
 
 const TABLES_CREATE_FIELD_PATH = '/tables/createField';
 const TABLES_CREATE_PATH = '/tables/create';
+const TABLES_DELETE_FIELD_PATH = '/tables/deleteField';
 const TABLES_DELETE_PATH = '/tables/delete';
 const TABLES_GET_PATH = '/tables/get';
 const TABLES_LIST_PATH = '/tables/list';
@@ -44,6 +47,16 @@ export const v2Contract = {
       })
       .input(createFieldInputSchema)
       .output(createFieldOkResponseSchema),
+    deleteField: oc
+      .route({
+        method: 'DELETE',
+        path: TABLES_DELETE_FIELD_PATH,
+        successStatus: 200,
+        summary: 'Delete field',
+        tags: ['tables'],
+      })
+      .input(deleteFieldInputSchema)
+      .output(deleteFieldOkResponseSchema),
     delete: oc
       .route({
         method: 'DELETE',

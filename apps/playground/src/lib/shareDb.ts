@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Connection } from 'sharedb/lib/client';
 import type { Doc, Query } from 'sharedb/lib/client';
 import type { Socket } from 'sharedb/lib/sharedb';
@@ -14,6 +14,8 @@ export type ShareDbDocState<T> = {
 export type ShareDbQueryState<T> = {
   status: ShareDbDocStatus;
   data: ReadonlyArray<T>;
+  ids: ReadonlyArray<string>;
+  removedIds: ReadonlyArray<string>;
   error: string | null;
 };
 
@@ -143,8 +145,9 @@ export const useShareDbQuery = <T>(params: {
   query?: unknown;
   url?: string;
   enabled?: boolean;
+  filter?: (doc: Doc<T>) => boolean;
 }): ShareDbQueryState<T> => {
-  const { collection, query, url, enabled = true } = params;
+  const { collection, query, url, enabled = true, filter } = params;
   const queryKey = useMemo(() => {
     if (query == null) return 'null';
     if (typeof query !== 'object') return String(query);
@@ -158,12 +161,16 @@ export const useShareDbQuery = <T>(params: {
   const [state, setState] = useState<ShareDbQueryState<T>>({
     status: 'idle',
     data: [],
+    ids: [],
+    removedIds: [],
     error: null,
   });
+  const previousIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled || !collection) {
-      setState({ status: 'idle', data: [], error: null });
+      previousIdsRef.current = new Set();
+      setState({ status: 'idle', data: [], ids: [], removedIds: [], error: null });
       return;
     }
 
@@ -171,21 +178,60 @@ export const useShareDbQuery = <T>(params: {
     if (!wsUrl) return;
 
     let isActive = true;
+    previousIdsRef.current = new Set();
     const shared = acquireConnection(wsUrl);
     const connection = shared.connection;
     const subscribeQuery = connection.createSubscribeQuery<T>(collection, queryValue) as Query<T>;
 
     setState((prev) => ({ ...prev, status: 'connecting', error: null }));
 
+    const docListeners = new Map<Doc<T>, () => void>();
+
+    const attachDocListener = (doc: Doc<T>) => {
+      if (docListeners.has(doc)) return;
+      const handler = () => updateResults();
+      docListeners.set(doc, handler);
+      doc.on('create', handler);
+      doc.on('op', handler);
+      doc.on('del', handler);
+    };
+
+    const detachDocListener = (doc: Doc<T>) => {
+      const handler = docListeners.get(doc);
+      if (!handler) return;
+      doc.removeListener('create', handler);
+      doc.removeListener('op', handler);
+      doc.removeListener('del', handler);
+      docListeners.delete(doc);
+    };
+
     const updateResults = () => {
       if (!isActive) return;
-      const results = (subscribeQuery.results ?? []).map((doc: Doc<T>) => doc.data as T);
-      setState({ status: 'ready', data: results, error: null });
+      const docFilter = filter ?? ((doc: Doc<T>) => Boolean(doc.type) && doc.data != null);
+      const docs = subscribeQuery.results ?? [];
+      const nextDocs = new Set(docs);
+      for (const doc of docs) attachDocListener(doc);
+      for (const doc of docListeners.keys()) {
+        if (!nextDocs.has(doc)) detachDocListener(doc);
+      }
+      const results = docs.filter(docFilter).map((doc: Doc<T>) => doc.data as T);
+      const ids = docs.map((doc) => doc.id);
+      const nextIds = new Set(ids);
+      const removedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
+      previousIdsRef.current = nextIds;
+      setState({ status: 'ready', data: results, ids, removedIds, error: null });
     };
 
     const handleError = (error: unknown) => {
       if (!isActive) return;
-      setState({ status: 'error', data: [], error: toErrorMessage(error) });
+      previousIdsRef.current = new Set();
+      setState({
+        status: 'error',
+        data: [],
+        ids: [],
+        removedIds: [],
+        error: toErrorMessage(error),
+      });
     };
 
     subscribeQuery.on('ready', updateResults);
@@ -197,8 +243,12 @@ export const useShareDbQuery = <T>(params: {
       subscribeQuery.removeListener('ready', updateResults);
       subscribeQuery.removeListener('changed', updateResults);
       subscribeQuery.removeListener('error', handleError);
+      for (const doc of docListeners.keys()) {
+        detachDocListener(doc);
+      }
       subscribeQuery.destroy();
       releaseConnection(wsUrl);
+      previousIdsRef.current = new Set();
     };
   }, [collection, enabled, queryKey, queryValue, url]);
 

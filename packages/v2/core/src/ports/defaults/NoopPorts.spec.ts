@@ -5,6 +5,9 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { RecordId } from '../../domain/table/records/RecordId';
+import { TableRecord } from '../../domain/table/records/TableRecord';
+import { TableRecordCellValue } from '../../domain/table/records/TableRecordFields';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../../domain/table/Table';
 import { TableName } from '../../domain/table/TableName';
@@ -14,6 +17,8 @@ import { RealtimeDocId } from '../RealtimeDocId';
 import { NoopEventBus } from './NoopEventBus';
 import { NoopLogger } from './NoopLogger';
 import { NoopRealtimeEngine } from './NoopRealtimeEngine';
+import { NoopTableRecordQueryRepository } from './NoopTableRecordQueryRepository';
+import { NoopTableRecordRepository } from './NoopTableRecordRepository';
 import { NoopTableRepository } from './NoopTableRepository';
 import { NoopTableSchemaRepository } from './NoopTableSchemaRepository';
 import { NoopTracer } from './NoopTracer';
@@ -27,6 +32,18 @@ const buildTable = () => {
   builder.field().singleLineText().withName(fieldName).done();
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
+};
+
+const buildRecord = (table: Table): TableRecord => {
+  const recordId = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
+  const field = table.fields()[0];
+  const cellValue = TableRecordCellValue.create('demo')._unsafeUnwrap();
+  const recordResult = TableRecord.create({
+    id: recordId,
+    tableId: table.id(),
+    fieldValues: [{ fieldId: field.id(), value: cellValue }],
+  });
+  return recordResult._unsafeUnwrap();
 };
 
 describe('NoopEventBus', () => {
@@ -54,6 +71,33 @@ describe('NoopTableRepository', () => {
     const queryResult = await repo.findOne(context, { isSatisfiedBy: () => true } as never);
     queryResult._unsafeUnwrapErr();
     (await repo.delete(context, table))._unsafeUnwrap();
+  });
+});
+
+describe('NoopTableRecordQueryRepository', () => {
+  it('returns empty results for reads', async () => {
+    const table = buildTable();
+    const repo = new NoopTableRecordQueryRepository();
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+    (await repo.find(context, table))._unsafeUnwrap();
+  });
+});
+
+describe('NoopTableRecordRepository', () => {
+  it('accepts record writes', async () => {
+    const table = buildTable();
+    const record = buildRecord(table);
+    const repo = new NoopTableRecordRepository();
+    const actorIdResult = ActorId.create('system');
+    actorIdResult._unsafeUnwrap();
+
+    const context = { actorId: actorIdResult._unsafeUnwrap() };
+    (await repo.insert(context, table, record))._unsafeUnwrap();
+    (await repo.update(context, table, record))._unsafeUnwrap();
+    (await repo.delete(context, table, record.id()))._unsafeUnwrap();
   });
 });
 

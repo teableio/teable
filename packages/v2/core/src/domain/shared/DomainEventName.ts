@@ -33,6 +33,10 @@ export class DomainEventName extends ValueObject {
     return new DomainEventName('FieldCreated');
   }
 
+  static fieldDeleted(): DomainEventName {
+    return new DomainEventName('FieldDeleted');
+  }
+
   equals(other: DomainEventName): boolean {
     return this.value === other.value;
   }

@@ -36,6 +36,12 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
 
     const connection = this.backend.connect();
     const doc = connection.get(collection, docId) as Doc;
+    const isDelete = Boolean(op.del);
+    const isAlreadyExistsError = (error: unknown): boolean => {
+      if (!isDelete) return false;
+      const message = error instanceof Error ? error.message : String(error);
+      return message.includes('Document already exists');
+    };
 
     return new Promise((resolve) => {
       const done = (error?: unknown) => {
@@ -76,7 +82,23 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
       }
 
       if (op.del) {
-        doc.del(done);
+        doc.fetch((fetchError) => {
+          if (fetchError) {
+            done(fetchError);
+            return;
+          }
+          if (!doc.type) {
+            doc.create({}, 'json0', {}, (createError) => {
+              if (createError && !isAlreadyExistsError(createError)) {
+                done(createError);
+                return;
+              }
+              doc.del(done);
+            });
+            return;
+          }
+          doc.del(done);
+        });
         return;
       }
 

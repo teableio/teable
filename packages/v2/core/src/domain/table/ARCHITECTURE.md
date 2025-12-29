@@ -6,12 +6,13 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Table aggregate, builder, value objects, and sort keys.
 - Entry point for table fields/views/specs/events.
-- Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) and mutate-only specs (e.g. TableAddFieldSpec, TableUpdateViewColumnMetaSpec) but are passed separately from query specs.
+- Table update entry point via Table.update + TableMutator; mutate specs reuse table specs (e.g. TableByNameSpec) and mutate-only specs (e.g. TableAddFieldSpec, TableRemoveFieldSpec, TableUpdateViewColumnMetaSpec) but are passed separately from query specs.
 
 ## Subfolders
 
 - `events/` - Table domain events.
 - `fields/` - Field entities and field types.
+- `records/` - Table record entity and field-value models.
 - `specs/` - Table specifications and builders.
 - `views/` - View entities and view types.
 
@@ -32,6 +33,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `resolveFormulaFields.spec.ts` - Role: domain tests; Purpose: validate formula resolution during build.
 - `TableSortKey.spec.ts` - Role: sort key tests; Purpose: validate TableSortKey rules.
 - `TableSortKey.ts` - Role: value object; Purpose: table sort key modeling.
+- `records/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe record domain types.
+- `records/RecordId.ts` - Role: value object; Purpose: record id validation and generation.
+- `records/TableRecord.ts` - Role: entity; Purpose: represent table records.
+- `records/TableRecordFields.ts` - Role: value object; Purpose: field-value pairs keyed by FieldId.
 
 ## Examples
 

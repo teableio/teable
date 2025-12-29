@@ -16,4 +16,6 @@ export interface IRealtimeEngine {
     docId: RealtimeDocId,
     change: RealtimeChange
   ): Promise<Result<void, string>>;
+
+  delete(context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, string>>;
 }

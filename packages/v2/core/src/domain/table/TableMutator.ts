@@ -4,9 +4,11 @@ import type { Result } from 'neverthrow';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
 import type { Field } from './fields/Field';
+import type { FieldId } from './fields/FieldId';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
 import { TableByNameSpec } from './specs/TableByNameSpec';
+import { TableRemoveFieldSpec } from './specs/TableRemoveFieldSpec';
 import { TableUpdateViewColumnMetaSpec } from './specs/TableUpdateViewColumnMetaSpec';
 import type { Table } from './Table';
 import type { TableName } from './TableName';
@@ -43,6 +45,31 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     }
 
     this.addSpec(TableAddFieldSpec.create(field));
+    const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTable(nextTableResult.value);
+    if (viewSpecResult.isErr()) {
+      this.recordError(viewSpecResult.error);
+      return this;
+    }
+
+    this.addSpec(viewSpecResult.value);
+    this.currentTable = nextTableResult.value;
+    return this;
+  }
+
+  removeField(fieldId: FieldId): TableMutateSpecBuilder {
+    const field = this.currentTable.fields().find((candidate) => candidate.id().equals(fieldId));
+    if (!field) {
+      this.recordError('Field not found');
+      return this;
+    }
+
+    const nextTableResult = this.currentTable.removeField(fieldId);
+    if (nextTableResult.isErr()) {
+      this.recordError(nextTableResult.error);
+      return this;
+    }
+
+    this.addSpec(TableRemoveFieldSpec.create(field));
     const viewSpecResult = TableUpdateViewColumnMetaSpec.fromTable(nextTableResult.value);
     if (viewSpecResult.isErr()) {
       this.recordError(viewSpecResult.error);
@@ -97,6 +124,12 @@ export class TableMutator {
 
   addField(field: Field, options?: { foreignTables?: ReadonlyArray<Table> }): TableMutator {
     this.builder.addField(field, options);
+    this.hasUpdates = true;
+    return this;
+  }
+
+  removeField(fieldId: FieldId): TableMutator {
+    this.builder.removeField(fieldId);
     this.hasUpdates = true;
     return this;
   }

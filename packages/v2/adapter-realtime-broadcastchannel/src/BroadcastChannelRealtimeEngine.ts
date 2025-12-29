@@ -32,4 +32,8 @@ export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
   ): Promise<Result<void, string>> {
     return this.hub.applyChange(docId, change);
   }
+
+  async delete(_context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, string>> {
+    return this.hub.remove(docId);
+  }
 }

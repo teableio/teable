@@ -14,6 +14,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe table spec system.
 - `ITableSpecVisitor.ts` - Role: visitor interface; Purpose: generic table-specific visit methods for query/update translation payloads.
 - `TableAddFieldSpec.ts` - Role: mutate spec; Purpose: append a field to a table.
+- `TableRemoveFieldSpec.ts` - Role: mutate spec; Purpose: remove a field from a table.
 - `TableUpdateViewColumnMetaSpec.ts` - Role: mutate spec; Purpose: carry view column meta updates during table mutations.
 - `TableByBaseIdSpec.ts` - Role: spec; Purpose: filter by BaseId.
 - `TableByIdSpec.ts` - Role: spec; Purpose: filter by TableId.

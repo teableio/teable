@@ -15,6 +15,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `NoopRealtimeEngine.ts` - Role: IRealtimeEngine default; Purpose: ignore realtime effects.
 - `NoopPorts.spec.ts` - Role: default port tests; Purpose: verify no-op behavior.
 - `NoopTableRepository.ts` - Role: ITableRepository default; Purpose: empty responses or not-found.
+- `NoopTableRecordQueryRepository.ts` - Role: ITableRecordQueryRepository default; Purpose: empty record reads.
+- `NoopTableRecordRepository.ts` - Role: ITableRecordRepository default; Purpose: ignore record writes.
 - `NoopTableSchemaRepository.ts` - Role: ITableSchemaRepository default; Purpose: ignore schema writes.
 - `NoopTracer.ts` - Role: ITracer default; Purpose: return noop span.
 - `NoopUnitOfWork.ts` - Role: IUnitOfWork default; Purpose: run callback without transaction.

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   broadcastChannelDefaults,
@@ -16,6 +16,8 @@ export type BroadcastChannelDocState<T> = {
 export type BroadcastChannelQueryState<T> = {
   status: BroadcastChannelStatus;
   data: ReadonlyArray<T>;
+  ids: ReadonlyArray<string>;
+  removedIds: ReadonlyArray<string>;
   error: string | null;
 };
 
@@ -67,33 +69,62 @@ export const useBroadcastChannelDoc = <T>(params: {
 export const useBroadcastChannelQuery = <T>(params: {
   collection?: string;
   enabled?: boolean;
+  getId?: (snapshot: T) => string | null;
 }): BroadcastChannelQueryState<T> => {
-  const { collection, enabled = true } = params;
+  const { collection, enabled = true, getId } = params;
   const [state, setState] = useState<BroadcastChannelQueryState<T>>({
     status: 'idle',
     data: [],
+    ids: [],
+    removedIds: [],
     error: null,
   });
+  const previousIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (!enabled || !collection) {
-      setState({ status: 'idle', data: [], error: null });
+      previousIdsRef.current = new Set();
+      setState({ status: 'idle', data: [], ids: [], removedIds: [], error: null });
       return;
     }
 
     const hubResult = getBroadcastChannelRealtimeHub(resolveChannelName());
     if (hubResult.isErr()) {
-      setState({ status: 'error', data: [], error: hubResult.error });
+      previousIdsRef.current = new Set();
+      setState({ status: 'error', data: [], ids: [], removedIds: [], error: hubResult.error });
       return;
     }
 
     const hub = hubResult.value;
+    previousIdsRef.current = new Set();
     const unsubscribe = hub.subscribeCollection(collection, (snapshots) => {
-      setState({ status: 'ready', data: snapshots as ReadonlyArray<T>, error: null });
+      const data = snapshots as ReadonlyArray<T>;
+      const ids =
+        getId != null
+          ? data.flatMap((snapshot) => {
+              const id = getId(snapshot);
+              return id ? [id] : [];
+            })
+          : data.flatMap((snapshot) => {
+              if (
+                snapshot &&
+                typeof snapshot === 'object' &&
+                'id' in snapshot &&
+                typeof (snapshot as { id?: unknown }).id === 'string'
+              ) {
+                return [(snapshot as { id: string }).id];
+              }
+              return [];
+            });
+      const nextIds = new Set(ids);
+      const removedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
+      previousIdsRef.current = nextIds;
+      setState({ status: 'ready', data, ids, removedIds, error: null });
     });
 
     return () => {
       unsubscribe();
+      previousIdsRef.current = new Set();
     };
   }, [collection, enabled]);
 

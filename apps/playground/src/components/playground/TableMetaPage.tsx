@@ -159,6 +159,7 @@ type TableMetaPageProps = {
   isLoading: boolean;
   isCreating: boolean;
   isDeleting: boolean;
+  isDeletingField: boolean;
   isRenaming: boolean;
   errorMessage: string | null;
   onRefresh: () => void;
@@ -166,6 +167,7 @@ type TableMetaPageProps = {
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
+  onDeleteField: (fieldId: string) => void;
   onRename: (name: string) => void;
 };
 
@@ -183,6 +185,7 @@ export function TableMetaPage({
   isLoading,
   isCreating,
   isDeleting,
+  isDeletingField,
   isRenaming,
   errorMessage,
   onRefresh,
@@ -190,6 +193,7 @@ export function TableMetaPage({
   templates,
   onCreateTemplate,
   onDelete,
+  onDeleteField,
   onRename,
 }: TableMetaPageProps) {
   const [activeTab, setActiveTab] = useQueryState(
@@ -261,6 +265,8 @@ export function TableMetaPage({
                   baseId={baseId}
                   tableId={tableId}
                   isLoading={isLoading}
+                  isDeletingField={isDeletingField}
+                  onDeleteField={onDeleteField}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -618,12 +624,25 @@ type PlaygroundMetaLayoutProps = {
   baseId: string;
   tableId: string;
   isLoading: boolean;
+  isDeletingField: boolean;
+  onDeleteField: (fieldId: string) => void;
 };
 
-function PlaygroundMetaLayout({ table, baseId, tableId, isLoading }: PlaygroundMetaLayoutProps) {
+function PlaygroundMetaLayout({
+  table,
+  baseId,
+  tableId,
+  isLoading,
+  isDeletingField,
+  onDeleteField,
+}: PlaygroundMetaLayoutProps) {
   return (
     <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
-      <TableSchemaCard table={table} />
+      <TableSchemaCard
+        table={table}
+        isDeletingField={isDeletingField}
+        onDeleteField={onDeleteField}
+      />
       <div className="space-y-6 min-w-0">
         <TableViewsCard views={table.views()} />
         <TableConnectionCard
@@ -725,15 +744,26 @@ function PlaygroundRealtimeLayout({
 
 type TableSchemaCardProps = {
   table: TableAggregate;
+  isDeletingField: boolean;
+  onDeleteField: (fieldId: string) => void;
 };
 
-function TableSchemaCard({ table }: TableSchemaCardProps) {
+function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaCardProps) {
   const fields = table.fields();
   const primaryFieldId = table.primaryFieldId();
   const [, copyToClipboard] = useCopyToClipboard();
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Field | null>(null);
+  const canDeleteField = !!deleteTarget && !isDeletingField;
   const handleCopyTableJson = () => {
     void copyTableJson(table, copyToClipboard);
   };
+  const handleDeleteConfirm = () => {
+    if (!deleteTarget) return;
+    onDeleteField(deleteTarget.id().toString());
+    setDeleteOpen(false);
+  };
+  const deleteFieldLabel = deleteTarget ? deleteTarget.name().toString() : 'this field';
 
   return (
     <Card className="min-w-0">
@@ -770,12 +800,14 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
               <TableHead>DB Field</TableHead>
               <TableHead>Primary</TableHead>
               <TableHead>Options</TableHead>
+              <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {fields.map((field) => {
               const dbFieldName = getDbFieldName(field);
               const isPrimary = field.id().equals(primaryFieldId);
+              const disableDelete = isPrimary || isDeletingField;
               return (
                 <TableRow key={field.id().toString()}>
                   <TableCell className="font-medium">{field.name().toString()}</TableCell>
@@ -794,12 +826,53 @@ function TableSchemaCard({ table }: TableSchemaCardProps) {
                     )}
                   </TableCell>
                   <TableCell>{renderFieldOptions(field)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="h-7 w-7"
+                      aria-label={`Delete ${field.name().toString()}`}
+                      disabled={disableDelete}
+                      onClick={() => {
+                        setDeleteTarget(field);
+                        setDeleteOpen(true);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </UITable>
       </CardContent>
+      <AlertDialog
+        open={deleteOpen}
+        onOpenChange={(open) => {
+          setDeleteOpen(open);
+          if (!open) setDeleteTarget(null);
+        }}
+      >
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete field</AlertDialogTitle>
+            <AlertDialogDescription>
+              Delete &quot;{deleteFieldLabel}&quot;? This will remove its schema and metadata.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingField}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60"
+              onClick={handleDeleteConfirm}
+              disabled={!canDeleteField}
+            >
+              {isDeletingField ? 'Deleting...' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }

@@ -13,4 +13,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `FieldCreationSideEffectService.ts` - Role: application service; Purpose: validate cross-table field
   dependencies (via visitors) and apply side effects after field creation.
+- `FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side
+  effects after field deletion (e.g. remove symmetric link fields).
+- `ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and
+  validate missing references.
 - `TableUpdateFlow.ts` - Role: application service; Purpose: shared table update workflow (mutate + persist + publish).

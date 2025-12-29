@@ -1,5 +1,10 @@
+import {
+  FieldCreatedRealtimeProjection,
+  FieldDeletedRealtimeProjection,
+  TableCreatedRealtimeProjection,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import type { ILogger } from '@teable/v2-core';
-import { v2CoreTokens } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import { Lifecycle, container } from '@teable/v2-di';
 
@@ -29,6 +34,22 @@ export const registerV2BroadcastChannelRealtime = (
 
   c.registerInstance(v2BroadcastChannelTokens.hub, hubResult.value);
   c.register(v2CoreTokens.realtimeEngine, BroadcastChannelRealtimeEngine, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  const hasTableDeps =
+    c.isRegistered(v2CoreTokens.tableRepository) && c.isRegistered(v2CoreTokens.tableMapper);
+  if (!hasTableDeps) {
+    throw new Error(
+      'BroadcastChannel realtime requires tableRepository and tableMapper registrations'
+    );
+  }
+  c.register(TableCreatedRealtimeProjection, TableCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(FieldCreatedRealtimeProjection, FieldCreatedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(FieldDeletedRealtimeProjection, FieldDeletedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

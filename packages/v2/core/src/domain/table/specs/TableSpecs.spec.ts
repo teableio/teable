@@ -13,6 +13,7 @@ import { TableByIdSpec } from './TableByIdSpec';
 import { TableByIdsSpec } from './TableByIdsSpec';
 import { TableByNameLikeSpec } from './TableByNameLikeSpec';
 import { TableByNameSpec } from './TableByNameSpec';
+import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
@@ -24,6 +25,13 @@ class SpyVisitor implements ITableSpecVisitor {
 
   visitTableAddField(_: TableAddFieldSpec): ReturnType<ITableSpecVisitor['visitTableAddField']> {
     this.calls.push('TableAddFieldSpec');
+    return ok(undefined);
+  }
+
+  visitTableRemoveField(
+    _: TableRemoveFieldSpec
+  ): ReturnType<ITableSpecVisitor['visitTableRemoveField']> {
+    this.calls.push('TableRemoveFieldSpec');
     return ok(undefined);
   }
 

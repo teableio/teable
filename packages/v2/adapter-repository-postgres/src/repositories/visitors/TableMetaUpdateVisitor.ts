@@ -1,6 +1,7 @@
 import {
   AbstractSpecFilterVisitor,
   TableAddFieldSpec,
+  TableRemoveFieldSpec,
   TableByBaseIdSpec,
   TableByIdSpec,
   TableByIdsSpec,
@@ -28,6 +29,7 @@ import type { ITableMetaWhere } from './TableWhereVisitor';
 export type TableUpdateBuilder =
   | UpdateQueryBuilder<V1TeableDatabase, 'table_meta', 'table_meta', UpdateResult>
   | UpdateQueryBuilder<V1TeableDatabase, 'view', 'view', UpdateResult>
+  | UpdateQueryBuilder<V1TeableDatabase, 'field', 'field', UpdateResult>
   | InsertQueryBuilder<V1TeableDatabase, 'field', InsertResult>;
 
 type TableMetaUpdateVisitorParams = {
@@ -69,6 +71,26 @@ export class TableMetaUpdateVisitor
 
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.params.db.insertInto('field').values(fieldRowResult.value),
+    ];
+
+    return this.addCond(statements).map(() => statements);
+  }
+
+  visitTableRemoveField(
+    spec: TableRemoveFieldSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+    const fieldId = spec.field().id().toString();
+    const statements: ReadonlyArray<TableUpdateBuilder> = [
+      this.params.db
+        .updateTable('field')
+        .set({
+          deleted_time: this.params.now,
+          last_modified_time: this.params.now,
+          last_modified_by: this.params.actorId,
+        })
+        .where('id', '=', fieldId)
+        .where('table_id', '=', this.params.table.id().toString())
+        .where('deleted_time', 'is', null),
     ];
 
     return this.addCond(statements).map(() => statements);

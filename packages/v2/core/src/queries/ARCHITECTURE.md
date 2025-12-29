@@ -13,6 +13,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe query layer scope.
 - `GetTableByIdHandler.ts` - Role: query handler; Purpose: find a table by spec.
 - `GetTableByIdQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId and convert to value objects.
+- `ListTableRecordsHandler.ts` - Role: query handler; Purpose: load records for a table.
+- `ListTableRecordsQuery.ts` - Role: query DTO; Purpose: validate baseId/tableId for record reads.
 - `ListTablesHandler.ts` - Role: query handler; Purpose: build specs and query with sort/pagination.
 - `ListTablesQuery.spec.ts` - Role: query tests; Purpose: verify sort/pagination/validation logic.
 - `ListTablesQuery.ts` - Role: query DTO; Purpose: build name filter, sort, and pagination.

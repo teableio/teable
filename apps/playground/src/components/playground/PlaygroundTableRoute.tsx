@@ -172,6 +172,48 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     })
   );
 
+  const deleteFieldMutation = useMutation(
+    orpc.tables.deleteField.mutationOptions({
+      onSuccess: (response) => {
+        const updated = response.data.table;
+        setEventCount(response.data.events.length);
+
+        queryClient.setQueryData(
+          orpc.tables.getById.queryKey({
+            input: {
+              baseId,
+              tableId,
+            },
+          }),
+          { ok: true, data: { table: updated } }
+        );
+
+        const updateList = (list: IListTablesOkResponseDto | undefined) =>
+          list
+            ? {
+                ...list,
+                data: {
+                  ...list.data,
+                  tables: list.data.tables.map((table) =>
+                    table.id === updated.id ? updated : table
+                  ),
+                },
+              }
+            : list;
+
+        queryClient.setQueryData(orpc.tables.list.queryKey({ input: { baseId } }), updateList);
+
+        void queryClient.invalidateQueries({
+          queryKey: orpc.tables.list.queryKey({ input: { baseId } }),
+          exact: false,
+        });
+      },
+      onError: (error) => {
+        toast.error(getErrorMessage(error, 'Failed to delete field'));
+      },
+    })
+  );
+
   useEffect(() => {
     setStoredBaseId(baseId);
     setStoredTableId(tableId);
@@ -189,6 +231,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     collection: realtimeFieldCollection,
     query: {},
     enabled: !isSandbox,
+    filter: (doc) => {
+      const data = doc.data as { id?: unknown } | null | undefined;
+      return Boolean(doc.type) && typeof data?.id === 'string';
+    },
   });
   const broadcastDoc = useBroadcastChannelDoc<ITablePersistenceDTO>({
     collection: realtimeCollection,
@@ -198,6 +244,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const broadcastFields = useBroadcastChannelQuery<ITableFieldPersistenceDTO>({
     collection: realtimeFieldCollection,
     enabled: isSandbox,
+    getId: (snapshot) => snapshot.id,
   });
   const realtimeDoc = isSandbox ? broadcastDoc : shareDbDoc;
   const realtimeFields = isSandbox ? broadcastFields : shareDbFields;
@@ -259,25 +306,30 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   }, [baseId, queryClient, orpc, realtimeDoc.data, tableMapper]);
 
   useEffect(() => {
-    if (realtimeFields.data.length === 0) return;
+    if (realtimeFields.status !== 'ready') return;
     const mergeFields = (table: ITableDto): ITableDto => {
       const incomingById = new Map(realtimeFields.data.map((field) => [field.id, field] as const));
-      const mergedFields = table.fields.map((field) => {
-        const incoming = incomingById.get(field.id);
-        if (!incoming) return field;
-        return {
-          ...field,
-          ...incoming,
-          isPrimary: field.isPrimary,
-          dbFieldName: incoming.dbFieldName ?? field.dbFieldName,
-        };
-      });
+      const removedIds = new Set(realtimeFields.removedIds);
+
+      const mergedFields = table.fields
+        .filter((field) => !removedIds.has(field.id))
+        .map((field) => {
+          const incoming = incomingById.get(field.id);
+          if (!incoming) return field;
+          return {
+            ...field,
+            ...incoming,
+            isPrimary: field.isPrimary,
+            dbFieldName: incoming.dbFieldName ?? field.dbFieldName,
+          };
+        });
 
       for (const incoming of realtimeFields.data) {
         if (!table.fields.some((field) => field.id === incoming.id)) {
           mergedFields.push({
             ...incoming,
             isPrimary: false,
+            dbFieldName: incoming.dbFieldName ?? undefined,
           });
         }
       }
@@ -322,7 +374,15 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
         };
       }
     );
-  }, [baseId, queryClient, orpc, realtimeFields.data, tableId]);
+  }, [
+    baseId,
+    queryClient,
+    orpc,
+    realtimeFields.data,
+    realtimeFields.removedIds,
+    realtimeFields.status,
+    tableId,
+  ]);
 
   const isInitialLoading = !table && tableQuery.isLoading;
   const isLoading = tableQuery.isFetching;
@@ -357,6 +417,11 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     void tableQuery.refetch();
   };
 
+  const handleDeleteField = (fieldId: string) => {
+    deleteFieldMutation.reset();
+    deleteFieldMutation.mutate({ baseId, tableId, fieldId });
+  };
+
   return (
     <TableMetaPage
       baseId={baseId}
@@ -373,6 +438,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isLoading={isLoading}
       isCreating={isCreating}
       isDeleting={deleteTableMutation.isPending}
+      isDeletingField={deleteFieldMutation.isPending}
       isRenaming={renameTableMutation.isPending}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
@@ -380,6 +446,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       templates={tableTemplates}
       onCreateTemplate={handleCreateTemplate}
       onDelete={handleDelete}
+      onDeleteField={handleDeleteField}
       onRename={handleRename}
     />
   );

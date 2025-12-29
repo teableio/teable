@@ -9,6 +9,7 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-reposito
 import {
   AsyncMemoryEventBus,
   FieldCreationSideEffectService,
+  FieldDeletionSideEffectService,
   ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryQueryBus,
@@ -97,6 +98,9 @@ export const registerV2BunPgDependencies = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {

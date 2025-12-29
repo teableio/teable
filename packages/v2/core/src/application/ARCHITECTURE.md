@@ -16,4 +16,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe application layer scope.
+- `services/FieldCreationSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field creation.
+- `services/FieldDeletionSideEffectService.ts` - Role: application service; Purpose: apply cross-table side effects for field deletion.
 - `services/ForeignTableLoaderService.ts` - Role: application service; Purpose: load foreign tables once and validate missing references.
+- `services/TableUpdateFlow.ts` - Role: application service; Purpose: transactionally apply table mutations and publish events.

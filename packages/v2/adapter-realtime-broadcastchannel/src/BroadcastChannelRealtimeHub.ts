@@ -10,7 +10,7 @@ type SnapshotMessage = {
   docKey: string;
   collection: string;
   docId: string;
-  snapshot: unknown;
+  snapshot: unknown | null;
 };
 
 type BroadcastMessage = SnapshotMessage;
@@ -173,6 +173,35 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
+  remove(docId: RealtimeDocId): Result<void, string> {
+    const parsed = RealtimeDocIdValue.parse(docId);
+    if (parsed.isErr()) {
+      this.logger.warn('BroadcastChannel realtime delete failed', {
+        error: parsed.error,
+        docId: docId.toString(),
+      });
+      return err(parsed.error);
+    }
+
+    const docKey = docId.toString();
+    this.docs.delete(docKey);
+    this.logger.debug('BroadcastChannel realtime delete', {
+      docKey,
+      collection: parsed.value.collection,
+      docId: parsed.value.docId,
+    });
+    this.broadcast({
+      type: 'snapshot',
+      docKey,
+      collection: parsed.value.collection,
+      docId: parsed.value.docId,
+      snapshot: null,
+    });
+    this.notifyDoc(docKey);
+    this.notifyCollection(parsed.value.collection);
+    return ok(undefined);
+  }
+
   getSnapshot(docKey: string): unknown | null {
     return this.docs.get(docKey)?.snapshot ?? null;
   }
@@ -234,11 +263,15 @@ export class BroadcastChannelRealtimeHub {
       collection: message.collection,
       docId: message.docId,
     });
-    this.docs.set(message.docKey, {
-      collection: message.collection,
-      docId: message.docId,
-      snapshot: message.snapshot,
-    });
+    if (message.snapshot === null) {
+      this.docs.delete(message.docKey);
+    } else {
+      this.docs.set(message.docKey, {
+        collection: message.collection,
+        docId: message.docId,
+        snapshot: message.snapshot,
+      });
+    }
     this.notifyDoc(message.docKey);
     this.notifyCollection(message.collection);
   }

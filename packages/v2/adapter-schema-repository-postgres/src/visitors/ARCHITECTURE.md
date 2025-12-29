@@ -12,4 +12,5 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe DDL visitors.
 - `PostgresTableFieldColumn.ts` - Role: helper; Purpose: resolve field column names + data types.
 - `PostgresTableSchemaFieldCreateVisitor.ts` - Role: field visitor; Purpose: create columns + field-specific side statements (formula references) for create/update.
-- `TableSchemaUpdateVisitor.ts` - Role: spec visitor; Purpose: delegate field DDL to the field create visitor during schema updates.
+- `PostgresTableSchemaFieldDeleteVisitor.ts` - Role: field visitor; Purpose: drop columns/tables and clean references on field deletion.
+- `TableSchemaUpdateVisitor.ts` - Role: spec visitor; Purpose: delegate field DDL to create/delete visitors during schema updates.

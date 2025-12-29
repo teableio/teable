@@ -6,6 +6,7 @@ import { AggregateRoot } from '../shared/AggregateRoot';
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import { DbTableName } from './DbTableName';
 import { FieldCreated } from './events/FieldCreated';
+import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
@@ -305,6 +306,45 @@ export class Table extends AggregateRoot<TableId> {
     });
   }
 
+  removeField(fieldId: FieldId): Result<Table, string> {
+    if (this.primaryFieldIdValue.equals(fieldId)) {
+      return err('Cannot delete primary field');
+    }
+
+    const targetField = this.fieldsValue.find((field) => field.id().equals(fieldId));
+    if (!targetField) return err('Field not found');
+
+    const nextFields = this.fieldsValue.filter((field) => !field.id().equals(fieldId));
+    if (nextFields.length === 0) return err('Table requires at least one Field');
+
+    const nextViewsResult = this.cloneViewsWithoutField(nextFields, fieldId);
+    if (nextViewsResult.isErr()) return err(nextViewsResult.error);
+
+    const props: ITableBuildProps = {
+      id: this.id(),
+      baseId: this.baseIdValue,
+      name: this.nameValue,
+      fields: nextFields,
+      views: nextViewsResult.value,
+      primaryFieldId: this.primaryFieldIdValue,
+    };
+
+    if (this.dbTableNameValue.isRehydrated()) {
+      props.dbTableName = this.dbTableNameValue;
+    }
+
+    return Table.rehydrate(props).map((nextTable) => {
+      nextTable.addDomainEvent(
+        FieldDeleted.create({
+          tableId: nextTable.id(),
+          baseId: nextTable.baseId(),
+          fieldId,
+        })
+      );
+      return nextTable;
+    });
+  }
+
   private validateForeignTables(
     fields: ReadonlyArray<Field>,
     foreignTables?: ReadonlyArray<Table>
@@ -369,6 +409,38 @@ export class Table extends AggregateRoot<TableId> {
       };
 
       const nextMetaResult = ViewColumnMeta.create(nextMeta);
+      if (nextMetaResult.isErr()) return err(nextMetaResult.error);
+
+      const cloneResult = view.accept(new CloneViewVisitor());
+      if (cloneResult.isErr()) return err(cloneResult.error);
+
+      const clone = cloneResult.value;
+      const setResult = clone.setColumnMeta(nextMetaResult.value);
+      if (setResult.isErr()) return err(setResult.error);
+
+      return ok(clone);
+    });
+
+    return clones.reduce<Result<ReadonlyArray<View>, string>>(
+      (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
+      ok([])
+    );
+  }
+
+  private cloneViewsWithoutField(
+    fields: ReadonlyArray<Field>,
+    removedFieldId: FieldId
+  ): Result<ReadonlyArray<View>, string> {
+    const removedKey = removedFieldId.toString();
+    const clones = this.viewsValue.map((view) => {
+      const currentMetaResult = view.columnMeta();
+      if (currentMetaResult.isErr()) return err(currentMetaResult.error);
+      const currentMeta = currentMetaResult.value.toDto();
+      if (currentMeta[removedKey]) {
+        delete currentMeta[removedKey];
+      }
+
+      const nextMetaResult = ViewColumnMeta.create(currentMeta);
       if (nextMetaResult.isErr()) return err(nextMetaResult.error);
 
       const cloneResult = view.accept(new CloneViewVisitor());

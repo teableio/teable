@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { FieldId } from './fields/FieldId';
+import { RecordId } from './records/RecordId';
 import { TableId } from './TableId';
 import { ViewId } from './views/ViewId';
 
 const tableIdPattern = /^tbl[0-9a-zA-Z]{16}$/;
 const fieldIdPattern = /^fld[0-9a-zA-Z]{16}$/;
+const recordIdPattern = /^rec[0-9a-zA-Z]{16}$/;
 const viewIdPattern = /^viw[0-9a-zA-Z]{16}$/;
 
 describe('TableId', () => {
@@ -37,6 +39,22 @@ describe('FieldId', () => {
     const invalidLegacy = `fld${'b'.repeat(15)}_`;
     FieldId.create(valid)._unsafeUnwrap();
     FieldId.create(invalidLegacy)._unsafeUnwrapErr();
+  });
+});
+
+describe('RecordId', () => {
+  it('generates ids that follow the v1 format', () => {
+    const result = RecordId.generate();
+    result._unsafeUnwrap();
+
+    expect(result.value.toString()).toMatch(recordIdPattern);
+  });
+
+  it('validates ids against the v1 format', () => {
+    const valid = `rec${'d'.repeat(16)}`;
+    const invalidLegacy = `rec${'d'.repeat(15)}_`;
+    RecordId.create(valid)._unsafeUnwrap();
+    RecordId.create(invalidLegacy)._unsafeUnwrapErr();
   });
 });
 

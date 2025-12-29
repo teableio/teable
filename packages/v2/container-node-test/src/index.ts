@@ -11,6 +11,7 @@ import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
   FieldCreationSideEffectService,
+  FieldDeletionSideEffectService,
   ForeignTableLoaderService,
   getRandomString,
   MemoryCommandBus,
@@ -98,6 +99,9 @@ export const createV2NodeTestContainer = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
