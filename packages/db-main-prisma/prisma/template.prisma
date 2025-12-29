@@ -608,6 +608,7 @@ model UserLastVisit {
 model Template {
   id                  String    @id @default(cuid())
   baseId              String?   @map("base_id")
+  shortcode           String?   @unique @map("shortcode")
   cover               String?
   name                String?
   description         String?

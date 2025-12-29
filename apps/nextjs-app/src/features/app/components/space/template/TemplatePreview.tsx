@@ -14,14 +14,17 @@ export const TemplatePreview = (props: {
   isFull?: boolean;
 }) => {
   const { detail, hidePreviewButton, className, isFull } = props;
-  const { snapshot, name, publishInfo = {} } = detail || {};
-  const defaultUrl = publishInfo?.defaultUrl;
+  const { snapshot, name, id } = detail || {};
   const [isLoading, setIsLoading] = useState(true);
   const { t } = useTranslation(['common']);
   const [ref, { width }] = useMeasure<HTMLDivElement>();
   const isHydrated = useIsHydrated();
-  const url =
-    defaultUrl || (snapshot?.baseId ? `${window.location.origin}/base/${snapshot.baseId}` : '');
+  // Use permalink for template preview
+  const url = id
+    ? `${window.location.origin}/t/${id}`
+    : snapshot?.baseId
+      ? `${window.location.origin}/base/${snapshot.baseId}`
+      : '';
   useEffect(() => {
     if (url) {
       setIsLoading(true);

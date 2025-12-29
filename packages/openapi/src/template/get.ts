@@ -43,6 +43,7 @@ export const templateVoSchema = z.object({
   }),
   description: z.string().optional(),
   baseId: z.string().startsWith(IdPrefix.Base).optional(),
+  shortcode: z.string().optional(),
   cover: templateCoverVoSchema,
   usageCount: z.number(),
   markdownDescription: z.string().optional(),

@@ -48,9 +48,15 @@ import { NodeTreeSelect } from './NodeTreeSelect';
 
 const attachmentManager = new AttachmentManager(1);
 
-const generateShareUrl = (defaultUrl?: string, snapshotBaseId?: string): string => {
+const generateShareUrl = (
+  permalink?: string,
+  defaultUrl?: string,
+  snapshotBaseId?: string
+): string => {
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const relativeUrl = defaultUrl || (snapshotBaseId && `/base/${snapshotBaseId}`) || '';
+  // Prioritize permalink for stable sharing URL
+  const relativeUrl =
+    permalink || defaultUrl || (snapshotBaseId && `/base/${snapshotBaseId}`) || '';
   return relativeUrl ? `${origin}${relativeUrl}` : '';
 };
 
@@ -118,7 +124,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         setHasLoadedTemplate(true);
       }
       setIncludeData(data?.publishInfo?.includeData ?? true);
-      setShareUrl(generateShareUrl(data?.publishInfo?.defaultUrl, data?.snapshot?.baseId));
+      // Use permalink for stable share URL
+      const permalink = data?.id ? `/t/${data.id}` : undefined;
+      setShareUrl(
+        generateShareUrl(permalink, data?.publishInfo?.defaultUrl, data?.snapshot?.baseId)
+      );
     },
   });
 
@@ -163,14 +173,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       }).then((res) => res.data);
     },
     onSuccess: (data) => {
-      const { baseId: templateBaseId, defaultUrl } = data;
+      const { baseId: templateBaseId, defaultUrl, permalink } = data;
       queryClient.invalidateQueries({ queryKey: ['template-by-base', baseId] });
       // after publish success, clear the uploaded cover, use server data next time
       setUploadedCover(null);
       // Close the publish dialog and show success dialog
       setOpen(false);
-      // Generate share URL
-      setShareUrl(generateShareUrl(defaultUrl, templateBaseId));
+      // Generate share URL with permalink
+      setShareUrl(generateShareUrl(permalink, defaultUrl, templateBaseId));
       setSuccessDialogOpen(true);
       // Trigger fireworks effect
       fireConfetti();

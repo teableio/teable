@@ -42,9 +42,17 @@ export const getDashboardServerSideProps = async (
     queryKey: ReactQueryKeys.getDashboardList(baseId),
     queryFn: () => ssrApi.getDashboardList(baseId),
   });
+
   const dashboardIds = dashboardList.map((d) => d.id);
-  if (!dashboardIds.includes(dashboardId) && dashboardIds[0]) {
-    return redirect(`/base/${baseId}/dashboard/${dashboardIds[0]}`);
+
+  // If dashboard doesn't exist, redirect to default node
+  if (!dashboardIds.includes(dashboardId)) {
+    const { getDefaultNodeUrl } = await import('./helper');
+    const defaultUrl = await getDefaultNodeUrl(ctx);
+    if (defaultUrl) {
+      return redirect(defaultUrl);
+    }
+    return { notFound: true };
   }
 
   await queryClient.fetchQuery({

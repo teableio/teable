@@ -654,4 +654,41 @@ export class TemplateOpenApiService {
       shuffle: this.shuffle.bind(this),
     });
   }
+
+  async updateTemplateShortcode(templateId: string, updateShortcodeRo: { shortcode: string }) {
+    const prisma = this.prismaService.txClient();
+    const { shortcode } = updateShortcodeRo;
+
+    // Check if shortcode already exists for another template
+    const existingTemplate = await prisma.template.findUnique({
+      where: { shortcode },
+      select: { id: true },
+    });
+
+    if (existingTemplate && existingTemplate.id !== templateId) {
+      throw new CustomHttpException('Shortcode already exists', HttpErrorCode.CONFLICT);
+    }
+
+    const template = await prisma.template.update({
+      where: { id: templateId },
+      data: { shortcode },
+      select: { id: true, shortcode: true },
+    });
+
+    return {
+      shortcode: template.shortcode!,
+      permalink: `/t/${template.shortcode}`,
+    };
+  }
+
+  async deleteTemplateShortcode(templateId: string) {
+    const prisma = this.prismaService.txClient();
+
+    await prisma.template.update({
+      where: { id: templateId },
+      data: { shortcode: null },
+    });
+
+    return { success: true };
+  }
 }

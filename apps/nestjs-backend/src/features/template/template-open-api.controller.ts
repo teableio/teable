@@ -9,20 +9,26 @@ import {
   IUpdateTemplateCategoryRo,
   IUpdateTemplateRo,
   IUpdateOrderRo,
+  IUpdateShortcodeRo,
   templateListQueryRoSchema,
   templateQueryRoSchema,
   updateTemplateCategoryRoSchema,
   updateTemplateRoSchema,
   updateOrderRoSchema,
+  updateShortcodeRoSchema,
 } from '@teable/openapi';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { TemplateOpenApiService } from './template-open-api.service';
+import { TemplatePermalinkService } from './template-permalink.service';
 
 @Controller('api/template')
 export class TemplateOpenApiController {
-  constructor(private readonly templateOpenApiService: TemplateOpenApiService) {}
+  constructor(
+    private readonly templateOpenApiService: TemplateOpenApiService,
+    private readonly templatePermalinkService: TemplatePermalinkService
+  ) {}
 
   @Get()
   @Permissions('instance|update')
@@ -140,5 +146,29 @@ export class TemplateOpenApiController {
   @Patch('/:templateId/visit')
   async incrementTemplateVisitCount(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.incrementTemplateVisitCount(templateId);
+  }
+
+  @Public()
+  @Get('/permalink/:identifier')
+  async getTemplatePermalink(@Param('identifier') identifier: string) {
+    const result = await this.templatePermalinkService.resolvePermalink(identifier);
+    // Increment visit count for analytics
+    await this.templateOpenApiService.incrementTemplateVisitCount(result.templateId);
+    return result;
+  }
+
+  @Patch('/:templateId/shortcode')
+  @Permissions('instance|update')
+  async updateTemplateShortcode(
+    @Param('templateId') templateId: string,
+    @Body(new ZodValidationPipe(updateShortcodeRoSchema)) updateShortcodeRo: IUpdateShortcodeRo
+  ) {
+    return this.templateOpenApiService.updateTemplateShortcode(templateId, updateShortcodeRo);
+  }
+
+  @Delete('/:templateId/shortcode')
+  @Permissions('instance|update')
+  async deleteTemplateShortcode(@Param('templateId') templateId: string) {
+    return this.templateOpenApiService.deleteTemplateShortcode(templateId);
   }
 }

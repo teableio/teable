@@ -8,8 +8,8 @@ import { MarkdownPreview } from '@teable/sdk';
 import { ReactQueryKeys } from '@teable/sdk/config/react-query-keys';
 import { useIsMobile } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib/base';
-import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
-import { ArrowUpRight, ChevronLeft } from 'lucide-react';
+import { Badge, Button, cn, useToast } from '@teable/ui-lib/shadcn';
+import { ArrowUpRight, ChevronLeft, Link as LinkIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import { useEffect, useMemo, useRef } from 'react';
@@ -28,6 +28,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
   const { t } = useTranslation(['common']);
   const detailRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   const { data: _templateDetail } = useQuery({
     queryKey: ReactQueryKeys.templateDetail(templateId),
     queryFn: () => getTemplateDetail(templateId).then((res) => res.data),
@@ -80,6 +81,15 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
     return [templateId];
   }, [templateId]);
 
+  const handleCopyPermalink = () => {
+    const permalink = `${window.location.origin}/t/${templateId}`;
+    navigator.clipboard.writeText(permalink);
+    toast({
+      title: t('common:copied'),
+      description: t('common:settings.templateAdmin.permalinkCopied'),
+    });
+  };
+
   useEffect(() => {
     if (detailRef.current) {
       detailRef.current.scrollTo({
@@ -126,6 +136,10 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
                 {t('common:settings.templateAdmin.actions.preview')}
               </Button>
             </TemplatePreviewSheet>
+            <Button className="flex-1" variant="outline" size="xs" onClick={handleCopyPermalink}>
+              <LinkIcon className="size-3" />
+              {t('common:actions.share')}
+            </Button>
             <Button
               className="flex-1"
               size="xs"
@@ -196,15 +210,16 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {description}
           </p>
         </div>
-        <Button
-          size="sm"
-          className="my-3"
-          onClick={() => createTemplateToBase()}
-          disabled={isLoading}
-        >
-          {t('common:settings.templateAdmin.useTemplate')}
-          {isLoading && <Spin className="size-3" />}
-        </Button>
+        <div className="my-3 flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleCopyPermalink}>
+            <LinkIcon className="size-4" />
+            {t('common:actions.share')}
+          </Button>
+          <Button size="sm" onClick={() => createTemplateToBase()} disabled={isLoading}>
+            {t('common:settings.templateAdmin.useTemplate')}
+            {isLoading && <Spin className="size-3" />}
+          </Button>
+        </div>
       </div>
       <div ref={detailRef} className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6">
         <TemplatePreview detail={templateDetail} />
