@@ -11,13 +11,13 @@ export const CategoryMenuItem = (props: CategoryMenuItemProps) => {
   const { category, currentCategoryId, id, onClickHandler } = props;
   return (
     <Button
-      className={cn('w-full justify-start', {
-        'bg-secondary': currentCategoryId === id,
+      className={cn('px-2 h-8 cursor-pointer w-full justify-start', {
+        'bg-accent': currentCategoryId === id,
       })}
       variant="ghost"
       onClick={() => onClickHandler(id)}
     >
-      <span className="truncate text-nowrap text-sm font-medium" title={category}>
+      <span className="truncate text-nowrap text-sm" title={category}>
         {category}
       </span>
     </Button>

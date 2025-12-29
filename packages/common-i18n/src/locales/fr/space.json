@@ -73,5 +73,83 @@
     "description": "Gérer les intégrations de votre espace",
     "addIntegration": "Ajouter une intégration",
     "ai": "IA"
+  },
+  "aiSetting": {
+    "title": "Paramètres IA",
+    "description": "Gérer les paramètres IA de votre espace",
+    "enableTips": "Activez l'IA pour utiliser les fonctionnalités IA dans votre espace au lieu d'utiliser l'IA système",
+    "enable": "Initialiser les paramètres IA",
+    "enableSwitchTips": "Veuillez configurer le modèle de code avant d'activer"
+  },
+  "import": {
+    "importing": "Importation en cours",
+    "importWayTip": "Cliquez ou glissez-déposez le fichier dans cette zone pour télécharger",
+    "baseImportTips": "Cliquez ou glissez-déposez le fichier .tea dans cette zone pour télécharger",
+    "confirm": "Confirmer et continuer"
+  },
+  "template": {
+    "title": "Modèle",
+    "description": "Créer rapidement une nouvelle base à partir d'un modèle"
+  },
+  "recentlyBase": {
+    "title": "Consulté récemment"
+  },
+  "noBases": {
+    "title": "Bonjour {{userName}} !",
+    "description": "Commençons à gérer votre travail avec votre première base."
+  },
+  "noSpaces": {
+    "title": "Bonjour {{userName}} !",
+    "description": "Créez votre premier espace pour commencer votre voyage de collaboration de données."
+  },
+  "baseList": {
+    "allBases": "Toutes les bases",
+    "owner": "Propriétaire",
+    "lastOpened": "Dernière ouverture",
+    "enter": "Entrer",
+    "noTables": "Aucun tableau",
+    "empty": "Aucune base pour le moment"
+  },
+  "publishBase": {
+    "title": "Publier la Base dans la communauté",
+    "description": "Publiez votre base en un clic, l'inspiration n'est plus solitaire ! Laissez plus de gens voir, utiliser et remixer votre créativité, et construisez ensemble une entreprise plus puissante",
+    "infoTitle": "Infos de base",
+    "form": {
+      "title": "Titre",
+      "description": "Description",
+      "security": "Sécurité",
+      "includeNodes": "Inclure les nœuds",
+      "advanced": "Avancé",
+      "publishNode": "Publier les nœuds",
+      "includeData": "Inclure les données",
+      "defaultActiveNode": "Nœud actif par défaut",
+      "select": "veuillez sélectionner",
+      "descriptionPlaceholder": "Décrivez brièvement votre idée...",
+      "titlePlaceholder": "Nommez votre travail..."
+    },
+    "publishToCommunity": "Publier dans la communauté",
+    "publish": "Publier",
+    "publishSuccess": "Publication réussie !",
+    "previewTips": "Montrez votre travail au monde",
+    "update": "Mettre à jour",
+    "unPublish": "Dépublier",
+    "unPublishSuccess": "Base dépubliée avec succès !",
+    "unPublishConfirmTitle": "Confirmer la dépublication",
+    "unPublishConfirmDescription": "Êtes-vous sûr de vouloir dépublier cette base ? Elle ne sera plus visible dans le centre de modèles de la communauté.",
+    "usageCount": "Nombre d'utilisations : ",
+    "uploadCover": "Cliquez pour télécharger l'image de couverture",
+    "changeCover": "Cliquez pour changer la couverture",
+    "uploading": "Téléchargement de l'image...",
+    "uploadSuccess": "Image téléchargée avec succès",
+    "uploadFailed": "Échec du téléchargement",
+    "invalidImageType": "Veuillez sélectionner un fichier image",
+    "tips": {
+      "publishValidation": "le titre et la description sont requis",
+      "atLeastOneNode": "Sélectionnez au moins un nœud à publier"
+    },
+    "urlCopied": "URL copiée dans le presse-papiers !",
+    "urlCopiedForDiscord": "URL copiée dans le presse-papiers ! Vous pouvez la coller dans Discord.",
+    "publishSuccessDescription": "Partagez votre travail avec le monde",
+    "shareWith": "Partager avec"
   }
 }

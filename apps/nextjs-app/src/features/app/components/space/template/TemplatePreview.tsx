@@ -30,7 +30,7 @@ export const TemplatePreview = (props: {
 
   if (!isHydrated) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center rounded-sm border bg-background text-sm text-muted-foreground">
+      <div className="absolute inset-0 flex items-center justify-center rounded-lg border bg-background text-sm text-muted-foreground">
         <Spin className="size-4" />
       </div>
     );
@@ -43,7 +43,7 @@ export const TemplatePreview = (props: {
       <div style={{ height: isFull ? '100%' : `${height}px` }}></div>
       {url && (
         <iframe
-          className="absolute inset-0 overflow-hidden rounded-sm border"
+          className="absolute inset-0 overflow-hidden rounded-lg border"
           src={url}
           title={name}
           width={isFull ? '100%' : width}
@@ -53,16 +53,16 @@ export const TemplatePreview = (props: {
       )}
       {(isLoading || !url) && (
         <div
-          className="absolute inset-0 flex items-center justify-center rounded-sm border bg-background text-sm text-muted-foreground"
+          className="absolute inset-0 flex items-center justify-center rounded-lg border bg-muted text-sm text-muted-foreground"
           style={{ height: isFull ? '100%' : `${height}px` }}
         >
           {t('common:actions.loading')}
         </div>
       )}
       {!hidePreviewButton && (
-        <div className="absolute bottom-2 right-2">
+        <div className="absolute bottom-3 right-3">
           <Button variant="outline" size="xs" onClick={() => window.open(url, '_blank')}>
-            <ArrowUpRight className="size-3" />
+            <ArrowUpRight className="size-4" />
             {t('common:settings.templateAdmin.actions.preview')}
           </Button>
         </div>

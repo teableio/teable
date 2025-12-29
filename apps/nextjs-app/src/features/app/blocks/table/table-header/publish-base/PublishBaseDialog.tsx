@@ -375,7 +375,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm">{t('publishBase.form.publishNode')}</span>
+                  <span className="text-sm font-semibold">{t('publishBase.form.publishNode')}</span>
                 </div>
                 <NodeTreeSelect
                   showCheckbox
@@ -389,7 +389,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               </div>
 
               <div className="flex flex-col gap-2">
-                <span className="text-sm">{t('publishBase.form.security')}</span>
+                <span className="text-sm font-semibold">{t('publishBase.form.security')}</span>
                 <div className="flex items-center space-x-2">
                   <Switch
                     id="include-data"
@@ -411,7 +411,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 />
               </div>
 
-              <div className="absolute inset-x-0 bottom-0 flex w-full gap-1">
+              <div className="absolute inset-x-0 bottom-0 flex w-full gap-3">
                 {templateDetail && (
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
@@ -472,12 +472,13 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
 
             <div className="relative h-[520px] w-[512px] shrink-0 overflow-hidden rounded-lg border bg-muted">
               {templateDetail?.isPublished && (
-                <div className="absolute left-1/2 top-6 z-50 flex max-w-[480px] -translate-x-1/2 items-center gap-2 overflow-hidden rounded-md border bg-background px-3 py-1 shadow-md">
+                <div className="absolute bottom-6 left-1/2 z-50 flex h-9 max-w-[432px] -translate-x-1/2 items-center gap-2 overflow-hidden rounded-md border bg-background pl-3">
+                  <Link className="size-4 shrink-0" />
                   <div className="truncate text-sm text-muted-foreground">{shareUrl}</div>
                   <Button
-                    size="sm"
-                    variant="outline"
-                    className="size-8 shrink-0 p-0"
+                    size="icon"
+                    variant="ghost"
+                    className="size-9 shrink-0 rounded-none border-l p-0"
                     onClick={handleCopyUrl}
                   >
                     <Copy className="size-4" />
@@ -492,12 +493,12 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                 className="hidden"
                 onChange={handleFileSelect}
               />
-              <div className="relative flex size-full flex-col items-center justify-center gap-3 p-5">
+              <div className="relative flex size-full flex-col items-center justify-center gap-6 p-5">
                 <div className="text-base font-semibold">{t('publishBase.previewTips')}</div>
 
-                <div className="flex min-h-[302px] w-[432px] flex-col">
+                <div className="flex w-[432px] flex-col gap-3 bg-transparent">
                   <div
-                    className="group relative h-[180px] cursor-pointer overflow-hidden rounded-md border shadow-md"
+                    className="group relative h-[240px] cursor-pointer overflow-hidden rounded-lg bg-surface"
                     onClick={handleUploadClick}
                     role="button"
                     tabIndex={0}
@@ -524,15 +525,15 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                         </div>
                       </>
                     ) : (
-                      <div className="flex size-full flex-col items-center justify-center gap-4 bg-muted transition-colors hover:bg-muted/80">
+                      <div className="flex size-full flex-col items-center justify-center gap-3 transition-colors hover:bg-black/5 dark:hover:bg-white/10">
                         {isUploading ? (
                           <>
-                            <Spin className="size-12" />
+                            <Spin className="size-8" />
                             <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
                           </>
                         ) : (
                           <>
-                            <Plus className="size-12 text-muted-foreground" />
+                            <Plus className="size-8 text-muted-foreground" />
                             <span className="text-sm text-muted-foreground">
                               {t('publishBase.uploadCover')}
                             </span>
@@ -541,15 +542,15 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-1 flex-col gap-1 pt-2">
+                  <div className="flex flex-1 flex-col gap-1 px-1">
                     <div className="flex items-center justify-between">
                       <p
                         className={cn(
-                          'text-sm font-semibold',
+                          'text-base font-medium',
                           title ? 'text-foreground' : 'text-muted-foreground'
                         )}
                       >
-                        {title || t('publishBase.form.toBeFilled')}
+                        {title || t('publishBase.form.titlePlaceholder')}
                       </p>
 
                       <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -560,11 +561,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
                     <span
                       className={cn(
                         'text-nowrap break-words text-sm truncate',
-                        description ? 'text-foreground' : 'text-muted-foreground'
+                        description ? 'text-muted-foreground' : 'text-foreground/50'
                       )}
                       title={description}
                     >
-                      {description || t('publishBase.form.toBeFilled')}
+                      {description || t('publishBase.form.descriptionPlaceholder')}
                     </span>
                   </div>
                 </div>

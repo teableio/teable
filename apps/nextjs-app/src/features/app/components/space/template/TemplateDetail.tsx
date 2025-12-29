@@ -161,9 +161,9 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
 
   return (
     <div className="absolute inset-0 flex size-full flex-col rounded bg-background">
-      <div className="flex gap-3 px-6 py-3 pr-14">
+      <div className="flex gap-3 border-b px-6 py-4 pr-12">
         <div className="flex flex-1 flex-col gap-1 overflow-hidden">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {onBackToTemplateList && (
               <Button
                 className="h-auto p-0 font-normal"
@@ -173,12 +173,12 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
                 <ChevronLeft className="size-6" />
               </Button>
             )}
-            <h1 className="truncate bg-background text-lg font-bold">{name}</h1>
+            <h1 className="truncate text-lg font-semibold">{name}</h1>
             {categoryNames.length > 0 &&
               categoryNames.map((name) => (
                 <Badge
                   variant="secondary"
-                  className="text-xs font-normal text-muted-foreground"
+                  className="px-2 text-xs font-normal text-muted-foreground"
                   key={name}
                 >
                   {name}
@@ -187,7 +187,7 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
           </div>
           <p
             className={cn(
-              'overflow-hidden text-wrap break-words pl-10 text-base font-normal text-muted-foreground',
+              'overflow-hidden text-wrap break-words pl-9 text-sm font-normal text-muted-foreground',
               {
                 'pl-0': !onBackToTemplateList,
               }
@@ -196,23 +196,21 @@ export const TemplateDetail = (props: ITemplateDetailProps) => {
             {description}
           </p>
         </div>
-        <Button
-          size="sm"
-          className="my-3"
-          onClick={() => createTemplateToBase()}
-          disabled={isLoading}
-        >
+        <Button size="default" onClick={() => createTemplateToBase()} disabled={isLoading}>
           {t('common:settings.templateAdmin.useTemplate')}
           {isLoading && <Spin className="size-3" />}
         </Button>
       </div>
-      <div ref={detailRef} className="flex flex-1 flex-col gap-8 overflow-y-auto px-10 py-6">
+      <div
+        ref={detailRef}
+        className="flex flex-1 flex-col gap-8 overflow-y-auto bg-muted px-10 py-6"
+      >
         <TemplatePreview detail={templateDetail} />
-        <div className="flex flex-col gap-1 pb-2">
-          {markdownDescription && (
+        {markdownDescription && (
+          <div className="flex flex-col gap-1 pb-2">
             <MarkdownPreview className="p-0">{markdownDescription}</MarkdownPreview>
-          )}
-        </div>
+          </div>
+        )}
         <RecommendTemplate
           filterTemplateIds={filterTemplateIds}
           onTemplateClick={onTemplateClick}

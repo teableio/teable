@@ -14,7 +14,7 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
 
   return (
     <div
-      className="relative flex h-[236px] w-full shrink-0 cursor-pointer flex-col overflow-hidden"
+      className="relative flex w-full shrink-0 cursor-pointer flex-col"
       role="button"
       tabIndex={0}
       onClick={(e) => {
@@ -28,7 +28,7 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
         }
       }}
     >
-      <div className="group h-[180px] w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-lg">
+      <div className="group h-[180px] w-auto shrink-0 overflow-hidden rounded-lg border bg-secondary p-0 transition-shadow hover:shadow-[0_4px_12px_-4px_rgba(0,0,0,0.08),0_3px_6px_-2px_rgba(0,0,0,0.08)]">
         {presignedUrl ? (
           <img
             src={presignedUrl}
@@ -44,9 +44,9 @@ export const TemplateCard = ({ template, onClickTemplateCardHandler }: ITemplate
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-0.5 pt-2">
+      <div className="flex flex-1 flex-col gap-1 px-1 pt-2">
         <h2 className="flex items-center justify-between text-base">
-          <span className="truncate font-semibold" title={name}>
+          <span className="truncate font-medium" title={name}>
             {name}
           </span>
 

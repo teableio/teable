@@ -56,7 +56,7 @@ export const TemplateMain = (props: ITemplateMainProps) => {
         search={search}
         onClickUseTemplateHandler={onClickUseTemplateHandler}
         onClickTemplateCardHandler={onClickTemplateCardHandler}
-        className={templateListClassName}
+        className={cn(templateListClassName, 'p-4 shrink-0 content-start')}
         isFeatured={isFeatured}
       />
     </div>

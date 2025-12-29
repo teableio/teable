@@ -54,14 +54,14 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
       <p className="text-base font-semibold text-foreground">
         {t('settings.templateAdmin.relatedTemplates')}
       </p>
-      <div className="flex flex-col items-start justify-start gap-4 self-stretch md:flex-row">
+      <div className="flex flex-col items-start justify-start gap-5 self-stretch md:flex-row">
         {filteredTemplates?.map((template) => (
           <div
             key={template.id}
-            className="group relative flex h-64 w-full flex-col items-start justify-start bg-background transition-shadow focus:outline-none md:max-w-[33%] md:flex-1"
+            className="group relative flex w-full flex-col items-start justify-start rounded-lg border bg-card transition-shadow hover:shadow-md focus:outline-none md:max-w-[33%] md:flex-1"
           >
             <div
-              className="relative h-[218px] w-full cursor-pointer self-stretch overflow-hidden rounded-lg border border-border bg-secondary hover:shadow-md"
+              className="relative h-[218px] w-full cursor-pointer self-stretch overflow-hidden bg-secondary"
               onClick={() => handleTemplateClick(template.id)}
               onKeyDown={(e) => handleKeyDown(e, template.id)}
               role="button"
@@ -81,7 +81,7 @@ export const RecommendTemplate = (props: IRecommendTemplateProps) => {
                 </div>
               )}
             </div>
-            <div className="flex flex-col items-start justify-center gap-0.5 self-stretch border-border bg-background px-1 pt-1">
+            <div className="flex flex-col items-start justify-center gap-1 self-stretch p-4">
               <div className="relative flex items-start justify-start gap-1 self-stretch">
                 <p
                   className="w-full truncate text-sm font-medium text-foreground"

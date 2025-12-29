@@ -73,5 +73,83 @@
     "description": "空間のインテグレーションを管理",
     "addIntegration": "インテグレーションを追加",
     "ai": "AI"
+  },
+  "aiSetting": {
+    "title": "AI設定",
+    "description": "スペースのAI設定を管理します",
+    "enableTips": "システムAIの代わりに、スペース内でAI機能を使用するためにAIを有効にします",
+    "enable": "AI設定を初期化",
+    "enableSwitchTips": "有効にする前に、大規模コーディングモデルを設定してください"
+  },
+  "import": {
+    "importing": "インポート中",
+    "importWayTip": "クリックするか、ファイルをこの領域にドラッグ＆ドロップしてアップロードします",
+    "baseImportTips": "クリックするか、.teaファイルをこの領域にドラッグ＆ドロップしてアップロードします",
+    "confirm": "確認して続行"
+  },
+  "template": {
+    "title": "テンプレート",
+    "description": "テンプレートから新しいBaseを素早く作成します"
+  },
+  "recentlyBase": {
+    "title": "最近のアクセス"
+  },
+  "noBases": {
+    "title": "こんにちは、{{userName}}さん！",
+    "description": "最初のBaseで仕事の管理を始めましょう。"
+  },
+  "noSpaces": {
+    "title": "こんにちは、{{userName}}さん！",
+    "description": "最初のスペースを作成して、データコラボレーションの旅を始めましょう。"
+  },
+  "baseList": {
+    "allBases": "すべてのBase",
+    "owner": "所有者",
+    "lastOpened": "最終閲覧",
+    "enter": "入る",
+    "noTables": "テーブルなし",
+    "empty": "まだBaseがありません"
+  },
+  "publishBase": {
+    "title": "コミュニティにBaseを公開",
+    "description": "ワンクリックでBaseを公開、インスピレーションはもう孤独ではありません！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
+    "infoTitle": "基本情報",
+    "form": {
+      "title": "タイトル",
+      "description": "説明",
+      "security": "セキュリティ",
+      "includeNodes": "ノードを含める",
+      "advanced": "詳細設定",
+      "publishNode": "ノードを公開",
+      "includeData": "データを含める",
+      "defaultActiveNode": "デフォルトのアクティブノード",
+      "select": "選択してください",
+      "descriptionPlaceholder": "アイデアを簡単に説明してください...",
+      "titlePlaceholder": "作品に名前を付ける..."
+    },
+    "publishToCommunity": "コミュニティに公開",
+    "publish": "公開",
+    "publishSuccess": "公開しました！",
+    "previewTips": "あなたの作品を世界に見せましょう",
+    "update": "更新",
+    "unPublish": "公開停止",
+    "unPublishSuccess": "Baseの公開を停止しました！",
+    "unPublishConfirmTitle": "公開停止の確認",
+    "unPublishConfirmDescription": "本当にこのBaseの公開を停止しますか？コミュニティのテンプレートセンターに表示されなくなります。",
+    "usageCount": "使用回数: ",
+    "uploadCover": "クリックしてカバー画像をアップロード",
+    "changeCover": "クリックしてカバーを変更",
+    "uploading": "画像をアップロード中...",
+    "uploadSuccess": "画像が正常にアップロードされました",
+    "uploadFailed": "アップロードに失敗しました",
+    "invalidImageType": "画像ファイルを選択してください",
+    "tips": {
+      "publishValidation": "タイトルと説明は必須です",
+      "atLeastOneNode": "公開するノードを少なくとも1つ選択してください"
+    },
+    "urlCopied": "URLをクリップボードにコピーしました！",
+    "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
+    "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
+    "shareWith": "共有先"
   }
 }

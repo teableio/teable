@@ -119,18 +119,17 @@
     "description": "一键发布数据库，灵感不再孤单！让更多人看到、使用和 Remix 你的创意，一起构建更强大的业务",
     "infoTitle": "基本信息",
     "form": {
-      "title": "名称",
+      "title": "作品名称",
       "description": "描述",
       "security": "安全",
       "includeNodes": "包含节点",
       "advanced": "高级",
       "publishNode": "发布节点",
       "includeData": "包含数据",
-      "defaultActiveNode": "默认节点",
+      "defaultActiveNode": "默认展示节点",
       "select": "请选择",
-      "descriptionPlaceholder": "描述",
-      "titlePlaceholder": "标题",
-      "toBeFilled": "...待填写"
+      "descriptionPlaceholder": "简要描述你的想法...",
+      "titlePlaceholder": "为你的作品命名..."
     },
     "publishToCommunity": "发布到社区",
     "publish": "发布",

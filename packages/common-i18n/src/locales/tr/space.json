@@ -73,5 +73,83 @@
     "description": "Yerleştirilen integreasyonları burada görünecek",
     "addIntegration": "Integrasyon ekle",
     "ai": "AI"
+  },
+  "aiSetting": {
+    "title": "AI ayarları",
+    "description": "Alanınızın AI ayarlarını yönetin",
+    "enableTips": "Sistem AI'ını kullanmak yerine alanınızda AI özelliklerini kullanmak için AI'yı etkinleştirin",
+    "enable": "AI ayarlarını başlat",
+    "enableSwitchTips": "Etkinleştirmeden önce lütfen büyük kodlama modelini yapılandırın"
+  },
+  "import": {
+    "importing": "İçe aktarılıyor",
+    "importWayTip": "Yüklemek için dosyayı bu alana tıklayın veya sürükleyip bırakın",
+    "baseImportTips": "Yüklemek için .tea dosyasını bu alana tıklayın veya sürükleyip bırakın",
+    "confirm": "Onayla ve devam et"
+  },
+  "template": {
+    "title": "Şablon",
+    "description": "Bir şablondan hızlıca yeni bir üs (base) oluşturun"
+  },
+  "recentlyBase": {
+    "title": "Son ziyaret edilenler"
+  },
+  "noBases": {
+    "title": "Merhaba {{userName}}!",
+    "description": "İlk üssünüzle (base) işlerinizi yönetmeye başlayalım."
+  },
+  "noSpaces": {
+    "title": "Merhaba {{userName}}!",
+    "description": "Veri işbirliği yolculuğunuza başlamak için ilk alanınızı oluşturun."
+  },
+  "baseList": {
+    "allBases": "Tüm üsler",
+    "owner": "Sahibi",
+    "lastOpened": "Son açılan",
+    "enter": "Giriş",
+    "noTables": "Tablo yok",
+    "empty": "Henüz üs yok"
+  },
+  "publishBase": {
+    "title": "Üssü toplulukta yayınla",
+    "description": "Tek tıkla üs yayınlama, ilham artık yalnız değil! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
+    "infoTitle": "Temel bilgiler",
+    "form": {
+      "title": "Başlık",
+      "description": "Açıklama",
+      "security": "Güvenlik",
+      "includeNodes": "Düğümleri dahil et",
+      "advanced": "Gelişmiş",
+      "publishNode": "Düğümleri yayınla",
+      "includeData": "Verileri dahil et",
+      "defaultActiveNode": "Varsayılan aktif düğüm",
+      "select": "lütfen seçin",
+      "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
+      "titlePlaceholder": "Çalışmanıza bir ad verin..."
+    },
+    "publishToCommunity": "Toplulukta yayınla",
+    "publish": "Yayınla",
+    "publishSuccess": "Yayınlama başarılı!",
+    "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
+    "update": "Güncelle",
+    "unPublish": "Yayından kaldır",
+    "unPublishSuccess": "Üs başarıyla yayından kaldırıldı!",
+    "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
+    "unPublishConfirmDescription": "Bu üssü yayından kaldırmak istediğinizden emin misiniz? Artık topluluk şablon merkezinde görünmeyecek.",
+    "usageCount": "Kullanım sayısı: ",
+    "uploadCover": "Kapak resmi yüklemek için tıklayın",
+    "changeCover": "Kapağı değiştirmek için tıklayın",
+    "uploading": "Resim yükleniyor...",
+    "uploadSuccess": "Resim başarıyla yüklendi",
+    "uploadFailed": "Yükleme başarısız",
+    "invalidImageType": "Lütfen bir resim dosyası seçin",
+    "tips": {
+      "publishValidation": "başlık ve açıklama gereklidir",
+      "atLeastOneNode": "Yayınlamak için en az bir düğüm seçin"
+    },
+    "urlCopied": "URL panoya kopyalandı!",
+    "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
+    "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
+    "shareWith": "Şununla paylaş"
   }
 }

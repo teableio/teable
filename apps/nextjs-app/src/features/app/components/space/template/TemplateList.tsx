@@ -27,7 +27,6 @@ export const TemplateList = (props: ITemplateListProps) => {
     isFeatured,
   } = props;
   const { t } = useTranslation(['common']);
-
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
     queryKey: ReactQueryKeys.publishedTemplateList(currentCategoryId, search, isFeatured),
     queryFn: ({ pageParam }) =>
@@ -53,13 +52,9 @@ export const TemplateList = (props: ITemplateListProps) => {
   return (
     <div className="flex flex-1 flex-col overflow-y-auto">
       <div
-        className={cn(
-          'grid grid-cols-1 gap-3 text-left sm:grid-cols-2 lg:grid-cols-3 flex-1',
-          {
-            'grid-cols-1 sm:grid-cols-1 lg:grid-cols-1': currentTemplateList?.length === 0,
-          },
-          className
-        )}
+        className={cn('grid grid-cols-1 gap-5 text-left sm:grid-cols-2 lg:grid-cols-3', className, {
+          'grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 py-4 px-6': currentTemplateList?.length === 0,
+        })}
       >
         {currentTemplateList?.map((template) => (
           <TemplateCard
@@ -72,7 +67,7 @@ export const TemplateList = (props: ITemplateListProps) => {
 
         {currentTemplateList?.length === 0 && (
           <div className="flex flex-1 items-center justify-center">
-            <p className="text-sm text-gray-500">{t('common:noResult')}</p>
+            <p className="text-sm text-muted-foreground">{t('common:noResult')}</p>
           </div>
         )}
       </div>

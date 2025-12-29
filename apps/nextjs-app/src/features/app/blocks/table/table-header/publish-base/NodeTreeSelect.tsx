@@ -340,8 +340,8 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
     if (totalNodeCount && checkedItems.length === totalNodeCount) {
       return (
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          <div className="flex items-center rounded-md bg-secondary px-2 py-1">
-            <span className="text-sm font-medium">{t('common:allNodes')}</span>
+          <div className="flex items-center rounded-md bg-surface px-2 py-1">
+            <span className="text-xs font-normal">{t('common:allNodes')}</span>
           </div>
         </div>
       );
@@ -363,20 +363,20 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
           return (
             <div
               key={node.id}
-              className="flex min-w-0 items-center gap-1.5 rounded-md bg-secondary px-2 py-1"
+              className="flex min-w-0 items-center gap-1.5 rounded-md bg-surface px-2 py-1"
             >
               {node.resourceType === BaseNodeResourceType.Table && icon ? (
                 <Emoji emoji={icon} size={'1rem'} className="shrink-0" />
               ) : (
                 <IconComponent className="size-4 shrink-0" />
               )}
-              <span className="min-w-0 truncate text-sm">{getNodeName(node)}</span>
+              <span className="min-w-0 truncate text-xs">{getNodeName(node)}</span>
             </div>
           );
         })}
         {remainingCount > 0 && (
-          <div className="flex items-center rounded-md bg-secondary px-2 py-1">
-            <span className="text-sm font-medium">+{remainingCount}</span>
+          <div className="flex items-center rounded-md bg-transparent py-1">
+            <span className="text-sm">+{remainingCount}</span>
           </div>
         )}
       </div>
@@ -390,14 +390,14 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn('h-9 w-full justify-between py-2', className)}
+          className={cn('h-9 w-full justify-between p-2', className)}
           disabled={disabled}
         >
           <div className="flex min-w-0 flex-1 items-center gap-2">{renderSelectedNodes()}</div>
           <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] overflow-hidden p-0" align="start">
+      <PopoverContent className="w-[354px] overflow-hidden p-0" align="start">
         {/* search input */}
         <div className="px-4 pt-4">
           <div className="relative">
@@ -419,7 +419,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
           </div>
         </div>
 
-        <div className="h-[300px] w-full overflow-x-hidden px-4 py-2">
+        <div className="max-h-[240px] w-full overflow-x-hidden px-4 py-2">
           <div
             {...tree.getContainerProps()}
             className="flex w-full flex-col p-1"

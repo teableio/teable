@@ -119,18 +119,17 @@
     "description": "One-click publish base, inspiration is no longer lonely! Let more people see, use, and Remix your creativity, and build a more powerful business together",
     "infoTitle": "Basic info",
     "form": {
-      "title": "Title",
+      "title": "Work title",
       "description": "Description",
       "security": "Security",
-      "includeNodes": "Include Nodes",
+      "includeNodes": "Include nodes",
       "advanced": "Advanced",
-      "publishNode": "Publish Nodes",
+      "publishNode": "Publish nodes",
       "includeData": "Include data",
       "defaultActiveNode": "Default active node",
       "select": "please select",
-      "descriptionPlaceholder": "description",
-      "titlePlaceholder": "title",
-      "toBeFilled": "...to be filled"
+      "descriptionPlaceholder": "Briefly describe your idea...",
+      "titlePlaceholder": "Name your work..."
     },
     "publishToCommunity": "Publish to community",
     "publish": "Publish",
@@ -149,7 +148,7 @@
     "uploadFailed": "Upload failed",
     "invalidImageType": "Please select an image file",
     "tips": {
-      "publishValidation": "title and description are required",
+      "publishValidation": "Title and description are required",
       "atLeastOneNode": "At least select one node to publish"
     },
     "urlCopied": "URL copied to clipboard!",

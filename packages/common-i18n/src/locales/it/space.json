@@ -67,5 +67,89 @@
   "trash": {
     "spaceDescription": "Tutti gli spazi eliminati in questa istanza",
     "baseDescription": "Tutte le basi eliminate in questo spazio"
+  },
+  "integration": {
+    "title": "Integrazioni",
+    "description": "Gestisci le integrazioni del tuo spazio",
+    "addIntegration": "Aggiungi integrazione",
+    "ai": "AI"
+  },
+  "aiSetting": {
+    "title": "Impostazioni AI",
+    "description": "Gestisci le impostazioni AI del tuo spazio",
+    "enableTips": "Abilita l'AI per utilizzare le funzionalità AI nel tuo spazio invece di usare l'AI di sistema",
+    "enable": "Inizializza impostazioni AI",
+    "enableSwitchTips": "Si prega di configurare il modello di coding prima di abilitare"
+  },
+  "import": {
+    "importing": "Importazione in corso",
+    "importWayTip": "Clicca o trascina il file in quest'area per caricarlo",
+    "baseImportTips": "Clicca o trascina il file .tea in quest'area per caricarlo",
+    "confirm": "Conferma e continua"
+  },
+  "template": {
+    "title": "Modello",
+    "description": "Crea rapidamente una nuova base da un modello"
+  },
+  "recentlyBase": {
+    "title": "Visitati di recente"
+  },
+  "noBases": {
+    "title": "Ciao {{userName}}!",
+    "description": "Inizia a gestire il tuo lavoro con la tua prima base."
+  },
+  "noSpaces": {
+    "title": "Ciao {{userName}}!",
+    "description": "Crea il tuo primo spazio per iniziare il tuo viaggio di collaborazione dati."
+  },
+  "baseList": {
+    "allBases": "Tutte le basi",
+    "owner": "Proprietario",
+    "lastOpened": "Ultima apertura",
+    "enter": "Entra",
+    "noTables": "Nessuna tabella",
+    "empty": "Nessuna base presente"
+  },
+  "publishBase": {
+    "title": "Pubblica Base nella community",
+    "description": "Pubblica la base con un clic, l'ispirazione non è più sola! Lascia che più persone vedano, usino e facciano Remix della tua creatività, costruendo insieme un business più potente",
+    "infoTitle": "Informazioni di base",
+    "form": {
+      "title": "Titolo",
+      "description": "Descrizione",
+      "security": "Sicurezza",
+      "includeNodes": "Includi nodi",
+      "advanced": "Avanzate",
+      "publishNode": "Pubblica nodi",
+      "includeData": "Includi dati",
+      "defaultActiveNode": "Nodo attivo predefinito",
+      "select": "seleziona",
+      "descriptionPlaceholder": "Descrivi brevemente la tua idea...",
+      "titlePlaceholder": "Dai un nome al tuo lavoro..."
+    },
+    "publishToCommunity": "Pubblica nella community",
+    "publish": "Pubblica",
+    "publishSuccess": "Pubblicazione riuscita!",
+    "previewTips": "Fai vedere al mondo il tuo lavoro",
+    "update": "Aggiorna",
+    "unPublish": "Annulla pubblicazione",
+    "unPublishSuccess": "Pubblicazione base annullata con successo!",
+    "unPublishConfirmTitle": "Conferma annullamento pubblicazione",
+    "unPublishConfirmDescription": "Sei sicuro di voler annullare la pubblicazione di questa base? Non sarà più visibile nel centro modelli della community.",
+    "usageCount": "Conteggio utilizzo: ",
+    "uploadCover": "Clicca per caricare l'immagine di copertina",
+    "changeCover": "Clicca per cambiare copertina",
+    "uploading": "Caricamento immagine...",
+    "uploadSuccess": "Immagine caricata con successo",
+    "uploadFailed": "Caricamento fallito",
+    "invalidImageType": "Seleziona un file immagine",
+    "tips": {
+      "publishValidation": "titolo e descrizione sono obbligatori",
+      "atLeastOneNode": "Seleziona almeno un nodo da pubblicare"
+    },
+    "urlCopied": "URL copiato negli appunti!",
+    "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
+    "publishSuccessDescription": "Condividi il tuo lavoro con il mondo",
+    "shareWith": "Condividi con"
   }
 }

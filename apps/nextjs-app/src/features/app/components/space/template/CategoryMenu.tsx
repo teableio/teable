@@ -7,7 +7,7 @@ import { useTranslation } from 'next-i18next';
 import { CategoryMenuItem } from './CategoryMenuItem';
 
 const CategoryGroupLabel = ({ label }: { label: string }) => {
-  return <span className="text-sm font-medium text-muted-foreground">{label}</span>;
+  return <span className="mb-1 px-2 text-sm font-medium text-muted-foreground">{label}</span>;
 };
 
 interface ICategoryMenuProps {
@@ -40,7 +40,7 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
 
   return (
     <div
-      className={cn('flex flex-col gap-3 overflow-hidden p-2 shrink-0 w-64', className, {
+      className={cn('flex flex-col gap-6 overflow-hidden px-2 pt-4 shrink-0 w-64', className, {
         'flex-row w-full': isMobile,
       })}
     >
@@ -68,7 +68,7 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
 
       {categoryList && categoryList.length > 0 && (
         <div
-          className={cn('flex flex-1 flex-col gap-1 overflow-hidden', {
+          className={cn('flex flex-1 flex-col overflow-hidden', {
             'flex-row overflow-x-auto': isMobile,
           })}
         >
@@ -79,7 +79,7 @@ export const CategoryMenu = (props: ICategoryMenuProps) => {
           )}
 
           <div
-            className={cn('flex flex-1 flex-col gap-y-1 overflow-auto', {
+            className={cn('flex flex-1 flex-col overflow-auto', {
               'flex-row gap-x-0.5': isMobile,
             })}
           >
