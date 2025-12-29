@@ -20,6 +20,7 @@ import { PerformanceCacheService, PerformanceCache } from '../../performance-cac
 import {
   generateTemplateCacheKeyByBaseId,
   generateTemplateCategoryCacheKey,
+  generateTemplatePermalinkCacheKey,
 } from '../../performance-cache/generate-keys';
 import type { IClsStore } from '../../types/cls';
 import { updateOrder } from '../../utils/update-order';
@@ -203,6 +204,8 @@ export class TemplateOpenApiService {
         if (res.baseId) {
           await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
         }
+        // Clear permalink cache
+        await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
         return res;
       });
   }
@@ -242,6 +245,8 @@ export class TemplateOpenApiService {
         if (res.baseId) {
           await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
         }
+        // Clear permalink cache when template is updated (especially when publish status changes)
+        await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
         return res;
       });
   }
@@ -317,6 +322,8 @@ export class TemplateOpenApiService {
             if (res.baseId) {
               await this.performanceCacheService.del(generateTemplateCacheKeyByBaseId(res.baseId));
             }
+            // Clear permalink cache when snapshot is updated
+            await this.performanceCacheService.del(generateTemplatePermalinkCacheKey(templateId));
             return res;
           });
       },

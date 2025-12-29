@@ -35,6 +35,7 @@ import type {
   IBaseNodeListVo,
   ICreateBaseRo,
   ICreateBaseVo,
+  ITemplatePermalinkVo,
 } from '@teable/openapi';
 import {
   ACCEPT_INVITATION_LINK,
@@ -71,6 +72,7 @@ import {
   GET_USER_LAST_VISIT_LIST_BASE,
   GET_USER_LAST_VISIT_BASE_NODE,
   GET_BASE_NODE_LIST,
+  GET_TEMPLATE_PERMALINK,
 } from '@teable/openapi';
 import type { AxiosInstance } from 'axios';
 import { getAxios } from './axios';
@@ -303,5 +305,11 @@ export class SsrApi {
 
   async createBase(createBaseRo: ICreateBaseRo) {
     return this.axios.post<ICreateBaseVo>(CREATE_BASE, createBaseRo).then(({ data }) => data);
+  }
+
+  async getTemplatePermalink(identifier: string) {
+    return this.axios
+      .get<ITemplatePermalinkVo>(urlBuilder(GET_TEMPLATE_PERMALINK, { identifier }))
+      .then(({ data }) => data);
   }
 }

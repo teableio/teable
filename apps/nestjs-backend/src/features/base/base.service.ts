@@ -503,11 +503,71 @@ export class BaseService {
     );
   }
 
+  private async permanentEmptyBaseRelatedData(baseId: string) {
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const tables = await prisma.tableMeta.findMany({
+          where: { baseId },
+          select: { id: true },
+        });
+        const tableIds = tables.map(({ id }) => id);
+
+        await this.dropBaseTable(tableIds);
+        await this.tableOpenApiService.cleanReferenceFieldIds(tableIds);
+        await this.tableOpenApiService.cleanTablesRelatedData(baseId, tableIds);
+        await this.cleanBaseRelatedDataWithoutBase(baseId);
+        await this.cleanRelativeNodesData(baseId);
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
+    );
+  }
+
+  private async cleanBaseRelatedDataWithoutBase(baseId: string) {
+    // delete collaborators for base
+    await this.prismaService.txClient().collaborator.deleteMany({
+      where: { resourceId: baseId, resourceType: CollaboratorType.Base },
+    });
+
+    // delete invitation for base
+    await this.prismaService.txClient().invitation.deleteMany({
+      where: { baseId },
+    });
+
+    // delete invitation record for base
+    await this.prismaService.txClient().invitationRecord.deleteMany({
+      where: { baseId },
+    });
+
+    // delete trash for base
+    await this.prismaService.txClient().trash.deleteMany({
+      where: {
+        resourceId: baseId,
+        resourceType: ResourceType.Base,
+      },
+    });
+  }
+
+  private async cleanRelativeNodesData(baseId: string) {
+    const prisma = this.prismaService.txClient();
+    await prisma.baseNode.deleteMany({
+      where: { baseId },
+    });
+    await prisma.baseNodeFolder.deleteMany({
+      where: { baseId },
+    });
+  }
+
   async dropBase(baseId: string, tableIds: string[]) {
     const sql = this.dbProvider.dropSchema(baseId);
     if (sql) {
       return await this.prismaService.txClient().$executeRawUnsafe(sql);
     }
+    await this.tableOpenApiService.dropTables(tableIds);
+  }
+
+  async dropBaseTable(tableIds: string[]) {
     await this.tableOpenApiService.dropTables(tableIds);
   }
 
@@ -610,11 +670,13 @@ export class BaseService {
     const prisma = this.prismaService.txClient();
     const template = await prisma.template.findFirst({
       where: { baseId },
-      select: { id: true },
+      select: { id: true, snapshot: true },
     });
     const { title, description, cover, nodes, includeData } = publishBaseRo;
 
-    const snapshot = await this.createSnapshot(baseId, nodes, includeData);
+    const snapshotBaseId = template?.snapshot ? JSON.parse(template.snapshot).baseId : undefined;
+
+    const snapshot = await this.createSnapshot(baseId, nodes, includeData, snapshotBaseId);
 
     // Calculate snapshotActiveNodeId and defaultUrl
     const snapshotActiveNodeId = publishBaseRo.defaultActiveNodeId
@@ -632,7 +694,7 @@ export class BaseService {
 
     // if already published, update template
     if (template) {
-      await prisma.template.update({
+      const updatedTemplate = await prisma.template.update({
         where: { id: template.id },
         data: {
           name: title,
@@ -646,24 +708,39 @@ export class BaseService {
           }),
           publishInfo,
         },
+        select: {
+          id: true,
+        },
       });
       return {
         baseId: snapshot.baseId,
         defaultUrl,
+        permalink: `/t/${updatedTemplate.id}`,
       };
     }
 
     // if the base is not published, create a template
     // publish snapshot
-    await this.createTemplateBySnapshot(baseId, snapshot, publishBaseRo, publishInfo);
+    const newTemplate = await this.createTemplateBySnapshot(
+      baseId,
+      snapshot,
+      publishBaseRo,
+      publishInfo
+    );
 
     return {
       baseId: snapshot.baseId,
       defaultUrl,
+      permalink: `/t/${newTemplate.id}`,
     };
   }
 
-  private async createSnapshot(baseId: string, nodes?: string[], includeData?: boolean) {
+  private async createSnapshot(
+    baseId: string,
+    nodes?: string[],
+    includeData?: boolean,
+    existedBaseId?: string
+  ) {
     const prisma = this.prismaService.txClient();
     const { id: templateSpaceId } = await prisma.space.findFirstOrThrow({
       where: {
@@ -680,6 +757,11 @@ export class BaseService {
       },
     });
 
+    if (existedBaseId) {
+      // delete some related data
+      await this.cleanTemplateRelatedData(existedBaseId);
+    }
+
     const {
       base: { id, spaceId, name },
       nodeIdMap,
@@ -690,25 +772,11 @@ export class BaseService {
         withRecords: includeData ?? true,
         name: base?.name,
         nodes,
+        baseId: existedBaseId,
       },
       false,
       true
     );
-
-    // if the base is already published, delete the former base
-    const template = await prisma.template.findUnique({
-      where: {
-        baseId: baseId,
-      },
-      select: {
-        snapshot: true,
-      },
-    });
-
-    if (template && template.snapshot) {
-      const { baseId } = JSON.parse(template.snapshot);
-      await this.cleanTemplateRelatedData(baseId);
-    }
 
     return {
       baseId: id,
@@ -719,7 +787,7 @@ export class BaseService {
   }
 
   async cleanTemplateRelatedData(baseId: string) {
-    await this.permanentDeleteBase(baseId, true);
+    await this.permanentEmptyBaseRelatedData(baseId);
   }
 
   private async createTemplateBySnapshot(
@@ -754,7 +822,7 @@ export class BaseService {
 
     const finalOrder = isNumber(order._max.order) ? order._max.order + 1 : 1;
 
-    await prisma.template.create({
+    return await prisma.template.create({
       data: {
         id: templateId,
         name: title,
@@ -771,6 +839,9 @@ export class BaseService {
           name,
         }),
         publishInfo,
+      },
+      select: {
+        id: true,
       },
     });
   }

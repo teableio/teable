@@ -42,8 +42,16 @@ export const PublishBaseRoute: RouteConfig = registerRoute({
   tags: ['base'],
 });
 
+export const publishBaseVoSchema = z.object({
+  baseId: z.string(),
+  defaultUrl: z.string(),
+  permalink: z.string(),
+});
+
+export type IPublishBaseVo = z.infer<typeof publishBaseVoSchema>;
+
 export const publishBase = async (baseId: string, publishBaseRo: IPublishBaseRo) => {
-  return await axios.post<{ baseId: string; defaultUrl: string }>(
+  return await axios.post<IPublishBaseVo>(
     urlBuilder(PUBLISH_BASE, {
       baseId,
     }),

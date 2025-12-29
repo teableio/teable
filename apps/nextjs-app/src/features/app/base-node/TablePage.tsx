@@ -7,7 +7,7 @@ import dynamic from 'next/dynamic';
 import type { SsrApi } from '@/backend/api/rest/ssr-api';
 import type { IBaseResourceParsed } from '@/features/app/hooks/useBaseResource';
 import { getViewPageServerData } from '@/lib/view-pages-data';
-import { redirect } from './helper';
+import { redirect, validateResourceExists } from './helper';
 import type { ISSRContext, SSRResult, ITablePageProps } from './types';
 
 interface IQueryParams {
@@ -68,6 +68,27 @@ export const getTableServerSideProps = async (
     return { notFound: true };
   }
 
+  // check table exists first
+  const tableList = await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.tableList(baseId),
+    queryFn: () => ssrApi.getTables(baseId),
+  });
+
+  if (tableList.length === 0) return { notFound: true };
+
+  // If table doesn't exist, redirect to default node
+  const validationResult = await validateResourceExists(ctx, {
+    resourceId: tableId,
+    queryKey: ReactQueryKeys.tableList(baseId),
+    fetchList: () => ssrApi.getTables(baseId),
+    extractIds: (list) => list.map((t) => t.id),
+  });
+
+  if (validationResult) {
+    return validationResult;
+  }
+
+  // Table exists, now handle viewId
   if (!viewId) {
     const defaultViewId = await getDefaultViewId(ssrApi, tableId, queryParams);
     if (defaultViewId) {
@@ -76,23 +97,11 @@ export const getTableServerSideProps = async (
     return { notFound: true };
   }
 
-  // check table exists
-  const [tableList] = await Promise.all([
-    queryClient.fetchQuery({
-      queryKey: ReactQueryKeys.tableList(baseId),
-      queryFn: () => ssrApi.getTables(baseId),
-    }),
-    queryClient.fetchQuery({
-      queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
-      queryFn: () => ssrApi.getTablePermission(baseId, tableId),
-    }),
-  ]);
-
-  const tableIds = tableList.map((t) => t.id);
-  if (tableIds.length === 0) return { notFound: true };
-  if (!tableIds.includes(tableId)) {
-    return redirect(`/base/${baseId}/table/${tableIds[0]}`);
-  }
+  // Table exists, get permission
+  await queryClient.fetchQuery({
+    queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
+    queryFn: () => ssrApi.getTablePermission(baseId, tableId),
+  });
 
   // check view exists
   const viewList = await queryClient.fetchQuery({

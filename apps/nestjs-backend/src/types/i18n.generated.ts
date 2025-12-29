@@ -2919,6 +2919,8 @@ export type I18nTranslations = {
                     "generateToken": string;
                     "confirmTitle": string;
                     "confirmDescription": string;
+                    "scopeTableRead": string;
+                    "scopeFieldRead": string;
                     "scopeRead": string;
                     "scopeCreate": string;
                     "scopeUpdate": string;

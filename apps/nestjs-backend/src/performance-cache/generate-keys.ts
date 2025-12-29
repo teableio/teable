@@ -54,6 +54,10 @@ export function generateTemplateCategoryCacheKey() {
   return `template:published-category-list` as const;
 }
 
+export function generateTemplatePermalinkCacheKey(identifier: string) {
+  return `template:permalink:${identifier}` as const;
+}
+
 export function generateInstanceBillableUserCountCacheKey() {
   return 'instance-billable-count' as const;
 }

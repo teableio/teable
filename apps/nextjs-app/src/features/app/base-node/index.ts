@@ -1,6 +1,6 @@
 export type { ISSRContext, SSRHandler, SSRResult } from './types';
 
-export { redirect } from './helper';
+export { redirect, getDefaultNodeUrl, validateResourceExists } from './helper';
 
 export { TablePage, getTableServerSideProps } from './TablePage';
 export { DashBoardPage, getDashboardServerSideProps } from './DashBoardPage';

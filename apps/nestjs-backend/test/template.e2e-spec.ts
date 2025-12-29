@@ -19,6 +19,7 @@ import {
   getTableList,
   getTemplateCategoryList,
   getTemplateList,
+  getTemplatePermalink,
   pinTopTemplate,
   updateTemplate,
   updateTemplateCategory,
@@ -742,6 +743,170 @@ describe('Template Open API Controller (e2e)', () => {
       const applyBaseInfo = (await getBaseById(applyBase.data.id)).data;
       expect(applyBaseInfo.icon).toBe('🚀');
       expect(applyBaseInfo.name).toBe('test Template');
+    });
+  });
+
+  describe('Template Permalink', () => {
+    let templateId: string;
+    let snapshotBaseId: string;
+
+    beforeEach(async () => {
+      // Create a base with a table
+      await createTable(baseId, {
+        name: 'Test Table',
+      });
+
+      // Create and publish a template
+      const template = await createTemplate({
+        name: 'Test Permalink Template',
+        description: 'Template for testing permalink',
+      });
+      templateId = template.data.id;
+
+      // Link template to base
+      await updateTemplate(templateId, {
+        baseId: baseId,
+      });
+
+      // Create snapshot
+      await createTemplateSnapshot(templateId);
+
+      // Get snapshot baseId from template
+      const updatedTemplate = await prismaService.txClient().template.findUnique({
+        where: { id: templateId },
+        select: { snapshot: true },
+      });
+      const snapshot = updatedTemplate?.snapshot
+        ? JSON.parse(updatedTemplate.snapshot as string)
+        : {};
+      snapshotBaseId = snapshot.baseId;
+
+      // Publish the template
+      await updateTemplate(templateId, {
+        isPublished: true,
+      });
+    });
+
+    it('should resolve permalink and return redirect URL', async () => {
+      const result = await getTemplatePermalink(templateId);
+
+      expect(result.status).toBe(200);
+      expect(result.data).toBeDefined();
+      expect(result.data.redirectUrl).toBeDefined();
+      expect(typeof result.data.redirectUrl).toBe('string');
+      // Should redirect to the snapshot base
+      expect(result.data.redirectUrl).toContain('/base/');
+      expect(result.data.redirectUrl).toContain(snapshotBaseId);
+    });
+
+    it('should return 404 for non-existent template', async () => {
+      const fakeTemplateId = 'tplxxxxxxxxxxxxxx';
+      await expect(getTemplatePermalink(fakeTemplateId)).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+
+    it('should return error for unpublished template', async () => {
+      // Create a separate base for this template to avoid unique constraint error
+      const unpublishedBase = await createBase({
+        name: 'Unpublished Template Base',
+        spaceId,
+      });
+
+      // Create an unpublished template
+      const unpublishedTemplate = await createTemplate({
+        name: 'Unpublished Template',
+      });
+
+      await updateTemplate(unpublishedTemplate.data.id, {
+        baseId: unpublishedBase.data.id,
+      });
+
+      await createTemplateSnapshot(unpublishedTemplate.data.id);
+
+      await expect(getTemplatePermalink(unpublishedTemplate.data.id)).rejects.toMatchObject({
+        status: 403,
+      });
+
+      // Cleanup
+      await deleteBase(unpublishedBase.data.id);
+    });
+
+    it('should return custom defaultUrl when publishInfo exists', async () => {
+      // Update template with custom publishInfo
+      const customUrl = `/base/${snapshotBaseId}/table/tblxxxxxx/viwxxxxxx`;
+      await prismaService.txClient().template.update({
+        where: { id: templateId },
+        data: {
+          publishInfo: {
+            defaultUrl: customUrl,
+          },
+        },
+      });
+
+      const result = await getTemplatePermalink(templateId);
+
+      expect(result.status).toBe(200);
+      expect(result.data.redirectUrl).toBe(customUrl);
+    });
+
+    it('should return error for invalid identifier format', async () => {
+      const invalidId = 'invalid-id-format';
+      await expect(getTemplatePermalink(invalidId)).rejects.toMatchObject({
+        status: 404,
+      });
+    });
+
+    it('should cache permalink results', async () => {
+      // First call
+      const result1 = await getTemplatePermalink(templateId);
+      expect(result1.status).toBe(200);
+
+      // Second call (should hit cache)
+      const result2 = await getTemplatePermalink(templateId);
+      expect(result2.status).toBe(200);
+      expect(result2.data.redirectUrl).toBe(result1.data.redirectUrl);
+    });
+
+    it('should handle template without publishInfo gracefully', async () => {
+      // Create a separate base for this template to avoid unique constraint error
+      const simpleBase = await createBase({
+        name: 'Simple Template Base',
+        spaceId,
+      });
+
+      // Create template without publishInfo
+      const simpleTemplate = await createTemplate({
+        name: 'Simple Template',
+      });
+
+      await updateTemplate(simpleTemplate.data.id, {
+        baseId: simpleBase.data.id,
+      });
+
+      await createTemplateSnapshot(simpleTemplate.data.id);
+
+      // Get snapshot baseId from template
+      const updatedTemplate = await prismaService.txClient().template.findUnique({
+        where: { id: simpleTemplate.data.id },
+        select: { snapshot: true },
+      });
+      const snapshot = updatedTemplate?.snapshot
+        ? JSON.parse(updatedTemplate.snapshot as string)
+        : {};
+      const simpleSnapshotBaseId = snapshot.baseId;
+
+      await updateTemplate(simpleTemplate.data.id, {
+        isPublished: true,
+      });
+
+      const result = await getTemplatePermalink(simpleTemplate.data.id);
+
+      expect(result.status).toBe(200);
+      expect(result.data.redirectUrl).toBe(`/base/${simpleSnapshotBaseId}`);
+
+      // Cleanup
+      await deleteBase(simpleBase.data.id);
     });
   });
 });

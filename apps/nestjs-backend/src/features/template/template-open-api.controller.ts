@@ -19,10 +19,14 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { TemplateOpenApiService } from './template-open-api.service';
+import { TemplatePermalinkService } from './template-permalink.service';
 
 @Controller('api/template')
 export class TemplateOpenApiController {
-  constructor(private readonly templateOpenApiService: TemplateOpenApiService) {}
+  constructor(
+    private readonly templateOpenApiService: TemplateOpenApiService,
+    private readonly templatePermalinkService: TemplatePermalinkService
+  ) {}
 
   @Get()
   @Permissions('instance|update')
@@ -140,5 +144,11 @@ export class TemplateOpenApiController {
   @Patch('/:templateId/visit')
   async incrementTemplateVisitCount(@Param('templateId') templateId: string) {
     return this.templateOpenApiService.incrementTemplateVisitCount(templateId);
+  }
+
+  @Public()
+  @Get('/permalink/:identifier')
+  async getTemplatePermalink(@Param('identifier') identifier: string) {
+    return await this.templatePermalinkService.resolvePermalink(identifier);
   }
 }

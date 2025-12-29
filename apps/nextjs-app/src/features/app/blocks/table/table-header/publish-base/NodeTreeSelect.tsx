@@ -366,7 +366,7 @@ export const NodeTreeSelect = (props: INodeSelectProps) => {
               className="flex min-w-0 items-center gap-1.5 rounded-md bg-surface px-2 py-1"
             >
               {node.resourceType === BaseNodeResourceType.Table && icon ? (
-                <Emoji emoji={icon} size={'1rem'} className="shrink-0" />
+                <Emoji emoji={icon} size={16} className="size-4 shrink-0" />
               ) : (
                 <IconComponent className="size-4 shrink-0" />
               )}
