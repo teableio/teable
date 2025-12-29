@@ -40,7 +40,7 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const viewId = useViewId();
   const tableId = useTableId();
   const viewFilterLinkContext = useViewFilterLinkContext(tableId, viewId, {
-    disabled: Boolean(props.viewFilterLinkContext),
+    disabled: Boolean('viewFilterLinkContext' in props),
   });
   const finalViewFilterLinkContext = props.viewFilterLinkContext || viewFilterLinkContext;
 

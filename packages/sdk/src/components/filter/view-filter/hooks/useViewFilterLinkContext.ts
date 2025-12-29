@@ -33,7 +33,8 @@ export const useViewFilterLinkContext = (
   useViewListener(viewId, viewMatches, updateContext);
 
   return {
-    isLoading,
+    // Only show loading when query is enabled and actually loading
+    isLoading: enabledQuery && isLoading,
     data: queryData?.map((v) => ({
       tableId: v.tableId,
       data: v.records.reduce(

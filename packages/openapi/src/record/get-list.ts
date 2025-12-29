@@ -15,7 +15,7 @@ import { z } from '../zod';
 import { getRecordQuerySchema } from './get';
 
 const defaultPageSize = 100;
-const maxPageSize = 2000;
+const maxPageSize = 1000;
 
 export const queryBaseSchema = z.object({
   viewId: z.string().startsWith(IdPrefix.View).optional().meta({

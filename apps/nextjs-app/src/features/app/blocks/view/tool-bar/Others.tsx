@@ -1,7 +1,8 @@
 import { ArrowUpRight, Code2, MoreHorizontal } from '@teable/icons';
-import { useBaseId, useIsTemplate, useTableId, useTablePermission } from '@teable/sdk/hooks';
+import { useIsTemplate, useTablePermission } from '@teable/sdk/hooks';
 import { Button, cn, Popover, PopoverContent, PopoverTrigger } from '@teable/ui-lib/shadcn';
 import { SearchButton } from '../search/SearchButton';
+import { APIDialog } from './APIDialog';
 import { PersonalViewSwitch } from './components';
 import { UndoRedoButtons } from './components/UndoRedoButtons';
 import { SharePopover } from './SharePopover';
@@ -17,19 +18,8 @@ const OthersList = ({
   foldButton?: boolean;
 }) => {
   const permission = useTablePermission();
-  const baseId = useBaseId() as string;
-  const tableId = useTableId() as string;
 
   const { textClassName, buttonClassName } = classNames ?? {};
-
-  const onAPIClick = () => {
-    const path = `/developer/tool/query-builder`;
-    const url = new URL(path, window.location.origin);
-    url.searchParams.set('baseId', baseId);
-    url.searchParams.set('tableId', tableId);
-
-    window.open(url.toString(), '_blank');
-  };
 
   return (
     <div className={cn('gap-1 flex items-center', className)}>
@@ -46,14 +36,15 @@ const OthersList = ({
           </ToolBarButton>
         )}
       </SharePopover>
-      <ToolBarButton
-        text="API"
-        className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
-        textClassName={textClassName}
-        onClick={onAPIClick}
-      >
-        <Code2 className="size-4" />
-      </ToolBarButton>
+      <APIDialog>
+        <ToolBarButton
+          text="API"
+          className={cn(buttonClassName, { 'w-full justify-start rounded-sm': foldButton })}
+          textClassName={textClassName}
+        >
+          <Code2 className="size-4" />
+        </ToolBarButton>
+      </APIDialog>
       {!foldButton && <div className="mx-1 h-4 w-px shrink-0 bg-border" />}
       <PersonalViewSwitch
         textClassName={textClassName}

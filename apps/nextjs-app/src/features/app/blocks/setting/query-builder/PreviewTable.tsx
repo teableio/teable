@@ -27,8 +27,9 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
 
   const [rowCount, setRowCount] = useState<number>(0);
   const [recordRes, setRecordRes] = useState<unknown>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const tableId = useTableId();
-  const [mode, setMode] = useState<string>('grid');
+  const [mode, setMode] = useState<string>('json');
   const [page, setPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
 
@@ -50,16 +51,37 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
 
   const { recordMap, onVisibleRegionChanged } = useGridAsyncRecords(undefined, query);
 
+  // Fetch JSON data when mode is json or when tableId/query/page/pageSize changes
   useEffect(() => {
-    if (mode === 'json' && tableId) {
-      getRecords(tableId, {
-        ...(nullsToUndefinedShallow(query) as IGetRecordsRo),
-        skip: (page - 1) * pageSize,
-        take: pageSize,
-      }).then((res) => {
-        setRecordRes(res.data);
-      });
+    if (mode !== 'json' || !tableId) {
+      return;
     }
+
+    setIsLoading(true);
+    const queryParams: IGetRecordsRo = {
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    };
+
+    // Only add non-null/undefined parameters
+    if (query.filter) queryParams.filter = query.filter;
+    if (query.orderBy) queryParams.orderBy = query.orderBy;
+    if (query.viewId) queryParams.viewId = query.viewId;
+    if (query.search) queryParams.search = query.search;
+    if (query.cellFormat) queryParams.cellFormat = query.cellFormat;
+    if (query.fieldKeyType) queryParams.fieldKeyType = query.fieldKeyType;
+
+    getRecords(tableId, queryParams)
+      .then((res) => {
+        setRecordRes(res.data);
+      })
+      .catch((err) => {
+        console.error('Failed to fetch records:', err);
+        setRecordRes({ error: 'Failed to fetch records' });
+      })
+      .finally(() => {
+        setIsLoading(false);
+      });
   }, [mode, query, tableId, page, pageSize]);
 
   const getCellContent = useCallback<(cell: ICellItem) => ICell>(
@@ -129,47 +151,50 @@ export const PreviewTable = ({ query }: { query: IGetRecordsRo }) => {
       )}
       {mode === 'json' && (
         <div>
-          {mode === 'json' && (
-            <div className="flex items-center gap-4 pb-4">
-              <div className="flex items-center gap-2">
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={page === 1}
-                >
-                  <ChevronLeft className="size-4" />
-                </Button>
-                <span>
-                  {page} / {totalPages}
-                </span>
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={page >= totalPages}
-                >
-                  <ChevronRight className="size-4" />
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <span>skip: {(page - 1) * pageSize}</span>
-                <span>take:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
-                  className="rounded border p-1 text-sm"
-                >
-                  {[10, 20, 50, 100].map((size) => (
-                    <option key={size} value={size}>
-                      {size}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <div className="flex items-center gap-4 pb-4">
+            <div className="flex items-center gap-2">
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1 || isLoading}
+              >
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span>
+                {page} / {totalPages || 1}
+              </span>
+              <Button
+                size="xs"
+                variant="outline"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page >= totalPages || isLoading}
+              >
+                <ChevronRight className="size-4" />
+              </Button>
             </div>
-          )}
-          <CodeBlock code={JSON.stringify(recordRes, null, 2)} language="json" />
+            <div className="flex items-center gap-2">
+              <span>skip: {(page - 1) * pageSize}</span>
+              <span>take:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+                className="rounded border p-1 text-sm"
+                disabled={isLoading}
+              >
+                {[10, 20, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {isLoading && <span className="text-sm text-muted-foreground">Loading...</span>}
+          </div>
+          <CodeBlock
+            code={recordRes ? JSON.stringify(recordRes, null, 2) : '// Loading...'}
+            language="json"
+          />
         </div>
       )}
     </>

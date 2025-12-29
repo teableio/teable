@@ -1155,6 +1155,20 @@ export type I18nTranslations = {
         "createNewToken": string;
         "showPagination": string;
         "addSort": string;
+        "tabs": {
+            "apiBuilder": string;
+            "aiContext": string;
+        };
+        "aiContext": {
+            "title": string;
+            "description": string;
+            "selectTableFirst": string;
+            "fullContext": string;
+            "compactContext": string;
+            "copyToClipboard": string;
+            "copied": string;
+            "compactDescription": string;
+        };
         "only10Records": string;
     };
     "oauth": {
@@ -2760,8 +2774,6 @@ export type I18nTranslations = {
             "addIntegration": string;
             "ai": string;
         };
-        "collaborators": string;
-        "more": string;
         "aiSetting": {
             "title": string;
             "description": string;
@@ -2814,7 +2826,8 @@ export type I18nTranslations = {
                 "select": string;
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
-                "toBeFilled": string;
+                "toBeFilledTitle": string;
+                "toBeFilledDescription": string;
             };
             "publishToCommunity": string;
             "publish": string;
@@ -2841,6 +2854,8 @@ export type I18nTranslations = {
             "publishSuccessDescription": string;
             "shareWith": string;
         };
+        "collaborators": string;
+        "more": string;
     };
     "system": {
         "notFound": {
@@ -2894,6 +2909,27 @@ export type I18nTranslations = {
                     "label": string;
                     "restfulApi": string;
                     "databaseConnection": string;
+                    "title": string;
+                    "aiContext": string;
+                    "advanced": string;
+                    "generatingToken": string;
+                    "aiContextTitle": string;
+                    "aiContextDescriptionNoToken": string;
+                    "aiContextDescriptionWithToken": string;
+                    "generateToken": string;
+                    "confirmTitle": string;
+                    "confirmDescription": string;
+                    "scopeRead": string;
+                    "scopeCreate": string;
+                    "scopeUpdate": string;
+                    "scopeDelete": string;
+                    "confirmExpiry": string;
+                    "confirmButton": string;
+                    "tokenInfo": string;
+                    "copied": string;
+                    "copyToClipboard": string;
+                    "advancedDesc": string;
+                    "openAdvanced": string;
                 };
                 "personalView": {
                     "personal": string;

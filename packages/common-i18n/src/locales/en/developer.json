@@ -11,10 +11,24 @@
   },
   "pickParams": "Select and configure the parameters",
   "buildResult": "Build result",
-  "buildResultEmpty": "No result yet",
+  "buildResultEmpty": "Please select a table first",
   "previewReturnValue": "Return value preview",
   "replaceToken": "Replace token",
   "createNewToken": "Create new token",
   "showPagination": "Pagination parameters are displayed in JSON mode",
-  "addSort": "Add a sort"
+  "addSort": "Add a sort",
+  "tabs": {
+    "apiBuilder": "API Builder",
+    "aiContext": "AI Context"
+  },
+  "aiContext": {
+    "title": "AI-Friendly Table Context",
+    "description": "Copy this context to your AI assistant (ChatGPT, Claude, etc.) to help it understand how to interact with your table data.",
+    "selectTableFirst": "Please select a table to generate AI context",
+    "fullContext": "Full Context",
+    "compactContext": "Compact",
+    "copyToClipboard": "Copy to Clipboard",
+    "copied": "Copied!",
+    "compactDescription": "A shorter version suitable for quick context sharing with token limits in mind."
+  }
 }
