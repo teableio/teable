@@ -730,4 +730,640 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
       expect(pluginViews.find(({ name }) => name === sheetView2.name)).toBeDefined();
     });
   });
+
+  describe('Partial base duplication with nodes parameter', () => {
+    it('should duplicate only selected tables using nodes parameter', async () => {
+      const table1 = await createTable(base.id, { name: 'table1' });
+      const table2 = await createTable(base.id, { name: 'table2' });
+      await createTable(base.id, { name: 'table3' });
+
+      // Create link between table1 and table2
+      const linkField12 = (
+        await createField(table1.id, {
+          name: 'link to table2',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table2.id,
+          },
+        })
+      ).data;
+
+      // Create records and link data
+      const table1Records = await getRecords(table1.id);
+      const table2Records = await getRecords(table2.id);
+
+      await updateRecord(table1.id, table1Records.records[0].id, {
+        record: {
+          fields: {
+            [linkField12.name]: [{ id: table2Records.records[0].id }],
+          },
+        },
+      });
+
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table1'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table2'
+      );
+
+      expect(table1Node).toBeDefined();
+      expect(table2Node).toBeDefined();
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - partial',
+        withRecords: true,
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      expect(duplicatedTableList.length).toBe(2);
+      expect(duplicatedTableList.map((t) => t.name).sort()).toEqual(['table1', 'table2'].sort());
+
+      // Verify link field data is copied
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
+      const duplicatedTable2 = duplicatedTableList.find((t) => t.name === 'table2')!;
+      const duplicatedTable1Records = await getRecords(duplicatedTable1.id);
+      const duplicatedTable2Records = await getRecords(duplicatedTable2.id);
+
+      // Link data should be preserved
+      expect(duplicatedTable1Records.records[0].fields[linkField12.name]).toBeDefined();
+      expect(duplicatedTable1Records.records[0].fields[linkField12.name]).toMatchObject([
+        { id: duplicatedTable2Records.records[0].id },
+      ]);
+    });
+
+    it('should handle disconnected link fields when duplicating partial tables', async () => {
+      const table1 = await createTable(base.id, { name: 'table1' });
+      const table2 = await createTable(base.id, { name: 'table2' });
+      const table3 = await createTable(base.id, { name: 'table3' });
+
+      // Create link from table1 to table2
+      const linkField12 = (
+        await createField(table1.id, {
+          name: 'link to table2',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table2.id,
+          },
+        })
+      ).data;
+
+      // Create link from table1 to table3
+      const linkField13 = (
+        await createField(table1.id, {
+          name: 'link to table3',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table3.id,
+          },
+        })
+      ).data;
+
+      // Create records with link data
+      const table1Records = await getRecords(table1.id);
+      const table2Records = await getRecords(table2.id);
+      const table3Records = await getRecords(table3.id);
+
+      await updateRecord(table1.id, table1Records.records[0].id, {
+        record: {
+          fields: {
+            [linkField12.name]: [{ id: table2Records.records[0].id }],
+            [linkField13.name]: [{ id: table3Records.records[0].id }],
+          },
+        },
+      });
+
+      // Only duplicate table1 and table2, excluding table3
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table1'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table2'
+      );
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - disconnected links',
+        withRecords: true,
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
+      const duplicatedTable2 = duplicatedTableList.find((t) => t.name === 'table2')!;
+
+      // Get fields of duplicated table1
+      const duplicatedTable1Fields = (await getFields(duplicatedTable1.id)).data;
+      const duplicatedLinkField12 = duplicatedTable1Fields.find((f) => f.name === 'link to table2');
+      const duplicatedLinkField13 = duplicatedTable1Fields.find((f) => f.name === 'link to table3');
+
+      // Link to table2 should exist and remain as Link type
+      expect(duplicatedLinkField12).toBeDefined();
+      expect(duplicatedLinkField12?.type).toBe(FieldType.Link);
+
+      // Link to table3 should be converted to SingleLineText (disconnected - table3 was not included)
+      expect(duplicatedLinkField13).toBeDefined();
+      expect(duplicatedLinkField13?.type).toBe(FieldType.SingleLineText);
+
+      // Get records and verify link field values
+      const duplicatedTable1Records = await getRecords(duplicatedTable1.id);
+      const duplicatedTable2Records = await getRecords(duplicatedTable2.id);
+
+      // Link to table2 should have data and point to the duplicated table2 record
+      expect(duplicatedTable1Records.records[0].fields[linkField12.name]).toBeDefined();
+      expect(duplicatedTable1Records.records[0].fields[linkField12.name]).toMatchObject([
+        { id: duplicatedTable2Records.records[0].id },
+      ]);
+
+      // Link to table3 should be empty or null (disconnected - table3 was not included)
+      const linkToTable3Value = duplicatedTable1Records.records[0].fields[linkField13.name];
+      expect(
+        linkToTable3Value === null ||
+          linkToTable3Value === undefined ||
+          (Array.isArray(linkToTable3Value) && linkToTable3Value.length === 0)
+      ).toBe(true);
+    });
+
+    it('should duplicate link field data correctly with multiple records', async () => {
+      const table1 = await createTable(base.id, { name: 'Products' });
+      const table2 = await createTable(base.id, { name: 'Categories' });
+
+      // Create link field from Products to Categories
+      const linkField = (
+        await createField(table1.id, {
+          name: 'categories',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table2.id,
+          },
+        })
+      ).data;
+
+      // Get records
+      const table1Records = await getRecords(table1.id);
+      const table2Records = await getRecords(table2.id);
+
+      // Create multiple link relationships
+      await updateRecord(table1.id, table1Records.records[0].id, {
+        record: {
+          fields: {
+            [linkField.name]: [
+              { id: table2Records.records[0].id },
+              { id: table2Records.records[1].id },
+            ],
+          },
+        },
+      });
+
+      await updateRecord(table1.id, table1Records.records[1].id, {
+        record: {
+          fields: {
+            [linkField.name]: [{ id: table2Records.records[1].id }],
+          },
+        },
+      });
+
+      // Duplicate with records
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Products'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) =>
+          n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Categories'
+      );
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - link data',
+        withRecords: true,
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      // Verify duplicated data
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'Products')!;
+      const duplicatedTable2 = duplicatedTableList.find((t) => t.name === 'Categories')!;
+
+      const duplicatedTable1Records = await getRecords(duplicatedTable1.id);
+      const duplicatedTable2Records = await getRecords(duplicatedTable2.id);
+
+      // First record should have 2 links
+      const firstRecordLinks = duplicatedTable1Records.records[0].fields[linkField.name];
+      expect(firstRecordLinks).toBeDefined();
+      expect(Array.isArray(firstRecordLinks)).toBe(true);
+      expect((firstRecordLinks as unknown[]).length).toBe(2);
+      expect(firstRecordLinks).toMatchObject([
+        { id: duplicatedTable2Records.records[0].id },
+        { id: duplicatedTable2Records.records[1].id },
+      ]);
+
+      // Second record should have 1 link
+      const secondRecordLinks = duplicatedTable1Records.records[1].fields[linkField.name];
+      expect(secondRecordLinks).toBeDefined();
+      expect(Array.isArray(secondRecordLinks)).toBe(true);
+      expect((secondRecordLinks as unknown[]).length).toBe(1);
+      expect(secondRecordLinks).toMatchObject([{ id: duplicatedTable2Records.records[1].id }]);
+
+      // Third record should have no links
+      const thirdRecordLinkValue = duplicatedTable1Records.records[2].fields[linkField.name];
+      expect(
+        thirdRecordLinkValue === null ||
+          thirdRecordLinkValue === undefined ||
+          (Array.isArray(thirdRecordLinkValue) && thirdRecordLinkValue.length === 0)
+      ).toBe(true);
+    });
+
+    it('should duplicate bidirectional link field data correctly', async () => {
+      const table1 = await createTable(base.id, { name: 'Tasks' });
+      const table2 = await createTable(base.id, { name: 'Users' });
+
+      // Create bidirectional link field
+      const linkField = (
+        await createField(table1.id, {
+          name: 'assigned to',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table2.id,
+          },
+        })
+      ).data;
+
+      // Get the symmetric field
+      const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId!;
+      const symmetricField = (await getField(table2.id, symmetricFieldId)).data;
+
+      // Get records
+      const table1Records = await getRecords(table1.id);
+      const table2Records = await getRecords(table2.id);
+
+      // Create link from table1 side
+      await updateRecord(table1.id, table1Records.records[0].id, {
+        record: {
+          fields: {
+            [linkField.name]: [{ id: table2Records.records[0].id }],
+          },
+        },
+      });
+
+      // Create link from table2 side
+      await updateRecord(table2.id, table2Records.records[1].id, {
+        record: {
+          fields: {
+            [symmetricField.name]: [{ id: table1Records.records[1].id }],
+          },
+        },
+      });
+
+      // Duplicate with records
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Tasks'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Users'
+      );
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - bidirectional link',
+        withRecords: true,
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      // Verify duplicated data
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'Tasks')!;
+      const duplicatedTable2 = duplicatedTableList.find((t) => t.name === 'Users')!;
+
+      const duplicatedTable1Records = await getRecords(duplicatedTable1.id);
+      const duplicatedTable2Records = await getRecords(duplicatedTable2.id);
+
+      // Verify link from table1 side
+      expect(duplicatedTable1Records.records[0].fields[linkField.name]).toMatchObject([
+        { id: duplicatedTable2Records.records[0].id },
+      ]);
+
+      // Verify link from table2 side (symmetric field)
+      expect(duplicatedTable2Records.records[1].fields[symmetricField.name]).toMatchObject([
+        { id: duplicatedTable1Records.records[1].id },
+      ]);
+
+      // Verify bidirectional relationship
+      expect(duplicatedTable1Records.records[1].fields[linkField.name]).toMatchObject([
+        { id: duplicatedTable2Records.records[1].id },
+      ]);
+    });
+
+    it('should preserve folder hierarchy when duplicating with nodes parameter', async () => {
+      const folder1Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder 1',
+      }).then((res) => res.data);
+
+      const _folder2Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder 2',
+      }).then((res) => res.data);
+
+      const table1Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table in Folder',
+        fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      const _table2Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table outside',
+        fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      // Move table1 into folder1
+      await moveBaseNode(base.id, table1Node.id, { parentId: folder1Node.id });
+
+      // Only duplicate the table inside folder (should include parent folder)
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - with parent folder',
+        nodes: [table1Node.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+      const duplicatedNodes = duplicatedNodeTree.nodes;
+
+      // Should include the folder (parent) and the table
+      const duplicatedFolders = duplicatedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Folder
+      );
+      const duplicatedTables = duplicatedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Table
+      );
+
+      expect(duplicatedFolders.length).toBe(1);
+      expect(duplicatedFolders[0].resourceMeta?.name).toBe('Folder 1');
+
+      expect(duplicatedTables.length).toBe(1);
+      expect(duplicatedTables[0].resourceMeta?.name).toBe('Table in Folder');
+
+      // Verify table is still inside the folder
+      expect(duplicatedTables[0].parentId).toBe(duplicatedFolders[0].id);
+
+      // Verify table2 is not included
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      expect(duplicatedTableList.length).toBe(1);
+      expect(duplicatedTableList[0].name).toBe('Table in Folder');
+    });
+
+    it('should convert disconnected link fields to SingleLineText and clear data', async () => {
+      const table1 = await createTable(base.id, { name: 'Orders' });
+      const table2 = await createTable(base.id, { name: 'Customers' });
+      const table3 = await createTable(base.id, { name: 'Products' });
+
+      // Create link from Orders to Customers (will be included)
+      const linkField12 = (
+        await createField(table1.id, {
+          name: 'customer',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table2.id,
+          },
+        })
+      ).data;
+
+      // Create link from Orders to Products (will be excluded)
+      const linkField13 = (
+        await createField(table1.id, {
+          name: 'product',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table3.id,
+          },
+        })
+      ).data;
+
+      // Add some link data
+      const table1Records = await getRecords(table1.id);
+      const table2Records = await getRecords(table2.id);
+      const table3Records = await getRecords(table3.id);
+
+      await updateRecord(table1.id, table1Records.records[0].id, {
+        record: {
+          fields: {
+            [linkField12.name]: [{ id: table2Records.records[0].id }],
+            [linkField13.name]: [{ id: table3Records.records[0].id }],
+          },
+        },
+      });
+
+      // Only duplicate table1 and table2, excluding table3
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Orders'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'Customers'
+      );
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - field type conversion',
+        withRecords: true,
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'Orders')!;
+
+      // Verify field types
+      const duplicatedFields = (await getFields(duplicatedTable1.id)).data;
+      const customerField = duplicatedFields.find((f) => f.name === 'customer');
+      const productField = duplicatedFields.find((f) => f.name === 'product');
+
+      // Customer field should remain as Link
+      expect(customerField).toBeDefined();
+      expect(customerField?.type).toBe(FieldType.Link);
+      expect((customerField?.options as ILinkFieldOptions)?.foreignTableId).toBeDefined();
+
+      // Product field should be converted to SingleLineText
+      expect(productField).toBeDefined();
+      expect(productField?.type).toBe(FieldType.SingleLineText);
+      // Options should be empty object or not have link-specific properties
+      expect(productField?.options).toBeDefined();
+      expect((productField?.options as ILinkFieldOptions)?.foreignTableId).toBeUndefined();
+
+      // Verify data: customer link should have data, product field should be empty
+      const duplicatedRecords = await getRecords(duplicatedTable1.id);
+      expect(duplicatedRecords.records[0].fields[linkField12.name]).toBeDefined();
+
+      const productFieldValue = duplicatedRecords.records[0].fields[linkField13.name];
+      expect(
+        productFieldValue === null || productFieldValue === undefined || productFieldValue === ''
+      ).toBe(true);
+    });
+
+    it('should handle lookup fields when link field is disconnected', async () => {
+      const table1 = await createTable(base.id, { name: 'table1' });
+      const _table2 = await createTable(base.id, { name: 'table2' });
+      const table3 = await createTable(base.id, { name: 'table3' });
+
+      // Create link from table1 to table3
+      const linkField13 = (
+        await createField(table1.id, {
+          name: 'link to table3',
+          type: FieldType.Link,
+          options: {
+            relationship: Relationship.ManyMany,
+            foreignTableId: table3.id,
+          },
+        })
+      ).data;
+
+      // Create lookup field based on the link to table3
+      await createField(table1.id, {
+        name: 'lookup from table3',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: table3.id,
+          linkFieldId: linkField13.id,
+          lookupFieldId: table3.fields[0].id,
+        },
+      });
+
+      // Only duplicate table1 and table2, excluding table3
+      const nodeTree = await getBaseNodeTree(base.id).then((res) => res.data);
+      const table1Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table1'
+      );
+      const table2Node = nodeTree.nodes.find(
+        (n) => n.resourceType === BaseNodeResourceType.Table && n.resourceMeta?.name === 'table2'
+      );
+
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - disconnected lookup',
+        nodes: [table1Node!.id, table2Node!.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
+
+      // Get fields and verify lookup field exists
+      const duplicatedTable1Fields = (await getFields(duplicatedTable1.id)).data;
+      const lookupField = duplicatedTable1Fields.find((f) => f.name === 'lookup from table3');
+
+      // Lookup field should be converted to SingleLineText (disconnected - based on link to table3)
+      expect(lookupField).toBeDefined();
+      expect(lookupField?.type).toBe(FieldType.SingleLineText);
+      expect(lookupField?.isLookup).toBeFalsy();
+    });
+
+    it('should duplicate multiple folders and their contents with nodes parameter', async () => {
+      const folder1Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder A',
+      }).then((res) => res.data);
+
+      const folder2Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Folder,
+        name: 'Folder B',
+      }).then((res) => res.data);
+
+      const table1Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table A1',
+        fields: [{ name: 'Field1', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      const table2Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table B1',
+        fields: [{ name: 'Field2', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      const table3Node = await createBaseNode(base.id, {
+        resourceType: BaseNodeResourceType.Table,
+        name: 'Table B2',
+        fields: [{ name: 'Field3', type: FieldType.SingleLineText }],
+        views: [{ name: 'Grid view', type: ViewType.Grid }],
+      }).then((res) => res.data);
+
+      // Move tables into folders
+      await moveBaseNode(base.id, table1Node.id, { parentId: folder1Node.id });
+      await moveBaseNode(base.id, table2Node.id, { parentId: folder2Node.id });
+      await moveBaseNode(base.id, table3Node.id, { parentId: folder2Node.id });
+
+      // Duplicate only Folder A's table and one table from Folder B
+      const dupResult = await duplicateBase({
+        fromBaseId: base.id,
+        spaceId: spaceId,
+        name: 'test base copy - multiple folders',
+        nodes: [table1Node.id, table2Node.id],
+      });
+
+      duplicateBaseId = dupResult.data.id;
+
+      const duplicatedNodeTree = await getBaseNodeTree(duplicateBaseId).then((res) => res.data);
+      const duplicatedNodes = duplicatedNodeTree.nodes;
+
+      const duplicatedFolders = duplicatedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Folder
+      );
+      const duplicatedTables = duplicatedNodes.filter(
+        (n) => n.resourceType === BaseNodeResourceType.Table
+      );
+
+      // Should have both folders
+      expect(duplicatedFolders.length).toBe(2);
+      expect(duplicatedFolders.map((f) => f.resourceMeta?.name).sort()).toEqual(
+        ['Folder A', 'Folder B'].sort()
+      );
+
+      // Should have only 2 tables
+      expect(duplicatedTables.length).toBe(2);
+      expect(duplicatedTables.map((t) => t.resourceMeta?.name).sort()).toEqual(
+        ['Table A1', 'Table B1'].sort()
+      );
+
+      // Table B2 should not be included
+      const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+      expect(duplicatedTableList.find((t) => t.name === 'Table B2')).toBeUndefined();
+    });
+  });
 });

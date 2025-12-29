@@ -160,14 +160,21 @@ export class TableDuplicateService {
 
     const newColumnsInfoQuery = this.dbProvider.columnInfo(targetDbTableName);
 
-    const oldOriginColumns = (await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery))
-      .map(({ name }) => name)
-      .filter((name) =>
-        crossBaseLinkInfo
-          .map(({ selfKeyName }) => selfKeyName)
-          .filter((selfKeyName) => selfKeyName !== '__id' && selfKeyName)
-          .includes(name)
-      );
+    const allSourceColumns = (
+      await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery)
+    ).map(({ name }) => name);
+
+    // Only filter by crossBaseLinkInfo if it's not empty
+    // When crossBaseLinkInfo is empty (normal table duplication), include all columns
+    const oldOriginColumns =
+      crossBaseLinkInfo.length === 0
+        ? allSourceColumns
+        : allSourceColumns.filter((name) =>
+            crossBaseLinkInfo
+              .map(({ selfKeyName }) => selfKeyName)
+              .filter((selfKeyName) => selfKeyName !== '__id' && selfKeyName)
+              .includes(name)
+          );
 
     const crossBaseLinkDbFieldNames = crossBaseLinkInfo.map(
       ({ dbFieldName, isMultipleCellValue }) => ({
@@ -239,7 +246,7 @@ export class TableDuplicateService {
       '__last_modified_by',
     ];
 
-    const excludeFields = await this.prismaService.txClient().field.findMany({
+    const excludeFields = await prisma.field.findMany({
       where: {
         id: {
           in: Object.keys(sourceToTargetFieldMap),

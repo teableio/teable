@@ -462,14 +462,14 @@ export class BaseDuplicateService {
     const prisma = this.prismaService.txClient();
     const tableId2DbTableNameMap: Record<string, string> = {};
     const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
-    const sourceTableRaws = await this.prismaService.txClient().tableMeta.findMany({
+    const sourceTableRaws = await prisma.tableMeta.findMany({
       where: { id: { in: allTableId }, deletedTime: null },
       select: {
         id: true,
         dbTableName: true,
       },
     });
-    const targetTableRaws = await this.prismaService.txClient().tableMeta.findMany({
+    const targetTableRaws = await prisma.tableMeta.findMany({
       where: { id: { in: allTableId }, deletedTime: null },
       select: {
         id: true,
@@ -503,9 +503,10 @@ export class BaseDuplicateService {
     }[];
 
     // delete foreign keys if(exist) then duplicate table data
+    // 1. collect foreign keys info
     for (const dbTableName of dbTableNames) {
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-      const foreignKeysInfo = await this.prismaService.txClient().$queryRawUnsafe<
+      const foreignKeysInfo = await prisma.$queryRawUnsafe<
         {
           constraint_name: string;
           column_name: string;
@@ -521,6 +522,7 @@ export class BaseDuplicateService {
       allForeignKeyInfos.push(...newForeignKeyInfos);
     }
 
+    // 2. drop foreign keys
     for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
       const dropForeignKeyQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
@@ -531,6 +533,7 @@ export class BaseDuplicateService {
       await prisma.$executeRawUnsafe(dropForeignKeyQuery);
     }
 
+    // 3. duplicate table data
     for (const tableId of oldTableId) {
       const newTableId = tableIdMap[tableId];
       const oldDbTableName = tableId2DbTableNameMap[tableId];
@@ -544,6 +547,7 @@ export class BaseDuplicateService {
       );
     }
 
+    // 4. repair foreign keys
     for (const {
       constraint_name: constraintName,
       column_name: columnName,
