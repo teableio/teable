@@ -11,6 +11,7 @@ import {
   checkBaseNodePermission,
   checkBaseNodePermissionCreate,
 } from '../../base-node/base-node.permission.helper';
+import type { IBaseNodePermissionContext } from '../../base-node/types';
 import { BaseNodeAction } from '../../base-node/types';
 import { BASE_NODE_PERMISSIONS_KEY } from '../decorators/base-node-permissions.decorator';
 import { IS_DISABLED_PERMISSION } from '../decorators/disabled-permission.decorator';
@@ -59,10 +60,7 @@ export class BaseNodePermissionGuard extends PermissionGuard {
   async checkActivate(
     context: ExecutionContext,
     baseId: string,
-    permissionContext: {
-      permissionSet: Set<string>;
-      tablePermissionMap?: Record<string, string[]>;
-    }
+    permissionContext: IBaseNodePermissionContext
   ) {
     const baseNodePermissions = this.reflectorInner.getAllAndOverride<BaseNodeAction[] | undefined>(
       BASE_NODE_PERMISSIONS_KEY,
