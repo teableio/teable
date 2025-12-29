@@ -88,7 +88,7 @@
     "regex": "regex",
     "datetime": "datetime"
   },
-"types": {
+  "types": {
     "function": "function",
     "number": "number",
     "string": "string",

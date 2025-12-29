@@ -14,7 +14,7 @@
     "name": {
       "label": "Назва",
       "description": "Назва плагіна"
-  },
+    },
     "description": {
       "label": "Опис",
       "description": "Короткий опис плагіна"
@@ -52,5 +52,5 @@
   "markdown": {
     "write": "Писати",
     "preview": "Перегляд"
-    }
- }
+  }
+}
