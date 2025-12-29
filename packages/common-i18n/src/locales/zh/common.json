@@ -101,6 +101,9 @@
   },
   "settings": {
     "title": "实例设置",
+    "personal": {
+      "title": "个人设置"
+    },
     "templateAdmin": {
       "title": "模板管理",
       "noData": "暂无数据",

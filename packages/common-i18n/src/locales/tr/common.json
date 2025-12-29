@@ -84,6 +84,9 @@
   },
   "settings": {
     "title": "Ayarlar",
+    "personal": {
+      "title": "Kişisel ayarlar"
+    },
     "back": "Ana sayfaya dön",
     "account": {
       "title": "Profilim",

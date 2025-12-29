@@ -165,17 +165,17 @@ export const QuickAction = ({ children }: React.PropsWithChildren) => {
           </CommandGroup>
           <CommandSeparator />
           {!isAnonymous && !isTemplate && (
-            <CommandGroup heading={t('common:settings.title')}>
+            <CommandGroup heading={t('common:settings.nav.settings')}>
               <CommandItem
                 className="flex gap-2"
                 onSelect={() => {
                   setOpen(false);
                   setting.setOpen(true);
                 }}
-                value={t('common:settings.title')}
+                value={t('common:settings.personal.title')}
               >
                 <Settings className="size-4" />
-                <span>{t('common:settings.title')}</span>
+                <span>{t('common:settings.personal.title')}</span>
               </CommandItem>
             </CommandGroup>
           )}

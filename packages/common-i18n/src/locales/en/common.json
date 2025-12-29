@@ -101,6 +101,9 @@
   },
   "settings": {
     "title": "Instance settings",
+    "personal": {
+      "title": "Personal settings"
+    },
     "templateAdmin": {
       "title": "Template admin",
       "noData": "No data",

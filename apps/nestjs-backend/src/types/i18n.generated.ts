@@ -289,6 +289,9 @@ export type I18nTranslations = {
         };
         "settings": {
             "title": string;
+            "personal": {
+                "title": string;
+            };
             "back": string;
             "account": {
                 "title": string;

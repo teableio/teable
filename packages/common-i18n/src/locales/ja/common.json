@@ -80,6 +80,9 @@
   },
   "settings": {
     "title": "設定",
+    "personal": {
+      "title": "個人設定"
+    },
     "back": "ホームに戻る",
     "account": {
       "title": "プロフィール",

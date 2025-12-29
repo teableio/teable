@@ -88,6 +88,9 @@
   },
   "settings": {
     "title": "Einstellungen",
+    "personal": {
+      "title": "Persönliche Einstellungen"
+    },
     "back": "Zurück zum Start",
     "account": {
       "title": "Mein Profil",

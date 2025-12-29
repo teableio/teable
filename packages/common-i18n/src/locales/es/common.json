@@ -88,6 +88,9 @@
   },
   "settings": {
     "title": "Configuración",
+    "personal": {
+      "title": "Configuración personal"
+    },
     "back": "Volver al inicio",
     "account": {
       "title": "Mi perfil",
