@@ -19,5 +19,11 @@ const CustomValueComponent = (props: ICustomerValueComponentProps) => {
 };
 
 export const ShareViewFilter = (props: IShareViewFilterProps) => {
-  return <ViewFilter {...props} customValueComponent={CustomValueComponent} />;
+  return (
+    <ViewFilter
+      {...props}
+      customValueComponent={CustomValueComponent}
+      viewFilterLinkContext={undefined}
+    />
+  );
 };

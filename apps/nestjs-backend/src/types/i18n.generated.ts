@@ -2760,8 +2760,6 @@ export type I18nTranslations = {
             "addIntegration": string;
             "ai": string;
         };
-        "collaborators": string;
-        "more": string;
         "aiSetting": {
             "title": string;
             "description": string;
@@ -2814,7 +2812,8 @@ export type I18nTranslations = {
                 "select": string;
                 "descriptionPlaceholder": string;
                 "titlePlaceholder": string;
-                "toBeFilled": string;
+                "toBeFilledTitle": string;
+                "toBeFilledDescription": string;
             };
             "publishToCommunity": string;
             "publish": string;
@@ -2841,6 +2840,8 @@ export type I18nTranslations = {
             "publishSuccessDescription": string;
             "shareWith": string;
         };
+        "collaborators": string;
+        "more": string;
     };
     "system": {
         "notFound": {

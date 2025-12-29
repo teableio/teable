@@ -33,19 +33,7 @@ export const FieldSelect = <T extends IConditionItemProperty = IViewFilterCondit
     return isFieldReferenceValue(candidate) ? candidate : undefined;
   }, [item?.value]);
 
-  const headingTableId = useMemo(() => {
-    const selectedField = fields.find((field) => field.id === value);
-    if (selectedField?.tableId) {
-      return selectedField.tableId;
-    }
-    const uniqueTableIds = new Set(
-      fields.map((field) => field.tableId).filter((tableId) => Boolean(tableId))
-    );
-    if (uniqueTableIds.size === 1) {
-      return Array.from(uniqueTableIds)[0] as string;
-    }
-    return undefined;
-  }, [fields, value]);
+  const headingTableId = fieldReferenceValue?.tableId ?? fields[0]?.tableId;
 
   const groupHeading = useMemo(() => {
     if (!fieldReferenceValue) {

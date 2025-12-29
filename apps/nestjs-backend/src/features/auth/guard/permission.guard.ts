@@ -229,21 +229,13 @@ export class PermissionGuard {
     const isAnonymous = this.isAnonymous();
     // anonymous user permission check
     if (isAnonymous) {
-      if (!allowAnonymousType) {
-        throw new UnauthorizedException();
+      if (allowAnonymousType === AllowAnonymousType.PUBLIC) {
+        return await this.templatePermissionCheck(context);
       }
-      switch (allowAnonymousType) {
-        case AllowAnonymousType.PUBLIC:
-          return await this.templatePermissionCheck(context);
-        case AllowAnonymousType.RESOURCE:
-          throw new UnauthorizedException(
-            'Anonymous resource permission check failed, template header is required'
-          );
-        case AllowAnonymousType.USER:
-          return true;
-        default:
-          throw new UnauthorizedException('Invalid allow anonymous type');
+      if (allowAnonymousType === AllowAnonymousType.USER) {
+        return true;
       }
+      throw new UnauthorizedException();
     }
 
     // normal permission check
