@@ -82,7 +82,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
   return (
     <div
       className={cn(
-        'relative group flex h-12 items-center cursor-pointer hover:bg-accent',
+        'relative group flex h-12 items-center cursor-pointer hover:bg-accent dark:hover:bg-popover',
         className
       )}
       onClick={() => onToggleExpand?.()}
@@ -190,7 +190,7 @@ export const BaseItem: FC<IBaseItemProps> = (props) => {
 
       {/* Actions Column */}
       <div
-        className="absolute right-0 flex shrink-0 items-center gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100"
+        className="absolute right-0 flex shrink-0 items-center gap-2 bg-accent px-4 opacity-0 group-hover:opacity-100 dark:bg-popover"
         onClick={stopPropagation}
         onMouseDown={stopPropagation}
       >
