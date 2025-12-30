@@ -446,7 +446,7 @@ const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, string> =>
 
 export class DefaultTableMapper implements ITableMapper {
   toDTO(table: Table): Result<ITablePersistenceDTO, string> {
-    return sequenceResults(table.fields().map(mapFieldToDto)).andThen((fields) =>
+    return sequenceResults(table.getFields().map(mapFieldToDto)).andThen((fields) =>
       sequenceResults(table.views().map(mapViewToDto)).map((views) => ({
         id: table.id().toString(),
         baseId: table.baseId().toString(),

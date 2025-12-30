@@ -61,7 +61,7 @@ describe('CreateFieldHandler (db)', () => {
 
     const createdTable = createdTableResult._unsafeUnwrap().table;
     const tableId = createdTable.id().toString();
-    const initialFieldIds = createdTable.fields().map((field) => field.id().toString());
+    const initialFieldIds = createdTable.getFields().map((field) => field.id().toString());
 
     const initialFieldRows = await db
       .selectFrom('field')

@@ -30,7 +30,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `RealtimeEngine.ts` - Role: realtime port; Purpose: abstract realtime storage and fanout.
 - `RepositoryQuery.ts` - Role: query options model; Purpose: unify sort/pagination.
 - `TableRepository.ts` - Role: repository port; Purpose: table insert/find plus updateOne by identity with mutate specs.
-- `TableRecordQueryRepository.ts` - Role: repository port; Purpose: read table records by table.
+- `TableRecordReadModel.ts` - Role: read model DTO; Purpose: lightweight record shape for queries.
+- `TableRecordQueryRepository.ts` - Role: repository port; Purpose: read table records by table with optional condition specs.
 - `TableRecordRepository.ts` - Role: repository port; Purpose: write table records with record units.
 - `TableSchemaRepository.ts` - Role: schema port; Purpose: persist physical table schema.
 - `TraceSpan.spec.ts` - Role: decorator tests; Purpose: verify span + error handling.

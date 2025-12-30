@@ -296,10 +296,7 @@ describe('v2 realtime sharedb (e2e)', () => {
     return `fld${suffix}`;
   };
 
-  const registerRealtime = async (
-    container: DependencyContainer,
-    runtime: ShareDbRuntime
-  ): Promise<void> => {
+  const registerRealtime = (container: DependencyContainer, runtime: ShareDbRuntime): void => {
     registerV2ShareDbRealtime(container, {
       publisher: new ShareDbBackendPublisher(runtime.backend, logger),
     });
@@ -310,9 +307,8 @@ describe('v2 realtime sharedb (e2e)', () => {
     shareDbRuntime = runtime;
     shareDbUrl = `ws://127.0.0.1:${runtime.port}/socket`;
 
-    const testContainer = await createV2NodeTestContainer({
-      registerDb: async (container) => registerRealtime(container, runtime),
-    });
+    const testContainer = await createV2NodeTestContainer();
+    registerRealtime(testContainer.container, runtime);
     dispose = testContainer.dispose;
     baseId = testContainer.baseId.toString();
 

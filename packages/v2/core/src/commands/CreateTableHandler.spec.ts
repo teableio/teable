@@ -230,9 +230,9 @@ describe('CreateTableHandler', () => {
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
 
     const table = result._unsafeUnwrap().table;
-    const formulaField = table.fields().find((field) => field.type().toString() === 'formula') as
-      | FormulaField
-      | undefined;
+    const formulaField = table
+      .getFields()
+      .find((field) => field.type().toString() === 'formula') as FormulaField | undefined;
     expect(formulaField).toBeDefined();
     if (!formulaField) return;
 
@@ -411,7 +411,7 @@ describe('CreateTableHandler', () => {
         if (!updatedForeign) continue;
 
         const linkFields = updatedForeign
-          .fields()
+          .getFields()
           .filter((field) => field.type().toString() === 'link');
         expect(linkFields.length).toBeGreaterThan(0);
       }
@@ -467,13 +467,15 @@ describe('CreateTableHandler', () => {
 
       const created = result._unsafeUnwrap().table;
       expect(created.id().toString()).toBe(tableId);
-      const linkFields = created.fields().filter((field) => field.type().toString() === 'link');
+      const linkFields = created.getFields().filter((field) => field.type().toString() === 'link');
       expect(linkFields.length).toBeGreaterThan(0);
 
       const stored = tableRepository.inserted.find((table) => table.id().equals(created.id()));
       expect(stored).toBeDefined();
       if (!stored) return;
-      expect(stored.fields().filter((field) => field.type().toString() === 'link')).toHaveLength(2);
+      expect(stored.getFields().filter((field) => field.type().toString() === 'link')).toHaveLength(
+        2
+      );
     });
   });
 });

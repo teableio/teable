@@ -202,7 +202,7 @@ describe('CreateFieldHandler', () => {
       expect(updatedForeign).toBeDefined();
       if (!updatedForeign) continue;
       const linkFields = updatedForeign
-        .fields()
+        .getFields()
         .filter((field) => field.type().toString() === 'link') as LinkField[];
       expect(linkFields.length).toBeGreaterThan(0);
     }
@@ -227,7 +227,7 @@ describe('CreateFieldHandler', () => {
     const selfTable = tableRepository.tables.find((table) => table.id().toString() === hostTableId);
     expect(selfTable).toBeDefined();
     if (!selfTable) return;
-    const selfLinks = selfTable.fields().filter((field) => field.type().toString() === 'link');
+    const selfLinks = selfTable.getFields().filter((field) => field.type().toString() === 'link');
     expect(selfLinks.length).toBeGreaterThan(1);
   });
 });

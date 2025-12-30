@@ -24,8 +24,8 @@ describe('CreateTableCommand', () => {
     tableResult._unsafeUnwrap();
 
     const table = tableResult._unsafeUnwrap();
-    expect(table.fields().length).toBe(1);
-    expect(table.fields()[0]?.name().toString()).toBe('Name');
+    expect(table.getFields().length).toBe(1);
+    expect(table.getFields()[0]?.name().toString()).toBe('Name');
     expect(table.views().length).toBe(1);
     expect(table.views()[0]?.name().toString()).toBe('Grid');
   });

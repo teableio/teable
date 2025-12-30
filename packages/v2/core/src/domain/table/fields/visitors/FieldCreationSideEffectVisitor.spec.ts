@@ -4,6 +4,7 @@ import { BaseId } from '../../../base/BaseId';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
 import { TableName } from '../../TableName';
+import { Field } from '../Field';
 import { createNewLinkField } from '../FieldFactory';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
@@ -14,6 +15,9 @@ import { FieldCreationSideEffectVisitor } from './FieldCreationSideEffectVisitor
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
+const buildFieldSpec = (
+  build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
+) => build(Field.specs()).build()._unsafeUnwrap();
 
 const buildTable = (params: {
   baseId: BaseId;
@@ -116,7 +120,7 @@ describe('FieldCreationSideEffectVisitor', () => {
 
     const updated = mutateResult._unsafeUnwrap();
 
-    const symmetricField = updated.fields().find((f) => f.type().toString() === 'link') as
+    const symmetricField = updated.getFields(buildFieldSpec((builder) => builder.isLink()))[0] as
       | LinkField
       | undefined;
     expect(symmetricField).toBeDefined();
@@ -251,10 +255,7 @@ describe('FieldCreationSideEffectVisitor', () => {
     updatedResult._unsafeUnwrap();
 
     expect(
-      updatedResult
-        ._unsafeUnwrap()
-        .fields()
-        .filter((f) => f.type().toString() === 'link')
+      updatedResult._unsafeUnwrap().getFields(buildFieldSpec((builder) => builder.isLink()))
     ).toHaveLength(1);
   });
 

@@ -80,7 +80,7 @@ describe('Noop visitors', () => {
     const table = buildTable();
 
     const visitor = new NoopFieldVisitor();
-    const results = table.fields().map((field) => field.accept(visitor));
+    const results = table.getFields().map((field) => field.accept(visitor));
     results.forEach((result) => result._unsafeUnwrap());
   });
 

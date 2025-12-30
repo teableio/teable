@@ -84,7 +84,7 @@ describe('FieldStorageTypeVisitor', () => {
     applyResult._unsafeUnwrap();
 
     const typesById = visitor.typesById();
-    const storageTypes = table.fields().map((field) => typesById.get(field.id().toString()));
+    const storageTypes = table.getFields().map((field) => typesById.get(field.id().toString()));
 
     expect(storageTypes).toEqual([
       { cellValueType: 'string', dbFieldType: 'TEXT', isMultipleCellValue: false },

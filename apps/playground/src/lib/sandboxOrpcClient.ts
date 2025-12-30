@@ -7,6 +7,7 @@ import {
   executeDeleteFieldEndpoint,
   executeDeleteTableEndpoint,
   executeGetTableByIdEndpoint,
+  executeListTableRecordsEndpoint,
   executeListTablesEndpoint,
   executeRenameTableEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
@@ -101,6 +102,12 @@ const createSandboxHandlers = (): Record<string, SandboxHandler> => ({
     const container = await createSandboxContainer();
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
     const result = await executeListTablesEndpoint(executionContext, input, queryBus);
+    return unwrapEndpointResult(result);
+  },
+  'tables.listRecords': async (input, executionContext) => {
+    const container = await createSandboxContainer();
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeListTableRecordsEndpoint(executionContext, input, queryBus);
     return unwrapEndpointResult(result);
   },
   'tables.rename': async (input, executionContext) => {

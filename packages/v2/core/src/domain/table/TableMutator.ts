@@ -3,7 +3,7 @@ import type { Result } from 'neverthrow';
 
 import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
-import type { Field } from './fields/Field';
+import { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import type { ITableSpecVisitor } from './specs/ITableSpecVisitor';
 import { TableAddFieldSpec } from './specs/TableAddFieldSpec';
@@ -57,7 +57,12 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
   }
 
   removeField(fieldId: FieldId): TableMutateSpecBuilder {
-    const field = this.currentTable.fields().find((candidate) => candidate.id().equals(fieldId));
+    const fieldSpecResult = Field.specs().withFieldId(fieldId).build();
+    if (fieldSpecResult.isErr()) {
+      this.recordError(fieldSpecResult.error);
+      return this;
+    }
+    const [field] = this.currentTable.getFields(fieldSpecResult.value);
     if (!field) {
       this.recordError('Field not found');
       return this;

@@ -5,6 +5,9 @@ import {
   CreateTableCommand,
   type CreateFieldResult,
   type CreateTableResult,
+  FieldId,
+  FieldName,
+  FieldSpecBuilder,
   FieldValueTypeVisitor,
   v2CoreTokens,
   type ButtonField,
@@ -24,6 +27,25 @@ import {
 import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
+
+const buildFieldSpec = (build: (builder: FieldSpecBuilder) => FieldSpecBuilder) =>
+  build(FieldSpecBuilder.create()).build()._unsafeUnwrap();
+
+const getFieldByName = (table: CreateFieldResult['table'], name: string) => {
+  const nameResult = FieldName.create(name);
+  nameResult._unsafeUnwrap();
+  return table.getFields(
+    buildFieldSpec((builder) => builder.withFieldName(nameResult._unsafeUnwrap()))
+  )[0];
+};
+
+const getFieldById = (table: CreateFieldResult['table'], id: string) => {
+  const idResult = FieldId.create(id);
+  idResult._unsafeUnwrap();
+  return table.getFields(
+    buildFieldSpec((builder) => builder.withFieldId(idResult._unsafeUnwrap()))
+  )[0];
+};
 
 describe('CreateFieldHandler', () => {
   it('creates all field types with configured options', async () => {
@@ -78,7 +100,7 @@ describe('CreateFieldHandler', () => {
           options: { showAs: { type: 'email' }, defaultValue: 'Hello' },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Title');
+          const field = getFieldByName(table, 'Title');
           expect(field?.type().toString()).toBe('singleLineText');
           if (!field) return;
           const typed = field as SingleLineTextField;
@@ -94,7 +116,7 @@ describe('CreateFieldHandler', () => {
           options: { defaultValue: 'Details' },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Notes');
+          const field = getFieldByName(table, 'Notes');
           expect(field?.type().toString()).toBe('longText');
           if (!field) return;
           const typed = field as LongTextField;
@@ -113,7 +135,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.id().toString() === numberFieldId);
+          const field = getFieldById(table, numberFieldId);
           expect(field?.type().toString()).toBe('number');
           if (!field) return;
           const typed = field as NumberField;
@@ -139,7 +161,7 @@ describe('CreateFieldHandler', () => {
           options: { max: 7, icon: 'star', color: 'yellowBright' },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Priority');
+          const field = getFieldByName(table, 'Priority');
           expect(field?.type().toString()).toBe('rating');
           if (!field) return;
           const typed = field as RatingField;
@@ -163,7 +185,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Status');
+          const field = getFieldByName(table, 'Status');
           expect(field?.type().toString()).toBe('singleSelect');
           if (!field) return;
           const typed = field as SingleSelectField;
@@ -189,7 +211,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Tags');
+          const field = getFieldByName(table, 'Tags');
           expect(field?.type().toString()).toBe('multipleSelect');
           if (!field) return;
           const typed = field as MultipleSelectField;
@@ -208,7 +230,7 @@ describe('CreateFieldHandler', () => {
           options: { defaultValue: true },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Approved');
+          const field = getFieldByName(table, 'Approved');
           expect(field?.type().toString()).toBe('checkbox');
           if (!field) return;
           const typed = field as CheckboxField;
@@ -222,7 +244,7 @@ describe('CreateFieldHandler', () => {
           name: 'Files',
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Files');
+          const field = getFieldByName(table, 'Files');
           expect(field?.type().toString()).toBe('attachment');
         },
       },
@@ -237,7 +259,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Due');
+          const field = getFieldByName(table, 'Due');
           expect(field?.type().toString()).toBe('date');
           if (!field) return;
           const typed = field as DateField;
@@ -261,7 +283,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Owner');
+          const field = getFieldByName(table, 'Owner');
           expect(field?.type().toString()).toBe('user');
           if (!field) return;
           const typed = field as UserField;
@@ -284,7 +306,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.name().toString() === 'Action');
+          const field = getFieldByName(table, 'Action');
           expect(field?.type().toString()).toBe('button');
           if (!field) return;
           const typed = field as ButtonField;
@@ -312,7 +334,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.id().toString() === formulaFieldId);
+          const field = getFieldById(table, formulaFieldId);
           expect(field?.type().toString()).toBe('formula');
           if (!field) return;
           const typed = field as FormulaField;
@@ -349,7 +371,7 @@ describe('CreateFieldHandler', () => {
           },
         },
         assert: (table: CreateFieldResult['table']) => {
-          const field = table.fields().find((f) => f.id().toString() === linkFieldId);
+          const field = getFieldById(table, linkFieldId);
           expect(field?.type().toString()).toBe('link');
         },
       },
@@ -381,9 +403,7 @@ describe('CreateFieldHandler', () => {
     foreignResult._unsafeUnwrap();
 
     const foreignLatest = foreignResult._unsafeUnwrap();
-    const symmetricField = foreignLatest
-      .fields()
-      .find((f) => f.id().toString() === symmetricLinkFieldId);
+    const symmetricField = getFieldById(foreignLatest, symmetricLinkFieldId);
     expect(symmetricField?.type().toString()).toBe('link');
   });
 });

@@ -6,6 +6,7 @@ import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
+import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
@@ -54,7 +55,7 @@ describe('Table', () => {
     expect(event.baseId.equals(table.baseId())).toBe(true);
     expect(event.tableName.equals(table.name())).toBe(true);
     expect(event.fieldIds.map((id) => id.toString())).toEqual(
-      table.fields().map((field) => field.id().toString())
+      table.getFields().map((field) => field.id().toString())
     );
     expect(event.viewIds.map((id) => id.toString())).toEqual(
       table.views().map((view) => view.id().toString())
@@ -187,9 +188,11 @@ describe('Table', () => {
 
     const table = buildResult._unsafeUnwrap();
 
-    table.dbTableName()._unsafeUnwrapErr();
+    const expectedDbName = `${baseIdResult._unsafeUnwrap().toString()}.${table.id().toString()}`;
+    const tableDbNameResult = table.dbTableName().andThen((name) => name.value());
+    expect(tableDbNameResult._unsafeUnwrap()).toBe(expectedDbName);
 
-    const dbNameResult = DbTableName.rehydrate('db_table');
+    const dbNameResult = DbTableName.rehydrate(expectedDbName);
     const otherDbNameResult = DbTableName.rehydrate('db_table_other');
     [dbNameResult, otherDbNameResult].forEach((r) => r._unsafeUnwrap());
     dbNameResult._unsafeUnwrap();
@@ -268,7 +271,7 @@ describe('Table', () => {
     updateResult._unsafeUnwrap();
 
     const updatedTable = updateResult._unsafeUnwrap().table;
-    expect(updatedTable.fields().length).toBe(2);
+    expect(updatedTable.getFields().length).toBe(2);
     const nextMetaResult = updatedTable.views()[0]?.columnMeta();
     nextMetaResult?._unsafeUnwrap();
 
@@ -301,16 +304,19 @@ describe('Table', () => {
     const table = buildResult._unsafeUnwrap();
     table.pullDomainEvents();
 
-    const fieldToRemove = table.fields().find((field) => field.name().equals(extraName));
-    if (!fieldToRemove) throw new Error('Missing field to remove');
+    const fieldSpecResult = Field.specs().withFieldName(extraName).build();
+    fieldSpecResult._unsafeUnwrap();
+    const [fieldToRemove] = table.getFields(fieldSpecResult._unsafeUnwrap());
+    expect(fieldToRemove).toBeDefined();
+    if (!fieldToRemove) return;
     const fieldId = fieldToRemove.id();
 
     const updateResult = table.update((mutator) => mutator.removeField(fieldId));
     updateResult._unsafeUnwrap();
     const updatedTable = updateResult._unsafeUnwrap().table;
 
-    expect(updatedTable.fields().length).toBe(1);
-    expect(updatedTable.fields().some((field) => field.id().equals(fieldId))).toBe(false);
+    expect(updatedTable.getFields().length).toBe(1);
+    expect(updatedTable.getFields().some((field) => field.id().equals(fieldId))).toBe(false);
 
     const metaResult = updatedTable.views()[0]?.columnMeta();
     metaResult?._unsafeUnwrap();
@@ -378,9 +384,9 @@ describe('Table', () => {
 
     const table = buildResult._unsafeUnwrap();
 
-    const fields = [...table.fields()];
+    const fields = [...table.getFields()];
     fields.push(fields[0]);
-    expect(table.fields().length).toBe(1);
+    expect(table.getFields().length).toBe(1);
 
     const views = [...table.views()];
     views.push(views[0]);

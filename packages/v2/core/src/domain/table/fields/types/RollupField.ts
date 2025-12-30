@@ -300,9 +300,9 @@ export class RollupField extends Field implements ForeignTableRelatedField {
 
   validateForeignTables(context: ForeignTableValidationContext): Result<void, string> {
     const linkFieldId = this.linkFieldId();
-    const linkField = context.hostTable
-      .fields()
-      .find((candidate) => candidate.id().equals(linkFieldId));
+    const linkFieldSpecResult = Field.specs().withFieldId(linkFieldId).build();
+    if (linkFieldSpecResult.isErr()) return err(linkFieldSpecResult.error);
+    const [linkField] = context.hostTable.getFields(linkFieldSpecResult.value);
     if (!linkField) return err('RollupField link field not found');
     if (linkField.type().toString() !== 'link') {
       return err('RollupField link field must be a LinkField');
@@ -342,7 +342,9 @@ export class RollupField extends Field implements ForeignTableRelatedField {
   }
 
   private fieldFromHostTable(hostTable: Table, fieldId: FieldId): Result<Field, string> {
-    const field = hostTable.fields().find((candidate) => candidate.id().equals(fieldId));
+    const fieldSpecResult = Field.specs().withFieldId(fieldId).build();
+    if (fieldSpecResult.isErr()) return err(fieldSpecResult.error);
+    const [field] = hostTable.getFields(fieldSpecResult.value);
     if (!field) return err('Field not found in host Table');
     return ok(field);
   }

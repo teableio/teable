@@ -8,7 +8,7 @@ import type { Result } from 'neverthrow';
 
 import type { ITableDbFieldMeta, ITableDbMeta } from '../db/tableDbMeta';
 import { v2PostgresStateTokens } from '../di/tokens';
-import { convertNameToValidCharacter, joinDbTableName } from '../naming';
+import { joinDbTableName } from '../naming';
 import { TableFieldPersistenceBuilder, type TableFieldRow } from './TableFieldPersistenceBuilder';
 import { TableMetaUpdateVisitor } from './visitors/TableMetaUpdateVisitor';
 import { ITableMetaWhere, TableWhereVisitor } from './visitors/TableWhereVisitor';
@@ -44,11 +44,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       const existingDbTableNameResult = table.dbTableName().andThen((name) => name.value());
       const dbTableNameResult = existingDbTableNameResult.isOk()
         ? ok(existingDbTableNameResult.value)
-        : await this.resolveDbTableName(
-            trx,
-            baseId,
-            convertNameToValidCharacter(table.name().toString(), 40)
-          );
+        : ok(joinDbTableName(baseId, table.id().toString()));
       if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
       const dbTableName = dbTableNameResult.value;
 
@@ -864,7 +860,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const setTableNameResult = table.setDbTableName(dbTableNameResult.value);
     if (setTableNameResult.isErr()) return err(setTableNameResult.error);
 
-    const fieldsById = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const fieldsById = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const fieldResults = tableDbMeta.fields.map((meta) => {
       const field = fieldsById.get(meta.field.id);
       if (!field) return err(`Missing field for db name ${meta.field.id}`);
@@ -876,36 +872,6 @@ export class PostgresTableRepository implements core.ITableRepository {
     return this.sequenceResults(fieldResults).map(() => undefined);
   }
 
-  private async resolveDbTableName(
-    trx: Kysely<V1TeableDatabase>,
-    baseId: string,
-    baseName: string
-  ): Promise<Result<string, string>> {
-    const exists = async (candidate: string): Promise<boolean> => {
-      const existing = await trx
-        .selectFrom('table_meta')
-        .select(['id'])
-        .where('base_id', '=', baseId)
-        .where('db_table_name', '=', candidate)
-        .where('deleted_time', 'is', null)
-        .executeTakeFirst();
-      return Boolean(existing);
-    };
-
-    const initial = joinDbTableName(baseId, baseName);
-    if (!(await exists(initial))) return ok(initial);
-
-    const maxLength = 40;
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      const suffix = `_${core.getRandomString(6)}`;
-      const trimmedBase = baseName.substring(0, Math.max(0, maxLength - suffix.length));
-      const candidate = joinDbTableName(baseId, `${trimmedBase}${suffix}`);
-      if (!(await exists(candidate))) return ok(candidate);
-    }
-
-    return err('DbTableName already exists');
-  }
-
   private async buildTableDbMeta(
     _trx: Kysely<V1TeableDatabase>,
     dto: core.ITablePersistenceDTO,
@@ -913,8 +879,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     fields: ReadonlyArray<ITableDbFieldMeta>,
     dbTableNameOverride?: string
   ): Promise<ITableDbMeta> {
-    const dbTableName =
-      dbTableNameOverride ?? joinDbTableName(baseId, convertNameToValidCharacter(dto.name, 40));
+    const dbTableName = dbTableNameOverride ?? joinDbTableName(baseId, dto.id);
     return { tableId: dto.id, dbTableName, fields };
   }
 }

@@ -68,7 +68,7 @@ describe('DeleteFieldHandler', () => {
     deleteResult._unsafeUnwrap();
 
     const updated = deleteResult._unsafeUnwrap().table;
-    expect(updated.fields().some((field) => field.id().toString() === fieldId)).toBe(false);
+    expect(updated.getFields().some((field) => field.id().toString() === fieldId)).toBe(false);
     expect(eventBus.events().some((event) => event instanceof FieldDeleted)).toBe(true);
 
     const specResult = updated.specs().byId(updated.id()).build();
@@ -79,7 +79,7 @@ describe('DeleteFieldHandler', () => {
     expect(
       saved
         ._unsafeUnwrap()
-        .fields()
+        .getFields()
         .some((field) => field.id().toString() === fieldId)
     ).toBe(false);
   });
@@ -144,7 +144,7 @@ describe('DeleteFieldHandler', () => {
 
     const linkField = linkCreated
       ._unsafeUnwrap()
-      .table.fields()
+      .table.getFields()
       .find((field) => field.id().toString() === linkFieldId) as LinkField | undefined;
     expect(linkField).toBeTruthy();
     if (!linkField) return;
@@ -158,7 +158,9 @@ describe('DeleteFieldHandler', () => {
     const foreignLoaded = await tableRepository.findOne(context, foreignSpecResult._unsafeUnwrap());
     foreignLoaded._unsafeUnwrap();
     const foreignUpdated = foreignLoaded._unsafeUnwrap();
-    expect(foreignUpdated.fields().some((field) => field.id().equals(symmetricFieldId))).toBe(true);
+    expect(foreignUpdated.getFields().some((field) => field.id().equals(symmetricFieldId))).toBe(
+      true
+    );
 
     const deleteCommandResult = DeleteFieldCommand.create({
       baseId: baseId.toString(),
@@ -178,7 +180,7 @@ describe('DeleteFieldHandler', () => {
     expect(
       foreignAfter
         ._unsafeUnwrap()
-        .fields()
+        .getFields()
         .some((field) => field.id().equals(symmetricFieldId))
     ).toBe(false);
   });

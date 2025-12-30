@@ -1,14 +1,20 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import { createV2NodeTestContainer } from '@teable/v2-container-node-test';
 import type { IV2NodeTestContainer } from '@teable/v2-container-node-test';
-import type { IExecutionContext, ITableRepository, ITableSchemaRepository } from '@teable/v2-core';
+import type {
+  IExecutionContext,
+  ITableRepository,
+  ITableSchemaRepository,
+  LinkField,
+} from '@teable/v2-core';
 import {
   ActorId,
   BaseId,
   DbFieldName,
-  DbTableName,
+  Field,
   FieldId,
   FieldName,
+  FieldSpecBuilder,
   FieldValueTypeVisitor,
   FormulaExpression,
   LinkFieldConfig,
@@ -20,11 +26,10 @@ import {
   Table,
   TableName,
   TableId,
-  createNewLinkField,
-  getRandomString,
   UserMultiplicity,
-  v2CoreTokens,
+  createNewLinkField,
   resolveFormulaFields,
+  v2CoreTokens,
   validateForeignTablesForFields,
 } from '@teable/v2-core';
 import { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -50,13 +55,26 @@ const baseRecordColumnTypes: Record<string, string> = {
   __version: 'int4',
 };
 
+const buildFieldSpec = (build: (builder: FieldSpecBuilder) => FieldSpecBuilder) =>
+  build(FieldSpecBuilder.create()).build()._unsafeUnwrap();
+
+const getFieldById = (table: Table, fieldId: FieldId) =>
+  table.getFields(buildFieldSpec((builder) => builder.withFieldId(fieldId)))[0];
+
+const jsonSpecResult = Field.specs().isJson().build();
+
+const fieldIsJson = (field: Field): boolean => {
+  if (jsonSpecResult.isErr()) return false;
+  return jsonSpecResult.value.isSatisfiedBy(field);
+};
+
 const resolveExpectedUdtName = (
-  fieldType: string,
+  field: Field,
   cellValueType: string,
   isMultipleCellValue: boolean
 ): string => {
   if (isMultipleCellValue) return 'jsonb';
-  if (['attachment', 'user', 'button'].includes(fieldType)) return 'jsonb';
+  if (fieldIsJson(field)) return 'jsonb';
 
   switch (cellValueType) {
     case 'number':
@@ -87,7 +105,6 @@ const fetchColumnTypes = async (
 
 describe('PostgresTableSchemaRepository (pg)', () => {
   let testContainer: IV2NodeTestContainer;
-  const createSchemaName = (): string => `t_${getRandomString(8)}`;
 
   beforeAll(async () => {
     testContainer = await createV2NodeTestContainer();
@@ -104,7 +121,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
-      const testSchemaName = createSchemaName();
       const baseIdResult = BaseId.generate();
       baseIdResult._unsafeUnwrap();
       const baseId = baseIdResult._unsafeUnwrap();
@@ -142,21 +158,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       tableResult._unsafeUnwrap();
       const table = tableResult._unsafeUnwrap();
 
-      const dbTableName = joinDbTableName(
-        testSchemaName,
-        convertNameToValidCharacter(table.name().toString(), 40)
-      );
+      const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
       const reservedNames = new Set(baseRecordColumnNames);
       const fieldDbNames: string[] = [];
 
-      const dbTableNameResult = DbTableName.rehydrate(dbTableName);
-      dbTableNameResult._unsafeUnwrap();
-      const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-      const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-      setTableDbNameResult._unsafeUnwrap();
-      setTableDbNameResult._unsafeUnwrap();
+      dbTableNameValue.value()._unsafeUnwrap();
 
-      for (const field of table.fields()) {
+      for (const field of table.getFields()) {
         const baseName = convertNameToValidCharacter(field.name().toString(), 40);
         const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
         reservedNames.add(dbFieldName);
@@ -208,7 +216,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
     try {
-      const testSchemaName = createSchemaName();
       const baseId = BaseId.generate()._unsafeUnwrap();
 
       const foreignTableName = TableName.create('Foreign')._unsafeUnwrap();
@@ -236,7 +243,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         relationship: 'manyMany',
         foreignTableId: foreignTable.id().toString(),
         lookupFieldId: foreignLookupFieldId.toString(),
-        fkHostTableName: `${testSchemaName}.link_relations_rollup`,
+        fkHostTableName: joinDbTableName(baseId.toString(), 'link_relations_rollup'),
         selfKeyName: '__self_id',
         foreignKeyName: '__foreign_id',
       })._unsafeUnwrap();
@@ -258,9 +265,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         foreignTableId: foreignTable.id().toString(),
         lookupFieldId: foreignLookupFieldId.toString(),
       })._unsafeUnwrap();
-      const valuesField = foreignTable
-        .fields()
-        .find((field) => field.id().equals(foreignLookupFieldId));
+      const valuesField = getFieldById(foreignTable, foreignLookupFieldId);
       expect(valuesField).toBeTruthy();
       if (!valuesField) return;
 
@@ -275,24 +280,17 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       hostBuilder.view().defaultGrid().done();
       const hostTable = hostBuilder.build()._unsafeUnwrap();
 
-      const rollupFields = hostTable
-        .fields()
-        .filter((field) => field.type().toString() === 'rollup');
+      const rollupFields = hostTable.getFields(buildFieldSpec((builder) => builder.isRollup()));
       const resolveRollupResult = validateForeignTablesForFields(rollupFields, {
         hostTable,
         foreignTables: [foreignTable],
       });
       resolveRollupResult._unsafeUnwrap();
 
-      const dbTableName = joinDbTableName(
-        testSchemaName,
-        convertNameToValidCharacter(hostTable.name().toString(), 40)
-      );
-      const dbTableNameValue = DbTableName.rehydrate(dbTableName)._unsafeUnwrap();
-      hostTable.setDbTableName(dbTableNameValue)._unsafeUnwrap();
+      const dbTableNameValue = hostTable.dbTableName()._unsafeUnwrap();
 
       const reservedNames = new Set(baseRecordColumnNames);
-      for (const field of hostTable.fields()) {
+      for (const field of hostTable.getFields()) {
         const baseName = convertNameToValidCharacter(field.name().toString(), 40);
         const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
         reservedNames.add(dbFieldName);
@@ -304,7 +302,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const insertResult = await repo.insert(context, hostTable);
       insertResult._unsafeUnwrap();
 
-      const rollupField = hostTable.fields().find((f) => f.type().toString() === 'rollup');
+      const rollupField = hostTable.getFields(buildFieldSpec((builder) => builder.isRollup()))[0];
       expect(rollupField).toBeTruthy();
       if (!rollupField) return;
       const rollupDbNameResult = rollupField.dbFieldName().andThen((name) => name.value());
@@ -322,7 +320,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       rollupValueTypeResult._unsafeUnwrap();
 
       const expectedUdtName = resolveExpectedUdtName(
-        rollupField.type().toString(),
+        rollupField,
         rollupValueTypeResult._unsafeUnwrap().cellValueType.toString(),
         rollupValueTypeResult._unsafeUnwrap().isMultipleCellValue.toBoolean()
       );
@@ -352,7 +350,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
     let contextForCleanup: IExecutionContext | undefined;
 
     try {
-      const testSchemaName = createSchemaName();
       const baseIdResult = BaseId.generate();
       baseIdResult._unsafeUnwrap();
       const baseId = baseIdResult._unsafeUnwrap();
@@ -453,20 +450,11 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       resolveResult._unsafeUnwrap();
       resolveResult._unsafeUnwrap();
 
-      const dbTableName = joinDbTableName(
-        testSchemaName,
-        convertNameToValidCharacter(table.name().toString(), 40)
-      );
-      const dbTableNameResult = DbTableName.rehydrate(dbTableName);
-      dbTableNameResult._unsafeUnwrap();
-      const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-      const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-      setTableDbNameResult._unsafeUnwrap();
-      setTableDbNameResult._unsafeUnwrap();
+      const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
       tableForCleanup = table;
 
       const reservedNames = new Set(baseRecordColumnNames);
-      for (const field of table.fields()) {
+      for (const field of table.getFields()) {
         const baseName = convertNameToValidCharacter(field.name().toString(), 40);
         const dbFieldName = ensureUniqueDbFieldName(baseName, reservedNames);
         reservedNames.add(dbFieldName);
@@ -502,7 +490,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const expectedTypes = new Map<string, string>(Object.entries(baseRecordColumnTypes));
       const valueTypeVisitor = new FieldValueTypeVisitor();
 
-      for (const field of table.fields()) {
+      for (const field of table.getFields()) {
         const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
         dbFieldNameResult._unsafeUnwrap();
         const valueTypeResult = field.accept(valueTypeVisitor);
@@ -511,7 +499,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const valueType = valueTypeResult._unsafeUnwrap();
 
         const expectedType = resolveExpectedUdtName(
-          field.type().toString(),
+          field,
           valueType.cellValueType.toString(),
           valueType.isMultipleCellValue.toBoolean()
         );
@@ -566,7 +554,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         relationship: 'manyMany',
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
-        fkHostTableName: 'link_relations_meta',
+        fkHostTableName: joinDbTableName(baseId.toString(), 'link_relations_meta'),
         selfKeyName: '__self_id',
         foreignKeyName: '__foreign_id',
       });
@@ -628,7 +616,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create('Link Host ManyMany');
         const primaryNameResult = FieldName.create('Title');
@@ -663,7 +650,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           relationship: 'manyMany',
           foreignTableId: foreignTableId.toString(),
           lookupFieldId: lookupFieldId.toString(),
-          fkHostTableName: 'link_relations_mm',
+          fkHostTableName: joinDbTableName(baseId.toString(), 'link_relations_mm'),
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
@@ -692,21 +679,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           hostTableId: baseTable.id(),
         });
         linkFieldResult._unsafeUnwrap();
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mm`);
-        dbTableNameResult._unsafeUnwrap();
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) return;
@@ -736,10 +718,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(hostColumns.has('__self_id')).toBe(false);
         expect(hostColumns.has('__foreign_id')).toBe(false);
 
-        const joinSplit = DbTableName.rehydrate(`${testSchemaName}.link_relations_mm`);
-        joinSplit._unsafeUnwrap();
-        const joinDbTableName = joinSplit._unsafeUnwrap();
-        const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+        const joinTableDbName = linkFieldValue.fkHostTableName();
+        const joinTable = joinTableDbName.split({ defaultSchema: 'public' });
         joinTable._unsafeUnwrap();
         const joinTableInfo = joinTable._unsafeUnwrap();
         const joinSchema = joinTableInfo.schema ?? 'public';
@@ -760,7 +740,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create('Link Host OneMany');
         const primaryNameResult = FieldName.create('Title');
@@ -791,17 +770,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
         const linkMeta = linkMetaResult._unsafeUnwrap();
 
-        const linkConfigResult = LinkFieldConfig.create({
-          relationship: 'oneMany',
-          foreignTableId: foreignTableId.toString(),
-          lookupFieldId: lookupFieldId.toString(),
-          fkHostTableName: 'tbl_link_om',
-          selfKeyName: '__self_id',
-          foreignKeyName: '__foreign_id',
-        });
-        linkConfigResult._unsafeUnwrap();
-        const linkConfig = linkConfigResult._unsafeUnwrap();
-
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
           .field()
@@ -815,6 +783,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         baseTableResult._unsafeUnwrap();
         const baseTable = baseTableResult._unsafeUnwrap();
 
+        const hostDbTableName = baseTable
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap();
+        const linkConfig = LinkFieldConfig.create({
+          relationship: 'oneMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: hostDbTableName,
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        })._unsafeUnwrap();
+
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
           name: linkName,
@@ -824,21 +805,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           hostTableId: baseTable.id(),
         });
         linkFieldResult._unsafeUnwrap();
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_om`);
-        dbTableNameResult._unsafeUnwrap();
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) return;
@@ -880,7 +856,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create('Link Host OneMany OneWay');
         const primaryNameResult = FieldName.create('Title');
@@ -908,18 +883,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const foreignTableId = foreignTableIdResult._unsafeUnwrap();
         const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
 
-        const linkConfigResult = LinkFieldConfig.create({
-          relationship: 'oneMany',
-          foreignTableId: foreignTableId.toString(),
-          lookupFieldId: lookupFieldId.toString(),
-          isOneWay: true,
-          fkHostTableName: 'link_relations_om_oneway',
-          selfKeyName: '__self_id',
-          foreignKeyName: '__foreign_id',
-        });
-        linkConfigResult._unsafeUnwrap();
-        const linkConfig = linkConfigResult._unsafeUnwrap();
-
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
           .field()
@@ -933,6 +896,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         baseTableResult._unsafeUnwrap();
         const baseTable = baseTableResult._unsafeUnwrap();
 
+        const linkConfig = LinkFieldConfig.create({
+          relationship: 'oneMany',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          isOneWay: true,
+          fkHostTableName: joinDbTableName(baseId.toString(), 'link_relations_om_oneway'),
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        })._unsafeUnwrap();
+
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
           name: linkName,
@@ -941,21 +914,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           hostTableId: baseTable.id(),
         });
         linkFieldResult._unsafeUnwrap();
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_om_oneway`);
-        dbTableNameResult._unsafeUnwrap();
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) return;
@@ -985,10 +953,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(hostColumns.has('__self_id')).toBe(false);
         expect(hostColumns.has('__foreign_id')).toBe(false);
 
-        const joinSplit = DbTableName.rehydrate(`${testSchemaName}.link_relations_om_oneway`);
-        joinSplit._unsafeUnwrap();
-        const joinDbTableName = joinSplit._unsafeUnwrap();
-        const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+        const joinTableDbName = linkFieldValue.fkHostTableName();
+        const joinTable = joinTableDbName.split({ defaultSchema: 'public' });
         joinTable._unsafeUnwrap();
         const joinTableInfo = joinTable._unsafeUnwrap();
         const joinSchema = joinTableInfo.schema ?? 'public';
@@ -1010,7 +976,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create('Link Host ManyOne');
         const primaryNameResult = FieldName.create('Title');
@@ -1038,17 +1003,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const foreignTableId = foreignTableIdResult._unsafeUnwrap();
         const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
 
-        const linkConfigResult = LinkFieldConfig.create({
-          relationship: 'manyOne',
-          foreignTableId: foreignTableId.toString(),
-          lookupFieldId: lookupFieldId.toString(),
-          fkHostTableName: 'tbl_link_mo',
-          selfKeyName: '__self_id',
-          foreignKeyName: '__foreign_id',
-        });
-        linkConfigResult._unsafeUnwrap();
-        const linkConfig = linkConfigResult._unsafeUnwrap();
-
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
           .field()
@@ -1062,6 +1016,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         baseTableResult._unsafeUnwrap();
         const baseTable = baseTableResult._unsafeUnwrap();
 
+        const hostDbTableName = baseTable
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap();
+        const linkConfig = LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: hostDbTableName,
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        })._unsafeUnwrap();
+
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
           name: linkName,
@@ -1070,21 +1037,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           hostTableId: baseTable.id(),
         });
         linkFieldResult._unsafeUnwrap();
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_mo`);
-        dbTableNameResult._unsafeUnwrap();
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) return;
@@ -1125,7 +1087,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
 
       try {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create('Link Host OneOne');
         const primaryNameResult = FieldName.create('Title');
@@ -1153,17 +1114,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const foreignTableId = foreignTableIdResult._unsafeUnwrap();
         const lookupFieldId = lookupFieldIdResult._unsafeUnwrap();
 
-        const linkConfigResult = LinkFieldConfig.create({
-          relationship: 'oneOne',
-          foreignTableId: foreignTableId.toString(),
-          lookupFieldId: lookupFieldId.toString(),
-          fkHostTableName: 'tbl_link_oo',
-          selfKeyName: '__self_id',
-          foreignKeyName: '__foreign_id',
-        });
-        linkConfigResult._unsafeUnwrap();
-        const linkConfig = linkConfigResult._unsafeUnwrap();
-
         const builder = Table.builder().withBaseId(baseId).withName(tableName);
         builder
           .field()
@@ -1177,6 +1127,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         baseTableResult._unsafeUnwrap();
         const baseTable = baseTableResult._unsafeUnwrap();
 
+        const hostDbTableName = baseTable
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap();
+        const linkConfig = LinkFieldConfig.create({
+          relationship: 'oneOne',
+          foreignTableId: foreignTableId.toString(),
+          lookupFieldId: lookupFieldId.toString(),
+          fkHostTableName: hostDbTableName,
+          selfKeyName: '__self_id',
+          foreignKeyName: '__foreign_id',
+        })._unsafeUnwrap();
+
         const linkFieldResult = createNewLinkField({
           id: linkFieldId,
           name: linkName,
@@ -1185,21 +1148,16 @@ describe('PostgresTableSchemaRepository (pg)', () => {
           hostTableId: baseTable.id(),
         });
         linkFieldResult._unsafeUnwrap();
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.tbl_link_oo`);
-        dbTableNameResult._unsafeUnwrap();
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) return;
@@ -1242,8 +1200,7 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         {
           relationship: 'manyMany',
           tableLabel: 'Link Self ManyMany',
-          hostTableName: 'tbl_link_mm_self',
-          fkHostTableName: 'link_relations_mm_self',
+          joinTableName: 'link_relations_mm_self',
           linkColumn: 'link_value_mm_self',
           includeOrder: true,
           expectHostTypes: {
@@ -1254,8 +1211,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         {
           relationship: 'oneMany',
           tableLabel: 'Link Self OneMany',
-          hostTableName: 'tbl_link_om_self',
-          fkHostTableName: 'tbl_link_om_self',
           linkColumn: 'link_value_om_self',
           includeOrder: true,
           expectHostTypes: {
@@ -1268,8 +1223,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         {
           relationship: 'manyOne',
           tableLabel: 'Link Self ManyOne',
-          hostTableName: 'tbl_link_mo_self',
-          fkHostTableName: 'tbl_link_mo_self',
           linkColumn: 'link_value_mo_self',
           includeOrder: false,
           expectHostTypes: {
@@ -1281,8 +1234,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         {
           relationship: 'oneOne',
           tableLabel: 'Link Self OneOne',
-          hostTableName: 'tbl_link_oo_self',
-          fkHostTableName: 'tbl_link_oo_self',
           linkColumn: 'link_value_oo_self',
           includeOrder: false,
           expectHostTypes: {
@@ -1294,7 +1245,6 @@ describe('PostgresTableSchemaRepository (pg)', () => {
       ] as const;
 
       for (const entry of cases) {
-        const testSchemaName = createSchemaName();
         const baseIdResult = BaseId.generate();
         const tableNameResult = TableName.create(entry.tableLabel);
         const primaryNameResult = FieldName.create('Title');
@@ -1348,11 +1298,19 @@ describe('PostgresTableSchemaRepository (pg)', () => {
 
         const baseTable = baseTableResult._unsafeUnwrap();
 
+        const hostDbTableName = baseTable
+          .dbTableName()
+          .andThen((name) => name.value())
+          ._unsafeUnwrap();
+        const fkHostTableName = entry.expectJoin
+          ? joinDbTableName(baseId.toString(), entry.joinTableName ?? 'link_relations')
+          : hostDbTableName;
+
         const linkConfigResult = LinkFieldConfig.create({
           relationship: entry.relationship,
           foreignTableId: baseTable.id().toString(),
           lookupFieldId: lookupFieldId.toString(),
-          fkHostTableName: entry.fkHostTableName,
+          fkHostTableName,
           selfKeyName: '__self_id',
           foreignKeyName: '__foreign_id',
         });
@@ -1370,23 +1328,17 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         });
         linkFieldResult._unsafeUnwrap();
 
-        const linkFieldValue = linkFieldResult._unsafeUnwrap();
+        const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
 
         const tableResult = baseTable.addField(linkFieldValue);
         tableResult._unsafeUnwrap();
 
         const table = tableResult._unsafeUnwrap();
 
-        const dbTableNameResult = DbTableName.rehydrate(`${testSchemaName}.${entry.hostTableName}`);
-        dbTableNameResult._unsafeUnwrap();
+        const dbTableNameValue = table.dbTableName()._unsafeUnwrap();
 
-        const dbTableNameValue = dbTableNameResult._unsafeUnwrap();
-        const setTableDbNameResult = table.setDbTableName(dbTableNameValue);
-        setTableDbNameResult._unsafeUnwrap();
-        setTableDbNameResult._unsafeUnwrap();
-
-        const primaryField = table.fields().find((field) => field.id().equals(primaryFieldId));
-        const linkField = table.fields().find((field) => field.id().equals(linkFieldId));
+        const primaryField = getFieldById(table, primaryFieldId);
+        const linkField = getFieldById(table, linkFieldId);
         expect(primaryField).toBeDefined();
         expect(linkField).toBeDefined();
         if (!primaryField || !linkField) continue;
@@ -1422,11 +1374,8 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         }
 
         if (entry.expectJoin) {
-          const joinSplit = DbTableName.rehydrate(`${testSchemaName}.${entry.fkHostTableName}`);
-          joinSplit._unsafeUnwrap();
-
-          const joinDbTableName = joinSplit._unsafeUnwrap();
-          const joinTable = joinDbTableName.split({ defaultSchema: 'public' });
+          const joinTableDbName = linkFieldValue.fkHostTableName();
+          const joinTable = joinTableDbName.split({ defaultSchema: 'public' });
           joinTable._unsafeUnwrap();
 
           const joinInfo = joinTable._unsafeUnwrap();

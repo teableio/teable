@@ -113,7 +113,8 @@ export function LinkOptions({ form, tableId, tables, isTablesLoading }: LinkOpti
                         {availableTables.map((table) => (
                           <CommandItem
                             key={table.id}
-                            value={table.name}
+                            value={table.id}
+                            keywords={[table.name]}
                             onSelect={() => {
                               const nextTable =
                                 availableTables.find((entry) => entry.id === table.id) ?? null;

@@ -2,7 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../base/BaseId';
-import type { DbTableName } from './DbTableName';
+import { DbTableName } from './DbTableName';
 import type { Field } from './fields/Field';
 import { createNewLinkField } from './fields/FieldFactory';
 import { FieldId } from './fields/FieldId';
@@ -174,21 +174,25 @@ export class TableBuilder {
 
     const idResult = this.ensureTableId();
 
-    return idResult.andThen((id) => {
-      const table = this.factory({
-        id,
-        baseId,
-        name: tableName,
-        fields: [...this.fields],
-        views: [...this.views],
-        primaryFieldId,
-      });
-      const validationResult = this.validateForeignTables(table, options);
-      if (validationResult.isErr()) return err(validationResult.error);
-      const resolveResult = resolveFormulaFields(table);
-      if (resolveResult.isErr()) return err(resolveResult.error);
-      return ok(table);
-    });
+    return idResult.andThen((id) =>
+      DbTableName.rehydrate(`${baseId.toString()}.${id.toString()}`).andThen((dbTableName) => {
+        const table = this.factory({
+          id,
+          baseId,
+          name: tableName,
+          fields: [...this.fields],
+          views: [...this.views],
+          primaryFieldId,
+        });
+        const setDbNameResult = table.setDbTableName(dbTableName);
+        if (setDbNameResult.isErr()) return err(setDbNameResult.error);
+        const validationResult = this.validateForeignTables(table, options);
+        if (validationResult.isErr()) return err(validationResult.error);
+        const resolveResult = resolveFormulaFields(table);
+        if (resolveResult.isErr()) return err(resolveResult.error);
+        return ok(table);
+      })
+    );
   }
 
   ensureTableId(): Result<TableId, string> {
@@ -268,7 +272,7 @@ export class TableBuilder {
       foreignTables.push(table);
     }
     if (foreignTables.length === 0) return ok(undefined);
-    return validateForeignTablesForFields(table.fields(), {
+    return validateForeignTablesForFields(table.getFields(), {
       hostTable: table,
       foreignTables,
     });

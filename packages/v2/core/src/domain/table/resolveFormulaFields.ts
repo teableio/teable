@@ -12,7 +12,7 @@ import {
 import type { Table } from './Table';
 
 export const resolveFormulaFields = (table: Table): Result<void, string> => {
-  const fields = table.fields();
+  const fields = table.getFields();
   const fieldById = new Map(fields.map((field) => [field.id().toString(), field] as const));
   const dependenciesByFieldId = new Map<string, ReadonlyArray<FieldId>>();
   const missingRefs: string[] = [];

@@ -69,6 +69,8 @@ describe('v2 http deleteField (e2e)', () => {
     return parsed.data.data.table;
   };
 
+  const sortedFieldIds = (fields: ITableDto['fields']) => fields.map((field) => field.id).sort();
+
   beforeAll(async () => {
     const testContainer = await createV2NodeTestContainer();
     dispose = testContainer.dispose;
@@ -196,13 +198,138 @@ describe('v2 http deleteField (e2e)', () => {
       }),
     });
 
-    expect(deleteResponse.status).toBe(200);
     const deleteRaw = await deleteResponse.json();
+    expect(deleteResponse.status).toBe(200);
     const deleteParsed = deleteFieldOkResponseSchema.safeParse(deleteRaw);
     expect(deleteParsed.success).toBe(true);
     if (!deleteParsed.success || !deleteParsed.data.ok) return;
 
     const foreignAfter = await getTableById(foreign.tableId);
     expect(foreignAfter.fields.some((field) => field.id === symmetricFieldId)).toBe(false);
+  });
+
+  describe('link fields', () => {
+    const relationshipCases = [
+      { relationship: 'oneOne', symmetricRelationship: 'oneOne' },
+      { relationship: 'manyMany', symmetricRelationship: 'manyMany' },
+      { relationship: 'oneMany', symmetricRelationship: 'manyOne' },
+      { relationship: 'manyOne', symmetricRelationship: 'oneMany' },
+    ] as const;
+
+    const directionCases = [
+      { isOneWay: false, direction: 'two-way', expectSymmetric: true },
+      { isOneWay: true, direction: 'one-way', expectSymmetric: false },
+    ] as const;
+
+    const targetCases = [{ target: 'foreign' }, { target: 'self' }] as const;
+
+    const linkCases = targetCases.flatMap((targetCase) =>
+      directionCases.flatMap((directionCase) =>
+        relationshipCases.map((relationshipCase) => ({
+          ...relationshipCase,
+          ...directionCase,
+          target: targetCase.target,
+          caseLabel: `${targetCase.target}-${directionCase.direction}-${relationshipCase.relationship}`,
+        }))
+      )
+    );
+
+    it.each(linkCases)('deletes link fields for $caseLabel', async (entry) => {
+      const host = await createTable(`Delete Link Host ${entry.caseLabel}`);
+      const foreign =
+        entry.target === 'self'
+          ? host
+          : await createTable(`Delete Link Foreign ${entry.caseLabel}`);
+      const linkFieldId = createFieldId();
+      const foreignTableId = entry.target === 'self' ? host.tableId : foreign.tableId;
+      const lookupFieldId = entry.target === 'self' ? host.primaryFieldId : foreign.primaryFieldId;
+
+      const createFieldResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: host.tableId,
+          field: {
+            type: 'link',
+            id: linkFieldId,
+            name: `Link ${entry.caseLabel} ${linkFieldId}`,
+            options: {
+              relationship: entry.relationship,
+              foreignTableId,
+              lookupFieldId,
+              isOneWay: entry.isOneWay,
+            },
+          },
+        }),
+      });
+
+      const createFieldRaw = await createFieldResponse.json();
+      if (createFieldResponse.status !== 200) {
+        throw new Error(`CreateField failed for link: ${JSON.stringify(createFieldRaw)}`);
+      }
+      expect(createFieldResponse.status).toBe(200);
+      const createFieldParsed = createFieldOkResponseSchema.safeParse(createFieldRaw);
+      expect(createFieldParsed.success).toBe(true);
+      if (!createFieldParsed.success || !createFieldParsed.data.ok) return;
+
+      const hostTable = createFieldParsed.data.data.table;
+      const linkField = hostTable.fields.find((field) => field.id === linkFieldId);
+      expect(linkField?.type).toBe('link');
+      if (!linkField || linkField.type !== 'link') return;
+      expect(linkField.options.relationship).toBe(entry.relationship);
+      expect(linkField.options.foreignTableId).toBe(foreignTableId);
+      expect(linkField.options.lookupFieldId).toBe(lookupFieldId);
+      expect(linkField.options.isOneWay ?? false).toBe(entry.isOneWay);
+
+      const hostBefore = await getTableById(host.tableId);
+      const targetBefore =
+        entry.target === 'self' ? hostBefore : await getTableById(foreign.tableId);
+      const symmetricLinksBefore = targetBefore.fields.filter(
+        (field) => field.type === 'link' && field.options.symmetricFieldId === linkFieldId
+      );
+
+      if (entry.expectSymmetric) {
+        expect(symmetricLinksBefore).toHaveLength(1);
+      } else {
+        expect(symmetricLinksBefore).toHaveLength(0);
+      }
+
+      const symmetricFieldId = symmetricLinksBefore[0]?.id;
+      const deleteResponse = await fetch(`${baseUrl}/tables/deleteField`, {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: host.tableId,
+          fieldId: linkFieldId,
+        }),
+      });
+
+      expect(deleteResponse.status).toBe(200);
+      const deleteRaw = await deleteResponse.json();
+      const deleteParsed = deleteFieldOkResponseSchema.safeParse(deleteRaw);
+      expect(deleteParsed.success).toBe(true);
+      if (!deleteParsed.success || !deleteParsed.data.ok) return;
+
+      const hostAfter = await getTableById(host.tableId);
+      const targetAfter = entry.target === 'self' ? hostAfter : await getTableById(foreign.tableId);
+      const removedFieldIds = new Set([linkFieldId]);
+      if (symmetricFieldId) removedFieldIds.add(symmetricFieldId);
+
+      const expectedHostAfterIds = sortedFieldIds(hostBefore.fields).filter(
+        (fieldId) => !removedFieldIds.has(fieldId)
+      );
+      const expectedTargetAfterIds = sortedFieldIds(targetBefore.fields).filter(
+        (fieldId) => !removedFieldIds.has(fieldId)
+      );
+
+      expect(sortedFieldIds(hostAfter.fields)).toEqual(expectedHostAfterIds);
+      expect(sortedFieldIds(targetAfter.fields)).toEqual(expectedTargetAfterIds);
+      expect(hostAfter.fields.some((field) => field.id === host.primaryFieldId)).toBe(true);
+      if (entry.target === 'foreign') {
+        expect(targetAfter.fields.some((field) => field.id === foreign.primaryFieldId)).toBe(true);
+      }
+    });
   });
 });

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
+import { Field } from '../domain/table/fields/Field';
 import type { LinkField } from '../domain/table/fields/types/LinkField';
 import type { NumberField } from '../domain/table/fields/types/NumberField';
 import type { RollupField } from '../domain/table/fields/types/RollupField';
@@ -11,6 +12,9 @@ import { CreateTableCommand } from './CreateTableCommand';
 
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
+const buildFieldSpec = (
+  build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
+) => build(Field.specs()).build()._unsafeUnwrap();
 
 const buildFromCommand = (command: CreateTableCommand) => {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
@@ -30,9 +34,9 @@ describe('CreateTableCommand', () => {
       name: 'Default Table',
     })._unsafeUnwrap();
     const table = buildFromCommand(command)._unsafeUnwrap();
-    expect(table.fields().length).toBe(1);
-    expect(table.fields()[0]?.type().toString()).toBe('singleLineText');
-    expect(table.fields()[0]?.name().toString()).toBe('Name');
+    expect(table.getFields().length).toBe(1);
+    expect(table.getFields()[0]?.type().toString()).toBe('singleLineText');
+    expect(table.getFields()[0]?.name().toString()).toBe('Name');
     expect(table.views().length).toBe(1);
     expect(table.views()[0]?.type().toString()).toBe('grid');
     expect(table.views()[0]?.name().toString()).toBe('Grid');
@@ -144,7 +148,7 @@ describe('CreateTableCommand', () => {
       ],
     })._unsafeUnwrap();
     const table = buildFromCommand(command)._unsafeUnwrap();
-    expect(table.fields().map((field) => field.type().toString())).toEqual([
+    expect(table.getFields().map((field) => field.type().toString())).toEqual([
       'singleLineText',
       'longText',
       'number',
@@ -167,15 +171,15 @@ describe('CreateTableCommand', () => {
       'plugin',
     ]);
 
-    const numberField = table.fields().find((field) => field.type().toString() === 'number') as
+    const numberField = table.getFields(buildFieldSpec((builder) => builder.isNumber()))[0] as
       | NumberField
       | undefined;
     expect(numberField?.formatting().type()).toBe('currency');
     expect(numberField?.showAs()).toBeDefined();
 
-    const selectField = table
-      .fields()
-      .find((field) => field.type().toString() === 'singleSelect') as SingleSelectField | undefined;
+    const selectField = table.getFields(
+      buildFieldSpec((builder) => builder.isSingleSelect())
+    )[0] as SingleSelectField | undefined;
     expect(selectField?.preventAutoNewOptions().toBoolean()).toBe(false);
 
     const firstView = table.views()[0];
@@ -221,7 +225,7 @@ describe('CreateTableCommand', () => {
       views: [{ type: 'grid' }],
     })._unsafeUnwrap();
     const table = buildFromCommand(command)._unsafeUnwrap();
-    const rollupField = table.fields().find((field) => field.type().toString() === 'rollup') as
+    const rollupField = table.getFields(buildFieldSpec((builder) => builder.isRollup()))[0] as
       | RollupField
       | undefined;
     expect(rollupField).toBeDefined();
@@ -294,7 +298,7 @@ describe('CreateTableCommand', () => {
         views: [{ type: 'grid' }],
       })._unsafeUnwrap();
       const table = buildFromCommand(command)._unsafeUnwrap();
-      const linkField = table.fields().find((field) => field.type().toString() === 'link') as
+      const linkField = table.getFields(buildFieldSpec((builder) => builder.isLink()))[0] as
         | LinkField
         | undefined;
       expect(linkField).toBeDefined();
@@ -334,7 +338,7 @@ describe('CreateTableCommand', () => {
         views: [{ type: 'grid' }],
       })._unsafeUnwrap();
       const table = buildFromCommand(command)._unsafeUnwrap();
-      const linkFields = table.fields().filter((field) => field.type().toString() === 'link') as
+      const linkFields = table.getFields(buildFieldSpec((builder) => builder.isLink())) as
         | LinkField[]
         | undefined;
       expect(linkFields?.length).toBe(4);

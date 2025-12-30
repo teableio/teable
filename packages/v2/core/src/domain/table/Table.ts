@@ -2,8 +2,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
-
 import { topologicalSort } from '../shared/graph/topologicalSort';
+import type { ISpecification } from '../shared/specification/ISpecification';
+import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
+
 import { DbTableName } from './DbTableName';
 import { FieldCreated } from './events/FieldCreated';
 import { FieldDeleted } from './events/FieldDeleted';
@@ -136,8 +138,40 @@ export class Table extends AggregateRoot<TableId> {
     return ok(undefined);
   }
 
-  fields(): ReadonlyArray<Field> {
-    return [...this.fieldsValue];
+  getField<T extends Field>(predicate: (field: Field) => field is T): Result<T, string>;
+  getField(predicate: (field: Field) => boolean): Result<Field, string>;
+  getField(spec: ISpecification<Field, ISpecVisitor>): Result<Field, string>;
+  getField<T extends Field>(
+    predicateOrSpec:
+      | ((field: Field) => field is T)
+      | ((field: Field) => boolean)
+      | ISpecification<Field, ISpecVisitor>
+  ): Result<T | Field, string> {
+    const predicate =
+      typeof predicateOrSpec === 'function'
+        ? predicateOrSpec
+        : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
+    const field = this.fieldsValue.find(predicate);
+    if (!field) return err('Field not found');
+    return ok(field);
+  }
+
+  getFields<T extends Field>(predicate: (field: Field) => field is T): ReadonlyArray<T>;
+  getFields(predicate: (field: Field) => boolean): ReadonlyArray<Field>;
+  getFields(spec: ISpecification<Field, ISpecVisitor>): ReadonlyArray<Field>;
+  getFields(): ReadonlyArray<Field>;
+  getFields<T extends Field>(
+    predicateOrSpec?:
+      | ((field: Field) => field is T)
+      | ((field: Field) => boolean)
+      | ISpecification<Field, ISpecVisitor>
+  ): ReadonlyArray<T | Field> {
+    if (!predicateOrSpec) return [...this.fieldsValue];
+    const predicate =
+      typeof predicateOrSpec === 'function'
+        ? predicateOrSpec
+        : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
+    return this.fieldsValue.filter(predicate);
   }
 
   generateFieldName(baseName: FieldName): Result<FieldName, string> {
@@ -358,7 +392,7 @@ export class Table extends AggregateRoot<TableId> {
       id: this.id(),
       baseId: this.baseIdValue,
       name: nextName,
-      fields: this.fields(),
+      fields: this.getFields(),
       views: this.views(),
       primaryFieldId: this.primaryFieldIdValue,
     };

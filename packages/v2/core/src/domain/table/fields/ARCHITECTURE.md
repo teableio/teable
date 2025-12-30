@@ -9,6 +9,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 ## Subfolders
 
+- `specs/` - Field specifications and builder.
 - `types/` - Field subtypes and type-specific value objects.
 - `visitors/` - Field visitor interfaces and defaults.
 
@@ -25,6 +26,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FieldType.ts` - Role: value object; Purpose: field type enumeration wrapper.
 - `ForeignTableRelatedField.ts` - Role: interface + helper; Purpose: validate cross-table references in field types.
 - `ForeignTableValidation.spec.ts` - Role: tests; Purpose: cover rollup foreign table validation.
+- `specs/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field specifications.
 - `visitors/FieldCreationSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field creation.
 - `visitors/FieldDeletionSideEffectVisitor.ts` - Role: visitor; Purpose: compute cross-table side effects for field deletion.
 - `visitors/FieldFormVisibilityVisitor.ts` - Role: visitor; Purpose: decide form view visibility by field type.

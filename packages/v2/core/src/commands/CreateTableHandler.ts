@@ -71,7 +71,7 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       const table = yield* buildTable(command, { foreignTables, includeSelf });
       span?.end();
 
-      const tableFields = table.fields();
+      const tableFields = table.getFields();
       const foreignTablesForSideEffects = includeSelf
         ? [
             ...new Map(

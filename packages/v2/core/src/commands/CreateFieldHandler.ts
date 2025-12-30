@@ -55,7 +55,7 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         context,
         { baseId: command.baseId, tableId: command.tableId },
         (table) => {
-          const existingNames = table.fields().map((field) => field.name().toString());
+          const existingNames = table.getFields().map((field) => field.name().toString());
           return resolveTableFieldInputName(command.field, existingNames).andThen((resolved) =>
             parseTableFieldSpec(resolved, { isPrimary: false })
               .andThen((spec) =>

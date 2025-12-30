@@ -76,7 +76,7 @@ describe('GetTableByIdHandler', () => {
     expect(result.value.table.baseId().equals(baseId)).toBe(true);
 
     const table = result.value.table;
-    const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const byId = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const scoreField = byId.get(scoreId);
     const scoreLabelField = byId.get(scoreLabelId);
     expect(scoreField).toBeTruthy();

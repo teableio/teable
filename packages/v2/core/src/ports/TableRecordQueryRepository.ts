@@ -1,12 +1,16 @@
 import type { Result } from 'neverthrow';
 
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
+import type { TableRecordReadModel } from './TableRecordReadModel';
 
 export interface ITableRecordQueryRepository {
   find(
     context: IExecutionContext,
-    table: Table
-  ): Promise<Result<ReadonlyArray<TableRecord>, string>>;
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, string>>;
 }

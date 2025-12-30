@@ -14,6 +14,7 @@ import { executeCreateTableEndpoint } from './handlers/tables/createTable';
 import { executeDeleteFieldEndpoint } from './handlers/tables/deleteField';
 import { executeDeleteTableEndpoint } from './handlers/tables/deleteTable';
 import { executeGetTableByIdEndpoint } from './handlers/tables/getTableById';
+import { executeListTableRecordsEndpoint } from './handlers/tables/listTableRecords';
 import { executeListTablesEndpoint } from './handlers/tables/listTables';
 import { executeRenameTableEndpoint } from './handlers/tables/renameTable';
 
@@ -239,6 +240,39 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
   });
 
+  const tablesListRecords = os.tables.listRecords.handler(async ({ input }) => {
+    let container: IHandlerResolver;
+    try {
+      container = await createContainer();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', { message: containerErrorMessage });
+    }
+
+    let executionContext: IExecutionContext;
+    try {
+      executionContext = await createExecutionContext();
+    } catch {
+      throw new ORPCError('INTERNAL_SERVER_ERROR', {
+        message: executionContextErrorMessage,
+      });
+    }
+
+    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
+    const result = await executeListTableRecordsEndpoint(executionContext, input, queryBus);
+
+    if (result.status === 200) return result.body;
+
+    if (result.status === 400) {
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+    }
+
+    if (result.status === 404) {
+      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+    }
+
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+  });
+
   const tablesRename = os.tables.rename.handler(async ({ input }) => {
     let container: IHandlerResolver;
     try {
@@ -280,6 +314,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
       delete: tablesDelete,
       getById: tablesGetById,
       list: tablesList,
+      listRecords: tablesListRecords,
       rename: tablesRename,
     },
   });

@@ -603,7 +603,9 @@ export const mapTableToDto = (table: Table): Result<ITableDto, string> => {
   const primaryFieldId = table.primaryFieldId();
   const dbTableNameResult = table.dbTableName().andThen((name) => name.value());
   const dbTableName = dbTableNameResult.isOk() ? dbTableNameResult.value : undefined;
-  const fieldsResult = sequenceResults(table.fields().map((f) => mapFieldToDto(f, primaryFieldId)));
+  const fieldsResult = sequenceResults(
+    table.getFields().map((f) => mapFieldToDto(f, primaryFieldId))
+  );
   const viewsResult = sequenceResults(
     table.views().map((view) =>
       view.columnMeta().map((columnMeta) => ({

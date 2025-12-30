@@ -114,7 +114,7 @@ export class PostgresTableSchemaFieldCreateVisitor
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
       const fields = PostgresTableSchemaFieldCreateVisitor.isFieldArray(tableOrFields)
         ? tableOrFields
-        : tableOrFields.fields();
+        : tableOrFields.getFields();
       const statements: Array<TableSchemaStatementBuilder> = [];
 
       for (const field of fields) {

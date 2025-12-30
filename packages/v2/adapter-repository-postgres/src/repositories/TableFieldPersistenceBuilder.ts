@@ -1,5 +1,6 @@
 import {
   DbFieldName,
+  FieldSpecBuilder,
   type Field,
   type ILinkFieldOptionsDTO,
   type ITableFieldPersistenceDTO,
@@ -170,9 +171,19 @@ export class TableFieldPersistenceBuilder {
   }
 
   private resolveFieldOrder(field: Field): Result<number, string> {
-    const index = this.params.table.fields().findIndex((item) => item.id().equals(field.id()));
-    if (index < 0) return err(`Missing field order for ${field.id().toString()}`);
-    return ok(index + 1);
+    const fieldSpecResult = FieldSpecBuilder.create().withFieldId(field.id()).build();
+    if (fieldSpecResult.isErr()) return err(fieldSpecResult.error);
+    const [matched] = this.params.table.getFields(fieldSpecResult.value);
+    if (!matched) return err(`Missing field order for ${field.id().toString()}`);
+
+    const fields = this.params.table.getFields();
+    for (let index = 0; index < fields.length; index += 1) {
+      if (fields[index]?.id().equals(matched.id())) {
+        return ok(index + 1);
+      }
+    }
+
+    return err(`Missing field order for ${field.id().toString()}`);
   }
 
   private resolveDbFieldName(field: Field): Result<string, string> {
@@ -180,7 +191,7 @@ export class TableFieldPersistenceBuilder {
     if (existingResult.isOk()) return ok(existingResult.value);
 
     const reservedNames = new Set(baseRecordColumnNames);
-    for (const existing of this.params.table.fields()) {
+    for (const existing of this.params.table.getFields()) {
       const nameResult = existing.dbFieldName().andThen((name) => name.value());
       if (nameResult.isOk()) reservedNames.add(nameResult.value);
     }

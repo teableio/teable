@@ -52,7 +52,7 @@ describe('CreateTableHandler (db)', () => {
 
     const table = execResult._unsafeUnwrap().table;
     const tableId = table.id().toString();
-    const fieldIds = table.fields().map((field) => field.id().toString());
+    const fieldIds = table.getFields().map((field) => field.id().toString());
 
     const tableMetaRow = await db
       .selectFrom('table_meta')

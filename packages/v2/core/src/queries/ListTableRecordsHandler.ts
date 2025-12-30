@@ -2,20 +2,21 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { TableRecord } from '../domain/table/records/TableRecord';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { ListTableRecordsQuery } from './ListTableRecordsQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';
+import { buildRecordConditionSpec } from './RecordFilterMapper';
 
 export class ListTableRecordsResult {
-  private constructor(readonly records: ReadonlyArray<TableRecord>) {}
+  private constructor(readonly records: ReadonlyArray<TableRecordReadModel>) {}
 
-  static create(records: ReadonlyArray<TableRecord>): ListTableRecordsResult {
+  static create(records: ReadonlyArray<TableRecordReadModel>): ListTableRecordsResult {
     return new ListTableRecordsResult(records);
   }
 }
@@ -55,7 +56,16 @@ export class ListTableRecordsHandler
       return err(tableResult.error);
     }
 
-    const recordsResult = await this.tableRecordQueryRepository.find(context, tableResult.value);
+    const filterSpecResult = query.filter
+      ? buildRecordConditionSpec(tableResult.value, query.filter)
+      : ok(undefined);
+    if (filterSpecResult.isErr()) return err(filterSpecResult.error);
+
+    const recordsResult = await this.tableRecordQueryRepository.find(
+      context,
+      tableResult.value,
+      filterSpecResult.value
+    );
     if (recordsResult.isErr()) return err(recordsResult.error);
 
     logger.debug('ListTableRecordsHandler.success', {

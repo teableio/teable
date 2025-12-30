@@ -266,10 +266,29 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     })
   );
 
+  const recordsQuery = useQuery(
+    orpc.tables.listRecords.queryOptions({
+      input: {
+        baseId,
+        tableId,
+      },
+      enabled: Boolean(tableId),
+      placeholderData: keepPreviousData,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+      refetchOnWindowFocus: false,
+      select: (response) => response.data.records,
+    })
+  );
+
   const tableDto = tableQuery.data ?? null;
   const tableResult = useMemo(() => (tableDto ? mapTableDtoToDomain(tableDto) : null), [tableDto]);
   const table = tableResult?.isOk() ? tableResult.value : null;
   const mappingError = tableResult?.isErr() ? tableResult.error : null;
+  const records = recordsQuery.data ?? null;
+  const recordsError = recordsQuery.error
+    ? getErrorMessage(recordsQuery.error, 'Failed to load records')
+    : null;
 
   useEffect(() => {
     if (!realtimeDoc.data) return;
@@ -415,6 +434,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
 
   const handleRefresh = () => {
     void tableQuery.refetch();
+    void recordsQuery.refetch();
   };
 
   const handleDeleteField = (fieldId: string) => {
@@ -440,6 +460,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       isDeleting={deleteTableMutation.isPending}
       isDeletingField={deleteFieldMutation.isPending}
       isRenaming={renameTableMutation.isPending}
+      records={records}
+      recordsError={recordsError}
+      isRecordsLoading={recordsQuery.isLoading}
+      isRecordsFetching={recordsQuery.isFetching}
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
       onFieldCreated={() => {}}

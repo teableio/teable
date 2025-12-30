@@ -1,19 +1,22 @@
 import * as core from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import { Kysely, sql, type Transaction } from 'kysely';
-import { err, ok } from 'neverthrow';
+import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2PostgresStateTokens } from '../di/tokens';
+import {
+  TableRecordConditionWhereVisitor,
+  type RecordConditionWhere,
+} from './visitors/TableRecordConditionWhereVisitor';
+import {
+  TableRecordSelectColumnsVisitor,
+  type FieldColumn,
+} from './visitors/TableRecordSelectColumnsVisitor';
 
 const recordIdColumn = '__id';
 const autoNumberColumn = '__auto_number';
-
-type FieldColumn = {
-  fieldId: core.FieldId;
-  dbFieldName: string;
-};
 
 @injectable()
 export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
@@ -24,87 +27,66 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
 
   async find(
     context: core.IExecutionContext,
-    table: core.Table
-  ): Promise<Result<ReadonlyArray<core.TableRecord>, string>> {
-    const tableNameResult = table
-      .dbTableName()
-      .andThen((name) => name.split({ defaultSchema: null }));
-    if (tableNameResult.isErr()) return err(tableNameResult.error);
+    table: core.Table,
+    spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
+  ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, string>> {
+    return safeTry<ReadonlyArray<core.TableRecordReadModel>, string>(
+      async function* (this: PostgresTableRecordQueryRepository) {
+        const dbTableName = yield* table.dbTableName();
+        const { schema, tableName } = yield* dbTableName.split({ defaultSchema: null });
 
-    const fieldColumnsResult = buildFieldColumns(table);
-    if (fieldColumnsResult.isErr()) return err(fieldColumnsResult.error);
-    const fieldColumns = fieldColumnsResult.value;
+        const selectVisitor = new TableRecordSelectColumnsVisitor();
+        const selectedColumns = yield* selectVisitor.apply(table);
 
-    try {
-      const { schema, tableName } = tableNameResult.value;
-      const db = resolvePostgresDb(this.db, context);
-      const tableIdentifier = buildTableIdentifier(schema, tableName);
-      const selectColumns = [
-        sql.ref(recordIdColumn),
-        ...fieldColumns.map((column) => sql.ref(column.dbFieldName)),
-      ];
-      const result = await sql<Record<string, unknown>>`
-        select ${sql.join(selectColumns)}
-        from ${tableIdentifier}
-        order by ${sql.ref(autoNumberColumn)}
-      `.execute(db);
+        const whereClause = spec ? yield* buildRecordWhere(spec) : undefined;
 
-      const recordsResult = mapRowsToRecords(table, fieldColumns, result.rows);
-      if (recordsResult.isErr()) return err(recordsResult.error);
-      return ok(recordsResult.value);
-    } catch (error) {
-      return err(`Failed to load table records: ${describeError(error)}`);
-    }
+        try {
+          const db = resolvePostgresDb(this.db, context);
+          const dbWithSchema = schema ? db.withSchema(schema) : db;
+          const dynamic = db.dynamic;
+          const selectColumns = selectVisitor.selectColumns(dynamic, recordIdColumn);
+
+          const baseQuery = dbWithSchema.selectFrom(tableName as never).select(selectColumns);
+          const query = whereClause
+            ? baseQuery.where(whereClause as unknown as Expression<SqlBool>)
+            : baseQuery;
+
+          const rows = await query.orderBy(dynamic.ref(autoNumberColumn)).execute();
+          const records = yield* mapRowsToReadModels(selectedColumns, rows);
+          return ok(records);
+        } catch (error) {
+          return err(`Failed to load table records: ${describeError(error)}`);
+        }
+      }.bind(this)
+    );
   }
 }
 
-const buildFieldColumns = (table: core.Table): Result<ReadonlyArray<FieldColumn>, string> => {
-  const columns: FieldColumn[] = [];
-  const seen = new Set<string>();
-  for (const field of table.fields()) {
-    const dbFieldNameResult = field.dbFieldName().andThen((name) => name.value());
-    if (dbFieldNameResult.isErr()) return err(dbFieldNameResult.error);
-    const dbFieldName = dbFieldNameResult.value;
-    if (seen.has(dbFieldName)) return err('Duplicate DbFieldName');
-    seen.add(dbFieldName);
-    columns.push({ fieldId: field.id(), dbFieldName });
-  }
-  return ok(columns);
-};
-
-const mapRowsToRecords = (
-  table: core.Table,
+const mapRowsToReadModels = (
   fieldColumns: ReadonlyArray<FieldColumn>,
   rows: ReadonlyArray<Record<string, unknown>>
-): Result<ReadonlyArray<core.TableRecord>, string> => {
-  const records: core.TableRecord[] = [];
+): Result<ReadonlyArray<core.TableRecordReadModel>, string> => {
+  const records: core.TableRecordReadModel[] = [];
   for (const row of rows) {
-    const recordIdResult = core.RecordId.create(row[recordIdColumn]);
-    if (recordIdResult.isErr()) return err(recordIdResult.error);
+    const rawId = row[recordIdColumn];
+    if (typeof rawId !== 'string') return err('Invalid record id');
 
-    const fieldValues: core.TableRecordFieldValue[] = [];
+    const fields: Record<string, unknown> = {};
     for (const column of fieldColumns) {
-      const cellValueResult = core.TableRecordCellValue.create(row[column.dbFieldName]);
-      if (cellValueResult.isErr()) return err(cellValueResult.error);
-      fieldValues.push({
-        fieldId: column.fieldId,
-        value: cellValueResult.value,
-      });
+      fields[column.fieldId.toString()] = row[column.dbFieldName];
     }
-    const recordResult = core.TableRecord.create({
-      id: recordIdResult.value,
-      tableId: table.id(),
-      fieldValues,
-    });
-    if (recordResult.isErr()) return err(recordResult.error);
-    records.push(recordResult.value);
+    records.push({ id: rawId, fields });
   }
   return ok(records);
 };
 
-const buildTableIdentifier = (schema: string | null, tableName: string) => {
-  if (!schema) return sql.ref(tableName);
-  return sql`${sql.ref(schema)}.${sql.ref(tableName)}`;
+const buildRecordWhere = (
+  spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
+): Result<RecordConditionWhere, string> => {
+  const visitor = new TableRecordConditionWhereVisitor();
+  const acceptResult = spec.accept(visitor);
+  if (acceptResult.isErr()) return err(acceptResult.error);
+  return visitor.where();
 };
 
 type PostgresTransactionContext<DB> = {

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { BaseId } from '../../base/BaseId';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
-import type { Field } from './Field';
+import { Field } from './Field';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import { validateForeignTablesForFields } from './ForeignTableRelatedField';
@@ -14,6 +14,9 @@ import type { RollupField } from './types/RollupField';
 import { RollupFieldConfig } from './types/RollupFieldConfig';
 
 const unwrap = <T>(result: Result<T, string>): T => result._unsafeUnwrap();
+const buildFieldSpec = (
+  build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
+) => build(Field.specs()).build()._unsafeUnwrap();
 
 const buildForeignTable = (baseId: BaseId) => {
   const builder = Table.builder()
@@ -34,7 +37,9 @@ const buildForeignTable = (baseId: BaseId) => {
     .done();
   builder.view().defaultGrid().done();
   const table = unwrap(builder.build());
-  const lookupField = table.fields().find((field) => field.id().equals(lookupFieldId));
+  const lookupField = table.getFields(
+    buildFieldSpec((specs) => specs.withFieldId(lookupFieldId))
+  )[0];
   if (!lookupField) throw new Error('Lookup field not found');
   return { table, lookupFieldId, lookupField };
 };
@@ -98,13 +103,17 @@ describe('ForeignTableValidation (rollup)', () => {
       lookupFieldId: foreign.lookupFieldId.toString(),
     });
 
-    const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
+    const rollupFields = host.getFields(buildFieldSpec((specs) => specs.isRollup()));
     validateForeignTablesForFields(rollupFields, {
       hostTable: host,
       foreignTables: [foreign.table],
     })._unsafeUnwrap();
 
-    const rollup = host.fields().find((f) => f.type().toString() === 'rollup') as RollupField;
+    const rollup = host.getFields(buildFieldSpec((specs) => specs.isRollup()))[0] as
+      | RollupField
+      | undefined;
+    expect(rollup).toBeDefined();
+    if (!rollup) return;
     const cellValueType = unwrap(rollup.cellValueType());
     const isMultiple = unwrap(rollup.isMultipleCellValue());
     expect(cellValueType.toString()).toBe('number');
@@ -125,7 +134,7 @@ describe('ForeignTableValidation (rollup)', () => {
       rollupLinkFieldId: missingLinkId.toString(),
     });
 
-    const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
+    const rollupFields = host.getFields(buildFieldSpec((specs) => specs.isRollup()));
     const error = validateForeignTablesForFields(rollupFields, {
       hostTable: host,
       foreignTables: [foreign.table],
@@ -143,7 +152,7 @@ describe('ForeignTableValidation (rollup)', () => {
       lookupFieldId: foreign.lookupFieldId.toString(),
     });
 
-    const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
+    const rollupFields = host.getFields(buildFieldSpec((specs) => specs.isRollup()));
     const error = validateForeignTablesForFields(rollupFields, {
       hostTable: host,
       foreignTables: [],
@@ -162,7 +171,7 @@ describe('ForeignTableValidation (rollup)', () => {
       lookupFieldId: missingLookupId.toString(),
     });
 
-    const rollupFields = host.fields().filter((field) => field.type().toString() === 'rollup');
+    const rollupFields = host.getFields(buildFieldSpec((specs) => specs.isRollup()));
     const error = validateForeignTablesForFields(rollupFields, {
       hostTable: host,
       foreignTables: [foreign.table],

@@ -6,7 +6,7 @@ import { FieldDeletionSideEffectService } from '../application/services/FieldDel
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
-import type { Field } from '../domain/table/fields/Field';
+import { Field } from '../domain/table/fields/Field';
 import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { Table } from '../domain/table/Table';
@@ -57,7 +57,8 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       }
 
       const table = tableResult.value;
-      const targetField = table.fields().find((field) => field.id().equals(command.fieldId));
+      const fieldSpec = yield* Field.specs().withFieldId(command.fieldId).build();
+      const targetField = table.getFields(fieldSpec)[0];
       if (!targetField) return err('Field not found');
 
       const referenceVisitor = new LinkForeignTableReferenceVisitor();
@@ -72,9 +73,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         context,
         { table },
         (candidate) => {
-          const currentField = candidate
-            .fields()
-            .find((field) => field.id().equals(command.fieldId));
+          const currentField = candidate.getFields(fieldSpec)[0];
           if (!currentField) return err('Field not found');
           deletedField = currentField;
           return candidate.update((mutator) => mutator.removeField(command.fieldId));

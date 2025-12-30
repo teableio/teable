@@ -37,6 +37,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `records/RecordId.ts` - Role: value object; Purpose: record id validation and generation.
 - `records/TableRecord.ts` - Role: entity; Purpose: represent table records.
 - `records/TableRecordFields.ts` - Role: value object; Purpose: field-value pairs keyed by FieldId.
+- `records/specs/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe record condition specs.
+- `fields/specs/ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field specs.
 
 ## Examples
 

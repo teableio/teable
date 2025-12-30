@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../base/BaseId';
+import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FormulaExpression } from './fields/types/FormulaExpression';
@@ -20,6 +21,9 @@ import { ViewName } from './views/ViewName';
 const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`);
 const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`);
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
+const buildFieldSpec = (
+  build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
+) => build(Field.specs()).build()._unsafeUnwrap();
 
 describe('TableBuilder', () => {
   it('builds a table with fields and a view', () => {
@@ -71,10 +75,10 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    expect(table.fields().length).toBe(4);
+    expect(table.getFields().length).toBe(4);
     expect(table.views().length).toBe(1);
     expect(table.views()[0]?.type().toString()).toBe('grid');
-    expect(table.primaryFieldId().equals(table.fields()[0].id())).toBe(true);
+    expect(table.primaryFieldId().equals(table.getFields()[0].id())).toBe(true);
   });
 
   it('builds a table with all base field types', () => {
@@ -153,7 +157,7 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    expect(table.fields().map((f) => f.type().toString())).toEqual([
+    expect(table.getFields().map((f) => f.type().toString())).toEqual([
       'singleLineText',
       'longText',
       'number',
@@ -296,7 +300,9 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    const linkFields = table.fields().filter((f) => f.type().toString() === 'link') as LinkField[];
+    const linkFields = table.getFields(
+      buildFieldSpec((builder) => builder.isLink())
+    ) as LinkField[];
     expect(linkFields).toHaveLength(4);
 
     const fkHost = `${baseId.toString()}.${tableId.toString()}`;
@@ -389,7 +395,7 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    const fieldIds = table.fields().map((field) => field.id().toString());
+    const fieldIds = table.getFields().map((field) => field.id().toString());
     const primaryFieldId = table.primaryFieldId().toString();
     const expectedOrder = [
       primaryFieldId,
@@ -397,7 +403,7 @@ describe('TableBuilder', () => {
     ];
 
     const fieldIdsByName = new Map(
-      table.fields().map((field) => [field.name().toString(), field.id().toString()] as const)
+      table.getFields().map((field) => [field.name().toString(), field.id().toString()] as const)
     );
     const viewsByType = new Map(
       table.views().map((view) => [view.type().toString(), view] as const)
@@ -464,7 +470,7 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
+    expect(table.primaryFieldId().equals(table.getFields()[1].id())).toBe(true);
   });
 
   it('builds even when rollup and formula inputs reference fields declared later', () => {
@@ -553,10 +559,10 @@ describe('TableBuilder', () => {
     buildResult._unsafeUnwrap();
 
     const table = buildResult._unsafeUnwrap();
-    const formulaField = table.fields().find((field) => field.type().toString() === 'formula') as
+    const formulaField = table.getFields(buildFieldSpec((builder) => builder.isFormula()))[0] as
       | FormulaField
       | undefined;
-    const rollupField = table.fields().find((field) => field.type().toString() === 'rollup') as
+    const rollupField = table.getFields(buildFieldSpec((builder) => builder.isRollup()))[0] as
       | RollupField
       | undefined;
     expect(formulaField).toBeDefined();
@@ -855,8 +861,7 @@ describe('TableBuilder', () => {
 
       const linkField = buildResult
         ._unsafeUnwrap()
-        .fields()
-        .find((field) => field.type().toString() === 'link') as LinkField | undefined;
+        .getFields(buildFieldSpec((builder) => builder.isLink()))[0] as LinkField | undefined;
       expect(linkField).toBeDefined();
       if (!linkField) return;
       expect(linkField.foreignTableId().equals(foreignTableIdResult._unsafeUnwrap())).toBe(true);

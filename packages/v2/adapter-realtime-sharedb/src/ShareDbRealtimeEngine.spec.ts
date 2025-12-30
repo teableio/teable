@@ -396,7 +396,7 @@ describe('ShareDbRealtimeEngine', () => {
       if (deleteResult.isErr()) return;
       await deleted;
       expect(client.doc.type).toBe(null);
-      expect(client.doc.data).toBe(null);
+      expect(client.doc.data).toBeUndefined();
     } finally {
       client.dispose();
     }

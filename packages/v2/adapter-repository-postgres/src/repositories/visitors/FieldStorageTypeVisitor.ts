@@ -1,10 +1,9 @@
-import { FieldValueTypeVisitor } from '@teable/v2-core';
+import { Field, FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   AttachmentField,
   ButtonField,
   CheckboxField,
   DateField,
-  Field,
   IFieldVisitor,
   LinkField,
   LongTextField,
@@ -20,6 +19,13 @@ import type {
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
+
+const jsonSpecResult = Field.specs().isJson().build();
+
+const fieldIsJson = (field: Field): boolean => {
+  if (jsonSpecResult.isErr()) return false;
+  return jsonSpecResult.value.isSatisfiedBy(field);
+};
 
 export type IFieldStorageType = {
   cellValueType: string;
@@ -40,7 +46,7 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
   apply(tableOrFields: Table | ReadonlyArray<Field>): Result<void, string> {
     const fields = FieldStorageTypeVisitor.isFieldArray(tableOrFields)
       ? tableOrFields
-      : tableOrFields.fields();
+      : tableOrFields.getFields();
 
     for (const field of fields) {
       const result = field.accept(this);
@@ -144,8 +150,7 @@ const resolveDbFieldType = (
 ): string => {
   if (isMultipleCellValue) return 'JSON';
 
-  const fieldType = field.type().toString();
-  if (['attachment', 'user', 'button'].includes(fieldType)) return 'JSON';
+  if (fieldIsJson(field)) return 'JSON';
 
   switch (cellValueType) {
     case 'number':

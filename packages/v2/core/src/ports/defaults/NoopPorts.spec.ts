@@ -36,7 +36,7 @@ const buildTable = () => {
 
 const buildRecord = (table: Table): TableRecord => {
   const recordId = RecordId.create(`rec${'r'.repeat(16)}`)._unsafeUnwrap();
-  const field = table.fields()[0];
+  const field = table.getFields()[0];
   const cellValue = TableRecordCellValue.create('demo')._unsafeUnwrap();
   const recordResult = TableRecord.create({
     id: recordId,

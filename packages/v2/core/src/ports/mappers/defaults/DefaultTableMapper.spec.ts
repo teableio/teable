@@ -324,11 +324,11 @@ describe('DefaultTableMapper', () => {
     const mapped = domainResult._unsafeUnwrap();
     expect(mapped.baseId().equals(table.baseId())).toBe(true);
     expect(mapped.name().equals(table.name())).toBe(true);
-    expect(mapped.fields().length).toBe(table.fields().length);
+    expect(mapped.getFields().length).toBe(table.getFields().length);
     expect(mapped.views().length).toBe(table.views().length);
     mapped.dbTableName()._unsafeUnwrap();
 
-    const fieldDbNameResult = mapped.fields()[0]?.dbFieldName();
+    const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
     fieldDbNameResult?._unsafeUnwrap();
   });
 

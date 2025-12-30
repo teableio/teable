@@ -311,7 +311,7 @@ describe('PostgresTableRepository (pg)', () => {
       const resolveResult = resolveFormulaFields(table);
       resolveResult._unsafeUnwrap();
 
-      expect(table.primaryFieldId().equals(table.fields()[1].id())).toBe(true);
+      expect(table.primaryFieldId().equals(table.getFields()[1].id())).toBe(true);
 
       const insertResult = await repo.insert(context, table);
       insertResult._unsafeUnwrap();
@@ -329,10 +329,7 @@ describe('PostgresTableRepository (pg)', () => {
         table.primaryFieldId().toString()
       );
 
-      const expectedDbTableName = joinDbTableName(
-        baseId.toString(),
-        convertNameToValidCharacter(table.name().toString(), 40)
-      );
+      const expectedDbTableName = joinDbTableName(baseId.toString(), table.id().toString());
       const dbTableNameResult = persistedTable.dbTableName().andThen((name) => name.value());
 
       expect(dbTableNameResult._unsafeUnwrap()).toBe(expectedDbTableName);
@@ -346,10 +343,10 @@ describe('PostgresTableRepository (pg)', () => {
       expect(tableMetaRow?.base_id).toBe(baseId.toString());
 
       const expectedDbFieldNames = table
-        .fields()
+        .getFields()
         .map((field) => convertNameToValidCharacter(field.name().toString(), 40));
       const dbFieldNameResults = persistedTable
-        .fields()
+        .getFields()
         .map((field) => field.dbFieldName().andThen((name) => name.value()));
       expect(dbFieldNameResults.map((result) => result._unsafeUnwrap())).toEqual(
         expectedDbFieldNames
@@ -383,7 +380,7 @@ describe('PostgresTableRepository (pg)', () => {
       ]);
 
       const snapshotVisitor: IFieldVisitor<IFieldSnapshot> = new FieldToSnapshotVisitor();
-      const fieldSnapshots = loaded.fields().map((f) => f.accept(snapshotVisitor));
+      const fieldSnapshots = loaded.getFields().map((f) => f.accept(snapshotVisitor));
       fieldSnapshots.forEach((r) => r._unsafeUnwrap());
       fieldSnapshots.forEach((r) => r._unsafeUnwrap());
 
@@ -466,23 +463,18 @@ describe('PostgresTableRepository (pg)', () => {
       const secondInsert = await repo.insert(context, secondResult._unsafeUnwrap());
       secondInsert._unsafeUnwrap();
 
-      const expectedDbTableName = joinDbTableName(
-        baseId.toString(),
-        convertNameToValidCharacter(nameResult._unsafeUnwrap().toString(), 40)
-      );
       const rows = await db
         .selectFrom('table_meta')
-        .select(['db_table_name', 'base_id'])
+        .select(['id', 'db_table_name', 'base_id'])
         .where('base_id', '=', baseId.toString())
         .execute();
       expect(rows).toHaveLength(2);
       const dbNames = rows.map((row) => row.db_table_name).filter(Boolean);
       expect(new Set(dbNames).size).toBe(2);
-      expect(dbNames).toContain(expectedDbTableName);
-      const otherDbName = dbNames.find((name) => name !== expectedDbTableName);
-      expect(otherDbName).toBeDefined();
-      expect(otherDbName?.startsWith(`${baseId.toString()}.`)).toBe(true);
-      rows.forEach((row) => expect(row.base_id).toBe(baseId.toString()));
+      rows.forEach((row) => {
+        expect(row.base_id).toBe(baseId.toString());
+        expect(row.db_table_name).toBe(joinDbTableName(baseId.toString(), row.id));
+      });
     } finally {
       await db.destroy();
     }
@@ -697,7 +689,7 @@ describe('PostgresTableRepository (pg)', () => {
 
       expect(viewRows).toHaveLength(6);
 
-      const fieldIds = table.fields().map((field) => field.id().toString());
+      const fieldIds = table.getFields().map((field) => field.id().toString());
       const primaryFieldId = table.primaryFieldId().toString();
       const expectedOrder = [
         primaryFieldId,
@@ -705,7 +697,7 @@ describe('PostgresTableRepository (pg)', () => {
       ];
 
       const fieldIdsByName = new Map(
-        table.fields().map((field) => [field.name().toString(), field.id().toString()] as const)
+        table.getFields().map((field) => [field.name().toString(), field.id().toString()] as const)
       );
 
       const columnMetaByType = new Map(
@@ -883,7 +875,9 @@ describe('PostgresTableRepository (pg)', () => {
       const foreignTable = foreignTableResult._unsafeUnwrap();
       (await repo.insert(context, foreignTable))._unsafeUnwrap();
 
-      const valuesField = foreignTable.fields().find((field) => field.id().equals(foreignValueId));
+      const valuesField = foreignTable
+        .getFields()
+        .find((field) => field.id().equals(foreignValueId));
       expect(valuesField).toBeDefined();
       if (!valuesField) return;
 

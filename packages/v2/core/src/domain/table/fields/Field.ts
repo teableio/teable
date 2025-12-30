@@ -2,10 +2,12 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { Entity } from '../../shared/Entity';
+import { FieldConditionSpecBuilder } from '../records/specs/FieldConditionSpecBuilder';
 import { DbFieldName } from './DbFieldName';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import type { FieldType } from './FieldType';
+import { FieldSpecBuilder } from './specs/FieldSpecBuilder';
 import { FieldComputed } from './types/FieldComputed';
 import type { IFieldVisitor } from './visitors/IFieldVisitor';
 
@@ -28,6 +30,10 @@ export abstract class Field extends Entity<FieldId> {
   private dependenciesValue: ReadonlyArray<FieldId>;
   private dependentsValue: ReadonlyArray<FieldId> | undefined;
   private readonly computedValue: FieldComputed;
+
+  static specs(): FieldSpecBuilder {
+    return FieldSpecBuilder.create();
+  }
 
   name(): FieldName {
     return this.nameValue;
@@ -74,6 +80,10 @@ export abstract class Field extends Entity<FieldId> {
 
   dependents(): ReadonlyArray<FieldId> {
     return [...(this.dependentsValue ?? [])];
+  }
+
+  spec(): FieldConditionSpecBuilder {
+    return FieldConditionSpecBuilder.create(this);
   }
 
   setDependents(dependents: ReadonlyArray<FieldId>): Result<void, string> {

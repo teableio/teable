@@ -77,7 +77,7 @@ describe('resolveFormulaFields', () => {
 
     const table = tableResult._unsafeUnwrap();
 
-    const byId = new Map(table.fields().map((field) => [field.id().toString(), field] as const));
+    const byId = new Map(table.getFields().map((field) => [field.id().toString(), field] as const));
     const amountField = byId.get(amountId.toString());
     const scoreField = byId.get(scoreId.toString());
     const labelField = byId.get(labelId.toString());

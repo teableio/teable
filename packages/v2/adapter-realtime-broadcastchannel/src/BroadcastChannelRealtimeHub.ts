@@ -16,7 +16,10 @@ type SnapshotMessage = {
 type BroadcastMessage = SnapshotMessage;
 
 type DocListener = (snapshot: unknown | null) => void;
-type CollectionListener = (snapshots: ReadonlyArray<unknown>) => void;
+type CollectionListener = (
+  snapshots: ReadonlyArray<unknown>,
+  removedDocIds: ReadonlyArray<string>
+) => void;
 
 type DocState = {
   collection: string;
@@ -74,6 +77,7 @@ const applyRealtimeChange = (snapshot: unknown, change: RealtimeChange): unknown
 export class BroadcastChannelRealtimeHub {
   private readonly channel: BroadcastChannel;
   private readonly docs = new Map<string, DocState>();
+  private readonly removedDocsByCollection = new Map<string, Set<string>>();
   private readonly docListeners = new Map<string, Set<DocListener>>();
   private readonly collectionListeners = new Map<string, Set<CollectionListener>>();
   private logger: ILogger;
@@ -185,6 +189,7 @@ export class BroadcastChannelRealtimeHub {
 
     const docKey = docId.toString();
     this.docs.delete(docKey);
+    this.markRemoved(parsed.value.collection, parsed.value.docId);
     this.logger.debug('BroadcastChannel realtime delete', {
       docKey,
       collection: parsed.value.collection,
@@ -235,7 +240,7 @@ export class BroadcastChannelRealtimeHub {
     set.add(listener);
     this.collectionListeners.set(collection, set);
     this.logger.debug('BroadcastChannel realtime subscribe collection', { collection });
-    listener(this.getCollectionSnapshots(collection));
+    listener(this.getCollectionSnapshots(collection), []);
     return () => {
       const next = this.collectionListeners.get(collection);
       if (!next) return;
@@ -265,6 +270,7 @@ export class BroadcastChannelRealtimeHub {
     });
     if (message.snapshot === null) {
       this.docs.delete(message.docKey);
+      this.markRemoved(message.collection, message.docId);
     } else {
       this.docs.set(message.docKey, {
         collection: message.collection,
@@ -289,9 +295,23 @@ export class BroadcastChannelRealtimeHub {
     const listeners = this.collectionListeners.get(collection);
     if (!listeners) return;
     const snapshots = this.getCollectionSnapshots(collection);
+    const removedDocIds = this.consumeRemovedDocIds(collection);
     for (const listener of listeners) {
-      listener(snapshots);
+      listener(snapshots, removedDocIds);
     }
+  }
+
+  private markRemoved(collection: string, docId: string): void {
+    const existing = this.removedDocsByCollection.get(collection) ?? new Set<string>();
+    existing.add(docId);
+    this.removedDocsByCollection.set(collection, existing);
+  }
+
+  private consumeRemovedDocIds(collection: string): ReadonlyArray<string> {
+    const removed = this.removedDocsByCollection.get(collection);
+    if (!removed) return [];
+    this.removedDocsByCollection.delete(collection);
+    return [...removed];
   }
 
   updateLogger(logger?: ILogger): void {

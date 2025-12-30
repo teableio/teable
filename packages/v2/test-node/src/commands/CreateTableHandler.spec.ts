@@ -67,7 +67,7 @@ describe('CreateTableHandler', () => {
     const createdTable = result._unsafeUnwrap().table;
 
     expect(eventBus.events().some((e) => e instanceof TableCreated)).toBe(true);
-    expect(createdTable.primaryFieldId().equals(createdTable.fields()[0].id())).toBe(true);
+    expect(createdTable.primaryFieldId().equals(createdTable.getFields()[0].id())).toBe(true);
     expect(createdTable.baseId().equals(baseId)).toBe(true);
 
     const specResult = createdTable.specs().byId(createdTable.id()).build();
@@ -119,7 +119,7 @@ describe('CreateTableHandler', () => {
     );
     const createdTable = result._unsafeUnwrap().table;
 
-    expect(createdTable.primaryFieldId().equals(createdTable.fields()[1].id())).toBe(true);
+    expect(createdTable.primaryFieldId().equals(createdTable.getFields()[1].id())).toBe(true);
 
     const specResult = createdTable.specs().byId(createdTable.id()).build();
     specResult._unsafeUnwrap();
@@ -198,10 +198,10 @@ describe('CreateTableHandler', () => {
 
     const createdTable = result._unsafeUnwrap().table;
     const formulaField = createdTable
-      .fields()
+      .getFields()
       .find((field) => field.type().toString() === 'formula') as FormulaField | undefined;
     const rollupField = createdTable
-      .fields()
+      .getFields()
       .find((field) => field.type().toString() === 'rollup') as RollupField | undefined;
     expect(formulaField).toBeDefined();
     expect(rollupField).toBeDefined();
@@ -340,7 +340,7 @@ describe('CreateTableHandler', () => {
     expect(
       result
         ._unsafeUnwrap()
-        .table.fields()
+        .table.getFields()
         .map((f) => f.type().toString())
     ).toEqual([
       'singleLineText',
@@ -483,7 +483,7 @@ describe('CreateTableHandler', () => {
     );
 
     const table = result._unsafeUnwrap().table;
-    const byId = new Map(table.fields().map((field) => [field.id().toString(), field]));
+    const byId = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const scoreField = byId.get(scoreId);
     const scoreLabelField = byId.get(scoreLabelId);
     const amountField = byId.get(amountId);
@@ -653,7 +653,7 @@ describe('CreateTableHandler', () => {
 
       const linkField = updatedForeignResult
         ._unsafeUnwrap()
-        .fields()
+        .getFields()
         .find((field) => field.type().toString() === 'link') as LinkField | undefined;
       expect(linkField).toBeDefined();
       if (!linkField) return;

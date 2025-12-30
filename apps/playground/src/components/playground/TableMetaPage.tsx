@@ -1,4 +1,4 @@
-import { mapTableToDto, type ITableDto } from '@teable/v2-contract-http';
+import { mapTableToDto, type ITableDto, type ITableRecordDto } from '@teable/v2-contract-http';
 import type {
   Field,
   ITableFieldPersistenceDTO,
@@ -95,6 +95,21 @@ const formatOptionalString = (value: string | null | undefined): string => {
   return value;
 };
 
+const formatRecordValue = (value: unknown): string => {
+  if (value === undefined || value === null) return '-';
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
+    return value.toString();
+  }
+  try {
+    const json = JSON.stringify(value);
+    return json ?? String(value);
+  } catch {
+    return String(value);
+  }
+};
+
 const formatColumnMetaExtras = (entry: ViewColumnMetaValue[string]): string => {
   const knownKeys = new Set(['order', 'visible', 'hidden', 'required', 'width', 'statisticFunc']);
   const extra = Object.keys(entry).reduce<Record<string, unknown>>((acc, key) => {
@@ -118,7 +133,7 @@ const getDbTableName = (table: TableAggregate): string | null => {
   return nameResult.isOk() ? nameResult.value : null;
 };
 
-const tableTabValues = ['table', 'json', 'realtime'] as const;
+const tableTabValues = ['table', 'records', 'json', 'realtime'] as const;
 type TableMetaTab = (typeof tableTabValues)[number];
 
 const isTableMetaTab = (value: string): value is TableMetaTab =>
@@ -157,6 +172,10 @@ type TableMetaPageProps = {
   realtimeFieldError: string | null;
   isInitialLoading: boolean;
   isLoading: boolean;
+  records: ReadonlyArray<ITableRecordDto> | null;
+  recordsError: string | null;
+  isRecordsLoading: boolean;
+  isRecordsFetching: boolean;
   isCreating: boolean;
   isDeleting: boolean;
   isDeletingField: boolean;
@@ -183,6 +202,10 @@ export function TableMetaPage({
   realtimeFieldError,
   isInitialLoading,
   isLoading,
+  records,
+  recordsError,
+  isRecordsLoading,
+  isRecordsFetching,
   isCreating,
   isDeleting,
   isDeletingField,
@@ -247,6 +270,12 @@ export function TableMetaPage({
                   Table
                 </TabsTrigger>
                 <TabsTrigger
+                  value="records"
+                  className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
+                >
+                  Records
+                </TabsTrigger>
+                <TabsTrigger
                   value="json"
                   className="h-7 text-xs px-3 data-[state=active]:bg-muted/50 data-[state=active]:shadow-none"
                 >
@@ -267,6 +296,18 @@ export function TableMetaPage({
                   isLoading={isLoading}
                   isDeletingField={isDeletingField}
                   onDeleteField={onDeleteField}
+                />
+              </TabsContent>
+              <TabsContent value="records" className="mt-0 outline-none">
+                <PlaygroundRecordsLayout
+                  table={table}
+                  records={records}
+                  recordsError={recordsError}
+                  isRecordsLoading={isRecordsLoading}
+                  isRecordsFetching={isRecordsFetching}
+                  baseId={baseId}
+                  tableId={tableId}
+                  isLoading={isLoading}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -336,7 +377,7 @@ function PlaygroundHeader({
   const canDelete = !!table && !isDeleting;
   const currentName = table ? table.name().toString() : '';
   const tableName = table ? table.name().toString() : 'Table';
-  const fieldCount = table ? table.fields().length : null;
+  const fieldCount = table ? table.getFields().length : null;
   const trimmedRename = renameValue.trim();
   const canRename =
     !!table && trimmedRename.length > 0 && trimmedRename !== currentName && !isRenaming;
@@ -656,6 +697,49 @@ function PlaygroundMetaLayout({
   );
 }
 
+type PlaygroundRecordsLayoutProps = {
+  table: TableAggregate;
+  records: ReadonlyArray<ITableRecordDto> | null;
+  recordsError: string | null;
+  isRecordsLoading: boolean;
+  isRecordsFetching: boolean;
+  baseId: string;
+  tableId: string;
+  isLoading: boolean;
+};
+
+function PlaygroundRecordsLayout({
+  table,
+  records,
+  recordsError,
+  isRecordsLoading,
+  isRecordsFetching,
+  baseId,
+  tableId,
+  isLoading,
+}: PlaygroundRecordsLayoutProps) {
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+      <TableRecordsCard
+        table={table}
+        records={records}
+        recordsError={recordsError}
+        isRecordsLoading={isRecordsLoading}
+        isRecordsFetching={isRecordsFetching}
+      />
+      <div className="space-y-6 min-w-0">
+        <TableViewsCard views={table.views()} />
+        <TableConnectionCard
+          baseId={baseId}
+          tableId={tableId}
+          table={table}
+          isLoading={isLoading}
+        />
+      </div>
+    </div>
+  );
+}
+
 type PlaygroundJsonLayoutProps = {
   table: TableAggregate;
   tableJson: ITableDto | null;
@@ -749,7 +833,7 @@ type TableSchemaCardProps = {
 };
 
 function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaCardProps) {
-  const fields = table.fields();
+  const fields = table.getFields();
   const primaryFieldId = table.primaryFieldId();
   const [, copyToClipboard] = useCopyToClipboard();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -877,6 +961,125 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
   );
 }
 
+type TableRecordsCardProps = {
+  table: TableAggregate;
+  records: ReadonlyArray<ITableRecordDto> | null;
+  recordsError: string | null;
+  isRecordsLoading: boolean;
+  isRecordsFetching: boolean;
+};
+
+function TableRecordsCard({
+  table,
+  records,
+  recordsError,
+  isRecordsLoading,
+  isRecordsFetching,
+}: TableRecordsCardProps) {
+  const fields = table.getFields();
+  const recordCount = records?.length ?? 0;
+  const isInitialLoading = isRecordsLoading && !records;
+
+  return (
+    <Card className="min-w-0">
+      <CardHeader className="py-3">
+        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+          <TableIcon className="h-4 w-4 text-muted-foreground" />
+          Records
+          <Badge
+            variant="secondary"
+            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+          >
+            {recordCount} records
+          </Badge>
+          {isRecordsFetching ? (
+            <Badge
+              variant="outline"
+              className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            >
+              Loading
+            </Badge>
+          ) : null}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {recordsError ? (
+          <div className="flex items-center gap-2 text-sm text-destructive">
+            <TriangleAlert className="h-4 w-4" />
+            <span>{recordsError}</span>
+          </div>
+        ) : isInitialLoading ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={`record-header-skeleton-${index}`} className="h-4 w-full" />
+              ))}
+            </div>
+            {Array.from({ length: 4 }).map((_, rowIndex) => (
+              <div key={`record-row-skeleton-${rowIndex}`} className="grid grid-cols-4 gap-3">
+                {Array.from({ length: 4 }).map((_, colIndex) => (
+                  <Skeleton
+                    key={`record-cell-skeleton-${rowIndex}-${colIndex}`}
+                    className="h-4 w-full"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-auto rounded-md border border-border/60">
+            <UITable className="min-w-max">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="whitespace-nowrap">Record ID</TableHead>
+                  {fields.map((field) => (
+                    <TableHead key={field.id().toString()} className="whitespace-nowrap">
+                      {field.name().toString()}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {records && records.length > 0 ? (
+                  records.map((record) => (
+                    <TableRow key={record.id}>
+                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                        {record.id}
+                      </TableCell>
+                      {fields.map((field) => {
+                        const value = record.fields[field.id().toString()];
+                        const displayValue = formatRecordValue(value);
+                        return (
+                          <TableCell
+                            key={`${record.id}-${field.id().toString()}`}
+                            className="max-w-[240px] truncate"
+                            title={displayValue}
+                          >
+                            {displayValue}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={fields.length + 1}
+                      className="text-center text-sm text-muted-foreground"
+                    >
+                      No records yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </UITable>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 type TableJsonCardProps = {
   table: TableAggregate;
   tableJson: ITableDto | null;
@@ -899,7 +1102,7 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
             variant="secondary"
             className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
           >
-            {table.fields().length} fields
+            {table.getFields().length} fields
           </Badge>
           <Badge
             variant="outline"

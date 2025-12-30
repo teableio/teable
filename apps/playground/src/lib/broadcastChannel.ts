@@ -97,7 +97,7 @@ export const useBroadcastChannelQuery = <T>(params: {
 
     const hub = hubResult.value;
     previousIdsRef.current = new Set();
-    const unsubscribe = hub.subscribeCollection(collection, (snapshots) => {
+    const unsubscribe = hub.subscribeCollection(collection, (snapshots, removedDocIds) => {
       const data = snapshots as ReadonlyArray<T>;
       const ids =
         getId != null
@@ -117,7 +117,9 @@ export const useBroadcastChannelQuery = <T>(params: {
               return [];
             });
       const nextIds = new Set(ids);
-      const removedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
+      const diffRemovedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
+      const normalizedRemovedIds = removedDocIds.filter((id) => !nextIds.has(id));
+      const removedIds = [...new Set([...diffRemovedIds, ...normalizedRemovedIds])];
       previousIdsRef.current = nextIds;
       setState({ status: 'ready', data, ids, removedIds, error: null });
     });

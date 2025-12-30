@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { Entity } from '../../shared/Entity';
 import type { TableId } from '../TableId';
 import type { RecordId } from './RecordId';
+import { RecordConditionSpecBuilder } from './specs/RecordConditionSpecBuilder';
 import { TableRecordFields, type TableRecordFieldValue } from './TableRecordFields';
 
 export class TableRecord extends Entity<RecordId> {
@@ -30,5 +31,9 @@ export class TableRecord extends Entity<RecordId> {
 
   fields(): TableRecordFields {
     return this.fieldsValue;
+  }
+
+  static specs(): RecordConditionSpecBuilder {
+    return RecordConditionSpecBuilder.create();
   }
 }

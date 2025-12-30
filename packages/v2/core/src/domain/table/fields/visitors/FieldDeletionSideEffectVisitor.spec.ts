@@ -119,7 +119,7 @@ describe('FieldDeletionSideEffectVisitor', () => {
     mutateResult._unsafeUnwrap();
 
     const updated = mutateResult._unsafeUnwrap();
-    expect(updated.fields().some((field) => field.id().equals(symmetricField.id()))).toBe(false);
+    expect(updated.getFields().some((field) => field.id().equals(symmetricField.id()))).toBe(false);
   });
 
   it('skips one-way links', () => {
