@@ -1,4 +1,5 @@
-import { join } from 'path';
+import { readFile } from 'fs/promises';
+import { join, resolve } from 'path';
 import type { OpenAIProvider } from '@ai-sdk/openai';
 import { Injectable, Logger } from '@nestjs/common';
 import { HttpErrorCode } from '@teable/core';
@@ -6,33 +7,38 @@ import { PrismaService } from '@teable/db-main-prisma';
 import type {
   ISetSettingMailTransportConfigRo,
   IChatModelAbility,
-  IChatModelAbilityType,
+  IAbilityDetail,
   ISettingVo,
   ITestLLMRo,
   ITestLLMVo,
 } from '@teable/openapi';
 import { chatModelAbilityType, UploadType } from '@teable/openapi';
-import { generateText } from 'ai';
+import { generateText, tool } from 'ai';
 import type { LanguageModel, TextPart, FilePart } from 'ai';
 import { uniq } from 'lodash';
-
-// Attachment type for AI SDK 5.0
-type IAttachment = {
-  url: string;
-  contentType?: string;
-  name?: string;
-};
 import { ClsService } from 'nestjs-cls';
+import { z } from 'zod';
 import { BaseConfig, IBaseConfig } from '../../../configs/base.config';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { getAdaptedProviderOptions, modelProviders } from '../../ai/util';
+import { AttachmentsStorageService } from '../../attachments/attachments-storage.service';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
 import { verifyTransport } from '../../mail-sender/mail-helpers';
 import { SettingService } from '../setting.service';
-import { getEmptyImageDataURL, getEmptyPDFDataURL } from './utils';
+
+const unknownErrorMsg = 'unknown error';
+
+// Test file tokens from builtin-assets-init
+const actTestImageToken = 'actTestImage';
+const actTestPdfToken = 'actTestPDF';
+// Test file paths
+const testImagePath = 'static/test/test-image.png';
+const testPdfPath = 'static/test/test-pdf.pdf';
+// Expected letter in test files
+const expectedLetter = 'k';
 
 @Injectable()
 export class SettingOpenApiService {
@@ -43,7 +49,8 @@ export class SettingOpenApiService {
     @BaseConfig() private readonly baseConfig: IBaseConfig,
     @InjectStorageAdapter() readonly storageAdapter: StorageAdapter,
     private readonly cls: ClsService<IClsStore>,
-    private readonly settingService: SettingService
+    private readonly settingService: SettingService,
+    protected readonly attachmentsStorageService: AttachmentsStorageService
   ) {}
 
   async getSetting(names?: string[]): Promise<ISettingVo> {
@@ -102,12 +109,16 @@ export class SettingOpenApiService {
     };
   }
 
-  private async testAttachments(modelInstance: LanguageModel, attachments: IAttachment[]) {
-    if (!attachments?.length) {
-      return undefined;
-    }
-
-    const testPrompt = 'Hello, please respond with "Connection successful!"';
+  /**
+   * Test attachment support with a specific data source (URL or base64)
+   */
+  private async testAttachmentWithData(
+    modelInstance: LanguageModel,
+    data: string,
+    contentType: string
+  ): Promise<boolean> {
+    const testPrompt =
+      'What letter or character do you see in this file? Please respond with just the letter.';
 
     try {
       const textPart: TextPart = {
@@ -115,28 +126,143 @@ export class SettingOpenApiService {
         text: testPrompt,
       };
 
-      const fileParts: FilePart[] = attachments.map((attachment) => ({
+      const filePart: FilePart = {
         type: 'file' as const,
-        data: attachment.url,
-        mediaType: attachment.contentType || 'application/octet-stream',
-      }));
+        data,
+        mediaType: contentType,
+      };
 
       const res = await generateText({
         model: modelInstance,
         messages: [
           {
             role: 'user',
-            content: [textPart, ...fileParts],
+            content: [textPart, filePart],
           },
         ],
-        temperature: 1,
+        temperature: 0,
       });
-      this.logger.log(`testAttachments success, attachments: ${res.text}`);
-      return true;
+
+      // Check if AI response contains the expected letter (case insensitive)
+      const responseText = res.text.toLowerCase();
+      const containsExpected = responseText.includes(expectedLetter);
+
+      this.logger.log(
+        `testAttachment result: response="${res.text}", expected="${expectedLetter}", contains=${containsExpected}`
+      );
+      return containsExpected;
     } catch (error) {
       this.logger.error(
-        `testAttachments error ${error instanceof Error ? error.message : 'unknown error'}`
+        `testAttachment error: ${error instanceof Error ? error.message : unknownErrorMsg}`
       );
+      return false;
+    }
+  }
+
+  /**
+   * Get signed URL for a test file
+   */
+  private async getTestFileSignedUrl(token: string): Promise<string | null> {
+    try {
+      const bucket = StorageAdapter.getBucket(UploadType.ChatFile);
+      const url = await this.attachmentsStorageService.getPreviewUrl(bucket, token);
+      return url || null;
+    } catch (error) {
+      this.logger.error(`Failed to get signed URL for ${token}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get base64 data URL for a test file
+   */
+  private async getTestFileBase64(filePath: string, contentType: string): Promise<string | null> {
+    try {
+      const fullPath = resolve(process.cwd(), filePath);
+      const fileBuffer = await readFile(fullPath);
+      const base64 = fileBuffer.toString('base64');
+      return `data:${contentType};base64,${base64}`;
+    } catch (error) {
+      this.logger.error(`Failed to read file for base64 ${filePath}: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * Test image or PDF support with both URL and base64 forms in parallel
+   * Returns detailed support info: { url: boolean, base64: boolean }
+   */
+  private async testAttachmentAbility(
+    modelInstance: LanguageModel,
+    token: string,
+    filePath: string,
+    contentType: string
+  ): Promise<IAbilityDetail> {
+    // Get both data sources in parallel
+    const [signedUrl, base64Data] = await Promise.all([
+      this.getTestFileSignedUrl(token),
+      this.getTestFileBase64(filePath, contentType),
+    ]);
+
+    // Run both tests in parallel
+    const [urlResult, base64Result] = await Promise.all([
+      signedUrl
+        ? this.testAttachmentWithData(modelInstance, signedUrl, contentType).then((r) => {
+            this.logger.log(`testAttachmentAbility URL test for ${token}: ${r}`);
+            return r;
+          })
+        : Promise.resolve(false),
+      base64Data
+        ? this.testAttachmentWithData(modelInstance, base64Data, contentType).then((r) => {
+            this.logger.log(`testAttachmentAbility base64 test for ${token}: ${r}`);
+            return r;
+          })
+        : Promise.resolve(false),
+    ]);
+
+    return { url: urlResult, base64: base64Result };
+  }
+
+  private async testToolCall(modelInstance: LanguageModel): Promise<boolean> {
+    try {
+      // Define tools inline with generateText for proper type inference
+      const result = await generateText({
+        model: modelInstance,
+        prompt: 'What is the weather in Tokyo? Please use the available tool.',
+        tools: {
+          get_weather: tool({
+            description: 'Get the current weather for a location',
+            inputSchema: z.object({
+              location: z.string().describe('The city name'),
+            }),
+            execute: async ({ location }) => `Weather in ${location}: Sunny, 25°C`,
+          }),
+        },
+      });
+
+      // Check multiple ways to detect tool calls
+      // 1. Check toolCalls directly on result
+      const hasDirectToolCall = result.toolCalls && result.toolCalls.length > 0;
+      // 2. Check steps for tool calls
+      const hasStepToolCall = result.steps?.some(
+        (step) => step.toolCalls && step.toolCalls.length > 0
+      );
+      // 3. Check toolResults
+      const hasToolResults = result.toolResults && result.toolResults.length > 0;
+
+      const hasToolCall = hasDirectToolCall || hasStepToolCall || hasToolResults;
+
+      this.logger.log(
+        `testToolCall result: hasDirectToolCall=${hasDirectToolCall}, hasStepToolCall=${hasStepToolCall}, hasToolResults=${hasToolResults}`
+      );
+      return hasToolCall;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : unknownErrorMsg;
+      this.logger.error(`testToolCall error: ${errorMessage}`);
+
+      // Any error during tool call test means the model cannot properly use tools
+      // Even schema errors indicate the model/provider combination is not usable for tool calling
+      this.logger.log('testToolCall: Error during test, marking as unsupported');
       return false;
     }
   }
@@ -150,40 +276,51 @@ export class SettingOpenApiService {
     }
 
     const testAbilities = uniq(ability);
-    const supportAbilities: ITestLLMRo['ability'] = [];
+    const result: IChatModelAbility = {};
+
+    // Run all tests in parallel for better performance
+    const testPromises: Promise<void>[] = [];
 
     if (testAbilities.includes(chatModelAbilityType.enum.image)) {
-      const supportImage = await this.testAttachments(modelInstance, [
-        {
-          url: getEmptyImageDataURL(),
-          contentType: 'image/png',
-          name: 'test.png',
-        },
-      ]);
-      if (supportImage) {
-        supportAbilities.push(chatModelAbilityType.enum.image);
-      }
-    }
-    if (testAbilities.includes(chatModelAbilityType.enum.pdf)) {
-      const supportPDF = await this.testAttachments(modelInstance, [
-        {
-          url: getEmptyPDFDataURL(),
-          contentType: 'application/pdf',
-          name: 'test.pdf',
-        },
-      ]);
-      if (supportPDF) {
-        supportAbilities.push(chatModelAbilityType.enum.pdf);
-      }
+      testPromises.push(
+        this.testAttachmentAbility(
+          modelInstance,
+          actTestImageToken,
+          testImagePath,
+          'image/png'
+        ).then((detail) => {
+          // Store detailed result - at least one form should work
+          result.image = detail;
+        })
+      );
     }
 
-    return supportAbilities?.reduce(
-      (acc, curr) => {
-        acc[curr] = true;
-        return acc;
-      },
-      {} as Record<IChatModelAbilityType, boolean>
-    );
+    if (testAbilities.includes(chatModelAbilityType.enum.pdf)) {
+      testPromises.push(
+        this.testAttachmentAbility(
+          modelInstance,
+          actTestPdfToken,
+          testPdfPath,
+          'application/pdf'
+        ).then((detail) => {
+          // Store detailed result - at least one form should work
+          result.pdf = detail;
+        })
+      );
+    }
+
+    if (testAbilities.includes(chatModelAbilityType.enum.toolCall)) {
+      testPromises.push(
+        this.testToolCall(modelInstance).then((supported) => {
+          result.toolCall = supported;
+        })
+      );
+    }
+
+    // Wait for all tests to complete
+    await Promise.all(testPromises);
+
+    return result;
   }
 
   private parseModelKey(modelKey: string) {
@@ -221,7 +358,7 @@ export class SettingOpenApiService {
         ability: supportAbilities,
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'unknown error';
+      const message = error instanceof Error ? error.message : unknownErrorMsg;
       throw new CustomHttpException(
         'LLM test failed with error: ' + message,
         HttpErrorCode.VALIDATION_ERROR,

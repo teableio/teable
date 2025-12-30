@@ -1,17 +1,46 @@
-import { Loader2, Image, File } from '@teable/icons';
+import { AlertTriangle, Check, Loader2, Image, File, Settings } from '@teable/icons';
 import {
   chatModelAbilityType,
   type IAIIntegrationConfig,
   type IChatModelAbility,
+  type IAbilityDetail,
 } from '@teable/openapi';
 import type { ISettingVo } from '@teable/openapi/src/admin/setting/get';
 import { ConfirmDialog } from '@teable/ui-lib/base';
-import { Button, cn } from '@teable/ui-lib/shadcn';
+import {
+  Button,
+  cn,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@teable/ui-lib/shadcn';
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
-import { Cpu, Code, Zap, Globe } from 'lucide-react';
+import { Cpu, Code, Zap } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useMemo, useState } from 'react';
 import { AIModelSelect, type IModelOption } from './AiModelSelect';
+
+// Helper to check if ability is supported (handles both boolean and detailed format)
+const isAbilitySupported = (ability: boolean | IAbilityDetail | undefined): boolean => {
+  if (typeof ability === 'boolean') return ability;
+  if (ability && typeof ability === 'object') {
+    return ability.url === true || ability.base64 === true;
+  }
+  return false;
+};
+
+// Helper to get support details for display
+const getAbilitySupportDetails = (ability: boolean | IAbilityDetail | undefined): string | null => {
+  if (typeof ability === 'boolean') return null;
+  if (ability && typeof ability === 'object') {
+    const supports: string[] = [];
+    if (ability.url) supports.push('URL');
+    if (ability.base64) supports.push('Base64');
+    return supports.length > 0 ? supports.join(', ') : null;
+  }
+  return null;
+};
 
 export const CodingModels = ({
   value,
@@ -36,11 +65,11 @@ export const CodingModels = ({
   const [pendingModel, setPendingModel] = useState<string>('');
   const [isTestingModel, setIsTestingModel] = useState(false);
 
-  const iconMap = useMemo(() => {
+  const abilityIconMap = useMemo(() => {
     return {
       image: <Image className="size-4" />,
       pdf: <File className="size-4" />,
-      webSearch: <Globe className="size-4" />,
+      toolCall: <Settings className="size-4" />,
     };
   }, []);
 
@@ -66,7 +95,8 @@ export const CodingModels = ({
     setIsTestingModel(true);
 
     try {
-      const testResult = await onTestChatModelAbility(value);
+      // Use pendingModel instead of value.lg for testing the newly selected model
+      const testResult = await onTestChatModelAbility({ ...value, lg: pendingModel });
 
       // Update model with test results
       onChange({
@@ -76,7 +106,11 @@ export const CodingModels = ({
       });
 
       // Check if image or pdf capabilities are missing and show warning toast [[memory:6422115]]
-      if (testResult && !testResult.image && !testResult.pdf) {
+      if (
+        testResult &&
+        !isAbilitySupported(testResult.image) &&
+        !isAbilitySupported(testResult.pdf)
+      ) {
         toast.warning(t('admin.setting.ai.chatModelTest.missingCapabilitiesWarning'));
       }
 
@@ -154,29 +188,160 @@ export const CodingModels = ({
     }
   };
 
+  // Check if model has missing critical abilities
+  const hasMissingAbilities = useMemo(() => {
+    if (!value?.lg || !value?.ability) return false;
+    const ability = value.ability;
+    // Model should support at least image OR pdf, AND toolCall
+    const hasVision = isAbilitySupported(ability.image) || isAbilitySupported(ability.pdf);
+    const hasToolCall = isAbilitySupported(ability.toolCall);
+    return !hasVision || !hasToolCall;
+  }, [value?.lg, value?.ability]);
+
+  const getMissingAbilitiesMessage = useMemo(() => {
+    if (!value?.ability) return null;
+    const missing: string[] = [];
+    if (!isAbilitySupported(value.ability.image) && !isAbilitySupported(value.ability.pdf)) {
+      missing.push(t('admin.setting.ai.chatModelAbility.missingVision'));
+    }
+    if (!isAbilitySupported(value.ability.toolCall)) {
+      missing.push(t('admin.setting.ai.chatModelAbility.missingToolCall'));
+    }
+    return missing;
+  }, [value?.ability, t]);
+
+  // Abilities to test and display (exclude webSearch)
+  const testableAbilities = chatModelAbilityType.options.filter((type) => type !== 'webSearch');
+
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {(['lg', 'md', 'sm'] as const).map((key) => (
+      {/* Advanced chat model (lg) - with ability test inline */}
+      <div className="relative flex flex-col gap-2">
+        <div className="flex shrink-0 items-center gap-2 truncate text-sm">
+          {icons.lg}
+          <span>{t('admin.setting.ai.chatModels.lg')}</span>
+          <div className="h-4 text-red-500">*</div>
+        </div>
+        <div className="text-left text-xs text-muted-foreground">
+          {t('admin.setting.ai.chatModels.lgDescription')}
+        </div>
+
+        <AIModelSelect
+          value={value?.lg ?? ''}
+          onValueChange={handleLgModelChange}
+          options={models}
+          className="flex-1"
+        />
+
+        {/* Model Ability Section - directly under lg model */}
+        {value?.lg && (
+          <div className="mt-2 rounded-md border bg-muted/30 p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">
+                {t('admin.setting.ai.chatModelAbility.lgModelAbility')}
+              </span>
+              <Button
+                size="xs"
+                variant="outline"
+                disabled={testChatModelAbilityLoading}
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  if (testChatModelAbilityLoading) return;
+                  const res = await testChatModelAbility(value);
+                  onChange({ ...value, ability: res || {} });
+                }}
+              >
+                {testChatModelAbilityLoading ? (
+                  <Loader2 className="mr-1 size-3 animate-spin" />
+                ) : null}
+                {t('admin.setting.ai.chatModelTest.text')}
+              </Button>
+            </div>
+
+            {/* Ability badges */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <TooltipProvider>
+                {testableAbilities.map((type) => {
+                  const abilityValue = value?.ability?.[type];
+                  const supported = isAbilitySupported(abilityValue);
+                  const supportDetails = getAbilitySupportDetails(abilityValue);
+
+                  const badge = (
+                    <div
+                      className={cn(
+                        'flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                        supported
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-muted text-muted-foreground'
+                      )}
+                    >
+                      {supported ? (
+                        <Check className="size-3" />
+                      ) : (
+                        abilityIconMap[type as keyof typeof abilityIconMap]
+                      )}
+                      <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
+                      {supportDetails && (
+                        <span className="ml-0.5 opacity-70">({supportDetails})</span>
+                      )}
+                    </div>
+                  );
+
+                  // Show tooltip with details for image/pdf
+                  if (supportDetails) {
+                    return (
+                      <Tooltip key={type}>
+                        <TooltipTrigger asChild>{badge}</TooltipTrigger>
+                        <TooltipContent>
+                          <p>
+                            {t('admin.setting.ai.chatModelAbility.supportedFormats')}:{' '}
+                            {supportDetails}
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    );
+                  }
+
+                  return <div key={type}>{badge}</div>;
+                })}
+              </TooltipProvider>
+            </div>
+
+            {/* Warning for missing abilities */}
+            {hasMissingAbilities && getMissingAbilitiesMessage && (
+              <div className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/50 bg-amber-50/50 p-2.5 dark:bg-amber-900/20">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
+                <div className="text-xs text-amber-700 dark:text-amber-400">
+                  <p className="font-medium">
+                    {t('admin.setting.ai.chatModelTest.modelNotSuitable')}
+                  </p>
+                  <ul className="mt-1 list-inside list-disc">
+                    {getMissingAbilitiesMessage.map((msg, i) => (
+                      <li key={i}>{msg}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Medium and Small chat models */}
+      {(['md', 'sm'] as const).map((key) => (
         <div key={key} className="relative flex flex-col gap-2">
           <div className="flex shrink-0 items-center gap-2 truncate text-sm">
             {icons[key]}
             <span>{t(`admin.setting.ai.chatModels.${key}`)}</span>
-            {key === 'lg' && <div className="h-4 text-red-500">*</div>}
           </div>
           <div className="text-left text-xs text-muted-foreground">
             {t(`admin.setting.ai.chatModels.${key}Description`)}
           </div>
 
           <AIModelSelect
-            key={key}
             value={value?.[key] ?? ''}
-            onValueChange={(model) => {
-              if (key === 'lg') {
-                handleLgModelChange(model);
-              } else {
-                onChange({ ...value, [key]: model });
-              }
-            }}
+            onValueChange={(model) => onChange({ ...value, [key]: model })}
             options={models}
             className="flex-1"
           />
@@ -205,62 +370,6 @@ export const CodingModels = ({
         onConfirm={handleEnableAIConfirm}
         onCancel={handleEnableAICancel}
       />
-      <div className="flex items-center gap-2">
-        <div className="flex flex-1 flex-col items-center justify-between gap-4 pt-2">
-          <div className="flex w-full shrink-0 items-center justify-between gap-2 truncate text-sm">
-            <span>{t('admin.setting.ai.chatModelAbility.lgModelAbility')}</span>
-
-            <div className="flex items-center gap-2">
-              <Button
-                size="xs"
-                className="relative ml-2 min-w-32"
-                variant="outline"
-                onClick={async (e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                  if (testChatModelAbilityLoading) {
-                    return;
-                  }
-                  const res = await testChatModelAbility(value);
-                  onChange({ ...value, ability: res || {} });
-                }}
-              >
-                {testChatModelAbilityLoading && (
-                  <Loader2 className="absolute size-4 animate-spin" />
-                )}
-                <span
-                  className={cn({
-                    'opacity-40': testChatModelAbilityLoading,
-                  })}
-                >
-                  {t(`admin.setting.ai.chatModelTest.text`)}
-                </span>
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex w-full items-center gap-2">
-            {chatModelAbilityType.options
-              .filter((type) => type !== 'webSearch')
-              .map((type) => (
-                <Button
-                  key={type}
-                  variant="outline"
-                  size="sm"
-                  className="flex w-full items-center gap-1 rounded-md border px-1 py-0.5 text-xs"
-                  disabled={!value?.ability?.[type]}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                >
-                  {iconMap[type]}
-                  <span>{t(`admin.setting.ai.chatModelAbility.${type}`)}</span>
-                </Button>
-              ))}
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

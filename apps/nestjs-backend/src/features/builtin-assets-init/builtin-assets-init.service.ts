@@ -211,6 +211,16 @@ export class BuiltinAssetsInitService implements OnModuleInit {
         filePath: ANONYMOUS_USER_AVATAR_PATH,
         uploadType: UploadType.Avatar,
       },
+      {
+        id: 'actTestImage',
+        filePath: 'static/test/test-image.png',
+        uploadType: UploadType.ChatFile,
+      },
+      {
+        id: 'actTestPDF',
+        filePath: 'static/test/test-pdf.pdf',
+        uploadType: UploadType.ChatFile,
+      },
     ];
   }
 

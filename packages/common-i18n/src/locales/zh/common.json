@@ -563,6 +563,7 @@
           "confirm": "测试模型",
           "cancel": "取消",
           "missingCapabilitiesWarning": "此模型不支持图片或PDF处理，可能会导致部分功能不可用。",
+          "modelNotSuitable": "此模型可能不适合高级 AI 功能：",
           "enableAITitle": "启用AI",
           "enableAIDescription": "模型测试已完成。AI功能当前未启用。是否启用AI来使用这些模型能力？",
           "enableAI": "启用AI",
@@ -572,8 +573,12 @@
           "image": "图片",
           "pdf": "PDF",
           "webSearch": "网络搜索",
+          "toolCall": "工具调用",
           "disabledWebSearch": "禁用网络搜索",
-          "lgModelAbility": "高级对话模型能力"
+          "lgModelAbility": "模型能力",
+          "missingVision": "不支持图片或 PDF 处理",
+          "missingToolCall": "不支持工具/函数调用",
+          "supportedFormats": "支持的格式"
         },
         "configUpdated": "AI 配置已更新",
         "noModelFound": "未找到模型",
@@ -597,7 +602,20 @@
         "modelsRequired": "请填写至少一个模型",
         "noValidModel": "未找到有效模型",
         "addCustomModel": "添加自定义模型",
-        "isOpenRouter": "OpenRouter"
+        "isOpenRouter": "OpenRouter",
+        "hint": {
+          "title": "建议",
+          "missingV1Suffix": "Base URL 可能缺少 \"/v1\" 后缀。大多数 OpenAI 兼容的 API 需要以 \"/v1\" 结尾的 URL（例如：https://api.openai.com/v1）",
+          "removeTrailingSlash": "尝试移除 Base URL 末尾的斜杠",
+          "checkApiKey": "请确认您的 API Key 正确且未过期",
+          "azureDeployment": "对于 Azure，请确保在 Base URL 中配置了正确的资源名称和部署名称",
+          "checkQuotaOrPermission": "您的 API Key 可能权限不足或配额已用完，请检查账户状态",
+          "checkModelName": "模型名称可能不正确，请确认模型名称与您的服务商支持的模型一致",
+          "checkConnection": "无法连接到服务器，请检查 Base URL 是否正确，服务器是否可访问",
+          "ollamaRunning": "请确保 Ollama 正在本地运行，可以通过 'ollama serve' 命令启动",
+          "sslCertificate": "存在 SSL 证书问题，如果使用自签名证书，可能需要额外配置",
+          "checkConfiguration": "请检查您的配置，确保 Base URL、API Key 和模型名称都正确"
+        }
       },
       "webSearch": {
         "description": "配置 Firecrawl API 密钥以启用网络搜索功能，访问 <a>Firecrawl 设置</a> 获取 API 密钥"

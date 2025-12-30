@@ -33,10 +33,19 @@ export const llmProviderSchema = z.object({
 
 export type LLMProvider = z.infer<typeof llmProviderSchema>;
 
+// Detailed ability support with URL and base64 variants
+export const abilityDetailSchema = z.object({
+  url: z.boolean().optional(),
+  base64: z.boolean().optional(),
+});
+
+export type IAbilityDetail = z.infer<typeof abilityDetailSchema>;
+
 export const chatModelAbilitySchema = z.object({
-  image: z.boolean().optional(),
-  pdf: z.boolean().optional(),
+  image: z.union([z.boolean(), abilityDetailSchema]).optional(),
+  pdf: z.union([z.boolean(), abilityDetailSchema]).optional(),
   webSearch: z.boolean().optional(),
+  toolCall: z.boolean().optional(),
 });
 
 export const chatModelAbilityType = chatModelAbilitySchema.keyof();

@@ -83,8 +83,8 @@ export class AiService {
       });
     }
 
-    const provider = Object.entries(modelProviders).find(([key]) =>
-      type.toLowerCase().includes(key.toLowerCase())
+    const provider = Object.entries(modelProviders).find(
+      ([key]) => type.toLowerCase() === key.toLowerCase()
     )?.[1];
 
     if (!provider) {

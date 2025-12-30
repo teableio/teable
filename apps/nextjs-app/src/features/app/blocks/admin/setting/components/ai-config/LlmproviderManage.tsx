@@ -62,7 +62,7 @@ export const LLMProviderManage = ({ value, onChange, onTest }: ILLMProviderManag
             </div>
           </div>
         ))}
-        <NewLLMProviderForm onAdd={handleAdd} />
+        <NewLLMProviderForm onAdd={handleAdd} onTest={onTest} />
       </div>
     </div>
   );

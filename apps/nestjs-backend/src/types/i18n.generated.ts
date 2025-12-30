@@ -739,6 +739,7 @@ export type I18nTranslations = {
                         "enableAIDescription": string;
                         "enableAI": string;
                         "skipTest": string;
+                        "modelNotSuitable": string;
                     };
                     "chatModelAbility": {
                         "image": string;
@@ -746,6 +747,10 @@ export type I18nTranslations = {
                         "webSearch": string;
                         "disabledWebSearch": string;
                         "lgModelAbility": string;
+                        "toolCall": string;
+                        "missingVision": string;
+                        "missingToolCall": string;
+                        "supportedFormats": string;
                     };
                     "configUpdated": string;
                     "noModelFound": string;
@@ -799,6 +804,19 @@ export type I18nTranslations = {
                             "title": string;
                             "description": string;
                         };
+                    };
+                    "hint": {
+                        "title": string;
+                        "missingV1Suffix": string;
+                        "removeTrailingSlash": string;
+                        "checkApiKey": string;
+                        "azureDeployment": string;
+                        "checkQuotaOrPermission": string;
+                        "checkModelName": string;
+                        "checkConnection": string;
+                        "ollamaRunning": string;
+                        "sslCertificate": string;
+                        "checkConfiguration": string;
                     };
                 };
                 "webSearch": {
@@ -2204,6 +2222,7 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
+            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;

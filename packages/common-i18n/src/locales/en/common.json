@@ -560,12 +560,13 @@
         "chatModelTest": {
           "text": "Test model",
           "description": "Test the ability of the model to handle image, pdf.",
-          "notConfigLgModel": "Please configure the lg model first",
+          "notConfigLgModel": "Please configure the advanced chat model first",
           "confirmTitle": "Test model ability",
-          "confirmDescription": "Do you want to test the large chat model's capabilities?",
+          "confirmDescription": "Do you want to test the advanced chat model's capabilities?",
           "confirm": "Test model",
           "cancel": "Cancel",
           "missingCapabilitiesWarning": "This model does not support image or PDF processing, which may cause some features to be unavailable.",
+          "modelNotSuitable": "This model may not be suitable for advanced AI features:",
           "enableAITitle": "Enable AI",
           "enableAIDescription": "Model test completed. AI is not currently enabled. Do you want to enable AI to use these model capabilities?",
           "enableAI": "Enable AI",
@@ -575,8 +576,12 @@
           "image": "Image",
           "pdf": "PDF",
           "webSearch": "Web search",
+          "toolCall": "Tool Call",
           "disabledWebSearch": "Disabled web search",
-          "lgModelAbility": "Large model ability"
+          "lgModelAbility": "Model Capabilities",
+          "missingVision": "Does not support image or PDF processing",
+          "missingToolCall": "Does not support tool/function calling",
+          "supportedFormats": "Supported formats"
         },
         "configUpdated": "AI config updated",
         "noModelFound": "No model found.",
@@ -600,7 +605,20 @@
         "modelsRequired": "Please fill in at least one model",
         "noValidModel": "No valid model found",
         "addCustomModel": "Add custom model",
-        "isOpenRouter": "OpenRouter"
+        "isOpenRouter": "OpenRouter",
+        "hint": {
+          "title": "Suggestions",
+          "missingV1Suffix": "The Base URL might be missing the \"/v1\" suffix. Most OpenAI-compatible APIs require URLs ending with \"/v1\" (e.g., https://api.openai.com/v1)",
+          "removeTrailingSlash": "Try removing the trailing slash from the Base URL",
+          "checkApiKey": "Please verify your API key is correct and has not expired",
+          "azureDeployment": "For Azure, ensure you've configured the correct resource name and deployment in the Base URL",
+          "checkQuotaOrPermission": "Your API key may have insufficient permissions or the quota has been exhausted. Please check your account status",
+          "checkModelName": "The model name might be incorrect. Please check the model name matches what your provider supports",
+          "checkConnection": "Unable to connect to the server. Please check if the Base URL is correct and the server is accessible",
+          "ollamaRunning": "Ensure Ollama is running locally. You can start it with the 'ollama serve' command",
+          "sslCertificate": "There's an SSL certificate issue. If using a self-signed certificate, you may need additional configuration",
+          "checkConfiguration": "Please check your configuration. Ensure the Base URL, API key, and model name are all correct"
+        }
       },
       "webSearch": {
         "description": "Configure Firecrawl API key to enable web search feature, access <a>Firecrawl settings</a> to get API key"

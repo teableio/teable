@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Plus } from '@teable/icons';
+import { AlertCircle, Check, Loader2, Plus } from '@teable/icons';
 import type { ITestLLMVo, LLMProvider } from '@teable/openapi/src/admin/setting';
 import { llmProviderSchema, LLMProviderType } from '@teable/openapi/src/admin/setting';
 import {
@@ -28,9 +28,108 @@ import {
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import { useTranslation } from 'next-i18next';
 import type { PropsWithChildren } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { LLM_PROVIDERS } from './constant';
+
+interface TestResult {
+  success: boolean;
+  message?: string;
+  suggestions?: string[];
+}
+
+type ErrorPattern = {
+  keywords: string[];
+  suggestion: string;
+  condition?: (ctx: { type: LLMProviderType; lowerUrl: string }) => boolean;
+};
+
+const ERROR_PATTERNS: ErrorPattern[] = [
+  {
+    keywords: ['401', 'unauthorized', 'invalid api key', 'authentication'],
+    suggestion: 'hint.checkApiKey',
+  },
+  {
+    keywords: ['401', 'unauthorized'],
+    suggestion: 'hint.azureDeployment',
+    condition: ({ type }) => type === LLMProviderType.AZURE,
+  },
+  {
+    keywords: ['403', 'forbidden', 'quota', 'rate limit'],
+    suggestion: 'hint.checkQuotaOrPermission',
+  },
+  {
+    keywords: ['econnrefused', 'enotfound', 'timeout', 'network'],
+    suggestion: 'hint.checkConnection',
+  },
+  {
+    keywords: ['econnrefused', 'enotfound'],
+    suggestion: 'hint.ollamaRunning',
+    condition: ({ type }) => type === LLMProviderType.OLLAMA,
+  },
+  {
+    keywords: ['ssl', 'certificate'],
+    suggestion: 'hint.sslCertificate',
+  },
+];
+
+function matchesKeywords(text: string, keywords: string[]): boolean {
+  return keywords.some((kw) => text.includes(kw));
+}
+
+function checkMissingV1Suffix(
+  lowerError: string,
+  lowerUrl: string,
+  type: LLMProviderType
+): string | null {
+  const is404 = matchesKeywords(lowerError, ['404', 'not found', 'invalid url']);
+  const hasV1 = lowerUrl.endsWith('/v1') || lowerUrl.endsWith('/v1/');
+  const needsV1 = type !== LLMProviderType.OLLAMA && type !== LLMProviderType.GOOGLE;
+  if (!is404 || hasV1 || !needsV1) return null;
+
+  const placeholder = LLM_PROVIDERS.find((p) => p.value === type)?.baseUrlPlaceholder;
+  return placeholder?.includes('/v1') ? 'hint.missingV1Suffix' : null;
+}
+
+function analyzeError(
+  error: string,
+  baseUrl: string,
+  type: LLMProviderType
+): { message: string; suggestions: string[] } {
+  const suggestions: string[] = [];
+  const lowerError = error.toLowerCase();
+  const lowerUrl = baseUrl.toLowerCase();
+  const ctx = { type, lowerUrl };
+
+  // Check for missing /v1 suffix
+  const v1Hint = checkMissingV1Suffix(lowerError, lowerUrl, type);
+  if (v1Hint) suggestions.push(v1Hint);
+
+  // Check for trailing slash
+  if (lowerUrl.endsWith('/') && lowerError.includes('404')) {
+    suggestions.push('hint.removeTrailingSlash');
+  }
+
+  // Check model not found
+  const isModelNotFound =
+    lowerError.includes('model') &&
+    (lowerError.includes('not found') || lowerError.includes('does not exist'));
+  if (isModelNotFound) suggestions.push('hint.checkModelName');
+
+  // Match other patterns
+  for (const pattern of ERROR_PATTERNS) {
+    const matches = matchesKeywords(lowerError, pattern.keywords);
+    const conditionMet = !pattern.condition || pattern.condition(ctx);
+    if (matches && conditionMet && !suggestions.includes(pattern.suggestion)) {
+      suggestions.push(pattern.suggestion);
+    }
+  }
+
+  // Fallback
+  if (suggestions.length === 0) suggestions.push('hint.checkConfiguration');
+
+  return { message: error, suggestions };
+}
 
 interface LLMProviderFormProps {
   value?: LLMProvider;
@@ -99,6 +198,8 @@ export const NewLLMProviderForm = ({
 export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderFormProps) => {
   const { t } = useTranslation();
   const [isTestLoading, setIsTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+  const [testPassed, setTestPassed] = useState(false);
 
   const form = useForm<LLMProvider>({
     resolver: zodResolver(llmProviderSchema),
@@ -110,6 +211,16 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
       models: '',
     },
   });
+
+  // Clear test result when form values change
+  const baseUrl = form.watch('baseUrl');
+  const apiKey = form.watch('apiKey');
+  const models = form.watch('models');
+  const formType = form.watch('type');
+  useEffect(() => {
+    setTestResult(null);
+    setTestPassed(false);
+  }, [baseUrl, apiKey, models, formType]);
 
   function onSubmit(data: LLMProvider) {
     onChange ? onChange(data) : onAdd?.(data);
@@ -124,6 +235,7 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
     if (!onTest) return;
 
     const formData = form.getValues();
+    setTestResult(null);
 
     if (
       !formData.name ||
@@ -131,17 +243,29 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
       !formData.baseUrl ||
       (!formData.apiKey && formData.type !== LLMProviderType.OLLAMA)
     ) {
-      return toast.error(t('admin.setting.ai.fillRequiredFields'));
+      setTestResult({
+        success: false,
+        message: t('admin.setting.ai.fillRequiredFields'),
+      });
+      return;
     }
 
     if (!formData.models) {
-      return toast.error(t('admin.setting.ai.modelsRequired'));
+      setTestResult({
+        success: false,
+        message: t('admin.setting.ai.modelsRequired'),
+      });
+      return;
     }
 
     const firstModel = formData.models.split(',')[0]?.trim();
 
     if (!firstModel) {
-      return toast.error(t('admin.setting.ai.noValidModel'));
+      setTestResult({
+        success: false,
+        message: t('admin.setting.ai.noValidModel'),
+      });
+      return;
     }
 
     setIsTestLoading(true);
@@ -150,15 +274,34 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
       const result = await onTest(formData as Required<LLMProvider>);
       const { success, response } = result;
 
-      success
-        ? toast.success(t('admin.setting.ai.testSuccess'))
-        : toast.error(
-            response
-              ? t('admin.setting.ai.testFailed') + '<br/>' + response
-              : t('admin.setting.ai.testFailed')
-          );
+      if (success) {
+        setTestResult(null);
+        setTestPassed(true);
+        toast.success(t('admin.setting.ai.testSuccess'));
+      } else {
+        const analysis = analyzeError(
+          response || 'Unknown error',
+          formData.baseUrl || '',
+          formData.type as LLMProviderType
+        );
+        setTestResult({
+          success: false,
+          message: analysis.message,
+          suggestions: analysis.suggestions,
+        });
+      }
     } catch (error) {
-      toast.error(t('admin.setting.ai.testFailed'));
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      const analysis = analyzeError(
+        errorMessage,
+        formData.baseUrl || '',
+        formData.type as LLMProviderType
+      );
+      setTestResult({
+        success: false,
+        message: analysis.message,
+        suggestions: analysis.suggestions,
+      });
     } finally {
       setIsTestLoading(false);
     }
@@ -271,6 +414,30 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
               </FormItem>
             )}
           />
+
+          {/* Test Error Display */}
+          {testResult && !testResult.success && (
+            <div className="space-y-2 rounded-md border bg-muted/30 p-3 text-sm">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                <p className="break-all font-medium">{testResult.message}</p>
+              </div>
+              {testResult.suggestions && testResult.suggestions.length > 0 && (
+                <div className="text-muted-foreground">
+                  {testResult.suggestions.map((suggestion, index) => {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const key = `admin.setting.ai.${suggestion}` as any;
+                    return (
+                      <p key={index} className="text-xs">
+                        💡 {t(key)}
+                      </p>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex w-full flex-row gap-2">
             {onTest && (
               <Button
@@ -278,21 +445,28 @@ export const LLMProviderForm = ({ value, onAdd, onChange, onTest }: LLMProviderF
                 onClick={handleTest}
                 disabled={isTestLoading}
                 type="button"
-                variant="outline"
+                variant={testPassed ? 'outline' : 'default'}
               >
                 {isTestLoading ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
                     {t('admin.setting.ai.testing')}
                   </>
+                ) : testPassed ? (
+                  <>
+                    <Check className="size-4 text-green-600" />
+                    {t('admin.setting.ai.testSuccess')}
+                  </>
                 ) : (
                   t('admin.setting.ai.testConnection')
                 )}
               </Button>
             )}
-            <Button className="flex-1" onClick={handleSubmit}>
-              {mode}
-            </Button>
+            {testPassed && (
+              <Button className="flex-1" onClick={handleSubmit}>
+                {mode}
+              </Button>
+            )}
           </div>
         </>
       )}
