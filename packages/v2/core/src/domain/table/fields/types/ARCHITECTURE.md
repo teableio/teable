@@ -11,6 +11,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field subtypes and value objects.
 - `AttachmentField.ts` - Role: field subtype; Purpose: attachment field entity.
+- `AutoNumberField.ts` - Role: field subtype; Purpose: system auto-number field entity.
 - `ButtonField.ts` - Role: field subtype; Purpose: button field entity.
 - `ButtonLabel.ts` - Role: value object; Purpose: button label validation.
 - `ButtonMaxCount.ts` - Role: value object; Purpose: max click count config.
@@ -18,6 +19,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `ButtonWorkflow.ts` - Role: value object; Purpose: workflow linkage config.
 - `CheckboxDefaultValue.ts` - Role: value object; Purpose: checkbox default.
 - `CheckboxField.ts` - Role: field subtype; Purpose: checkbox field entity.
+- `CreatedByField.ts` - Role: field subtype; Purpose: system created-by field entity.
+- `CreatedTimeField.ts` - Role: field subtype; Purpose: system created-time field entity.
 - `DateDefaultValue.ts` - Role: value object; Purpose: date default config.
 - `DateField.ts` - Role: field subtype; Purpose: date field entity.
 - `DateFormat.spec.ts` - Role: value object tests; Purpose: validate date formats.
@@ -29,6 +32,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `FormulaExpression.ts` - Role: value object; Purpose: formula expression parsing + type inference.
 - `FormulaField.ts` - Role: field subtype; Purpose: formula field entity.
 - `FormulaMeta.ts` - Role: value object; Purpose: formula persistence meta (rehydrated).
+- `LastModifiedByField.ts` - Role: field subtype; Purpose: system last-modified-by field entity.
+- `LastModifiedTimeField.ts` - Role: field subtype; Purpose: system last-modified-time field entity.
 - `LinkField.ts` - Role: field subtype; Purpose: link field entity.
 - `LinkField.spec.ts` - Role: field tests; Purpose: verify link field lookup behavior.
 - `LinkFieldMeta.ts` - Role: value object; Purpose: link field meta config.

@@ -1,12 +1,17 @@
 import {
   getRandomString,
   type AttachmentField,
+  type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type CreatedByField,
+  type CreatedTimeField,
   type DateField,
   type Field,
   type FormulaField,
   type IFieldVisitor,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
   type LinkField,
   type LongTextField,
   type MultipleSelectField,
@@ -20,6 +25,7 @@ import {
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { CompiledQuery, CreateTableBuilder, Kysely, QueryExecutorProvider } from 'kysely';
+import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -32,6 +38,25 @@ import {
 export type TableSchemaStatementBuilder = {
   compile: (executorProvider: QueryExecutorProvider) => CompiledQuery;
 };
+
+type TableIdentifier = {
+  schema: string | null;
+  tableName: string;
+};
+
+const buildTableIdentifier = (target: TableIdentifier) => {
+  if (!target.schema) return sql.ref(target.tableName);
+  return sql`${sql.ref(target.schema)}.${sql.ref(target.tableName)}`;
+};
+
+const addGeneratedColumnStatement = (
+  target: TableIdentifier,
+  columnName: string,
+  definition: ReturnType<typeof sql>
+): TableSchemaStatementBuilder =>
+  sql`alter table ${buildTableIdentifier(target)} add column if not exists ${sql.ref(
+    columnName
+  )} ${definition}`;
 
 type PostgresTableSchemaFieldCreateVisitorParams = {
   addColumn: (
@@ -194,8 +219,44 @@ export class PostgresTableSchemaFieldCreateVisitor
     return this.addColumnFromValueType(field);
   }
 
+  visitCreatedTimeField(
+    field: CreatedTimeField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.addGeneratedColumn(field, '__created_time', sql`timestamptz`);
+  }
+
+  visitLastModifiedTimeField(
+    field: LastModifiedTimeField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    if (!field.isTrackAll()) {
+      return this.addColumnFromValueType(field);
+    }
+    return this.addGeneratedColumn(field, '__last_modified_time', sql`timestamptz`);
+  }
+
   visitUserField(field: UserField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     return this.addColumnFromValueType(field);
+  }
+
+  visitCreatedByField(
+    field: CreatedByField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.addGeneratedColumn(field, '__created_by', sql`text`);
+  }
+
+  visitLastModifiedByField(
+    field: LastModifiedByField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    if (!field.isTrackAll()) {
+      return this.addColumnFromValueType(field);
+    }
+    return this.addGeneratedColumn(field, '__last_modified_by', sql`text`);
+  }
+
+  visitAutoNumberField(
+    field: AutoNumberField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.addGeneratedColumn(field, '__auto_number', sql`double precision`);
   }
 
   visitButtonField(field: ButtonField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
@@ -256,6 +317,28 @@ export class PostgresTableSchemaFieldCreateVisitor
       const dataType = yield* resolveColumnType(field);
       const statements = yield* params.addColumn(columnName, dataType);
       return ok(statements);
+    });
+  }
+
+  private addGeneratedColumn(
+    field: Field,
+    sourceColumn: string,
+    columnType: ReturnType<typeof sql>
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    const params = this.params;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+      const columnName = yield* resolveColumnName(field);
+      const definition = sql`${columnType} generated always as (${sql.ref(sourceColumn)}) stored`;
+      const statement = addGeneratedColumnStatement(
+        { schema: params.currentSchema, tableName: params.currentTableName },
+        columnName,
+        definition
+      );
+      const updateMeta = params.db
+        .updateTable('field')
+        .set({ meta: JSON.stringify({ persistedAsGeneratedColumn: true }) })
+        .where('id', '=', field.id().toString());
+      return ok([statement, updateMeta]);
     });
   }
 

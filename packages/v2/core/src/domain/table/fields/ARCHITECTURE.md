@@ -6,6 +6,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Field entity base, field types, and field factory.
 - Shared field abstractions and rehydrated value objects.
+- Includes system/computed fields (created time/by, last modified time/by, auto number).
 
 ## Subfolders
 

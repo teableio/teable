@@ -7,10 +7,15 @@ import type { BaseId } from '../domain/base/BaseId';
 import type { Field } from '../domain/table/fields/Field';
 import {
   createAttachmentField,
+  createAutoNumberField,
   createButtonField,
   createCheckboxField,
+  createCreatedByField,
+  createCreatedTimeField,
   createDateField,
   createFormulaField,
+  createLastModifiedByField,
+  createLastModifiedTimeField,
   createRollupFieldPending,
   createNewLinkField,
   createLongTextField,
@@ -154,6 +159,25 @@ const dateOptionsSchema = z.object({
   defaultValue: z.enum(['now']).optional(),
 });
 
+const trackedFieldIdsSchema = z.array(z.string());
+
+const createdTimeOptionsSchema = z.object({
+  formatting: dateFormattingSchema.optional(),
+});
+
+const lastModifiedTimeOptionsSchema = z.object({
+  formatting: dateFormattingSchema.optional(),
+  trackedFieldIds: trackedFieldIdsSchema.optional(),
+});
+
+const createdByOptionsSchema = z.object({});
+
+const lastModifiedByOptionsSchema = z.object({
+  trackedFieldIds: trackedFieldIdsSchema.optional(),
+});
+
+const autoNumberOptionsSchema = z.object({});
+
 const userOptionsSchema = z.object({
   isMultiple: z.boolean().optional(),
   shouldNotify: z.boolean().optional(),
@@ -282,10 +306,45 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     isPrimary: z.boolean().optional(),
   }),
   z.object({
+    type: z.literal('createdTime'),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    options: createdTimeOptionsSchema.optional(),
+    isPrimary: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('lastModifiedTime'),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    options: lastModifiedTimeOptionsSchema.optional(),
+    isPrimary: z.boolean().optional(),
+  }),
+  z.object({
     type: z.literal('user'),
     id: z.string().optional(),
     name: z.string().optional(),
     options: userOptionsSchema.optional(),
+    isPrimary: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('createdBy'),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    options: createdByOptionsSchema.optional(),
+    isPrimary: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('lastModifiedBy'),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    options: lastModifiedByOptionsSchema.optional(),
+    isPrimary: z.boolean().optional(),
+  }),
+  z.object({
+    type: z.literal('autoNumber'),
+    id: z.string().optional(),
+    name: z.string().optional(),
+    options: autoNumberOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
   }),
   z.object({
@@ -370,12 +429,22 @@ const defaultFieldName = (field: ITableFieldInput): string => {
       return 'Attachments';
     case 'date':
       return 'Date';
+    case 'createdTime':
+      return 'Created Time';
+    case 'lastModifiedTime':
+      return 'Last Modified Time';
     case 'user': {
       const isMultiple = Boolean(
         (field as { options?: { isMultiple?: boolean } }).options?.isMultiple
       );
       return isMultiple ? 'Collaborators' : 'Collaborator';
     }
+    case 'createdBy':
+      return 'Created By';
+    case 'lastModifiedBy':
+      return 'Last Modified By';
+    case 'autoNumber':
+      return 'Auto Number';
     case 'button':
       return 'Button';
     case 'formula':
@@ -1154,6 +1223,112 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateCreatedTimeFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly formatting: DateTimeFormatting | undefined
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: { isPrimary: boolean; formatting?: DateTimeFormatting }
+  ): CreateCreatedTimeFieldSpec {
+    return new CreateCreatedTimeFieldSpec(id, name, options.formatting).withPrimary(
+      options.isPrimary
+    );
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().createdTime().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.formatting) fieldBuilder.withFormatting(this.formatting);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) =>
+      createCreatedTimeField({
+        id,
+        name: this.name,
+        formatting: this.formatting,
+      })
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateCreatedTimeFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateLastModifiedTimeFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly formatting: DateTimeFormatting | undefined,
+    private readonly trackedFieldIds: ReadonlyArray<FieldId>
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      formatting?: DateTimeFormatting;
+      trackedFieldIds: ReadonlyArray<FieldId>;
+    }
+  ): CreateLastModifiedTimeFieldSpec {
+    return new CreateLastModifiedTimeFieldSpec(
+      id,
+      name,
+      options.formatting,
+      options.trackedFieldIds
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().lastModifiedTime().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.formatting) fieldBuilder.withFormatting(this.formatting);
+    if (this.trackedFieldIds.length > 0) fieldBuilder.withTrackedFieldIds(this.trackedFieldIds);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) =>
+      createLastModifiedTimeField({
+        id,
+        name: this.name,
+        formatting: this.formatting,
+        trackedFieldIds: this.trackedFieldIds,
+      })
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateLastModifiedTimeFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
 class CreateUserFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
@@ -1212,6 +1387,130 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
   private isPrimary = false;
 
   private withPrimary(isPrimary: boolean): CreateUserFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateCreatedByFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: { isPrimary: boolean }
+  ): CreateCreatedByFieldSpec {
+    return new CreateCreatedByFieldSpec(id, name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().createdBy().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) => createCreatedByField({ id, name: this.name }));
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateCreatedByFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateLastModifiedByFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly trackedFieldIds: ReadonlyArray<FieldId>
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: { isPrimary: boolean; trackedFieldIds: ReadonlyArray<FieldId> }
+  ): CreateLastModifiedByFieldSpec {
+    return new CreateLastModifiedByFieldSpec(id, name, options.trackedFieldIds).withPrimary(
+      options.isPrimary
+    );
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().lastModifiedBy().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.trackedFieldIds.length > 0) fieldBuilder.withTrackedFieldIds(this.trackedFieldIds);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) =>
+      createLastModifiedByField({
+        id,
+        name: this.name,
+        trackedFieldIds: this.trackedFieldIds,
+      })
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateLastModifiedByFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
+class CreateAutoNumberFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: { isPrimary: boolean }
+  ): CreateAutoNumberFieldSpec {
+    return new CreateAutoNumberFieldSpec(id, name).withPrimary(options.isPrimary);
+  }
+
+  applyTo(builder: TableBuilder): void {
+    const fieldBuilder = builder.field().autoNumber().withName(this.name);
+    if (this.id) fieldBuilder.withId(this.id);
+    if (this.isPrimary) fieldBuilder.primary();
+    fieldBuilder.done();
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
+    if (this.isPrimary) return err('Primary field updates are not supported');
+    return resolveFieldId(this.id).andThen((id) => createAutoNumberField({ id, name: this.name }));
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  private isPrimary = false;
+
+  private withPrimary(isPrimary: boolean): CreateAutoNumberFieldSpec {
     this.isPrimary = isPrimary;
     return this;
   }
@@ -1363,6 +1662,13 @@ const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, str
   return err('Invalid FormulaShowAs');
 };
 
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+  if (raw == null) return ok([]);
+  const parsed = trackedFieldIdsSchema.safeParse(raw);
+  if (!parsed.success) return err('Invalid trackedFieldIds');
+  return sequence(parsed.data.map((entry) => FieldId.create(entry)));
+};
+
 const resolveFieldId = (id?: FieldId): Result<FieldId, string> =>
   id ? ok(id) : FieldId.generate();
 
@@ -1505,6 +1811,25 @@ export const parseTableFieldSpec = (
             )
           )
         )
+        .with({ type: 'createdTime' }, (field) =>
+          optional(field.options?.formatting, DateTimeFormatting.create).map((formatting) =>
+            CreateCreatedTimeFieldSpec.create(id, name, {
+              isPrimary: options.isPrimary,
+              formatting,
+            })
+          )
+        )
+        .with({ type: 'lastModifiedTime' }, (field) =>
+          optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+            parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
+              CreateLastModifiedTimeFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                formatting,
+                trackedFieldIds,
+              })
+            )
+          )
+        )
         .with({ type: 'user' }, (field) =>
           optional(field.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
             optional(field.options?.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
@@ -1517,6 +1842,28 @@ export const parseTableFieldSpec = (
                 })
               )
             )
+          )
+        )
+        .with({ type: 'createdBy' }, () =>
+          ok(
+            CreateCreatedByFieldSpec.create(id, name, {
+              isPrimary: options.isPrimary,
+            })
+          )
+        )
+        .with({ type: 'lastModifiedBy' }, (field) =>
+          parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
+            CreateLastModifiedByFieldSpec.create(id, name, {
+              isPrimary: options.isPrimary,
+              trackedFieldIds,
+            })
+          )
+        )
+        .with({ type: 'autoNumber' }, () =>
+          ok(
+            CreateAutoNumberFieldSpec.create(id, name, {
+              isPrimary: options.isPrimary,
+            })
           )
         )
         .with({ type: 'button' }, (field) =>

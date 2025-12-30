@@ -14,7 +14,12 @@ export class FieldIsUserSpec implements ISpecification<Field, ISpecVisitor> {
   }
 
   isSatisfiedBy(field: Field): boolean {
-    return field.type().equals(FieldType.user());
+    const type = field.type();
+    return (
+      type.equals(FieldType.user()) ||
+      type.equals(FieldType.createdBy()) ||
+      type.equals(FieldType.lastModifiedBy())
+    );
   }
 
   mutate(field: Field): Result<Field, string> {

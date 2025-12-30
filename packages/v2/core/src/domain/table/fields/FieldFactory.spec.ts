@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import {
   createAttachmentField,
+  createAutoNumberField,
   createButtonField,
   createCheckboxField,
+  createCreatedByField,
+  createCreatedTimeField,
   createDateField,
   createFormulaField,
+  createLastModifiedByField,
+  createLastModifiedTimeField,
   createLinkField,
   createLongTextField,
   createMultipleSelectField,
@@ -292,6 +297,25 @@ describe('FieldFactory', () => {
 
     expect(dateField.value.type().toString()).toBe('date');
 
+    const createdTimeField = createCreatedTimeField({
+      id,
+      name,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+    });
+    createdTimeField._unsafeUnwrap();
+
+    expect(createdTimeField.value.type().toString()).toBe('createdTime');
+
+    const lastModifiedTimeField = createLastModifiedTimeField({
+      id,
+      name,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+      trackedFieldIds: [id],
+    });
+    lastModifiedTimeField._unsafeUnwrap();
+
+    expect(lastModifiedTimeField.value.type().toString()).toBe('lastModifiedTime');
+
     const userField = createUserField({
       id,
       name,
@@ -302,6 +326,21 @@ describe('FieldFactory', () => {
     userField._unsafeUnwrap();
 
     expect(userField.value.type().toString()).toBe('user');
+
+    const createdByField = createCreatedByField({ id, name });
+    createdByField._unsafeUnwrap();
+
+    expect(createdByField.value.type().toString()).toBe('createdBy');
+
+    const lastModifiedByField = createLastModifiedByField({ id, name, trackedFieldIds: [id] });
+    lastModifiedByField._unsafeUnwrap();
+
+    expect(lastModifiedByField.value.type().toString()).toBe('lastModifiedBy');
+
+    const autoNumberField = createAutoNumberField({ id, name });
+    autoNumberField._unsafeUnwrap();
+
+    expect(autoNumberField.value.type().toString()).toBe('autoNumber');
 
     const buttonField = createButtonField({
       id,

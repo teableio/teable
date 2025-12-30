@@ -1,12 +1,17 @@
 import type {
   AttachmentField,
+  AutoNumberField,
   ButtonField,
   CheckboxField,
+  CreatedByField,
+  CreatedTimeField,
   DateField,
   Field,
   FieldId,
   FormulaField,
   IFieldVisitor,
+  LastModifiedByField,
+  LastModifiedTimeField,
   LinkField,
   LongTextField,
   MultipleSelectField,
@@ -100,7 +105,27 @@ export class TableRecordSelectColumnsVisitor implements IFieldVisitor<FieldColum
     return this.addFieldColumn(field);
   }
 
+  visitCreatedTimeField(field: CreatedTimeField): Result<FieldColumn, string> {
+    return this.addFieldColumn(field);
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<FieldColumn, string> {
+    return this.addFieldColumn(field);
+  }
+
   visitUserField(field: UserField): Result<FieldColumn, string> {
+    return this.addFieldColumn(field);
+  }
+
+  visitCreatedByField(field: CreatedByField): Result<FieldColumn, string> {
+    return this.addFieldColumn(field);
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<FieldColumn, string> {
+    return this.addFieldColumn(field);
+  }
+
+  visitAutoNumberField(field: AutoNumberField): Result<FieldColumn, string> {
     return this.addFieldColumn(field);
   }
 

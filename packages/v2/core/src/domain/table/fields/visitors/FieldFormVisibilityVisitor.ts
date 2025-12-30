@@ -2,10 +2,15 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -62,8 +67,28 @@ export class FieldFormVisibilityVisitor implements IFieldVisitor<boolean> {
     return ok(true);
   }
 
+  visitCreatedTimeField(_: CreatedTimeField): Result<boolean, string> {
+    return ok(false);
+  }
+
+  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<boolean, string> {
+    return ok(false);
+  }
+
   visitUserField(_: UserField): Result<boolean, string> {
     return ok(true);
+  }
+
+  visitCreatedByField(_: CreatedByField): Result<boolean, string> {
+    return ok(false);
+  }
+
+  visitLastModifiedByField(_: LastModifiedByField): Result<boolean, string> {
+    return ok(false);
+  }
+
+  visitAutoNumberField(_: AutoNumberField): Result<boolean, string> {
+    return ok(false);
   }
 
   visitButtonField(_: ButtonField): Result<boolean, string> {

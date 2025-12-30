@@ -40,14 +40,19 @@ import {
   ViewId,
   ViewName,
   createAttachmentField,
+  createAutoNumberField,
   createButtonField,
   createCalendarView,
   createCheckboxField,
+  createCreatedByField,
+  createCreatedTimeField,
   createDateField,
   createFormView,
   createGalleryView,
   createGridView,
   createKanbanView,
+  createLastModifiedByField,
+  createLastModifiedTimeField,
   createLinkField,
   createLongTextField,
   createMultipleSelectField,
@@ -99,6 +104,12 @@ const parseFormulaShowAs = (
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
   return err('Invalid FormulaShowAs');
+};
+
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+  if (raw == null) return ok([]);
+  if (!Array.isArray(raw)) return err('Invalid trackedFieldIds');
+  return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
 const applyDbFieldName = (field: Field, dbFieldName?: string): Result<Field, string> => {
@@ -259,6 +270,19 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
                 )
             );
           }
+          case 'createdTime': {
+            return optional(dto.options?.formatting, DateTimeFormatting.create).andThen(
+              (formatting) => createCreatedTimeField({ id, name, formatting })
+            );
+          }
+          case 'lastModifiedTime': {
+            return optional(dto.options?.formatting, DateTimeFormatting.create).andThen(
+              (formatting) =>
+                parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
+                  createLastModifiedTimeField({ id, name, formatting, trackedFieldIds })
+                )
+            );
+          }
           case 'user': {
             return optional(dto.options?.isMultiple, UserMultiplicity.create).andThen(
               (isMultiple) =>
@@ -270,6 +294,17 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
                     )
                 )
             );
+          }
+          case 'createdBy': {
+            return createCreatedByField({ id, name });
+          }
+          case 'lastModifiedBy': {
+            return parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
+              createLastModifiedByField({ id, name, trackedFieldIds })
+            );
+          }
+          case 'autoNumber': {
+            return createAutoNumberField({ id, name });
           }
           case 'button': {
             const options = dto.options;

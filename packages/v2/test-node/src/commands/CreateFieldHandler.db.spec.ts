@@ -103,6 +103,13 @@ describe('CreateFieldHandler (db)', () => {
     const checkboxFieldId = FieldId.mustGenerate().toString();
     const multiSelectFieldId = FieldId.mustGenerate().toString();
     const formulaFieldId = FieldId.mustGenerate().toString();
+    const createdTimeFieldId = FieldId.mustGenerate().toString();
+    const createdTimeFieldId2 = FieldId.mustGenerate().toString();
+    const lastModifiedTimeFieldId = FieldId.mustGenerate().toString();
+    const createdByFieldId = FieldId.mustGenerate().toString();
+    const lastModifiedByFieldId = FieldId.mustGenerate().toString();
+    const autoNumberFieldId = FieldId.mustGenerate().toString();
+    const dateFormatting = { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' } as const;
 
     const fieldCommands = [
       {
@@ -144,6 +151,49 @@ describe('CreateFieldHandler (db)', () => {
           showAs: { type: 'bar', color: 'red', showValue: true, maxValue: 100 },
         },
       },
+      {
+        type: 'createdTime',
+        id: createdTimeFieldId,
+        name: 'Created Time',
+        options: {
+          formatting: dateFormatting,
+        },
+      },
+      {
+        type: 'createdTime',
+        id: createdTimeFieldId2,
+        name: 'Created Time 2',
+        options: {
+          formatting: dateFormatting,
+        },
+      },
+      {
+        type: 'lastModifiedTime',
+        id: lastModifiedTimeFieldId,
+        name: 'Last Modified Time',
+        options: {
+          formatting: dateFormatting,
+          trackedFieldIds: [numberFieldId],
+        },
+      },
+      {
+        type: 'createdBy',
+        id: createdByFieldId,
+        name: 'Created By',
+      },
+      {
+        type: 'lastModifiedBy',
+        id: lastModifiedByFieldId,
+        name: 'Last Modified By',
+        options: {
+          trackedFieldIds: [checkboxFieldId],
+        },
+      },
+      {
+        type: 'autoNumber',
+        id: autoNumberFieldId,
+        name: 'Auto Number',
+      },
     ];
 
     let latestTable = createdTable;
@@ -175,12 +225,25 @@ describe('CreateFieldHandler (db)', () => {
         'db_field_name',
         'is_computed',
         'options',
+        'meta',
         'table_id',
       ])
-      .where('id', 'in', [numberFieldId, checkboxFieldId, multiSelectFieldId, formulaFieldId])
+      .where('id', 'in', [
+        numberFieldId,
+        checkboxFieldId,
+        multiSelectFieldId,
+        formulaFieldId,
+        createdTimeFieldId,
+        lastModifiedTimeFieldId,
+        createdByFieldId,
+        lastModifiedByFieldId,
+        autoNumberFieldId,
+      ])
       .execute();
 
     const rowById = new Map(rows.map((row) => [row.id, row] as const));
+    const parseMeta = (row: (typeof rows)[number]) =>
+      row.meta ? (JSON.parse(row.meta) as { persistedAsGeneratedColumn?: boolean }) : undefined;
 
     const numberRow = rowById.get(numberFieldId);
     expect(numberRow).toBeTruthy();
@@ -237,6 +300,92 @@ describe('CreateFieldHandler (db)', () => {
       timeZone: 'utc',
       formatting: { type: 'decimal', precision: 1 },
       showAs: { type: 'bar', color: 'red', showValue: true, maxValue: 100 },
+    });
+
+    const createdTimeRow = rowById.get(createdTimeFieldId);
+    expect(createdTimeRow).toBeTruthy();
+    if (!createdTimeRow) return;
+    expect(createdTimeRow.type).toBe('createdTime');
+    expect(createdTimeRow.cell_value_type).toBe('dateTime');
+    expect(createdTimeRow.is_multiple_cell_value).toBe(false);
+    expect(createdTimeRow.db_field_type).toBe('DATETIME');
+    expect(createdTimeRow.is_computed).toBe(true);
+    expect(createdTimeRow.db_field_name).toBe('Created_Time');
+    expect(parseMeta(createdTimeRow)?.persistedAsGeneratedColumn).toBe(true);
+    expect(JSON.parse(createdTimeRow.options ?? '')).toEqual({
+      expression: 'CREATED_TIME()',
+      formatting: dateFormatting,
+    });
+
+    const createdTimeRow2 = rowById.get(createdTimeFieldId2);
+    expect(createdTimeRow2).toBeTruthy();
+    if (!createdTimeRow2) return;
+    expect(createdTimeRow2.type).toBe('createdTime');
+    expect(createdTimeRow2.cell_value_type).toBe('dateTime');
+    expect(createdTimeRow2.is_multiple_cell_value).toBe(false);
+    expect(createdTimeRow2.db_field_type).toBe('DATETIME');
+    expect(createdTimeRow2.is_computed).toBe(true);
+    expect(createdTimeRow2.db_field_name).toBe('Created_Time_2');
+    expect(parseMeta(createdTimeRow2)?.persistedAsGeneratedColumn).toBe(true);
+    expect(JSON.parse(createdTimeRow2.options ?? '')).toEqual({
+      expression: 'CREATED_TIME()',
+      formatting: dateFormatting,
+    });
+
+    const lastModifiedTimeRow = rowById.get(lastModifiedTimeFieldId);
+    expect(lastModifiedTimeRow).toBeTruthy();
+    if (!lastModifiedTimeRow) return;
+    expect(lastModifiedTimeRow.type).toBe('lastModifiedTime');
+    expect(lastModifiedTimeRow.cell_value_type).toBe('dateTime');
+    expect(lastModifiedTimeRow.is_multiple_cell_value).toBe(false);
+    expect(lastModifiedTimeRow.db_field_type).toBe('DATETIME');
+    expect(lastModifiedTimeRow.is_computed).toBe(true);
+    expect(lastModifiedTimeRow.db_field_name).toBe('Last_Modified_Time');
+    expect(parseMeta(lastModifiedTimeRow)?.persistedAsGeneratedColumn).not.toBe(true);
+    expect(JSON.parse(lastModifiedTimeRow.options ?? '')).toEqual({
+      expression: 'LAST_MODIFIED_TIME()',
+      formatting: dateFormatting,
+      trackedFieldIds: [numberFieldId],
+    });
+
+    const createdByRow = rowById.get(createdByFieldId);
+    expect(createdByRow).toBeTruthy();
+    if (!createdByRow) return;
+    expect(createdByRow.type).toBe('createdBy');
+    expect(createdByRow.cell_value_type).toBe('string');
+    expect(createdByRow.is_multiple_cell_value).toBe(false);
+    expect(createdByRow.db_field_type).toBe('TEXT');
+    expect(createdByRow.is_computed).toBe(true);
+    expect(createdByRow.db_field_name).toBe('Created_By');
+    expect(parseMeta(createdByRow)?.persistedAsGeneratedColumn).toBe(true);
+    expect(JSON.parse(createdByRow.options ?? '')).toEqual({});
+
+    const lastModifiedByRow = rowById.get(lastModifiedByFieldId);
+    expect(lastModifiedByRow).toBeTruthy();
+    if (!lastModifiedByRow) return;
+    expect(lastModifiedByRow.type).toBe('lastModifiedBy');
+    expect(lastModifiedByRow.cell_value_type).toBe('string');
+    expect(lastModifiedByRow.is_multiple_cell_value).toBe(false);
+    expect(lastModifiedByRow.db_field_type).toBe('TEXT');
+    expect(lastModifiedByRow.is_computed).toBe(true);
+    expect(lastModifiedByRow.db_field_name).toBe('Last_Modified_By');
+    expect(parseMeta(lastModifiedByRow)?.persistedAsGeneratedColumn).not.toBe(true);
+    expect(JSON.parse(lastModifiedByRow.options ?? '')).toEqual({
+      trackedFieldIds: [checkboxFieldId],
+    });
+
+    const autoNumberRow = rowById.get(autoNumberFieldId);
+    expect(autoNumberRow).toBeTruthy();
+    if (!autoNumberRow) return;
+    expect(autoNumberRow.type).toBe('autoNumber');
+    expect(autoNumberRow.cell_value_type).toBe('number');
+    expect(autoNumberRow.is_multiple_cell_value).toBe(false);
+    expect(autoNumberRow.db_field_type).toBe('REAL');
+    expect(autoNumberRow.is_computed).toBe(true);
+    expect(autoNumberRow.db_field_name).toBe('Auto_Number');
+    expect(parseMeta(autoNumberRow)?.persistedAsGeneratedColumn).toBe(true);
+    expect(JSON.parse(autoNumberRow.options ?? '')).toEqual({
+      expression: 'AUTO_NUMBER()',
     });
 
     const metaRow = await db

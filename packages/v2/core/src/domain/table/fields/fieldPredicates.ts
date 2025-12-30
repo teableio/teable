@@ -1,6 +1,7 @@
 import type { Field } from './Field';
 import { FieldType } from './FieldType';
 import type { AttachmentField } from './types/AttachmentField';
+import type { AutoNumberField } from './types/AutoNumberField';
 import type { ButtonField } from './types/ButtonField';
 import type { CheckboxField } from './types/CheckboxField';
 import type { DateField } from './types/DateField';
@@ -19,8 +20,12 @@ export function isRollupField(f: Field): f is RollupField {
   return f.type().equals(FieldType.rollup());
 }
 
-export function isNumericField(f: Field): f is NumberField | RatingField {
-  return f.type().equals(FieldType.number()) || f.type().equals(FieldType.rating());
+export function isNumericField(f: Field): f is NumberField | RatingField | AutoNumberField {
+  return (
+    f.type().equals(FieldType.number()) ||
+    f.type().equals(FieldType.rating()) ||
+    f.type().equals(FieldType.autoNumber())
+  );
 }
 
 export function isDateField(f: Field): f is DateField {

@@ -50,9 +50,36 @@ export type ICheckboxFieldOptionsDTO = {
   defaultValue?: boolean;
 };
 
+export type IDateTimeFormattingDTO = {
+  date: string;
+  time: string;
+  timeZone: string;
+};
+
 export type IDateFieldOptionsDTO = {
-  formatting?: { date: string; time: string; timeZone: string };
+  formatting?: IDateTimeFormattingDTO;
   defaultValue?: 'now';
+};
+
+export type ICreatedTimeFieldOptionsDTO = {
+  expression?: string;
+  formatting?: IDateTimeFormattingDTO;
+};
+
+export type ILastModifiedTimeFieldOptionsDTO = {
+  expression?: string;
+  formatting?: IDateTimeFormattingDTO;
+  trackedFieldIds?: ReadonlyArray<string>;
+};
+
+export type ICreatedByFieldOptionsDTO = Record<string, never>;
+
+export type ILastModifiedByFieldOptionsDTO = {
+  trackedFieldIds?: ReadonlyArray<string>;
+};
+
+export type IAutoNumberFieldOptionsDTO = {
+  expression?: string;
 };
 
 export type IUserFieldOptionsDTO = {
@@ -165,7 +192,15 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'checkbox'; options?: ICheckboxFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'attachment'; options?: Record<string, never> })
   | (ITableFieldBaseDTO & { type: 'date'; options?: IDateFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'createdTime'; options?: ICreatedTimeFieldOptionsDTO })
+  | (ITableFieldBaseDTO & {
+      type: 'lastModifiedTime';
+      options?: ILastModifiedTimeFieldOptionsDTO;
+    })
   | (ITableFieldBaseDTO & { type: 'user'; options?: IUserFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'createdBy'; options?: ICreatedByFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'lastModifiedBy'; options?: ILastModifiedByFieldOptionsDTO })
+  | (ITableFieldBaseDTO & { type: 'autoNumber'; options?: IAutoNumberFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'button'; options?: IButtonFieldOptionsDTO })
   | (ITableFieldBaseDTO & {
       type: 'link';

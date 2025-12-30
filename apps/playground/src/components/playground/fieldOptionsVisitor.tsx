@@ -2,11 +2,16 @@ import type { ReactNode } from 'react';
 import {
   ok,
   type AttachmentField,
+  type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type CreatedByField,
+  type CreatedTimeField,
   type DateField,
   type Field,
   type IFieldVisitor,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
   type LinkField,
   type LongTextField,
   type MultipleSelectField,
@@ -187,12 +192,62 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     return ok(formatTokens(tokens));
   }
 
+  visitCreatedTimeField(field: CreatedTimeField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    const formatting = field.formatting();
+    pushToken(tokens, 'date', formatting.date());
+    pushToken(tokens, 'time', formatting.time());
+    pushToken(tokens, 'tz', formatting.timeZone().toString());
+    pushToken(tokens, 'expr', field.expression().toString());
+    return ok(formatTokens(tokens));
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    const formatting = field.formatting();
+    pushToken(tokens, 'date', formatting.date());
+    pushToken(tokens, 'time', formatting.time());
+    pushToken(tokens, 'tz', formatting.timeZone().toString());
+    pushToken(tokens, 'expr', field.expression().toString());
+    const trackedFieldIds = field.trackedFieldIds();
+    if (trackedFieldIds.length > 0) {
+      pushToken(tokens, 'tracked', trackedFieldIds.length);
+    } else {
+      pushToken(tokens, 'tracked', 'all');
+    }
+    return ok(formatTokens(tokens));
+  }
+
   visitUserField(field: UserField): Result<ReactNode, string> {
     const tokens: string[] = [];
     pushToken(tokens, 'mode', field.multiplicity().toBoolean() ? 'multiple' : 'single');
     pushToken(tokens, 'notify', field.notification().toBoolean());
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', formatDefaultValue(defaultValue.toDto()));
+    return ok(formatTokens(tokens));
+  }
+
+  visitCreatedByField(_field: CreatedByField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'system', 'created');
+    return ok(formatTokens(tokens));
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'system', 'modified');
+    const trackedFieldIds = field.trackedFieldIds();
+    if (trackedFieldIds.length > 0) {
+      pushToken(tokens, 'tracked', trackedFieldIds.length);
+    } else {
+      pushToken(tokens, 'tracked', 'all');
+    }
+    return ok(formatTokens(tokens));
+  }
+
+  visitAutoNumberField(_field: AutoNumberField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'system', 'auto');
     return ok(formatTokens(tokens));
   }
 

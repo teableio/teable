@@ -46,7 +46,22 @@ export function FieldFormOptions({
           <p className="text-xs text-muted-foreground">No options for attachment.</p>
         ))
         .with('date', () => <DateOptions form={form} />)
+        .with('createdTime', () => (
+          <p className="text-xs text-muted-foreground">No options for created time.</p>
+        ))
+        .with('lastModifiedTime', () => (
+          <p className="text-xs text-muted-foreground">No options for last modified time.</p>
+        ))
         .with('user', () => <UserOptions form={form} />)
+        .with('createdBy', () => (
+          <p className="text-xs text-muted-foreground">No options for created by.</p>
+        ))
+        .with('lastModifiedBy', () => (
+          <p className="text-xs text-muted-foreground">No options for last modified by.</p>
+        ))
+        .with('autoNumber', () => (
+          <p className="text-xs text-muted-foreground">No options for auto number.</p>
+        ))
         .with('button', () => <ButtonOptions form={form} />)
         .with('formula', () => <FormulaOptions form={form} />)
         .with('link', () => (

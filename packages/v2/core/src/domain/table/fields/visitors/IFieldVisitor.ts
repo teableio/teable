@@ -1,10 +1,15 @@
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -27,7 +32,12 @@ export interface IFieldVisitor<T = void> {
   visitCheckboxField(field: CheckboxField): Result<T, string>;
   visitAttachmentField(field: AttachmentField): Result<T, string>;
   visitDateField(field: DateField): Result<T, string>;
+  visitCreatedTimeField(field: CreatedTimeField): Result<T, string>;
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<T, string>;
   visitUserField(field: UserField): Result<T, string>;
+  visitCreatedByField(field: CreatedByField): Result<T, string>;
+  visitLastModifiedByField(field: LastModifiedByField): Result<T, string>;
+  visitAutoNumberField(field: AutoNumberField): Result<T, string>;
   visitButtonField(field: ButtonField): Result<T, string>;
   visitLinkField(field: LinkField): Result<T, string>;
 }

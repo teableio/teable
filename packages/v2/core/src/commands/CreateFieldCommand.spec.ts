@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
+import { AutoNumberField } from '../domain/table/fields/types/AutoNumberField';
 import { ButtonField } from '../domain/table/fields/types/ButtonField';
 import { CheckboxField } from '../domain/table/fields/types/CheckboxField';
+import { CreatedByField } from '../domain/table/fields/types/CreatedByField';
+import { CreatedTimeField } from '../domain/table/fields/types/CreatedTimeField';
 import { DateField } from '../domain/table/fields/types/DateField';
 import { FormulaField } from '../domain/table/fields/types/FormulaField';
+import { LastModifiedByField } from '../domain/table/fields/types/LastModifiedByField';
+import { LastModifiedTimeField } from '../domain/table/fields/types/LastModifiedTimeField';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { LongTextField } from '../domain/table/fields/types/LongTextField';
 import { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
@@ -135,6 +140,17 @@ describe('CreateFieldCommand', () => {
       },
       {
         field: {
+          type: 'autoNumber',
+          name: 'Auto Number',
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(AutoNumberField);
+          const typed = field as AutoNumberField;
+          expect(typed.expression().toString()).toBe('AUTO_NUMBER()');
+        },
+      },
+      {
+        field: {
           type: 'rating',
           name: 'Priority',
           options: { max: 7, icon: 'star', color: 'yellowBright' },
@@ -236,6 +252,46 @@ describe('CreateFieldCommand', () => {
       },
       {
         field: {
+          type: 'createdTime',
+          name: 'Created Time',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(CreatedTimeField);
+          const typed = field as CreatedTimeField;
+          expect(typed.formatting().toDto()).toEqual({
+            date: 'YYYY-MM-DD',
+            time: 'HH:mm',
+            timeZone: 'utc',
+          });
+          expect(typed.expression().toString()).toBe('CREATED_TIME()');
+        },
+      },
+      {
+        field: {
+          type: 'lastModifiedTime',
+          name: 'Last Modified Time',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            trackedFieldIds: [`fld${'t'.repeat(16)}`],
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LastModifiedTimeField);
+          const typed = field as LastModifiedTimeField;
+          expect(typed.formatting().toDto()).toEqual({
+            date: 'YYYY-MM-DD',
+            time: 'HH:mm',
+            timeZone: 'utc',
+          });
+          expect(typed.trackedFieldIds().length).toBe(1);
+          expect(typed.expression().toString()).toBe('LAST_MODIFIED_TIME()');
+        },
+      },
+      {
+        field: {
           type: 'user',
           name: 'Owner',
           options: {
@@ -250,6 +306,29 @@ describe('CreateFieldCommand', () => {
           expect(typed.multiplicity().toBoolean()).toBe(true);
           expect(typed.notification().toBoolean()).toBe(false);
           expect(typed.defaultValue()?.toDto()).toEqual(['usr1', 'usr2']);
+        },
+      },
+      {
+        field: {
+          type: 'createdBy',
+          name: 'Created By',
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(CreatedByField);
+        },
+      },
+      {
+        field: {
+          type: 'lastModifiedBy',
+          name: 'Last Modified By',
+          options: {
+            trackedFieldIds: [`fld${'m'.repeat(16)}`],
+          },
+        },
+        assert: (field: unknown) => {
+          expect(field).toBeInstanceOf(LastModifiedByField);
+          const typed = field as LastModifiedByField;
+          expect(typed.trackedFieldIds().length).toBe(1);
         },
       },
       {

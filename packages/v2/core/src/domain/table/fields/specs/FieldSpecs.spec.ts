@@ -8,10 +8,15 @@ import { TableId } from '../../TableId';
 import { Field } from '../Field';
 import {
   createAttachmentField,
+  createAutoNumberField,
   createButtonField,
   createCheckboxField,
+  createCreatedByField,
+  createCreatedTimeField,
   createDateField,
   createFormulaField,
+  createLastModifiedByField,
+  createLastModifiedTimeField,
   createLinkField,
   createLongTextField,
   createMultipleSelectField,
@@ -128,9 +133,31 @@ const buildFields = () => {
     id: createFieldId('m'),
     name: createFieldName('Date'),
   })._unsafeUnwrap();
+  const createdTime = createCreatedTimeField({
+    id: createFieldId('m1'),
+    name: createFieldName('Created Time'),
+  })._unsafeUnwrap();
+  const lastModifiedTime = createLastModifiedTimeField({
+    id: createFieldId('m2'),
+    name: createFieldName('Last Modified Time'),
+    trackedFieldIds: [],
+  })._unsafeUnwrap();
   const user = createUserField({
     id: createFieldId('n'),
     name: createFieldName('User'),
+  })._unsafeUnwrap();
+  const createdBy = createCreatedByField({
+    id: createFieldId('n1'),
+    name: createFieldName('Created By'),
+  })._unsafeUnwrap();
+  const lastModifiedBy = createLastModifiedByField({
+    id: createFieldId('n2'),
+    name: createFieldName('Last Modified By'),
+    trackedFieldIds: [],
+  })._unsafeUnwrap();
+  const autoNumber = createAutoNumberField({
+    id: createFieldId('n3'),
+    name: createFieldName('Auto Number'),
   })._unsafeUnwrap();
   const button = createButtonField({
     id: createFieldId('o'),
@@ -159,7 +186,12 @@ const buildFields = () => {
     checkbox,
     attachment,
     date,
+    createdTime,
+    lastModifiedTime,
     user,
+    createdBy,
+    lastModifiedBy,
+    autoNumber,
     button,
     link,
   };
@@ -306,17 +338,21 @@ describe('Field specs', () => {
     const numberField = FieldIsNumberFieldSpec.create();
     expect(numberField.isSatisfiedBy(fields.number)).toBe(true);
     expect(numberField.isSatisfiedBy(fields.rating)).toBe(true);
+    expect(numberField.isSatisfiedBy(fields.autoNumber)).toBe(true);
     expect(numberField.isSatisfiedBy(fields.singleText)).toBe(false);
     assertBuilder((builder) => builder.isNumberField(), fields.number, fields.singleText);
 
     const numberLike = FieldIsNumberLikeSpec.create();
     expect(numberLike.isSatisfiedBy(fields.number)).toBe(true);
     expect(numberLike.isSatisfiedBy(fields.rating)).toBe(true);
+    expect(numberLike.isSatisfiedBy(fields.autoNumber)).toBe(true);
     expect(numberLike.isSatisfiedBy(fields.date)).toBe(false);
     assertBuilder((builder) => builder.isNumberLike(), fields.number, fields.date);
 
     const dateLike = FieldIsDateLikeSpec.create();
     expect(dateLike.isSatisfiedBy(fields.date)).toBe(true);
+    expect(dateLike.isSatisfiedBy(fields.createdTime)).toBe(true);
+    expect(dateLike.isSatisfiedBy(fields.lastModifiedTime)).toBe(true);
     expect(dateLike.isSatisfiedBy(fields.number)).toBe(false);
     assertBuilder((builder) => builder.isDateLike(), fields.date, fields.number);
   });

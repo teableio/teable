@@ -1,12 +1,17 @@
 import { Field, FieldValueTypeVisitor } from '@teable/v2-core';
 import type {
   AttachmentField,
+  AutoNumberField,
   ButtonField,
   CheckboxField,
+  CreatedByField,
+  CreatedTimeField,
   DateField,
   IFieldVisitor,
   LinkField,
   LongTextField,
+  LastModifiedByField,
+  LastModifiedTimeField,
   MultipleSelectField,
   NumberField,
   RatingField,
@@ -104,7 +109,27 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
     return this.setTypeFromValueType(field);
   }
 
+  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
   visitUserField(field: UserField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitCreatedByField(field: CreatedByField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldStorageType, string> {
+    return this.setTypeFromValueType(field);
+  }
+
+  visitAutoNumberField(field: AutoNumberField): Result<IFieldStorageType, string> {
     return this.setTypeFromValueType(field);
   }
 

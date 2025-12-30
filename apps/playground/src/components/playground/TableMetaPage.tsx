@@ -1,9 +1,28 @@
 import { mapTableToDto, type ITableDto, type ITableRecordDto } from '@teable/v2-contract-http';
 import type {
+  AutoNumberField,
+  ButtonField,
+  CreatedByField,
+  CreatedTimeField,
+  DateField,
+  DateTimeFormatting,
   Field,
+  FormulaField,
   ITableFieldPersistenceDTO,
   ITablePersistenceDTO,
+  LastModifiedByField,
+  LastModifiedTimeField,
+  LinkField,
+  MultipleSelectField,
+  NumberField,
+  NumberFormatting,
+  RatingField,
+  RollupField,
+  SelectOption,
+  SingleLineTextField,
+  SingleSelectField,
   Table as TableAggregate,
+  UserField,
   View,
   ViewColumnMetaValue,
 } from '@teable/v2-core';
@@ -20,7 +39,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
 import { toast } from 'sonner';
 import { useCopyToClipboard } from 'usehooks-ts';
@@ -39,7 +58,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,11 +73,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Table as UITable,
   TableBody,
+  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import type { ShareDbDocStatus } from '@/lib/shareDb';
 import { renderFieldOptions } from './fieldOptionsVisitor';
 
@@ -95,8 +116,26 @@ const formatOptionalString = (value: string | null | undefined): string => {
   return value;
 };
 
-const formatRecordValue = (value: unknown): string => {
-  if (value === undefined || value === null) return '-';
+type FormattedRecordValue = {
+  text: string;
+  node: ReactNode;
+  cellClassName?: string;
+};
+
+const emptyRecordValue: FormattedRecordValue = {
+  text: '-',
+  node: <span className="text-xs text-muted-foreground">-</span>,
+  cellClassName: 'text-muted-foreground',
+};
+
+const isEmptyRecordValue = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  value === '' ||
+  (Array.isArray(value) && value.length === 0);
+
+const stringifyRecordValue = (value: unknown): string => {
+  if (value === undefined || value === null) return '';
   if (value instanceof Date) return value.toISOString();
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
@@ -108,6 +147,462 @@ const formatRecordValue = (value: unknown): string => {
   } catch {
     return String(value);
   }
+};
+
+const formatTextCellValue = (text: string, cellClassName = 'truncate'): FormattedRecordValue => {
+  if (!text) return emptyRecordValue;
+  return {
+    text,
+    node: text,
+    cellClassName,
+  };
+};
+
+const formatBadgeListValue = (
+  labels: string[],
+  options?: {
+    variant?: 'secondary' | 'outline' | 'default' | 'destructive';
+    maxBadges?: number;
+  }
+): FormattedRecordValue => {
+  if (!labels.length) return emptyRecordValue;
+  const maxBadges = options?.maxBadges ?? 3;
+  const visible = labels.slice(0, maxBadges);
+  const remaining = labels.length - visible.length;
+  const renderLabels = remaining > 0 ? [...visible, `+${remaining}`] : visible;
+  return {
+    text: labels.join(', '),
+    node: (
+      <div className="flex flex-wrap gap-1">
+        {renderLabels.map((label, index) => (
+          <Badge key={`${label}-${index}`} variant={options?.variant ?? 'secondary'}>
+            {label}
+          </Badge>
+        ))}
+      </div>
+    ),
+    cellClassName: 'whitespace-normal',
+  };
+};
+
+const resolveNumberValue = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+};
+
+const resolveBooleanValue = (value: unknown): boolean | null => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    if (value.toLowerCase() === 'true') return true;
+    if (value.toLowerCase() === 'false') return false;
+  }
+  return null;
+};
+
+const formatNumberText = (value: number, formatting: NumberFormatting): string => {
+  const dto = formatting.toDto();
+  const precision = dto.precision ?? 0;
+
+  if (dto.type === 'percent') {
+    const formatter = new Intl.NumberFormat(undefined, {
+      style: 'percent',
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision,
+    });
+    return formatter.format(value);
+  }
+
+  const formatter = new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  });
+
+  if (dto.type === 'currency') {
+    const symbol = dto.symbol ?? '$';
+    const sign = value < 0 ? '-' : '';
+    return `${sign}${symbol}${formatter.format(Math.abs(value))}`;
+  }
+
+  return formatter.format(value);
+};
+
+const formatDateTimeText = (value: unknown, formatting: DateTimeFormatting): string | null => {
+  if (value === undefined || value === null) return null;
+  const date =
+    value instanceof Date
+      ? value
+      : typeof value === 'string' || typeof value === 'number'
+        ? new Date(value)
+        : null;
+  if (!date || Number.isNaN(date.getTime())) return null;
+
+  const dto = formatting.toDto();
+  const timeZone = dto.timeZone === 'utc' ? 'UTC' : dto.timeZone;
+
+  try {
+    const parts = new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+
+    const part = (type: string) => parts.find((entry) => entry.type === type)?.value ?? '';
+    const year = Number(part('year'));
+    const month = Number(part('month'));
+    const day = Number(part('day'));
+    const hour24 = Number(part('hour'));
+    const minute = Number(part('minute'));
+    const hour12 = hour24 % 12 || 12;
+    const dayPeriod = hour24 >= 12 ? 'PM' : 'AM';
+
+    const pad2 = (val: number) => String(val).padStart(2, '0');
+    const tokens: Record<string, string> = {
+      YYYY: String(year),
+      MM: pad2(month),
+      M: String(month),
+      DD: pad2(day),
+      D: String(day),
+      HH: pad2(hour24),
+      hh: pad2(hour12),
+      mm: pad2(minute),
+      A: dayPeriod,
+    };
+
+    const formatWithTokens = (pattern: string) =>
+      pattern.replace(/YYYY|MM|DD|HH|hh|mm|M|D|A/g, (match) => tokens[match] ?? match);
+
+    const dateText = formatWithTokens(dto.date);
+    if (dto.time === 'None') return dateText;
+    const timeText = formatWithTokens(dto.time);
+    return `${dateText} ${timeText}`.trim();
+  } catch {
+    return date.toISOString();
+  }
+};
+
+const formatBooleanValue = (value: unknown): FormattedRecordValue => {
+  const bool = resolveBooleanValue(value);
+  if (bool !== null) {
+    return formatBadgeListValue([bool ? 'Yes' : 'No'], { variant: 'outline' });
+  }
+  if (Array.isArray(value)) {
+    const labels = value
+      .map((entry) => resolveBooleanValue(entry))
+      .filter((entry): entry is boolean => entry !== null)
+      .map((entry) => (entry ? 'Yes' : 'No'));
+    return formatBadgeListValue(labels, { variant: 'outline' });
+  }
+  return formatTextCellValue(stringifyRecordValue(value));
+};
+
+type SelectOptionLookup = {
+  byId: Map<string, SelectOption>;
+  byName: Map<string, SelectOption>;
+};
+
+const buildSelectLookup = (options: ReadonlyArray<SelectOption>): SelectOptionLookup => ({
+  byId: new Map(options.map((option) => [option.id().toString(), option])),
+  byName: new Map(options.map((option) => [option.name().toString(), option])),
+});
+
+const resolveSelectLabel = (lookup: SelectOptionLookup, value: unknown): string | null => {
+  if (value === undefined || value === null) return null;
+
+  if (typeof value === 'string') {
+    return (
+      lookup.byId.get(value)?.name().toString() ??
+      lookup.byName.get(value)?.name().toString() ??
+      value
+    );
+  }
+
+  if (typeof value === 'object') {
+    const candidate = value as { id?: unknown; name?: unknown };
+    if (typeof candidate.name === 'string') return candidate.name;
+    if (typeof candidate.id === 'string') {
+      return lookup.byId.get(candidate.id)?.name().toString() ?? candidate.id;
+    }
+  }
+
+  return stringifyRecordValue(value);
+};
+
+const resolveUserLabel = (value: unknown): string | null => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const candidate = value as { title?: unknown; name?: unknown; email?: unknown; id?: unknown };
+    if (typeof candidate.title === 'string') return candidate.title;
+    if (typeof candidate.name === 'string') return candidate.name;
+    if (typeof candidate.email === 'string') return candidate.email;
+    if (typeof candidate.id === 'string') return candidate.id;
+  }
+  return stringifyRecordValue(value);
+};
+
+const resolveAttachmentLabel = (value: unknown): string | null => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const candidate = value as { name?: unknown; id?: unknown };
+    if (typeof candidate.name === 'string') return candidate.name;
+    if (typeof candidate.id === 'string') return candidate.id;
+  }
+  return stringifyRecordValue(value);
+};
+
+const resolveLinkLabel = (value: unknown): string | null => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    const candidate = value as { title?: unknown; name?: unknown; id?: unknown };
+    if (typeof candidate.title === 'string') return candidate.title;
+    if (typeof candidate.name === 'string') return candidate.name;
+    if (typeof candidate.id === 'string') return candidate.id;
+  }
+  return stringifyRecordValue(value);
+};
+
+const formatRecordValue = (field: Field, value: unknown): FormattedRecordValue => {
+  if (isEmptyRecordValue(value)) return emptyRecordValue;
+
+  const fieldType = field.type().toString();
+  if (fieldType === 'singleLineText') {
+    const textField = field as SingleLineTextField;
+    const text = stringifyRecordValue(value);
+    const showAs = textField.showAs()?.type();
+    if (!text) return emptyRecordValue;
+
+    if (showAs === 'url') {
+      const href = /^https?:\/\//i.test(text) ? text : `https://${text}`;
+      return {
+        text,
+        node: (
+          <a href={href} target="_blank" rel="noreferrer" className="text-primary underline">
+            {text}
+          </a>
+        ),
+        cellClassName: 'truncate',
+      };
+    }
+
+    if (showAs === 'email') {
+      return {
+        text,
+        node: (
+          <a href={`mailto:${text}`} className="text-primary underline">
+            {text}
+          </a>
+        ),
+        cellClassName: 'truncate',
+      };
+    }
+
+    if (showAs === 'phone') {
+      return {
+        text,
+        node: (
+          <a href={`tel:${text}`} className="text-primary underline">
+            {text}
+          </a>
+        ),
+        cellClassName: 'truncate',
+      };
+    }
+
+    return formatTextCellValue(text);
+  }
+
+  if (fieldType === 'longText') {
+    const text = stringifyRecordValue(value);
+    return formatTextCellValue(text);
+  }
+
+  if (fieldType === 'number') {
+    const number = resolveNumberValue(value);
+    if (number === null) return formatTextCellValue(stringifyRecordValue(value));
+    const numberField = field as NumberField;
+    return formatTextCellValue(
+      formatNumberText(number, numberField.formatting()),
+      'text-right tabular-nums whitespace-nowrap'
+    );
+  }
+
+  if (fieldType === 'autoNumber') {
+    const number = resolveNumberValue(value);
+    if (number === null) return formatTextCellValue(stringifyRecordValue(value));
+    return formatTextCellValue(number.toString(), 'text-right tabular-nums whitespace-nowrap');
+  }
+
+  if (fieldType === 'rating') {
+    const rating = resolveNumberValue(value);
+    if (rating === null) return formatTextCellValue(stringifyRecordValue(value));
+    const ratingField = field as RatingField;
+    const max = ratingField.ratingMax().toNumber();
+    return formatTextCellValue(`${rating} / ${max}`, 'text-right tabular-nums whitespace-nowrap');
+  }
+
+  if (fieldType === 'checkbox') {
+    return formatBooleanValue(value);
+  }
+
+  if (fieldType === 'date') {
+    const dateField = field as DateField;
+    const formatted = formatDateTimeText(value, dateField.formatting());
+    return formatted
+      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
+      : emptyRecordValue;
+  }
+
+  if (fieldType === 'createdTime') {
+    const timeField = field as CreatedTimeField;
+    const formatted = formatDateTimeText(value, timeField.formatting());
+    return formatted
+      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
+      : emptyRecordValue;
+  }
+
+  if (fieldType === 'lastModifiedTime') {
+    const timeField = field as LastModifiedTimeField;
+    const formatted = formatDateTimeText(value, timeField.formatting());
+    return formatted
+      ? formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap')
+      : emptyRecordValue;
+  }
+
+  if (fieldType === 'singleSelect') {
+    const selectField = field as SingleSelectField;
+    const lookup = buildSelectLookup(selectField.selectOptions());
+    const label = resolveSelectLabel(lookup, value);
+    return label ? formatBadgeListValue([label], { variant: 'secondary' }) : emptyRecordValue;
+  }
+
+  if (fieldType === 'multipleSelect') {
+    const selectField = field as MultipleSelectField;
+    const lookup = buildSelectLookup(selectField.selectOptions());
+    const values = Array.isArray(value) ? value : [value];
+    const labels = values
+      .map((entry) => resolveSelectLabel(lookup, entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return formatBadgeListValue(labels, { variant: 'secondary' });
+  }
+
+  if (fieldType === 'user') {
+    const userField = field as UserField;
+    const values = userField.multiplicity().toBoolean()
+      ? Array.isArray(value)
+        ? value
+        : [value]
+      : Array.isArray(value)
+        ? value.slice(0, 1)
+        : [value];
+    const labels = values
+      .map((entry) => resolveUserLabel(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return formatBadgeListValue(labels, { variant: 'outline' });
+  }
+
+  if (fieldType === 'createdBy' || fieldType === 'lastModifiedBy') {
+    const values = Array.isArray(value) ? value : [value];
+    const labels = values
+      .map((entry) => resolveUserLabel(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return formatBadgeListValue(labels, { variant: 'outline' });
+  }
+
+  if (fieldType === 'attachment') {
+    const attachments = Array.isArray(value) ? value : [value];
+    const labels = attachments
+      .map((entry) => resolveAttachmentLabel(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    if (!labels.length) return emptyRecordValue;
+    if (labels.length === 1) return formatBadgeListValue([labels[0]], { variant: 'outline' });
+    return {
+      text: labels.join(', '),
+      node: <Badge variant="outline">{`${labels.length} files`}</Badge>,
+      cellClassName: 'whitespace-nowrap',
+    };
+  }
+
+  if (fieldType === 'button') {
+    const buttonField = field as ButtonField;
+    const label = buttonField.label().toString();
+    const count =
+      typeof value === 'object' && value !== null && 'count' in value
+        ? Number((value as { count?: unknown }).count)
+        : resolveNumberValue(value);
+    const text =
+      typeof count === 'number' && Number.isFinite(count) ? `${label} (${count})` : label;
+    return {
+      text,
+      node: <Badge variant="outline">{text}</Badge>,
+      cellClassName: 'whitespace-nowrap',
+    };
+  }
+
+  if (fieldType === 'link') {
+    const linkField = field as LinkField;
+    const values = linkField.isMultipleValue()
+      ? Array.isArray(value)
+        ? value
+        : [value]
+      : Array.isArray(value)
+        ? value.slice(0, 1)
+        : [value];
+    const labels = values
+      .map((entry) => resolveLinkLabel(entry))
+      .filter((entry): entry is string => Boolean(entry));
+    return formatBadgeListValue(labels, { variant: 'outline' });
+  }
+
+  if (fieldType === 'formula' || fieldType === 'rollup') {
+    const computedField = field as FormulaField | RollupField;
+    const valueTypeResult = computedField.cellValueType();
+    if (valueTypeResult.isOk()) {
+      const valueType = valueTypeResult.value.toString();
+      const formatting = computedField.formatting();
+
+      if (valueType === 'number') {
+        const number = resolveNumberValue(value);
+        if (number === null) return formatTextCellValue(stringifyRecordValue(value));
+        if (formatting) {
+          const dto = formatting.toDto();
+          if ('precision' in dto) {
+            return formatTextCellValue(
+              formatNumberText(number, formatting as NumberFormatting),
+              'text-right tabular-nums whitespace-nowrap'
+            );
+          }
+        }
+        return formatTextCellValue(number.toString(), 'text-right tabular-nums whitespace-nowrap');
+      }
+
+      if (valueType === 'dateTime' && formatting) {
+        const dto = formatting.toDto();
+        if ('date' in dto) {
+          const formatted = formatDateTimeText(value, formatting as DateTimeFormatting);
+          if (formatted)
+            return formatTextCellValue(formatted, 'font-mono text-xs whitespace-nowrap');
+        }
+      }
+
+      if (valueType === 'boolean') {
+        return formatBooleanValue(value);
+      }
+    }
+
+    return formatTextCellValue(stringifyRecordValue(value));
+  }
+
+  return formatTextCellValue(stringifyRecordValue(value));
 };
 
 const formatColumnMetaExtras = (entry: ViewColumnMetaValue[string]): string => {
@@ -305,9 +800,6 @@ export function TableMetaPage({
                   recordsError={recordsError}
                   isRecordsLoading={isRecordsLoading}
                   isRecordsFetching={isRecordsFetching}
-                  baseId={baseId}
-                  tableId={tableId}
-                  isLoading={isLoading}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -315,23 +807,16 @@ export function TableMetaPage({
                   table={table}
                   tableJson={tableJson}
                   tableJsonError={tableJsonError}
-                  baseId={baseId}
-                  tableId={tableId}
-                  isLoading={isLoading}
                 />
               </TabsContent>
               <TabsContent value="realtime" className="mt-0">
                 <PlaygroundRealtimeLayout
-                  table={table}
                   realtimeSnapshot={realtimeSnapshot}
                   realtimeStatus={realtimeStatus}
                   realtimeError={realtimeError}
                   realtimeFieldSnapshots={realtimeFieldSnapshots}
                   realtimeFieldStatus={realtimeFieldStatus}
                   realtimeFieldError={realtimeFieldError}
-                  baseId={baseId}
-                  tableId={tableId}
-                  isLoading={isLoading}
                 />
               </TabsContent>
             </Tabs>
@@ -571,57 +1056,27 @@ function PlaygroundErrorState({ message }: PlaygroundErrorStateProps) {
 
 function PlaygroundLoadingState() {
   return (
-    <div className="grid gap-6 2xl:grid-cols-[1.25fr_0.75fr]">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-3 text-lg">
-            <Skeleton className="h-5 w-5 rounded-full" />
-            <Skeleton className="h-5 w-44" />
-            <Skeleton className="h-5 w-16 rounded-full" />
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="grid grid-cols-6 gap-3">
-            {Array.from({ length: 6 }).map((_, index) => (
-              <Skeleton key={`header-skeleton-${index}`} className="h-4 w-full" />
-            ))}
-          </div>
-          <div className="space-y-3">
-            {Array.from({ length: 6 }).map((_, rowIndex) => (
-              <div key={`row-skeleton-${rowIndex}`} className="grid grid-cols-6 gap-3">
-                {Array.from({ length: 6 }).map((_, colIndex) => (
-                  <Skeleton key={`cell-skeleton-${rowIndex}-${colIndex}`} className="h-4 w-full" />
-                ))}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Views</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-4 w-40" />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Connection</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <div key={`connection-skeleton-${index}`} className="flex items-center gap-3">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="ml-auto h-4 w-32" />
-              </div>
-            ))}
-          </CardContent>
-        </Card>
+    <div className="space-y-3 min-w-0">
+      <div className="flex items-center gap-3">
+        <Skeleton className="h-5 w-5 rounded-full" />
+        <Skeleton className="h-5 w-44" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <div className="space-y-3">
+        <div className="grid grid-cols-6 gap-3">
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={`header-skeleton-${index}`} className="h-4 w-full" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, rowIndex) => (
+            <div key={`row-skeleton-${rowIndex}`} className="grid grid-cols-6 gap-3">
+              {Array.from({ length: 6 }).map((_, colIndex) => (
+                <Skeleton key={`cell-skeleton-${rowIndex}-${colIndex}`} className="h-4 w-full" />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -678,21 +1133,14 @@ function PlaygroundMetaLayout({
   onDeleteField,
 }: PlaygroundMetaLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+    <div className="space-y-6 min-w-0">
       <TableSchemaCard
         table={table}
         isDeletingField={isDeletingField}
         onDeleteField={onDeleteField}
       />
-      <div className="space-y-6 min-w-0">
-        <TableViewsCard views={table.views()} />
-        <TableConnectionCard
-          baseId={baseId}
-          tableId={tableId}
-          table={table}
-          isLoading={isLoading}
-        />
-      </div>
+      <TableViewsCard views={table.views()} />
+      <TableConnectionCard baseId={baseId} tableId={tableId} table={table} isLoading={isLoading} />
     </div>
   );
 }
@@ -703,9 +1151,6 @@ type PlaygroundRecordsLayoutProps = {
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
-  baseId: string;
-  tableId: string;
-  isLoading: boolean;
 };
 
 function PlaygroundRecordsLayout({
@@ -714,12 +1159,9 @@ function PlaygroundRecordsLayout({
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
-  baseId,
-  tableId,
-  isLoading,
 }: PlaygroundRecordsLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+    <div className="space-y-6 min-w-0">
       <TableRecordsCard
         table={table}
         records={records}
@@ -727,15 +1169,6 @@ function PlaygroundRecordsLayout({
         isRecordsLoading={isRecordsLoading}
         isRecordsFetching={isRecordsFetching}
       />
-      <div className="space-y-6 min-w-0">
-        <TableViewsCard views={table.views()} />
-        <TableConnectionCard
-          baseId={baseId}
-          tableId={tableId}
-          table={table}
-          isLoading={isLoading}
-        />
-      </div>
     </div>
   );
 }
@@ -744,84 +1177,46 @@ type PlaygroundJsonLayoutProps = {
   table: TableAggregate;
   tableJson: ITableDto | null;
   tableJsonError: string | null;
-  baseId: string;
-  tableId: string;
-  isLoading: boolean;
 };
 
-function PlaygroundJsonLayout({
-  table,
-  tableJson,
-  tableJsonError,
-  baseId,
-  tableId,
-  isLoading,
-}: PlaygroundJsonLayoutProps) {
+function PlaygroundJsonLayout({ table, tableJson, tableJsonError }: PlaygroundJsonLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
+    <div className="space-y-6 min-w-0">
       <TableJsonCard table={table} tableJson={tableJson} tableJsonError={tableJsonError} />
-      <div className="space-y-6 min-w-0">
-        <TableViewsCard views={table.views()} />
-        <TableConnectionCard
-          baseId={baseId}
-          tableId={tableId}
-          table={table}
-          isLoading={isLoading}
-        />
-      </div>
     </div>
   );
 }
 
 type PlaygroundRealtimeLayoutProps = {
-  table: TableAggregate;
   realtimeSnapshot: ITablePersistenceDTO | null;
   realtimeStatus: ShareDbDocStatus;
   realtimeError: string | null;
   realtimeFieldSnapshots: ReadonlyArray<ITableFieldPersistenceDTO>;
   realtimeFieldStatus: ShareDbDocStatus;
   realtimeFieldError: string | null;
-  baseId: string;
-  tableId: string;
-  isLoading: boolean;
 };
 
 function PlaygroundRealtimeLayout({
-  table,
   realtimeSnapshot,
   realtimeStatus,
   realtimeError,
   realtimeFieldSnapshots,
   realtimeFieldStatus,
   realtimeFieldError,
-  baseId,
-  tableId,
-  isLoading,
 }: PlaygroundRealtimeLayoutProps) {
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.75fr)]">
-      <div className="space-y-6 min-w-0">
-        <RealtimeSnapshotCard
-          snapshot={realtimeSnapshot}
-          status={realtimeStatus}
-          error={realtimeError}
-          title="ShareDB Table Snapshot"
-        />
-        <RealtimeFieldsCard
-          snapshots={realtimeFieldSnapshots}
-          status={realtimeFieldStatus}
-          error={realtimeFieldError}
-        />
-      </div>
-      <div className="space-y-6 min-w-0">
-        <TableViewsCard views={table.views()} />
-        <TableConnectionCard
-          baseId={baseId}
-          tableId={tableId}
-          table={table}
-          isLoading={isLoading}
-        />
-      </div>
+    <div className="space-y-6 min-w-0">
+      <RealtimeSnapshotCard
+        snapshot={realtimeSnapshot}
+        status={realtimeStatus}
+        error={realtimeError}
+        title="ShareDB Table Snapshot"
+      />
+      <RealtimeFieldsCard
+        snapshots={realtimeFieldSnapshots}
+        status={realtimeFieldStatus}
+        error={realtimeFieldError}
+      />
     </div>
   );
 }
@@ -850,9 +1245,9 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
   const deleteFieldLabel = deleteTarget ? deleteTarget.name().toString() : 'this field';
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+    <section className="space-y-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           <TableIcon className="h-4 w-4 text-muted-foreground" />
           {table.name().toString()}
           <Badge
@@ -861,20 +1256,18 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
           >
             {fields.length} fields
           </Badge>
-        </CardTitle>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs font-normal"
-            onClick={handleCopyTableJson}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy JSON
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs font-normal"
+          onClick={handleCopyTableJson}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Copy JSON
+        </Button>
+      </div>
+      <div className="overflow-auto rounded-md border border-border/60">
         <UITable>
           <TableHeader>
             <TableRow>
@@ -930,7 +1323,7 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
             })}
           </TableBody>
         </UITable>
-      </CardContent>
+      </div>
       <AlertDialog
         open={deleteOpen}
         onOpenChange={(open) => {
@@ -957,7 +1350,7 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+    </section>
   );
 }
 
@@ -981,102 +1374,108 @@ function TableRecordsCard({
   const isInitialLoading = isRecordsLoading && !records;
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <TableIcon className="h-4 w-4 text-muted-foreground" />
-          Records
+    <section className="space-y-3 min-w-0">
+      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+        <TableIcon className="h-4 w-4 text-muted-foreground" />
+        Records
+        <Badge
+          variant="secondary"
+          className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+        >
+          {recordCount} records
+        </Badge>
+        {isRecordsFetching ? (
           <Badge
-            variant="secondary"
+            variant="outline"
             className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
           >
-            {recordCount} records
+            Loading
           </Badge>
-          {isRecordsFetching ? (
-            <Badge
-              variant="outline"
-              className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
-            >
-              Loading
-            </Badge>
-          ) : null}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {recordsError ? (
-          <div className="flex items-center gap-2 text-sm text-destructive">
-            <TriangleAlert className="h-4 w-4" />
-            <span>{recordsError}</span>
-          </div>
-        ) : isInitialLoading ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-4 gap-3">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <Skeleton key={`record-header-skeleton-${index}`} className="h-4 w-full" />
-              ))}
-            </div>
-            {Array.from({ length: 4 }).map((_, rowIndex) => (
-              <div key={`record-row-skeleton-${rowIndex}`} className="grid grid-cols-4 gap-3">
-                {Array.from({ length: 4 }).map((_, colIndex) => (
-                  <Skeleton
-                    key={`record-cell-skeleton-${rowIndex}-${colIndex}`}
-                    className="h-4 w-full"
-                  />
-                ))}
-              </div>
+        ) : null}
+      </div>
+      {recordsError ? (
+        <div className="flex items-center gap-2 text-sm text-destructive">
+          <TriangleAlert className="h-4 w-4" />
+          <span>{recordsError}</span>
+        </div>
+      ) : isInitialLoading ? (
+        <div className="space-y-3">
+          <div className="grid grid-cols-4 gap-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Skeleton key={`record-header-skeleton-${index}`} className="h-4 w-full" />
             ))}
           </div>
-        ) : (
-          <div className="overflow-auto rounded-md border border-border/60">
-            <UITable className="min-w-max">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="whitespace-nowrap">Record ID</TableHead>
-                  {fields.map((field) => (
-                    <TableHead key={field.id().toString()} className="whitespace-nowrap">
-                      {field.name().toString()}
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {records && records.length > 0 ? (
-                  records.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                        {record.id}
-                      </TableCell>
-                      {fields.map((field) => {
-                        const value = record.fields[field.id().toString()];
-                        const displayValue = formatRecordValue(value);
-                        return (
-                          <TableCell
-                            key={`${record.id}-${field.id().toString()}`}
-                            className="max-w-[240px] truncate"
-                            title={displayValue}
-                          >
-                            {displayValue}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={fields.length + 1}
-                      className="text-center text-sm text-muted-foreground"
-                    >
-                      No records yet.
+          {Array.from({ length: 4 }).map((_, rowIndex) => (
+            <div key={`record-row-skeleton-${rowIndex}`} className="grid grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, colIndex) => (
+                <Skeleton
+                  key={`record-cell-skeleton-${rowIndex}-${colIndex}`}
+                  className="h-4 w-full"
+                />
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-auto rounded-md border border-border/60">
+          <UITable className="min-w-max">
+            <TableCaption className="text-xs">
+              {recordCount === 0
+                ? 'No records yet.'
+                : `${recordCount} record${recordCount === 1 ? '' : 's'} loaded.`}
+            </TableCaption>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-[140px] whitespace-nowrap text-xs uppercase tracking-wide text-muted-foreground">
+                  Record ID
+                </TableHead>
+                {fields.map((field) => (
+                  <TableHead
+                    key={field.id().toString()}
+                    className="whitespace-nowrap text-xs uppercase tracking-wide text-muted-foreground"
+                  >
+                    {field.name().toString()}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {records && records.length > 0 ? (
+                records.map((record) => (
+                  <TableRow key={record.id}>
+                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+                      {record.id}
                     </TableCell>
+                    {fields.map((field) => {
+                      const value = record.fields[field.id().toString()];
+                      const formattedValue = formatRecordValue(field, value);
+                      return (
+                        <TableCell
+                          key={`${record.id}-${field.id().toString()}`}
+                          className={cn('max-w-[240px]', formattedValue.cellClassName)}
+                          title={formattedValue.text}
+                        >
+                          {formattedValue.node}
+                        </TableCell>
+                      );
+                    })}
                   </TableRow>
-                )}
-              </TableBody>
-            </UITable>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={fields.length + 1}
+                    className="text-center text-sm text-muted-foreground"
+                  >
+                    No records yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </UITable>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -1093,9 +1492,9 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
   };
 
   return (
-    <Card className="min-w-0 overflow-hidden">
-      <CardHeader className="border-b border-border/60 py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+    <section className="space-y-3 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
           <FileJson className="h-4 w-4 text-muted-foreground" />
           Table JSON
           <Badge
@@ -1110,20 +1509,18 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
           >
             {table.views().length} views
           </Badge>
-        </CardTitle>
-        <CardAction>
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs font-normal"
-            onClick={handleCopyTableJson}
-          >
-            <Copy className="h-3.5 w-3.5" />
-            Copy JSON
-          </Button>
-        </CardAction>
-      </CardHeader>
-      <CardContent className="px-0">
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs font-normal"
+          onClick={handleCopyTableJson}
+        >
+          <Copy className="h-3.5 w-3.5" />
+          Copy JSON
+        </Button>
+      </div>
+      <div className="overflow-hidden rounded-md border border-border/60">
         {tableJsonError ? (
           <div className="px-6 py-4 text-sm text-destructive">
             Unable to render JSON: {tableJsonError}
@@ -1141,8 +1538,8 @@ function TableJsonCard({ table, tableJson, tableJsonError }: TableJsonCardProps)
             </div>
           </ScrollArea>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -1173,20 +1570,18 @@ function RealtimeSnapshotCard({ snapshot, status, error, title }: RealtimeSnapsh
   const statusVariant = resolveRealtimeStatusVariant(status);
 
   return (
-    <Card className="min-w-0 overflow-hidden">
-      <CardHeader className="border-b border-border/60 py-3">
-        <CardTitle className="flex items-center gap-2 text-sm font-semibold">
-          <FileJson className="h-4 w-4 text-muted-foreground" />
-          {title}
-          <Badge
-            variant={statusVariant}
-            className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
-          >
-            {statusLabel}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="px-0">
+    <section className="space-y-3 min-w-0">
+      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+        <FileJson className="h-4 w-4 text-muted-foreground" />
+        {title}
+        <Badge
+          variant={statusVariant}
+          className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+        >
+          {statusLabel}
+        </Badge>
+      </div>
+      <div className="overflow-hidden rounded-md border border-border/60">
         {error ? (
           <div className="px-6 py-4 text-sm text-destructive">Realtime error: {error}</div>
         ) : !snapshot ? (
@@ -1200,8 +1595,8 @@ function RealtimeSnapshotCard({ snapshot, status, error, title }: RealtimeSnapsh
             </div>
           </ScrollArea>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -1244,11 +1639,9 @@ function TableViewsCard({ views }: TableViewsCardProps) {
   });
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="py-3">
-        <CardTitle className="text-sm font-semibold">Views</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <section className="space-y-3 min-w-0">
+      <div className="text-sm font-semibold">Views</div>
+      <div className="space-y-4">
         {viewLabels.length ? (
           <>
             <div className="flex flex-wrap gap-2">
@@ -1335,8 +1728,8 @@ function TableViewsCard({ views }: TableViewsCardProps) {
         ) : (
           <div className="text-sm text-muted-foreground">No views defined.</div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }
 
@@ -1354,11 +1747,9 @@ function TableConnectionCard({ baseId, tableId, table, isLoading }: TableConnect
   const resolvedTableId = tableIdValue || tableId;
 
   return (
-    <Card className="min-w-0">
-      <CardHeader className="py-3">
-        <CardTitle className="text-sm font-semibold">Connection</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-xs text-muted-foreground">
+    <section className="space-y-3 min-w-0">
+      <div className="text-sm font-semibold">Connection</div>
+      <div className="space-y-2 text-xs text-muted-foreground">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <span>Base ID</span>
           <code className="break-all text-[11px] text-foreground font-mono sm:text-right">
@@ -1386,7 +1777,7 @@ function TableConnectionCard({ baseId, tableId, table, isLoading }: TableConnect
             {isLoading ? 'loading' : 'ready'}
           </Badge>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </section>
   );
 }

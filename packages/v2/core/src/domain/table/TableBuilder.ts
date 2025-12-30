@@ -9,6 +9,7 @@ import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { AttachmentField } from './fields/types/AttachmentField';
+import { AutoNumberField } from './fields/types/AutoNumberField';
 import { ButtonField } from './fields/types/ButtonField';
 import { ButtonLabel } from './fields/types/ButtonLabel';
 import type { ButtonMaxCount } from './fields/types/ButtonMaxCount';
@@ -16,6 +17,8 @@ import type { ButtonResetCount } from './fields/types/ButtonResetCount';
 import type { ButtonWorkflow } from './fields/types/ButtonWorkflow';
 import type { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
 import { CheckboxField } from './fields/types/CheckboxField';
+import { CreatedByField } from './fields/types/CreatedByField';
+import { CreatedTimeField } from './fields/types/CreatedTimeField';
 import type { DateDefaultValue } from './fields/types/DateDefaultValue';
 import { DateField } from './fields/types/DateField';
 import { DateTimeFormatting } from './fields/types/DateTimeFormatting';
@@ -26,6 +29,8 @@ import {
   type FormulaFormatting,
   type FormulaShowAs,
 } from './fields/types/FormulaField';
+import { LastModifiedByField } from './fields/types/LastModifiedByField';
+import { LastModifiedTimeField } from './fields/types/LastModifiedTimeField';
 import type { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { LongTextField } from './fields/types/LongTextField';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
@@ -329,8 +334,28 @@ export class TableFieldBuilder {
     return new DateFieldBuilder(this.parent, this.sink);
   }
 
+  createdTime(): CreatedTimeFieldBuilder {
+    return new CreatedTimeFieldBuilder(this.parent, this.sink);
+  }
+
+  lastModifiedTime(): LastModifiedTimeFieldBuilder {
+    return new LastModifiedTimeFieldBuilder(this.parent, this.sink);
+  }
+
   user(): UserFieldBuilder {
     return new UserFieldBuilder(this.parent, this.sink);
+  }
+
+  createdBy(): CreatedByFieldBuilder {
+    return new CreatedByFieldBuilder(this.parent, this.sink);
+  }
+
+  lastModifiedBy(): LastModifiedByFieldBuilder {
+    return new LastModifiedByFieldBuilder(this.parent, this.sink);
+  }
+
+  autoNumber(): AutoNumberFieldBuilder {
+    return new AutoNumberFieldBuilder(this.parent, this.sink);
   }
 
   button(): ButtonFieldBuilder {
@@ -1073,6 +1098,119 @@ export class DateFieldBuilder {
   }
 }
 
+export class CreatedTimeFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private formatting: DateTimeFormatting = DateTimeFormatting.default();
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): CreatedTimeFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): CreatedTimeFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withFormatting(formatting: DateTimeFormatting): CreatedTimeFieldBuilder {
+    this.formatting = formatting;
+    return this;
+  }
+
+  primary(): CreatedTimeFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      CreatedTimeField.create({
+        id,
+        name,
+        formatting: this.formatting,
+      }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class LastModifiedTimeFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private formatting: DateTimeFormatting = DateTimeFormatting.default();
+  private trackedFieldIds: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): LastModifiedTimeFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): LastModifiedTimeFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withFormatting(formatting: DateTimeFormatting): LastModifiedTimeFieldBuilder {
+    this.formatting = formatting;
+    return this;
+  }
+
+  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): LastModifiedTimeFieldBuilder {
+    this.trackedFieldIds = [...trackedFieldIds];
+    return this;
+  }
+
+  primary(): LastModifiedTimeFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      LastModifiedTimeField.create({
+        id,
+        name,
+        formatting: this.formatting,
+        trackedFieldIds: this.trackedFieldIds,
+      }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
 export class UserFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
@@ -1131,6 +1269,143 @@ export class UserFieldBuilder {
         shouldNotify: this.notification,
         defaultValue: this.defaultValue,
       }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class CreatedByFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): CreatedByFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): CreatedByFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  primary(): CreatedByFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      CreatedByField.create({ id, name }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class LastModifiedByFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private trackedFieldIds: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): LastModifiedByFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): LastModifiedByFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withTrackedFieldIds(trackedFieldIds: ReadonlyArray<FieldId>): LastModifiedByFieldBuilder {
+    this.trackedFieldIds = [...trackedFieldIds];
+    return this;
+  }
+
+  primary(): LastModifiedByFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      LastModifiedByField.create({ id, name, trackedFieldIds: this.trackedFieldIds }).andThen(
+        (field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        }
+      )
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
+export class AutoNumberFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): AutoNumberFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): AutoNumberFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  primary(): AutoNumberFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      AutoNumberField.create({ id, name }).andThen((field) => {
         if (!this.isPrimary) return ok(field);
         return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })

@@ -192,6 +192,17 @@ describe('v2 http createField (e2e)', () => {
       },
       {
         field: {
+          type: 'autoNumber',
+          id: createFieldId(),
+          name: 'Auto Number',
+        },
+        expect: {
+          type: 'autoNumber',
+          options: { expression: 'AUTO_NUMBER()' },
+        },
+      },
+      {
+        field: {
           type: 'rating',
           id: createFieldId(),
           name: 'Priority',
@@ -295,6 +306,42 @@ describe('v2 http createField (e2e)', () => {
       },
       {
         field: {
+          type: 'createdTime',
+          id: createFieldId(),
+          name: 'Created Time',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+        },
+        expect: {
+          type: 'createdTime',
+          options: {
+            expression: 'CREATED_TIME()',
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+        },
+      },
+      {
+        field: {
+          type: 'lastModifiedTime',
+          id: createFieldId(),
+          name: 'Last Modified Time',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            trackedFieldIds: [numberFieldId],
+          },
+        },
+        expect: {
+          type: 'lastModifiedTime',
+          options: {
+            expression: 'LAST_MODIFIED_TIME()',
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            trackedFieldIds: [numberFieldId],
+          },
+        },
+      },
+      {
+        field: {
           type: 'user',
           id: createFieldId(),
           name: 'Owner',
@@ -310,6 +357,33 @@ describe('v2 http createField (e2e)', () => {
             isMultiple: true,
             shouldNotify: false,
             defaultValue: ['usr1', 'usr2'],
+          },
+        },
+      },
+      {
+        field: {
+          type: 'createdBy',
+          id: createFieldId(),
+          name: 'Created By',
+        },
+        expect: {
+          type: 'createdBy',
+          options: {},
+        },
+      },
+      {
+        field: {
+          type: 'lastModifiedBy',
+          id: createFieldId(),
+          name: 'Last Modified By',
+          options: {
+            trackedFieldIds: [numberFieldId],
+          },
+        },
+        expect: {
+          type: 'lastModifiedBy',
+          options: {
+            trackedFieldIds: [numberFieldId],
           },
         },
       },
@@ -517,7 +591,12 @@ describe('v2 http createField (e2e)', () => {
     const rollupForeignCheckboxFieldId = createFieldId();
     const rollupForeignAttachmentFieldId = createFieldId();
     const rollupForeignDateFieldId = createFieldId();
+    const rollupForeignCreatedTimeFieldId = createFieldId();
+    const rollupForeignLastModifiedTimeFieldId = createFieldId();
+    const rollupForeignAutoNumberFieldId = createFieldId();
     const rollupForeignUserFieldId = createFieldId();
+    const rollupForeignCreatedByFieldId = createFieldId();
+    const rollupForeignLastModifiedByFieldId = createFieldId();
     const rollupForeignButtonFieldId = createFieldId();
     const rollupForeignLinkFieldId = createFieldId();
     const rollupForeignRollupFieldId = createFieldId();
@@ -735,6 +814,48 @@ describe('v2 http createField (e2e)', () => {
           }),
         },
       ],
+      createdTime: () => [
+        {
+          type: 'createdTime',
+          label: 'createdTime',
+          id: rollupForeignCreatedTimeFieldId,
+          name: 'Lookup Created At',
+          cellValueType: 'dateTime',
+          buildInput: () => ({
+            type: 'createdTime',
+            id: rollupForeignCreatedTimeFieldId,
+            name: 'Lookup Created At',
+          }),
+        },
+      ],
+      lastModifiedTime: () => [
+        {
+          type: 'lastModifiedTime',
+          label: 'lastModifiedTime',
+          id: rollupForeignLastModifiedTimeFieldId,
+          name: 'Lookup Updated At',
+          cellValueType: 'dateTime',
+          buildInput: () => ({
+            type: 'lastModifiedTime',
+            id: rollupForeignLastModifiedTimeFieldId,
+            name: 'Lookup Updated At',
+          }),
+        },
+      ],
+      autoNumber: () => [
+        {
+          type: 'autoNumber',
+          label: 'autoNumber',
+          id: rollupForeignAutoNumberFieldId,
+          name: 'Lookup Auto Number',
+          cellValueType: 'number',
+          buildInput: () => ({
+            type: 'autoNumber',
+            id: rollupForeignAutoNumberFieldId,
+            name: 'Lookup Auto Number',
+          }),
+        },
+      ],
       user: () => [
         {
           type: 'user',
@@ -747,6 +868,34 @@ describe('v2 http createField (e2e)', () => {
             id: rollupForeignUserFieldId,
             name: 'Lookup Owner',
             options: { isMultiple: true },
+          }),
+        },
+      ],
+      createdBy: () => [
+        {
+          type: 'createdBy',
+          label: 'createdBy',
+          id: rollupForeignCreatedByFieldId,
+          name: 'Lookup Created By',
+          cellValueType: 'string',
+          buildInput: () => ({
+            type: 'createdBy',
+            id: rollupForeignCreatedByFieldId,
+            name: 'Lookup Created By',
+          }),
+        },
+      ],
+      lastModifiedBy: () => [
+        {
+          type: 'lastModifiedBy',
+          label: 'lastModifiedBy',
+          id: rollupForeignLastModifiedByFieldId,
+          name: 'Lookup Last Edited By',
+          cellValueType: 'string',
+          buildInput: () => ({
+            type: 'lastModifiedBy',
+            id: rollupForeignLastModifiedByFieldId,
+            name: 'Lookup Last Edited By',
           }),
         },
       ],

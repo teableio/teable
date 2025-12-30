@@ -1,11 +1,16 @@
 import {
   type AttachmentField,
+  type AutoNumberField,
   type ButtonField,
   type CheckboxField,
+  type CreatedByField,
+  type CreatedTimeField,
   type DateField,
   type Field,
   type FormulaField,
   type IFieldVisitor,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
   type LinkField,
   type LongTextField,
   type MultipleSelectField,
@@ -134,7 +139,37 @@ export class PostgresTableSchemaFieldDeleteVisitor
     return this.dropStandardField(field);
   }
 
+  visitCreatedTimeField(
+    field: CreatedTimeField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.dropStandardField(field);
+  }
+
+  visitLastModifiedTimeField(
+    field: LastModifiedTimeField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.dropStandardField(field);
+  }
+
   visitUserField(field: UserField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.dropStandardField(field);
+  }
+
+  visitCreatedByField(
+    field: CreatedByField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.dropStandardField(field);
+  }
+
+  visitLastModifiedByField(
+    field: LastModifiedByField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+    return this.dropStandardField(field);
+  }
+
+  visitAutoNumberField(
+    field: AutoNumberField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
     return this.dropStandardField(field);
   }
 

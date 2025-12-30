@@ -2,10 +2,15 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -62,7 +67,27 @@ export class NoopFieldVisitor implements IFieldVisitor {
     return ok(undefined);
   }
 
+  visitCreatedTimeField(_: CreatedTimeField): Result<void, string> {
+    return ok(undefined);
+  }
+
+  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<void, string> {
+    return ok(undefined);
+  }
+
   visitUserField(_: UserField): Result<void, string> {
+    return ok(undefined);
+  }
+
+  visitCreatedByField(_: CreatedByField): Result<void, string> {
+    return ok(undefined);
+  }
+
+  visitLastModifiedByField(_: LastModifiedByField): Result<void, string> {
+    return ok(undefined);
+  }
+
+  visitAutoNumberField(_: AutoNumberField): Result<void, string> {
     return ok(undefined);
   }
 

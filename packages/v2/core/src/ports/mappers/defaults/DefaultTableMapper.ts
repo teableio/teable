@@ -9,6 +9,7 @@ import type { Field } from '../../../domain/table/fields/Field';
 import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
+import { AutoNumberField } from '../../../domain/table/fields/types/AutoNumberField';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
 import { ButtonMaxCount } from '../../../domain/table/fields/types/ButtonMaxCount';
@@ -18,6 +19,8 @@ import { CellValueMultiplicity } from '../../../domain/table/fields/types/CellVa
 import { CellValueType } from '../../../domain/table/fields/types/CellValueType';
 import { CheckboxDefaultValue } from '../../../domain/table/fields/types/CheckboxDefaultValue';
 import { CheckboxField } from '../../../domain/table/fields/types/CheckboxField';
+import { CreatedByField } from '../../../domain/table/fields/types/CreatedByField';
+import { CreatedTimeField } from '../../../domain/table/fields/types/CreatedTimeField';
 import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefaultValue';
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
@@ -25,6 +28,8 @@ import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
+import { LastModifiedByField } from '../../../domain/table/fields/types/LastModifiedByField';
+import { LastModifiedTimeField } from '../../../domain/table/fields/types/LastModifiedTimeField';
 import { LinkField } from '../../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../../domain/table/fields/types/LinkFieldConfig';
 import { LinkFieldMeta } from '../../../domain/table/fields/types/LinkFieldMeta';
@@ -71,11 +76,16 @@ import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import type { IViewVisitor } from '../../../domain/table/views/visitors/IViewVisitor';
 import type {
+  IAutoNumberFieldOptionsDTO,
   IButtonFieldOptionsDTO,
   ICheckboxFieldOptionsDTO,
+  ICreatedByFieldOptionsDTO,
+  ICreatedTimeFieldOptionsDTO,
   IDateFieldOptionsDTO,
   IFormulaFieldMetaDTO,
   IFormulaFieldOptionsDTO,
+  ILastModifiedByFieldOptionsDTO,
+  ILastModifiedTimeFieldOptionsDTO,
   ILinkFieldMetaDTO,
   ILinkFieldOptionsDTO,
   ILongTextFieldOptionsDTO,
@@ -146,6 +156,12 @@ const parseFormulaResultType = (
       isMultipleCellValue,
     }))
   );
+};
+
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+  if (raw == null) return ok([]);
+  if (!Array.isArray(raw)) return err('Invalid trackedFieldIds');
+  return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
@@ -350,6 +366,40 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     });
   }
 
+  visitCreatedTimeField(field: CreatedTimeField): Result<ITableFieldPersistenceDTO, string> {
+    const options: ICreatedTimeFieldOptionsDTO = {
+      expression: field.expression().toString(),
+      formatting: field.formatting().toDto(),
+    };
+
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'createdTime',
+      options,
+      isComputed: field.computed().toBoolean(),
+    });
+  }
+
+  visitLastModifiedTimeField(
+    field: LastModifiedTimeField
+  ): Result<ITableFieldPersistenceDTO, string> {
+    const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
+    const options: ILastModifiedTimeFieldOptionsDTO = {
+      expression: field.expression().toString(),
+      formatting: field.formatting().toDto(),
+      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+    };
+
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'lastModifiedTime',
+      options,
+      isComputed: field.computed().toBoolean(),
+    });
+  }
+
   visitUserField(field: UserField): Result<ITableFieldPersistenceDTO, string> {
     const defaultValue = field.defaultValue();
     const options: IUserFieldOptionsDTO = {
@@ -363,6 +413,45 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       name: field.name().toString(),
       type: 'user',
       options,
+    });
+  }
+
+  visitCreatedByField(field: CreatedByField): Result<ITableFieldPersistenceDTO, string> {
+    const options: ICreatedByFieldOptionsDTO = {};
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'createdBy',
+      options,
+      isComputed: field.computed().toBoolean(),
+    });
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<ITableFieldPersistenceDTO, string> {
+    const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
+    const options: ILastModifiedByFieldOptionsDTO = {
+      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+    };
+
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'lastModifiedBy',
+      options,
+      isComputed: field.computed().toBoolean(),
+    });
+  }
+
+  visitAutoNumberField(field: AutoNumberField): Result<ITableFieldPersistenceDTO, string> {
+    const options: IAutoNumberFieldOptionsDTO = {
+      expression: field.expression().toString(),
+    };
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      type: 'autoNumber',
+      options,
+      isComputed: field.computed().toBoolean(),
     });
   }
 
@@ -657,6 +746,25 @@ export class DefaultTableMapper implements ITableMapper {
                 )
               );
             })
+            .with({ type: 'createdTime' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
+                CreatedTimeField.create({ id, name, formatting })
+              );
+            })
+            .with({ type: 'lastModifiedTime' }, (dto) => {
+              const options = dto.options ?? {};
+              return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
+                parseTrackedFieldIds(options.trackedFieldIds).andThen((trackedFieldIds) =>
+                  LastModifiedTimeField.create({
+                    id,
+                    name,
+                    formatting,
+                    trackedFieldIds,
+                  })
+                )
+              );
+            })
             .with({ type: 'user' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
@@ -667,6 +775,14 @@ export class DefaultTableMapper implements ITableMapper {
                 )
               );
             })
+            .with({ type: 'createdBy' }, () => CreatedByField.create({ id, name }))
+            .with({ type: 'lastModifiedBy' }, (dto) => {
+              const options = dto.options ?? {};
+              return parseTrackedFieldIds(options.trackedFieldIds).andThen((trackedFieldIds) =>
+                LastModifiedByField.create({ id, name, trackedFieldIds })
+              );
+            })
+            .with({ type: 'autoNumber' }, () => AutoNumberField.create({ id, name }))
             .with({ type: 'button' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.label, ButtonLabel.create).andThen((label) =>

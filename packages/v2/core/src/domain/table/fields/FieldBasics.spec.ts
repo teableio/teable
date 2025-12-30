@@ -45,6 +45,8 @@ describe('FieldType', () => {
   it('accepts known types and rejects unknown', () => {
     FieldType.create('singleLineText')._unsafeUnwrap();
     FieldType.create('link')._unsafeUnwrap();
+    FieldType.create('createdTime')._unsafeUnwrap();
+    FieldType.create('lastModifiedBy')._unsafeUnwrap();
     FieldType.create('unknown')._unsafeUnwrapErr();
   });
 
@@ -58,7 +60,12 @@ describe('FieldType', () => {
     expect(FieldType.checkbox().toString()).toBe('checkbox');
     expect(FieldType.attachment().toString()).toBe('attachment');
     expect(FieldType.date().toString()).toBe('date');
+    expect(FieldType.createdTime().toString()).toBe('createdTime');
+    expect(FieldType.lastModifiedTime().toString()).toBe('lastModifiedTime');
     expect(FieldType.user().toString()).toBe('user');
+    expect(FieldType.createdBy().toString()).toBe('createdBy');
+    expect(FieldType.lastModifiedBy().toString()).toBe('lastModifiedBy');
+    expect(FieldType.autoNumber().toString()).toBe('autoNumber');
     expect(FieldType.button().toString()).toBe('button');
     expect(FieldType.link().toString()).toBe('link');
   });

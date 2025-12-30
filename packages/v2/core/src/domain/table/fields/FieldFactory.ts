@@ -6,6 +6,7 @@ import type { Field } from './Field';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import { AttachmentField } from './types/AttachmentField';
+import { AutoNumberField } from './types/AutoNumberField';
 import { ButtonField } from './types/ButtonField';
 import type { ButtonLabel } from './types/ButtonLabel';
 import type { ButtonMaxCount } from './types/ButtonMaxCount';
@@ -15,6 +16,8 @@ import type { CellValueMultiplicity } from './types/CellValueMultiplicity';
 import type { CellValueType } from './types/CellValueType';
 import type { CheckboxDefaultValue } from './types/CheckboxDefaultValue';
 import { CheckboxField } from './types/CheckboxField';
+import { CreatedByField } from './types/CreatedByField';
+import { CreatedTimeField } from './types/CreatedTimeField';
 import type { DateDefaultValue } from './types/DateDefaultValue';
 import { DateField } from './types/DateField';
 import type { DateTimeFormatting } from './types/DateTimeFormatting';
@@ -22,6 +25,8 @@ import type { FieldColor } from './types/FieldColor';
 import type { FormulaExpression } from './types/FormulaExpression';
 import { FormulaField, type FormulaFormatting, type FormulaShowAs } from './types/FormulaField';
 import type { FormulaMeta } from './types/FormulaMeta';
+import { LastModifiedByField } from './types/LastModifiedByField';
+import { LastModifiedTimeField } from './types/LastModifiedTimeField';
 import { LinkField } from './types/LinkField';
 import type { LinkFieldConfig } from './types/LinkFieldConfig';
 import type { LinkFieldMeta } from './types/LinkFieldMeta';
@@ -153,6 +158,19 @@ export const createDateField = (params: {
   defaultValue?: DateDefaultValue;
 }): Result<Field, string> => DateField.create(params);
 
+export const createCreatedTimeField = (params: {
+  id: FieldId;
+  name: FieldName;
+  formatting?: DateTimeFormatting;
+}): Result<Field, string> => CreatedTimeField.create(params);
+
+export const createLastModifiedTimeField = (params: {
+  id: FieldId;
+  name: FieldName;
+  formatting?: DateTimeFormatting;
+  trackedFieldIds?: ReadonlyArray<FieldId>;
+}): Result<Field, string> => LastModifiedTimeField.create(params);
+
 export const createUserField = (params: {
   id: FieldId;
   name: FieldName;
@@ -160,6 +178,22 @@ export const createUserField = (params: {
   shouldNotify?: UserNotification;
   defaultValue?: UserDefaultValue;
 }): Result<Field, string> => UserField.create(params);
+
+export const createCreatedByField = (params: {
+  id: FieldId;
+  name: FieldName;
+}): Result<Field, string> => CreatedByField.create(params);
+
+export const createLastModifiedByField = (params: {
+  id: FieldId;
+  name: FieldName;
+  trackedFieldIds?: ReadonlyArray<FieldId>;
+}): Result<Field, string> => LastModifiedByField.create(params);
+
+export const createAutoNumberField = (params: {
+  id: FieldId;
+  name: FieldName;
+}): Result<Field, string> => AutoNumberField.create(params);
 
 export const createButtonField = (params: {
   id: FieldId;

@@ -129,6 +129,12 @@ const resolveDateFormatting = (field: core.Field): core.DateTimeFormatting | und
   if (fieldType === 'date') {
     return (field as core.DateField).formatting();
   }
+  if (fieldType === 'createdTime') {
+    return (field as core.CreatedTimeField).formatting();
+  }
+  if (fieldType === 'lastModifiedTime') {
+    return (field as core.LastModifiedTimeField).formatting();
+  }
   if (fieldType === 'formula') {
     const formatting = (field as core.FormulaField).formatting();
     return formatting instanceof core.DateTimeFormatting ? formatting : undefined;

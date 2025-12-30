@@ -2,12 +2,17 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import { CellValueMultiplicity } from '../types/CellValueMultiplicity';
 import { CellValueType } from '../types/CellValueType';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -108,6 +113,20 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
     });
   }
 
+  visitCreatedTimeField(_: CreatedTimeField): Result<FieldValueType, string> {
+    return ok({
+      cellValueType: CellValueType.dateTime(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    });
+  }
+
+  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<FieldValueType, string> {
+    return ok({
+      cellValueType: CellValueType.dateTime(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    });
+  }
+
   visitUserField(field: UserField): Result<FieldValueType, string> {
     const isMultiple = field.multiplicity().toBoolean();
     return ok({
@@ -115,6 +134,27 @@ export class FieldValueTypeVisitor implements IFieldVisitor<FieldValueType> {
       isMultipleCellValue: isMultiple
         ? CellValueMultiplicity.multiple()
         : CellValueMultiplicity.single(),
+    });
+  }
+
+  visitCreatedByField(_: CreatedByField): Result<FieldValueType, string> {
+    return ok({
+      cellValueType: CellValueType.string(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    });
+  }
+
+  visitLastModifiedByField(_: LastModifiedByField): Result<FieldValueType, string> {
+    return ok({
+      cellValueType: CellValueType.string(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
+    });
+  }
+
+  visitAutoNumberField(_: AutoNumberField): Result<FieldValueType, string> {
+    return ok({
+      cellValueType: CellValueType.number(),
+      isMultipleCellValue: CellValueMultiplicity.single(),
     });
   }
 

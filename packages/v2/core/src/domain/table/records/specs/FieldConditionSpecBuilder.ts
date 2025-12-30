@@ -127,6 +127,14 @@ export class FieldConditionSpecBuilder {
       ).map((operator) => NumberConditionSpec.create(this.field, operator, input.value));
     }
 
+    if (fieldType.equals(FieldType.autoNumber())) {
+      return parseOperator(
+        numberConditionOperatorSchema,
+        input.operator,
+        'Invalid operator for autoNumber'
+      ).map((operator) => NumberConditionSpec.create(this.field, operator, input.value));
+    }
+
     if (fieldType.equals(FieldType.rating())) {
       return parseOperator(
         numberConditionOperatorSchema,
@@ -148,6 +156,17 @@ export class FieldConditionSpecBuilder {
         dateConditionOperatorSchema,
         input.operator,
         'Invalid operator for date'
+      ).map((operator) => DateConditionSpec.create(this.field, operator, input.value));
+    }
+
+    if (
+      fieldType.equals(FieldType.createdTime()) ||
+      fieldType.equals(FieldType.lastModifiedTime())
+    ) {
+      return parseOperator(
+        dateConditionOperatorSchema,
+        input.operator,
+        'Invalid operator for system date field'
       ).map((operator) => DateConditionSpec.create(this.field, operator, input.value));
     }
 
@@ -180,6 +199,14 @@ export class FieldConditionSpecBuilder {
         userConditionOperatorSchema,
         input.operator,
         'Invalid operator for user'
+      ).map((operator) => UserConditionSpec.create(this.field, operator, input.value));
+    }
+
+    if (fieldType.equals(FieldType.createdBy()) || fieldType.equals(FieldType.lastModifiedBy())) {
+      return parseOperator(
+        userConditionOperatorSchema,
+        input.operator,
+        'Invalid operator for system user field'
       ).map((operator) => UserConditionSpec.create(this.field, operator, input.value));
     }
 

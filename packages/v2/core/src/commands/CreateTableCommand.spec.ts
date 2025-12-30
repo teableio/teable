@@ -74,6 +74,10 @@ describe('CreateTableCommand', () => {
           },
         },
         {
+          type: 'autoNumber',
+          name: 'Auto Number',
+        },
+        {
           type: 'rating',
           name: 'Score',
           options: { max: 5, icon: 'star', color: 'redBright' },
@@ -113,9 +117,28 @@ describe('CreateTableCommand', () => {
           },
         },
         {
+          type: 'createdTime',
+          name: 'Created Time',
+          options: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+        },
+        {
+          type: 'lastModifiedTime',
+          name: 'Last Modified Time',
+        },
+        {
           type: 'user',
           name: 'Owner',
           options: { isMultiple: true, shouldNotify: true, defaultValue: ['usr123'] },
+        },
+        {
+          type: 'createdBy',
+          name: 'Created By',
+        },
+        {
+          type: 'lastModifiedBy',
+          name: 'Last Modified By',
         },
         {
           type: 'button',
@@ -152,13 +175,18 @@ describe('CreateTableCommand', () => {
       'singleLineText',
       'longText',
       'number',
+      'autoNumber',
       'rating',
       'singleSelect',
       'multipleSelect',
       'checkbox',
       'attachment',
       'date',
+      'createdTime',
+      'lastModifiedTime',
       'user',
+      'createdBy',
+      'lastModifiedBy',
       'button',
       'formula',
     ]);

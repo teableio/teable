@@ -11,12 +11,17 @@ import {
 } from '@teable/v2-core';
 import type {
   AttachmentField,
+  AutoNumberField,
   ButtonField,
   CheckboxField,
+  CreatedByField,
+  CreatedTimeField,
   DateField,
   Field,
   FieldId,
   IFieldVisitor,
+  LastModifiedByField,
+  LastModifiedTimeField,
   LinkField,
   LongTextField,
   MultipleSelectField,
@@ -152,6 +157,27 @@ const dateOptionsSchema = z.object({
   defaultValue: z.enum(['now']).optional(),
 });
 
+const createdTimeOptionsSchema = z.object({
+  expression: z.string().optional(),
+  formatting: dateFormattingSchema.optional(),
+});
+
+const lastModifiedTimeOptionsSchema = z.object({
+  expression: z.string().optional(),
+  formatting: dateFormattingSchema.optional(),
+  trackedFieldIds: z.array(z.string()).optional(),
+});
+
+const createdByOptionsSchema = z.object({});
+
+const lastModifiedByOptionsSchema = z.object({
+  trackedFieldIds: z.array(z.string()).optional(),
+});
+
+const autoNumberOptionsSchema = z.object({
+  expression: z.string().optional(),
+});
+
 const userOptionsSchema = z.object({
   isMultiple: z.boolean().optional(),
   shouldNotify: z.boolean().optional(),
@@ -225,6 +251,11 @@ type RatingOptionsDto = z.infer<typeof ratingOptionsSchema>;
 type SelectOptionsDto = z.infer<typeof selectOptionsSchema>;
 type CheckboxOptionsDto = z.infer<typeof checkboxOptionsSchema>;
 type DateOptionsDto = z.infer<typeof dateOptionsSchema>;
+type CreatedTimeOptionsDto = z.infer<typeof createdTimeOptionsSchema>;
+type LastModifiedTimeOptionsDto = z.infer<typeof lastModifiedTimeOptionsSchema>;
+type CreatedByOptionsDto = z.infer<typeof createdByOptionsSchema>;
+type LastModifiedByOptionsDto = z.infer<typeof lastModifiedByOptionsSchema>;
+type AutoNumberOptionsDto = z.infer<typeof autoNumberOptionsSchema>;
 type UserOptionsDto = z.infer<typeof userOptionsSchema>;
 type ButtonOptionsDto = z.infer<typeof buttonOptionsSchema>;
 type FormulaOptionsDto = z.infer<typeof formulaOptionsSchema>;
@@ -282,8 +313,28 @@ export const fieldDtoSchema = z.discriminatedUnion('type', [
     options: dateOptionsSchema.optional(),
   }),
   baseFieldDtoSchema.extend({
+    type: z.literal('createdTime'),
+    options: createdTimeOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('lastModifiedTime'),
+    options: lastModifiedTimeOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
     type: z.literal('user'),
     options: userOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('createdBy'),
+    options: createdByOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('lastModifiedBy'),
+    options: lastModifiedByOptionsSchema.optional(),
+  }),
+  baseFieldDtoSchema.extend({
+    type: z.literal('autoNumber'),
+    options: autoNumberOptionsSchema.optional(),
   }),
   baseFieldDtoSchema.extend({
     type: z.literal('button'),
@@ -539,6 +590,38 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
+  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldDto, string> {
+    const options: CreatedTimeOptionsDto = {
+      expression: field.expression().toString(),
+      formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
+    };
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'createdTime',
+      options,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldDto, string> {
+    const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
+    const options: LastModifiedTimeOptionsDto = {
+      expression: field.expression().toString(),
+      formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
+      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+    };
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'lastModifiedTime',
+      options,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
   visitUserField(field: UserField): Result<IFieldDto, string> {
     const defaultValue = field.defaultValue();
     const defaultValueDto = defaultValue?.toDto();
@@ -556,6 +639,47 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       name: field.name().toString(),
       dbFieldName: this.optionalDbFieldName(field),
       type: 'user',
+      options,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitCreatedByField(field: CreatedByField): Result<IFieldDto, string> {
+    const options: CreatedByOptionsDto = {};
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'createdBy',
+      options,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldDto, string> {
+    const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
+    const options: LastModifiedByOptionsDto = {
+      ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
+    };
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'lastModifiedBy',
+      options,
+      isPrimary: field.id().equals(this.primaryFieldId),
+    });
+  }
+
+  visitAutoNumberField(field: AutoNumberField): Result<IFieldDto, string> {
+    const options: AutoNumberOptionsDto = {
+      expression: field.expression().toString(),
+    };
+    return ok({
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      type: 'autoNumber',
       options,
       isPrimary: field.id().equals(this.primaryFieldId),
     });

@@ -8,6 +8,7 @@ import { FieldName } from '../FieldName';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { NoopFieldVisitor } from '../visitors/NoopFieldVisitor';
 import { AttachmentField } from './AttachmentField';
+import { AutoNumberField } from './AutoNumberField';
 import { ButtonField } from './ButtonField';
 import { ButtonLabel } from './ButtonLabel';
 import { ButtonMaxCount } from './ButtonMaxCount';
@@ -17,12 +18,16 @@ import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
 import { CheckboxDefaultValue } from './CheckboxDefaultValue';
 import { CheckboxField } from './CheckboxField';
+import { CreatedByField } from './CreatedByField';
+import { CreatedTimeField } from './CreatedTimeField';
 import { DateDefaultValue } from './DateDefaultValue';
 import { DateField } from './DateField';
 import { DateTimeFormatting } from './DateTimeFormatting';
 import { FieldColor } from './FieldColor';
 import { FormulaExpression } from './FormulaExpression';
 import { FormulaField } from './FormulaField';
+import { LastModifiedByField } from './LastModifiedByField';
+import { LastModifiedTimeField } from './LastModifiedTimeField';
 import { LinkField } from './LinkField';
 import { LinkFieldConfig } from './LinkFieldConfig';
 import { LinkRelationship } from './LinkRelationship';
@@ -87,8 +92,23 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   visitDateField(): ReturnType<IFieldVisitor<string>['visitDateField']> {
     return ok('date');
   }
+  visitCreatedTimeField(): ReturnType<IFieldVisitor<string>['visitCreatedTimeField']> {
+    return ok('createdTime');
+  }
+  visitLastModifiedTimeField(): ReturnType<IFieldVisitor<string>['visitLastModifiedTimeField']> {
+    return ok('lastModifiedTime');
+  }
   visitUserField(): ReturnType<IFieldVisitor<string>['visitUserField']> {
     return ok('user');
+  }
+  visitCreatedByField(): ReturnType<IFieldVisitor<string>['visitCreatedByField']> {
+    return ok('createdBy');
+  }
+  visitLastModifiedByField(): ReturnType<IFieldVisitor<string>['visitLastModifiedByField']> {
+    return ok('lastModifiedBy');
+  }
+  visitAutoNumberField(): ReturnType<IFieldVisitor<string>['visitAutoNumberField']> {
+    return ok('autoNumber');
   }
   visitButtonField(): ReturnType<IFieldVisitor<string>['visitButtonField']> {
     return ok('button');
@@ -411,6 +431,34 @@ describe('Field types', () => {
 
     expect(dateAccept.value).toBe('date');
 
+    const createdTimeField = CreatedTimeField.create({
+      id,
+      name,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+    });
+    createdTimeField._unsafeUnwrap();
+
+    expect(createdTimeField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
+    const createdTimeAccept = createdTimeField.value.accept(visitor);
+    createdTimeAccept._unsafeUnwrap();
+
+    expect(createdTimeAccept.value).toBe('createdTime');
+
+    const lastModifiedTimeField = LastModifiedTimeField.create({
+      id,
+      name,
+      formatting: dateFormattingResult._unsafeUnwrap(),
+      trackedFieldIds: [id],
+    });
+    lastModifiedTimeField._unsafeUnwrap();
+
+    expect(lastModifiedTimeField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
+    expect(lastModifiedTimeField.value.trackedFieldIds().length).toBe(1);
+    const lastModifiedTimeAccept = lastModifiedTimeField.value.accept(visitor);
+    lastModifiedTimeAccept._unsafeUnwrap();
+
+    expect(lastModifiedTimeAccept.value).toBe('lastModifiedTime');
+
     const userField = UserField.create({
       id,
       name,
@@ -427,6 +475,35 @@ describe('Field types', () => {
     userAccept._unsafeUnwrap();
 
     expect(userAccept.value).toBe('user');
+
+    const createdByField = CreatedByField.create({ id, name });
+    createdByField._unsafeUnwrap();
+
+    const createdByAccept = createdByField.value.accept(visitor);
+    createdByAccept._unsafeUnwrap();
+
+    expect(createdByAccept.value).toBe('createdBy');
+
+    const lastModifiedByField = LastModifiedByField.create({
+      id,
+      name,
+      trackedFieldIds: [id],
+    });
+    lastModifiedByField._unsafeUnwrap();
+
+    expect(lastModifiedByField.value.trackedFieldIds().length).toBe(1);
+    const lastModifiedByAccept = lastModifiedByField.value.accept(visitor);
+    lastModifiedByAccept._unsafeUnwrap();
+
+    expect(lastModifiedByAccept.value).toBe('lastModifiedBy');
+
+    const autoNumberField = AutoNumberField.create({ id, name });
+    autoNumberField._unsafeUnwrap();
+
+    const autoNumberAccept = autoNumberField.value.accept(visitor);
+    autoNumberAccept._unsafeUnwrap();
+
+    expect(autoNumberAccept.value).toBe('autoNumber');
 
     const buttonField = ButtonField.create({
       id,

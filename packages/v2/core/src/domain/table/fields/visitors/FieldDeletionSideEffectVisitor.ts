@@ -9,10 +9,15 @@ import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
 import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -106,7 +111,27 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
     return ok([]);
   }
 
+  visitCreatedTimeField(_: CreatedTimeField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
   visitUserField(_: UserField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitCreatedByField(_: CreatedByField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitLastModifiedByField(_: LastModifiedByField): Result<FieldDeletionSideEffects, string> {
+    return ok([]);
+  }
+
+  visitAutoNumberField(_: AutoNumberField): Result<FieldDeletionSideEffects, string> {
     return ok([]);
   }
 

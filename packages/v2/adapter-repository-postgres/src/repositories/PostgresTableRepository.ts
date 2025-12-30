@@ -739,12 +739,57 @@ export class PostgresTableRepository implements core.ITableRepository {
         dbFieldName,
       };
     }
+    if (row.type === 'createdTime') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'createdTime',
+        options: asOptions<core.ICreatedTimeFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'lastModifiedTime') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'lastModifiedTime',
+        options: asOptions<core.ILastModifiedTimeFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
     if (row.type === 'user') {
       return {
         id: row.id,
         name: row.name,
         type: 'user',
         options: asOptions<core.IUserFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'createdBy') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'createdBy',
+        options: asOptions<core.ICreatedByFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'lastModifiedBy') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'lastModifiedBy',
+        options: asOptions<core.ILastModifiedByFieldOptionsDTO>(),
+        dbFieldName,
+      };
+    }
+    if (row.type === 'autoNumber') {
+      return {
+        id: row.id,
+        name: row.name,
+        type: 'autoNumber',
+        options: asOptions<core.IAutoNumberFieldOptionsDTO>(),
         dbFieldName,
       };
     }

@@ -16,7 +16,12 @@ const fieldTypeSchema = z.enum([
   'checkbox',
   'attachment',
   'date',
+  'createdTime',
+  'lastModifiedTime',
   'user',
+  'createdBy',
+  'lastModifiedBy',
+  'autoNumber',
   'button',
   'link',
 ]);
@@ -77,8 +82,28 @@ export class FieldType extends ValueObject {
     return new FieldType('date');
   }
 
+  static createdTime(): FieldType {
+    return new FieldType('createdTime');
+  }
+
+  static lastModifiedTime(): FieldType {
+    return new FieldType('lastModifiedTime');
+  }
+
   static user(): FieldType {
     return new FieldType('user');
+  }
+
+  static createdBy(): FieldType {
+    return new FieldType('createdBy');
+  }
+
+  static lastModifiedBy(): FieldType {
+    return new FieldType('lastModifiedBy');
+  }
+
+  static autoNumber(): FieldType {
+    return new FieldType('autoNumber');
   }
 
   static button(): FieldType {

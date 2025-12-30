@@ -210,7 +210,11 @@ export const getValidRecordConditionOperators = (
     operators = [...multipleSelectConditionOperatorSchema.options];
   }
 
-  if (fieldType.equals(FieldType.user())) {
+  if (
+    fieldType.equals(FieldType.user()) ||
+    fieldType.equals(FieldType.createdBy()) ||
+    fieldType.equals(FieldType.lastModifiedBy())
+  ) {
     operators = isMultiple
       ? ['hasAnyOf', 'hasAllOf', 'isExactly', 'hasNoneOf', 'isNotExactly', 'isEmpty', 'isNotEmpty']
       : ['is', 'isNot', 'isAnyOf', 'isNoneOf', 'isEmpty', 'isNotEmpty'];

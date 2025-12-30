@@ -1,12 +1,17 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type {
   AttachmentField,
+  AutoNumberField,
   ButtonField,
   CheckboxField,
+  CreatedByField,
+  CreatedTimeField,
   DateField,
   FormulaField,
   IFieldVisitor,
   ITableRepository,
+  LastModifiedByField,
+  LastModifiedTimeField,
   LinkField,
   LongTextField,
   MultipleSelectField,
@@ -83,7 +88,12 @@ type IFieldSnapshot =
   | { type: 'checkbox'; name: string }
   | { type: 'attachment'; name: string }
   | { type: 'date'; name: string }
+  | { type: 'createdTime'; name: string }
+  | { type: 'lastModifiedTime'; name: string }
   | { type: 'user'; name: string }
+  | { type: 'createdBy'; name: string }
+  | { type: 'lastModifiedBy'; name: string }
+  | { type: 'autoNumber'; name: string }
   | { type: 'button'; name: string }
   | { type: 'formula'; name: string; expression: string }
   | { type: 'rollup'; name: string; expression: string };
@@ -172,8 +182,36 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
     return ok(snapshot);
   }
 
+  visitCreatedTimeField(field: CreatedTimeField) {
+    const snapshot: IFieldSnapshot = { type: 'createdTime', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitLastModifiedTimeField(field: LastModifiedTimeField) {
+    const snapshot: IFieldSnapshot = {
+      type: 'lastModifiedTime',
+      name: field.name().toString(),
+    };
+    return ok(snapshot);
+  }
+
   visitUserField(field: UserField) {
     const snapshot: IFieldSnapshot = { type: 'user', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitCreatedByField(field: CreatedByField) {
+    const snapshot: IFieldSnapshot = { type: 'createdBy', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitLastModifiedByField(field: LastModifiedByField) {
+    const snapshot: IFieldSnapshot = { type: 'lastModifiedBy', name: field.name().toString() };
+    return ok(snapshot);
+  }
+
+  visitAutoNumberField(field: AutoNumberField) {
+    const snapshot: IFieldSnapshot = { type: 'autoNumber', name: field.name().toString() };
     return ok(snapshot);
   }
 

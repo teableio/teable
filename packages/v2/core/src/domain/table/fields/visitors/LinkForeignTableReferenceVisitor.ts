@@ -5,10 +5,15 @@ import type { BaseId } from '../../../base/BaseId';
 import type { TableId } from '../../TableId';
 import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
+import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
 import type { CheckboxField } from '../types/CheckboxField';
+import type { CreatedByField } from '../types/CreatedByField';
+import type { CreatedTimeField } from '../types/CreatedTimeField';
 import type { DateField } from '../types/DateField';
 import type { FormulaField } from '../types/FormulaField';
+import type { LastModifiedByField } from '../types/LastModifiedByField';
+import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
@@ -105,7 +110,35 @@ export class LinkForeignTableReferenceVisitor
     return ok([]);
   }
 
+  visitCreatedTimeField(
+    _: CreatedTimeField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  visitLastModifiedTimeField(
+    _: LastModifiedTimeField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
   visitUserField(_: UserField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  visitCreatedByField(_: CreatedByField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  visitLastModifiedByField(
+    _: LastModifiedByField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+    return ok([]);
+  }
+
+  visitAutoNumberField(
+    _: AutoNumberField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
     return ok([]);
   }
 
