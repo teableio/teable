@@ -4,6 +4,7 @@ import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
+  BaseDuplicateMode,
   CreateRecordAction,
   type ICreateBaseFromTemplateRo,
   type IDuplicateBaseRo,
@@ -43,7 +44,7 @@ export class BaseDuplicateService {
   async duplicateBase(
     duplicateBaseRo: IDuplicateBaseRo,
     allowCrossBase: boolean = true,
-    isTemplate: boolean = false
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
   ) {
     const { fromBaseId, spaceId, withRecords, name, baseId, nodes } = duplicateBaseRo;
 
@@ -53,7 +54,8 @@ export class BaseDuplicateService {
       name,
       allowCrossBase,
       baseId,
-      nodes
+      nodes,
+      duplicateMode
     );
 
     const crossBaseLinkFieldTableMap = allowCrossBase
@@ -141,7 +143,8 @@ export class BaseDuplicateService {
     baseName?: string,
     allowCrossBase?: boolean,
     baseId?: string,
-    nodes?: string[]
+    nodes?: string[],
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
   ) {
     const prisma = this.prismaService.txClient();
     const baseRaw = await prisma.base.findUniqueOrThrow({
@@ -216,7 +219,13 @@ export class BaseDuplicateService {
       fieldIdMap,
       viewIdMap,
       ...rest
-    } = await this.baseImportService.createBaseStructure(spaceId, structure, baseId);
+    } = await this.baseImportService.createBaseStructure(
+      spaceId,
+      structure,
+      baseId,
+      undefined,
+      duplicateMode
+    );
 
     return { base: newBase, tableIdMap, fieldIdMap, viewIdMap, ...rest };
   }
@@ -503,10 +512,9 @@ export class BaseDuplicateService {
     }[];
 
     // delete foreign keys if(exist) then duplicate table data
-    // 1. collect foreign keys info
     for (const dbTableName of dbTableNames) {
       const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-      const foreignKeysInfo = await prisma.$queryRawUnsafe<
+      const foreignKeysInfo = await this.prismaService.txClient().$queryRawUnsafe<
         {
           constraint_name: string;
           column_name: string;
@@ -522,7 +530,6 @@ export class BaseDuplicateService {
       allForeignKeyInfos.push(...newForeignKeyInfos);
     }
 
-    // 2. drop foreign keys
     for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
       const dropForeignKeyQuery = this.knex.schema
         .alterTable(dbTableName, (table) => {
@@ -533,21 +540,27 @@ export class BaseDuplicateService {
       await prisma.$executeRawUnsafe(dropForeignKeyQuery);
     }
 
-    // 3. duplicate table data
     for (const tableId of oldTableId) {
       const newTableId = tableIdMap[tableId];
       const oldDbTableName = tableId2DbTableNameMap[tableId];
       const newDbTableName = tableId2DbTableNameMap[newTableId];
-      await this.tableDuplicateService.duplicateTableData(
-        oldDbTableName,
-        newDbTableName,
-        viewIdMap,
-        fieldIdMap,
-        crossBaseLinkFieldTableMap[tableId] || []
-      );
+      try {
+        await this.tableDuplicateService.duplicateTableData(
+          oldDbTableName,
+          newDbTableName,
+          viewIdMap,
+          fieldIdMap,
+          crossBaseLinkFieldTableMap[tableId] || []
+        );
+      } catch (error) {
+        this.logger.error(
+          `exc duplicate table data error: ${(error as Error)?.message}`,
+          (error as Error)?.stack
+        );
+        throw error;
+      }
     }
 
-    // 4. repair foreign keys
     for (const {
       constraint_name: constraintName,
       column_name: columnName,

@@ -2,15 +2,16 @@ import { Injectable, Logger } from '@nestjs/common';
 import { generateTemplateCategoryId, generateTemplateId, HttpErrorCode } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 
-import type {
-  ITemplateCategoryListVo,
-  ICreateTemplateCategoryRo,
-  ICreateTemplateRo,
-  ITemplateListQueryRo,
-  IUpdateTemplateCategoryRo,
-  IUpdateTemplateRo,
-  ITemplateQueryRoSchema,
-  IUpdateOrderRo,
+import {
+  type ITemplateCategoryListVo,
+  type ICreateTemplateCategoryRo,
+  type ICreateTemplateRo,
+  type ITemplateListQueryRo,
+  type IUpdateTemplateCategoryRo,
+  type IUpdateTemplateRo,
+  type ITemplateQueryRoSchema,
+  type IUpdateOrderRo,
+  BaseDuplicateMode,
 } from '@teable/openapi';
 import { isNumber } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -292,7 +293,7 @@ export class TemplateOpenApiService {
             name: templateRaw?.name || 'template snapshot',
           },
           false,
-          true
+          BaseDuplicateMode.CreateTemplate
         );
 
         if (templateRaw.snapshot) {

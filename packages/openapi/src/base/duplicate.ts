@@ -5,6 +5,27 @@ import { z } from '../zod';
 import type { ICreateBaseVo } from './create';
 import { createBaseVoSchema } from './create';
 
+/**
+ * Defines the mode of base duplication operation.
+ * Different modes control how the base is duplicated and what transformations are applied.
+ */
+export enum BaseDuplicateMode {
+  /**
+   * Normal base duplication - all features are preserved as-is
+   */
+  Normal = 'normal',
+
+  /**
+   * Creating a template snapshot - automations and other dynamic features are disabled
+   */
+  CreateTemplate = 'createTemplate',
+
+  /**
+   * Applying a template - user emails in automations are replaced with the current user's email
+   */
+  ApplyTemplate = 'applyTemplate',
+}
+
 export const DUPLICATE_BASE = '/base/duplicate';
 
 export const duplicateBaseRoSchema = z.object({

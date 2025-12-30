@@ -14,12 +14,17 @@ import {
   ViewType,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { UploadType, PluginPosition, BaseNodeResourceType } from '@teable/openapi';
 import type {
   ICreateBaseVo,
   IBaseJson,
   ImportBaseRo,
   IFieldWithTableIdJson,
+} from '@teable/openapi';
+import {
+  UploadType,
+  PluginPosition,
+  BaseNodeResourceType,
+  BaseDuplicateMode,
 } from '@teable/openapi';
 
 import { Knex } from 'knex';
@@ -259,7 +264,8 @@ export class BaseImportService {
     spaceId: string,
     structure: IBaseJson,
     baseId?: string,
-    skipCreateBaseNodes?: boolean
+    skipCreateBaseNodes?: boolean,
+    duplicateMode: BaseDuplicateMode = BaseDuplicateMode.Normal
   ) {
     const { name, icon, tables, plugins, folders } = structure;
 

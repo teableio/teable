@@ -8,7 +8,12 @@ import {
   generateTemplateId,
 } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { CollaboratorType, ResourceType, BaseNodeResourceType } from '@teable/openapi';
+import {
+  CollaboratorType,
+  ResourceType,
+  BaseNodeResourceType,
+  BaseDuplicateMode,
+} from '@teable/openapi';
 import type {
   IBaseErdVo,
   ICreateBaseFromTemplateRo,
@@ -21,7 +26,7 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import { keyBy, isNumber } from 'lodash';
+import { keyBy, isNumber, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
 import { IThresholdConfig, ThresholdConfig } from '../../configs/threshold.config';
 import { CustomHttpException } from '../../custom.exception';
@@ -36,6 +41,7 @@ import { CollaboratorService } from '../collaborator/collaborator.service';
 import { GraphService } from '../graph/graph.service';
 import { TableOpenApiService } from '../table/open-api/table-open-api.service';
 import { BaseDuplicateService } from './base-duplicate.service';
+import { replaceDefaultUrl } from './utils';
 
 @Injectable()
 export class BaseService {
@@ -429,7 +435,8 @@ export class BaseService {
             withRecords,
             baseId,
           },
-          false
+          false,
+          BaseDuplicateMode.ApplyTemplate
         );
         await this.prismaService.txClient().template.update({
           where: { id: templateId },
@@ -449,7 +456,13 @@ export class BaseService {
 
         // If defaultUrl exists, replace the snapshot baseId with the new baseId
         if (defaultUrl) {
-          const newDefaultUrl = defaultUrl.replace(`/base/${fromBaseId}`, `/base/${res.base.id}`);
+          const maps = this.getUrlMap(res as unknown as Record<string, string>);
+          const newDefaultUrl = replaceDefaultUrl(defaultUrl, {
+            ...maps,
+            baseMap: {
+              [fromBaseId]: res.base.id,
+            },
+          });
           return {
             ...res.base,
             defaultUrl: newDefaultUrl,
@@ -462,6 +475,13 @@ export class BaseService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
+  }
+
+  protected getUrlMap(res: Record<string, string>) {
+    const maps = pick(res, ['tableIdMap', 'viewIdMap', 'dashboardIdMap']);
+    return {
+      ...maps,
+    } as unknown as Record<string, Record<string, string>>;
   }
 
   async getPermission() {
@@ -775,7 +795,7 @@ export class BaseService {
         baseId: existedBaseId,
       },
       false,
-      true
+      BaseDuplicateMode.CreateTemplate
     );
 
     return {

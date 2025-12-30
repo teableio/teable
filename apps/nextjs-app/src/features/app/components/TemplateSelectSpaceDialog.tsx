@@ -54,7 +54,16 @@ export const TemplateSelectSpaceDialog = React.forwardRef<
       createBaseFromTemplate({ spaceId, templateId, withRecords: true }),
     onSuccess: ({ data }) => {
       setOpen(false);
-      window.location.href = `/base/${data.id}`;
+      const { id: baseId, defaultUrl } = data;
+
+      // If defaultUrl is provided, navigate to it directly (e.g., to a default node)
+      if (defaultUrl) {
+        window.location.href = defaultUrl;
+        return;
+      }
+
+      // Otherwise, navigate to base home
+      window.location.href = `/base/${baseId}`;
     },
     onError: () => {
       setApplyTemplateLoading(false);

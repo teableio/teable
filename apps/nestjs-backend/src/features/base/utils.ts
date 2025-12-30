@@ -53,6 +53,25 @@ export function replaceStringByMap(
   return returnJSONString ? newConfigStr : JSON.parse(newConfigStr);
 }
 
+export const replaceDefaultUrl = (
+  defaultUrl: string,
+  maps: Record<string, Record<string, string>>
+) => {
+  if (!defaultUrl) return defaultUrl;
+
+  let newDefaultUrl = defaultUrl;
+
+  for (const [, value] of Object.entries(maps)) {
+    if (value) {
+      Object.entries(value).forEach(([mapKey, mapValue]) => {
+        newDefaultUrl = newDefaultUrl.replaceAll(mapKey, mapValue);
+      });
+    }
+  }
+
+  return newDefaultUrl;
+};
+
 export const mergeLinkFieldTableMaps = (
   map1: Record<
     string,
