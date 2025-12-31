@@ -2231,6 +2231,7 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
+            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;
@@ -2534,6 +2535,8 @@ export type I18nTranslations = {
                 "shareAlreadyEnabled": string;
                 "shareAlreadyDisabled": string;
                 "cannotDeleteLastView": string;
+                "filterInvalidOperator": string;
+                "filterInvalidOperatorMode": string;
             };
             "billing": {
                 "insufficientCredit": string;
@@ -3924,6 +3927,7 @@ export type I18nTranslations = {
                 "sqlQuery": string;
                 "querying": string;
                 "queryFailed": string;
+                "aborted": string;
                 "noData": string;
                 "dataFormatError": string;
                 "unsupportedQueryType": string;

@@ -1129,6 +1129,9 @@ export class FieldService implements IReadonlyAdapterService {
     }));
 
     await this.batchService.saveRawOps(tableId, RawOpType.Edit, IdPrefix.Field, dataList);
+
+    // Invalidate field loader cache to ensure subsequent queries get fresh data
+    this.invalidateFieldLoader(tableId);
   }
 
   async batchDeleteFields(

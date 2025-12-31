@@ -989,6 +989,7 @@
       "sqlQuery": "SQL query",
       "querying": "Querying...",
       "queryFailed": "Query failed",
+      "aborted": "Aborted",
       "noData": "No data returned",
       "dataFormatError": "Data format error",
       "unsupportedQueryType": "Unsupported query type: {{toolName}}",

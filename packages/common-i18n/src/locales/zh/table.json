@@ -989,6 +989,7 @@
       "sqlQuery": "SQL 查询",
       "querying": "查询中...",
       "queryFailed": "查询失败",
+      "aborted": "已中止",
       "noData": "无返回数据",
       "dataFormatError": "数据格式错误",
       "unsupportedQueryType": "不支持的查询类型: {{toolName}}",

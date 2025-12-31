@@ -1182,6 +1182,8 @@
       "propertyParseError": "视图属性解析失败",
       "primaryFieldCannotBeHidden": "主字段不能被隐藏",
       "filterUnsupportedFieldType": "筛选不支持的字段类型",
+      "filterInvalidOperator": "筛选器的操作符对此字段类型无效",
+      "filterInvalidOperatorMode": "筛选器的操作符与模式组合无效",
       "sortUnsupportedFieldType": "排序不支持的字段类型",
       "groupUnsupportedFieldType": "分组不支持的字段类型",
       "anchorNotFound": "未找到锚点视图",
