@@ -256,6 +256,10 @@ export type I18nTranslations = {
         "password": {
             "setInvalid": string;
         };
+        "non": {
+            "share": string;
+            "copy": string;
+        };
         "template": {
             "aiTitle": string;
             "aiSubTitle": string;
@@ -280,6 +284,10 @@ export type I18nTranslations = {
                     "guide6": string;
                     "guide7": string;
                 };
+            };
+            "non": {
+                "share": string;
+                "copy": string;
             };
             "aiGreeting": string;
             "useTemplateDialog": {
@@ -2223,7 +2231,6 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
-            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;

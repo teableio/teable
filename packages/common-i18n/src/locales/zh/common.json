@@ -68,6 +68,10 @@
   "password": {
     "setInvalid": "设置的密码无效，至少需要8个字符，且必须包含至少一个字母和一个数字。"
   },
+  "non": {
+    "share": "分享",
+    "copy": "已复制"
+  },
   "template": {
     "aiTitle": "让我们一起构建",
     "aiGreeting": "{{name}}，有什么可以帮您？",

@@ -53,6 +53,10 @@
   "password": {
     "setInvalid": "Le mot de passe n'est pas valide, il doit contenir au moins 8 caractères et au moins une lettre et un chiffre."
   },
+  "non": {
+    "share": "Partager",
+    "copy": "Copié"
+  },
   "template": {
     "aiTitle": "Construisons ensemble",
     "aiSubTitle": "La première plateforme IA où les équipes collaborent sur les données et génèrent des applications de production",

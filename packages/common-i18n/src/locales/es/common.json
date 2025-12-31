@@ -60,6 +60,10 @@
   "password": {
     "setInvalid": "La contraseña no es válida, debe tener al menos 8 caracteres y contener al menos una letra y un número."
   },
+  "non": {
+    "share": "Compartir",
+    "copy": "Copiado"
+  },
   "template": {
     "aiTitle": "Construyamos juntos",
     "aiSubTitle": "La primera plataforma de IA donde los equipos colaboran en datos y generan aplicaciones de producción",

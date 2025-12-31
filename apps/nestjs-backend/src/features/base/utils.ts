@@ -1,3 +1,7 @@
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export function replaceExpressionFieldIds(
   expression: string,
   fieldIdMap: { [oldFieldId: string]: string }
@@ -45,7 +49,7 @@ export function replaceStringByMap(
   for (const [, value] of Object.entries(maps)) {
     if (value) {
       Object.entries(value).forEach(([mapKey, mapValue]) => {
-        newConfigStr = newConfigStr.replaceAll(mapKey, mapValue);
+        newConfigStr = newConfigStr.replaceAll(new RegExp(escapeRegExp(mapKey), 'gi'), mapValue);
       });
     }
   }

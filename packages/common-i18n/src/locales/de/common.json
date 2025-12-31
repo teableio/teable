@@ -60,6 +60,10 @@
   "password": {
     "setInvalid": "Das Passwort ist ungültig, besteht aus mindestens 8 Zeichen und muss mindestens einen Buchstaben und eine Zahl enthalten."
   },
+  "non": {
+    "share": "Teilen",
+    "copy": "Kopiert"
+  },
   "template": {
     "aiTitle": "Lass uns zusammen bauen",
     "aiSubTitle": "Die erste KI-Plattform, auf der Teams gemeinsam an Daten arbeiten und Produktions-Apps erstellen",

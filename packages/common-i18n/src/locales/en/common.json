@@ -69,6 +69,10 @@
     "setInvalid": "The password is invalid, at least 8 characters, and must contain at least one letter and one number."
   },
   "template": {
+    "non": {
+      "share": "Share",
+      "copy": "Copied"
+    },
     "aiTitle": "Let's build together",
     "aiGreeting": "How can I help you, {{name}}",
     "aiSubTitle": "The first AI platform where teams collaborate on data and generate production apps",

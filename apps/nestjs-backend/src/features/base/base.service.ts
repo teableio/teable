@@ -733,6 +733,7 @@ export class BaseService {
                 name: snapshot.name,
               }),
               publishInfo,
+              lastModifiedBy: this.cls.get('user.id'),
             },
             select: {
               id: true,

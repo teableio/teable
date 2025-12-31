@@ -56,6 +56,10 @@
   "password": {
     "setInvalid": "Şifre geçersiz, en az 8 karakter olmalı ve en az bir harf ve bir rakam içermelidir."
   },
+  "non": {
+    "share": "Paylaş",
+    "copy": "Kopyalandı"
+  },
   "template": {
     "aiTitle": "Birlikte inşa edelim",
     "aiSubTitle": "Ekiplerin veriler üzerinde işbirliği yaptığı ve üretim uygulamaları oluşturduğu ilk AI platformu",

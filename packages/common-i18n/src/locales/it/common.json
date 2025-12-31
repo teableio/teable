@@ -60,6 +60,10 @@
   "password": {
     "setInvalid": "La password non è valida, deve contenere almeno 8 caratteri e almeno una lettera e un numero."
   },
+  "non": {
+    "share": "Condividi",
+    "copy": "Copiato"
+  },
   "template": {
     "aiTitle": "Costruiamo insieme",
     "aiSubTitle": "La prima piattaforma AI dove i team collaborano sui dati e generano app di produzione",

@@ -317,6 +317,7 @@ export class TemplateOpenApiService {
                 spaceId,
                 name,
               }),
+              lastModifiedBy: this.cls.get('user.id'),
             },
           })
           .then(async (res) => {
