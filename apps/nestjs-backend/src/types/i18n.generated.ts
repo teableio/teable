@@ -453,6 +453,7 @@ export type I18nTranslations = {
                     "featured": string;
                     "createdBy": string;
                     "userNonExistent": string;
+                    "usage": string;
                     "preview": string;
                 };
                 "title": string;

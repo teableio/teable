@@ -196,7 +196,8 @@
         "actions": "Actions",
         "featured": "En vedette",
         "createdBy": "Créé par",
-        "userNonExistent": "Utilisateur inexistant"
+        "userNonExistent": "Utilisateur inexistant",
+        "usage": "Utilisation"
       }
     }
   },

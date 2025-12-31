@@ -27,23 +27,35 @@ export const useContextMenu = () => {
   const viewRecordHistory = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
-      const recordUrl = `${publicOrigin}/base/${baseId}/table/${tableId}?recordId=${recordId}&showHistory=true`;
-      await router.push(recordUrl, undefined, {
-        shallow: true,
-      });
+      await router.push(
+        {
+          pathname: router.pathname,
+          query: { ...router.query, recordId, showHistory: true },
+        },
+        undefined,
+        {
+          shallow: true,
+        }
+      );
     },
-    [publicOrigin, baseId, tableId, router]
+    [baseId, tableId, router]
   );
 
   const addRecordComment = useCallback(
     async (recordId: string) => {
       if (!baseId || !tableId || !recordId) return;
-      const recordUrl = `${publicOrigin}/base/${baseId}/table/${tableId}?recordId=${recordId}&showComment=true`;
-      await router.push(recordUrl, undefined, {
-        shallow: true,
-      });
+      await router.push(
+        {
+          pathname: router.pathname,
+          query: { ...router.query, recordId, showComment: true },
+        },
+        undefined,
+        {
+          shallow: true,
+        }
+      );
     },
-    [publicOrigin, baseId, tableId, router]
+    [baseId, tableId, router]
   );
 
   return {

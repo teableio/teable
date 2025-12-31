@@ -48,7 +48,17 @@ export const ExpandViewList = () => {
         </Button>
       </PopoverTrigger>
       <PopoverContent side="bottom" align="start" className="w-auto max-w-[456px] p-1">
-        <Command value={highlightedValue} onValueChange={setHighlightedValue}>
+        <Command
+          value={highlightedValue}
+          onValueChange={setHighlightedValue}
+          filter={(value, search, keywords) => {
+            const searchLower = search.toLowerCase();
+            if (keywords?.some((keyword) => keyword.toLowerCase().includes(searchLower))) {
+              return 1;
+            }
+            return 0;
+          }}
+        >
           <CommandInput
             className="h-9"
             placeholder={t('table:view.searchView')}
@@ -71,6 +81,7 @@ export const ExpandViewList = () => {
                   <CommandItem
                     key={id}
                     value={id}
+                    keywords={[name]}
                     ref={setNodeRef}
                     style={{
                       ...style,

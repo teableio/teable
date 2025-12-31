@@ -201,7 +201,8 @@
         "actions": "Aktionen",
         "featured": "Hervorgehoben",
         "createdBy": "Erstellt von",
-        "userNonExistent": "Benutzer existiert nicht"
+        "userNonExistent": "Benutzer existiert nicht",
+        "usage": "Nutzung"
       }
     }
   },

@@ -360,6 +360,7 @@ export const TemplateTable = () => {
             </span>
           )}
         </TableCell>
+        <TableCell className="text-center">{row.usageCount ?? 0}</TableCell>
         <TableCell className="text-center">
           <TooltipProvider>
             <Tooltip>
@@ -433,7 +434,7 @@ export const TemplateTable = () => {
             <TableHead className="min-w-48 shrink-0">
               {t('settings.templateAdmin.header.name')}
             </TableHead>
-            <TableHead className="w-48 shrink-0">
+            <TableHead className="min-w-48 shrink-0">
               {t('settings.templateAdmin.header.description')}
             </TableHead>
             <TableHead className="w-32 shrink-0">
@@ -460,6 +461,9 @@ export const TemplateTable = () => {
             </TableHead>
             <TableHead className="min-w-32">
               {t('settings.templateAdmin.header.createdBy')}
+            </TableHead>
+            <TableHead className="text-center">
+              {t('settings.templateAdmin.header.usage')}
             </TableHead>
             <TableHead className="text-center">
               {t('settings.templateAdmin.header.preview')}
