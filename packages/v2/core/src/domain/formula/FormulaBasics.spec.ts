@@ -3,6 +3,7 @@ import { CharStreams, CommonTokenStream, Formula, FormulaLexer } from '@teable/f
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { DomainError } from '../shared/DomainError';
 import { CellValueType } from './CellValueType';
 import { normalizeFunctionNameAlias } from './function-aliases';
 import { FunctionName } from './functions/common';
@@ -66,17 +67,15 @@ describe('formula basics', () => {
       new TypedValue('text', CellValueType.String),
       new Concatenate()
     );
-    sameType._unsafeUnwrap();
-
-    expect(sameType.value.type).toBe(CellValueType.String);
+    const sameTypeValue = sameType._unsafeUnwrap();
+    expect(sameTypeValue.type).toBe(CellValueType.String);
 
     const converted = converter.convertTypedValue(
       new TypedValue(1, CellValueType.Number),
       new Concatenate()
     );
-    converted._unsafeUnwrap();
-
-    expect(converted.value.type).toBe(CellValueType.String);
+    const convertedValue = converted._unsafeUnwrap();
+    expect(convertedValue.type).toBe(CellValueType.String);
 
     const emptyAccept = converter.convertTypedValue(
       new TypedValue(1, CellValueType.Number),
@@ -90,100 +89,91 @@ describe('formula basics', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const numberPlus = parseRoot('1 + 2').accept(visitor);
-      numberPlus._unsafeUnwrap();
-
-      expect(numberPlus.value.type).toBe(CellValueType.Number);
+      const numberPlusValue = numberPlus._unsafeUnwrap();
+      expect(numberPlusValue.type).toBe(CellValueType.Number);
 
       const stringPlus = parseRoot('"a" + 1').accept(visitor);
-      stringPlus._unsafeUnwrap();
-
-      expect(stringPlus.value.type).toBe(CellValueType.String);
+      const stringPlusValue = stringPlus._unsafeUnwrap();
+      expect(stringPlusValue.type).toBe(CellValueType.String);
 
       const minus = parseRoot('1 - 2').accept(visitor);
-      minus._unsafeUnwrap();
-
-      expect(minus.value.type).toBe(CellValueType.Number);
+      const minusValue = minus._unsafeUnwrap();
+      expect(minusValue.type).toBe(CellValueType.Number);
 
       const comparison = parseRoot('1 > 0').accept(visitor);
-      comparison._unsafeUnwrap();
-
-      expect(comparison.value.type).toBe(CellValueType.Boolean);
+      const comparisonValue = comparison._unsafeUnwrap();
+      expect(comparisonValue.type).toBe(CellValueType.Boolean);
 
       const ampersand = parseRoot('"a" & "b"').accept(visitor);
-      ampersand._unsafeUnwrap();
-
-      expect(ampersand.value.type).toBe(CellValueType.String);
+      const ampersandValue = ampersand._unsafeUnwrap();
+      expect(ampersandValue.type).toBe(CellValueType.String);
 
       const brackets = parseRoot('(1)').accept(visitor);
-      brackets._unsafeUnwrap();
-
-      expect(brackets.value.type).toBe(CellValueType.Number);
+      const bracketsValue = brackets._unsafeUnwrap();
+      expect(bracketsValue.type).toBe(CellValueType.Number);
 
       const unary = parseRoot('-1').accept(visitor);
-      unary._unsafeUnwrap();
-
-      expect(unary.value.type).toBe(CellValueType.Number);
+      const unaryValue = unary._unsafeUnwrap();
+      expect(unaryValue.type).toBe(CellValueType.Number);
 
       const decimal = parseRoot('1.5').accept(visitor);
-      decimal._unsafeUnwrap();
-
-      expect(decimal.value.type).toBe(CellValueType.Number);
+      const decimalValue = decimal._unsafeUnwrap();
+      expect(decimalValue.type).toBe(CellValueType.Number);
 
       const booleanLiteral = parseRoot('TRUE').accept(visitor);
-      booleanLiteral._unsafeUnwrap();
-
-      expect(booleanLiteral.value.type).toBe(CellValueType.Boolean);
+      const booleanLiteralValue = booleanLiteral._unsafeUnwrap();
+      expect(booleanLiteralValue.type).toBe(CellValueType.Boolean);
     });
 
     it('resolves field references and handles missing fields', () => {
       const visitorWithDeps = new FormulaTypeVisitor(dependencies);
       const reference = parseRoot(`{${fieldId}}`).accept(visitorWithDeps);
-      reference._unsafeUnwrap();
-
-      expect(reference.value.type).toBe(CellValueType.Number);
-      expect(reference.value.isMultiple).toBe(false);
+      const referenceValue = reference._unsafeUnwrap();
+      expect(referenceValue.type).toBe(CellValueType.Number);
+      expect(referenceValue.isMultiple).toBe(false);
 
       const missing = parseRoot(`{${fieldId}}`).accept(new FormulaTypeVisitor({}));
       missing._unsafeUnwrapErr();
-      expect(missing._unsafeUnwrapErr()).toContain(`FieldId ${fieldId} is a invalid field id`);
+      expect(missing._unsafeUnwrapErr().message).toContain(
+        `FieldId ${fieldId} is a invalid field id`
+      );
 
       const invalidContext = {
         IDENTIFIER_VARIABLE: () => undefined,
       } as unknown as FieldReferenceCurlyContext;
       const invalid = visitorWithDeps.visitFieldReferenceCurly(invalidContext);
       invalid._unsafeUnwrapErr();
-      expect(invalid._unsafeUnwrapErr()).toContain('FieldId {} is a invalid field id');
+      expect(invalid._unsafeUnwrapErr().message).toContain('FieldId {} is a invalid field id');
     });
 
     it('handles function calls and aliases', () => {
       const visitor = new FormulaTypeVisitor({});
 
       const blank = parseRoot('BLANK()').accept(visitor);
-      blank._unsafeUnwrap();
-
-      expect(blank.value.isBlank).toBe(true);
+      const blankValue = blank._unsafeUnwrap();
+      expect(blankValue.isBlank).toBe(true);
 
       const alias = parseRoot('ARRAYJOIN("a")').accept(visitor);
-      alias._unsafeUnwrap();
-
-      expect(alias.value.type).toBe(CellValueType.String);
+      const aliasValue = alias._unsafeUnwrap();
+      expect(aliasValue.type).toBe(CellValueType.String);
 
       const isError = parseRoot(`IS_ERROR({${fieldId}})`).accept(visitor);
-      isError._unsafeUnwrap();
-
-      expect(isError.value.type).toBe(CellValueType.Boolean);
+      const isErrorValue = isError._unsafeUnwrap();
+      expect(isErrorValue.type).toBe(CellValueType.Boolean);
 
       const unknown = parseRoot('UNKNOWN()').accept(visitor);
       unknown._unsafeUnwrapErr();
-      expect(unknown._unsafeUnwrapErr()).toContain('Function name UNKNOWN is not found');
+      expect(unknown._unsafeUnwrapErr().message).toContain('Function name UNKNOWN is not found');
 
       const sumMissing = parseRoot(`SUM({${fieldId}})`).accept(visitor);
       sumMissing._unsafeUnwrapErr();
-      expect(sumMissing._unsafeUnwrapErr()).toContain(`FieldId ${fieldId} is a invalid field id`);
+      expect(sumMissing._unsafeUnwrapErr().message).toContain(
+        `FieldId ${fieldId} is a invalid field id`
+      );
 
       const invalidParam = parseRoot('TODAY(1)').accept(visitor);
       invalidParam._unsafeUnwrapErr();
-      expect(invalidParam._unsafeUnwrapErr()).toContain('no acceptable value types');
+      expect(invalidParam._unsafeUnwrapErr().message).toContain('no acceptable value types');
     });
 
     it('propagates expression errors in unary, binary, and return types', () => {
@@ -241,7 +231,7 @@ describe('formula basics', () => {
     it('exposes a default result type', () => {
       const visitor = new FormulaTypeVisitor({});
       const defaultResult = (
-        visitor as unknown as { defaultResult: () => Result<TypedValue, string> }
+        visitor as unknown as { defaultResult: () => Result<TypedValue, DomainError> }
       ).defaultResult();
       defaultResult._unsafeUnwrap();
 

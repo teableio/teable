@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { OffsetPagination } from '../domain/shared/pagination/OffsetPagination';
 import { PageLimit } from '../domain/shared/pagination/PageLimit';
 import { PageOffset } from '../domain/shared/pagination/PageOffset';
@@ -31,9 +32,9 @@ export class ListTablesQuery {
     readonly nameQuery?: TableName
   ) {}
 
-  static create(raw: unknown): Result<ListTablesQuery, string> {
+  static create(raw: unknown): Result<ListTablesQuery, DomainError> {
     const parsed = listTablesInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ListTablesQuery input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ListTablesQuery input'));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       this.buildSort(parsed.data).andThen((sort) =>
@@ -46,9 +47,9 @@ export class ListTablesQuery {
     );
   }
 
-  private static buildSort(data: IListTablesQueryOutput): Result<Sort<TableSortKey>, string> {
+  private static buildSort(data: IListTablesQueryOutput): Result<Sort<TableSortKey>, DomainError> {
     if (data.sortDirection && !data.sortBy) {
-      return err('Sort direction requires sortBy');
+      return err(domainError.fromMessage('Sort direction requires sortBy'));
     }
 
     const key = data.sortBy ? TableSortKey.from(data.sortBy) : TableSortKey.default();
@@ -61,9 +62,9 @@ export class ListTablesQuery {
 
   private static buildPagination(
     data: IListTablesQueryOutput
-  ): Result<OffsetPagination | undefined, string> {
+  ): Result<OffsetPagination | undefined, DomainError> {
     if (data.offset !== undefined && data.limit === undefined) {
-      return err('Pagination offset requires limit');
+      return err(domainError.fromMessage('Pagination offset requires limit'));
     }
 
     if (data.limit === undefined) return ok(undefined);
@@ -75,7 +76,7 @@ export class ListTablesQuery {
 
   private static buildNameQuery(
     data: IListTablesQueryOutput
-  ): Result<TableName | undefined, string> {
+  ): Result<TableName | undefined, DomainError> {
     if (!data.q) return ok(undefined);
     return TableName.create(data.q);
   }

@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -27,7 +28,7 @@ export class NumberField extends Field {
     formatting?: NumberFormatting;
     showAs?: NumberShowAs;
     defaultValue?: NumberDefaultValue;
-  }): Result<NumberField, string> {
+  }): Result<NumberField, DomainError> {
     return ok(
       new NumberField(
         params.id,
@@ -51,7 +52,7 @@ export class NumberField extends Field {
     return this.defaultValueValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitNumberField(this);
   }
 }

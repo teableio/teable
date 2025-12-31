@@ -1,6 +1,8 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../shared/DomainError';
+import { domainError } from '../shared/DomainError';
 import type { FormulaFunc } from './functions/common';
 import { TypedValue } from './typed-value';
 
@@ -20,7 +22,7 @@ export class TypedValueConverter {
     );
   }
 
-  convertTypedValue(typedValue: TypedValue, func: FormulaFunc): Result<TypedValue, string> {
+  convertTypedValue(typedValue: TypedValue, func: FormulaFunc): Result<TypedValue, DomainError> {
     const normalized = this.transformMultipleValue(typedValue, func);
     if (func.acceptValueType.has(normalized.type)) {
       return ok(normalized);
@@ -28,7 +30,7 @@ export class TypedValueConverter {
 
     const firstAcceptValueType = func.acceptValueType.values().next().value;
     if (!firstAcceptValueType) {
-      return err(`function ${func.name} has no acceptable value types`);
+      return err(domainError.fromMessage(`function ${func.name} has no acceptable value types`));
     }
 
     return ok(

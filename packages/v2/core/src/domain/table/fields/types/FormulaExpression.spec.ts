@@ -18,9 +18,8 @@ describe('FormulaExpression', () => {
     idResult._unsafeUnwrap();
 
     const expression = FormulaExpression.create(`{${idResult._unsafeUnwrap().toString()}} + 1`);
-    expression._unsafeUnwrap();
-
-    const refsResult = expression.value.getReferencedFieldIds();
+    const expressionValue = expression._unsafeUnwrap();
+    const refsResult = expressionValue.getReferencedFieldIds();
     refsResult._unsafeUnwrap();
 
     expect(refsResult._unsafeUnwrap().map((id) => id.toString())).toEqual([
@@ -30,9 +29,8 @@ describe('FormulaExpression', () => {
 
   it('rejects invalid referenced field ids', () => {
     const expression = FormulaExpression.create('{badField} + 1');
-    expression._unsafeUnwrap();
-
-    const refsResult = expression.value.getReferencedFieldIds();
+    const expressionValue = expression._unsafeUnwrap();
+    const refsResult = expressionValue.getReferencedFieldIds();
     refsResult._unsafeUnwrapErr();
   });
 
@@ -43,9 +41,8 @@ describe('FormulaExpression', () => {
     const fieldId = idResult._unsafeUnwrap();
 
     const numberExpression = FormulaExpression.create(`{${fieldId.toString()}} + 1`);
-    numberExpression._unsafeUnwrap();
-
-    const numberResult = numberExpression.value.getParsedValueType([
+    const numberExpressionValue = numberExpression._unsafeUnwrap();
+    const numberResult = numberExpressionValue.getParsedValueType([
       {
         id: fieldId,
         valueType: {
@@ -64,9 +61,8 @@ describe('FormulaExpression', () => {
     const stringExpression = FormulaExpression.create(
       `CONCATENATE("Score: ", {${fieldId.toString()}})`
     );
-    stringExpression._unsafeUnwrap();
-
-    const stringResult = stringExpression.value.getParsedValueType([
+    const stringExpressionValue = stringExpression._unsafeUnwrap();
+    const stringResult = stringExpressionValue.getParsedValueType([
       {
         id: fieldId,
         valueType: {

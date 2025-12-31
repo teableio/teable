@@ -1,4 +1,4 @@
-import type { DeleteTableResult, IDeleteTableCommandInput } from '@teable/v2-core';
+import type { DeleteTableResult, IDeleteTableCommandInput, DomainError } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -10,6 +10,7 @@ import {
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
   type IApiResponseDto,
+  type HttpErrorStatus,
 } from '../shared/http';
 import type { ITableDto } from './dto';
 import { mapTableToDto, tableDtoSchema } from './dto';
@@ -28,9 +29,7 @@ export type IDeleteTableErrorResponseDto = IApiErrorResponseDto;
 
 export type IDeleteTableEndpointResult =
   | { status: 200; body: IDeleteTableOkResponseDto }
-  | { status: 400; body: IDeleteTableErrorResponseDto }
-  | { status: 404; body: IDeleteTableErrorResponseDto }
-  | { status: 500; body: IDeleteTableErrorResponseDto };
+  | { status: HttpErrorStatus; body: IDeleteTableErrorResponseDto };
 
 export const deleteTableResponseDataSchema = z.object({
   table: tableDtoSchema,
@@ -43,7 +42,7 @@ export const deleteTableErrorResponseSchema = apiErrorResponseDtoSchema;
 
 export const mapDeleteTableResultToDto = (
   result: DeleteTableResult
-): Result<IDeleteTableResponseDataDto, string> => {
+): Result<IDeleteTableResponseDataDto, DomainError> => {
   return mapTableToDto(result.table).map((table) => ({
     table,
     events: result.events.map(mapDomainEventToDto),

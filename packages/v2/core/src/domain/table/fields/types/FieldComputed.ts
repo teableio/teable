@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const fieldComputedSchema = z.boolean();
@@ -11,9 +12,9 @@ export class FieldComputed extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FieldComputed, string> {
+  static create(raw: unknown): Result<FieldComputed, DomainError> {
     const parsed = fieldComputedSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FieldComputed');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldComputed'));
     return ok(new FieldComputed(parsed.data));
   }
 

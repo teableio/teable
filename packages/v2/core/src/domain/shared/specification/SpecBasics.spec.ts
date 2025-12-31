@@ -237,7 +237,7 @@ describe('SpecBuilder', () => {
 
     const errorResult = new TestSpecBuilder().fail('Bad spec').build();
     errorResult._unsafeUnwrapErr();
-    expect(errorResult._unsafeUnwrapErr()).toContain('Bad spec');
+    expect(errorResult._unsafeUnwrapErr().message).toContain('Bad spec');
   });
 
   it('builds combined specifications', () => {
@@ -291,7 +291,7 @@ describe('SpecBuilder', () => {
     builder.andGroup((child) => child.fail('Group error'));
     const result = builder.build();
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Group error');
+    expect(result._unsafeUnwrapErr().message).toContain('Group error');
   });
 
   it('supports noop visitor', () => {

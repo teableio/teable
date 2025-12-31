@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -33,7 +34,7 @@ export class ButtonField extends Field {
     maxCount?: ButtonMaxCount;
     resetCount?: ButtonResetCount;
     workflow?: ButtonWorkflow;
-  }): Result<ButtonField, string> {
+  }): Result<ButtonField, DomainError> {
     return ok(
       new ButtonField(
         params.id,
@@ -67,7 +68,7 @@ export class ButtonField extends Field {
     return this.workflowValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitButtonField(this);
   }
 }

@@ -599,7 +599,7 @@ describe('TableBuilder', () => {
     const buildResult = builder.build();
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('primary');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('primary');
   });
 
   it('requires at least one field', () => {
@@ -618,7 +618,7 @@ describe('TableBuilder', () => {
       .build();
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('at least one Field');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('at least one Field');
   });
 
   it('requires a base id', () => {
@@ -634,7 +634,7 @@ describe('TableBuilder', () => {
 
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('BaseId is required');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('BaseId is required');
   });
 
   it('requires a table name', () => {
@@ -657,7 +657,7 @@ describe('TableBuilder', () => {
 
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('TableName is required');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('TableName is required');
   });
 
   it('requires at least one view', () => {
@@ -680,7 +680,7 @@ describe('TableBuilder', () => {
 
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('at least one View');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('at least one View');
   });
 
   it('rejects duplicate field names', () => {
@@ -702,7 +702,7 @@ describe('TableBuilder', () => {
     const buildResult = builder.build();
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('Field names must be unique');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('Field names must be unique');
   });
 
   it('rejects duplicate view names', () => {
@@ -728,7 +728,7 @@ describe('TableBuilder', () => {
     const buildResult = builder.build();
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('View names must be unique');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('View names must be unique');
   });
 
   it('captures missing field and view names', () => {
@@ -749,10 +749,13 @@ describe('TableBuilder', () => {
     builder.view().defaultGrid().done();
 
     const buildResult = builder.build();
-    buildResult._unsafeUnwrapErr();
+    const buildError = buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('FieldName is required');
-    expect(buildResult._unsafeUnwrapErr()).toContain('ViewName is required');
+    expect(buildError.message).toBe('Table builder errors');
+    const errors = buildError.details?.errors as string[] | undefined;
+    expect(errors).toBeDefined();
+    expect(errors).toContain('FieldName is required');
+    expect(errors).toContain('ViewName is required');
   });
 
   it('uses provided table id and validates primary field existence', () => {
@@ -781,7 +784,7 @@ describe('TableBuilder', () => {
     const buildResult = builder.build();
     buildResult._unsafeUnwrapErr();
 
-    expect(buildResult._unsafeUnwrapErr()).toContain('Primary Field must exist');
+    expect(buildResult._unsafeUnwrapErr().message).toContain('Primary Field must exist');
   });
 
   it('honors explicit table id on successful build', () => {

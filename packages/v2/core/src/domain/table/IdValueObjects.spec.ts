@@ -13,9 +13,8 @@ const viewIdPattern = /^viw[0-9a-zA-Z]{16}$/;
 describe('TableId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = TableId.generate();
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toMatch(tableIdPattern);
+    const tableId = result._unsafeUnwrap();
+    expect(tableId.toString()).toMatch(tableIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
@@ -29,9 +28,8 @@ describe('TableId', () => {
 describe('FieldId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = FieldId.generate();
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toMatch(fieldIdPattern);
+    const fieldId = result._unsafeUnwrap();
+    expect(fieldId.toString()).toMatch(fieldIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
@@ -45,9 +43,8 @@ describe('FieldId', () => {
 describe('RecordId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = RecordId.generate();
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toMatch(recordIdPattern);
+    const recordId = result._unsafeUnwrap();
+    expect(recordId.toString()).toMatch(recordIdPattern);
   });
 
   it('validates ids against the v1 format', () => {
@@ -61,9 +58,8 @@ describe('RecordId', () => {
 describe('ViewId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = ViewId.generate();
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toMatch(viewIdPattern);
+    const viewId = result._unsafeUnwrap();
+    expect(viewId.toString()).toMatch(viewIdPattern);
   });
 
   it('validates ids against the v1 format', () => {

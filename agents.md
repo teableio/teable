@@ -175,6 +175,67 @@ Inside `packages/v2/core/src`:
 
 ## Testing expectations (minimal)
 
+## Type-exhaustive testing with `it.each` (required)
+
+When testing behavior that varies by type (e.g. field types, cell value types, view types), use `it.each` with a **type-safe exhaustive matrix**. This ensures:
+
+1. All current types are tested
+2. TypeScript errors when new types are added but not covered in tests
+3. Clear per-type test output
+
+### Pattern
+
+```typescript
+// 1. Define the type literal from the source of truth
+type FieldTypeLiteral = (typeof fieldTypeValues)[number];
+
+// 2. Define test case interface
+interface InnerFieldTestCase {
+  type: FieldTypeLiteral;
+  factory: (id: FieldId, name: FieldName) => Result<Field, DomainError>;
+  expectedCellValueType: 'string' | 'number' | 'boolean' | 'dateTime';
+}
+
+// 3. Create exhaustive map - TypeScript errors if any type is missing
+const createTestCases = (): Record<FieldTypeLiteral, InnerFieldTestCase> => ({
+  singleLineText: { type: 'singleLineText', factory: ..., expectedCellValueType: 'string' },
+  number: { type: 'number', factory: ..., expectedCellValueType: 'number' },
+  // ... ALL other types must be listed
+});
+
+// 4. Compile-time exhaustiveness check
+const _exhaustiveCheck: Record<FieldTypeLiteral, InnerFieldTestCase> = createTestCases();
+void _exhaustiveCheck;
+
+// 5. Use it.each for matrix testing
+describe('inner field types matrix', () => {
+  const testCases = Object.values(createTestCases());
+
+  it.each(testCases)(
+    'creates lookup field with $type inner field',
+    ({ type, factory, expectedCellValueType }) => {
+      // Test implementation
+    }
+  );
+});
+```
+
+### When to use
+
+- Testing field type-specific behavior (e.g. LookupField with different inner field types)
+- Testing view type-specific rendering/behavior
+- Testing cell value type conversions
+- Any scenario where behavior varies across a finite set of types
+
+### Benefits
+
+- **Type safety**: Adding a new field type to `fieldTypeValues` will cause TypeScript to error in tests until the new type is added to the test matrix
+- **Completeness**: Every type variant is explicitly tested
+- **Maintainability**: Clear structure for adding new types
+- **Readability**: Test output shows which specific type failed
+
+See `LookupField.spec.ts` for a complete example.
+
 ## Testing strategy (domain → e2e)
 
 v2 uses a layered test strategy. The same behavior should usually be asserted **once** at the most appropriate layer (avoid duplicating identical assertions across many layers).

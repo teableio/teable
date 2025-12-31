@@ -1,10 +1,11 @@
 import type { IDeleteFieldEndpointResult } from '@teable/v2-contract-http';
-import { mapDeleteFieldResultToDto } from '@teable/v2-contract-http';
+import {
+  mapDeleteFieldResultToDto,
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+} from '@teable/v2-contract-http';
 import { DeleteFieldCommand } from '@teable/v2-core';
 import type { DeleteFieldResult, ICommandBus, IExecutionContext } from '@teable/v2-core';
-
-const isNotFoundError = (error: string): boolean =>
-  error === 'Not found' || error === 'Table not found' || error === 'Field not found';
 
 export const executeDeleteFieldEndpoint = async (
   context: IExecutionContext,
@@ -13,7 +14,11 @@ export const executeDeleteFieldEndpoint = async (
 ): Promise<IDeleteFieldEndpointResult> => {
   const commandResult = DeleteFieldCommand.create(rawBody);
   if (commandResult.isErr()) {
-    return { status: 400, body: { ok: false, error: commandResult.error } };
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const result = await commandBus.execute<DeleteFieldCommand, DeleteFieldResult>(
@@ -21,15 +26,20 @@ export const executeDeleteFieldEndpoint = async (
     commandResult.value
   );
   if (result.isErr()) {
-    if (isNotFoundError(result.error)) {
-      return { status: 404, body: { ok: false, error: result.error } };
-    }
-    return { status: 500, body: { ok: false, error: result.error } };
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const mapped = mapDeleteFieldResultToDto(result.value);
   if (mapped.isErr()) {
-    return { status: 500, body: { ok: false, error: mapped.error } };
+    const error = mapped.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   return {

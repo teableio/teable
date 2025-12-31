@@ -331,7 +331,9 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         .select(['from_field_id'])
         .where('to_field_id', '=', rollupField.id().toString())
         .execute();
-      const fromFieldIds = references.map((row) => row.from_field_id).sort();
+      const fromFieldIds = references
+        .map((row: { from_field_id: string }) => row.from_field_id)
+        .sort();
       expect(fromFieldIds).toEqual(
         [linkFieldId.toString(), foreignLookupFieldId.toString()].sort()
       );

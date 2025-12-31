@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const dateFormatSchema = z.enum(['date', 'dateTime']);
@@ -12,9 +13,9 @@ export class DateFormat extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<DateFormat, string> {
+  static create(raw: unknown): Result<DateFormat, DomainError> {
     const parsed = dateFormatSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DateFormat');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DateFormat'));
     return ok(new DateFormat(parsed.data));
   }
 

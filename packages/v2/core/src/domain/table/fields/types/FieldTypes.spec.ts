@@ -116,6 +116,9 @@ class RecordingFieldVisitor implements IFieldVisitor<string> {
   visitLinkField(): ReturnType<IFieldVisitor<string>['visitLinkField']> {
     return ok('link');
   }
+  visitLookupField(): ReturnType<IFieldVisitor<string>['visitLookupField']> {
+    return ok('lookup');
+  }
 }
 
 describe('Field types', () => {
@@ -265,12 +268,12 @@ describe('Field types', () => {
     });
     singleText._unsafeUnwrap();
 
-    expect(singleText.value.showAs()).toBe(showAsResult._unsafeUnwrap());
-    expect(singleText.value.defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
-    const singleAccept = singleText.value.accept(visitor);
+    expect(singleText._unsafeUnwrap().showAs()).toBe(showAsResult._unsafeUnwrap());
+    expect(singleText._unsafeUnwrap().defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
+    const singleAccept = singleText._unsafeUnwrap().accept(visitor);
     singleAccept._unsafeUnwrap();
 
-    expect(singleAccept.value).toBe('singleLineText');
+    expect(singleAccept._unsafeUnwrap()).toBe('singleLineText');
 
     const longText = LongTextField.create({
       id,
@@ -279,11 +282,11 @@ describe('Field types', () => {
     });
     longText._unsafeUnwrap();
 
-    expect(longText.value.defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
-    const longAccept = longText.value.accept(visitor);
+    expect(longText._unsafeUnwrap().defaultValue()).toBe(textDefaultResult._unsafeUnwrap());
+    const longAccept = longText._unsafeUnwrap().accept(visitor);
     longAccept._unsafeUnwrap();
 
-    expect(longAccept.value).toBe('longText');
+    expect(longAccept._unsafeUnwrap()).toBe('longText');
 
     const number = NumberField.create({
       id,
@@ -294,13 +297,13 @@ describe('Field types', () => {
     });
     number._unsafeUnwrap();
 
-    expect(number.value.formatting()).toBe(formattingResult._unsafeUnwrap());
-    expect(number.value.showAs()).toBe(numberShowAsResult._unsafeUnwrap());
-    expect(number.value.defaultValue()).toBe(numberDefaultResult._unsafeUnwrap());
-    const numberAccept = number.value.accept(visitor);
+    expect(number._unsafeUnwrap().formatting()).toBe(formattingResult._unsafeUnwrap());
+    expect(number._unsafeUnwrap().showAs()).toBe(numberShowAsResult._unsafeUnwrap());
+    expect(number._unsafeUnwrap().defaultValue()).toBe(numberDefaultResult._unsafeUnwrap());
+    const numberAccept = number._unsafeUnwrap().accept(visitor);
     numberAccept._unsafeUnwrap();
 
-    expect(numberAccept.value).toBe('number');
+    expect(numberAccept._unsafeUnwrap()).toBe('number');
 
     const rating = RatingField.create({
       id,
@@ -311,13 +314,13 @@ describe('Field types', () => {
     });
     rating._unsafeUnwrap();
 
-    expect(rating.value.ratingMax()).toBe(ratingMaxResult._unsafeUnwrap());
-    expect(rating.value.ratingIcon()).toBe(ratingIconResult._unsafeUnwrap());
-    expect(rating.value.ratingColor()).toBe(ratingColorResult._unsafeUnwrap());
-    const ratingAccept = rating.value.accept(visitor);
+    expect(rating._unsafeUnwrap().ratingMax()).toBe(ratingMaxResult._unsafeUnwrap());
+    expect(rating._unsafeUnwrap().ratingIcon()).toBe(ratingIconResult._unsafeUnwrap());
+    expect(rating._unsafeUnwrap().ratingColor()).toBe(ratingColorResult._unsafeUnwrap());
+    const ratingAccept = rating._unsafeUnwrap().accept(visitor);
     ratingAccept._unsafeUnwrap();
 
-    expect(ratingAccept.value).toBe('rating');
+    expect(ratingAccept._unsafeUnwrap()).toBe('rating');
 
     const formula = FormulaField.create({
       id,
@@ -330,10 +333,10 @@ describe('Field types', () => {
     });
     formula._unsafeUnwrap();
 
-    const formulaAccept = formula.value.accept(visitor);
+    const formulaAccept = formula._unsafeUnwrap().accept(visitor);
     formulaAccept._unsafeUnwrap();
 
-    expect(formulaAccept.value).toBe('formula');
+    expect(formulaAccept._unsafeUnwrap()).toBe('formula');
 
     const valuesFieldIdResult = createFieldId('c');
     const valuesFieldNameResult = FieldName.create('Values');
@@ -344,22 +347,21 @@ describe('Field types', () => {
     const valuesField = NumberField.create({
       id: valuesFieldIdResult._unsafeUnwrap(),
       name: valuesFieldNameResult._unsafeUnwrap(),
-    });
-    valuesField._unsafeUnwrap();
+    })._unsafeUnwrap();
 
     const rollup = RollupField.create({
       id,
       name,
       config: rollupConfigResult._unsafeUnwrap(),
       expression: rollupExpressionResult._unsafeUnwrap(),
-      valuesField: valuesField.value,
+      valuesField,
     });
     rollup._unsafeUnwrap();
 
-    const rollupAccept = rollup.value.accept(visitor);
+    const rollupAccept = rollup._unsafeUnwrap().accept(visitor);
     rollupAccept._unsafeUnwrap();
 
-    expect(rollupAccept.value).toBe('rollup');
+    expect(rollupAccept._unsafeUnwrap()).toBe('rollup');
 
     const singleSelect = SingleSelectField.create({
       id,
@@ -370,13 +372,15 @@ describe('Field types', () => {
     });
     singleSelect._unsafeUnwrap();
 
-    expect(singleSelect.value.selectOptions().length).toBe(1);
-    expect(singleSelect.value.defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
-    expect(singleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult._unsafeUnwrap());
-    const singleSelectAccept = singleSelect.value.accept(visitor);
+    expect(singleSelect._unsafeUnwrap().selectOptions().length).toBe(1);
+    expect(singleSelect._unsafeUnwrap().defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
+    expect(singleSelect._unsafeUnwrap().preventAutoNewOptions()).toBe(
+      selectAutoResult._unsafeUnwrap()
+    );
+    const singleSelectAccept = singleSelect._unsafeUnwrap().accept(visitor);
     singleSelectAccept._unsafeUnwrap();
 
-    expect(singleSelectAccept.value).toBe('singleSelect');
+    expect(singleSelectAccept._unsafeUnwrap()).toBe('singleSelect');
 
     const multipleSelect = MultipleSelectField.create({
       id,
@@ -387,13 +391,15 @@ describe('Field types', () => {
     });
     multipleSelect._unsafeUnwrap();
 
-    expect(multipleSelect.value.selectOptions().length).toBe(1);
-    expect(multipleSelect.value.defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
-    expect(multipleSelect.value.preventAutoNewOptions()).toBe(selectAutoResult._unsafeUnwrap());
-    const multipleSelectAccept = multipleSelect.value.accept(visitor);
+    expect(multipleSelect._unsafeUnwrap().selectOptions().length).toBe(1);
+    expect(multipleSelect._unsafeUnwrap().defaultValue()).toBe(selectDefaultResult._unsafeUnwrap());
+    expect(multipleSelect._unsafeUnwrap().preventAutoNewOptions()).toBe(
+      selectAutoResult._unsafeUnwrap()
+    );
+    const multipleSelectAccept = multipleSelect._unsafeUnwrap().accept(visitor);
     multipleSelectAccept._unsafeUnwrap();
 
-    expect(multipleSelectAccept.value).toBe('multipleSelect');
+    expect(multipleSelectAccept._unsafeUnwrap()).toBe('multipleSelect');
 
     const checkbox = CheckboxField.create({
       id,
@@ -402,19 +408,19 @@ describe('Field types', () => {
     });
     checkbox._unsafeUnwrap();
 
-    expect(checkbox.value.defaultValue()).toBe(checkboxDefaultResult._unsafeUnwrap());
-    const checkboxAccept = checkbox.value.accept(visitor);
+    expect(checkbox._unsafeUnwrap().defaultValue()).toBe(checkboxDefaultResult._unsafeUnwrap());
+    const checkboxAccept = checkbox._unsafeUnwrap().accept(visitor);
     checkboxAccept._unsafeUnwrap();
 
-    expect(checkboxAccept.value).toBe('checkbox');
+    expect(checkboxAccept._unsafeUnwrap()).toBe('checkbox');
 
     const attachment = AttachmentField.create({ id, name });
     attachment._unsafeUnwrap();
 
-    const attachmentAccept = attachment.value.accept(visitor);
+    const attachmentAccept = attachment._unsafeUnwrap().accept(visitor);
     attachmentAccept._unsafeUnwrap();
 
-    expect(attachmentAccept.value).toBe('attachment');
+    expect(attachmentAccept._unsafeUnwrap()).toBe('attachment');
 
     const dateField = DateField.create({
       id,
@@ -424,12 +430,12 @@ describe('Field types', () => {
     });
     dateField._unsafeUnwrap();
 
-    expect(dateField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
-    expect(dateField.value.defaultValue()).toBe(dateDefaultResult._unsafeUnwrap());
-    const dateAccept = dateField.value.accept(visitor);
+    expect(dateField._unsafeUnwrap().formatting()).toBe(dateFormattingResult._unsafeUnwrap());
+    expect(dateField._unsafeUnwrap().defaultValue()).toBe(dateDefaultResult._unsafeUnwrap());
+    const dateAccept = dateField._unsafeUnwrap().accept(visitor);
     dateAccept._unsafeUnwrap();
 
-    expect(dateAccept.value).toBe('date');
+    expect(dateAccept._unsafeUnwrap()).toBe('date');
 
     const createdTimeField = CreatedTimeField.create({
       id,
@@ -438,11 +444,13 @@ describe('Field types', () => {
     });
     createdTimeField._unsafeUnwrap();
 
-    expect(createdTimeField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
-    const createdTimeAccept = createdTimeField.value.accept(visitor);
+    expect(createdTimeField._unsafeUnwrap().formatting()).toBe(
+      dateFormattingResult._unsafeUnwrap()
+    );
+    const createdTimeAccept = createdTimeField._unsafeUnwrap().accept(visitor);
     createdTimeAccept._unsafeUnwrap();
 
-    expect(createdTimeAccept.value).toBe('createdTime');
+    expect(createdTimeAccept._unsafeUnwrap()).toBe('createdTime');
 
     const lastModifiedTimeField = LastModifiedTimeField.create({
       id,
@@ -452,12 +460,14 @@ describe('Field types', () => {
     });
     lastModifiedTimeField._unsafeUnwrap();
 
-    expect(lastModifiedTimeField.value.formatting()).toBe(dateFormattingResult._unsafeUnwrap());
-    expect(lastModifiedTimeField.value.trackedFieldIds().length).toBe(1);
-    const lastModifiedTimeAccept = lastModifiedTimeField.value.accept(visitor);
+    expect(lastModifiedTimeField._unsafeUnwrap().formatting()).toBe(
+      dateFormattingResult._unsafeUnwrap()
+    );
+    expect(lastModifiedTimeField._unsafeUnwrap().trackedFieldIds().length).toBe(1);
+    const lastModifiedTimeAccept = lastModifiedTimeField._unsafeUnwrap().accept(visitor);
     lastModifiedTimeAccept._unsafeUnwrap();
 
-    expect(lastModifiedTimeAccept.value).toBe('lastModifiedTime');
+    expect(lastModifiedTimeAccept._unsafeUnwrap()).toBe('lastModifiedTime');
 
     const userField = UserField.create({
       id,
@@ -468,21 +478,21 @@ describe('Field types', () => {
     });
     userField._unsafeUnwrap();
 
-    expect(userField.value.multiplicity()).toBe(userMultiplicityResult._unsafeUnwrap());
-    expect(userField.value.notification()).toBe(userNotificationResult._unsafeUnwrap());
-    expect(userField.value.defaultValue()).toBe(userDefaultResult._unsafeUnwrap());
-    const userAccept = userField.value.accept(visitor);
+    expect(userField._unsafeUnwrap().multiplicity()).toBe(userMultiplicityResult._unsafeUnwrap());
+    expect(userField._unsafeUnwrap().notification()).toBe(userNotificationResult._unsafeUnwrap());
+    expect(userField._unsafeUnwrap().defaultValue()).toBe(userDefaultResult._unsafeUnwrap());
+    const userAccept = userField._unsafeUnwrap().accept(visitor);
     userAccept._unsafeUnwrap();
 
-    expect(userAccept.value).toBe('user');
+    expect(userAccept._unsafeUnwrap()).toBe('user');
 
     const createdByField = CreatedByField.create({ id, name });
     createdByField._unsafeUnwrap();
 
-    const createdByAccept = createdByField.value.accept(visitor);
+    const createdByAccept = createdByField._unsafeUnwrap().accept(visitor);
     createdByAccept._unsafeUnwrap();
 
-    expect(createdByAccept.value).toBe('createdBy');
+    expect(createdByAccept._unsafeUnwrap()).toBe('createdBy');
 
     const lastModifiedByField = LastModifiedByField.create({
       id,
@@ -491,19 +501,19 @@ describe('Field types', () => {
     });
     lastModifiedByField._unsafeUnwrap();
 
-    expect(lastModifiedByField.value.trackedFieldIds().length).toBe(1);
-    const lastModifiedByAccept = lastModifiedByField.value.accept(visitor);
+    expect(lastModifiedByField._unsafeUnwrap().trackedFieldIds().length).toBe(1);
+    const lastModifiedByAccept = lastModifiedByField._unsafeUnwrap().accept(visitor);
     lastModifiedByAccept._unsafeUnwrap();
 
-    expect(lastModifiedByAccept.value).toBe('lastModifiedBy');
+    expect(lastModifiedByAccept._unsafeUnwrap()).toBe('lastModifiedBy');
 
     const autoNumberField = AutoNumberField.create({ id, name });
     autoNumberField._unsafeUnwrap();
 
-    const autoNumberAccept = autoNumberField.value.accept(visitor);
+    const autoNumberAccept = autoNumberField._unsafeUnwrap().accept(visitor);
     autoNumberAccept._unsafeUnwrap();
 
-    expect(autoNumberAccept.value).toBe('autoNumber');
+    expect(autoNumberAccept._unsafeUnwrap()).toBe('autoNumber');
 
     const buttonField = ButtonField.create({
       id,
@@ -516,31 +526,31 @@ describe('Field types', () => {
     });
     buttonField._unsafeUnwrap();
 
-    expect(buttonField.value.label()).toBe(buttonLabelResult._unsafeUnwrap());
-    expect(buttonField.value.color()).toBe(buttonColorResult._unsafeUnwrap());
-    expect(buttonField.value.maxCount()).toBe(buttonMaxResult._unsafeUnwrap());
-    expect(buttonField.value.resetCount()).toBe(buttonResetResult._unsafeUnwrap());
-    expect(buttonField.value.workflow()).toBe(buttonWorkflowResult._unsafeUnwrap());
-    const buttonAccept = buttonField.value.accept(visitor);
+    expect(buttonField._unsafeUnwrap().label()).toBe(buttonLabelResult._unsafeUnwrap());
+    expect(buttonField._unsafeUnwrap().color()).toBe(buttonColorResult._unsafeUnwrap());
+    expect(buttonField._unsafeUnwrap().maxCount()).toBe(buttonMaxResult._unsafeUnwrap());
+    expect(buttonField._unsafeUnwrap().resetCount()).toBe(buttonResetResult._unsafeUnwrap());
+    expect(buttonField._unsafeUnwrap().workflow()).toBe(buttonWorkflowResult._unsafeUnwrap());
+    const buttonAccept = buttonField._unsafeUnwrap().accept(visitor);
     buttonAccept._unsafeUnwrap();
 
-    expect(buttonAccept.value).toBe('button');
+    expect(buttonAccept._unsafeUnwrap()).toBe('button');
 
     const linkField = LinkField.create({ id, name, config: linkConfigResult._unsafeUnwrap() });
     linkField._unsafeUnwrap();
 
-    expect(linkField.value.relationship().equals(LinkRelationship.manyOne())).toBe(true);
-    expect(linkField.value.isMultipleValue()).toBe(false);
-    const orderColumnResult = linkField.value.orderColumnName();
+    expect(linkField._unsafeUnwrap().relationship().equals(LinkRelationship.manyOne())).toBe(true);
+    expect(linkField._unsafeUnwrap().isMultipleValue()).toBe(false);
+    const orderColumnResult = linkField._unsafeUnwrap().orderColumnName();
     orderColumnResult._unsafeUnwrap();
 
     expect(orderColumnResult._unsafeUnwrap()).toBe('__fk_field_order');
-    const linkAccept = linkField.value.accept(visitor);
+    const linkAccept = linkField._unsafeUnwrap().accept(visitor);
     linkAccept._unsafeUnwrap();
 
-    expect(linkAccept.value).toBe('link');
+    expect(linkAccept._unsafeUnwrap()).toBe('link');
 
     const noopVisitor = new NoopFieldVisitor();
-    buttonField.value.accept(noopVisitor)._unsafeUnwrap();
+    buttonField._unsafeUnwrap().accept(noopVisitor)._unsafeUnwrap();
   });
 });

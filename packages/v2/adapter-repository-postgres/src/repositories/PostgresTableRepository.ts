@@ -1,4 +1,5 @@
 import * as core from '@teable/v2-core';
+import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { Kysely, sql, type CompiledQuery, type Transaction } from 'kysely';
@@ -26,14 +27,14 @@ export class PostgresTableRepository implements core.ITableRepository {
   async insert(
     context: core.IExecutionContext,
     table: core.Table
-  ): Promise<Result<core.Table, string>> {
+  ): Promise<Result<core.Table, DomainError>> {
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = table.baseId().toString();
 
     let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context);
-    const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, string>> => {
+    const persist = async (trx: Kysely<V1TeableDatabase>): Promise<Result<void, DomainError>> => {
       const order = sql<number>`
         (
           select coalesce(max("order"), 0) + 1
@@ -69,7 +70,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         dbTableName
       );
       const tableDbMetaValue = tableDbMeta;
-      if (!tableDbMetaValue) return err('Missing table db metadata');
+      if (!tableDbMetaValue) return err(domainError.fromMessage('Missing table db metadata'));
       const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMetaValue.fields);
       if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
 
@@ -291,11 +292,11 @@ export class PostgresTableRepository implements core.ITableRepository {
         : await this.db.transaction().execute(async (trx) => persist(trx));
       if (persistResult.isErr()) return err(persistResult.error);
     } catch (error) {
-      return err(`Failed to insert table: ${describeError(error)}`);
+      return err(domainError.fromMessage(`Failed to insert table: ${describeError(error)}`));
     }
 
     const tableDbMetaValue = tableDbMeta;
-    if (!tableDbMetaValue) return err('Missing table db metadata');
+    if (!tableDbMetaValue) return err(domainError.fromMessage('Missing table db metadata'));
 
     const applyDbMetaResult = this.applyDbMeta(table, tableDbMetaValue);
     if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
@@ -307,7 +308,7 @@ export class PostgresTableRepository implements core.ITableRepository {
   async findOne(
     context: core.IExecutionContext,
     spec: core.ISpecification<core.Table, core.ITableSpecVisitor>
-  ): Promise<Result<core.Table, string>> {
+  ): Promise<Result<core.Table, DomainError>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
@@ -331,7 +332,10 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'meta',
                 'cell_value_type',
                 'is_multiple_cell_value',
+                'not_null',
+                'unique',
                 'is_primary',
+                'is_computed',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -369,14 +373,14 @@ export class PostgresTableRepository implements core.ITableRepository {
         .where((eb) => whereFactory(eb));
 
       const tableRow = await baseQuery.executeTakeFirst();
-      if (!tableRow) return err('Not found');
+      if (!tableRow) return err(domainError.fromMessage('Not found'));
 
       const tableResult = this.mapTableRow(tableRow);
       if (tableResult.isErr()) return err(tableResult.error);
 
       return ok(tableResult.value);
     } catch (error) {
-      return err(`Failed to load table: ${describeError(error)}`);
+      return err(domainError.fromMessage(`Failed to load table: ${describeError(error)}`));
     }
   }
 
@@ -385,7 +389,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     context: core.IExecutionContext,
     spec: core.ISpecification<core.Table, core.ITableSpecVisitor>,
     options?: core.IFindOptions<core.TableSortKey>
-  ): Promise<Result<ReadonlyArray<core.Table>, string>> {
+  ): Promise<Result<ReadonlyArray<core.Table>, DomainError>> {
     const visitor = new TableWhereVisitor();
     const acceptResult = spec.accept(visitor);
     if (acceptResult.isErr()) return err(acceptResult.error);
@@ -409,7 +413,10 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'meta',
                 'cell_value_type',
                 'is_multiple_cell_value',
+                'not_null',
+                'unique',
                 'is_primary',
+                'is_computed',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -468,7 +475,7 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(tablesResult.value);
     } catch (error) {
-      return err(`Failed to load tables: ${describeError(error)}`);
+      return err(domainError.fromMessage(`Failed to load tables: ${describeError(error)}`));
     }
   }
 
@@ -477,7 +484,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     context: core.IExecutionContext,
     table: core.Table,
     mutateSpec: core.ISpecification<core.Table, core.ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
@@ -512,12 +519,15 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(`Failed to update table: ${describeError(error)}`);
+      return err(domainError.fromMessage(`Failed to update table: ${describeError(error)}`));
     }
   }
 
   @core.TraceSpan()
-  async delete(context: core.IExecutionContext, table: core.Table): Promise<Result<void, string>> {
+  async delete(
+    context: core.IExecutionContext,
+    table: core.Table
+  ): Promise<Result<void, DomainError>> {
     const now = new Date();
     const actorId = context.actorId.toString();
     const tableId = table.id().toString();
@@ -536,7 +546,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         .executeTakeFirst();
 
       const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
-      if (updatedRows === 0) return err('Not found');
+      if (updatedRows === 0) return err(domainError.fromMessage('Not found'));
 
       await db
         .updateTable('field')
@@ -562,7 +572,7 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(`Failed to delete table: ${describeError(error)}`);
+      return err(domainError.fromMessage(`Failed to delete table: ${describeError(error)}`));
     }
   }
 
@@ -573,7 +583,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     db_table_name: string | null;
     fields: unknown;
     views: unknown;
-  }): Result<core.Table, string> {
+  }): Result<core.Table, DomainError> {
     const fieldRows = Array.isArray(row.fields)
       ? (row.fields as Array<{
           id: string;
@@ -583,7 +593,10 @@ export class PostgresTableRepository implements core.ITableRepository {
           meta: string | null;
           cell_value_type: string | null;
           is_multiple_cell_value: boolean | null;
+          not_null: boolean | null;
+          unique: boolean | null;
           is_primary: boolean | null;
+          is_computed: boolean | null;
           lookup_linked_field_id: string | null;
           lookup_options: string | null;
           db_field_name: string | null;
@@ -628,6 +641,9 @@ export class PostgresTableRepository implements core.ITableRepository {
     meta: string | null;
     cell_value_type: string | null;
     is_multiple_cell_value: boolean | null;
+    not_null: boolean | null;
+    unique: boolean | null;
+    is_computed: boolean | null;
     lookup_linked_field_id: string | null;
     lookup_options: string | null;
     db_field_name: string | null;
@@ -636,6 +652,14 @@ export class PostgresTableRepository implements core.ITableRepository {
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
     const dbFieldName = row.db_field_name ?? undefined;
+    const base = {
+      id: row.id,
+      name: row.name,
+      dbFieldName,
+      ...(row.not_null ? { notNull: true } : {}),
+      ...(row.unique ? { unique: true } : {}),
+      ...(row.is_computed ? { isComputed: true } : {}),
+    };
     const metaParsed = this.parseOptions(row.meta);
     const hasMeta = Object.keys(metaParsed).length > 0;
     const asMeta = <T>(): T | undefined => (hasMeta ? (metaParsed as T) : undefined);
@@ -650,54 +674,45 @@ export class PostgresTableRepository implements core.ITableRepository {
         color: typeof parsed.color === 'string' ? parsed.color : 'yellowBright',
         max: typeof parsed.max === 'number' ? parsed.max : 5,
       };
-      return { id: row.id, name: row.name, type: 'rating', options, dbFieldName };
+      return { ...base, type: 'rating', options };
     }
 
     if (row.type === 'singleSelect' || row.type === 'select') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'singleSelect',
         options: this.normalizeSelectOptions(parsed),
-        dbFieldName,
       };
     }
 
     if (row.type === 'multipleSelect') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'multipleSelect',
         options: this.normalizeSelectOptions(parsed),
-        dbFieldName,
       };
     }
 
     if (row.type === 'number') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'number',
         options: asOptions<core.INumberFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'formula') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'formula',
         options: asOptions<core.IFormulaFieldOptionsDTO>() ?? { expression: '' },
         meta: asMeta<core.IFormulaFieldMetaDTO>(),
         cellValueType: row.cell_value_type ?? undefined,
         isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
-        dbFieldName,
       };
     }
     if (row.type === 'rollup') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'rollup',
         options: asOptions<core.IRollupFieldOptionsDTO>() ?? {
           expression: 'countall({values})',
@@ -705,121 +720,96 @@ export class PostgresTableRepository implements core.ITableRepository {
         config: asLookupOptions<core.IRollupFieldConfigDTO>(),
         cellValueType: row.cell_value_type ?? undefined,
         isMultipleCellValue: row.is_multiple_cell_value ?? undefined,
-        dbFieldName,
       };
     }
     if (row.type === 'longText') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'longText',
         options: asOptions<core.ILongTextFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'checkbox') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'checkbox',
         options: asOptions<core.ICheckboxFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'attachment') {
       const options = hasOptions ? {} : undefined;
-      return { id: row.id, name: row.name, type: 'attachment', options, dbFieldName };
+      return { ...base, type: 'attachment', options };
     }
     if (row.type === 'date') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'date',
         options: asOptions<core.IDateFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'createdTime') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'createdTime',
         options: asOptions<core.ICreatedTimeFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'lastModifiedTime') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'lastModifiedTime',
         options: asOptions<core.ILastModifiedTimeFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'user') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'user',
         options: asOptions<core.IUserFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'createdBy') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'createdBy',
         options: asOptions<core.ICreatedByFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'lastModifiedBy') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'lastModifiedBy',
         options: asOptions<core.ILastModifiedByFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'autoNumber') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'autoNumber',
         options: asOptions<core.IAutoNumberFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'button') {
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'button',
         options: asOptions<core.IButtonFieldOptionsDTO>(),
-        dbFieldName,
       };
     }
     if (row.type === 'link') {
       const options = asOptions<core.ILinkFieldOptionsDTO>() ?? ({} as core.ILinkFieldOptionsDTO);
       const meta = asMeta<core.ILinkFieldMetaDTO>();
       return {
-        id: row.id,
-        name: row.name,
+        ...base,
         type: 'link',
         options,
         ...(meta ? { meta } : {}),
-        dbFieldName,
       };
     }
     return {
-      id: row.id,
-      name: row.name,
+      ...base,
       type: 'singleLineText',
       options: asOptions<core.ISingleLineTextFieldOptionsDTO>(),
-      dbFieldName,
     };
   }
 
@@ -871,7 +861,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     name: string;
     type: string;
     column_meta: string | null;
-  }): Result<core.ITableViewPersistenceDTO, string> {
+  }): Result<core.ITableViewPersistenceDTO, DomainError> {
     const columnMeta = this.parseOptions(
       row.column_meta
     ) as core.ITableViewPersistenceDTO['columnMeta'];
@@ -886,19 +876,19 @@ export class PostgresTableRepository implements core.ITableRepository {
     if (row.type === 'form') return ok({ id: row.id, name: row.name, type: 'form', columnMeta });
     if (row.type === 'plugin')
       return ok({ id: row.id, name: row.name, type: 'plugin', columnMeta });
-    return err('Unsupported view type');
+    return err(domainError.fromMessage('Unsupported view type'));
   }
 
   private sequenceResults<T>(
-    values: ReadonlyArray<Result<T, string>>
-  ): Result<ReadonlyArray<T>, string> {
-    return values.reduce<Result<ReadonlyArray<T>, string>>(
+    values: ReadonlyArray<Result<T, DomainError>>
+  ): Result<ReadonlyArray<T>, DomainError> {
+    return values.reduce<Result<ReadonlyArray<T>, DomainError>>(
       (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
       ok([])
     );
   }
 
-  private applyDbMeta(table: core.Table, tableDbMeta: ITableDbMeta): Result<void, string> {
+  private applyDbMeta(table: core.Table, tableDbMeta: ITableDbMeta): Result<void, DomainError> {
     const dbTableNameResult = core.DbTableName.rehydrate(tableDbMeta.dbTableName);
     if (dbTableNameResult.isErr()) return err(dbTableNameResult.error);
 
@@ -908,7 +898,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     const fieldsById = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const fieldResults = tableDbMeta.fields.map((meta) => {
       const field = fieldsById.get(meta.field.id);
-      if (!field) return err(`Missing field for db name ${meta.field.id}`);
+      if (!field) return err(domainError.fromMessage(`Missing field for db name ${meta.field.id}`));
       return core.DbFieldName.rehydrate(meta.dbFieldName).andThen((dbFieldName) =>
         field.setDbFieldName(dbFieldName)
       );
@@ -950,6 +940,7 @@ const resolvePostgresDb = <DB>(
 };
 
 const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) {
     return error.message ? `${error.name}: ${error.message}` : error.name;
   }

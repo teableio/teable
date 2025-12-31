@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 import type { FieldId } from '../fields/FieldId';
 
@@ -12,9 +13,9 @@ export class TableRecordCellValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<TableRecordCellValue, string> {
+  static create(raw: unknown): Result<TableRecordCellValue, DomainError> {
     const parsed = tableRecordCellValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid TableRecordCellValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid TableRecordCellValue'));
     return ok(new TableRecordCellValue(parsed.data));
   }
 
@@ -37,11 +38,13 @@ export class TableRecordFields extends ValueObject {
     super();
   }
 
-  static create(entries: ReadonlyArray<TableRecordFieldValue>): Result<TableRecordFields, string> {
+  static create(
+    entries: ReadonlyArray<TableRecordFieldValue>
+  ): Result<TableRecordFields, DomainError> {
     const seen = new Set<string>();
     for (const entry of entries) {
       const key = entry.fieldId.toString();
-      if (seen.has(key)) return err('Duplicate TableRecord field id');
+      if (seen.has(key)) return err(domainError.fromMessage('Duplicate TableRecord field id'));
       seen.add(key);
     }
     return ok(new TableRecordFields([...entries]));

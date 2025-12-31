@@ -1,14 +1,3 @@
-import {
-  fieldColorValues,
-  ratingColorValues,
-  ratingIconValues,
-  singleLineTextShowAsValues,
-  NumberFormattingType,
-  MultiNumberDisplayType,
-  SingleNumberDisplayType,
-  TimeFormatting,
-  TIME_ZONE_LIST,
-} from '@teable/v2-core';
 import type {
   AttachmentField,
   AutoNumberField,
@@ -24,6 +13,7 @@ import type {
   LastModifiedTimeField,
   LinkField,
   LongTextField,
+  LookupField,
   MultipleSelectField,
   NumberField,
   RatingField,
@@ -34,6 +24,18 @@ import type {
   SingleLineTextField,
   UserField,
   ViewColumnMetaValue,
+  DomainError,
+} from '@teable/v2-core';
+import {
+  fieldColorValues,
+  ratingColorValues,
+  ratingIconValues,
+  singleLineTextShowAsValues,
+  NumberFormattingType,
+  MultiNumberDisplayType,
+  SingleNumberDisplayType,
+  TimeFormatting,
+  TIME_ZONE_LIST,
 } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -65,11 +67,22 @@ export type IViewDto = Omit<z.infer<typeof viewDtoSchema>, 'columnMeta'> & {
   columnMeta: ViewColumnMetaValue;
 };
 
+const lookupOptionsSchema = z.object({
+  linkFieldId: z.string(),
+  foreignTableId: z.string(),
+  lookupFieldId: z.string(),
+});
+
 const baseFieldDtoSchema = z.object({
   id: z.string(),
   name: z.string(),
   dbFieldName: z.string().optional(),
   isPrimary: z.boolean(),
+  notNull: z.boolean().optional(),
+  unique: z.boolean().optional(),
+  isComputed: z.boolean().optional(),
+  isLookup: z.boolean().optional(),
+  lookupOptions: lookupOptionsSchema.optional(),
 });
 
 const fieldColorSchema = z.enum(fieldColorValues);
@@ -368,7 +381,31 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     return dbFieldNameResult.isOk() ? dbFieldNameResult.value : undefined;
   }
 
-  visitSingleLineTextField(field: SingleLineTextField): Result<IFieldDto, string> {
+  private baseField(field: Field): {
+    id: string;
+    name: string;
+    dbFieldName?: string;
+    isPrimary: boolean;
+    notNull?: boolean;
+    unique?: boolean;
+    isComputed?: boolean;
+  } {
+    const notNull = field.notNull().toBoolean();
+    const unique = field.unique().toBoolean();
+    const isComputed = field.computed().toBoolean();
+
+    return {
+      id: field.id().toString(),
+      name: field.name().toString(),
+      dbFieldName: this.optionalDbFieldName(field),
+      isPrimary: field.id().equals(this.primaryFieldId),
+      ...(notNull ? { notNull } : {}),
+      ...(unique ? { unique } : {}),
+      ...(isComputed ? { isComputed } : {}),
+    };
+  }
+
+  visitSingleLineTextField(field: SingleLineTextField): Result<IFieldDto, DomainError> {
     const options: SingleLineTextOptionsDto = {};
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
@@ -376,31 +413,25 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'singleLineText',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitLongTextField(field: LongTextField): Result<IFieldDto, string> {
+  visitLongTextField(field: LongTextField): Result<IFieldDto, DomainError> {
     const options: LongTextOptionsDto = {};
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'longText',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitNumberField(field: NumberField): Result<IFieldDto, string> {
+  visitNumberField(field: NumberField): Result<IFieldDto, DomainError> {
     const options: NumberOptionsDto = {
       formatting: field.formatting().toDto(),
     };
@@ -410,16 +441,13 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (defaultValue) options.defaultValue = defaultValue.toNumber();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'number',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitRatingField(field: RatingField): Result<IFieldDto, string> {
+  visitRatingField(field: RatingField): Result<IFieldDto, DomainError> {
     const options: RatingOptionsDto = {
       icon: field.ratingIcon().toString() as RatingOptionsDto['icon'],
       color: field.ratingColor().toString() as RatingOptionsDto['color'],
@@ -427,16 +455,13 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'rating',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitFormulaField(field: FormulaField): Result<IFieldDto, string> {
+  visitFormulaField(field: FormulaField): Result<IFieldDto, DomainError> {
     const options: FormulaOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -455,18 +480,15 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
         }))
       )
       .map(({ cellValueType, isMultipleCellValue }) => ({
-        id: field.id().toString(),
-        name: field.name().toString(),
-        dbFieldName: this.optionalDbFieldName(field),
+        ...this.baseField(field),
         type: 'formula',
         options,
         cellValueType: cellValueType.toString(),
         isMultipleCellValue: isMultipleCellValue.toBoolean(),
-        isPrimary: field.id().equals(this.primaryFieldId),
       }));
   }
 
-  visitRollupField(field: RollupField): Result<IFieldDto, string> {
+  visitRollupField(field: RollupField): Result<IFieldDto, DomainError> {
     const options: RollupOptionsDto = {
       expression: field.expression().toString(),
     };
@@ -479,13 +501,10 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const config: RollupConfigDto = field.configDto();
 
     const base = {
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'rollup' as const,
       options,
       config,
-      isPrimary: field.id().equals(this.primaryFieldId),
     };
     const resultType = field.cellValueType().andThen((cellValueType) =>
       field.isMultipleCellValue().map((isMultipleCellValue) => ({
@@ -503,7 +522,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     });
   }
 
-  visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, string> {
+  visitSingleSelectField(field: SingleSelectField): Result<IFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const choices = field
@@ -516,16 +535,13 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'singleSelect',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, string> {
+  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const choices = field
@@ -538,42 +554,33 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'multipleSelect',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitCheckboxField(field: CheckboxField): Result<IFieldDto, string> {
+  visitCheckboxField(field: CheckboxField): Result<IFieldDto, DomainError> {
     const options: CheckboxOptionsDto = {};
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toBoolean();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'checkbox',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitAttachmentField(field: AttachmentField): Result<IFieldDto, string> {
+  visitAttachmentField(field: AttachmentField): Result<IFieldDto, DomainError> {
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'attachment',
       options: {},
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitDateField(field: DateField): Result<IFieldDto, string> {
+  visitDateField(field: DateField): Result<IFieldDto, DomainError> {
     const options: DateOptionsDto = {
       formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
     };
@@ -581,31 +588,25 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'date',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldDto, string> {
+  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldDto, DomainError> {
     const options: CreatedTimeOptionsDto = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto() as DateOptionsDto['formatting'],
     };
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'createdTime',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldDto, string> {
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldDto, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: LastModifiedTimeOptionsDto = {
       expression: field.expression().toString(),
@@ -613,16 +614,13 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
     };
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'lastModifiedTime',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitUserField(field: UserField): Result<IFieldDto, string> {
+  visitUserField(field: UserField): Result<IFieldDto, DomainError> {
     const defaultValue = field.defaultValue();
     const defaultValueDto = defaultValue?.toDto();
     const normalizedDefaultValue = Array.isArray(defaultValueDto)
@@ -635,57 +633,45 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'user',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitCreatedByField(field: CreatedByField): Result<IFieldDto, string> {
+  visitCreatedByField(field: CreatedByField): Result<IFieldDto, DomainError> {
     const options: CreatedByOptionsDto = {};
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'createdBy',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldDto, string> {
+  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldDto, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: LastModifiedByOptionsDto = {
       ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
     };
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'lastModifiedBy',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitAutoNumberField(field: AutoNumberField): Result<IFieldDto, string> {
+  visitAutoNumberField(field: AutoNumberField): Result<IFieldDto, DomainError> {
     const options: AutoNumberOptionsDto = {
       expression: field.expression().toString(),
     };
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'autoNumber',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitButtonField(field: ButtonField): Result<IFieldDto, string> {
+  visitButtonField(field: ButtonField): Result<IFieldDto, DomainError> {
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
@@ -698,32 +684,65 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'button',
       options,
-      isPrimary: field.id().equals(this.primaryFieldId),
     });
   }
 
-  visitLinkField(field: LinkField): Result<IFieldDto, string> {
+  visitLinkField(field: LinkField): Result<IFieldDto, DomainError> {
     return field.configDto().map((options) => ({
-      id: field.id().toString(),
-      name: field.name().toString(),
-      dbFieldName: this.optionalDbFieldName(field),
+      ...this.baseField(field),
       type: 'link',
       options,
       meta: field.metaDto(),
-      isPrimary: field.id().equals(this.primaryFieldId),
     }));
+  }
+
+  visitLookupField(field: LookupField): Result<IFieldDto, DomainError> {
+    const lookupOptions = {
+      linkFieldId: field.linkFieldId().toString(),
+      foreignTableId: field.foreignTableId().toString(),
+      lookupFieldId: field.lookupFieldId().toString(),
+    };
+
+    const isPrimary = field.id().equals(this.primaryFieldId);
+
+    // For pending lookup fields, return minimal DTO with singleLineText as default type
+    if (field.isPending()) {
+      return ok({
+        id: field.id().toString(),
+        name: field.name().toString(),
+        type: 'singleLineText',
+        isPrimary,
+        isComputed: true,
+        isLookup: true,
+        lookupOptions,
+      });
+    }
+
+    // Lookup fields delegate to the inner field's visitor, adding isLookup and lookupOptions
+    const innerResult = field.innerField().andThen((inner) => inner.accept(this));
+    if (innerResult.isErr()) return innerResult;
+
+    const innerDto = innerResult.value;
+    return ok({
+      ...innerDto,
+      id: field.id().toString(),
+      name: field.name().toString(),
+      isPrimary,
+      isLookup: true,
+      lookupOptions,
+    });
   }
 }
 
-export const mapFieldToDto = (field: Field, primaryFieldId: FieldId): Result<IFieldDto, string> =>
-  field.accept(new FieldToDtoVisitor(primaryFieldId));
+export const mapFieldToDto = (
+  field: Field,
+  primaryFieldId: FieldId
+): Result<IFieldDto, DomainError> => field.accept(new FieldToDtoVisitor(primaryFieldId));
 
-export const mapTableToDto = (table: Table): Result<ITableDto, string> => {
+export const mapTableToDto = (table: Table): Result<ITableDto, DomainError> => {
   const primaryFieldId = table.primaryFieldId();
   const dbTableNameResult = table.dbTableName().andThen((name) => name.value());
   const dbTableName = dbTableNameResult.isOk() ? dbTableNameResult.value : undefined;

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const multiplicitySchema = z.boolean();
@@ -11,9 +12,9 @@ export class CellValueMultiplicity extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<CellValueMultiplicity, string> {
+  static create(raw: unknown): Result<CellValueMultiplicity, DomainError> {
     const parsed = multiplicitySchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid CellValueMultiplicity');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid CellValueMultiplicity'));
     return ok(new CellValueMultiplicity(parsed.data));
   }
 

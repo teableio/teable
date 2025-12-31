@@ -1,10 +1,11 @@
 import type { IRenameTableEndpointResult } from '@teable/v2-contract-http';
-import { mapRenameTableResultToDto } from '@teable/v2-contract-http';
+import {
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+  mapRenameTableResultToDto,
+} from '@teable/v2-contract-http';
 import { RenameTableCommand } from '@teable/v2-core';
 import type { ICommandBus, IExecutionContext, RenameTableResult } from '@teable/v2-core';
-
-const isNotFoundError = (error: string): boolean =>
-  error === 'Not found' || error === 'Table not found';
 
 export const executeRenameTableEndpoint = async (
   context: IExecutionContext,
@@ -13,7 +14,11 @@ export const executeRenameTableEndpoint = async (
 ): Promise<IRenameTableEndpointResult> => {
   const commandResult = RenameTableCommand.create(rawBody);
   if (commandResult.isErr()) {
-    return { status: 400, body: { ok: false, error: commandResult.error } };
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const result = await commandBus.execute<RenameTableCommand, RenameTableResult>(
@@ -21,15 +26,20 @@ export const executeRenameTableEndpoint = async (
     commandResult.value
   );
   if (result.isErr()) {
-    if (isNotFoundError(result.error)) {
-      return { status: 404, body: { ok: false, error: result.error } };
-    }
-    return { status: 500, body: { ok: false, error: result.error } };
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const mapped = mapRenameTableResultToDto(result.value);
   if (mapped.isErr()) {
-    return { status: 500, body: { ok: false, error: mapped.error } };
+    const error = mapped.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   return {

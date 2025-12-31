@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const cellValueTypeSchema = z.enum(['string', 'number', 'boolean', 'dateTime']);
@@ -12,9 +13,9 @@ export class CellValueType extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<CellValueType, string> {
+  static create(raw: unknown): Result<CellValueType, DomainError> {
     const parsed = cellValueTypeSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid CellValueType');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid CellValueType'));
     return ok(new CellValueType(parsed.data));
   }
 

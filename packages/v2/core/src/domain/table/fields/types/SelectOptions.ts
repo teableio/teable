@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { SelectDefaultValue } from './SelectDefaultValue';
 import type { SelectOption } from './SelectOption';
 
@@ -18,19 +19,20 @@ export const validateSelectOptions = (
   options: ReadonlyArray<SelectOption>,
   defaultValue?: SelectDefaultValue,
   mode: 'single' | 'multiple' = 'single'
-): Result<ReadonlyArray<SelectOption>, string> => {
+): Result<ReadonlyArray<SelectOption>, DomainError> => {
   if (!isUniqueByStringValue(options.map((option) => option.name())))
-    return err('SelectField options must be unique');
+    return err(domainError.fromMessage('SelectField options must be unique'));
 
   if (defaultValue) {
     if (mode === 'single' && defaultValue.isMultiple())
-      return err('SelectField defaultValue must be a single option');
+      return err(domainError.fromMessage('SelectField defaultValue must be a single option'));
 
     const names = new Set(options.map((option) => option.name().toString()));
     const defaults = defaultValue.toDto();
     const values = Array.isArray(defaults) ? defaults : [defaults];
     for (const value of values) {
-      if (!names.has(value)) return err('SelectField defaultValue must match an option name');
+      if (!names.has(value))
+        return err(domainError.fromMessage('SelectField defaultValue must match an option name'));
     }
   }
 

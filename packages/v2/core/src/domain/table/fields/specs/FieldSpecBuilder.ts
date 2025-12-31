@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import type { ISpecVisitor } from '../../../shared/specification/ISpecVisitor';
 import { SpecBuilder } from '../../../shared/specification/SpecBuilder';
@@ -21,6 +22,7 @@ import { FieldIsFormulaSpec } from './FieldIsFormulaSpec';
 import { FieldIsJsonSpec } from './FieldIsJsonSpec';
 import { FieldIsLinkSpec } from './FieldIsLinkSpec';
 import { FieldIsLongTextSpec } from './FieldIsLongTextSpec';
+import { FieldIsLookupSpec } from './FieldIsLookupSpec';
 import { FieldIsMultipleSelectSpec } from './FieldIsMultipleSelectSpec';
 import { FieldIsNumberFieldSpec } from './FieldIsNumberFieldSpec';
 import { FieldIsNumberLikeSpec } from './FieldIsNumberLikeSpec';
@@ -70,6 +72,11 @@ export class FieldSpecBuilder extends SpecBuilder<Field, ISpecVisitor, FieldSpec
 
   isRollup(): FieldSpecBuilder {
     this.addSpec(FieldIsRollupSpec.create());
+    return this;
+  }
+
+  isLookup(): FieldSpecBuilder {
+    this.addSpec(FieldIsLookupSpec.create());
     return this;
   }
 
@@ -193,7 +200,7 @@ export class FieldSpecBuilder extends SpecBuilder<Field, ISpecVisitor, FieldSpec
     return this;
   }
 
-  build(): Result<ISpecification<Field, ISpecVisitor>, string> {
+  build(): Result<ISpecification<Field, ISpecVisitor>, DomainError> {
     return this.buildFrom(this.specs);
   }
 

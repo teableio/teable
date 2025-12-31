@@ -189,7 +189,7 @@ describe('NoopUnitOfWork', () => {
       throw new Error('boom');
     });
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Unexpected unit of work error');
+    expect(result._unsafeUnwrapErr().message).toContain('Unexpected unit of work error');
   });
 
   it('reports non-Error throws', async () => {
@@ -202,6 +202,6 @@ describe('NoopUnitOfWork', () => {
       throw 'boom';
     });
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('boom');
+    expect(result._unsafeUnwrapErr().message).toContain('boom');
   });
 });

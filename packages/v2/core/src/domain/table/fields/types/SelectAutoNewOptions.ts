@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const selectAutoNewOptionsSchema = z.boolean();
@@ -11,9 +12,9 @@ export class SelectAutoNewOptions extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SelectAutoNewOptions, string> {
+  static create(raw: unknown): Result<SelectAutoNewOptions, DomainError> {
     const parsed = selectAutoNewOptionsSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SelectAutoNewOptions');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectAutoNewOptions'));
     return ok(new SelectAutoNewOptions(parsed.data));
   }
 

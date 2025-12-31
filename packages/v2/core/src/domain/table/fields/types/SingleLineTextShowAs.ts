@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 export const singleLineTextShowAsValues = ['url', 'email', 'phone'] as const;
@@ -17,9 +18,9 @@ export class SingleLineTextShowAs extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SingleLineTextShowAs, string> {
+  static create(raw: unknown): Result<SingleLineTextShowAs, DomainError> {
     const parsed = singleLineTextShowAsSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SingleLineTextShowAs');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SingleLineTextShowAs'));
     return ok(new SingleLineTextShowAs(parsed.data));
   }
 

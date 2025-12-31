@@ -51,6 +51,16 @@ const pushToken = (tokens: string[], label: string, value: string | number | boo
   tokens.push(`${label}:${tokenValue(value)}`);
 };
 
+const pushValidationTokens = (tokens: string[], field: Field) => {
+  if (field.notNull().toBoolean()) pushToken(tokens, 'notNull', true);
+  if (field.unique().toBoolean()) pushToken(tokens, 'unique', true);
+};
+
+const formatFieldTokens = (field: Field, tokens: string[]): ReactNode => {
+  pushValidationTokens(tokens, field);
+  return formatTokens(tokens);
+};
+
 const formatNumberFormattingTokens = (formatting: NumberFormatting): string[] => {
   const tokens: string[] = [];
   pushToken(tokens, 'format', formatting.type());
@@ -82,14 +92,14 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     if (showAs) pushToken(tokens, 'showAs', showAs.type());
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', defaultValue.toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitLongTextField(field: LongTextField): Result<ReactNode, string> {
     const tokens: string[] = [];
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', defaultValue.toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitNumberField(field: NumberField): Result<ReactNode, string> {
@@ -100,7 +110,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     }
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', defaultValue.toNumber());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitRatingField(field: RatingField): Result<ReactNode, string> {
@@ -108,7 +118,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'max', field.ratingMax().toNumber());
     pushToken(tokens, 'icon', field.ratingIcon().toString());
     pushToken(tokens, 'color', field.ratingColor().toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitFormulaField(field: FormulaField): Result<ReactNode, string> {
@@ -136,7 +146,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
         pushToken(tokens, 'showAs', dto.type);
       }
     }
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitRollupField(field: RollupField): Result<ReactNode, string> {
@@ -145,7 +155,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'link', field.linkFieldId().toString());
     pushToken(tokens, 'foreign', field.foreignTableId().toString());
     pushToken(tokens, 'lookup', field.lookupFieldId().toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitSingleSelectField(field: SingleSelectField): Result<ReactNode, string> {
@@ -154,7 +164,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', formatDefaultValue(defaultValue.toDto()));
     if (field.preventAutoNewOptions().toBoolean()) pushToken(tokens, 'autoNew', 'off');
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitMultipleSelectField(field: MultipleSelectField): Result<ReactNode, string> {
@@ -163,7 +173,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', formatDefaultValue(defaultValue.toDto()));
     if (field.preventAutoNewOptions().toBoolean()) pushToken(tokens, 'autoNew', 'off');
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitCheckboxField(field: CheckboxField): Result<ReactNode, string> {
@@ -174,11 +184,11 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     } else {
       pushToken(tokens, 'default', defaultValue.toBoolean() ? 'checked' : 'unchecked');
     }
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
-  visitAttachmentField(_field: AttachmentField): Result<ReactNode, string> {
-    return ok(formatTokens([]));
+  visitAttachmentField(field: AttachmentField): Result<ReactNode, string> {
+    return ok(formatFieldTokens(field, []));
   }
 
   visitDateField(field: DateField): Result<ReactNode, string> {
@@ -189,7 +199,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'tz', formatting.timeZone().toString());
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', defaultValue.toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitCreatedTimeField(field: CreatedTimeField): Result<ReactNode, string> {
@@ -199,7 +209,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'time', formatting.time());
     pushToken(tokens, 'tz', formatting.timeZone().toString());
     pushToken(tokens, 'expr', field.expression().toString());
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitLastModifiedTimeField(field: LastModifiedTimeField): Result<ReactNode, string> {
@@ -215,7 +225,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     } else {
       pushToken(tokens, 'tracked', 'all');
     }
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitUserField(field: UserField): Result<ReactNode, string> {
@@ -224,13 +234,13 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'notify', field.notification().toBoolean());
     const defaultValue = field.defaultValue();
     if (defaultValue) pushToken(tokens, 'default', formatDefaultValue(defaultValue.toDto()));
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
-  visitCreatedByField(_field: CreatedByField): Result<ReactNode, string> {
+  visitCreatedByField(field: CreatedByField): Result<ReactNode, string> {
     const tokens: string[] = [];
     pushToken(tokens, 'system', 'created');
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitLastModifiedByField(field: LastModifiedByField): Result<ReactNode, string> {
@@ -242,13 +252,13 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     } else {
       pushToken(tokens, 'tracked', 'all');
     }
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
-  visitAutoNumberField(_field: AutoNumberField): Result<ReactNode, string> {
+  visitAutoNumberField(field: AutoNumberField): Result<ReactNode, string> {
     const tokens: string[] = [];
     pushToken(tokens, 'system', 'auto');
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitButtonField(field: ButtonField): Result<ReactNode, string> {
@@ -266,7 +276,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
       pushToken(tokens, 'workflow', workflowLabel);
       if (workflowDto.isActive === false) pushToken(tokens, 'active', 'off');
     }
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 
   visitLinkField(field: LinkField): Result<ReactNode, string> {
@@ -275,7 +285,7 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'foreign', field.foreignTableId().toString());
     pushToken(tokens, 'lookup', field.lookupFieldId().toString());
     if (field.isOneWay()) pushToken(tokens, 'oneWay', 'on');
-    return ok(formatTokens(tokens));
+    return ok(formatFieldTokens(field, tokens));
   }
 }
 

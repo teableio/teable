@@ -1,5 +1,10 @@
 import type { ILogger, RealtimeChange, RealtimeDocId } from '@teable/v2-core';
-import { NoopLogger, RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
+import {
+  NoopLogger,
+  RealtimeDocId as RealtimeDocIdValue,
+  domainError,
+  type DomainError,
+} from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -97,14 +102,14 @@ export class BroadcastChannelRealtimeHub {
   static resolve(
     channelName = defaultChannelName,
     logger?: ILogger
-  ): Result<BroadcastChannelRealtimeHub, string> {
+  ): Result<BroadcastChannelRealtimeHub, DomainError> {
     if (typeof BroadcastChannel === 'undefined') {
-      return err('BroadcastChannel is not available in this environment');
+      return err(domainError.fromMessage('BroadcastChannel is not available in this environment'));
     }
     return ok(new BroadcastChannelRealtimeHub(channelName, logger));
   }
 
-  ensure(docId: RealtimeDocId, snapshot: unknown): Result<void, string> {
+  ensure(docId: RealtimeDocId, snapshot: unknown): Result<void, DomainError> {
     const parsed = RealtimeDocIdValue.parse(docId);
     if (parsed.isErr()) {
       this.logger.warn('BroadcastChannel realtime ensure failed', {
@@ -137,7 +142,7 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
-  applyChange(docId: RealtimeDocId, change: RealtimeChange): Result<void, string> {
+  applyChange(docId: RealtimeDocId, change: RealtimeChange): Result<void, DomainError> {
     const parsed = RealtimeDocIdValue.parse(docId);
     if (parsed.isErr()) {
       this.logger.warn('BroadcastChannel realtime applyChange failed', {
@@ -150,7 +155,7 @@ export class BroadcastChannelRealtimeHub {
     const current = this.docs.get(docKey);
     if (!current) {
       this.logger.warn('BroadcastChannel realtime snapshot missing', { docKey });
-      return err('Realtime snapshot missing');
+      return err(domainError.fromMessage('Realtime snapshot missing'));
     }
 
     const nextSnapshot = applyRealtimeChange(current.snapshot, change);
@@ -177,7 +182,7 @@ export class BroadcastChannelRealtimeHub {
     return ok(undefined);
   }
 
-  remove(docId: RealtimeDocId): Result<void, string> {
+  remove(docId: RealtimeDocId): Result<void, DomainError> {
     const parsed = RealtimeDocIdValue.parse(docId);
     if (parsed.isErr()) {
       this.logger.warn('BroadcastChannel realtime delete failed', {
@@ -334,7 +339,7 @@ const resolveHubRegistry = (): Map<string, BroadcastChannelRealtimeHub> => {
 export const getBroadcastChannelRealtimeHub = (
   channelName = defaultChannelName,
   logger?: ILogger
-): Result<BroadcastChannelRealtimeHub, string> => {
+): Result<BroadcastChannelRealtimeHub, DomainError> => {
   const registry = resolveHubRegistry();
   const existing = registry.get(channelName);
   if (existing) {

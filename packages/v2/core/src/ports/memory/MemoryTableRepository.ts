@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { OffsetPagination } from '../../domain/shared/pagination/OffsetPagination';
 import type { Sort } from '../../domain/shared/sort/Sort';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
@@ -18,9 +19,9 @@ export class MemoryTableRepository implements ITableRepository {
     return [...this.savedTables];
   }
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, string>> {
+  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     const exists = this.savedTables.some((t) => t.id().equals(table.id()));
-    if (exists) return err('Table already exists');
+    if (exists) return err(domainError.fromMessage('Table already exists'));
     this.savedTables.push(table);
     return ok(table);
   }
@@ -28,9 +29,9 @@ export class MemoryTableRepository implements ITableRepository {
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
+  ): Promise<Result<Table, DomainError>> {
     const found = this.savedTables.find((t) => spec.isSatisfiedBy(t));
-    if (!found) return err('Not found');
+    if (!found) return err(domainError.fromMessage('Not found'));
     return ok(found);
   }
 
@@ -38,7 +39,7 @@ export class MemoryTableRepository implements ITableRepository {
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     const filtered = this.savedTables.filter((t) => spec.isSatisfiedBy(t));
     const sorted = this.applySort(filtered, options?.sort);
     const paginated = this.applyPagination(sorted, options?.pagination);
@@ -49,9 +50,9 @@ export class MemoryTableRepository implements ITableRepository {
     _: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
-    if (index === -1) return err('Not found');
+    if (index === -1) return err(domainError.fromMessage('Not found'));
     const current = this.savedTables[index];
     const mutateResult = mutateSpec.mutate(current);
     if (mutateResult.isErr()) return err(mutateResult.error);
@@ -59,9 +60,9 @@ export class MemoryTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
-    if (index === -1) return err('Not found');
+    if (index === -1) return err(domainError.fromMessage('Not found'));
     this.savedTables.splice(index, 1);
     return ok(undefined);
   }

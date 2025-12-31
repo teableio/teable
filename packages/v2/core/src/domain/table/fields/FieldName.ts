@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 
 const fieldNameSchema = z.string().trim().min(1).max(255);
@@ -11,9 +12,9 @@ export class FieldName extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FieldName, string> {
+  static create(raw: unknown): Result<FieldName, DomainError> {
     const parsed = fieldNameSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FieldName');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldName'));
     return ok(new FieldName(parsed.data));
   }
 

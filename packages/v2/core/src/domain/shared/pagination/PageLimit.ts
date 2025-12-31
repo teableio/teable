@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../DomainError';
 import { ValueObject } from '../ValueObject';
 
 const pageLimitSchema = z.number().int().positive();
@@ -11,9 +12,9 @@ export class PageLimit extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<PageLimit, string> {
+  static create(raw: unknown): Result<PageLimit, DomainError> {
     const parsed = pageLimitSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid PageLimit');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid PageLimit'));
     return ok(new PageLimit(parsed.data));
   }
 

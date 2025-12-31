@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 export const TIME_ZONE_LIST = [
@@ -441,9 +442,9 @@ export class TimeZone extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<TimeZone, string> {
+  static create(raw: unknown): Result<TimeZone, DomainError> {
     const parsed = timeZoneSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid TimeZone');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid TimeZone'));
     return ok(new TimeZone(parsed.data));
   }
 

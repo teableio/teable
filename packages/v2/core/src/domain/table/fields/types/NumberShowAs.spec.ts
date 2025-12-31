@@ -32,12 +32,11 @@ describe('NumberShowAs', () => {
       type: MultiNumberDisplayType.Line,
       color: 'green',
     });
-    [single, multi].forEach((r) => r._unsafeUnwrap());
-    single._unsafeUnwrap();
-    multi._unsafeUnwrap();
-    expect(single.value.equals(single.value)).toBe(true);
-    expect(multi.value.equals(multi.value)).toBe(true);
-    expect(single.value.toDto()).toEqual({
+    const singleValue = single._unsafeUnwrap();
+    const multiValue = multi._unsafeUnwrap();
+    expect(singleValue.equals(singleValue)).toBe(true);
+    expect(multiValue.equals(multiValue)).toBe(true);
+    expect(singleValue.toDto()).toEqual({
       type: SingleNumberDisplayType.Bar,
       color: 'blue',
       showValue: true,

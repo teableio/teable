@@ -5,6 +5,9 @@ import {
   type ITableSchemaRepository,
   type ITableSpecVisitor,
   type Table,
+  domainError,
+  isDomainError,
+  type DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -34,9 +37,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   ) {}
 
   @TraceSpan()
-  async insert(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async insert(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const repository = this;
-    return await safeTry<void, string>(async function* () {
+    return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
@@ -77,7 +80,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
 
         await executeCompiledQueries(db, compiledStatements);
       } catch (error) {
-        return err(`Failed to insert table schema: ${describeError(error)}`);
+        return err(
+          domainError.fromMessage(`Failed to insert table schema: ${describeError(error)}`)
+        );
       }
 
       return ok(undefined);
@@ -89,9 +94,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
     context: IExecutionContext,
     table: Table,
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const repository = this;
-    return await safeTry<void, string>(async function* () {
+    return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
@@ -113,7 +118,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
           statements.map((statement) => statement.compile(db))
         );
       } catch (error) {
-        return err(`Failed to update table schema: ${describeError(error)}`);
+        return err(
+          domainError.fromMessage(`Failed to update table schema: ${describeError(error)}`)
+        );
       }
 
       return ok(undefined);
@@ -121,9 +128,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
   }
 
   @TraceSpan()
-  async delete(context: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async delete(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const repository = this;
-    return await safeTry<void, string>(async function* () {
+    return await safeTry<void, DomainError>(async function* () {
       const { schema, tableName } = yield* table
         .dbTableName()
         .andThen((name) => name.split({ defaultSchema: null }));
@@ -133,7 +140,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         const schemaBuilder = schema ? db.schema.withSchema(schema) : db.schema;
         await schemaBuilder.dropTable(tableName).ifExists().execute();
       } catch (error) {
-        return err(`Failed to delete table schema: ${describeError(error)}`);
+        return err(
+          domainError.fromMessage(`Failed to delete table schema: ${describeError(error)}`)
+        );
       }
 
       return ok(undefined);
@@ -162,6 +171,7 @@ const resolvePostgresDb = <DB>(
 };
 
 const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) {
     return error.message ? `${error.name}: ${error.message}` : error.name;
   }

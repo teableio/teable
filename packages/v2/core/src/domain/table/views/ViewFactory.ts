@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import { CalendarView } from './types/CalendarView';
 import { FormView } from './types/FormView';
 import { GalleryView } from './types/GalleryView';
@@ -10,20 +11,28 @@ import type { View } from './View';
 import type { ViewId } from './ViewId';
 import type { ViewName } from './ViewName';
 
-export const createGridView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
+export const createGridView = (params: { id: ViewId; name: ViewName }): Result<View, DomainError> =>
   GridView.create(params);
 
-export const createKanbanView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
-  KanbanView.create(params);
+export const createKanbanView = (params: {
+  id: ViewId;
+  name: ViewName;
+}): Result<View, DomainError> => KanbanView.create(params);
 
-export const createGalleryView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
-  GalleryView.create(params);
+export const createGalleryView = (params: {
+  id: ViewId;
+  name: ViewName;
+}): Result<View, DomainError> => GalleryView.create(params);
 
-export const createCalendarView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
-  CalendarView.create(params);
+export const createCalendarView = (params: {
+  id: ViewId;
+  name: ViewName;
+}): Result<View, DomainError> => CalendarView.create(params);
 
-export const createFormView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
+export const createFormView = (params: { id: ViewId; name: ViewName }): Result<View, DomainError> =>
   FormView.create(params);
 
-export const createPluginView = (params: { id: ViewId; name: ViewName }): Result<View, string> =>
-  PluginView.create(params);
+export const createPluginView = (params: {
+  id: ViewId;
+  name: ViewName;
+}): Result<View, DomainError> => PluginView.create(params);

@@ -2,15 +2,17 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 
-const fieldTypeSchema = z.enum([
+export const fieldTypeValues = [
   'singleLineText',
   'longText',
   'number',
   'rating',
   'formula',
   'rollup',
+  'lookup',
   'singleSelect',
   'multipleSelect',
   'checkbox',
@@ -24,7 +26,9 @@ const fieldTypeSchema = z.enum([
   'autoNumber',
   'button',
   'link',
-]);
+] as const;
+
+const fieldTypeSchema = z.enum(fieldTypeValues);
 type IFieldTypeLiteral = z.infer<typeof fieldTypeSchema>;
 
 export class FieldType extends ValueObject {
@@ -32,9 +36,9 @@ export class FieldType extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FieldType, string> {
+  static create(raw: unknown): Result<FieldType, DomainError> {
     const parsed = fieldTypeSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FieldType');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldType'));
     return ok(new FieldType(parsed.data));
   }
 
@@ -112,6 +116,10 @@ export class FieldType extends ValueObject {
 
   static link(): FieldType {
     return new FieldType('link');
+  }
+
+  static lookup(): FieldType {
+    return new FieldType('lookup');
   }
 
   equals(other: FieldType): boolean {

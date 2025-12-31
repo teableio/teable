@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../shared/DomainError';
 import { RehydratedValueObject } from '../shared/RehydratedValueObject';
 
 const dbTableNameSchema = z.string().trim().min(1).max(255);
@@ -15,13 +16,13 @@ export class DbTableName extends RehydratedValueObject {
     return new DbTableName();
   }
 
-  static rehydrate(raw: unknown): Result<DbTableName, string> {
+  static rehydrate(raw: unknown): Result<DbTableName, DomainError> {
     const parsed = dbTableNameSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DbTableName');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DbTableName'));
     return ok(new DbTableName(parsed.data));
   }
 
-  value(): Result<string, string> {
+  value(): Result<string, DomainError> {
     return this.valueResult('DbTableName');
   }
 
@@ -30,7 +31,7 @@ export class DbTableName extends RehydratedValueObject {
       schema: string | null;
       tableName: string;
     },
-    string
+    DomainError
   > {
     return this.value().map((raw) => {
       const dotIndex = raw.indexOf('.');

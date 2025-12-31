@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { SingleLineTextField } from '../../fields/types/SingleLineTextField';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { TextConditionOperator } from './RecordConditionOperators';
@@ -24,7 +25,7 @@ export class SingleLineTextConditionSpec extends RecordValueConditionSpec<TextCo
     return new SingleLineTextConditionSpec(field, operator, value);
   }
 
-  accept(v: ITableRecordConditionSpecVisitor): Result<void, string> {
+  accept(v: ITableRecordConditionSpecVisitor): Result<void, DomainError> {
     return match(this.operator())
       .with('is', () => v.visitSingleLineTextIs(this).map(() => undefined))
       .with('isNot', () => v.visitSingleLineTextIsNot(this).map(() => undefined))

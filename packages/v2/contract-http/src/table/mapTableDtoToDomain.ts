@@ -10,9 +10,10 @@ import {
   DbFieldName,
   DbTableName,
   FieldColor,
+  FieldNotNull,
+  FieldUnique,
   FieldId,
   FieldName,
-  type FormulaField,
   FormulaExpression,
   RollupExpression,
   CellValueMultiplicity,
@@ -64,11 +65,11 @@ import {
   createSingleLineTextField,
   createSingleSelectField,
   createUserField,
-  type Field,
-  type View,
   TimeZone,
   RollupFieldConfig,
+  domainError,
 } from '@teable/v2-core';
+import type { DomainError, FormulaField, Field, View } from '@teable/v2-core';
 
 import { err, ok, type Result } from 'neverthrow';
 import { sequenceResults } from '../shared/neverthrow';
@@ -78,44 +79,61 @@ type FormulaFieldDto = Extract<IFieldDto, { type: 'formula' }>;
 
 const optional = <T>(
   raw: unknown,
-  parser: (value: unknown) => Result<T, string>
-): Result<T | undefined, string> => {
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
 };
 
 const parseFormulaFormatting = (
   raw: unknown
-): Result<NumberFormatting | DateTimeFormatting | undefined, string> => {
+): Result<NumberFormatting | DateTimeFormatting | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberFormatting.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err('Invalid FormulaFormatting');
+  return err(domainError.fromMessage('Invalid FormulaFormatting'));
 };
 
 const parseFormulaShowAs = (
   raw: unknown
-): Result<NumberShowAs | SingleLineTextShowAs | undefined, string> => {
+): Result<NumberShowAs | SingleLineTextShowAs | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberShowAs.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err('Invalid FormulaShowAs');
+  return err(domainError.fromMessage('Invalid FormulaShowAs'));
 };
 
-const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
-  if (!Array.isArray(raw)) return err('Invalid trackedFieldIds');
+  if (!Array.isArray(raw)) return err(domainError.fromMessage('Invalid trackedFieldIds'));
   return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
-const applyDbFieldName = (field: Field, dbFieldName?: string): Result<Field, string> => {
+const applyDbFieldName = (field: Field, dbFieldName?: string): Result<Field, DomainError> => {
   if (!dbFieldName) return ok(field);
   return DbFieldName.rehydrate(dbFieldName).andThen((value) =>
     field.setDbFieldName(value).map(() => field)
+  );
+};
+
+const applyFieldValidation = (
+  field: Field,
+  notNullRaw?: boolean,
+  uniqueRaw?: boolean
+): Result<Field, DomainError> => {
+  const notNullResult =
+    typeof notNullRaw === 'boolean' ? FieldNotNull.create(notNullRaw) : ok(FieldNotNull.optional());
+  const uniqueResult =
+    typeof uniqueRaw === 'boolean' ? FieldUnique.create(uniqueRaw) : ok(FieldUnique.disabled());
+
+  return notNullResult.andThen((notNull) =>
+    uniqueResult
+      .andThen((unique) => field.setNotNull(notNull).andThen(() => field.setUnique(unique)))
+      .map(() => field)
   );
 };
 
@@ -123,7 +141,7 @@ const applyFormulaResultType = (
   field: FormulaField,
   cellValueType?: FormulaFieldDto['cellValueType'],
   isMultipleCellValue?: FormulaFieldDto['isMultipleCellValue']
-): Result<FormulaField, string> => {
+): Result<FormulaField, DomainError> => {
   if (cellValueType == null || isMultipleCellValue == null) return ok(field);
   return CellValueType.create(cellValueType).andThen((cellValueTypeValue) =>
     CellValueMultiplicity.create(isMultipleCellValue).andThen((isMultipleCellValueValue) =>
@@ -132,7 +150,7 @@ const applyFormulaResultType = (
   );
 };
 
-const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
+const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, DomainError> => {
   return FieldId.create(dto.id)
     .andThen((id) =>
       FieldName.create(dto.name).andThen((name) => {
@@ -337,14 +355,15 @@ const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, string> => {
             );
           }
           default:
-            return err('Unsupported field type');
+            return err(domainError.fromMessage('Unsupported field type'));
         }
       })
     )
+    .andThen((field) => applyFieldValidation(field, dto.notNull, dto.unique))
     .andThen((field) => applyDbFieldName(field, dto.dbFieldName));
 };
 
-const mapViewDtoToDomain = (dto: IViewDto): Result<View, string> => {
+const mapViewDtoToDomain = (dto: IViewDto): Result<View, DomainError> => {
   return ViewId.create(dto.id).andThen((id) =>
     ViewName.create(dto.name).andThen((name) => {
       const viewResult = (() => {
@@ -362,7 +381,7 @@ const mapViewDtoToDomain = (dto: IViewDto): Result<View, string> => {
           case 'plugin':
             return createPluginView({ id, name });
           default:
-            return err('Unsupported view type');
+            return err(domainError.fromMessage('Unsupported view type'));
         }
       })();
 
@@ -375,10 +394,12 @@ const mapViewDtoToDomain = (dto: IViewDto): Result<View, string> => {
   );
 };
 
-export const mapTableDtoToDomain = (table: ITableDto): Result<Table, string> => {
+export const mapTableDtoToDomain = (table: ITableDto): Result<Table, DomainError> => {
   const primaryFields = table.fields.filter((field) => field.isPrimary);
-  if (primaryFields.length === 0) return err('Primary field missing in table dto');
-  if (primaryFields.length > 1) return err('Multiple primary fields in table dto');
+  if (primaryFields.length === 0)
+    return err(domainError.fromMessage('Primary field missing in table dto'));
+  if (primaryFields.length > 1)
+    return err(domainError.fromMessage('Multiple primary fields in table dto'));
 
   return TableId.create(table.id).andThen((id) =>
     BaseId.create(table.baseId).andThen((baseId) =>

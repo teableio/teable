@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../base/BaseId';
+import type { DomainError } from '../../shared/DomainError';
 import { Table } from '../Table';
 import { TableName } from '../TableName';
 import { Field } from './Field';
@@ -13,7 +14,7 @@ import { RollupExpression } from './types/RollupExpression';
 import type { RollupField } from './types/RollupField';
 import { RollupFieldConfig } from './types/RollupFieldConfig';
 
-const unwrap = <T>(result: Result<T, string>): T => result._unsafeUnwrap();
+const unwrap = <T>(result: Result<T, DomainError>): T => result._unsafeUnwrap();
 const buildFieldSpec = (
   build: (builder: ReturnType<typeof Field.specs>) => ReturnType<typeof Field.specs>
 ) => build(Field.specs()).build()._unsafeUnwrap();
@@ -140,7 +141,7 @@ describe('ForeignTableValidation (rollup)', () => {
       foreignTables: [foreign.table],
     })._unsafeUnwrapErr();
 
-    expect(error).toBe('RollupField link field not found');
+    expect(error.message).toBe('RollupField link field not found');
   });
 
   it('fails when foreign table is missing', () => {
@@ -158,7 +159,7 @@ describe('ForeignTableValidation (rollup)', () => {
       foreignTables: [],
     })._unsafeUnwrapErr();
 
-    expect(error).toBe('RollupField foreign table not loaded');
+    expect(error.message).toBe('RollupField foreign table not loaded');
   });
 
   it('fails when lookup field is missing', () => {
@@ -177,6 +178,6 @@ describe('ForeignTableValidation (rollup)', () => {
       foreignTables: [foreign.table],
     })._unsafeUnwrapErr();
 
-    expect(error).toBe('RollupField lookup field not found');
+    expect(error.message).toBe('RollupField lookup field not found');
   });
 });

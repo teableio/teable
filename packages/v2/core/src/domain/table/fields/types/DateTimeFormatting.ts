@@ -2,6 +2,7 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { TimeZone, type TimeZoneValue } from './TimeZone';
 
@@ -48,9 +49,9 @@ export class DateTimeFormatting extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<DateTimeFormatting, string> {
+  static create(raw: unknown): Result<DateTimeFormatting, DomainError> {
     const parsed = dateTimeFormattingSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DateTimeFormatting');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DateTimeFormatting'));
 
     return TimeZone.create(parsed.data.timeZone).map(
       (timeZone) => new DateTimeFormatting(parsed.data.date, parsed.data.time, timeZone)

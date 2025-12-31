@@ -1,6 +1,8 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../domain/shared/DomainError';
+import { isDomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventHandler } from '../EventHandler';
@@ -22,6 +24,7 @@ export type AsyncMemoryEventBusOptions = Readonly<{
 }>;
 
 const resolveErrorMessage = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) return error.message || error.name;
   if (typeof error === 'string') return error;
   try {
@@ -37,7 +40,16 @@ const defaultScheduler: AsyncEventBusScheduler = (task) => {
     scheduler(() => void task());
     return;
   }
-  setTimeout(() => void task(), 0);
+  const timeout = (
+    globalThis as {
+      setTimeout?: (handler: () => void, timeout: number) => void;
+    }
+  ).setTimeout;
+  if (typeof timeout === 'function') {
+    timeout(() => void task(), 0);
+    return;
+  }
+  void task();
 };
 
 export class AsyncMemoryEventBus implements IEventBus {
@@ -54,7 +66,10 @@ export class AsyncMemoryEventBus implements IEventBus {
     return [...this.publishedEvents];
   }
 
-  async publish(context: IExecutionContext, event: IDomainEvent): Promise<Result<void, string>> {
+  async publish(
+    context: IExecutionContext,
+    event: IDomainEvent
+  ): Promise<Result<void, DomainError>> {
     this.publishedEvents.push(event);
     this.enqueue(context, [event]);
     return ok(undefined);
@@ -63,7 +78,7 @@ export class AsyncMemoryEventBus implements IEventBus {
   async publishMany(
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     this.publishedEvents.push(...events);
     this.enqueue(context, events);
     return ok(undefined);

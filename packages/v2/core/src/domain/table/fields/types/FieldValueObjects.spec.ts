@@ -8,6 +8,8 @@ import { CheckboxDefaultValue } from './CheckboxDefaultValue';
 import { DateDefaultValue } from './DateDefaultValue';
 import { FieldColor } from './FieldColor';
 import { FieldComputed } from './FieldComputed';
+import { FieldNotNull } from './FieldNotNull';
+import { FieldUnique } from './FieldUnique';
 import { LinkFieldConfig } from './LinkFieldConfig';
 import { LinkFieldMeta } from './LinkFieldMeta';
 import { LinkRelationship } from './LinkRelationship';
@@ -37,8 +39,8 @@ describe('SelectOptionName/Id', () => {
     name._unsafeUnwrap();
     otherName._unsafeUnwrap();
     differentName._unsafeUnwrap();
-    expect(name.value.equals(otherName.value)).toBe(true);
-    expect(name.value.equals(differentName.value)).toBe(false);
+    expect(name._unsafeUnwrap().equals(otherName._unsafeUnwrap())).toBe(true);
+    expect(name._unsafeUnwrap().equals(differentName._unsafeUnwrap())).toBe(false);
     SelectOptionName.create('')._unsafeUnwrapErr();
 
     const idResult = SelectOptionId.generate();
@@ -48,7 +50,7 @@ describe('SelectOptionName/Id', () => {
     const sameId = SelectOptionId.create(idResult._unsafeUnwrap().toString());
     sameId._unsafeUnwrap();
 
-    expect(idResult._unsafeUnwrap().equals(sameId.value)).toBe(true);
+    expect(idResult._unsafeUnwrap().equals(sameId._unsafeUnwrap())).toBe(true);
     SelectOptionId.create('')._unsafeUnwrapErr();
   });
 });
@@ -58,7 +60,7 @@ describe('SelectOption', () => {
     const result = SelectOption.create({ name: 'Todo', color: 'blue' });
     result._unsafeUnwrap();
 
-    const dto = result.value.toDto();
+    const dto = result._unsafeUnwrap().toDto();
     expect(dto.name).toBe('Todo');
     expect(dto.color).toBe('blue');
   });
@@ -71,8 +73,8 @@ describe('SelectOption', () => {
     one._unsafeUnwrap();
     two._unsafeUnwrap();
     other._unsafeUnwrap();
-    expect(one.value.equals(two.value)).toBe(true);
-    expect(one.value.equals(other.value)).toBe(false);
+    expect(one._unsafeUnwrap().equals(two._unsafeUnwrap())).toBe(true);
+    expect(one._unsafeUnwrap().equals(other._unsafeUnwrap())).toBe(false);
   });
 });
 
@@ -84,12 +86,12 @@ describe('SelectDefaultValue', () => {
     multiple._unsafeUnwrap();
     single._unsafeUnwrap();
     multiple._unsafeUnwrap();
-    expect(single.value.isMultiple()).toBe(false);
-    expect(multiple.value.isMultiple()).toBe(true);
-    expect(single.value.toDto()).toBe('Todo');
-    expect(multiple.value.toDto()).toEqual(['Todo', 'Done']);
-    expect(single.value.equals(single.value)).toBe(true);
-    expect(multiple.value.equals(multiple.value)).toBe(true);
+    expect(single._unsafeUnwrap().isMultiple()).toBe(false);
+    expect(multiple._unsafeUnwrap().isMultiple()).toBe(true);
+    expect(single._unsafeUnwrap().toDto()).toBe('Todo');
+    expect(multiple._unsafeUnwrap().toDto()).toEqual(['Todo', 'Done']);
+    expect(single._unsafeUnwrap().equals(single._unsafeUnwrap())).toBe(true);
+    expect(multiple._unsafeUnwrap().equals(multiple._unsafeUnwrap())).toBe(true);
   });
 
   it('rejects invalid values', () => {
@@ -105,7 +107,7 @@ describe('SelectAutoNewOptions', () => {
     created._unsafeUnwrap();
 
     expect(allow.equals(prevent)).toBe(false);
-    expect(prevent.equals(created.value)).toBe(true);
+    expect(prevent.equals(created._unsafeUnwrap())).toBe(true);
     SelectAutoNewOptions.create('nope')._unsafeUnwrapErr();
     expect(SelectAutoNewOptions.allow().toBoolean()).toBe(false);
     expect(SelectAutoNewOptions.prevent().toBoolean()).toBe(true);
@@ -120,10 +122,40 @@ describe('FieldComputed', () => {
     created._unsafeUnwrap();
 
     expect(computed.equals(manual)).toBe(false);
-    expect(computed.equals(created.value)).toBe(true);
+    expect(computed.equals(created._unsafeUnwrap())).toBe(true);
     FieldComputed.create('nope')._unsafeUnwrapErr();
     expect(computed.toBoolean()).toBe(true);
     expect(manual.toBoolean()).toBe(false);
+  });
+});
+
+describe('FieldNotNull', () => {
+  it('supports required/optional and boolean values', () => {
+    const required = FieldNotNull.required();
+    const optional = FieldNotNull.optional();
+    const created = FieldNotNull.create(true);
+    created._unsafeUnwrap();
+
+    expect(required.equals(optional)).toBe(false);
+    expect(required.equals(created._unsafeUnwrap())).toBe(true);
+    FieldNotNull.create('nope')._unsafeUnwrapErr();
+    expect(required.toBoolean()).toBe(true);
+    expect(optional.toBoolean()).toBe(false);
+  });
+});
+
+describe('FieldUnique', () => {
+  it('supports enabled/disabled and boolean values', () => {
+    const enabled = FieldUnique.enabled();
+    const disabled = FieldUnique.disabled();
+    const created = FieldUnique.create(true);
+    created._unsafeUnwrap();
+
+    expect(enabled.equals(disabled)).toBe(false);
+    expect(enabled.equals(created._unsafeUnwrap())).toBe(true);
+    FieldUnique.create('nope')._unsafeUnwrapErr();
+    expect(enabled.toBoolean()).toBe(true);
+    expect(disabled.toBoolean()).toBe(false);
   });
 });
 
@@ -140,18 +172,24 @@ describe('SelectOptions', () => {
     defaultValue._unsafeUnwrap();
 
     const uniqueResult = validateSelectOptions(
-      [optionOne.value, optionTwo.value],
-      defaultValue.value
+      [optionOne._unsafeUnwrap(), optionTwo._unsafeUnwrap()],
+      defaultValue._unsafeUnwrap()
     );
     uniqueResult._unsafeUnwrap();
 
-    const duplicateResult = validateSelectOptions([optionOne.value, duplicate.value]);
+    const duplicateResult = validateSelectOptions([
+      optionOne._unsafeUnwrap(),
+      duplicate._unsafeUnwrap(),
+    ]);
     duplicateResult._unsafeUnwrapErr();
 
     const invalidDefault = SelectDefaultValue.create('Missing');
     invalidDefault._unsafeUnwrap();
 
-    const invalidResult = validateSelectOptions([optionOne.value], invalidDefault.value);
+    const invalidResult = validateSelectOptions(
+      [optionOne._unsafeUnwrap()],
+      invalidDefault._unsafeUnwrap()
+    );
     invalidResult._unsafeUnwrapErr();
   });
 });
@@ -163,7 +201,7 @@ describe('FieldColor', () => {
     [color, other].forEach((r) => r._unsafeUnwrap());
     color._unsafeUnwrap();
     other._unsafeUnwrap();
-    expect(color.value.equals(other.value)).toBe(true);
+    expect(color._unsafeUnwrap().equals(other._unsafeUnwrap())).toBe(true);
     expect(FieldColor.from('teal').toString()).toBe('teal');
     FieldColor.create('invalid')._unsafeUnwrapErr();
   });
@@ -185,19 +223,22 @@ describe('Button types', () => {
     reset._unsafeUnwrap();
     workflow._unsafeUnwrap();
 
-    expect(label.value.toString()).toBe('Run');
+    expect(label._unsafeUnwrap().toString()).toBe('Run');
     expect(ButtonLabel.default().toString()).toBe('Button');
-    expect(label.value.equals(ButtonLabel.default())).toBe(false);
-    expect(count.value.toNumber()).toBe(3);
-    expect(count.value.equals(count.value)).toBe(true);
-    expect(reset.value.toBoolean()).toBe(true);
-    expect(reset.value.equals(reset.value)).toBe(true);
-    expect(workflow.value?.toDto()).toEqual({
+    expect(label._unsafeUnwrap().equals(ButtonLabel.default())).toBe(false);
+    expect(count._unsafeUnwrap().toNumber()).toBe(3);
+    expect(count._unsafeUnwrap().equals(count._unsafeUnwrap())).toBe(true);
+    expect(reset._unsafeUnwrap().toBoolean()).toBe(true);
+    expect(reset._unsafeUnwrap().equals(reset._unsafeUnwrap())).toBe(true);
+    const workflowValue = workflow._unsafeUnwrap();
+    expect(workflowValue?.toDto()).toEqual({
       id: 'wfl12345678901234',
       name: 'Deploy',
       isActive: true,
     });
-    expect(workflow.value?.equals(workflow.value)).toBe(true);
+    expect(workflowValue).toBeDefined();
+    if (!workflowValue) return;
+    expect(workflowValue.equals(workflowValue)).toBe(true);
   });
 
   it('rejects invalid workflows and labels', () => {
@@ -219,14 +260,14 @@ describe('Defaults and rating values', () => {
     number._unsafeUnwrap();
     checkbox._unsafeUnwrap();
     date._unsafeUnwrap();
-    expect(text.value.toString()).toBe('hello');
-    expect(text.value.equals(text.value)).toBe(true);
-    expect(number.value.toNumber()).toBe(5);
-    expect(number.value.equals(number.value)).toBe(true);
-    expect(checkbox.value.toBoolean()).toBe(false);
-    expect(checkbox.value.equals(checkbox.value)).toBe(true);
-    expect(date.value.toString()).toBe('now');
-    expect(date.value.equals(date.value)).toBe(true);
+    expect(text._unsafeUnwrap().toString()).toBe('hello');
+    expect(text._unsafeUnwrap().equals(text._unsafeUnwrap())).toBe(true);
+    expect(number._unsafeUnwrap().toNumber()).toBe(5);
+    expect(number._unsafeUnwrap().equals(number._unsafeUnwrap())).toBe(true);
+    expect(checkbox._unsafeUnwrap().toBoolean()).toBe(false);
+    expect(checkbox._unsafeUnwrap().equals(checkbox._unsafeUnwrap())).toBe(true);
+    expect(date._unsafeUnwrap().toString()).toBe('now');
+    expect(date._unsafeUnwrap().equals(date._unsafeUnwrap())).toBe(true);
     NumberDefaultValue.create('bad')._unsafeUnwrapErr();
   });
 
@@ -238,12 +279,12 @@ describe('Defaults and rating values', () => {
     max._unsafeUnwrap();
     icon._unsafeUnwrap();
     color._unsafeUnwrap();
-    expect(max.value.toNumber()).toBe(5);
-    expect(max.value.equals(max.value)).toBe(true);
-    expect(icon.value.toString()).toBe('star');
-    expect(icon.value.equals(icon.value)).toBe(true);
-    expect(color.value.toString()).toBe('yellowBright');
-    expect(color.value.equals(color.value)).toBe(true);
+    expect(max._unsafeUnwrap().toNumber()).toBe(5);
+    expect(max._unsafeUnwrap().equals(max._unsafeUnwrap())).toBe(true);
+    expect(icon._unsafeUnwrap().toString()).toBe('star');
+    expect(icon._unsafeUnwrap().equals(icon._unsafeUnwrap())).toBe(true);
+    expect(color._unsafeUnwrap().toString()).toBe('yellowBright');
+    expect(color._unsafeUnwrap().equals(color._unsafeUnwrap())).toBe(true);
   });
 });
 
@@ -261,17 +302,17 @@ describe('User values', () => {
     notify._unsafeUnwrap();
     defaults._unsafeUnwrap();
 
-    expect(me.value.isMe()).toBe(true);
-    expect(user.value.isMe()).toBe(false);
-    expect(me.value.equals(user.value)).toBe(false);
+    expect(me._unsafeUnwrap().isMe()).toBe(true);
+    expect(user._unsafeUnwrap().isMe()).toBe(false);
+    expect(me._unsafeUnwrap().equals(user._unsafeUnwrap())).toBe(false);
     expect(multiple.toBoolean()).toBe(true);
     expect(single.toBoolean()).toBe(false);
     expect(multiple.equals(UserMultiplicity.multiple())).toBe(true);
-    expect(notify.value.toBoolean()).toBe(true);
-    expect(notify.value.equals(notify.value)).toBe(true);
-    expect(defaults.value.isMultiple()).toBe(true);
-    expect(defaults.value.toDto()).toEqual(['me', 'usr123']);
-    expect(defaults.value.equals(defaults.value)).toBe(true);
+    expect(notify._unsafeUnwrap().toBoolean()).toBe(true);
+    expect(notify._unsafeUnwrap().equals(notify._unsafeUnwrap())).toBe(true);
+    expect(defaults._unsafeUnwrap().isMultiple()).toBe(true);
+    expect(defaults._unsafeUnwrap().toDto()).toEqual(['me', 'usr123']);
+    expect(defaults._unsafeUnwrap().equals(defaults._unsafeUnwrap())).toBe(true);
   });
 });
 
@@ -285,11 +326,14 @@ describe('Link field values', () => {
     relationship._unsafeUnwrap();
     meta._unsafeUnwrap();
     emptyMeta._unsafeUnwrap();
-    expect(relationship.value.isMultipleValue()).toBe(true);
-    expect(relationship.value.reverse().equals(reverse)).toBe(true);
-    expect(meta.value?.hasOrderColumn()).toBe(true);
-    expect(meta.value?.equals(meta.value)).toBe(true);
-    expect(emptyMeta.value).toBeUndefined();
+    expect(relationship._unsafeUnwrap().isMultipleValue()).toBe(true);
+    expect(relationship._unsafeUnwrap().reverse().equals(reverse)).toBe(true);
+    const metaValue = meta._unsafeUnwrap();
+    expect(metaValue?.hasOrderColumn()).toBe(true);
+    expect(metaValue).toBeDefined();
+    if (!metaValue) return;
+    expect(metaValue.equals(metaValue)).toBe(true);
+    expect(emptyMeta._unsafeUnwrap()).toBeUndefined();
   });
 
   it('validates link config', () => {

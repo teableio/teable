@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const buttonWorkflowSchema = z.object({
@@ -17,10 +18,10 @@ export class ButtonWorkflow extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<ButtonWorkflow | undefined, string> {
+  static create(raw: unknown): Result<ButtonWorkflow | undefined, DomainError> {
     if (raw == null) return ok(undefined);
     const parsed = buttonWorkflowSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ButtonWorkflow');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonWorkflow'));
     return ok(new ButtonWorkflow(parsed.data));
   }
 

@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -25,7 +26,7 @@ export class LastModifiedTimeField extends Field {
     name: FieldName;
     formatting?: DateTimeFormatting;
     trackedFieldIds?: ReadonlyArray<FieldId>;
-  }): Result<LastModifiedTimeField, string> {
+  }): Result<LastModifiedTimeField, DomainError> {
     const formatting = params.formatting ?? DateTimeFormatting.default();
     const trackedFieldIds = params.trackedFieldIds ?? [];
     return FormulaExpression.create('LAST_MODIFIED_TIME()').map(
@@ -50,7 +51,7 @@ export class LastModifiedTimeField extends Field {
     return this.expressionValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLastModifiedTimeField(this);
   }
 }

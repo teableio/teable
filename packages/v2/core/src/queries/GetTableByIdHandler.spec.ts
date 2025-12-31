@@ -60,6 +60,6 @@ describe('GetTableByIdHandler', () => {
 
     const handler = new GetTableByIdHandler(new MemoryTableRepository(), new NoopLogger());
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
-    expect(result._unsafeUnwrapErr()).toBe('Table not found');
+    expect(result._unsafeUnwrapErr().message).toBe('Table not found');
   });
 });

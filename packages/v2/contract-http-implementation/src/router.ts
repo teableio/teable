@@ -40,7 +40,7 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     (() => {
       const actorIdResult = ActorId.create('system');
       if (actorIdResult.isErr()) {
-        throw new Error(actorIdResult.error);
+        throw new Error(actorIdResult.error.message);
       }
       return { actorId: actorIdResult.value };
     });
@@ -73,10 +73,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 201) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesCreateField = os.tables.createField.handler(async ({ input }) => {
@@ -102,14 +102,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesDeleteField = os.tables.deleteField.handler(async ({ input }) => {
@@ -135,14 +135,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesGetById = os.tables.getById.handler(async ({ input }) => {
@@ -168,14 +168,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesDelete = os.tables.delete.handler(async ({ input }) => {
@@ -201,14 +201,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesList = os.tables.list.handler(async ({ input }) => {
@@ -234,10 +234,10 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesListRecords = os.tables.listRecords.handler(async ({ input }) => {
@@ -263,14 +263,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   const tablesRename = os.tables.rename.handler(async ({ input }) => {
@@ -296,14 +296,14 @@ export const createV2OrpcRouter = (options: IV2OrpcRouterOptions = {}) => {
     if (result.status === 200) return result.body;
 
     if (result.status === 400) {
-      throw new ORPCError('BAD_REQUEST', { message: result.body.error });
+      throw new ORPCError('BAD_REQUEST', { message: result.body.error.message });
     }
 
     if (result.status === 404) {
-      throw new ORPCError('NOT_FOUND', { message: result.body.error });
+      throw new ORPCError('NOT_FOUND', { message: result.body.error.message });
     }
 
-    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error });
+    throw new ORPCError('INTERNAL_SERVER_ERROR', { message: result.body.error.message });
   });
 
   return os.router({

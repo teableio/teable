@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../domain/shared/DomainError';
 import { TableCreated } from '../../domain/table/events/TableCreated';
 import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
@@ -31,7 +32,7 @@ export class TableCreatedRealtimeProjection implements IEventHandler<TableCreate
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: TableCreated
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const specResult = Table.specs(event.baseId).byId(event.tableId).build();
     if (specResult.isErr()) return err(specResult.error);
 

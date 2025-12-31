@@ -1,5 +1,8 @@
-import { Field, FieldValueTypeVisitor } from '@teable/v2-core';
-import type {
+import {
+  AbstractFieldVisitor,
+  Field,
+  FieldValueTypeVisitor,
+  type DomainError,
   AttachmentField,
   AutoNumberField,
   ButtonField,
@@ -7,11 +10,11 @@ import type {
   CreatedByField,
   CreatedTimeField,
   DateField,
-  IFieldVisitor,
   LinkField,
   LongTextField,
   LastModifiedByField,
   LastModifiedTimeField,
+  LookupField,
   MultipleSelectField,
   NumberField,
   RatingField,
@@ -38,7 +41,7 @@ export type IFieldStorageType = {
   isMultipleCellValue: boolean;
 };
 
-export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType> {
+export class FieldStorageTypeVisitor extends AbstractFieldVisitor<IFieldStorageType> {
   private readonly typesByFieldId = new Map<string, IFieldStorageType>();
   private readonly valueTypeVisitor = new FieldValueTypeVisitor();
 
@@ -46,9 +49,9 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
     return Array.isArray(value);
   }
 
-  apply(table: Table): Result<void, string>;
-  apply(fields: ReadonlyArray<Field>): Result<void, string>;
-  apply(tableOrFields: Table | ReadonlyArray<Field>): Result<void, string> {
+  apply(table: Table): Result<void, DomainError>;
+  apply(fields: ReadonlyArray<Field>): Result<void, DomainError>;
+  apply(tableOrFields: Table | ReadonlyArray<Field>): Result<void, DomainError> {
     const fields = FieldStorageTypeVisitor.isFieldArray(tableOrFields)
       ? tableOrFields
       : tableOrFields.getFields();
@@ -65,79 +68,79 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
     return new Map(this.typesByFieldId);
   }
 
-  visitSingleLineTextField(field: SingleLineTextField): Result<IFieldStorageType, string> {
+  visitSingleLineTextField(field: SingleLineTextField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitLongTextField(field: LongTextField): Result<IFieldStorageType, string> {
+  visitLongTextField(field: LongTextField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitNumberField(field: NumberField): Result<IFieldStorageType, string> {
+  visitNumberField(field: NumberField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitRatingField(field: RatingField): Result<IFieldStorageType, string> {
+  visitRatingField(field: RatingField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitFormulaField(field: FormulaField): Result<IFieldStorageType, string> {
+  visitFormulaField(field: FormulaField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitRollupField(field: RollupField): Result<IFieldStorageType, string> {
+  visitRollupField(field: RollupField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitSingleSelectField(field: SingleSelectField): Result<IFieldStorageType, string> {
+  visitSingleSelectField(field: SingleSelectField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldStorageType, string> {
+  visitMultipleSelectField(field: MultipleSelectField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitCheckboxField(field: CheckboxField): Result<IFieldStorageType, string> {
+  visitCheckboxField(field: CheckboxField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitAttachmentField(field: AttachmentField): Result<IFieldStorageType, string> {
+  visitAttachmentField(field: AttachmentField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitDateField(field: DateField): Result<IFieldStorageType, string> {
+  visitDateField(field: DateField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldStorageType, string> {
+  visitCreatedTimeField(field: CreatedTimeField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldStorageType, string> {
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitUserField(field: UserField): Result<IFieldStorageType, string> {
+  visitUserField(field: UserField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitCreatedByField(field: CreatedByField): Result<IFieldStorageType, string> {
+  visitCreatedByField(field: CreatedByField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldStorageType, string> {
+  visitLastModifiedByField(field: LastModifiedByField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitAutoNumberField(field: AutoNumberField): Result<IFieldStorageType, string> {
+  visitAutoNumberField(field: AutoNumberField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitButtonField(field: ButtonField): Result<IFieldStorageType, string> {
+  visitButtonField(field: ButtonField): Result<IFieldStorageType, DomainError> {
     return this.setTypeFromValueType(field);
   }
 
-  visitLinkField(field: LinkField): Result<IFieldStorageType, string> {
+  visitLinkField(field: LinkField): Result<IFieldStorageType, DomainError> {
     const valueTypeResult = field.accept(this.valueTypeVisitor);
     if (valueTypeResult.isErr()) return err(valueTypeResult.error);
     const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
@@ -150,7 +153,13 @@ export class FieldStorageTypeVisitor implements IFieldVisitor<IFieldStorageType>
     return ok(type);
   }
 
-  private setTypeFromValueType(field: Field): Result<IFieldStorageType, string> {
+  override visitLookupField(field: LookupField): Result<IFieldStorageType, DomainError> {
+    // Lookup fields need their own storage type entry, not delegation to inner field
+    // They are always stored as JSON because lookups can return multiple values
+    return this.setTypeFromValueType(field);
+  }
+
+  private setTypeFromValueType(field: Field): Result<IFieldStorageType, DomainError> {
     const valueTypeResult = field.accept(this.valueTypeVisitor);
     if (valueTypeResult.isErr()) return err(valueTypeResult.error);
     const { cellValueType, isMultipleCellValue } = valueTypeResult.value;

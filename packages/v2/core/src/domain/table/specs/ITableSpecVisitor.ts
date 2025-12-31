@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import type { ISpecVisitor } from '../../shared/specification/ISpecVisitor';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
 import type { TableByBaseIdSpec } from './TableByBaseIdSpec';
@@ -11,12 +12,12 @@ import type { TableRemoveFieldSpec } from './TableRemoveFieldSpec';
 import type { TableUpdateViewColumnMetaSpec } from './TableUpdateViewColumnMetaSpec';
 
 export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
-  visitTableAddField(spec: TableAddFieldSpec): Result<TResult, string>;
-  visitTableRemoveField(spec: TableRemoveFieldSpec): Result<TResult, string>;
-  visitTableUpdateViewColumnMeta(spec: TableUpdateViewColumnMetaSpec): Result<TResult, string>;
-  visitTableByBaseId(spec: TableByBaseIdSpec): Result<TResult, string>;
-  visitTableById(spec: TableByIdSpec): Result<TResult, string>;
-  visitTableByIds(spec: TableByIdsSpec): Result<TResult, string>;
-  visitTableByName(spec: TableByNameSpec): Result<TResult, string>;
-  visitTableByNameLike(spec: TableByNameLikeSpec): Result<TResult, string>;
+  visitTableAddField(spec: TableAddFieldSpec): Result<TResult, DomainError>;
+  visitTableRemoveField(spec: TableRemoveFieldSpec): Result<TResult, DomainError>;
+  visitTableUpdateViewColumnMeta(spec: TableUpdateViewColumnMetaSpec): Result<TResult, DomainError>;
+  visitTableByBaseId(spec: TableByBaseIdSpec): Result<TResult, DomainError>;
+  visitTableById(spec: TableByIdSpec): Result<TResult, DomainError>;
+  visitTableByIds(spec: TableByIdsSpec): Result<TResult, DomainError>;
+  visitTableByName(spec: TableByNameSpec): Result<TResult, DomainError>;
+  visitTableByNameLike(spec: TableByNameLikeSpec): Result<TResult, DomainError>;
 }

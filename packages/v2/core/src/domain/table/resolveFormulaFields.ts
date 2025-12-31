@@ -1,6 +1,8 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../shared/DomainError';
+import { domainError } from '../shared/DomainError';
 import { FieldId } from './fields/FieldId';
 import { FieldType } from './fields/FieldType';
 import type { FormulaField } from './fields/types/FormulaField';
@@ -11,7 +13,7 @@ import {
 } from './fields/visitors/FieldValueTypeVisitor';
 import type { Table } from './Table';
 
-export const resolveFormulaFields = (table: Table): Result<void, string> => {
+export const resolveFormulaFields = (table: Table): Result<void, DomainError> => {
   const fields = table.getFields();
   const fieldById = new Map(fields.map((field) => [field.id().toString(), field] as const));
   const dependenciesByFieldId = new Map<string, ReadonlyArray<FieldId>>();
@@ -40,9 +42,11 @@ export const resolveFormulaFields = (table: Table): Result<void, string> => {
 
     if (missingRefs.length > 0) {
       return err(
-        `Formula field references not found: ${missingRefs.join(
-          ', '
-        )}. These field IDs do not exist in the table.`
+        domainError.fromMessage(
+          `Formula field references not found: ${missingRefs.join(
+            ', '
+          )}. These field IDs do not exist in the table.`
+        )
       );
     }
 
@@ -74,7 +78,7 @@ export const resolveFormulaFields = (table: Table): Result<void, string> => {
     const cycleMessage = dependencyOrder.cycles
       .map((cycle) => cycle.map((id) => id.toString()).join(' -> '))
       .join('; ');
-    return err(`Formula field dependency cycle detected: ${cycleMessage}`);
+    return err(domainError.fromMessage(`Formula field dependency cycle detected: ${cycleMessage}`));
   }
 
   const valueTypeVisitor = new FieldValueTypeVisitor();
@@ -98,7 +102,9 @@ export const resolveFormulaFields = (table: Table): Result<void, string> => {
     const typeResult = formulaField.expression().getParsedValueType(valueTypes);
     if (typeResult.isErr()) {
       return err(
-        `Parse formula expression ${formulaField.expression().toString()} error: ${typeResult.error}`
+        domainError.fromMessage(
+          `Parse formula expression ${formulaField.expression().toString()} error: ${typeResult.error}`
+        )
       );
     }
 

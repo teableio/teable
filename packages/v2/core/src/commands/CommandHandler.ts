@@ -1,10 +1,11 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { TraceSpan, isTraceSpanWrapped } from '../ports/TraceSpan';
 
 export interface ICommandHandler<TCommand, TResult> {
-  handle(context: IExecutionContext, command: TCommand): Promise<Result<TResult, string>>;
+  handle(context: IExecutionContext, command: TCommand): Promise<Result<TResult, DomainError>>;
 }
 
 export type CommandType<TCommand> = {

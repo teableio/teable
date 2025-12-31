@@ -1,4 +1,4 @@
-import type { TableRecordReadModel } from '@teable/v2-core';
+import type { TableRecordReadModel, DomainError } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
@@ -12,6 +12,6 @@ export type ITableRecordDto = z.infer<typeof tableRecordDtoSchema>;
 
 export const mapTableRecordToDto = (
   record: TableRecordReadModel
-): Result<ITableRecordDto, string> => {
+): Result<ITableRecordDto, DomainError> => {
   return ok({ id: record.id, fields: record.fields });
 };

@@ -3,6 +3,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { TableUpdateCommand } from '../../commands/TableUpdateCommand';
+import { domainError, isNotFoundError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
@@ -16,12 +17,12 @@ import * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import * as UnitOfWorkPort from '../../ports/UnitOfWork';
 
-type TableUpdateMutate = (table: Table) => Result<TableUpdateResult, string>;
+type TableUpdateMutate = (table: Table) => Result<TableUpdateResult, DomainError>;
 type TableUpdateFlowHook = (
   context: IExecutionContext,
   table: Table,
   mutateSpec: ISpecification<Table, ITableSpecVisitor>
-) => Promise<Result<ReadonlyArray<IDomainEvent>, string>>;
+) => Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>>;
 
 type TableUpdateTarget =
   | {
@@ -64,10 +65,10 @@ export class TableUpdateFlow {
     target: TableUpdateTarget,
     mutate: TableUpdateMutate,
     options?: TableUpdateFlowOptions
-  ): Promise<Result<TableUpdateFlowResult, string>> {
+  ): Promise<Result<TableUpdateFlowResult, DomainError>> {
     const publishEvents = options?.publishEvents ?? true;
     const handler = this;
-    return await safeTry<TableUpdateFlowResult, string>(async function* () {
+    return await safeTry<TableUpdateFlowResult, DomainError>(async function* () {
       const events: IDomainEvent[] = [];
       const table = yield* await handler.resolveTable(context, target);
 
@@ -80,7 +81,7 @@ export class TableUpdateFlow {
 
       const mutateSpec = updated.mutateSpec;
       yield* await handler.unitOfWork.withTransaction(context, async (transactionContext) => {
-        return safeTry<void, string>(async function* () {
+        return safeTry<void, DomainError>(async function* () {
           if (options?.hooks?.prepare) {
             const prepareEvents = yield* await options.hooks.prepare(
               transactionContext,
@@ -123,15 +124,22 @@ export class TableUpdateFlow {
   private async resolveTable(
     context: IExecutionContext,
     target: TableUpdateTarget
-  ): Promise<Result<Table, string>> {
+  ): Promise<Result<Table, DomainError>> {
     if ('table' in target) return ok(target.table);
 
     const tableRepository = this.tableRepository;
-    const result = await safeTry<Table, string>(async function* () {
+    const result = await safeTry<Table, DomainError>(async function* () {
       const whereSpec = yield* TableAggregate.specs(target.baseId).byId(target.tableId).build();
       const tableResult = await tableRepository.findOne(context, whereSpec);
       if (tableResult.isErr()) {
-        if (tableResult.error === 'Not found') return err('Table not found');
+        if (isNotFoundError(tableResult.error)) {
+          return err(
+            domainError.notFound({
+              code: 'table.not_found',
+              message: 'Table not found',
+            })
+          );
+        }
         return err(tableResult.error);
       }
       return ok(tableResult.value);

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { generatePrefixedId, prefixedIdRegex } from '../../shared/IdGenerator';
 import { ValueObject } from '../../shared/ValueObject';
 
@@ -14,17 +15,17 @@ export class FieldId extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FieldId, string> {
+  static create(raw: unknown): Result<FieldId, DomainError> {
     const parsed = fieldIdSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FieldId');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldId'));
     return ok(new FieldId(parsed.data));
   }
 
-  static generate(): Result<FieldId, string> {
+  static generate(): Result<FieldId, DomainError> {
     try {
       return ok(new FieldId(generatePrefixedId(fieldIdPrefix, fieldIdBodyLength)));
     } catch {
-      return err('Failed to generate FieldId');
+      return err(domainError.fromMessage('Failed to generate FieldId'));
     }
   }
 

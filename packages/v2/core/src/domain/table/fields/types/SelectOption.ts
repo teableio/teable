@@ -2,6 +2,7 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { FieldColor, type FieldColorValue } from './FieldColor';
 import { SelectOptionId } from './SelectOptionId';
@@ -22,9 +23,9 @@ export class SelectOption extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SelectOption, string> {
+  static create(raw: unknown): Result<SelectOption, DomainError> {
     const parsed = selectOptionSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SelectOption');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectOption'));
 
     return SelectOptionName.create(parsed.data.name).andThen((name) => {
       const idResult = parsed.data.id

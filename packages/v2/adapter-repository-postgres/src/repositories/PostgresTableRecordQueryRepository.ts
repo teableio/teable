@@ -1,4 +1,5 @@
 import * as core from '@teable/v2-core';
+import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
@@ -29,8 +30,8 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
     context: core.IExecutionContext,
     table: core.Table,
     spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
-  ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, string>> {
-    return safeTry<ReadonlyArray<core.TableRecordReadModel>, string>(
+  ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>> {
+    return safeTry<ReadonlyArray<core.TableRecordReadModel>, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
         const dbTableName = yield* table.dbTableName();
         const { schema, tableName } = yield* dbTableName.split({ defaultSchema: null });
@@ -55,7 +56,9 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           const records = yield* mapRowsToReadModels(selectedColumns, rows);
           return ok(records);
         } catch (error) {
-          return err(`Failed to load table records: ${describeError(error)}`);
+          return err(
+            domainError.fromMessage(`Failed to load table records: ${describeError(error)}`)
+          );
         }
       }.bind(this)
     );
@@ -65,11 +68,11 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
 const mapRowsToReadModels = (
   fieldColumns: ReadonlyArray<FieldColumn>,
   rows: ReadonlyArray<Record<string, unknown>>
-): Result<ReadonlyArray<core.TableRecordReadModel>, string> => {
+): Result<ReadonlyArray<core.TableRecordReadModel>, DomainError> => {
   const records: core.TableRecordReadModel[] = [];
   for (const row of rows) {
     const rawId = row[recordIdColumn];
-    if (typeof rawId !== 'string') return err('Invalid record id');
+    if (typeof rawId !== 'string') return err(domainError.fromMessage('Invalid record id'));
 
     const fields: Record<string, unknown> = {};
     for (const column of fieldColumns) {
@@ -82,7 +85,7 @@ const mapRowsToReadModels = (
 
 const buildRecordWhere = (
   spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
-): Result<RecordConditionWhere, string> => {
+): Result<RecordConditionWhere, DomainError> => {
   const visitor = new TableRecordConditionWhereVisitor();
   const acceptResult = spec.accept(visitor);
   if (acceptResult.isErr()) return err(acceptResult.error);
@@ -110,6 +113,7 @@ const resolvePostgresDb = <DB>(
 };
 
 const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) {
     return error.message ? `${error.name}: ${error.message}` : error.name;
   }

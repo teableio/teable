@@ -7,9 +7,8 @@ const baseIdPattern = /^bse[0-9a-zA-Z]{16}$/;
 describe('BaseId', () => {
   it('generates ids that follow the v1 format', () => {
     const result = BaseId.generate();
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toMatch(baseIdPattern);
+    const baseId = result._unsafeUnwrap();
+    expect(baseId.toString()).toMatch(baseIdPattern);
   });
 
   it('validates ids against the v1 format', () => {

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { CommandHandler, type ICommandHandler } from '../../commands/CommandHandler';
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
+import { domainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import { DomainEventName } from '../../domain/shared/DomainEventName';
 import { OccurredAt } from '../../domain/shared/OccurredAt';
@@ -64,9 +65,8 @@ describe('MemoryCommandBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryCommandBus(resolver);
     const result = await bus.execute(createContext(), new PingCommand());
-    result._unsafeUnwrap();
-
-    expect(result.value).toBe('pong');
+    const payload = result._unsafeUnwrap();
+    expect(payload).toBe('pong');
   });
 
   it('returns error when handler is missing', async () => {
@@ -74,7 +74,7 @@ describe('MemoryCommandBus', () => {
     const bus = new MemoryCommandBus(new MapResolver());
     const result = await bus.execute(createContext(), new MissingCommand());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Missing command handler');
+    expect(result._unsafeUnwrapErr().message).toContain('Missing command handler');
   });
 
   it('handles handler exceptions and middleware errors', async () => {
@@ -100,11 +100,11 @@ describe('MemoryCommandBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryCommandBus(resolver);
     const handlerResult = await bus.execute(createContext(), new CrashCommand());
-    expect(handlerResult._unsafeUnwrapErr()).toContain('boom');
+    expect(handlerResult._unsafeUnwrapErr().message).toContain('boom');
 
     const busWithMiddleware = new MemoryCommandBus(resolver, [middleware]);
     const middlewareResult = await busWithMiddleware.execute(createContext(), new CrashCommand());
-    expect(middlewareResult._unsafeUnwrapErr()).toContain('middleware');
+    expect(middlewareResult._unsafeUnwrapErr().message).toContain('middleware');
   });
 });
 
@@ -126,9 +126,8 @@ describe('MemoryQueryBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryQueryBus(resolver);
     const result = await bus.execute(createContext(), new PingQuery());
-    result._unsafeUnwrap();
-
-    expect(result.value).toBe('pong');
+    const payload = result._unsafeUnwrap();
+    expect(payload).toBe('pong');
   });
 
   it('returns error when handler is missing', async () => {
@@ -136,7 +135,7 @@ describe('MemoryQueryBus', () => {
     const bus = new MemoryQueryBus(new MapResolver());
     const result = await bus.execute(createContext(), new MissingQuery());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Missing query handler');
+    expect(result._unsafeUnwrapErr().message).toContain('Missing query handler');
   });
 
   it('handles handler exceptions and middleware errors', async () => {
@@ -162,11 +161,11 @@ describe('MemoryQueryBus', () => {
     const resolver = new MapResolver();
     const bus = new MemoryQueryBus(resolver);
     const handlerResult = await bus.execute(createContext(), new CrashQuery());
-    expect(handlerResult._unsafeUnwrapErr()).toContain('boom');
+    expect(handlerResult._unsafeUnwrapErr().message).toContain('boom');
 
     const busWithMiddleware = new MemoryQueryBus(resolver, [middleware]);
     const middlewareResult = await busWithMiddleware.execute(createContext(), new CrashQuery());
-    expect(middlewareResult._unsafeUnwrapErr()).toContain('middleware');
+    expect(middlewareResult._unsafeUnwrapErr().message).toContain('middleware');
   });
 });
 
@@ -217,7 +216,7 @@ describe('MemoryEventBus', () => {
         _context: IExecutionContext,
         _event: FailingEvent
       ): ReturnType<IEventHandler<FailingEvent>['handle']> {
-        return err('fail');
+        return err(domainError.fromMessage('fail'));
       }
     }
     expect(FailingEventHandler).toBeDefined();
@@ -243,10 +242,10 @@ describe('MemoryEventBus', () => {
     const context = createContext();
 
     const failResult = await bus.publish(context, new FailingEvent());
-    expect(failResult._unsafeUnwrapErr()).toBe('fail');
+    expect(failResult._unsafeUnwrapErr().message).toBe('fail');
 
     const throwResult = await bus.publish(context, new ThrowingEvent());
-    expect(throwResult._unsafeUnwrapErr()).toContain('boom');
+    expect(throwResult._unsafeUnwrapErr().message).toContain('boom');
   });
 });
 
@@ -302,7 +301,7 @@ describe('AsyncMemoryEventBus', () => {
         _context: IExecutionContext,
         _event: FailingEvent
       ): ReturnType<IEventHandler<FailingEvent>['handle']> {
-        return err('fail');
+        return err(domainError.fromMessage('fail'));
       }
     }
     expect(FailingEventHandler).toBeDefined();
@@ -379,8 +378,8 @@ describe('MemoryTableRepository', () => {
       return builder.build()._unsafeUnwrap();
     };
 
-    const tableA = buildTable(tableNameA.value);
-    const tableB = buildTable(tableNameB.value);
+    const tableA = buildTable(tableNameA);
+    const tableB = buildTable(tableNameB);
 
     const repo = new MemoryTableRepository();
     const context = createContext();

@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -24,7 +25,7 @@ export class SingleLineTextField extends Field {
     name: FieldName;
     showAs?: SingleLineTextShowAs;
     defaultValue?: TextDefaultValue;
-  }): Result<SingleLineTextField, string> {
+  }): Result<SingleLineTextField, DomainError> {
     return ok(new SingleLineTextField(params.id, params.name, params.showAs, params.defaultValue));
   }
 
@@ -36,7 +37,7 @@ export class SingleLineTextField extends Field {
     return this.defaultValueValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitSingleLineTextField(this);
   }
 }

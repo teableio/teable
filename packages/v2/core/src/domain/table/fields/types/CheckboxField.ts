@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -21,7 +22,7 @@ export class CheckboxField extends Field {
     id: FieldId;
     name: FieldName;
     defaultValue?: CheckboxDefaultValue;
-  }): Result<CheckboxField, string> {
+  }): Result<CheckboxField, DomainError> {
     return ok(new CheckboxField(params.id, params.name, params.defaultValue));
   }
 
@@ -29,7 +30,7 @@ export class CheckboxField extends Field {
     return this.defaultValueValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitCheckboxField(this);
   }
 }

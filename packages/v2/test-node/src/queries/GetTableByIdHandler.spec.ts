@@ -118,6 +118,6 @@ describe('GetTableByIdHandler', () => {
     );
 
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toBe('Table not found');
+    expect(result._unsafeUnwrapErr().message).toBe('Table not found');
   });
 });

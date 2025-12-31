@@ -7,6 +7,8 @@ import {
   type ITableMapper,
   type ITablePersistenceDTO,
   type Table,
+  domainError,
+  type DomainError,
 } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -34,12 +36,12 @@ export type TableFieldRow = {
   is_multiple_cell_value: boolean;
   db_field_type: string;
   db_field_name: string;
-  not_null: null;
-  unique: null;
+  not_null: boolean | null;
+  unique: boolean | null;
   is_primary: boolean | null;
   is_computed: boolean | null;
-  is_lookup: null;
-  is_conditional_lookup: null;
+  is_lookup: boolean | null;
+  is_conditional_lookup: boolean | null;
   is_pending: null;
   has_error: null;
   lookup_linked_field_id: string | null;
@@ -70,7 +72,7 @@ export class TableFieldPersistenceBuilder {
     this.dtoValue = params.dto;
   }
 
-  buildDbFieldMeta(): Result<ReadonlyArray<ITableDbFieldMeta>, string> {
+  buildDbFieldMeta(): Result<ReadonlyArray<ITableDbFieldMeta>, DomainError> {
     const dtoResult = this.getDto();
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
@@ -88,14 +90,15 @@ export class TableFieldPersistenceBuilder {
 
   buildRowsFromDbMeta(
     fields: ReadonlyArray<ITableDbFieldMeta>
-  ): Result<ReadonlyArray<TableFieldRow>, string> {
+  ): Result<ReadonlyArray<TableFieldRow>, DomainError> {
     const storageTypeByIdResult = this.getStorageTypeById();
     if (storageTypeByIdResult.isErr()) return err(storageTypeByIdResult.error);
     const storageTypeById = storageTypeByIdResult.value;
 
     const results = fields.map((field, index) => {
       const storageType = storageTypeById.get(field.field.id);
-      if (!storageType) return err(`Missing storage type for field ${field.field.id}`);
+      if (!storageType)
+        return err(domainError.fromMessage(`Missing storage type for field ${field.field.id}`));
       return ok(
         this.buildRowValue({
           fieldDto: field.field,
@@ -106,13 +109,13 @@ export class TableFieldPersistenceBuilder {
       );
     });
 
-    return results.reduce<Result<ReadonlyArray<TableFieldRow>, string>>(
+    return results.reduce<Result<ReadonlyArray<TableFieldRow>, DomainError>>(
       (acc, next) => acc.andThen((rows) => next.map((row) => [...rows, row])),
       ok([])
     );
   }
 
-  buildRowForField(field: Field): Result<TableFieldRow, string> {
+  buildRowForField(field: Field): Result<TableFieldRow, DomainError> {
     const fieldDtoResult = this.resolveFieldDto(field);
     if (fieldDtoResult.isErr()) return err(fieldDtoResult.error);
     const { fieldDto, storageType } = fieldDtoResult.value;
@@ -133,7 +136,7 @@ export class TableFieldPersistenceBuilder {
     );
   }
 
-  private getDto(): Result<ITablePersistenceDTO, string> {
+  private getDto(): Result<ITablePersistenceDTO, DomainError> {
     if (this.dtoValue) return ok(this.dtoValue);
 
     const dtoResult = this.params.tableMapper.toDTO(this.params.table);
@@ -142,7 +145,7 @@ export class TableFieldPersistenceBuilder {
     return ok(dtoResult.value);
   }
 
-  private getStorageTypeById(): Result<ReadonlyMap<string, IFieldStorageType>, string> {
+  private getStorageTypeById(): Result<ReadonlyMap<string, IFieldStorageType>, DomainError> {
     if (this.storageTypeByIdValue) return ok(this.storageTypeByIdValue);
 
     const visitor = new FieldStorageTypeVisitor();
@@ -154,27 +157,32 @@ export class TableFieldPersistenceBuilder {
 
   private resolveFieldDto(
     field: Field
-  ): Result<{ fieldDto: ITableFieldPersistenceDTO; storageType: IFieldStorageType }, string> {
+  ): Result<{ fieldDto: ITableFieldPersistenceDTO; storageType: IFieldStorageType }, DomainError> {
     const dtoResult = this.getDto();
     if (dtoResult.isErr()) return err(dtoResult.error);
     const dto = dtoResult.value;
 
     const fieldDto = dto.fields.find((item) => item.id === field.id().toString());
-    if (!fieldDto) return err(`Missing field DTO for ${field.id().toString()}`);
+    if (!fieldDto)
+      return err(domainError.fromMessage(`Missing field DTO for ${field.id().toString()}`));
 
     const storageTypeByIdResult = this.getStorageTypeById();
     if (storageTypeByIdResult.isErr()) return err(storageTypeByIdResult.error);
     const storageType = storageTypeByIdResult.value.get(field.id().toString());
-    if (!storageType) return err(`Missing storage type for field ${field.id().toString()}`);
+    if (!storageType)
+      return err(
+        domainError.fromMessage(`Missing storage type for field ${field.id().toString()}`)
+      );
 
     return ok({ fieldDto, storageType });
   }
 
-  private resolveFieldOrder(field: Field): Result<number, string> {
+  private resolveFieldOrder(field: Field): Result<number, DomainError> {
     const fieldSpecResult = FieldSpecBuilder.create().withFieldId(field.id()).build();
     if (fieldSpecResult.isErr()) return err(fieldSpecResult.error);
     const [matched] = this.params.table.getFields(fieldSpecResult.value);
-    if (!matched) return err(`Missing field order for ${field.id().toString()}`);
+    if (!matched)
+      return err(domainError.fromMessage(`Missing field order for ${field.id().toString()}`));
 
     const fields = this.params.table.getFields();
     for (let index = 0; index < fields.length; index += 1) {
@@ -183,10 +191,10 @@ export class TableFieldPersistenceBuilder {
       }
     }
 
-    return err(`Missing field order for ${field.id().toString()}`);
+    return err(domainError.fromMessage(`Missing field order for ${field.id().toString()}`));
   }
 
-  private resolveDbFieldName(field: Field): Result<string, string> {
+  private resolveDbFieldName(field: Field): Result<string, DomainError> {
     const existingResult = field.dbFieldName().andThen((name) => name.value());
     if (existingResult.isOk()) return ok(existingResult.value);
 
@@ -213,6 +221,15 @@ export class TableFieldPersistenceBuilder {
     const { table, now, actorId } = this.params;
     const lookupOptions = this.serializeLookupOptions(params.fieldDto);
     const lookupLinkedFieldId = this.resolveLookupLinkedFieldId(params.fieldDto);
+    const notNull = typeof params.fieldDto.notNull === 'boolean' ? params.fieldDto.notNull : null;
+    const unique = typeof params.fieldDto.unique === 'boolean' ? params.fieldDto.unique : null;
+
+    const isLookup =
+      typeof params.fieldDto.isLookup === 'boolean' ? params.fieldDto.isLookup : null;
+    const isConditionalLookup =
+      typeof params.fieldDto.isConditionalLookup === 'boolean'
+        ? params.fieldDto.isConditionalLookup
+        : null;
 
     return {
       id: params.fieldDto.id,
@@ -226,13 +243,13 @@ export class TableFieldPersistenceBuilder {
       is_multiple_cell_value: params.storageType.isMultipleCellValue,
       db_field_type: params.storageType.dbFieldType,
       db_field_name: params.dbFieldName,
-      not_null: null,
-      unique: null,
+      not_null: notNull,
+      unique: unique,
       is_primary: params.fieldDto.id === table.primaryFieldId().toString() ? true : null,
       is_computed:
         typeof params.fieldDto.isComputed === 'boolean' ? params.fieldDto.isComputed : null,
-      is_lookup: null,
-      is_conditional_lookup: null,
+      is_lookup: isLookup,
+      is_conditional_lookup: isConditionalLookup,
       is_pending: null,
       has_error: null,
       lookup_linked_field_id: lookupLinkedFieldId,
@@ -254,20 +271,43 @@ export class TableFieldPersistenceBuilder {
   }
 
   private serializeLookupOptions(field: ITableFieldPersistenceDTO): string | null {
-    if (field.type !== 'rollup') return null;
-    if (!field.config) return null;
-    const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
-    if (!linkOptions) return JSON.stringify(field.config);
-    return JSON.stringify({
-      ...linkOptions,
-      ...field.config,
-      linkFieldId: field.config.linkFieldId,
-    });
+    // Handle rollup fields (config contains linkFieldId, foreignTableId, lookupFieldId)
+    if (field.type === 'rollup' && field.config) {
+      const linkOptions = this.resolveLinkFieldOptions(field.config.linkFieldId);
+      if (!linkOptions) return JSON.stringify(field.config);
+      return JSON.stringify({
+        ...linkOptions,
+        ...field.config,
+        linkFieldId: field.config.linkFieldId,
+      });
+    }
+
+    // Handle lookup fields (lookupOptions is directly on the DTO)
+    if (field.isLookup && field.lookupOptions) {
+      const linkOptions = this.resolveLinkFieldOptions(field.lookupOptions.linkFieldId);
+      if (!linkOptions) return JSON.stringify(field.lookupOptions);
+      return JSON.stringify({
+        ...linkOptions,
+        ...field.lookupOptions,
+        linkFieldId: field.lookupOptions.linkFieldId,
+      });
+    }
+
+    return null;
   }
 
   private resolveLookupLinkedFieldId(field: ITableFieldPersistenceDTO): string | null {
-    if (field.type !== 'rollup') return null;
-    return field.config?.linkFieldId ?? null;
+    // Handle rollup fields
+    if (field.type === 'rollup' && field.config) {
+      return field.config.linkFieldId ?? null;
+    }
+
+    // Handle lookup fields
+    if (field.isLookup && field.lookupOptions) {
+      return field.lookupOptions.linkFieldId ?? null;
+    }
+
+    return null;
   }
 
   private resolveLinkFieldOptions(

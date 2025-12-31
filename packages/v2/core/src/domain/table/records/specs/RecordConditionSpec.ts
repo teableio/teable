@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import type { Field } from '../../fields/Field';
 import type { TableRecord } from '../TableRecord';
@@ -204,12 +205,12 @@ export abstract class RecordConditionSpec<
     return this.fieldValue;
   }
 
-  mutate(t: TableRecord): Result<TableRecord, string> {
+  mutate(t: TableRecord): Result<TableRecord, DomainError> {
     return ok(t);
   }
 
   abstract isSatisfiedBy(t: TableRecord): boolean;
-  abstract accept(v: V): Result<void, string>;
+  abstract accept(v: V): Result<void, DomainError>;
 }
 
 export abstract class RecordValueConditionSpec<

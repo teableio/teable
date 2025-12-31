@@ -6,11 +6,10 @@ describe('TableSortKey', () => {
   it('validates sort keys', () => {
     const name = TableSortKey.create('name');
     const id = TableSortKey.create('id');
-    [name, id].forEach((r) => r._unsafeUnwrap());
-    name._unsafeUnwrap();
-    id._unsafeUnwrap();
-    expect(name.value.toString()).toBe('name');
-    expect(id.value.toString()).toBe('id');
+    const nameKey = name._unsafeUnwrap();
+    const idKey = id._unsafeUnwrap();
+    expect(nameKey.toString()).toBe('name');
+    expect(idKey.toString()).toBe('id');
     TableSortKey.create('other')._unsafeUnwrapErr();
   });
 

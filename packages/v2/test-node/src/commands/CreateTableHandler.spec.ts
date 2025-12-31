@@ -25,6 +25,7 @@ import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
+import { domainError } from '@teable/v2-core';
 describe('CreateTableHandler', () => {
   it('returns ok and publishes TableCreated', async () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeTestContainer();
@@ -402,7 +403,7 @@ describe('CreateTableHandler', () => {
 
     class FailingTableSchemaRepository implements ITableSchemaRepository {
       async insert(_: IExecutionContext, __: Table) {
-        return err('Forced schema failure');
+        return err(domainError.fromMessage('Forced schema failure'));
       }
 
       async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {
@@ -439,7 +440,7 @@ describe('CreateTableHandler', () => {
       commandResult._unsafeUnwrap()
     );
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toBe('Forced schema failure');
+    expect(result._unsafeUnwrapErr().message).toBe('Forced schema failure');
   });
 
   it('creates formula fields and resolves dependencies', async () => {
@@ -547,7 +548,7 @@ describe('CreateTableHandler', () => {
       commandResult._unsafeUnwrap()
     );
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Formula field dependency cycle detected');
+    expect(result._unsafeUnwrapErr().message).toContain('Formula field dependency cycle detected');
   });
 
   it('dispatches TableCreated event handlers', async () => {

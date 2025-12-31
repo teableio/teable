@@ -3,7 +3,7 @@
 import { createORPCErrorFromJson, createORPCClient, isORPCErrorJson } from '@orpc/client';
 import type { ContractRouterClient } from '@orpc/contract';
 import { OpenAPILink } from '@orpc/openapi-client/fetch';
-import { v2Contract } from '@teable/v2-contract-http';
+import { apiErrorResponseDtoSchema, v2Contract } from '@teable/v2-contract-http';
 
 export { v2Contract } from '@teable/v2-contract-http';
 
@@ -45,6 +45,20 @@ export const createV2HttpClient = (options: IV2HttpClientOptions) => {
     customErrorResponseBodyDecoder: (body, response) => {
       if (isORPCErrorJson(body)) {
         return createORPCErrorFromJson(body);
+      }
+
+      const parsedError = apiErrorResponseDtoSchema.safeParse(body);
+      if (parsedError.success) {
+        return createORPCErrorFromJson({
+          defined: false,
+          code: inferErrorCode(response.status),
+          status: response.status,
+          message: parsedError.data.error.message,
+          data: {
+            domainErrorCode: parsedError.data.error.code,
+            tags: parsedError.data.error.tags,
+          },
+        });
       }
 
       if (

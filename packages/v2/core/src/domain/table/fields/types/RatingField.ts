@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -27,7 +28,7 @@ export class RatingField extends Field {
     max?: RatingMax;
     icon?: RatingIcon;
     color?: RatingColor;
-  }): Result<RatingField, string> {
+  }): Result<RatingField, DomainError> {
     return ok(
       new RatingField(
         params.id,
@@ -51,7 +52,7 @@ export class RatingField extends Field {
     return this.colorValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitRatingField(this);
   }
 }

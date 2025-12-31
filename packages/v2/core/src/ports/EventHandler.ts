@@ -1,11 +1,12 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { IExecutionContext } from './ExecutionContext';
 import { TraceSpan, isTraceSpanWrapped } from './TraceSpan';
 
 export interface IEventHandler<TEvent extends IDomainEvent> {
-  handle(context: IExecutionContext, event: TEvent): Promise<Result<void, string>>;
+  handle(context: IExecutionContext, event: TEvent): Promise<Result<void, DomainError>>;
 }
 
 export type EventType<TEvent extends IDomainEvent> = {

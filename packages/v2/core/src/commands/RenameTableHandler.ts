@@ -3,6 +3,7 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -34,9 +35,9 @@ export class RenameTableHandler implements ICommandHandler<RenameTableCommand, R
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     command: RenameTableCommand
-  ): Promise<Result<RenameTableResult, string>> {
+  ): Promise<Result<RenameTableResult, DomainError>> {
     const handler = this;
-    return safeTry<RenameTableResult, string>(async function* () {
+    return safeTry<RenameTableResult, DomainError>(async function* () {
       const updateResult = yield* await handler.tableUpdateFlow.execute(context, command, (table) =>
         table.update((mutator) => mutator.rename(command.tableName))
       );

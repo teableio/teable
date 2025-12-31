@@ -1,4 +1,5 @@
 import {
+  AbstractFieldVisitor,
   type AttachmentField,
   type AutoNumberField,
   type ButtonField,
@@ -8,11 +9,11 @@ import {
   type DateField,
   type Field,
   type FormulaField,
-  type IFieldVisitor,
   type LastModifiedByField,
   type LastModifiedTimeField,
   type LinkField,
   type LongTextField,
+  type LookupField,
   type MultipleSelectField,
   type NumberField,
   type RatingField,
@@ -20,6 +21,7 @@ import {
   type SingleLineTextField,
   type SingleSelectField,
   type UserField,
+  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
@@ -67,10 +69,12 @@ const deleteReferenceStatement = (
     );
 
 // Owns field-level column deletion and reference cleanup for schema updates.
-export class PostgresTableSchemaFieldDeleteVisitor
-  implements IFieldVisitor<ReadonlyArray<TableSchemaStatementBuilder>>
-{
-  constructor(private readonly params: PostgresTableSchemaFieldDeleteVisitorParams) {}
+export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
+  ReadonlyArray<TableSchemaStatementBuilder>
+> {
+  constructor(private readonly params: PostgresTableSchemaFieldDeleteVisitorParams) {
+    super();
+  }
 
   static forSchemaUpdate(params: {
     db: Kysely<V1TeableDatabase>;
@@ -83,103 +87,117 @@ export class PostgresTableSchemaFieldDeleteVisitor
 
   visitSingleLineTextField(
     field: SingleLineTextField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitLongTextField(
     field: LongTextField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitNumberField(field: NumberField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitNumberField(
+    field: NumberField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitRatingField(field: RatingField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitRatingField(
+    field: RatingField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitFormulaField(
     field: FormulaField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitRollupField(field: RollupField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitRollupField(
+    field: RollupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitSingleSelectField(
     field: SingleSelectField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitMultipleSelectField(
     field: MultipleSelectField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitCheckboxField(
     field: CheckboxField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitAttachmentField(
     field: AttachmentField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitDateField(field: DateField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitDateField(
+    field: DateField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitCreatedTimeField(
     field: CreatedTimeField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitUserField(field: UserField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitUserField(
+    field: UserField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitCreatedByField(
     field: CreatedByField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
   visitAutoNumberField(
     field: AutoNumberField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitButtonField(field: ButtonField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitButtonField(
+    field: ButtonField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.dropStandardField(field);
   }
 
-  visitLinkField(field: LinkField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitLinkField(
+    field: LinkField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const valueColumnName = yield* resolveColumnName(field);
       const statements: TableSchemaStatementBuilder[] = [
         dropColumnStatement(visitor.currentTable(), valueColumnName),
@@ -205,11 +223,18 @@ export class PostgresTableSchemaFieldDeleteVisitor
     });
   }
 
+  override visitLookupField(
+    field: LookupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    // Lookup fields are standard computed fields, drop like formula/rollup
+    return this.dropStandardField(field);
+  }
+
   private dropStandardField(
     field: Field
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(field);
       const statements: TableSchemaStatementBuilder[] = [
         dropColumnStatement(visitor.currentTable(), columnName),
@@ -228,7 +253,7 @@ export class PostgresTableSchemaFieldDeleteVisitor
 
   private resolveFkHostTable(
     field: LinkField
-  ): Result<{ schema: string | null; tableName: string }, string> {
+  ): Result<{ schema: string | null; tableName: string }, DomainError> {
     return field.fkHostTableName().split({ defaultSchema: this.params.schema });
   }
 

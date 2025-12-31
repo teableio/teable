@@ -3,6 +3,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../domain/base/BaseId';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../../domain/table/Table';
 import { Table as TableAggregate } from '../../domain/table/Table';
@@ -26,9 +27,9 @@ export class ForeignTableLoaderService {
   async load(
     context: IExecutionContext,
     input: ForeignTableLoaderInput
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     const tableRepository = this.tableRepository;
-    const result = await safeTry<ReadonlyArray<Table>, string>(async function* () {
+    const result = await safeTry<ReadonlyArray<Table>, DomainError>(async function* () {
       if (input.references.length === 0) return ok([]);
 
       const spec = yield* TableAggregate.specs(input.baseId)
@@ -41,7 +42,7 @@ export class ForeignTableLoaderService {
       const missing = input.references.filter(
         (reference) => !foreignTableIds.has(reference.foreignTableId.toString())
       );
-      if (missing.length > 0) return err('Foreign tables not found');
+      if (missing.length > 0) return err(domainError.fromMessage('Foreign tables not found'));
 
       return ok(foreignTables);
     });

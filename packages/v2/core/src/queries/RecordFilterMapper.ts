@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { notSpec } from '../domain/shared/specification/NotSpec';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -31,26 +32,27 @@ const resolveField = (table: Table, rawFieldId: string) => {
   return FieldId.create(rawFieldId).andThen((fieldId) =>
     table
       .getField((candidate) => candidate.id().equals(fieldId))
-      .mapErr(() => 'Filter field not found')
+      .mapErr(() => domainError.fromMessage('Filter field not found'))
   );
 };
 
 const buildConditionValue = (
   table: Table,
   rawValue: RecordFilterValue
-): Result<RecordConditionValue | undefined, string> => {
+): Result<RecordConditionValue | undefined, DomainError> => {
   if (rawValue === null) return ok(undefined);
 
   if (isRecordFilterFieldReferenceValue(rawValue)) {
     return FieldId.create(rawValue.fieldId).andThen((fieldId) => {
       return table
         .getField((candidate) => candidate.id().equals(fieldId))
-        .mapErr(() => 'Filter field reference not found')
+        .mapErr(() => domainError.fromMessage('Filter field reference not found'))
         .andThen((field) => {
           if (rawValue.tableId) {
             const tableIdResult = TableId.create(rawValue.tableId);
             if (tableIdResult.isErr()) return err(tableIdResult.error);
-            if (!tableIdResult.value.equals(table.id())) return err('Filter field table mismatch');
+            if (!tableIdResult.value.equals(table.id()))
+              return err(domainError.fromMessage('Filter field table mismatch'));
           }
 
           return RecordConditionFieldReferenceValue.create(field);
@@ -72,7 +74,7 @@ const buildConditionValue = (
 const buildSpecFromNode = (
   table: Table,
   node: RecordFilterNode
-): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, string> => {
+): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
   if (isRecordFilterCondition(node)) {
     return resolveField(table, node.fieldId).andThen((field) =>
       buildConditionValue(table, node.value).andThen((value) =>
@@ -96,13 +98,13 @@ const buildSpecFromNode = (
     return builder.build();
   }
 
-  return err('Invalid record filter node');
+  return err(domainError.fromMessage('Invalid record filter node'));
 };
 
 export const buildRecordConditionSpec = (
   table: Table,
   filter: RecordFilter
-): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, string> => {
-  if (!filter) return err('Filter is empty');
+): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> => {
+  if (!filter) return err(domainError.fromMessage('Filter is empty'));
   return buildSpecFromNode(table, filter);
 };

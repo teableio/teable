@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const linkFieldMetaSchema = z.object({
@@ -15,10 +16,10 @@ export class LinkFieldMeta extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<LinkFieldMeta | undefined, string> {
+  static create(raw: unknown): Result<LinkFieldMeta | undefined, DomainError> {
     if (raw == null) return ok(undefined);
     const parsed = linkFieldMetaSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid LinkFieldMeta');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkFieldMeta'));
     return ok(new LinkFieldMeta(parsed.data));
   }
 

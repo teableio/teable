@@ -1,6 +1,7 @@
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import {
   getQueryHandlerToken,
   type IQueryHandler,
@@ -20,18 +21,18 @@ export class MemoryQueryBus implements IQueryBus {
   async execute<TQuery, TResult>(
     context: IExecutionContext,
     query: TQuery
-  ): Promise<Result<TResult, string>> {
+  ): Promise<Result<TResult, DomainError>> {
     const executeHandler = async (
       handlerContext: IExecutionContext,
       handlerQuery: TQuery
-    ): Promise<Result<TResult, string>> => {
+    ): Promise<Result<TResult, DomainError>> => {
       const queryType = (handlerQuery as { constructor: QueryType<TQuery> }).constructor;
       const handlerToken = getQueryHandlerToken(queryType as QueryType<unknown>) as
         | QueryHandlerClass<TQuery, TResult>
         | undefined;
 
       if (!handlerToken) {
-        return err(`Missing query handler for ${queryType.name}`);
+        return err(domainError.fromMessage(`Missing query handler for ${queryType.name}`));
       }
 
       try {
@@ -41,9 +42,9 @@ export class MemoryQueryBus implements IQueryBus {
         return await handler.handle(handlerContext, handlerQuery);
       } catch (error) {
         if (error instanceof Error) {
-          return err(error.message);
+          return err(domainError.fromUnknown(error));
         }
-        return err('Query handler execution failed');
+        return err(domainError.fromMessage('Query handler execution failed'));
       }
     };
 
@@ -53,9 +54,9 @@ export class MemoryQueryBus implements IQueryBus {
           return await middleware.handle(middlewareContext, middlewareQuery, next);
         } catch (error) {
           if (error instanceof Error) {
-            return err(error.message);
+            return err(domainError.fromUnknown(error));
           }
-          return err('Query middleware execution failed');
+          return err(domainError.fromMessage('Query middleware execution failed'));
         }
       },
       executeHandler as QueryBusNext<TQuery, TResult>

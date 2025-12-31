@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from './DomainError';
 import { ValueObject } from './ValueObject';
 
 const actorIdSchema = z.string().min(1);
@@ -11,9 +12,9 @@ export class ActorId extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<ActorId, string> {
+  static create(raw: unknown): Result<ActorId, DomainError> {
     const parsed = actorIdSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ActorId');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ActorId'));
     return ok(new ActorId(parsed.data));
   }
 

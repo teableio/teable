@@ -1,5 +1,9 @@
 import type { ICreateTableEndpointResult } from '@teable/v2-contract-http';
-import { mapCreateTableResultToDto } from '@teable/v2-contract-http';
+import {
+  mapCreateTableResultToDto,
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+} from '@teable/v2-contract-http';
 import { CreateTableCommand } from '@teable/v2-core';
 import type { CreateTableResult, ICommandBus, IExecutionContext } from '@teable/v2-core';
 
@@ -10,7 +14,11 @@ export const executeCreateTableEndpoint = async (
 ): Promise<ICreateTableEndpointResult> => {
   const commandResult = CreateTableCommand.create(rawBody);
   if (commandResult.isErr()) {
-    return { status: 400, body: { ok: false, error: commandResult.error } };
+    const error = commandResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const result = await commandBus.execute<CreateTableCommand, CreateTableResult>(
@@ -18,12 +26,20 @@ export const executeCreateTableEndpoint = async (
     commandResult.value
   );
   if (result.isErr()) {
-    return { status: 500, body: { ok: false, error: result.error } };
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const mapped = mapCreateTableResultToDto(result.value);
   if (mapped.isErr()) {
-    return { status: 500, body: { ok: false, error: mapped.error } };
+    const error = mapped.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   return {

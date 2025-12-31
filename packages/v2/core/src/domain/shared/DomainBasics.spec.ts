@@ -73,9 +73,8 @@ describe('ActorId', () => {
 describe('DomainEventName', () => {
   it('creates event names and handles tableCreated', () => {
     const result = DomainEventName.create('CustomEvent');
-    result._unsafeUnwrap();
-
-    expect(result.value.toString()).toBe('CustomEvent');
+    const eventName = result._unsafeUnwrap();
+    expect(eventName.toString()).toBe('CustomEvent');
     expect(DomainEventName.tableCreated().toString()).toBe('TableCreated');
   });
 
@@ -88,13 +87,13 @@ describe('OccurredAt', () => {
   it('creates instances from dates and compares by time', () => {
     const now = new Date('2024-01-01T00:00:00.000Z');
     const result = OccurredAt.create(now);
-    result._unsafeUnwrap();
+    const occurredAt = result._unsafeUnwrap();
 
     const sameTime = OccurredAt.create(new Date('2024-01-01T00:00:00.000Z'));
-    sameTime._unsafeUnwrap();
+    const sameOccurredAt = sameTime._unsafeUnwrap();
 
-    expect(result.value.equals(sameTime.value)).toBe(true);
-    expect(result.value.toDate().toISOString()).toBe('2024-01-01T00:00:00.000Z');
+    expect(occurredAt.equals(sameOccurredAt)).toBe(true);
+    expect(occurredAt.toDate().toISOString()).toBe('2024-01-01T00:00:00.000Z');
   });
 
   it('rejects invalid inputs', () => {

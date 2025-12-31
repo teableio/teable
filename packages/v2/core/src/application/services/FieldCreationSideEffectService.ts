@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { Field } from '../../domain/table/fields/Field';
 import { FieldCreationSideEffectVisitor } from '../../domain/table/fields/visitors/FieldCreationSideEffectVisitor';
@@ -31,9 +32,9 @@ export class FieldCreationSideEffectService {
   async execute(
     context: ExecutionContextPort.IExecutionContext,
     input: FieldCreationSideEffectServiceInput
-  ): Promise<Result<ReadonlyArray<IDomainEvent>, string>> {
+  ): Promise<Result<ReadonlyArray<IDomainEvent>, DomainError>> {
     const service = this;
-    const result = await safeTry<ReadonlyArray<IDomainEvent>, string>(async function* () {
+    const result = await safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
       if (input.fields.length === 0) return ok([]);
 
       const sideEffects = yield* FieldCreationSideEffectVisitor.collect(input.fields, {
@@ -49,7 +50,7 @@ export class FieldCreationSideEffectService {
 
       for (const sideEffect of sideEffects) {
         const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
-        if (!foreignTable) return err('Foreign table not found in state');
+        if (!foreignTable) return err(domainError.fromMessage('Foreign table not found in state'));
 
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,

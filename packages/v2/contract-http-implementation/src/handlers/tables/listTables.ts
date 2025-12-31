@@ -1,5 +1,9 @@
 import type { IListTablesEndpointResult } from '@teable/v2-contract-http';
-import { mapListTablesResultToDto } from '@teable/v2-contract-http';
+import {
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+  mapListTablesResultToDto,
+} from '@teable/v2-contract-http';
 import { ListTablesQuery } from '@teable/v2-core';
 import type { IExecutionContext, IQueryBus, ListTablesResult } from '@teable/v2-core';
 
@@ -10,7 +14,11 @@ export const executeListTablesEndpoint = async (
 ): Promise<IListTablesEndpointResult> => {
   const queryResult = ListTablesQuery.create(rawInput);
   if (queryResult.isErr()) {
-    return { status: 400, body: { ok: false, error: queryResult.error } };
+    const error = queryResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const result = await queryBus.execute<ListTablesQuery, ListTablesResult>(
@@ -18,12 +26,20 @@ export const executeListTablesEndpoint = async (
     queryResult.value
   );
   if (result.isErr()) {
-    return { status: 500, body: { ok: false, error: result.error } };
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const mapped = mapListTablesResultToDto(result.value);
   if (mapped.isErr()) {
-    return { status: 500, body: { ok: false, error: mapped.error } };
+    const error = mapped.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   return {

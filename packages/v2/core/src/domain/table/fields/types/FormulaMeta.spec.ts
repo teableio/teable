@@ -11,19 +11,15 @@ describe('FormulaMeta', () => {
     expect(meta.isRehydrated()).toBe(true);
 
     const value = meta.value();
-    value._unsafeUnwrap();
-
-    expect(value.value.persistedAsGeneratedColumn).toBe(true);
+    const metaValue = value._unsafeUnwrap();
+    expect(metaValue.persistedAsGeneratedColumn).toBe(true);
 
     const persisted = meta.persistedAsGeneratedColumn();
-    persisted._unsafeUnwrap();
-
-    expect(persisted.value).toBe(true);
+    expect(persisted._unsafeUnwrap()).toBe(true);
 
     const dto = meta.toDto();
-    dto._unsafeUnwrap();
-
-    expect(dto.value.persistedAsGeneratedColumn).toBe(true);
+    const dtoValue = dto._unsafeUnwrap();
+    expect(dtoValue.persistedAsGeneratedColumn).toBe(true);
   });
 
   it('rejects invalid meta and unhydrated access', () => {

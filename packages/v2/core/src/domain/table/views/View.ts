@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import type { ViewColumnMeta } from './ViewColumnMeta';
 import type { ViewId } from './ViewId';
@@ -27,19 +28,19 @@ export abstract class View extends Entity<ViewId> {
     return this.typeValue;
   }
 
-  columnMeta(): Result<ViewColumnMeta, string> {
-    if (!this.columnMetaValue) return err('ViewColumnMeta not set');
+  columnMeta(): Result<ViewColumnMeta, DomainError> {
+    if (!this.columnMetaValue) return err(domainError.fromMessage('ViewColumnMeta not set'));
     return ok(this.columnMetaValue);
   }
 
-  setColumnMeta(columnMeta: ViewColumnMeta): Result<void, string> {
+  setColumnMeta(columnMeta: ViewColumnMeta): Result<void, DomainError> {
     if (this.columnMetaValue) {
       if (this.columnMetaValue.equals(columnMeta)) return ok(undefined);
-      return err('ViewColumnMeta already set');
+      return err(domainError.fromMessage('ViewColumnMeta already set'));
     }
     this.columnMetaValue = columnMeta;
     return ok(undefined);
   }
 
-  abstract accept<T = void>(visitor: IViewVisitor<T>): Result<T, string>;
+  abstract accept<T = void>(visitor: IViewVisitor<T>): Result<T, DomainError>;
 }

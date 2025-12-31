@@ -10,6 +10,7 @@ import type { Result } from 'neverthrow';
 import { BroadcastChannelRealtimeHub } from './BroadcastChannelRealtimeHub';
 import { v2BroadcastChannelTokens } from './di/tokens';
 
+import { type DomainError } from '@teable/v2-core';
 @injectable()
 export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
   constructor(
@@ -21,7 +22,7 @@ export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
     _context: IExecutionContext,
     docId: RealtimeDocId,
     initial: unknown
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     return this.hub.ensure(docId, initial);
   }
 
@@ -29,11 +30,14 @@ export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
     _context: IExecutionContext,
     docId: RealtimeDocId,
     change: RealtimeChange
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     return this.hub.applyChange(docId, change);
   }
 
-  async delete(_context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, string>> {
+  async delete(
+    _context: IExecutionContext,
+    docId: RealtimeDocId
+  ): Promise<Result<void, DomainError>> {
     return this.hub.remove(docId);
   }
 }

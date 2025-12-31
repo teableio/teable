@@ -1,5 +1,6 @@
 import {
   BaseId,
+  DefaultTableMapper,
   FieldCreationSideEffectService,
   FieldDeletionSideEffectService,
   ForeignTableLoaderService,
@@ -8,6 +9,7 @@ import {
   MemoryQueryBus,
   MemoryTableRepository,
   NoopLogger,
+  NoopRealtimeEngine,
   NoopTableRecordQueryRepository,
   NoopTableRecordRepository,
   NoopTableSchemaRepository,
@@ -26,7 +28,7 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
-    throw new Error(baseIdResult.error);
+    throw new Error(baseIdResult.error.message);
   }
 
   const tableRepository: ITableRepository = new MemoryTableRepository();
@@ -46,6 +48,8 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService);
   c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService);
   c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService);
+  c.registerInstance(v2CoreTokens.tableMapper, new DefaultTableMapper());
+  c.registerInstance(v2CoreTokens.realtimeEngine, new NoopRealtimeEngine());
   c.registerInstance(v2CoreTokens.logger, new NoopLogger());
   c.registerInstance(v2CoreTokens.tracer, new NoopTracer());
 

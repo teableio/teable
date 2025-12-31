@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const buttonLabelSchema = z.string();
@@ -11,9 +12,9 @@ export class ButtonLabel extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<ButtonLabel, string> {
+  static create(raw: unknown): Result<ButtonLabel, DomainError> {
     const parsed = buttonLabelSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ButtonLabel');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonLabel'));
     return ok(new ButtonLabel(parsed.data));
   }
 

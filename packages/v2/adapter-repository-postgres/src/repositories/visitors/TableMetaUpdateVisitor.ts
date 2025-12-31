@@ -11,6 +11,8 @@ import {
   type ITableMapper,
   type ITableSpecVisitor,
   type Table,
+  domainError,
+  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type {
@@ -61,11 +63,13 @@ export class TableMetaUpdateVisitor
     });
   }
 
-  visitTableByBaseId(_: TableByBaseIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
-    return err('TableByBaseIdSpec is not supported for table updates');
+  visitTableByBaseId(_: TableByBaseIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByBaseIdSpec is not supported for table updates'));
   }
 
-  visitTableAddField(spec: TableAddFieldSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+  visitTableAddField(
+    spec: TableAddFieldSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     const fieldRowResult = this.fieldRowBuilder.buildRowForField(spec.field());
     if (fieldRowResult.isErr()) return err(fieldRowResult.error);
 
@@ -78,7 +82,7 @@ export class TableMetaUpdateVisitor
 
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
-  ): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     const fieldId = spec.field().id().toString();
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.params.db
@@ -98,7 +102,7 @@ export class TableMetaUpdateVisitor
 
   visitTableUpdateViewColumnMeta(
     spec: TableUpdateViewColumnMetaSpec
-  ): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     const updates = spec.updates();
     const statements: ReadonlyArray<TableUpdateBuilder> = updates.map((update) =>
       this.params.db
@@ -115,23 +119,25 @@ export class TableMetaUpdateVisitor
     return this.addCond(statements).map(() => statements);
   }
 
-  visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
-    return err('TableByIdSpec is not supported for table updates');
+  visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByIdSpec is not supported for table updates'));
   }
 
-  visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
-    return err('TableByIdsSpec is not supported for table updates');
+  visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByIdsSpec is not supported for table updates'));
   }
 
-  visitTableByName(spec: TableByNameSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
+  visitTableByName(spec: TableByNameSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     const statements: ReadonlyArray<TableUpdateBuilder> = [
       this.buildTableMetaUpdate({ name: spec.tableName().toString() }),
     ];
     return this.addCond(statements).map(() => statements);
   }
 
-  visitTableByNameLike(_: TableByNameLikeSpec): Result<ReadonlyArray<TableUpdateBuilder>, string> {
-    return err('TableByNameLikeSpec is not supported for table updates');
+  visitTableByNameLike(
+    _: TableByNameLikeSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByNameLikeSpec is not supported for table updates'));
   }
 
   clone(): this {

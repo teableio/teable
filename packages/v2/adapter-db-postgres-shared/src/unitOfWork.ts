@@ -11,9 +11,10 @@ import type { Result } from 'neverthrow';
 
 import { v2PostgresDbTokens } from './di/tokens';
 
+import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 class UnitOfWorkAbort extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(readonly error: DomainError) {
+    super(error.message);
     this.name = 'UnitOfWorkAbort';
   }
 }
@@ -49,12 +50,12 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
-  ): Promise<Result<T, string>> {
+  ): Promise<Result<T, DomainError>> {
     if (context.transaction) {
       if (context.transaction instanceof PostgresUnitOfWorkTransaction) {
         return work(context);
       }
-      return err('Unsupported transaction context');
+      return err(domainError.fromMessage('Unsupported transaction context'));
     }
 
     try {
@@ -72,13 +73,14 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
         return workResult;
       });
     } catch (error) {
-      if (error instanceof UnitOfWorkAbort) return err(error.message);
-      return err(`Unexpected unit of work error: ${describeError(error)}`);
+      if (error instanceof UnitOfWorkAbort) return err(error.error);
+      return err(domainError.fromMessage(`Unexpected unit of work error: ${describeError(error)}`));
     }
   }
 }
 
 const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) {
     return error.message ? `${error.name}: ${error.message}` : error.name;
   }

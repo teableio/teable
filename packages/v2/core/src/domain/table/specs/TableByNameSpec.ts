@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import type { ISpecification } from '../../shared/specification/ISpecification';
 import type { Table } from '../Table';
 import type { TableName } from '../TableName';
@@ -22,11 +23,11 @@ export class TableByNameSpec<V extends ITableSpecVisitor = ITableSpecVisitor>
     return t.name().equals(this.tableNameValue);
   }
 
-  mutate(t: Table): Result<Table, string> {
+  mutate(t: Table): Result<Table, DomainError> {
     return t.rename(this.tableNameValue);
   }
 
-  accept(v: V): Result<void, string> {
+  accept(v: V): Result<void, DomainError> {
     return v.visitTableByName(this).map(() => undefined);
   }
 }

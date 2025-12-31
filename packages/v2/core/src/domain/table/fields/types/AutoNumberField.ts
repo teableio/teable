@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -17,7 +18,7 @@ export class AutoNumberField extends Field {
     super(id, name, FieldType.autoNumber(), undefined, [], FieldComputed.computed());
   }
 
-  static create(params: { id: FieldId; name: FieldName }): Result<AutoNumberField, string> {
+  static create(params: { id: FieldId; name: FieldName }): Result<AutoNumberField, DomainError> {
     return FormulaExpression.create('AUTO_NUMBER()').map(
       (expression) => new AutoNumberField(params.id, params.name, expression)
     );
@@ -27,7 +28,7 @@ export class AutoNumberField extends Field {
     return this.expressionValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitAutoNumberField(this);
   }
 }

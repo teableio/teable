@@ -5,9 +5,8 @@ import { DbTableName } from './DbTableName';
 describe('DbTableName', () => {
   it('rehydrates and splits with schema', () => {
     const result = DbTableName.rehydrate('public.tables');
-    result._unsafeUnwrap();
-
-    const splitResult = result.value.split();
+    const dbTableName = result._unsafeUnwrap();
+    const splitResult = dbTableName.split();
     splitResult._unsafeUnwrap();
 
     expect(splitResult._unsafeUnwrap()).toEqual({ schema: 'public', tableName: 'tables' });
@@ -15,9 +14,8 @@ describe('DbTableName', () => {
 
   it('uses default schema when missing', () => {
     const result = DbTableName.rehydrate('tables');
-    result._unsafeUnwrap();
-
-    const splitResult = result.value.split({ defaultSchema: 'public' });
+    const dbTableName = result._unsafeUnwrap();
+    const splitResult = dbTableName.split({ defaultSchema: 'public' });
     splitResult._unsafeUnwrap();
 
     expect(splitResult._unsafeUnwrap()).toEqual({ schema: 'public', tableName: 'tables' });

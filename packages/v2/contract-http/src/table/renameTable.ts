@@ -1,4 +1,4 @@
-import type { IRenameTableCommandInput, RenameTableResult } from '@teable/v2-core';
+import type { IRenameTableCommandInput, RenameTableResult, DomainError } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -10,6 +10,7 @@ import {
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
   type IApiResponseDto,
+  type HttpErrorStatus,
 } from '../shared/http';
 import type { ITableDto } from './dto';
 import { mapTableToDto, tableDtoSchema } from './dto';
@@ -28,9 +29,7 @@ export type IRenameTableErrorResponseDto = IApiErrorResponseDto;
 
 export type IRenameTableEndpointResult =
   | { status: 200; body: IRenameTableOkResponseDto }
-  | { status: 400; body: IRenameTableErrorResponseDto }
-  | { status: 404; body: IRenameTableErrorResponseDto }
-  | { status: 500; body: IRenameTableErrorResponseDto };
+  | { status: HttpErrorStatus; body: IRenameTableErrorResponseDto };
 
 export const renameTableResponseDataSchema = z.object({
   table: tableDtoSchema,
@@ -43,7 +42,7 @@ export const renameTableErrorResponseSchema = apiErrorResponseDtoSchema;
 
 export const mapRenameTableResultToDto = (
   result: RenameTableResult
-): Result<IRenameTableResponseDataDto, string> => {
+): Result<IRenameTableResponseDataDto, DomainError> => {
   return mapTableToDto(result.table).map((table) => ({
     table,
     events: result.events.map(mapDomainEventToDto),

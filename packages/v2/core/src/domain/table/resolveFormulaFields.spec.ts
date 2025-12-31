@@ -48,9 +48,8 @@ describe('resolveFormulaFields', () => {
     const labelExpression = FormulaExpression.create(
       `CONCATENATE("Score: ", {${scoreId.toString()}})`
     );
-    [scoreExpression, labelExpression].forEach((r) => r._unsafeUnwrap());
-    scoreExpression._unsafeUnwrap();
-    labelExpression._unsafeUnwrap();
+    const scoreExpressionValue = scoreExpression._unsafeUnwrap();
+    const labelExpressionValue = labelExpression._unsafeUnwrap();
 
     const builder = Table.builder()
       .withBaseId(baseIdResult._unsafeUnwrap())
@@ -61,14 +60,14 @@ describe('resolveFormulaFields', () => {
       .formula()
       .withId(scoreId)
       .withName(scoreNameResult._unsafeUnwrap())
-      .withExpression(scoreExpression.value)
+      .withExpression(scoreExpressionValue)
       .done();
     builder
       .field()
       .formula()
       .withId(labelId)
       .withName(labelNameResult._unsafeUnwrap())
-      .withExpression(labelExpression.value)
+      .withExpression(labelExpressionValue)
       .done();
     builder.view().defaultGrid().done();
 
@@ -93,14 +92,12 @@ describe('resolveFormulaFields', () => {
 
     const visitor = new FieldValueTypeVisitor();
     const scoreType = scoreField.accept(visitor);
-    scoreType._unsafeUnwrap();
-
-    expect(scoreType.value.cellValueType.toString()).toBe('number');
+    const scoreTypeValue = scoreType._unsafeUnwrap();
+    expect(scoreTypeValue.cellValueType.toString()).toBe('number');
 
     const labelType = labelField.accept(visitor);
-    labelType._unsafeUnwrap();
-
-    expect(labelType.value.cellValueType.toString()).toBe('string');
+    const labelTypeValue = labelType._unsafeUnwrap();
+    expect(labelTypeValue.cellValueType.toString()).toBe('string');
   });
 
   it('detects dependency cycles', () => {
@@ -133,9 +130,8 @@ describe('resolveFormulaFields', () => {
     const bId = bIdResult._unsafeUnwrap();
     const exprA = FormulaExpression.create(`{${bId.toString()}} + 1`);
     const exprB = FormulaExpression.create(`{${aId.toString()}} + 1`);
-    [exprA, exprB].forEach((r) => r._unsafeUnwrap());
-    exprA._unsafeUnwrap();
-    exprB._unsafeUnwrap();
+    const exprAValue = exprA._unsafeUnwrap();
+    const exprBValue = exprB._unsafeUnwrap();
 
     const builder = Table.builder()
       .withBaseId(baseIdResult._unsafeUnwrap())
@@ -146,20 +142,22 @@ describe('resolveFormulaFields', () => {
       .formula()
       .withId(aId)
       .withName(aNameResult._unsafeUnwrap())
-      .withExpression(exprA.value)
+      .withExpression(exprAValue)
       .done();
     builder
       .field()
       .formula()
       .withId(bId)
       .withName(bNameResult._unsafeUnwrap())
-      .withExpression(exprB.value)
+      .withExpression(exprBValue)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
     tableResult._unsafeUnwrapErr();
-    expect(tableResult._unsafeUnwrapErr()).toContain('Formula field dependency cycle detected');
+    expect(tableResult._unsafeUnwrapErr().message).toContain(
+      'Formula field dependency cycle detected'
+    );
   });
 
   it('returns errors for invalid formula references', () => {
@@ -179,7 +177,7 @@ describe('resolveFormulaFields', () => {
     formulaNameResult._unsafeUnwrap();
 
     const expression = FormulaExpression.create('{badField} + 1');
-    expression._unsafeUnwrap();
+    const expressionValue = expression._unsafeUnwrap();
 
     const builder = Table.builder()
       .withBaseId(baseIdResult._unsafeUnwrap())
@@ -190,13 +188,13 @@ describe('resolveFormulaFields', () => {
       .formula()
       .withId(formulaIdResult._unsafeUnwrap())
       .withName(formulaNameResult._unsafeUnwrap())
-      .withExpression(expression.value)
+      .withExpression(expressionValue)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
     tableResult._unsafeUnwrapErr();
-    expect(tableResult._unsafeUnwrapErr()).toContain('Formula references not found');
+    expect(tableResult._unsafeUnwrapErr().message).toContain('Formula references not found');
   });
 
   it('returns errors for missing referenced fields', () => {
@@ -224,7 +222,7 @@ describe('resolveFormulaFields', () => {
 
     const missingId = missingIdResult._unsafeUnwrap();
     const expression = FormulaExpression.create(`{${missingId.toString()}} + 1`);
-    expression._unsafeUnwrap();
+    const expressionValue = expression._unsafeUnwrap();
 
     const builder = Table.builder()
       .withBaseId(baseIdResult._unsafeUnwrap())
@@ -235,13 +233,13 @@ describe('resolveFormulaFields', () => {
       .formula()
       .withId(formulaIdResult._unsafeUnwrap())
       .withName(formulaNameResult._unsafeUnwrap())
-      .withExpression(expression.value)
+      .withExpression(expressionValue)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
     tableResult._unsafeUnwrapErr();
-    expect(tableResult._unsafeUnwrapErr()).toContain(missingId.toString());
+    expect(tableResult._unsafeUnwrapErr().message).toContain(missingId.toString());
   });
 
   it('returns errors for formula type inference failures', () => {
@@ -261,7 +259,7 @@ describe('resolveFormulaFields', () => {
     formulaNameResult._unsafeUnwrap();
 
     const expression = FormulaExpression.create('UNKNOWN()');
-    expression._unsafeUnwrap();
+    const expressionValue = expression._unsafeUnwrap();
 
     const builder = Table.builder()
       .withBaseId(baseIdResult._unsafeUnwrap())
@@ -272,12 +270,12 @@ describe('resolveFormulaFields', () => {
       .formula()
       .withId(formulaIdResult._unsafeUnwrap())
       .withName(formulaNameResult._unsafeUnwrap())
-      .withExpression(expression.value)
+      .withExpression(expressionValue)
       .done();
     builder.view().defaultGrid().done();
 
     const tableResult = builder.build();
     tableResult._unsafeUnwrapErr();
-    expect(tableResult._unsafeUnwrapErr()).toContain('Parse formula expression');
+    expect(tableResult._unsafeUnwrapErr().message).toContain('Parse formula expression');
   });
 });

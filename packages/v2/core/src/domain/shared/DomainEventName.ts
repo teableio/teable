@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from './DomainError';
 import { ValueObject } from './ValueObject';
 
 const domainEventNameSchema = z.string().min(1);
@@ -11,9 +12,9 @@ export class DomainEventName extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<DomainEventName, string> {
+  static create(raw: unknown): Result<DomainEventName, DomainError> {
     const parsed = domainEventNameSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DomainEventName');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DomainEventName'));
     return ok(new DomainEventName(parsed.data));
   }
 

@@ -16,11 +16,10 @@ describe('SingleLineTextShowAs', () => {
   it('compares showAs values and maps to dto', () => {
     const left = SingleLineTextShowAs.create({ type: 'url' });
     const right = SingleLineTextShowAs.create({ type: 'url' });
-    [left, right].forEach((r) => r._unsafeUnwrap());
-    left._unsafeUnwrap();
-    right._unsafeUnwrap();
-    expect(left.value.equals(right.value)).toBe(true);
-    expect(left.value.type()).toBe('url');
-    expect(left.value.toDto()).toEqual({ type: 'url' });
+    const leftValue = left._unsafeUnwrap();
+    const rightValue = right._unsafeUnwrap();
+    expect(leftValue.equals(rightValue)).toBe(true);
+    expect(leftValue.type()).toBe('url');
+    expect(leftValue.toDto()).toEqual({ type: 'url' });
   });
 });

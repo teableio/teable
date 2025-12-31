@@ -187,7 +187,7 @@ describe('FieldFactory', () => {
     });
     singleText._unsafeUnwrap();
 
-    expect(singleText.value.type().toString()).toBe('singleLineText');
+    expect(singleText._unsafeUnwrap().type().toString()).toBe('singleLineText');
 
     const textAlias = createTextField({ id, name });
     textAlias._unsafeUnwrap();
@@ -199,7 +199,7 @@ describe('FieldFactory', () => {
     });
     longText._unsafeUnwrap();
 
-    expect(longText.value.type().toString()).toBe('longText');
+    expect(longText._unsafeUnwrap().type().toString()).toBe('longText');
 
     const number = createNumberField({
       id,
@@ -210,7 +210,7 @@ describe('FieldFactory', () => {
     });
     number._unsafeUnwrap();
 
-    expect(number.value.type().toString()).toBe('number');
+    expect(number._unsafeUnwrap().type().toString()).toBe('number');
 
     const rating = createRatingField({
       id,
@@ -221,7 +221,7 @@ describe('FieldFactory', () => {
     });
     rating._unsafeUnwrap();
 
-    expect(rating.value.type().toString()).toBe('rating');
+    expect(rating._unsafeUnwrap().type().toString()).toBe('rating');
 
     const formula = createFormulaField({
       id,
@@ -249,7 +249,7 @@ describe('FieldFactory', () => {
     });
     rollup._unsafeUnwrap();
 
-    expect(rollup.value.type().toString()).toBe('rollup');
+    expect(rollup._unsafeUnwrap().type().toString()).toBe('rollup');
 
     const singleSelect = createSingleSelectField({
       id,
@@ -260,7 +260,7 @@ describe('FieldFactory', () => {
     });
     singleSelect._unsafeUnwrap();
 
-    expect(singleSelect.value.type().toString()).toBe('singleSelect');
+    expect(singleSelect._unsafeUnwrap().type().toString()).toBe('singleSelect');
 
     const multipleSelect = createMultipleSelectField({
       id,
@@ -271,7 +271,7 @@ describe('FieldFactory', () => {
     });
     multipleSelect._unsafeUnwrap();
 
-    expect(multipleSelect.value.type().toString()).toBe('multipleSelect');
+    expect(multipleSelect._unsafeUnwrap().type().toString()).toBe('multipleSelect');
 
     const checkbox = createCheckboxField({
       id,
@@ -280,12 +280,12 @@ describe('FieldFactory', () => {
     });
     checkbox._unsafeUnwrap();
 
-    expect(checkbox.value.type().toString()).toBe('checkbox');
+    expect(checkbox._unsafeUnwrap().type().toString()).toBe('checkbox');
 
     const attachment = createAttachmentField({ id, name });
     attachment._unsafeUnwrap();
 
-    expect(attachment.value.type().toString()).toBe('attachment');
+    expect(attachment._unsafeUnwrap().type().toString()).toBe('attachment');
 
     const dateField = createDateField({
       id,
@@ -295,7 +295,7 @@ describe('FieldFactory', () => {
     });
     dateField._unsafeUnwrap();
 
-    expect(dateField.value.type().toString()).toBe('date');
+    expect(dateField._unsafeUnwrap().type().toString()).toBe('date');
 
     const createdTimeField = createCreatedTimeField({
       id,
@@ -304,7 +304,7 @@ describe('FieldFactory', () => {
     });
     createdTimeField._unsafeUnwrap();
 
-    expect(createdTimeField.value.type().toString()).toBe('createdTime');
+    expect(createdTimeField._unsafeUnwrap().type().toString()).toBe('createdTime');
 
     const lastModifiedTimeField = createLastModifiedTimeField({
       id,
@@ -314,7 +314,7 @@ describe('FieldFactory', () => {
     });
     lastModifiedTimeField._unsafeUnwrap();
 
-    expect(lastModifiedTimeField.value.type().toString()).toBe('lastModifiedTime');
+    expect(lastModifiedTimeField._unsafeUnwrap().type().toString()).toBe('lastModifiedTime');
 
     const userField = createUserField({
       id,
@@ -325,22 +325,22 @@ describe('FieldFactory', () => {
     });
     userField._unsafeUnwrap();
 
-    expect(userField.value.type().toString()).toBe('user');
+    expect(userField._unsafeUnwrap().type().toString()).toBe('user');
 
     const createdByField = createCreatedByField({ id, name });
     createdByField._unsafeUnwrap();
 
-    expect(createdByField.value.type().toString()).toBe('createdBy');
+    expect(createdByField._unsafeUnwrap().type().toString()).toBe('createdBy');
 
     const lastModifiedByField = createLastModifiedByField({ id, name, trackedFieldIds: [id] });
     lastModifiedByField._unsafeUnwrap();
 
-    expect(lastModifiedByField.value.type().toString()).toBe('lastModifiedBy');
+    expect(lastModifiedByField._unsafeUnwrap().type().toString()).toBe('lastModifiedBy');
 
     const autoNumberField = createAutoNumberField({ id, name });
     autoNumberField._unsafeUnwrap();
 
-    expect(autoNumberField.value.type().toString()).toBe('autoNumber');
+    expect(autoNumberField._unsafeUnwrap().type().toString()).toBe('autoNumber');
 
     const buttonField = createButtonField({
       id,
@@ -353,7 +353,7 @@ describe('FieldFactory', () => {
     });
     buttonField._unsafeUnwrap();
 
-    expect(buttonField.value.type().toString()).toBe('button');
+    expect(buttonField._unsafeUnwrap().type().toString()).toBe('button');
 
     const linkField = createLinkField({
       id,
@@ -362,6 +362,6 @@ describe('FieldFactory', () => {
     });
     linkField._unsafeUnwrap();
 
-    expect(linkField.value.type().toString()).toBe('link');
+    expect(linkField._unsafeUnwrap().type().toString()).toBe('link');
   });
 });

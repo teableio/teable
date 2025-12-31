@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { generatePrefixedId } from '../../../shared/IdGenerator';
 import { ValueObject } from '../../../shared/ValueObject';
 
@@ -15,19 +16,19 @@ export class SelectOptionId extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SelectOptionId, string> {
+  static create(raw: unknown): Result<SelectOptionId, DomainError> {
     const parsed = selectOptionIdSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SelectOptionId');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectOptionId'));
     return ok(new SelectOptionId(parsed.data));
   }
 
-  static generate(): Result<SelectOptionId, string> {
+  static generate(): Result<SelectOptionId, DomainError> {
     try {
       return ok(
         new SelectOptionId(generatePrefixedId(selectOptionIdPrefix, selectOptionIdBodyLength))
       );
     } catch {
-      return err('Failed to generate SelectOptionId');
+      return err(domainError.fromMessage('Failed to generate SelectOptionId'));
     }
   }
 

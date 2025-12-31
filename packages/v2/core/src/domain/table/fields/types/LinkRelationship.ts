@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const linkRelationshipSchema = z.enum(['oneOne', 'manyMany', 'oneMany', 'manyOne']);
@@ -12,9 +13,9 @@ export class LinkRelationship extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<LinkRelationship, string> {
+  static create(raw: unknown): Result<LinkRelationship, DomainError> {
     const parsed = linkRelationshipSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid LinkRelationship');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkRelationship'));
     return ok(new LinkRelationship(parsed.data));
   }
 

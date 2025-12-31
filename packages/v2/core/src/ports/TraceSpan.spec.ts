@@ -3,6 +3,8 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError } from '../domain/shared/DomainError';
+import type { DomainError } from '../domain/shared/DomainError';
 // eslint-disable-next-line @typescript-eslint/consistent-type-imports
 import type { IExecutionContext } from './ExecutionContext';
 import type { ISpan, ITracer, SpanAttributes } from './Tracer';
@@ -55,7 +57,7 @@ class TestHandler {
   async handle(
     _context: IExecutionContext,
     _message: PayloadMessage
-  ): Promise<Result<string, string>> {
+  ): Promise<Result<string, DomainError>> {
     return ok('ok');
   }
 
@@ -63,15 +65,15 @@ class TestHandler {
   async fail(
     _context: IExecutionContext,
     _message: PayloadMessage
-  ): Promise<Result<string, string>> {
-    return err('failed');
+  ): Promise<Result<string, DomainError>> {
+    return err(domainError.fromMessage('failed'));
   }
 
   @TraceSpan()
   async crash(
     _context: IExecutionContext,
     _message: PayloadMessage
-  ): Promise<Result<string, string>> {
+  ): Promise<Result<string, DomainError>> {
     throw new Error('boom');
   }
 
@@ -79,7 +81,7 @@ class TestHandler {
   async throwObject(
     _context: IExecutionContext,
     _message: PayloadMessage
-  ): Promise<Result<string, string>> {
+  ): Promise<Result<string, DomainError>> {
     throw { code: 'boom' };
   }
 }
@@ -123,7 +125,7 @@ describe('TraceSpan', () => {
 
     const result = await handler.crash(context, new PayloadMessage());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('boom');
+    expect(result._unsafeUnwrapErr().message).toContain('boom');
     const span = tracer.spans[0].span;
     expect(span.errors[0]).toContain('boom');
   });

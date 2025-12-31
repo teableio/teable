@@ -1,6 +1,7 @@
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../shared/DomainError';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import { SpecBuilder, type SpecBuilderMode } from '../shared/specification/SpecBuilder';
 import { Field } from './fields/Field';
@@ -86,7 +87,7 @@ class TableMutateSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Table
     return this;
   }
 
-  build(): Result<ISpecification<Table, ITableSpecVisitor>, string> {
+  build(): Result<ISpecification<Table, ITableSpecVisitor>, DomainError> {
     return this.buildFrom(this.specs);
   }
 
@@ -139,8 +140,8 @@ export class TableMutator {
     return this;
   }
 
-  apply(): Result<TableUpdateResult, string> {
-    if (!this.hasUpdates) return err('Empty update');
+  apply(): Result<TableUpdateResult, DomainError> {
+    if (!this.hasUpdates) return err(domainError.fromMessage('Empty update'));
 
     const specResult = this.builder.build();
     if (specResult.isErr()) return err(specResult.error);

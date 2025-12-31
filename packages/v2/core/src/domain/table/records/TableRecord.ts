@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
 import type { TableId } from '../TableId';
 import type { RecordId } from './RecordId';
@@ -19,7 +20,7 @@ export class TableRecord extends Entity<RecordId> {
     id: RecordId;
     tableId: TableId;
     fieldValues: ReadonlyArray<TableRecordFieldValue>;
-  }): Result<TableRecord, string> {
+  }): Result<TableRecord, DomainError> {
     return TableRecordFields.create(params.fieldValues).map(
       (fields) => new TableRecord(params.id, params.tableId, fields)
     );

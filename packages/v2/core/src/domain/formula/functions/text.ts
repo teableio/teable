@@ -1,5 +1,6 @@
 import { err, ok } from 'neverthrow';
 
+import { domainError } from '../../shared/DomainError';
 import { CellValueType } from '../CellValueType';
 import type { TypedValue } from '../typed-value';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
@@ -17,7 +18,7 @@ export class Concatenate extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(`${FunctionName.Concatenate} needs at least 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Concatenate} needs at least 1 param`));
     }
     return ok(undefined);
   }
@@ -37,7 +38,7 @@ export class Find extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(`${FunctionName.Find} needs at least 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Find} needs at least 1 param`));
     }
     return ok(undefined);
   }
@@ -57,7 +58,7 @@ export class Search extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(`${FunctionName.Search} needs at least 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Search} needs at least 1 param`));
     }
     return ok(undefined);
   }
@@ -77,7 +78,7 @@ export class Mid extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 3) {
-      return err(`${FunctionName.Mid} needs at least 3 params`);
+      return err(domainError.fromMessage(`${FunctionName.Mid} needs at least 3 params`));
     }
     return ok(undefined);
   }
@@ -97,7 +98,7 @@ export class Left extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(`${FunctionName.Left} needs at least 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Left} needs at least 1 param`));
     }
     return ok(undefined);
   }
@@ -117,7 +118,7 @@ export class Right extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(`${FunctionName.Right} needs at least 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Right} needs at least 1 param`));
     }
     return ok(undefined);
   }
@@ -137,7 +138,7 @@ export class Replace extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 4) {
-      return err(`${FunctionName.Replace} needs at least 4 params`);
+      return err(domainError.fromMessage(`${FunctionName.Replace} needs at least 4 params`));
     }
     return ok(undefined);
   }
@@ -157,7 +158,7 @@ export class RegExpReplace extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 3) {
-      return err(`${FunctionName.RegExpReplace} needs at least 3 params`);
+      return err(domainError.fromMessage(`${FunctionName.RegExpReplace} needs at least 3 params`));
     }
     return ok(undefined);
   }
@@ -177,7 +178,7 @@ export class Substitute extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 3) {
-      return err(`${FunctionName.Substitute} needs at least 3 params`);
+      return err(domainError.fromMessage(`${FunctionName.Substitute} needs at least 3 params`));
     }
     return ok(undefined);
   }
@@ -197,7 +198,7 @@ export class Lower extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.Lower} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Lower} only allow 1 param`));
     }
     return ok(undefined);
   }
@@ -217,7 +218,7 @@ export class Upper extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.Upper} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Upper} only allow 1 param`));
     }
     return ok(undefined);
   }
@@ -237,7 +238,7 @@ export class Rept extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 2) {
-      return err(`${FunctionName.Rept} needs at least 2 params`);
+      return err(domainError.fromMessage(`${FunctionName.Rept} needs at least 2 params`));
     }
     return ok(undefined);
   }
@@ -257,7 +258,7 @@ export class Trim extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.Trim} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Trim} only allow 1 param`));
     }
     return ok(undefined);
   }
@@ -282,7 +283,7 @@ export class T extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.T} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.T} only allow 1 param`));
     }
     return ok(undefined);
   }
@@ -302,7 +303,7 @@ export class Len extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.Len} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.Len} only allow 1 param`));
     }
     return ok(undefined);
   }
@@ -322,7 +323,7 @@ export class EncodeUrlComponent extends TextFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.EncodeUrlComponent} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.EncodeUrlComponent} only allow 1 param`));
     }
     return ok(undefined);
   }

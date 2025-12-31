@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { Field } from '../../fields/Field';
 import type { ITableRecordConditionSpecVisitor } from './ITableRecordConditionSpecVisitor';
 import type { RecordConditionOperator } from './RecordConditionOperators';
@@ -24,7 +25,7 @@ export class FormulaConditionSpec extends RecordValueConditionSpec<RecordConditi
     return new FormulaConditionSpec(field, operator, value);
   }
 
-  accept(v: ITableRecordConditionSpecVisitor): Result<void, string> {
+  accept(v: ITableRecordConditionSpecVisitor): Result<void, DomainError> {
     return match(this.operator())
       .with('is', () => v.visitFormulaIs(this).map(() => undefined))
       .with('isNot', () => v.visitFormulaIsNot(this).map(() => undefined))

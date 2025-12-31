@@ -2,13 +2,14 @@
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, isDomainError, type DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from './ExecutionContext';
 import type { ISpan, ITracer, SpanAttributes, SpanAttributeValue } from './Tracer';
 
 type HandlerMethod<TResult> = (
   context: IExecutionContext,
   ...args: ReadonlyArray<unknown>
-) => Promise<Result<TResult, string>>;
+) => Promise<Result<TResult, DomainError>>;
 
 type TraceAttributes =
   | SpanAttributes
@@ -32,7 +33,7 @@ const noopSpan: ISpan = {
   end() {},
 };
 
-const isResult = (value: unknown): value is Result<unknown, string> => {
+const isResult = (value: unknown): value is Result<unknown, DomainError> => {
   if (!value || typeof value !== 'object') return false;
   return typeof (value as { isErr?: unknown }).isErr === 'function';
 };
@@ -44,6 +45,7 @@ const resolveMessageName = (message: unknown): string => {
 };
 
 const describeError = (error: unknown): string => {
+  if (isDomainError(error)) return error.message;
   if (error instanceof Error) return error.message || error.name;
   if (typeof error === 'string') return error;
   try {
@@ -107,7 +109,7 @@ export const TraceSpan =
         const execute = async () => {
           const result = await original.apply(this, [context, ...args]);
           if (isResult(result) && result.isErr()) {
-            span.recordError(result.error);
+            span.recordError(result.error.toString());
           }
           return result;
         };
@@ -119,7 +121,7 @@ export const TraceSpan =
       } catch (error) {
         const errorMessage = describeError(error) || 'Command handler execution failed';
         span.recordError(errorMessage);
-        return err(errorMessage);
+        return err(domainError.fromMessage(errorMessage));
       } finally {
         try {
           span.end();

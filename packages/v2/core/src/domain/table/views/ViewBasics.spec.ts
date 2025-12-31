@@ -53,12 +53,11 @@ describe('ViewName', () => {
     const left = ViewName.create('A');
     const right = ViewName.create('A');
     const other = ViewName.create('B');
-    [left, right, other].forEach((r) => r._unsafeUnwrap());
-    left._unsafeUnwrap();
-    right._unsafeUnwrap();
-    other._unsafeUnwrap();
-    expect(left.value.equals(right.value)).toBe(true);
-    expect(left.value.equals(other.value)).toBe(false);
+    const leftName = left._unsafeUnwrap();
+    const rightName = right._unsafeUnwrap();
+    const otherName = other._unsafeUnwrap();
+    expect(leftName.equals(rightName)).toBe(true);
+    expect(leftName.equals(otherName)).toBe(false);
   });
 });
 
@@ -81,46 +80,45 @@ describe('View types and visitors', () => {
     const form = FormView.create({ id, name });
     const plugin = PluginView.create({ id, name });
 
-    [grid, kanban, gallery, calendar, form, plugin].forEach((r) => r._unsafeUnwrap());
-    grid._unsafeUnwrap();
-    kanban._unsafeUnwrap();
-    gallery._unsafeUnwrap();
-    calendar._unsafeUnwrap();
-    form._unsafeUnwrap();
-    plugin._unsafeUnwrap();
+    const gridView = grid._unsafeUnwrap();
+    const kanbanView = kanban._unsafeUnwrap();
+    const galleryView = gallery._unsafeUnwrap();
+    const calendarView = calendar._unsafeUnwrap();
+    const formView = form._unsafeUnwrap();
+    const pluginView = plugin._unsafeUnwrap();
 
-    const gridAccept = grid.value.accept(visitor);
+    const gridAccept = gridView.accept(visitor);
     gridAccept._unsafeUnwrap();
 
-    expect(gridAccept.value).toBe('grid');
+    expect(gridAccept._unsafeUnwrap()).toBe('grid');
 
-    const kanbanAccept = kanban.value.accept(visitor);
+    const kanbanAccept = kanbanView.accept(visitor);
     kanbanAccept._unsafeUnwrap();
 
-    expect(kanbanAccept.value).toBe('kanban');
+    expect(kanbanAccept._unsafeUnwrap()).toBe('kanban');
 
-    const galleryAccept = gallery.value.accept(visitor);
+    const galleryAccept = galleryView.accept(visitor);
     galleryAccept._unsafeUnwrap();
 
-    expect(galleryAccept.value).toBe('gallery');
+    expect(galleryAccept._unsafeUnwrap()).toBe('gallery');
 
-    const calendarAccept = calendar.value.accept(visitor);
+    const calendarAccept = calendarView.accept(visitor);
     calendarAccept._unsafeUnwrap();
 
-    expect(calendarAccept.value).toBe('calendar');
+    expect(calendarAccept._unsafeUnwrap()).toBe('calendar');
 
-    const formAccept = form.value.accept(visitor);
+    const formAccept = formView.accept(visitor);
     formAccept._unsafeUnwrap();
 
-    expect(formAccept.value).toBe('form');
+    expect(formAccept._unsafeUnwrap()).toBe('form');
 
-    const pluginAccept = plugin.value.accept(visitor);
+    const pluginAccept = pluginView.accept(visitor);
     pluginAccept._unsafeUnwrap();
 
-    expect(pluginAccept.value).toBe('plugin');
+    expect(pluginAccept._unsafeUnwrap()).toBe('plugin');
 
     const noopVisitor = new NoopViewVisitor();
-    grid.value.accept(noopVisitor)._unsafeUnwrap();
+    gridView.accept(noopVisitor)._unsafeUnwrap();
   });
 
   it('creates views via factory helpers', () => {

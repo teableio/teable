@@ -17,6 +17,7 @@ import { extractFieldReferenceId, AbstractParseTreeVisitor } from '@teable/formu
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../shared/DomainError';
 import { CellValueType } from './CellValueType';
 import type { FormulaFieldReference } from './FormulaFieldReference';
 import { normalizeFunctionNameAlias } from './function-aliases';
@@ -26,8 +27,8 @@ import { TypedValue } from './typed-value';
 import { TypedValueConverter } from './typed-value-converter';
 
 export class FormulaTypeVisitor
-  extends AbstractParseTreeVisitor<Result<TypedValue, string>>
-  implements FormulaVisitor<Result<TypedValue, string>>
+  extends AbstractParseTreeVisitor<Result<TypedValue, DomainError>>
+  implements FormulaVisitor<Result<TypedValue, DomainError>>
 {
   private readonly converter = new TypedValueConverter();
 
@@ -35,51 +36,53 @@ export class FormulaTypeVisitor
     super();
   }
 
-  protected defaultResult(): Result<TypedValue, string> {
+  protected defaultResult(): Result<TypedValue, DomainError> {
     return ok(new TypedValue(null, CellValueType.String));
   }
 
-  visitRoot(ctx: RootContext): Result<TypedValue, string> {
+  visitRoot(ctx: RootContext): Result<TypedValue, DomainError> {
     return ctx.expr().accept(this);
   }
 
-  visitStringLiteral(_ctx: StringLiteralContext): Result<TypedValue, string> {
+  visitStringLiteral(_ctx: StringLiteralContext): Result<TypedValue, DomainError> {
     return ok(new TypedValue(null, CellValueType.String));
   }
 
-  visitIntegerLiteral(_ctx: IntegerLiteralContext): Result<TypedValue, string> {
+  visitIntegerLiteral(_ctx: IntegerLiteralContext): Result<TypedValue, DomainError> {
     return ok(new TypedValue(null, CellValueType.Number));
   }
 
-  visitDecimalLiteral(_ctx: DecimalLiteralContext): Result<TypedValue, string> {
+  visitDecimalLiteral(_ctx: DecimalLiteralContext): Result<TypedValue, DomainError> {
     return ok(new TypedValue(null, CellValueType.Number));
   }
 
-  visitBooleanLiteral(_ctx: BooleanLiteralContext): Result<TypedValue, string> {
+  visitBooleanLiteral(_ctx: BooleanLiteralContext): Result<TypedValue, DomainError> {
     return ok(new TypedValue(null, CellValueType.Boolean));
   }
 
-  visitLeftWhitespaceOrComments(ctx: LeftWhitespaceOrCommentsContext): Result<TypedValue, string> {
+  visitLeftWhitespaceOrComments(
+    ctx: LeftWhitespaceOrCommentsContext
+  ): Result<TypedValue, DomainError> {
     return ctx.expr().accept(this);
   }
 
   visitRightWhitespaceOrComments(
     ctx: RightWhitespaceOrCommentsContext
-  ): Result<TypedValue, string> {
+  ): Result<TypedValue, DomainError> {
     return ctx.expr().accept(this);
   }
 
-  visitBrackets(ctx: BracketsContext): Result<TypedValue, string> {
+  visitBrackets(ctx: BracketsContext): Result<TypedValue, DomainError> {
     return ctx.expr().accept(this);
   }
 
-  visitUnaryOp(ctx: UnaryOpContext): Result<TypedValue, string> {
+  visitUnaryOp(ctx: UnaryOpContext): Result<TypedValue, DomainError> {
     const exprResult = ctx.expr().accept(this);
     if (exprResult.isErr()) return err(exprResult.error);
     return ok(new TypedValue(null, CellValueType.Number));
   }
 
-  visitBinaryOp(ctx: BinaryOpContext): Result<TypedValue, string> {
+  visitBinaryOp(ctx: BinaryOpContext): Result<TypedValue, DomainError> {
     const leftResult = ctx.expr(0).accept(this);
     if (leftResult.isErr()) return err(leftResult.error);
     const rightResult = ctx.expr(1).accept(this);
@@ -89,25 +92,25 @@ export class FormulaTypeVisitor
     return ok(new TypedValue(null, valueType));
   }
 
-  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, string> {
+  visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, DomainError> {
     const fieldId = extractFieldReferenceId(ctx);
     if (!fieldId) {
-      return err('FieldId {} is a invalid field id');
+      return err(domainError.fromMessage('FieldId {} is a invalid field id'));
     }
 
     const field = this.dependencies[fieldId];
     if (!field) {
-      return err(`FieldId ${fieldId} is a invalid field id`);
+      return err(domainError.fromMessage(`FieldId ${fieldId} is a invalid field id`));
     }
     return ok(new TypedValue(null, field.cellValueType, field.isMultipleCellValue, field));
   }
 
-  visitFunctionCall(ctx: FunctionCallContext): Result<TypedValue, string> {
+  visitFunctionCall(ctx: FunctionCallContext): Result<TypedValue, DomainError> {
     const rawName = ctx.func_name().text.toUpperCase();
     const normalized = normalizeFunctionNameAlias(rawName) as FunctionName;
     const func = FUNCTIONS[normalized];
     if (!func) {
-      return err(`Function name ${rawName} is not found`);
+      return err(domainError.fromMessage(`Function name ${rawName} is not found`));
     }
 
     if (normalized === FunctionName.Blank) {

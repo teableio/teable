@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
@@ -38,7 +39,7 @@ export class ListTableRecordsHandler
   async handle(
     context: IExecutionContext,
     query: ListTableRecordsQuery
-  ): Promise<Result<ListTableRecordsResult, string>> {
+  ): Promise<Result<ListTableRecordsResult, DomainError>> {
     const logger = this.logger.scope('query', { name: ListTableRecordsHandler.name }).child({
       baseId: query.baseId.toString(),
       tableId: query.tableId.toString(),
@@ -52,7 +53,9 @@ export class ListTableRecordsHandler
 
     const tableResult = await this.tableRepository.findOne(context, specResult.value);
     if (tableResult.isErr()) {
-      if (tableResult.error === 'Not found') return err('Table not found');
+      if (isNotFoundError(tableResult.error)) {
+        return err(domainError.notFound({ code: 'table.not_found', message: 'Table not found' }));
+      }
       return err(tableResult.error);
     }
 

@@ -1,5 +1,6 @@
 import { err, ok } from 'neverthrow';
 
+import { domainError } from '../../shared/DomainError';
 import { CellValueType } from '../CellValueType';
 import type { TypedValue } from '../typed-value';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
@@ -17,7 +18,7 @@ export class TextAll extends SystemFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(`${FunctionName.TextAll} only allow 1 param`);
+      return err(domainError.fromMessage(`${FunctionName.TextAll} only allow 1 param`));
     }
     return ok(undefined);
   }

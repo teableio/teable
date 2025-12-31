@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { View } from '../View';
 import type { ViewId } from '../ViewId';
 import type { ViewName } from '../ViewName';
@@ -12,11 +13,11 @@ export class KanbanView extends View {
     super(id, name, ViewType.kanban());
   }
 
-  static create(params: { id: ViewId; name: ViewName }): Result<KanbanView, string> {
+  static create(params: { id: ViewId; name: ViewName }): Result<KanbanView, DomainError> {
     return ok(new KanbanView(params.id, params.name));
   }
 
-  accept<T = void>(visitor: IViewVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IViewVisitor<T>): Result<T, DomainError> {
     return visitor.visitKanbanView(this);
   }
 }

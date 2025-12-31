@@ -2,6 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError } from '../../domain/shared/DomainError';
 import { FieldCreated } from '../../domain/table/events/FieldCreated';
 import { Table } from '../../domain/table/Table';
 import type { IEventHandler } from '../../ports/EventHandler';
@@ -30,7 +32,7 @@ export class FieldCreatedRealtimeProjection implements IEventHandler<FieldCreate
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: FieldCreated
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const specResult = Table.specs(event.baseId).byId(event.tableId).build();
     if (specResult.isErr()) return err(specResult.error);
 
@@ -41,7 +43,8 @@ export class FieldCreatedRealtimeProjection implements IEventHandler<FieldCreate
     if (dtoResult.isErr()) return err(dtoResult.error);
 
     const fieldDto = dtoResult.value.fields.find((field) => field.id === event.fieldId.toString());
-    if (!fieldDto) return err(`Missing field snapshot for ${event.fieldId.toString()}`);
+    if (!fieldDto)
+      return err(domainError.fromMessage(`Missing field snapshot for ${event.fieldId.toString()}`));
 
     const collection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
     const docIdResult = RealtimeDocId.fromParts(collection, event.fieldId.toString());

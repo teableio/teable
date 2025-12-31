@@ -14,6 +14,7 @@ import { z } from 'zod';
 import type { CellValueType as FormulaCellValueType } from '../../../formula/CellValueType';
 import type { FormulaFieldReference } from '../../../formula/FormulaFieldReference';
 import { FormulaTypeVisitor } from '../../../formula/visitor';
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { CellValueMultiplicity } from './CellValueMultiplicity';
 import { CellValueType } from './CellValueType';
@@ -120,9 +121,9 @@ export class RollupExpression extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RollupExpression, string> {
+  static create(raw: unknown): Result<RollupExpression, DomainError> {
     const parsed = rollupExpressionSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RollupExpression');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RollupExpression'));
     return ok(new RollupExpression(parsed.data));
   }
 
@@ -133,7 +134,10 @@ export class RollupExpression extends ValueObject {
   getParsedValueType(valuesType: {
     cellValueType: CellValueType;
     isMultipleCellValue: CellValueMultiplicity;
-  }): Result<{ cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }, string> {
+  }): Result<
+    { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity },
+    DomainError
+  > {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) return err(parseResult.error);
 
@@ -168,7 +172,7 @@ export class RollupExpression extends ValueObject {
     return this.value;
   }
 
-  private parseTree(): Result<ExprContext, string> {
+  private parseTree(): Result<ExprContext, DomainError> {
     const inputStream = CharStreams.fromString(this.value);
     const lexer = new FormulaLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
@@ -178,7 +182,7 @@ export class RollupExpression extends ValueObject {
     parser.addErrorListener(errorCollector);
     const tree = parser.root();
     const error = errorCollector.firstError();
-    if (error) return err(error);
+    if (error) return err(domainError.fromMessage(error));
     return ok(tree);
   }
 

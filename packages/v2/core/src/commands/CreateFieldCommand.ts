@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { TableId } from '../domain/table/TableId';
 import type { ITableFieldInput } from './TableFieldSpecs';
@@ -30,12 +31,14 @@ export class CreateFieldCommand extends TableUpdateCommand {
     super(baseId, tableId);
   }
 
-  static create(raw: unknown): Result<CreateFieldCommand, string> {
+  static create(raw: unknown): Result<CreateFieldCommand, DomainError> {
     const parsed = createFieldInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid CreateFieldCommand input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid CreateFieldCommand input'));
 
     if (parsed.data.field.isPrimary === true) {
-      return err('CreateFieldCommand does not support primary field updates');
+      return err(
+        domainError.fromMessage('CreateFieldCommand does not support primary field updates')
+      );
     }
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
@@ -45,7 +48,7 @@ export class CreateFieldCommand extends TableUpdateCommand {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return resolveTableFieldInputName(this.field, []).andThen((resolved) =>
       parseTableFieldSpec(resolved, { isPrimary: false }).andThen((spec) =>
         spec.foreignTableReferences()

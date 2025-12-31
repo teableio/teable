@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import { Table } from '../domain/table/Table';
 import type { TableBuildOptions, TableBuilder } from '../domain/table/TableBuilder';
@@ -112,8 +113,10 @@ class CreatePluginViewSpec implements ICreateTableViewSpec {
   }
 }
 
-const sequence = <T>(values: ReadonlyArray<Result<T, string>>): Result<ReadonlyArray<T>, string> =>
-  values.reduce<Result<ReadonlyArray<T>, string>>(
+const sequence = <T>(
+  values: ReadonlyArray<Result<T, DomainError>>
+): Result<ReadonlyArray<T>, DomainError> =>
+  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
     (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
     ok([])
   );
@@ -127,13 +130,13 @@ export class CreateTableCommand {
     readonly views: ReadonlyArray<ICreateTableViewSpec>
   ) {}
 
-  static create(raw: unknown): Result<CreateTableCommand, string> {
+  static create(raw: unknown): Result<CreateTableCommand, DomainError> {
     const parsed = createTableInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid CreateTableCommand input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid CreateTableCommand input'));
 
-    const tableIdResult: Result<TableId | undefined, string> = parsed.data.tableId
+    const tableIdResult: Result<TableId | undefined, DomainError> = parsed.data.tableId
       ? TableId.create(parsed.data.tableId)
-      : ok<TableId | undefined, string>(undefined);
+      : ok<TableId | undefined, DomainError>(undefined);
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       tableIdResult.andThen((tableId) =>
@@ -151,13 +154,13 @@ export class CreateTableCommand {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return collectForeignTableReferences(this.fields);
   }
 
   private static parseFields(
     rawFields: ReadonlyArray<ITableFieldInput>
-  ): Result<ReadonlyArray<ICreateTableFieldSpec>, string> {
+  ): Result<ReadonlyArray<ICreateTableFieldSpec>, DomainError> {
     const fieldsToUse =
       rawFields.length > 0
         ? rawFields
@@ -169,7 +172,7 @@ export class CreateTableCommand {
       .map((x) => x.i);
 
     if (primaryIndexes.length > 1)
-      return err('CreateTableCommand requires exactly one primary Field');
+      return err(domainError.fromMessage('CreateTableCommand requires exactly one primary Field'));
 
     const primaryIndex = primaryIndexes[0] ?? 0;
 
@@ -188,7 +191,7 @@ export class CreateTableCommand {
 
   private static parseViews(
     rawViews: z.output<typeof createTableInputSchema>['views']
-  ): Result<ReadonlyArray<ICreateTableViewSpec>, string> {
+  ): Result<ReadonlyArray<ICreateTableViewSpec>, DomainError> {
     const viewsToUse =
       rawViews && rawViews.length > 0 ? rawViews : [{ type: 'grid' as const, name: 'Grid' }];
 
@@ -213,7 +216,7 @@ export class CreateTableCommand {
           .with('calendar', () => ok(CreateCalendarViewSpec.create(name)))
           .with('form', () => ok(CreateFormViewSpec.create(name)))
           .with('plugin', () => ok(CreatePluginViewSpec.create(name)))
-          .otherwise(() => err('Unsupported view type'));
+          .otherwise(() => err(domainError.fromMessage('Unsupported view type')));
       });
     });
 
@@ -224,7 +227,7 @@ export class CreateTableCommand {
 export function buildTable(
   command: CreateTableCommand,
   options?: TableBuildOptions
-): Result<Table, string> {
+): Result<Table, DomainError> {
   const builder = Table.builder().withBaseId(command.baseId).withName(command.tableName);
   if (command.tableId) {
     builder.withId(command.tableId);

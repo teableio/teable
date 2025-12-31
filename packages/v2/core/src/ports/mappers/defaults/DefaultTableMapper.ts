@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import { BaseId } from '../../../domain/base/BaseId';
+import { domainError, type DomainError } from '../../../domain/shared/DomainError';
 import { DbTableName } from '../../../domain/table/DbTableName';
 import { DbFieldName } from '../../../domain/table/fields/DbFieldName';
 import type { Field } from '../../../domain/table/fields/Field';
@@ -25,6 +26,8 @@ import { DateDefaultValue } from '../../../domain/table/fields/types/DateDefault
 import { DateField } from '../../../domain/table/fields/types/DateField';
 import { DateTimeFormatting } from '../../../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor } from '../../../domain/table/fields/types/FieldColor';
+import { FieldNotNull } from '../../../domain/table/fields/types/FieldNotNull';
+import { FieldUnique } from '../../../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../../domain/table/fields/types/FormulaField';
 import { FormulaMeta } from '../../../domain/table/fields/types/FormulaMeta';
@@ -34,6 +37,8 @@ import { LinkField } from '../../../domain/table/fields/types/LinkField';
 import { LinkFieldConfig } from '../../../domain/table/fields/types/LinkFieldConfig';
 import { LinkFieldMeta } from '../../../domain/table/fields/types/LinkFieldMeta';
 import { LongTextField } from '../../../domain/table/fields/types/LongTextField';
+import { LookupField } from '../../../domain/table/fields/types/LookupField';
+import { LookupOptions } from '../../../domain/table/fields/types/LookupOptions';
 import { MultipleSelectField } from '../../../domain/table/fields/types/MultipleSelectField';
 import { NumberDefaultValue } from '../../../domain/table/fields/types/NumberDefaultValue';
 import { NumberField } from '../../../domain/table/fields/types/NumberField';
@@ -89,6 +94,7 @@ import type {
   ILinkFieldMetaDTO,
   ILinkFieldOptionsDTO,
   ILongTextFieldOptionsDTO,
+  ILookupOptionsDTO,
   INumberFieldOptionsDTO,
   IRatingFieldOptionsDTO,
   IRollupFieldConfigDTO,
@@ -103,41 +109,41 @@ import type {
 } from '../TableMapper';
 
 const sequenceResults = <T>(
-  values: ReadonlyArray<Result<T, string>>
-): Result<ReadonlyArray<T>, string> =>
-  values.reduce<Result<ReadonlyArray<T>, string>>(
+  values: ReadonlyArray<Result<T, DomainError>>
+): Result<ReadonlyArray<T>, DomainError> =>
+  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
     (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
     ok([])
   );
 
 const optional = <T>(
   raw: unknown,
-  parser: (value: unknown) => Result<T, string>
-): Result<T | undefined, string> => {
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
 };
 
 const parseFormulaFormatting = (
   raw: unknown
-): Result<NumberFormatting | DateTimeFormatting | undefined, string> => {
+): Result<NumberFormatting | DateTimeFormatting | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberFormatting.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err('Invalid FormulaFormatting');
+  return err(domainError.fromMessage('Invalid FormulaFormatting'));
 };
 
 const parseFormulaShowAs = (
   raw: unknown
-): Result<NumberShowAs | SingleLineTextShowAs | undefined, string> => {
+): Result<NumberShowAs | SingleLineTextShowAs | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberShowAs.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err('Invalid FormulaShowAs');
+  return err(domainError.fromMessage('Invalid FormulaShowAs'));
 };
 
 const parseFormulaResultType = (
@@ -145,7 +151,7 @@ const parseFormulaResultType = (
   isMultipleCellValueRaw: unknown
 ): Result<
   { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity } | undefined,
-  string
+  DomainError
 > => {
   if (cellValueTypeRaw == null || typeof isMultipleCellValueRaw !== 'boolean') {
     return ok(undefined);
@@ -158,14 +164,36 @@ const parseFormulaResultType = (
   );
 };
 
-const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
-  if (!Array.isArray(raw)) return err('Invalid trackedFieldIds');
+  if (!Array.isArray(raw)) return err(domainError.fromMessage('Invalid trackedFieldIds'));
   return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
 class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceDTO> {
-  visitSingleLineTextField(field: SingleLineTextField): Result<ITableFieldPersistenceDTO, string> {
+  private baseField(field: Field): {
+    id: string;
+    name: string;
+    notNull?: boolean;
+    unique?: boolean;
+    isComputed?: boolean;
+  } {
+    const notNull = field.notNull().toBoolean();
+    const unique = field.unique().toBoolean();
+    const isComputed = field.computed().toBoolean();
+
+    return {
+      id: field.id().toString(),
+      name: field.name().toString(),
+      ...(notNull ? { notNull } : {}),
+      ...(unique ? { unique } : {}),
+      ...(isComputed ? { isComputed } : {}),
+    };
+  }
+
+  visitSingleLineTextField(
+    field: SingleLineTextField
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ISingleLineTextFieldOptionsDTO = {};
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
@@ -173,27 +201,25 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'singleLineText',
       options,
     });
   }
 
-  visitLongTextField(field: LongTextField): Result<ITableFieldPersistenceDTO, string> {
+  visitLongTextField(field: LongTextField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ILongTextFieldOptionsDTO = {};
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'longText',
       options,
     });
   }
 
-  visitNumberField(field: NumberField): Result<ITableFieldPersistenceDTO, string> {
+  visitNumberField(field: NumberField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: INumberFieldOptionsDTO = {
       formatting: field.formatting().toDto(),
     };
@@ -203,14 +229,13 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     if (defaultValue) options.defaultValue = defaultValue.toNumber();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'number',
       options,
     });
   }
 
-  visitRatingField(field: RatingField): Result<ITableFieldPersistenceDTO, string> {
+  visitRatingField(field: RatingField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: IRatingFieldOptionsDTO = {
       icon: field.ratingIcon().toString(),
       color: field.ratingColor().toString(),
@@ -218,14 +243,13 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'rating',
       options,
     });
   }
 
-  visitFormulaField(field: FormulaField): Result<ITableFieldPersistenceDTO, string> {
+  visitFormulaField(field: FormulaField): Result<ITableFieldPersistenceDTO, DomainError> {
     const expression = field.expression().toString();
     const options: IFormulaFieldOptionsDTO = { expression };
     const timeZone = field.timeZone();
@@ -235,7 +259,6 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
     const meta = field.meta();
-    const isComputed = field.computed().toBoolean();
 
     return field
       .cellValueType()
@@ -247,19 +270,17 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
       )
       .andThen(({ cellValueType, isMultipleCellValue }) =>
         (meta ? meta.toDto() : ok(undefined)).map((metaDto) => ({
-          id: field.id().toString(),
-          name: field.name().toString(),
+          ...this.baseField(field),
           type: 'formula' as const,
           options,
           ...(metaDto ? { meta: metaDto as IFormulaFieldMetaDTO } : {}),
           cellValueType: cellValueType.toString(),
           isMultipleCellValue: isMultipleCellValue.toBoolean(),
-          isComputed,
         }))
       );
   }
 
-  visitRollupField(field: RollupField): Result<ITableFieldPersistenceDTO, string> {
+  visitRollupField(field: RollupField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: IRollupFieldOptionsDTO = {
       expression: field.expression().toString(),
     };
@@ -270,14 +291,11 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     const showAs = field.showAs();
     if (showAs) options.showAs = showAs.toDto();
     const config: IRollupFieldConfigDTO = field.configDto();
-    const isComputed = field.computed().toBoolean();
     const base = {
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'rollup' as const,
       options,
       config,
-      isComputed,
     };
     const resultType = field.cellValueType().andThen((cellValueType) =>
       field.isMultipleCellValue().map((isMultipleCellValue) => ({
@@ -295,7 +313,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     });
   }
 
-  visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, string> {
+  visitSingleSelectField(field: SingleSelectField): Result<ITableFieldPersistenceDTO, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const options: ISelectFieldOptionsDTO = {
@@ -305,14 +323,15 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'singleSelect',
       options,
     });
   }
 
-  visitMultipleSelectField(field: MultipleSelectField): Result<ITableFieldPersistenceDTO, string> {
+  visitMultipleSelectField(
+    field: MultipleSelectField
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
     const defaultValue = field.defaultValue();
     const preventAutoNewOptions = field.preventAutoNewOptions().toBoolean();
     const options: ISelectFieldOptionsDTO = {
@@ -322,36 +341,33 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'multipleSelect',
       options,
     });
   }
 
-  visitCheckboxField(field: CheckboxField): Result<ITableFieldPersistenceDTO, string> {
+  visitCheckboxField(field: CheckboxField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ICheckboxFieldOptionsDTO = {};
     const defaultValue = field.defaultValue();
     if (defaultValue) options.defaultValue = defaultValue.toBoolean();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'checkbox',
       options,
     });
   }
 
-  visitAttachmentField(field: AttachmentField): Result<ITableFieldPersistenceDTO, string> {
+  visitAttachmentField(field: AttachmentField): Result<ITableFieldPersistenceDTO, DomainError> {
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'attachment',
       options: {},
     });
   }
 
-  visitDateField(field: DateField): Result<ITableFieldPersistenceDTO, string> {
+  visitDateField(field: DateField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: IDateFieldOptionsDTO = {
       formatting: field.formatting().toDto(),
     };
@@ -359,31 +375,28 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     if (defaultValue) options.defaultValue = defaultValue.toString();
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'date',
       options,
     });
   }
 
-  visitCreatedTimeField(field: CreatedTimeField): Result<ITableFieldPersistenceDTO, string> {
+  visitCreatedTimeField(field: CreatedTimeField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ICreatedTimeFieldOptionsDTO = {
       expression: field.expression().toString(),
       formatting: field.formatting().toDto(),
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'createdTime',
       options,
-      isComputed: field.computed().toBoolean(),
     });
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
-  ): Result<ITableFieldPersistenceDTO, string> {
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: ILastModifiedTimeFieldOptionsDTO = {
       expression: field.expression().toString(),
@@ -392,15 +405,13 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'lastModifiedTime',
       options,
-      isComputed: field.computed().toBoolean(),
     });
   }
 
-  visitUserField(field: UserField): Result<ITableFieldPersistenceDTO, string> {
+  visitUserField(field: UserField): Result<ITableFieldPersistenceDTO, DomainError> {
     const defaultValue = field.defaultValue();
     const options: IUserFieldOptionsDTO = {
       isMultiple: field.multiplicity().toBoolean(),
@@ -409,53 +420,48 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'user',
       options,
     });
   }
 
-  visitCreatedByField(field: CreatedByField): Result<ITableFieldPersistenceDTO, string> {
+  visitCreatedByField(field: CreatedByField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: ICreatedByFieldOptionsDTO = {};
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'createdBy',
       options,
-      isComputed: field.computed().toBoolean(),
     });
   }
 
-  visitLastModifiedByField(field: LastModifiedByField): Result<ITableFieldPersistenceDTO, string> {
+  visitLastModifiedByField(
+    field: LastModifiedByField
+  ): Result<ITableFieldPersistenceDTO, DomainError> {
     const trackedFieldIds = field.trackedFieldIds().map((id) => id.toString());
     const options: ILastModifiedByFieldOptionsDTO = {
       ...(trackedFieldIds.length > 0 ? { trackedFieldIds } : {}),
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'lastModifiedBy',
       options,
-      isComputed: field.computed().toBoolean(),
     });
   }
 
-  visitAutoNumberField(field: AutoNumberField): Result<ITableFieldPersistenceDTO, string> {
+  visitAutoNumberField(field: AutoNumberField): Result<ITableFieldPersistenceDTO, DomainError> {
     const options: IAutoNumberFieldOptionsDTO = {
       expression: field.expression().toString(),
     };
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'autoNumber',
       options,
-      isComputed: field.computed().toBoolean(),
     });
   }
 
-  visitButtonField(field: ButtonField): Result<ITableFieldPersistenceDTO, string> {
+  visitButtonField(field: ButtonField): Result<ITableFieldPersistenceDTO, DomainError> {
     const maxCount = field.maxCount();
     const resetCount = field.resetCount();
     const workflow = field.workflow();
@@ -468,59 +474,98 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     };
 
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'button',
       options,
     });
   }
 
-  visitLinkField(field: LinkField): Result<ITableFieldPersistenceDTO, string> {
+  visitLinkField(field: LinkField): Result<ITableFieldPersistenceDTO, DomainError> {
     const optionsResult = field.configDto();
     if (optionsResult.isErr()) return err(optionsResult.error);
     const meta = field.metaDto();
     return ok({
-      id: field.id().toString(),
-      name: field.name().toString(),
+      ...this.baseField(field),
       type: 'link',
       options: optionsResult.value,
       ...(meta ? { meta } : {}),
     });
   }
+
+  /**
+   * LookupField is persisted using the v1 format:
+   * - type: the inner field's type (e.g., 'number', 'singleLineText')
+   * - isLookup: true
+   * - isConditionalLookup: boolean (when lookup uses conditional filtering)
+   * - lookupOptions: { linkFieldId, lookupFieldId, foreignTableId }
+   * - options: the inner field's options
+   */
+  visitLookupField(field: LookupField): Result<ITableFieldPersistenceDTO, DomainError> {
+    const baseDto = this.baseField(field);
+    const lookupOptions = field.lookupOptionsDto() as ILookupOptionsDTO;
+    // TODO: Add conditional lookup support to LookupOptions when needed
+    const isConditionalLookup = false;
+
+    // For pending lookup fields (inner field not yet resolved), use singleLineText as default type
+    if (field.isPending()) {
+      return ok({
+        ...baseDto,
+        type: 'singleLineText' as const,
+        isLookup: true,
+        isConditionalLookup,
+        lookupOptions,
+        isComputed: true,
+      });
+    }
+
+    // Get the inner field's DTO representation
+    return field
+      .innerField()
+      .andThen((inner) => inner.accept(this))
+      .map((innerDto: ITableFieldPersistenceDTO) => ({
+        ...innerDto,
+        id: field.id().toString(),
+        name: field.name().toString(),
+        isLookup: true,
+        isConditionalLookup,
+        lookupOptions,
+        isComputed: true,
+      }));
+  }
 }
 
-const mapFieldToDto = (field: Field): Result<ITableFieldPersistenceDTO, string> =>
+const mapFieldToDto = (field: Field): Result<ITableFieldPersistenceDTO, DomainError> =>
   field.accept(new FieldToPersistenceVisitor());
 
 class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO> {
-  visitGridView(view: GridView): Result<ITableViewPersistenceDTO, string> {
+  visitGridView(view: GridView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'grid');
   }
 
-  visitKanbanView(view: KanbanView): Result<ITableViewPersistenceDTO, string> {
+  visitKanbanView(view: KanbanView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'kanban');
   }
 
-  visitGalleryView(view: GalleryView): Result<ITableViewPersistenceDTO, string> {
+  visitGalleryView(view: GalleryView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'gallery');
   }
 
-  visitCalendarView(view: CalendarView): Result<ITableViewPersistenceDTO, string> {
+  visitCalendarView(view: CalendarView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'calendar');
   }
 
-  visitFormView(view: FormView): Result<ITableViewPersistenceDTO, string> {
+  visitFormView(view: FormView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'form');
   }
 
-  visitPluginView(view: PluginView): Result<ITableViewPersistenceDTO, string> {
+  visitPluginView(view: PluginView): Result<ITableViewPersistenceDTO, DomainError> {
     return this.toDto(view, 'plugin');
   }
 
   private toDto(
     view: View,
     type: ITableViewPersistenceDTO['type']
-  ): Result<ITableViewPersistenceDTO, string> {
+  ): Result<ITableViewPersistenceDTO, DomainError> {
     return view.columnMeta().map((columnMeta) => ({
       id: view.id().toString(),
       name: view.name().toString(),
@@ -530,11 +575,11 @@ class ViewToPersistenceVisitor implements IViewVisitor<ITableViewPersistenceDTO>
   }
 }
 
-const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, string> =>
+const mapViewToDto = (view: View): Result<ITableViewPersistenceDTO, DomainError> =>
   view.accept(new ViewToPersistenceVisitor());
 
 export class DefaultTableMapper implements ITableMapper {
-  toDTO(table: Table): Result<ITablePersistenceDTO, string> {
+  toDTO(table: Table): Result<ITablePersistenceDTO, DomainError> {
     return sequenceResults(table.getFields().map(mapFieldToDto)).andThen((fields) =>
       sequenceResults(table.views().map(mapViewToDto)).map((views) => ({
         id: table.id().toString(),
@@ -547,7 +592,7 @@ export class DefaultTableMapper implements ITableMapper {
     );
   }
 
-  toDomain(dto: ITablePersistenceDTO): Result<Table, string> {
+  toDomain(dto: ITablePersistenceDTO): Result<Table, DomainError> {
     const idResult = TableId.create(dto.id);
     const baseIdResult = BaseId.create(dto.baseId);
     const nameResult = TableName.create(dto.name);
@@ -583,7 +628,51 @@ export class DefaultTableMapper implements ITableMapper {
     );
   }
 
-  private mapFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, string> {
+  private mapFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
+    // Check if this is a lookup field (v1 format: isLookup flag on the field)
+    if (dto.isLookup && dto.lookupOptions) {
+      return this.mapLookupFieldToDomain(dto);
+    }
+
+    return this.mapBaseFieldToDomain(dto);
+  }
+
+  /**
+   * Maps a lookup field from v1 DTO format to LookupField domain entity.
+   * The inner field is created from the DTO's type and options.
+   */
+  private mapLookupFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
+    const lookupOptionsRaw = dto.lookupOptions;
+    if (!lookupOptionsRaw) {
+      return err(domainError.fromMessage('Lookup field requires lookupOptions'));
+    }
+
+    return FieldId.create(dto.id).andThen((id) =>
+      FieldName.create(dto.name).andThen((name) =>
+        LookupOptions.create(lookupOptionsRaw).andThen((lookupOptions) =>
+          // Create a "stripped" DTO without isLookup to create the inner field
+          this.mapBaseFieldToDomain({
+            ...dto,
+            isLookup: undefined,
+            lookupOptions: undefined,
+            // Use a generated id for inner field (it's not persisted separately)
+            id: `inner_${dto.id}`,
+          }).andThen((innerField) =>
+            LookupField.create({
+              id,
+              name,
+              innerField,
+              lookupOptions,
+            }).andThen((field) =>
+              this.applyDbFieldName(field, dto.dbFieldName).map(() => field as Field)
+            )
+          )
+        )
+      )
+    );
+  }
+
+  private mapBaseFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
     return FieldId.create(dto.id)
       .andThen((id) =>
         FieldName.create(dto.name).andThen((name) => {
@@ -652,7 +741,7 @@ export class DefaultTableMapper implements ITableMapper {
             .with({ type: 'rollup' }, (dto) => {
               const options = dto.options;
               const configRaw = dto.config;
-              if (!configRaw) return err('RollupField config is required');
+              if (!configRaw) return err(domainError.fromMessage('RollupField config is required'));
               return RollupFieldConfig.create(configRaw).andThen((config) =>
                 RollupExpression.create(options.expression).andThen((expression) =>
                   optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
@@ -815,10 +904,11 @@ export class DefaultTableMapper implements ITableMapper {
             .exhaustive();
         })
       )
+      .andThen((field) => this.applyFieldValidation(field, dto.notNull, dto.unique))
       .andThen((field) => this.applyDbFieldName(field, dto.dbFieldName));
   }
 
-  private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, string> {
+  private mapViewToDomain(dto: ITableViewPersistenceDTO): Result<View, DomainError> {
     return ViewId.create(dto.id).andThen((id) =>
       ViewName.create(dto.name).andThen((name) => {
         const viewResult = match(dto.type)
@@ -839,10 +929,32 @@ export class DefaultTableMapper implements ITableMapper {
     );
   }
 
-  private applyDbFieldName(field: Field, dbFieldName: string | undefined): Result<Field, string> {
+  private applyDbFieldName(
+    field: Field,
+    dbFieldName: string | undefined
+  ): Result<Field, DomainError> {
     if (!dbFieldName) return ok(field);
     return DbFieldName.rehydrate(dbFieldName).andThen((value) =>
       field.setDbFieldName(value).map(() => field)
+    );
+  }
+
+  private applyFieldValidation(
+    field: Field,
+    notNullRaw: boolean | undefined,
+    uniqueRaw: boolean | undefined
+  ): Result<Field, DomainError> {
+    const notNullResult =
+      typeof notNullRaw === 'boolean'
+        ? FieldNotNull.create(notNullRaw)
+        : ok(FieldNotNull.optional());
+    const uniqueResult =
+      typeof uniqueRaw === 'boolean' ? FieldUnique.create(uniqueRaw) : ok(FieldUnique.disabled());
+
+    return notNullResult.andThen((notNull) =>
+      uniqueResult
+        .andThen((unique) => field.setNotNull(notNull).andThen(() => field.setUnique(unique)))
+        .map(() => field)
     );
   }
 }

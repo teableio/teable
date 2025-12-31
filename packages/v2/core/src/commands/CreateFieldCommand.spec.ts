@@ -91,12 +91,16 @@ describe('CreateFieldCommand', () => {
           type: 'singleLineText',
           name: 'Title',
           options: { showAs: { type: 'email' }, defaultValue: 'Hello' },
+          notNull: true,
+          unique: true,
         },
         assert: (field: unknown) => {
           expect(field).toBeInstanceOf(SingleLineTextField);
           const typed = field as SingleLineTextField;
           expect(typed.showAs()?.toDto()).toEqual({ type: 'email' });
           expect(typed.defaultValue()?.toString()).toBe('Hello');
+          expect(typed.notNull().toBoolean()).toBe(true);
+          expect(typed.unique().toBoolean()).toBe(true);
         },
       },
       {
@@ -490,5 +494,35 @@ describe('CreateFieldCommand', () => {
         ._unsafeUnwrap();
       entry.assert(field);
     }
+  });
+
+  it('rejects notNull/unique for computed fields', () => {
+    const notNullInput = resolveTableFieldInputName(
+      {
+        type: 'formula',
+        name: 'Score',
+        options: { expression: '1' },
+        notNull: true,
+      },
+      []
+    )._unsafeUnwrap();
+
+    const notNullResult = parseTableFieldSpec(notNullInput, { isPrimary: false });
+    expect(notNullResult.isErr()).toBe(true);
+    expect(notNullResult._unsafeUnwrapErr().message).toContain('notNull');
+
+    const uniqueInput = resolveTableFieldInputName(
+      {
+        type: 'formula',
+        name: 'Score Unique',
+        options: { expression: '2' },
+        unique: true,
+      },
+      []
+    )._unsafeUnwrap();
+
+    const uniqueResult = parseTableFieldSpec(uniqueInput, { isPrimary: false });
+    expect(uniqueResult.isErr()).toBe(true);
+    expect(uniqueResult._unsafeUnwrapErr().message).toContain('unique');
   });
 });

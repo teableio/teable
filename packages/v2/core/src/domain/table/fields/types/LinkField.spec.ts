@@ -2,6 +2,7 @@ import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../../base/BaseId';
+import type { DomainError } from '../../../shared/DomainError';
 import { ForeignTable } from '../../ForeignTable';
 import { Table } from '../../Table';
 import { TableId } from '../../TableId';
@@ -665,7 +666,7 @@ describe('LinkField', () => {
           baseId: BaseId;
           hostTableId: TableId;
           symmetricFieldId?: FieldId;
-        }) => Result<unknown, string>;
+        }) => Result<unknown, DomainError>;
       }
     ).resolveFkHostTableName;
     const result = resolve({

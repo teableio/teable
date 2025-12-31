@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
@@ -29,9 +30,9 @@ export class ListTablesHandler implements IQueryHandler<ListTablesQuery, ListTab
   async handle(
     context: IExecutionContext,
     query: ListTablesQuery
-  ): Promise<Result<ListTablesResult, string>> {
+  ): Promise<Result<ListTablesResult, DomainError>> {
     const handler = this;
-    return safeTry<ListTablesResult, string>(async function* () {
+    return safeTry<ListTablesResult, DomainError>(async function* () {
       const specBuilder = TableAggregate.specs(query.baseId);
       if (query.nameQuery) {
         specBuilder.byNameLike(query.nameQuery);

@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
@@ -47,7 +48,7 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     command: DeleteTableCommand
-  ): Promise<Result<DeleteTableResult, string>> {
+  ): Promise<Result<DeleteTableResult, DomainError>> {
     const logger = this.logger.scope('command', { name: DeleteTableHandler.name }).child({
       baseId: command.baseId.toString(),
       tableId: command.tableId.toString(),
@@ -60,16 +61,18 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
     const tableSchemaRepository = this.tableSchemaRepository;
     const unitOfWork = this.unitOfWork;
     const eventBus = this.eventBus;
-    const result = await safeTry<DeleteTableResult, string>(async function* () {
+    const result = await safeTry<DeleteTableResult, DomainError>(async function* () {
       const specResult = yield* TableAggregate.specs(command.baseId).byId(command.tableId).build();
       const tableResult = await tableRepository.findOne(context, specResult);
       if (tableResult.isErr()) {
-        if (tableResult.error === 'Not found') return err('Table not found');
+        if (isNotFoundError(tableResult.error)) {
+          return err(domainError.notFound({ code: 'table.not_found', message: 'Table not found' }));
+        }
         return err(tableResult.error);
       }
       const table = tableResult.value;
       yield* await unitOfWork.withTransaction(context, async (transactionContext) => {
-        const resultAsync = safeTry<void, string>(async function* () {
+        const resultAsync = safeTry<void, DomainError>(async function* () {
           yield* await tableSchemaRepository.delete(transactionContext, table);
           yield* await tableRepository.delete(transactionContext, table);
           return ok(undefined);

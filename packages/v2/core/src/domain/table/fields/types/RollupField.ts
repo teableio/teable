@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ForeignTable } from '../../ForeignTable';
 import type { Table } from '../../Table';
 import type { TableId } from '../../TableId';
@@ -70,7 +71,7 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     formatting?: RollupFormatting;
     showAs?: RollupShowAs;
     dependencies?: ReadonlyArray<FieldId>;
-  }): Result<RollupField, string> {
+  }): Result<RollupField, DomainError> {
     const field = new RollupField(
       params.id,
       params.name,
@@ -105,7 +106,7 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     formatting?: RollupFormatting;
     showAs?: RollupShowAs;
     dependencies?: ReadonlyArray<FieldId>;
-  }): Result<RollupField, string> {
+  }): Result<RollupField, DomainError> {
     return ok(
       new RollupField(
         params.id,
@@ -132,7 +133,7 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     showAs?: RollupShowAs;
     resultType: RollupResultType;
     dependencies?: ReadonlyArray<FieldId>;
-  }): Result<RollupField, string> {
+  }): Result<RollupField, DomainError> {
     const field = new RollupField(
       params.id,
       params.name,
@@ -194,7 +195,10 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     return this.expressionValue;
   }
 
-  setExpression(expression: RollupExpression, valuesType: RollupValuesType): Result<void, string> {
+  setExpression(
+    expression: RollupExpression,
+    valuesType: RollupValuesType
+  ): Result<void, DomainError> {
     if (this.expressionValue.equals(expression)) return ok(undefined);
     const previousExpression = this.expressionValue;
     const previousType = this.cellValueTypeValue;
@@ -220,10 +224,11 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     return this.formattingValue;
   }
 
-  setFormatting(formatting: RollupFormatting): Result<void, string> {
-    if (this.formattingValue) return err('RollupField formatting already set');
+  setFormatting(formatting: RollupFormatting): Result<void, DomainError> {
+    if (this.formattingValue)
+      return err(domainError.fromMessage('RollupField formatting already set'));
     if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
-      return err('RollupField result type not set');
+      return err(domainError.fromMessage('RollupField result type not set'));
     }
 
     const previous = this.formattingValue;
@@ -255,67 +260,69 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     return this.configValue.lookupFieldId();
   }
 
-  linkField(hostTable: Table): Result<LinkField, string> {
+  linkField(hostTable: Table): Result<LinkField, DomainError> {
     return this.fieldFromHostTable(hostTable, this.linkFieldId()).andThen((field) => {
       if (!field.type().equals(FieldType.link())) {
-        return err('RollupField link field must be a LinkField');
+        return err(domainError.fromMessage('RollupField link field must be a LinkField'));
       }
       return ok(field as LinkField);
     });
   }
 
-  lookupField(foreignTable: ForeignTable): Result<Field, string> {
+  lookupField(foreignTable: ForeignTable): Result<Field, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() =>
       foreignTable.fieldById(this.lookupFieldId())
     );
   }
 
-  cellValueType(): Result<CellValueType, string> {
-    if (!this.cellValueTypeValue) return err('RollupField cell value type not set');
+  cellValueType(): Result<CellValueType, DomainError> {
+    if (!this.cellValueTypeValue)
+      return err(domainError.fromMessage('RollupField cell value type not set'));
     return ok(this.cellValueTypeValue);
   }
 
-  isMultipleCellValue(): Result<CellValueMultiplicity, string> {
-    if (!this.isMultipleCellValueValue) return err('RollupField multiplicity not set');
+  isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
+    if (!this.isMultipleCellValueValue)
+      return err(domainError.fromMessage('RollupField multiplicity not set'));
     return ok(this.isMultipleCellValueValue);
   }
 
-  resolveResultType(valuesType: RollupValuesType): Result<void, string> {
+  resolveResultType(valuesType: RollupValuesType): Result<void, DomainError> {
     if (
       !isRollupFunctionSupportedForCellValueType(
         this.expressionValue.toString(),
         valuesType.cellValueType
       )
     ) {
-      return err('Invalid RollupExpression for RollupField value type');
+      return err(domainError.fromMessage('Invalid RollupExpression for RollupField value type'));
     }
     const resultType = this.expressionValue.getParsedValueType(valuesType);
     if (resultType.isErr()) return err(resultType.error);
     return this.applyResultType(resultType.value);
   }
 
-  private rehydrateResultType(resultType: RollupResultType): Result<void, string> {
+  private rehydrateResultType(resultType: RollupResultType): Result<void, DomainError> {
     return this.applyResultType(resultType);
   }
 
-  validateForeignTables(context: ForeignTableValidationContext): Result<void, string> {
+  validateForeignTables(context: ForeignTableValidationContext): Result<void, DomainError> {
     const linkFieldId = this.linkFieldId();
     const linkFieldSpecResult = Field.specs().withFieldId(linkFieldId).build();
     if (linkFieldSpecResult.isErr()) return err(linkFieldSpecResult.error);
     const [linkField] = context.hostTable.getFields(linkFieldSpecResult.value);
-    if (!linkField) return err('RollupField link field not found');
+    if (!linkField) return err(domainError.fromMessage('RollupField link field not found'));
     if (linkField.type().toString() !== 'link') {
-      return err('RollupField link field must be a LinkField');
+      return err(domainError.fromMessage('RollupField link field must be a LinkField'));
     }
 
     const foreignTable = context.foreignTables.find((candidate) =>
       candidate.id().equals(this.foreignTableId())
     );
-    if (!foreignTable) return err('RollupField foreign table not loaded');
+    if (!foreignTable) return err(domainError.fromMessage('RollupField foreign table not loaded'));
 
     const lookupField = ForeignTable.from(foreignTable)
       .fieldById(this.lookupFieldId())
-      .mapErr(() => 'RollupField lookup field not found');
+      .mapErr(() => domainError.fromMessage('RollupField lookup field not found'));
     if (lookupField.isErr()) return err(lookupField.error);
 
     const valuesTypeResult = lookupField.value.accept(new FieldValueTypeVisitor());
@@ -330,34 +337,34 @@ export class RollupField extends Field implements ForeignTableRelatedField {
     return this.setDependencies([linkFieldId]);
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitRollupField(this);
   }
 
-  private ensureForeignTable(foreignTable: ForeignTable): Result<void, string> {
+  private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {
     if (!foreignTable.id().equals(this.foreignTableId())) {
-      return err('ForeignTable does not match RollupField foreign table');
+      return err(domainError.fromMessage('ForeignTable does not match RollupField foreign table'));
     }
     return ok(undefined);
   }
 
-  private fieldFromHostTable(hostTable: Table, fieldId: FieldId): Result<Field, string> {
+  private fieldFromHostTable(hostTable: Table, fieldId: FieldId): Result<Field, DomainError> {
     const fieldSpecResult = Field.specs().withFieldId(fieldId).build();
     if (fieldSpecResult.isErr()) return err(fieldSpecResult.error);
     const [field] = hostTable.getFields(fieldSpecResult.value);
-    if (!field) return err('Field not found in host Table');
+    if (!field) return err(domainError.fromMessage('Field not found in host Table'));
     return ok(field);
   }
 
-  private applyResultType(resultType: RollupResultType): Result<void, string> {
+  private applyResultType(resultType: RollupResultType): Result<void, DomainError> {
     if (this.cellValueTypeValue && !this.cellValueTypeValue.equals(resultType.cellValueType)) {
-      return err('RollupField cell value type already set');
+      return err(domainError.fromMessage('RollupField cell value type already set'));
     }
     if (
       this.isMultipleCellValueValue &&
       !this.isMultipleCellValueValue.equals(resultType.isMultipleCellValue)
     )
-      return err('RollupField multiplicity already set');
+      return err(domainError.fromMessage('RollupField multiplicity already set'));
 
     const validation = this.validateResultOptions(
       resultType.cellValueType,
@@ -380,45 +387,47 @@ export class RollupField extends Field implements ForeignTableRelatedField {
   private validateResultOptions(
     cellValueType: CellValueType,
     multiplicity: CellValueMultiplicity
-  ): Result<void, string> {
+  ): Result<void, DomainError> {
     const formatting = this.formattingValue;
     const showAs = this.showAsValue;
     const isMultiple = multiplicity.isMultiple();
 
     if (cellValueType.equals(CellValueType.number())) {
       if (formatting && !(formatting instanceof NumberFormattingValue))
-        return err('Invalid RollupField formatting');
+        return err(domainError.fromMessage('Invalid RollupField formatting'));
       if (showAs && !(showAs instanceof NumberShowAsValue))
-        return err('Invalid RollupField showAs');
+        return err(domainError.fromMessage('Invalid RollupField showAs'));
       if (showAs) {
         const dto = showAs.toDto();
         const isSingle = 'showValue' in dto;
-        if (isMultiple && isSingle) return err('Invalid RollupField showAs');
-        if (!isMultiple && !isSingle) return err('Invalid RollupField showAs');
+        if (isMultiple && isSingle)
+          return err(domainError.fromMessage('Invalid RollupField showAs'));
+        if (!isMultiple && !isSingle)
+          return err(domainError.fromMessage('Invalid RollupField showAs'));
       }
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.dateTime())) {
       if (formatting && !(formatting instanceof DateTimeFormattingValue))
-        return err('Invalid RollupField formatting');
-      if (showAs) return err('Invalid RollupField showAs');
+        return err(domainError.fromMessage('Invalid RollupField formatting'));
+      if (showAs) return err(domainError.fromMessage('Invalid RollupField showAs'));
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.string())) {
-      if (formatting) return err('Invalid RollupField formatting');
+      if (formatting) return err(domainError.fromMessage('Invalid RollupField formatting'));
       if (showAs && !(showAs instanceof SingleLineTextShowAsValue))
-        return err('Invalid RollupField showAs');
+        return err(domainError.fromMessage('Invalid RollupField showAs'));
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.boolean())) {
-      if (formatting) return err('Invalid RollupField formatting');
-      if (showAs) return err('Invalid RollupField showAs');
+      if (formatting) return err(domainError.fromMessage('Invalid RollupField formatting'));
+      if (showAs) return err(domainError.fromMessage('Invalid RollupField showAs'));
       return ok(undefined);
     }
 
-    return err('Invalid RollupField cell value type');
+    return err(domainError.fromMessage('Invalid RollupField cell value type'));
   }
 }

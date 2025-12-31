@@ -2,6 +2,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../DomainError';
 import { AndSpec } from './AndSpec';
 import type { ISpecification } from './ISpecification';
 import type { ISpecVisitor } from './ISpecVisitor';
@@ -12,7 +13,7 @@ export type SpecBuilderMode = 'and' | 'or';
 
 export abstract class SpecBuilder<T, V extends ISpecVisitor, B extends SpecBuilder<T, V, B>> {
   protected readonly specs: Array<ISpecification<T, V>> = [];
-  protected readonly errors: string[] = [];
+  protected readonly errors: DomainError[] = [];
   protected readonly mode: SpecBuilderMode;
 
   protected constructor(mode: SpecBuilderMode = 'and') {
@@ -33,19 +34,28 @@ export abstract class SpecBuilder<T, V extends ISpecVisitor, B extends SpecBuild
     const result = configured.build();
     result.match(
       (spec) => this.addSpec(spec),
-      (error) => this.errors.push(error)
+      (error) => this.recordError(error)
     );
   }
 
-  protected recordError(message: string): void {
-    this.errors.push(message);
+  protected recordError(error: DomainError | string): void {
+    this.errors.push(typeof error === 'string' ? domainError.fromMessage(error) : error);
   }
 
   protected buildFrom(
     specs: ReadonlyArray<ISpecification<T, V>>
-  ): Result<ISpecification<T, V>, string> {
-    if (this.errors.length > 0) return err(this.errors.join('; '));
-    if (specs.length === 0) return err('Empty specification');
+  ): Result<ISpecification<T, V>, DomainError> {
+    if (this.errors.length > 0) {
+      if (this.errors.length === 1) return err(this.errors[0]);
+      return err(
+        domainError.validation({
+          code: 'spec.builder',
+          message: 'Specification builder errors',
+          details: { errors: this.errors.map((error) => error.message) },
+        })
+      );
+    }
+    if (specs.length === 0) return err(domainError.fromMessage('Empty specification'));
     if (specs.length === 1) return ok(specs[0]);
 
     const [first, ...rest] = specs;
@@ -56,7 +66,7 @@ export abstract class SpecBuilder<T, V extends ISpecVisitor, B extends SpecBuild
     return ok(combined);
   }
 
-  build(): Result<ISpecification<T, V>, string> {
+  build(): Result<ISpecification<T, V>, DomainError> {
     return this.buildFrom(this.specs);
   }
 

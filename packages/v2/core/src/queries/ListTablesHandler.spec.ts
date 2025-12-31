@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError } from '../domain/shared/DomainError';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { Table } from '../domain/table/Table';
 import { TableName } from '../domain/table/TableName';
-import { NoopLogger } from '../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { MemoryTableRepository } from '../ports/memory/MemoryTableRepository';
 import type { ITableRepository } from '../ports/TableRepository';
@@ -83,15 +83,15 @@ describe('ListTablesHandler', () => {
     });
 
     const repo: ITableRepository = {
-      insert: async () => err('nope'),
-      findOne: async () => err('nope'),
-      find: async () => err('repository error'),
-      updateOne: async (_context, _table, _mutateSpec) => err('nope'),
-      delete: async () => err('nope'),
+      insert: async () => err(domainError.fromMessage('nope')),
+      findOne: async () => err(domainError.fromMessage('nope')),
+      find: async () => err(domainError.fromMessage('repository error')),
+      updateOne: async (_context, _table, _mutateSpec) => err(domainError.fromMessage('nope')),
+      delete: async () => err(domainError.fromMessage('nope')),
     };
 
     const handler = new ListTablesHandler(repo);
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
-    expect(result._unsafeUnwrapErr()).toBe('repository error');
+    expect(result._unsafeUnwrapErr().message).toBe('repository error');
   });
 });

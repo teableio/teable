@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
@@ -10,22 +11,22 @@ import type { IFindOptions } from '../RepositoryQuery';
 import type { ITableRepository } from '../TableRepository';
 
 export class NoopTableRepository implements ITableRepository {
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, string>> {
+  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     return ok(table);
   }
 
   async findOne(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
-    return err('Not found');
+  ): Promise<Result<Table, DomainError>> {
+    return err(domainError.fromMessage('Not found'));
   }
 
   async find(
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok([]);
   }
 
@@ -33,11 +34,11 @@ export class NoopTableRepository implements ITableRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+  async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }

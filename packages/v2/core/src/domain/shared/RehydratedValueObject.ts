@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from './DomainError';
 import { ValueObject } from './ValueObject';
 
 export abstract class RehydratedValueObject extends ValueObject {
@@ -11,9 +12,9 @@ export abstract class RehydratedValueObject extends ValueObject {
     this.rawValue = rawValue;
   }
 
-  protected valueResult(typeName: string): Result<string, string> {
+  protected valueResult(typeName: string): Result<string, DomainError> {
     if (typeof this.rawValue !== 'string' || this.rawValue.length === 0) {
-      return err(`${typeName} is not available before rehydrate`);
+      return err(domainError.fromMessage(`${typeName} is not available before rehydrate`));
     }
     return ok(this.rawValue);
   }

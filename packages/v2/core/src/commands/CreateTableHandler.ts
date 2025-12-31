@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
@@ -49,9 +50,9 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     command: CreateTableCommand
-  ): Promise<Result<CreateTableResult, string>> {
+  ): Promise<Result<CreateTableResult, DomainError>> {
     const handler = this;
-    return safeTry<CreateTableResult, string>(async function* () {
+    return safeTry<CreateTableResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const selfTableId = command.tableId;
       const referencesToLoad = selfTableId
@@ -82,27 +83,30 @@ export class CreateTableHandler implements ICommandHandler<CreateTableCommand, C
       const transactionResult = yield* await handler.unitOfWork.withTransaction(
         context,
         async (transactionContext) => {
-          return safeTry<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, string>(
-            async function* () {
-              const persistedTable = yield* await handler.tableRepository.insert(
-                transactionContext,
-                table
-              );
-              yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
-              const sideEffectEvents = yield* await handler.fieldCreationSideEffectService.execute(
-                transactionContext,
-                {
-                  table,
-                  fields: tableFields,
-                  foreignTables: foreignTablesForSideEffects,
-                }
-              );
-              return ok<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, string>({
+          return safeTry<
+            { table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> },
+            DomainError
+          >(async function* () {
+            const persistedTable = yield* await handler.tableRepository.insert(
+              transactionContext,
+              table
+            );
+            yield* await handler.tableSchemaRepository.insert(transactionContext, persistedTable);
+            const sideEffectEvents = yield* await handler.fieldCreationSideEffectService.execute(
+              transactionContext,
+              {
+                table,
+                fields: tableFields,
+                foreignTables: foreignTablesForSideEffects,
+              }
+            );
+            return ok<{ table: Table; sideEffectEvents: ReadonlyArray<IDomainEvent> }, DomainError>(
+              {
                 table: persistedTable,
                 sideEffectEvents,
-              });
-            }
-          );
+              }
+            );
+          });
         }
       );
       const { table: persistedTable, sideEffectEvents } = transactionResult;

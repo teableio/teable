@@ -6,6 +6,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - Shared domain base classes and common value objects.
 - Core abstractions like DomainEvent, AggregateRoot, ValueObject.
+- Structured domain error model used across domain/application layers.
 
 ## Subfolders
 
@@ -19,6 +20,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DomainBasics.spec.ts` - Role: domain tests; Purpose: verify ValueObject/AggregateRoot behavior.
 - `DomainEvent.ts` - Role: domain event interface; Purpose: standardize event shape.
 - `DomainEventName.ts` - Role: value object; Purpose: validate event names.
+- `DomainError.ts` - Role: domain error model; Purpose: provide structured error codes/tags and predicates.
 - `Entity.ts` - Role: entity base; Purpose: provide entity ID accessor.
 - `IdGenerator.spec.ts` - Role: ID tests; Purpose: validate ID rules and prefix generators.
 - `IdGenerator.ts` - Role: helper; Purpose: generate prefixed random IDs.

@@ -1,4 +1,5 @@
 import type { Result } from 'neverthrow';
+import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { SpecBuilder } from '../../../shared/specification/SpecBuilder';
 import type { SpecBuilderMode } from '../../../shared/specification/SpecBuilder';
@@ -63,7 +64,7 @@ export class RecordConditionSpecBuilder extends SpecBuilder<
     return this;
   }
 
-  build(): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, string> {
+  build(): Result<ISpecification<TableRecord, ITableRecordConditionSpecVisitor>, DomainError> {
     return this.buildFrom(this.specs);
   }
 

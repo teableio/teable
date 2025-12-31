@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { SelectOptionName } from './SelectOptionName';
 
@@ -15,9 +16,9 @@ export class SelectDefaultValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SelectDefaultValue, string> {
+  static create(raw: unknown): Result<SelectDefaultValue, DomainError> {
     const parsed = selectDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SelectDefaultValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectDefaultValue'));
 
     if (typeof parsed.data === 'string') {
       return SelectOptionName.create(parsed.data).map((name) => new SelectDefaultValue(name));
@@ -26,7 +27,7 @@ export class SelectDefaultValue extends ValueObject {
     const names = parsed.data.map((v) => SelectOptionName.create(v));
     return names
       .reduce<
-        Result<ReadonlyArray<SelectOptionName>, string>
+        Result<ReadonlyArray<SelectOptionName>, DomainError>
       >((acc, next) => acc.andThen((arr) => next.map((name) => [...arr, name])), ok([]))
       .map((values) => new SelectDefaultValue(values));
   }

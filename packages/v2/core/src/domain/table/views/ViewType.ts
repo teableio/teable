@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 
 const viewTypeSchema = z.enum(['grid', 'calendar', 'kanban', 'form', 'gallery', 'plugin']);
@@ -12,9 +13,9 @@ export class ViewType extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<ViewType, string> {
+  static create(raw: unknown): Result<ViewType, DomainError> {
     const parsed = viewTypeSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ViewType');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewType'));
     return ok(new ViewType(parsed.data));
   }
 

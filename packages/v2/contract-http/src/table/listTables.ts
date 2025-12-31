@@ -1,4 +1,4 @@
-import type { IListTablesQueryInput, ListTablesResult } from '@teable/v2-core';
+import type { IListTablesQueryInput, ListTablesResult, DomainError } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -8,6 +8,7 @@ import {
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
   type IApiResponseDto,
+  type HttpErrorStatus,
 } from '../shared/http';
 import { sequenceResults } from '../shared/neverthrow';
 import type { ITableDto } from './dto';
@@ -26,8 +27,7 @@ export type IListTablesErrorResponseDto = IApiErrorResponseDto;
 
 export type IListTablesEndpointResult =
   | { status: 200; body: IListTablesOkResponseDto }
-  | { status: 400; body: IListTablesErrorResponseDto }
-  | { status: 500; body: IListTablesErrorResponseDto };
+  | { status: HttpErrorStatus; body: IListTablesErrorResponseDto };
 
 export const listTablesResponseDataSchema = z.object({
   tables: z.array(tableDtoSchema),
@@ -39,7 +39,7 @@ export const listTablesErrorResponseSchema = apiErrorResponseDtoSchema;
 
 export const mapListTablesResultToDto = (
   result: ListTablesResult
-): Result<IListTablesResponseDataDto, string> => {
+): Result<IListTablesResponseDataDto, DomainError> => {
   return sequenceResults(result.tables.map(mapTableToDto)).map((tables) => ({
     tables: [...tables],
   }));

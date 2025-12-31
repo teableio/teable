@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { TableId } from '../domain/table/TableId';
 import { TableUpdateCommand } from './TableUpdateCommand';
@@ -24,9 +25,9 @@ export class DeleteFieldCommand extends TableUpdateCommand {
     super(baseId, tableId);
   }
 
-  static create(raw: unknown): Result<DeleteFieldCommand, string> {
+  static create(raw: unknown): Result<DeleteFieldCommand, DomainError> {
     const parsed = deleteFieldInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DeleteFieldCommand input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DeleteFieldCommand input'));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>

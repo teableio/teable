@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -23,7 +24,7 @@ export class CreatedTimeField extends Field {
     id: FieldId;
     name: FieldName;
     formatting?: DateTimeFormatting;
-  }): Result<CreatedTimeField, string> {
+  }): Result<CreatedTimeField, DomainError> {
     const formatting = params.formatting ?? DateTimeFormatting.default();
     return FormulaExpression.create('CREATED_TIME()').map(
       (expression) => new CreatedTimeField(params.id, params.name, formatting, expression)
@@ -38,7 +39,7 @@ export class CreatedTimeField extends Field {
     return this.expressionValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitCreatedTimeField(this);
   }
 }

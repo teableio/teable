@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
 import type { ViewColumnMetaValue } from '../../domain/table/views/ViewColumnMeta';
 
@@ -158,11 +159,31 @@ export type ILinkFieldMetaDTO = {
   hasOrderColumn?: boolean;
 };
 
+export type ILookupOptionsDTO = {
+  linkFieldId: string;
+  lookupFieldId: string;
+  foreignTableId: string;
+};
+
 export type ITableFieldBaseDTO = {
   id: string;
   name: string;
   dbFieldName?: string;
   isComputed?: boolean;
+  notNull?: boolean;
+  unique?: boolean;
+  /**
+   * When true, this field is a lookup field.
+   * The actual type indicates the inner field type.
+   * This follows v1 persistence format for compatibility.
+   */
+  isLookup?: boolean;
+  /**
+   * When true, this lookup uses conditional filtering.
+   * Only applicable when isLookup is true.
+   */
+  isConditionalLookup?: boolean;
+  lookupOptions?: ILookupOptionsDTO;
 };
 
 export type ITableFieldPersistenceDTO =
@@ -233,6 +254,6 @@ export type ITablePersistenceDTO = {
 };
 
 export interface ITableMapper {
-  toDTO(table: Table): Result<ITablePersistenceDTO, string>;
-  toDomain(dto: ITablePersistenceDTO): Result<Table, string>;
+  toDTO(table: Table): Result<ITablePersistenceDTO, DomainError>;
+  toDomain(dto: ITablePersistenceDTO): Result<Table, DomainError>;
 }

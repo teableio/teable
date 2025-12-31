@@ -128,21 +128,18 @@ describe('formula functions', () => {
         func.validateParams([stringValue])._unsafeUnwrap();
 
         const empty = func.getReturnType();
-        empty._unsafeUnwrap();
-
-        expect(empty.value.isMultiple).toBe(true);
+        const emptyValue = empty._unsafeUnwrap();
+        expect(emptyValue.isMultiple).toBe(true);
 
         const same = func.getReturnType([numberValue, numberValue]);
-        same._unsafeUnwrap();
-
-        expect(same.value.type).toBe(CellValueType.Number);
-        expect(same.value.isMultiple).toBe(true);
+        const sameValue = same._unsafeUnwrap();
+        expect(sameValue.type).toBe(CellValueType.Number);
+        expect(sameValue.isMultiple).toBe(true);
 
         const mixed = func.getReturnType([numberValue, stringValue]);
-        mixed._unsafeUnwrap();
-
-        expect(mixed.value.type).toBe(CellValueType.String);
-        expect(mixed.value.isMultiple).toBe(true);
+        const mixedValue = mixed._unsafeUnwrap();
+        expect(mixedValue.type).toBe(CellValueType.String);
+        expect(mixedValue.isMultiple).toBe(true);
       }
     });
   });
@@ -179,17 +176,15 @@ describe('formula functions', () => {
       max.validateParams([stringValue])._unsafeUnwrapErr();
       max.validateParams([dateValue])._unsafeUnwrap();
       const maxReturn = max.getReturnType([dateValue]);
-      maxReturn._unsafeUnwrap();
-
-      expect(maxReturn.value.type).toBe(CellValueType.DateTime);
+      const maxValue = maxReturn._unsafeUnwrap();
+      expect(maxValue.type).toBe(CellValueType.DateTime);
 
       const min = new Min();
       min.validateParams([booleanValue])._unsafeUnwrapErr();
       min.validateParams([numberValue])._unsafeUnwrap();
       const minReturn = min.getReturnType([numberValue]);
-      minReturn._unsafeUnwrap();
-
-      expect(minReturn.value.type).toBe(CellValueType.Number);
+      const minValue = minReturn._unsafeUnwrap();
+      expect(minValue.type).toBe(CellValueType.Number);
     });
 
     it('validates length-constrained numeric functions', () => {
@@ -227,35 +222,30 @@ describe('formula functions', () => {
         valueOf(CellValueType.String, { isBlank: true }),
         numberValue,
       ]);
-      blankThen._unsafeUnwrap();
-
-      expect(blankThen.value.type).toBe(CellValueType.Number);
+      const blankThenValue = blankThen._unsafeUnwrap();
+      expect(blankThenValue.type).toBe(CellValueType.Number);
 
       const blankElse = func.getReturnType([
         booleanValue,
         stringValue,
         valueOf(CellValueType.Number, { isBlank: true }),
       ]);
-      blankElse._unsafeUnwrap();
-
-      expect(blankElse.value.type).toBe(CellValueType.String);
+      const blankElseValue = blankElse._unsafeUnwrap();
+      expect(blankElseValue.type).toBe(CellValueType.String);
 
       const sameType = func.getReturnType([
         booleanValue,
         valueOf(CellValueType.String, { isMultiple: true }),
         valueOf(CellValueType.String, { isMultiple: true }),
       ]);
-      sameType._unsafeUnwrap();
-
-      expect(sameType.value.type).toBe(CellValueType.String);
-      const sameTypeMultiple =
-        'isMultiple' in sameType.value ? sameType.value.isMultiple : undefined;
+      const sameTypeValue = sameType._unsafeUnwrap();
+      expect(sameTypeValue.type).toBe(CellValueType.String);
+      const sameTypeMultiple = 'isMultiple' in sameTypeValue ? sameTypeValue.isMultiple : undefined;
       expect(sameTypeMultiple).toBe(true);
 
       const mismatch = func.getReturnType([booleanValue, stringValue, numberValue]);
-      mismatch._unsafeUnwrap();
-
-      expect(mismatch.value.type).toBe(CellValueType.String);
+      const mismatchValue = mismatch._unsafeUnwrap();
+      expect(mismatchValue.type).toBe(CellValueType.String);
     });
 
     it('infers return types for SWITCH', () => {
@@ -263,9 +253,8 @@ describe('formula functions', () => {
       func.validateParams([stringValue])._unsafeUnwrapErr();
 
       const short = func.getReturnType([stringValue, numberValue]);
-      short._unsafeUnwrap();
-
-      expect(short.value.type).toBe(CellValueType.Number);
+      const shortValue = short._unsafeUnwrap();
+      expect(shortValue.type).toBe(CellValueType.Number);
 
       const detailed = func.getReturnType([
         stringValue,
@@ -275,11 +264,9 @@ describe('formula functions', () => {
         valueOf(CellValueType.String, { isMultiple: false }),
         valueOf(CellValueType.Number, { isMultiple: false }),
       ]);
-      detailed._unsafeUnwrap();
-
-      expect(detailed.value.type).toBe(CellValueType.String);
-      const detailedMultiple =
-        'isMultiple' in detailed.value ? detailed.value.isMultiple : undefined;
+      const detailedValue = detailed._unsafeUnwrap();
+      expect(detailedValue.type).toBe(CellValueType.String);
+      const detailedMultiple = 'isMultiple' in detailedValue ? detailedValue.isMultiple : undefined;
       expect(detailedMultiple).toBe(false);
     });
 
@@ -455,15 +442,13 @@ describe('formula functions', () => {
       func.getReturnType()._unsafeUnwrap();
 
       const multiple = func.getReturnType([valueOf(CellValueType.String, { isMultiple: true })]);
-      multiple._unsafeUnwrap();
-
-      const multipleResult = 'isMultiple' in multiple.value ? multiple.value.isMultiple : undefined;
+      const multipleValue = multiple._unsafeUnwrap();
+      const multipleResult = 'isMultiple' in multipleValue ? multipleValue.isMultiple : undefined;
       expect(multipleResult).toBe(true);
 
       const single = func.getReturnType([stringValue]);
-      single._unsafeUnwrap();
-
-      const singleResult = 'isMultiple' in single.value ? single.value.isMultiple : undefined;
+      const singleValue = single._unsafeUnwrap();
+      const singleResult = 'isMultiple' in singleValue ? singleValue.isMultiple : undefined;
       expect(singleResult).toBeUndefined();
     });
 

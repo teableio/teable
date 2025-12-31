@@ -2,6 +2,7 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { TableId } from '../../TableId';
 import { FieldId } from '../FieldId';
@@ -29,9 +30,9 @@ export class RollupFieldConfig extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RollupFieldConfig, string> {
+  static create(raw: unknown): Result<RollupFieldConfig, DomainError> {
     const parsed = rollupFieldConfigSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RollupFieldConfig');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RollupFieldConfig'));
     const data = parsed.data;
 
     return FieldId.create(data.linkFieldId).andThen((linkFieldId) =>

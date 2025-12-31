@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { Field } from '../fields/Field';
 import type { Table } from '../Table';
@@ -20,11 +21,11 @@ export class TableAddFieldSpec<
     return this.fieldValue;
   }
 
-  mutate(t: Table): Result<Table, string> {
+  mutate(t: Table): Result<Table, DomainError> {
     return t.addField(this.fieldValue);
   }
 
-  accept(v: V): Result<void, string> {
+  accept(v: V): Result<void, DomainError> {
     return v.visitTableAddField(this).map(() => undefined);
   }
 }

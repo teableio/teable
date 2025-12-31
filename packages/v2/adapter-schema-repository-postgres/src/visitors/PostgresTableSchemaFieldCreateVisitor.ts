@@ -1,4 +1,5 @@
 import {
+  AbstractFieldVisitor,
   getRandomString,
   type AttachmentField,
   type AutoNumberField,
@@ -9,11 +10,11 @@ import {
   type DateField,
   type Field,
   type FormulaField,
-  type IFieldVisitor,
   type LastModifiedByField,
   type LastModifiedTimeField,
   type LinkField,
   type LongTextField,
+  type LookupField,
   type MultipleSelectField,
   type NumberField,
   type RatingField,
@@ -22,9 +23,18 @@ import {
   type SingleSelectField,
   type Table,
   type UserField,
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
+  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { CompiledQuery, CreateTableBuilder, Kysely, QueryExecutorProvider } from 'kysely';
+import type {
+  ColumnDefinitionBuilder,
+  CompiledQuery,
+  CreateTableBuilder,
+  Kysely,
+  QueryExecutorProvider,
+} from 'kysely';
 import { sql } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -49,6 +59,25 @@ const buildTableIdentifier = (target: TableIdentifier) => {
   return sql`${sql.ref(target.schema)}.${sql.ref(target.tableName)}`;
 };
 
+const buildColumnConstraints = (
+  field: Field
+): ((col: ColumnDefinitionBuilder) => ColumnDefinitionBuilder) | undefined => {
+  const fieldType = field.type().toString();
+  const isComputed = field.computed().toBoolean();
+  const notNullEnabled = checkFieldNotNullValidationEnabled(fieldType, { isComputed });
+  const uniqueEnabled = checkFieldUniqueValidationEnabled(fieldType, { isComputed });
+  const notNull = notNullEnabled && field.notNull().toBoolean();
+  const unique = uniqueEnabled && field.unique().toBoolean();
+
+  if (!notNull && !unique) return undefined;
+  return (col) => {
+    let next = col;
+    if (notNull) next = next.notNull();
+    if (unique) next = next.unique();
+    return next;
+  };
+};
+
 const addGeneratedColumnStatement = (
   target: TableIdentifier,
   columnName: string,
@@ -61,8 +90,9 @@ const addGeneratedColumnStatement = (
 type PostgresTableSchemaFieldCreateVisitorParams = {
   addColumn: (
     columnName: string,
-    dataType: TableColumnDataType
-  ) => Result<ReadonlyArray<TableSchemaStatementBuilder>, string>;
+    dataType: TableColumnDataType,
+    configure?: (col: ColumnDefinitionBuilder) => ColumnDefinitionBuilder
+  ) => Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>;
   db: Kysely<V1TeableDatabase>;
   currentSchema: string | null;
   currentTableName: string;
@@ -76,10 +106,12 @@ export interface ICreateTableBuilderRef {
 }
 
 // Owns field-level column creation and any field-specific side statements (e.g. formula references).
-export class PostgresTableSchemaFieldCreateVisitor
-  implements IFieldVisitor<ReadonlyArray<TableSchemaStatementBuilder>>
-{
-  constructor(private readonly params: PostgresTableSchemaFieldCreateVisitorParams) {}
+export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
+  ReadonlyArray<TableSchemaStatementBuilder>
+> {
+  constructor(private readonly params: PostgresTableSchemaFieldCreateVisitorParams) {
+    super();
+  }
 
   static forTableCreation(params: {
     builderRef: ICreateTableBuilderRef;
@@ -89,11 +121,13 @@ export class PostgresTableSchemaFieldCreateVisitor
     tableId: string;
   }): PostgresTableSchemaFieldCreateVisitor {
     return new PostgresTableSchemaFieldCreateVisitor({
-      addColumn: (columnName, dataType) => {
-        params.builderRef.builder = params.builderRef.builder.addColumn(
-          columnName,
-          dataType
-        ) as unknown as ICreateTableBuilder;
+      addColumn: (columnName, dataType, configure) => {
+        params.builderRef.builder = (configure
+          ? params.builderRef.builder.addColumn(columnName, dataType, configure)
+          : params.builderRef.builder.addColumn(
+              columnName,
+              dataType
+            )) as unknown as ICreateTableBuilder;
         return ok([]);
       },
       db: params.db,
@@ -113,12 +147,16 @@ export class PostgresTableSchemaFieldCreateVisitor
       ? params.db.schema.withSchema(params.schema)
       : params.db.schema;
     return new PostgresTableSchemaFieldCreateVisitor({
-      addColumn: (columnName, dataType) =>
-        ok([
-          schemaBuilder
-            .alterTable(params.tableName)
-            .addColumn(columnName, dataType, (col) => col.ifNotExists()),
-        ]),
+      addColumn: (columnName, dataType, configure) => {
+        const statement = configure
+          ? schemaBuilder
+              .alterTable(params.tableName)
+              .addColumn(columnName, dataType, (col) => configure(col).ifNotExists())
+          : schemaBuilder
+              .alterTable(params.tableName)
+              .addColumn(columnName, dataType, (col) => col.ifNotExists());
+        return ok([statement]);
+      },
       db: params.db,
       currentSchema: params.schema,
       currentTableName: params.tableName,
@@ -130,13 +168,15 @@ export class PostgresTableSchemaFieldCreateVisitor
     return Array.isArray(value);
   }
 
-  apply(table: Table): Result<ReadonlyArray<TableSchemaStatementBuilder>, string>;
-  apply(fields: ReadonlyArray<Field>): Result<ReadonlyArray<TableSchemaStatementBuilder>, string>;
+  apply(table: Table): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>;
+  apply(
+    fields: ReadonlyArray<Field>
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>;
   apply(
     tableOrFields: Table | ReadonlyArray<Field>
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fields = PostgresTableSchemaFieldCreateVisitor.isFieldArray(tableOrFields)
         ? tableOrFields
         : tableOrFields.getFields();
@@ -153,38 +193,44 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   visitSingleLineTextField(
     field: SingleLineTextField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitLongTextField(
     field: LongTextField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
-  visitNumberField(field: NumberField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitNumberField(
+    field: NumberField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
-  visitRatingField(field: RatingField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitRatingField(
+    field: RatingField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitFormulaField(
     field: FormulaField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnStatements = yield* visitor.addColumnFromValueType(field);
       const referenceStatements = yield* visitor.buildFormulaReferenceStatements(field);
       return ok([...columnStatements, ...referenceStatements]);
     });
   }
 
-  visitRollupField(field: RollupField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitRollupField(
+    field: RollupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const visitor = this;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnStatements = yield* visitor.addColumnFromValueType(field);
       const referenceStatements = yield* visitor.buildRollupReferenceStatements(field);
       return ok([...columnStatements, ...referenceStatements]);
@@ -193,60 +239,64 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   visitSingleSelectField(
     field: SingleSelectField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitMultipleSelectField(
     field: MultipleSelectField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitCheckboxField(
     field: CheckboxField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitAttachmentField(
     field: AttachmentField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
-  visitDateField(field: DateField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitDateField(
+    field: DateField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitCreatedTimeField(
     field: CreatedTimeField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addGeneratedColumn(field, '__created_time', sql`timestamptz`);
   }
 
   visitLastModifiedTimeField(
     field: LastModifiedTimeField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     if (!field.isTrackAll()) {
       return this.addColumnFromValueType(field);
     }
     return this.addGeneratedColumn(field, '__last_modified_time', sql`timestamptz`);
   }
 
-  visitUserField(field: UserField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitUserField(
+    field: UserField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
   visitCreatedByField(
     field: CreatedByField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addGeneratedColumn(field, '__created_by', sql`text`);
   }
 
   visitLastModifiedByField(
     field: LastModifiedByField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     if (!field.isTrackAll()) {
       return this.addColumnFromValueType(field);
     }
@@ -255,15 +305,19 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   visitAutoNumberField(
     field: AutoNumberField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addGeneratedColumn(field, '__auto_number', sql`double precision`);
   }
 
-  visitButtonField(field: ButtonField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitButtonField(
+    field: ButtonField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return this.addColumnFromValueType(field);
   }
 
-  visitLinkField(field: LinkField): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitLinkField(
+    field: LinkField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const addLinkValueColumn = this.addLinkValueColumn.bind(this);
     const buildManyManyStatements = this.buildManyManyStatements.bind(this);
     const buildOneManyJunctionStatements = this.buildOneManyJunctionStatements.bind(this);
@@ -273,7 +327,7 @@ export class PostgresTableSchemaFieldCreateVisitor
     const buildLinkReferenceStatements = this.buildLinkReferenceStatements.bind(this);
     const buildLinkOrderMetaStatements = this.buildLinkOrderMetaStatements.bind(this);
 
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const valueColumnStatements = yield* addLinkValueColumn(field);
       const referenceStatements = yield* buildLinkReferenceStatements(field);
       const relationship = field.relationship().toString();
@@ -308,14 +362,31 @@ export class PostgresTableSchemaFieldCreateVisitor
     });
   }
 
+  override visitLookupField(
+    field: LookupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    // Lookup fields store data similarly to rollup fields
+    // They need both a column AND reference records
+    const visitor = this;
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
+      const columnStatements = yield* visitor.addColumnFromValueType(field);
+      const referenceStatements = yield* visitor.buildLookupReferenceStatements(field);
+      return ok([...columnStatements, ...referenceStatements]);
+    });
+  }
+
   private addColumnFromValueType(
     field: Field
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(field);
       const dataType = yield* resolveColumnType(field);
-      const statements = yield* params.addColumn(columnName, dataType);
+      const statements = yield* params.addColumn(
+        columnName,
+        dataType,
+        buildColumnConstraints(field)
+      );
       return ok(statements);
     });
   }
@@ -324,9 +395,9 @@ export class PostgresTableSchemaFieldCreateVisitor
     field: Field,
     sourceColumn: string,
     columnType: ReturnType<typeof sql>
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(field);
       const definition = sql`${columnType} generated always as (${sql.ref(sourceColumn)}) stored`;
       const statement = addGeneratedColumnStatement(
@@ -344,24 +415,28 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private addLinkValueColumn(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const columnName = yield* resolveColumnName(field);
-      const statements = yield* params.addColumn(columnName, 'jsonb');
+      const statements = yield* params.addColumn(
+        columnName,
+        'jsonb',
+        buildColumnConstraints(field)
+      );
       return ok(statements);
     });
   }
 
   private addForeignKeyColumns(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const relationship = field.relationship().toString();
     const keyNameResult =
       relationship === 'oneMany' ? field.selfKeyNameString() : field.foreignKeyNameString();
 
     const params = this.params;
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const keyName = yield* keyNameResult;
       const statements = yield* params.addColumn(keyName, 'text');
       const orderColumnName = yield* field.orderColumnName();
@@ -372,10 +447,10 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildManyManyStatements(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fkHostTable = yield* resolveFkHostTable(field);
       const selfKeyName = yield* field.selfKeyNameString();
       const foreignKeyName = yield* field.foreignKeyNameString();
@@ -396,10 +471,10 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildOneManyJunctionStatements(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fkHostTable = yield* resolveFkHostTable(field);
       const selfKeyName = yield* field.selfKeyNameString();
       const foreignKeyName = yield* field.foreignKeyNameString();
@@ -420,7 +495,7 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildLinkOrderMetaStatements(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     if (!this.shouldPersistOrderColumnMeta(field)) return ok([]);
 
     const update = this.params.db
@@ -438,7 +513,7 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private resolveFkHostTable(
     field: LinkField
-  ): Result<{ schema: string | null; tableName: string }, string> {
+  ): Result<{ schema: string | null; tableName: string }, DomainError> {
     return field.fkHostTableName().split({ defaultSchema: this.params.currentSchema });
   }
 
@@ -454,7 +529,7 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildFormulaReferenceStatements(
     field: FormulaField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const dependencies = field.dependencies();
     if (dependencies.length === 0) return ok([]);
 
@@ -475,7 +550,7 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildLinkReferenceStatements(
     field: LinkField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const toFieldId = field.id().toString();
     const fromFieldId = field.lookupFieldId().toString();
     const insert = this.params.db
@@ -491,7 +566,31 @@ export class PostgresTableSchemaFieldCreateVisitor
 
   private buildRollupReferenceStatements(
     field: RollupField
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const toFieldId = field.id().toString();
+    const linkFieldId = field.linkFieldId().toString();
+    const lookupFieldId = field.lookupFieldId().toString();
+    const insert = this.params.db
+      .insertInto('reference')
+      .values([
+        {
+          id: getRandomString(25),
+          to_field_id: toFieldId,
+          from_field_id: linkFieldId,
+        },
+        {
+          id: getRandomString(25),
+          to_field_id: toFieldId,
+          from_field_id: lookupFieldId,
+        },
+      ])
+      .onConflict((oc) => oc.columns(['to_field_id', 'from_field_id']).doNothing());
+    return ok([insert]);
+  }
+
+  private buildLookupReferenceStatements(
+    field: LookupField
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const toFieldId = field.id().toString();
     const linkFieldId = field.linkFieldId().toString();
     const lookupFieldId = field.lookupFieldId().toString();

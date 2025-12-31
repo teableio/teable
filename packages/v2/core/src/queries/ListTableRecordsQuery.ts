@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 
@@ -21,9 +22,9 @@ export class ListTableRecordsQuery {
     readonly filter: RecordFilter | null | undefined
   ) {}
 
-  static create(raw: unknown): Result<ListTableRecordsQuery, string> {
+  static create(raw: unknown): Result<ListTableRecordsQuery, DomainError> {
     const parsed = listTableRecordsInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid ListTableRecordsQuery input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ListTableRecordsQuery input'));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(

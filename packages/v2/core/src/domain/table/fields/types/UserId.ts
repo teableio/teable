@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const userIdSchema = z.string().startsWith('usr').or(z.literal('me'));
@@ -11,9 +12,9 @@ export class UserId extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<UserId, string> {
+  static create(raw: unknown): Result<UserId, DomainError> {
     const parsed = userIdSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid UserId');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid UserId'));
     return ok(new UserId(parsed.data));
   }
 

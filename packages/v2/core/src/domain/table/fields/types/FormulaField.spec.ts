@@ -73,7 +73,7 @@ describe('FormulaField', () => {
     const newExpression = FormulaExpression.create('2 + 2');
     newExpression._unsafeUnwrap();
 
-    const updateExpression = field.setExpression(newExpression.value);
+    const updateExpression = field.setExpression(newExpression._unsafeUnwrap());
     updateExpression._unsafeUnwrap();
   });
 
@@ -99,7 +99,7 @@ describe('FormulaField', () => {
     const invalidFormattingField = buildFormulaField('d');
     invalidFormattingField?._unsafeUnwrap();
 
-    const invalidField = invalidFormattingField.value;
+    const invalidField = invalidFormattingField._unsafeUnwrap();
     invalidField
       .setResultType(CellValueType.number(), CellValueMultiplicity.single())
       ._unsafeUnwrap();
@@ -119,51 +119,50 @@ describe('FormulaField', () => {
       color: 'blue',
     });
     const textShowAs = SingleLineTextShowAs.create({ type: 'email' });
-    [singleShowAs, multiShowAs, textShowAs].forEach((r) => r._unsafeUnwrap());
-    singleShowAs._unsafeUnwrap();
-    multiShowAs._unsafeUnwrap();
-    textShowAs._unsafeUnwrap();
+    const singleShowAsValue = singleShowAs._unsafeUnwrap();
+    const multiShowAsValue = multiShowAs._unsafeUnwrap();
+    const textShowAsValue = textShowAs._unsafeUnwrap();
 
-    const singleShowAsField = buildFormulaField('e', { showAs: singleShowAs.value });
-    singleShowAsField?._unsafeUnwrap();
+    const singleShowAsField = buildFormulaField('e', { showAs: singleShowAsValue });
+    const singleShowAsValueField = singleShowAsField._unsafeUnwrap();
 
-    const singleResult = singleShowAsField.value.setResultType(
+    const singleResult = singleShowAsValueField.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
     singleResult._unsafeUnwrapErr();
 
-    const multiShowAsField = buildFormulaField('f', { showAs: multiShowAs.value });
-    multiShowAsField?._unsafeUnwrap();
+    const multiShowAsField = buildFormulaField('f', { showAs: multiShowAsValue });
+    const multiShowAsValueField = multiShowAsField._unsafeUnwrap();
 
-    const multiResult = multiShowAsField.value.setResultType(
+    const multiResult = multiShowAsValueField.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.single()
     );
     multiResult._unsafeUnwrapErr();
 
-    const okShowAsField = buildFormulaField('g', { showAs: multiShowAs.value });
-    okShowAsField?._unsafeUnwrap();
+    const okShowAsField = buildFormulaField('g', { showAs: multiShowAsValue });
+    const okShowAsValueField = okShowAsField._unsafeUnwrap();
 
-    const okResult = okShowAsField.value.setResultType(
+    const okResult = okShowAsValueField.setResultType(
       CellValueType.number(),
       CellValueMultiplicity.multiple()
     );
     okResult._unsafeUnwrap();
 
-    const stringWithNumberShowAs = buildFormulaField('h', { showAs: multiShowAs.value });
-    stringWithNumberShowAs?._unsafeUnwrap();
+    const stringWithNumberShowAs = buildFormulaField('h', { showAs: multiShowAsValue });
+    const stringWithNumberShowAsField = stringWithNumberShowAs._unsafeUnwrap();
 
-    const stringShowAsError = stringWithNumberShowAs.value.setResultType(
+    const stringShowAsError = stringWithNumberShowAsField.setResultType(
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
     stringShowAsError._unsafeUnwrapErr();
 
-    const stringWithTextShowAs = buildFormulaField('i', { showAs: textShowAs.value });
-    stringWithTextShowAs?._unsafeUnwrap();
+    const stringWithTextShowAs = buildFormulaField('i', { showAs: textShowAsValue });
+    const stringWithTextShowAsField = stringWithTextShowAs._unsafeUnwrap();
 
-    const stringShowAsOk = stringWithTextShowAs.value.setResultType(
+    const stringShowAsOk = stringWithTextShowAsField.setResultType(
       CellValueType.string(),
       CellValueMultiplicity.single()
     );
@@ -172,18 +171,18 @@ describe('FormulaField', () => {
     const dateTimeWithFormatting = buildFormulaField('j', {
       formatting: DateTimeFormatting.default(),
     });
-    dateTimeWithFormatting?._unsafeUnwrap();
+    const dateTimeWithFormattingField = dateTimeWithFormatting._unsafeUnwrap();
 
-    const dateTimeOk = dateTimeWithFormatting.value.setResultType(
+    const dateTimeOk = dateTimeWithFormattingField.setResultType(
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
     dateTimeOk._unsafeUnwrap();
 
-    const dateTimeWithShowAs = buildFormulaField('k', { showAs: textShowAs.value });
-    dateTimeWithShowAs?._unsafeUnwrap();
+    const dateTimeWithShowAs = buildFormulaField('k', { showAs: textShowAsValue });
+    const dateTimeWithShowAsField = dateTimeWithShowAs._unsafeUnwrap();
 
-    const dateTimeShowAsError = dateTimeWithShowAs.value.setResultType(
+    const dateTimeShowAsError = dateTimeWithShowAsField.setResultType(
       CellValueType.dateTime(),
       CellValueMultiplicity.single()
     );
@@ -192,18 +191,18 @@ describe('FormulaField', () => {
     const booleanWithFormatting = buildFormulaField('l', {
       formatting: NumberFormatting.default(),
     });
-    booleanWithFormatting?._unsafeUnwrap();
+    const booleanWithFormattingField = booleanWithFormatting._unsafeUnwrap();
 
-    const booleanFormattingError = booleanWithFormatting.value.setResultType(
+    const booleanFormattingError = booleanWithFormattingField.setResultType(
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
     booleanFormattingError._unsafeUnwrapErr();
 
     const booleanOk = buildFormulaField('m');
-    booleanOk?._unsafeUnwrap();
+    const booleanOkField = booleanOk._unsafeUnwrap();
 
-    const booleanResult = booleanOk.value.setResultType(
+    const booleanResult = booleanOkField.setResultType(
       CellValueType.boolean(),
       CellValueMultiplicity.single()
     );
@@ -227,19 +226,15 @@ describe('FormulaField', () => {
     metaResult._unsafeUnwrap();
 
     const fieldWithMeta = buildFormulaField('n', { meta: metaResult._unsafeUnwrap() });
-    fieldWithMeta?._unsafeUnwrap();
+    const fieldWithMetaValue = fieldWithMeta._unsafeUnwrap();
 
-    const persisted = fieldWithMeta.value.isPersistedAsGeneratedColumn();
-    persisted._unsafeUnwrap();
-
-    expect(persisted.value).toBe(true);
+    const persisted = fieldWithMetaValue.isPersistedAsGeneratedColumn();
+    expect(persisted._unsafeUnwrap()).toBe(true);
 
     const fieldWithoutMeta = buildFormulaField('o');
-    fieldWithoutMeta?._unsafeUnwrap();
+    const fieldWithoutMetaValue = fieldWithoutMeta._unsafeUnwrap();
 
-    const notPersisted = fieldWithoutMeta.value.isPersistedAsGeneratedColumn();
-    notPersisted._unsafeUnwrap();
-
-    expect(notPersisted.value).toBe(false);
+    const notPersisted = fieldWithoutMetaValue.isPersistedAsGeneratedColumn();
+    expect(notPersisted._unsafeUnwrap()).toBe(false);
   });
 });

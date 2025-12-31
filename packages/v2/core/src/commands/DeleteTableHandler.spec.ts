@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { TableDeleted } from '../domain/table/events/TableDeleted';
@@ -42,9 +43,9 @@ const buildTable = (baseIdSeed: string): Table => {
 class FakeTableRepository implements ITableRepository {
   tables: Table[] = [];
   deleted: Table[] = [];
-  failDelete: string | undefined;
+  failDelete: DomainError | undefined;
 
-  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, string>> {
+  async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
     return ok(table);
   }
@@ -52,9 +53,9 @@ class FakeTableRepository implements ITableRepository {
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
+  ): Promise<Result<Table, DomainError>> {
     const found = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!found) return err('Not found');
+    if (!found) return err(domainError.fromMessage('Not found'));
     return ok(found);
   }
 
@@ -62,7 +63,7 @@ class FakeTableRepository implements ITableRepository {
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>,
     ___?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok([]);
   }
 
@@ -70,11 +71,11 @@ class FakeTableRepository implements ITableRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
-    return err('Not implemented');
+  ): Promise<Result<void, DomainError>> {
+    return err(domainError.fromMessage('Not implemented'));
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     if (this.failDelete) return err(this.failDelete);
     this.deleted.push(table);
     return ok(undefined);
@@ -83,9 +84,9 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   deleted: Table[] = [];
-  failDelete: string | undefined;
+  failDelete: DomainError | undefined;
 
-  async insert(_: IExecutionContext, __: Table): Promise<Result<void, string>> {
+  async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
@@ -93,11 +94,11 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
     _: IExecutionContext,
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 
-  async delete(_: IExecutionContext, table: Table): Promise<Result<void, string>> {
+  async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     if (this.failDelete) return err(this.failDelete);
     this.deleted.push(table);
     return ok(undefined);
@@ -106,7 +107,7 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
-  failPublish: string | undefined;
+  failPublish: DomainError | undefined;
 
   async publish(_context: IExecutionContext, event: IDomainEvent) {
     this.published.push(event);
@@ -155,7 +156,7 @@ class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
-  ): Promise<Result<T, string>> {
+  ): Promise<Result<T, DomainError>> {
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     const transactionContext = { ...context, transaction };
     this.transactions.push(transactionContext);
@@ -208,7 +209,7 @@ describe('DeleteTableHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toBe('Table not found');
+    expect(result._unsafeUnwrapErr().message).toBe('Table not found');
   });
 
   it('returns errors from repositories and event bus', async () => {
@@ -232,18 +233,18 @@ describe('DeleteTableHandler', () => {
     });
     commandResult._unsafeUnwrap();
 
-    schemaRepo.failDelete = 'schema delete failed';
+    schemaRepo.failDelete = domainError.fromMessage('schema delete failed');
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(schemaResult._unsafeUnwrapErr()).toBe('schema delete failed');
+    expect(schemaResult._unsafeUnwrapErr().message).toBe('schema delete failed');
 
     schemaRepo.failDelete = undefined;
-    repo.failDelete = 'repo delete failed';
+    repo.failDelete = domainError.fromMessage('repo delete failed');
     const repoResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(repoResult._unsafeUnwrapErr()).toBe('repo delete failed');
+    expect(repoResult._unsafeUnwrapErr().message).toBe('repo delete failed');
 
     repo.failDelete = undefined;
-    eventBus.failPublish = 'publish failed';
+    eventBus.failPublish = domainError.fromMessage('publish failed');
     const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(publishResult._unsafeUnwrapErr()).toBe('publish failed');
+    expect(publishResult._unsafeUnwrapErr().message).toBe('publish failed');
   });
 });

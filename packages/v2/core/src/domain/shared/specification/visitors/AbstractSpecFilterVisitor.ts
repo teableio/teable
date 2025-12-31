@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../DomainError';
 import type { ISpecification } from '../ISpecification';
 import type { ISpecVisitor } from '../ISpecVisitor';
 import type { ISpecFilterVisitor } from './ISpecFilterVisitor';
@@ -12,11 +13,11 @@ export abstract class AbstractSpecFilterVisitor<Cond>
 {
   private condValue: Cond | undefined;
 
-  visit(_: ISpecification): Result<void, string> {
+  visit(_: ISpecification): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  addCond(cond: Cond): Result<void, string> {
+  addCond(cond: Cond): Result<void, DomainError> {
     const current = this.condValue;
     if (!current) {
       this.condValue = cond;
@@ -27,8 +28,8 @@ export abstract class AbstractSpecFilterVisitor<Cond>
     return ok(undefined);
   }
 
-  where(): Result<Cond, string> {
-    if (!this.condValue) return err(emptyWhereError);
+  where(): Result<Cond, DomainError> {
+    if (!this.condValue) return err(domainError.fromMessage(emptyWhereError));
     return ok(this.condValue);
   }
 

@@ -4,12 +4,16 @@ import type { PubSub } from 'sharedb';
 
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
+import { domainError, type DomainError } from '@teable/v2-core';
 type ShareDbPubSub = Pick<PubSub, 'publish'>;
 
 export class ShareDbPubSubPublisher implements IShareDbOpPublisher {
   constructor(private readonly pubsub: ShareDbPubSub) {}
 
-  async publish(channels: ReadonlyArray<string>, op: ShareDbOp): Promise<Result<void, string>> {
+  async publish(
+    channels: ReadonlyArray<string>,
+    op: ShareDbOp
+  ): Promise<Result<void, DomainError>> {
     const channelList = [...channels];
     return new Promise((resolve) => {
       this.pubsub.publish(channelList, op, (error) => {
@@ -18,10 +22,10 @@ export class ShareDbPubSubPublisher implements IShareDbOpPublisher {
           return;
         }
         if (error instanceof Error) {
-          resolve(err(error.message));
+          resolve(err(domainError.fromUnknown(error)));
           return;
         }
-        resolve(err('ShareDB publish failed'));
+        resolve(err(domainError.fromMessage('ShareDB publish failed')));
       });
     });
   }

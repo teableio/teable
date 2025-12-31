@@ -1,27 +1,30 @@
-import type {
-  AttachmentField,
-  AutoNumberField,
-  ButtonField,
-  CheckboxField,
-  CreatedByField,
-  CreatedTimeField,
-  DateField,
-  Field,
-  FieldId,
-  FormulaField,
-  IFieldVisitor,
-  LastModifiedByField,
-  LastModifiedTimeField,
-  LinkField,
-  LongTextField,
-  MultipleSelectField,
-  NumberField,
-  RatingField,
-  RollupField,
-  SingleLineTextField,
-  SingleSelectField,
-  Table,
-  UserField,
+import {
+  AbstractFieldVisitor,
+  domainError,
+  type AttachmentField,
+  type AutoNumberField,
+  type ButtonField,
+  type CheckboxField,
+  type CreatedByField,
+  type CreatedTimeField,
+  type DateField,
+  type DomainError,
+  type Field,
+  type FieldId,
+  type FormulaField,
+  type LastModifiedByField,
+  type LastModifiedTimeField,
+  type LinkField,
+  type LongTextField,
+  type LookupField,
+  type MultipleSelectField,
+  type NumberField,
+  type RatingField,
+  type RollupField,
+  type SingleLineTextField,
+  type SingleSelectField,
+  type Table,
+  type UserField,
 } from '@teable/v2-core';
 import type { DynamicModule, DynamicReferenceBuilder } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
@@ -32,12 +35,12 @@ export type FieldColumn = {
   dbFieldName: string;
 };
 
-export class TableRecordSelectColumnsVisitor implements IFieldVisitor<FieldColumn> {
+export class TableRecordSelectColumnsVisitor extends AbstractFieldVisitor<FieldColumn> {
   private readonly columns: FieldColumn[] = [];
   private readonly seen = new Set<string>();
 
-  apply(table: Table): Result<ReadonlyArray<FieldColumn>, string> {
-    return safeTry<ReadonlyArray<FieldColumn>, string>(
+  apply(table: Table): Result<ReadonlyArray<FieldColumn>, DomainError> {
+    return safeTry<ReadonlyArray<FieldColumn>, DomainError>(
       function* (this: TableRecordSelectColumnsVisitor) {
         for (const field of table.getFields()) {
           yield* field.accept(this);
@@ -61,88 +64,93 @@ export class TableRecordSelectColumnsVisitor implements IFieldVisitor<FieldColum
     ];
   }
 
-  visitSingleLineTextField(field: SingleLineTextField): Result<FieldColumn, string> {
+  visitSingleLineTextField(field: SingleLineTextField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitLongTextField(field: LongTextField): Result<FieldColumn, string> {
+  visitLongTextField(field: LongTextField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitNumberField(field: NumberField): Result<FieldColumn, string> {
+  visitNumberField(field: NumberField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitRatingField(field: RatingField): Result<FieldColumn, string> {
+  visitRatingField(field: RatingField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitFormulaField(field: FormulaField): Result<FieldColumn, string> {
+  visitFormulaField(field: FormulaField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitRollupField(field: RollupField): Result<FieldColumn, string> {
+  visitRollupField(field: RollupField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitSingleSelectField(field: SingleSelectField): Result<FieldColumn, string> {
+  visitSingleSelectField(field: SingleSelectField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitMultipleSelectField(field: MultipleSelectField): Result<FieldColumn, string> {
+  visitMultipleSelectField(field: MultipleSelectField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitCheckboxField(field: CheckboxField): Result<FieldColumn, string> {
+  visitCheckboxField(field: CheckboxField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitAttachmentField(field: AttachmentField): Result<FieldColumn, string> {
+  visitAttachmentField(field: AttachmentField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitDateField(field: DateField): Result<FieldColumn, string> {
+  visitDateField(field: DateField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitCreatedTimeField(field: CreatedTimeField): Result<FieldColumn, string> {
+  visitCreatedTimeField(field: CreatedTimeField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<FieldColumn, string> {
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitUserField(field: UserField): Result<FieldColumn, string> {
+  visitUserField(field: UserField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitCreatedByField(field: CreatedByField): Result<FieldColumn, string> {
+  visitCreatedByField(field: CreatedByField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitLastModifiedByField(field: LastModifiedByField): Result<FieldColumn, string> {
+  visitLastModifiedByField(field: LastModifiedByField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitAutoNumberField(field: AutoNumberField): Result<FieldColumn, string> {
+  visitAutoNumberField(field: AutoNumberField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitButtonField(field: ButtonField): Result<FieldColumn, string> {
+  visitButtonField(field: ButtonField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  visitLinkField(field: LinkField): Result<FieldColumn, string> {
+  visitLinkField(field: LinkField): Result<FieldColumn, DomainError> {
     return this.addFieldColumn(field);
   }
 
-  private addFieldColumn(field: Field): Result<FieldColumn, string> {
-    return safeTry<FieldColumn, string>(
+  override visitLookupField(field: LookupField): Result<FieldColumn, DomainError> {
+    // Lookup fields need their own column, not delegation to inner field
+    return this.addFieldColumn(field);
+  }
+
+  private addFieldColumn(field: Field): Result<FieldColumn, DomainError> {
+    return safeTry<FieldColumn, DomainError>(
       function* (this: TableRecordSelectColumnsVisitor) {
         const dbFieldName = yield* field.dbFieldName();
         const column = yield* dbFieldName.value();
-        if (this.seen.has(column)) return err('Duplicate DbFieldName');
+        if (this.seen.has(column)) return err(domainError.fromMessage('Duplicate DbFieldName'));
         this.seen.add(column);
         const next = { fieldId: field.id(), dbFieldName: column };
         this.columns.push(next);

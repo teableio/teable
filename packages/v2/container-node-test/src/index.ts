@@ -10,6 +10,7 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-reposito
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
+  DefaultTableMapper,
   FieldCreationSideEffectService,
   FieldDeletionSideEffectService,
   ForeignTableLoaderService,
@@ -116,6 +117,11 @@ export const createV2NodeTestContainer = async (
       lifecycle: Lifecycle.Singleton,
     });
   }
+  if (!c.isRegistered(v2CoreTokens.tableMapper)) {
+    c.register(v2CoreTokens.tableMapper, DefaultTableMapper, {
+      lifecycle: Lifecycle.Singleton,
+    });
+  }
 
   const commandBus = new MemoryCommandBus(c);
   const queryBus = new MemoryQueryBus(c);
@@ -127,7 +133,7 @@ export const createV2NodeTestContainer = async (
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
-    throw new Error(baseIdResult.error);
+    throw new Error(baseIdResult.error.message);
   }
   const baseId = baseIdResult.value;
   const shouldSeedBase = options.seedBase ?? true;

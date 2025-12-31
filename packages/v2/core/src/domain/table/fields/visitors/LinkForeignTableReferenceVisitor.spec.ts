@@ -92,11 +92,10 @@ describe('LinkForeignTableReferenceVisitor', () => {
       duplicateFieldResult._unsafeUnwrap(),
       otherLinkFieldResult._unsafeUnwrap(),
     ]);
-    result._unsafeUnwrap();
+    const references = result._unsafeUnwrap();
+    expect(references).toHaveLength(2);
 
-    expect(result.value).toHaveLength(2);
-
-    const crossBase = result.value.find((ref) =>
+    const crossBase = references.find((ref) =>
       ref.foreignTableId.equals(foreignTableIdResult._unsafeUnwrap())
     );
     expect(crossBase).toBeDefined();

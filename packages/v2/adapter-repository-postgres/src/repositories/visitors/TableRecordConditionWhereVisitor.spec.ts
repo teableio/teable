@@ -515,7 +515,7 @@ describe('TableRecordConditionWhereVisitor', () => {
 
     if (expectError) {
       expect(visitResult.isErr()).toBe(true);
-      expect(visitResult._unsafeUnwrapErr()).toMatchSnapshot();
+      expect(visitResult._unsafeUnwrapErr().message).toMatchSnapshot();
       return;
     }
 

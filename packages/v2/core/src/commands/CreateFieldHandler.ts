@@ -5,6 +5,7 @@ import type { Result } from 'neverthrow';
 import { FieldCreationSideEffectService } from '../application/services/FieldCreationSideEffectService';
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { Field } from '../domain/table/fields/Field';
 import type { Table } from '../domain/table/Table';
@@ -42,9 +43,9 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     command: CreateFieldCommand
-  ): Promise<Result<CreateFieldResult, string>> {
+  ): Promise<Result<CreateFieldResult, DomainError>> {
     const handler = this;
-    return safeTry<CreateFieldResult, string>(async function* () {
+    return safeTry<CreateFieldResult, DomainError>(async function* () {
       const foreignTableReferences = yield* command.foreignTableReferences();
       const foreignTables = yield* await handler.foreignTableLoaderService.load(context, {
         baseId: command.baseId,
@@ -70,8 +71,8 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
         {
           hooks: {
             afterPersist: async (transactionContext, updatedTable) =>
-              safeTry<ReadonlyArray<IDomainEvent>, string>(async function* () {
-                if (!createdField) return err('Field not created');
+              safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
+                if (!createdField) return err(domainError.fromMessage('Field not created'));
                 const events = yield* await handler.fieldCreationSideEffectService.execute(
                   transactionContext,
                   {

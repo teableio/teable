@@ -11,7 +11,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Subfolders
 
 - `specs/` - Field specifications and builder.
-- `types/` - Field subtypes and type-specific value objects.
+- `types/` - Field subtypes and type-specific value objects (computed/not-null/unique flags).
 - `visitors/` - Field visitor interfaces and defaults.
 
 ## Files

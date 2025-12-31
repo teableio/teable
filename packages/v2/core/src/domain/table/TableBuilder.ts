@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../base/BaseId';
+import { domainError, type DomainError } from '../shared/DomainError';
 import { DbTableName } from './DbTableName';
 import type { Field } from './fields/Field';
 import { createNewLinkField } from './fields/FieldFactory';
@@ -23,6 +24,8 @@ import type { DateDefaultValue } from './fields/types/DateDefaultValue';
 import { DateField } from './fields/types/DateField';
 import { DateTimeFormatting } from './fields/types/DateTimeFormatting';
 import { FieldColor } from './fields/types/FieldColor';
+import { FieldNotNull } from './fields/types/FieldNotNull';
+import { FieldUnique } from './fields/types/FieldUnique';
 import type { FormulaExpression } from './fields/types/FormulaExpression';
 import {
   FormulaField,
@@ -33,6 +36,8 @@ import { LastModifiedByField } from './fields/types/LastModifiedByField';
 import { LastModifiedTimeField } from './fields/types/LastModifiedTimeField';
 import type { LinkFieldConfig } from './fields/types/LinkFieldConfig';
 import { LongTextField } from './fields/types/LongTextField';
+import { LookupField } from './fields/types/LookupField';
+import type { LookupOptions } from './fields/types/LookupOptions';
 import { MultipleSelectField } from './fields/types/MultipleSelectField';
 import type { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { NumberField } from './fields/types/NumberField';
@@ -90,9 +95,9 @@ export type TableBuildOptions = {
 export type ITableFactory = (props: ITableBuildProps) => Table;
 
 export interface ITableBuilderSink {
-  addError(message: string): void;
-  addFieldResult(result: Result<Field, string>): void;
-  addViewResult(result: Result<View, string>): void;
+  addError(error: DomainError | string): void;
+  addFieldResult(result: Result<Field, DomainError>): void;
+  addViewResult(result: Result<View, DomainError>): void;
 }
 
 const fieldNameRequiredError = 'FieldName is required';
@@ -101,6 +106,8 @@ const formulaExpressionRequiredError = 'Formula expression is required';
 const linkConfigRequiredError = 'LinkFieldConfig is required';
 const rollupExpressionRequiredError = 'Rollup expression is required';
 const rollupConfigRequiredError = 'RollupFieldConfig is required';
+const lookupOptionsRequiredError = 'LookupOptions is required';
+const lookupInnerFieldRequiredError = 'Lookup inner field is required';
 
 const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): boolean => {
   const seen = new Set<string>();
@@ -112,8 +119,18 @@ const isUniqueByStringValue = (values: ReadonlyArray<{ toString(): string }>): b
   return true;
 };
 
-const resolveFieldId = (id?: FieldId): Result<FieldId, string> =>
+const resolveFieldId = (id?: FieldId): Result<FieldId, DomainError> =>
   id ? ok(id) : FieldId.generate();
+
+const applyFieldValidation = (
+  field: Field,
+  notNull: FieldNotNull,
+  unique: FieldUnique
+): Result<Field, DomainError> =>
+  field
+    .setNotNull(notNull)
+    .andThen(() => field.setUnique(unique))
+    .map(() => field);
 
 export class TableBuilder {
   private tableId: TableId | undefined;
@@ -121,7 +138,7 @@ export class TableBuilder {
   private tableName: TableName | undefined;
   private readonly fields: Field[] = [];
   private readonly views: View[] = [];
-  private readonly errors: string[] = [];
+  private readonly errors: DomainError[] = [];
   private primaryFieldId: FieldId | undefined;
 
   private constructor(private readonly factory: ITableFactory) {}
@@ -153,26 +170,37 @@ export class TableBuilder {
     return new TableViewBuilder(this, this.sink());
   }
 
-  build(options?: TableBuildOptions): Result<Table, string> {
+  build(options?: TableBuildOptions): Result<Table, DomainError> {
     const tableName = this.tableName;
-    if (!tableName) return err('TableName is required');
+    if (!tableName) return err(domainError.fromMessage('TableName is required'));
     const baseId = this.baseId;
-    if (!baseId) return err('BaseId is required');
+    if (!baseId) return err(domainError.fromMessage('BaseId is required'));
 
-    if (this.errors.length > 0) return err(this.errors.join('; '));
+    if (this.errors.length > 0) {
+      if (this.errors.length === 1) return err(this.errors[0]);
+      return err(
+        domainError.validation({
+          code: 'table.builder',
+          message: 'Table builder errors',
+          details: { errors: this.errors.map((error) => error.message) },
+        })
+      );
+    }
 
-    if (this.fields.length === 0) return err('Table requires at least one Field');
-    if (this.views.length === 0) return err('Table requires at least one View');
+    if (this.fields.length === 0)
+      return err(domainError.fromMessage('Table requires at least one Field'));
+    if (this.views.length === 0)
+      return err(domainError.fromMessage('Table requires at least one View'));
     if (!isUniqueByStringValue(this.views.map((v) => v.name())))
-      return err('View names must be unique');
+      return err(domainError.fromMessage('View names must be unique'));
 
     if (!isUniqueByStringValue(this.fields.map((f) => f.name())))
-      return err('Field names must be unique');
+      return err(domainError.fromMessage('Field names must be unique'));
 
     const primaryFieldId = this.primaryFieldId ?? this.fields[0]?.id();
-    if (!primaryFieldId) return err('Table requires a primary Field');
+    if (!primaryFieldId) return err(domainError.fromMessage('Table requires a primary Field'));
     if (!this.fields.some((f) => f.id().equals(primaryFieldId)))
-      return err('Primary Field must exist in Table fields');
+      return err(domainError.fromMessage('Primary Field must exist in Table fields'));
 
     const columnMetaResult = this.applyViewColumnMeta(this.views, this.fields, primaryFieldId);
     if (columnMetaResult.isErr()) return err(columnMetaResult.error);
@@ -200,7 +228,7 @@ export class TableBuilder {
     );
   }
 
-  ensureTableId(): Result<TableId, string> {
+  ensureTableId(): Result<TableId, DomainError> {
     if (this.tableId) return ok(this.tableId);
     return TableId.generate().map((id) => {
       this.tableId = id;
@@ -208,8 +236,8 @@ export class TableBuilder {
     });
   }
 
-  requireBaseId(): Result<BaseId, string> {
-    if (!this.baseId) return err('BaseId is required');
+  requireBaseId(): Result<BaseId, DomainError> {
+    if (!this.baseId) return err(domainError.fromMessage('BaseId is required'));
     return ok(this.baseId);
   }
 
@@ -221,8 +249,8 @@ export class TableBuilder {
     };
   }
 
-  private addError(message: string): void {
-    this.errors.push(message);
+  private addError(error: DomainError | string): void {
+    this.errors.push(typeof error === 'string' ? domainError.fromMessage(error) : error);
   }
 
   private addField(field: Field): void {
@@ -233,22 +261,23 @@ export class TableBuilder {
     this.views.push(view);
   }
 
-  private addFieldResult(result: Result<Field, string>): void {
+  private addFieldResult(result: Result<Field, DomainError>): void {
     result.match(
       (field) => this.addField(field),
       (e) => this.addError(e)
     );
   }
 
-  private addViewResult(result: Result<View, string>): void {
+  private addViewResult(result: Result<View, DomainError>): void {
     result.match(
       (view) => this.addView(view),
       (e) => this.addError(e)
     );
   }
 
-  markPrimaryFieldId(fieldId: FieldId): Result<void, string> {
-    if (this.primaryFieldId) return err('Table can only have one primary Field');
+  markPrimaryFieldId(fieldId: FieldId): Result<void, DomainError> {
+    if (this.primaryFieldId)
+      return err(domainError.fromMessage('Table can only have one primary Field'));
     this.primaryFieldId = fieldId;
     return ok(undefined);
   }
@@ -257,7 +286,7 @@ export class TableBuilder {
     views: ReadonlyArray<View>,
     fields: ReadonlyArray<Field>,
     primaryFieldId: FieldId
-  ): Result<void, string> {
+  ): Result<void, DomainError> {
     for (const view of views) {
       const metaResult = ViewColumnMeta.forView({
         viewType: view.type(),
@@ -271,7 +300,10 @@ export class TableBuilder {
     return ok(undefined);
   }
 
-  private validateForeignTables(table: Table, options?: TableBuildOptions): Result<void, string> {
+  private validateForeignTables(
+    table: Table,
+    options?: TableBuildOptions
+  ): Result<void, DomainError> {
     const foreignTables = [...(options?.foreignTables ?? [])];
     if (options?.includeSelf) {
       foreignTables.push(table);
@@ -312,6 +344,10 @@ export class TableFieldBuilder {
 
   rollup(): RollupFieldBuilder {
     return new RollupFieldBuilder(this.parent, this.sink);
+  }
+
+  lookup(): LookupFieldBuilder {
+    return new LookupFieldBuilder(this.parent, this.sink);
   }
 
   singleSelect(): SingleSelectFieldBuilder {
@@ -372,6 +408,8 @@ export class SingleLineTextFieldBuilder {
   private name: FieldName | undefined;
   private showAs: SingleLineTextShowAs | undefined;
   private defaultValue: TextDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -399,6 +437,16 @@ export class SingleLineTextFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): SingleLineTextFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): SingleLineTextFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): SingleLineTextFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -417,10 +465,12 @@ export class SingleLineTextFieldBuilder {
         name,
         showAs: this.showAs,
         defaultValue: this.defaultValue,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -431,6 +481,8 @@ export class LongTextFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
   private defaultValue: TextDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -453,6 +505,16 @@ export class LongTextFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): LongTextFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): LongTextFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): LongTextFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -466,10 +528,12 @@ export class LongTextFieldBuilder {
     }
 
     const result = resolveFieldId(this.id).andThen((id) =>
-      LongTextField.create({ id, name, defaultValue: this.defaultValue }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
-      })
+      LongTextField.create({ id, name, defaultValue: this.defaultValue })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -482,6 +546,8 @@ export class NumberFieldBuilder {
   private formatting: NumberFormatting = NumberFormatting.default();
   private showAs: NumberShowAs | undefined;
   private defaultValue: NumberDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -514,6 +580,16 @@ export class NumberFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): NumberFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): NumberFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): NumberFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -533,10 +609,12 @@ export class NumberFieldBuilder {
         formatting: this.formatting,
         showAs: this.showAs,
         defaultValue: this.defaultValue,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -549,6 +627,8 @@ export class RatingFieldBuilder {
   private max: RatingMax = RatingMax.five();
   private icon: RatingIcon = RatingIcon.star();
   private color: RatingColor = RatingColor.yellowBright();
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -581,6 +661,16 @@ export class RatingFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): RatingFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): RatingFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): RatingFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -595,10 +685,11 @@ export class RatingFieldBuilder {
 
     const result = resolveFieldId(this.id).andThen((id) =>
       RatingField.create({ id, name, max: this.max, icon: this.icon, color: this.color }).andThen(
-        (field) => {
-          if (!this.isPrimary) return ok(field);
-          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
-        }
+        (field) =>
+          applyFieldValidation(field, this.notNull, this.unique).andThen((validated) => {
+            if (!this.isPrimary) return ok(validated);
+            return this.parent.markPrimaryFieldId(validated.id()).map(() => validated);
+          })
       )
     );
     this.sink.addFieldResult(result);
@@ -810,12 +901,95 @@ export class RollupFieldBuilder {
   }
 }
 
+export class LookupFieldBuilder {
+  private id: FieldId | undefined;
+  private name: FieldName | undefined;
+  private lookupOptions: LookupOptions | undefined;
+  private innerField: Field | undefined;
+  private dependencies: ReadonlyArray<FieldId> = [];
+  private isPrimary = false;
+
+  constructor(
+    private readonly parent: TableBuilder,
+    private readonly sink: ITableBuilderSink
+  ) {}
+
+  withName(name: FieldName): LookupFieldBuilder {
+    this.name = name;
+    return this;
+  }
+
+  withId(id: FieldId): LookupFieldBuilder {
+    this.id = id;
+    return this;
+  }
+
+  withLookupOptions(options: LookupOptions): LookupFieldBuilder {
+    this.lookupOptions = options;
+    return this;
+  }
+
+  /**
+   * Set the inner field that defines the lookup value type and formatting.
+   * This should be a field that matches the type of the field being looked up.
+   */
+  withInnerField(innerField: Field): LookupFieldBuilder {
+    this.innerField = innerField;
+    return this;
+  }
+
+  withDependencies(dependencies: ReadonlyArray<FieldId>): LookupFieldBuilder {
+    this.dependencies = [...dependencies];
+    return this;
+  }
+
+  primary(): LookupFieldBuilder {
+    this.isPrimary = true;
+    return this;
+  }
+
+  done(): TableBuilder {
+    const name = this.name;
+    if (!name) {
+      this.sink.addError(fieldNameRequiredError);
+      return this.parent;
+    }
+    const lookupOptions = this.lookupOptions;
+    if (!lookupOptions) {
+      this.sink.addError(lookupOptionsRequiredError);
+      return this.parent;
+    }
+    const innerField = this.innerField;
+    if (!innerField) {
+      this.sink.addError(lookupInnerFieldRequiredError);
+      return this.parent;
+    }
+
+    const result = resolveFieldId(this.id).andThen((id) =>
+      LookupField.create({
+        id,
+        name,
+        innerField,
+        lookupOptions,
+        dependencies: this.dependencies,
+      }).andThen((field) => {
+        if (!this.isPrimary) return ok(field);
+        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+      })
+    );
+    this.sink.addFieldResult(result);
+    return this.parent;
+  }
+}
+
 export class SingleSelectFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
   private options: ReadonlyArray<SelectOption> = [];
   private defaultValue: SelectDefaultValue | undefined;
   private preventAutoNewOptions: SelectAutoNewOptions = SelectAutoNewOptions.allow();
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -848,6 +1022,16 @@ export class SingleSelectFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): SingleSelectFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): SingleSelectFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): SingleSelectFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -867,10 +1051,12 @@ export class SingleSelectFieldBuilder {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -883,6 +1069,8 @@ export class MultipleSelectFieldBuilder {
   private options: ReadonlyArray<SelectOption> = [];
   private defaultValue: SelectDefaultValue | undefined;
   private preventAutoNewOptions: SelectAutoNewOptions = SelectAutoNewOptions.allow();
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -917,6 +1105,16 @@ export class MultipleSelectFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): MultipleSelectFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): MultipleSelectFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): MultipleSelectFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -936,10 +1134,12 @@ export class MultipleSelectFieldBuilder {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -950,6 +1150,8 @@ export class CheckboxFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
   private defaultValue: CheckboxDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -972,6 +1174,16 @@ export class CheckboxFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): CheckboxFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): CheckboxFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): CheckboxFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -985,10 +1197,12 @@ export class CheckboxFieldBuilder {
     }
 
     const result = resolveFieldId(this.id).andThen((id) =>
-      CheckboxField.create({ id, name, defaultValue: this.defaultValue }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
-      })
+      CheckboxField.create({ id, name, defaultValue: this.defaultValue })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -998,6 +1212,8 @@ export class CheckboxFieldBuilder {
 export class AttachmentFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -1015,6 +1231,16 @@ export class AttachmentFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): AttachmentFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): AttachmentFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): AttachmentFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1028,10 +1254,12 @@ export class AttachmentFieldBuilder {
     }
 
     const result = resolveFieldId(this.id).andThen((id) =>
-      AttachmentField.create({ id, name }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
-      })
+      AttachmentField.create({ id, name })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -1043,6 +1271,8 @@ export class DateFieldBuilder {
   private name: FieldName | undefined;
   private formatting: DateTimeFormatting = DateTimeFormatting.default();
   private defaultValue: DateDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -1070,6 +1300,16 @@ export class DateFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): DateFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): DateFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): DateFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1088,10 +1328,12 @@ export class DateFieldBuilder {
         name,
         formatting: this.formatting,
         defaultValue: this.defaultValue,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -1217,6 +1459,8 @@ export class UserFieldBuilder {
   private multiplicity: UserMultiplicity = UserMultiplicity.single();
   private notification: UserNotification = UserNotification.enabled();
   private defaultValue: UserDefaultValue | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -1249,6 +1493,16 @@ export class UserFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): UserFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): UserFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): UserFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1268,10 +1522,12 @@ export class UserFieldBuilder {
         isMultiple: this.multiplicity,
         shouldNotify: this.notification,
         defaultValue: this.defaultValue,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -1423,6 +1679,8 @@ export class ButtonFieldBuilder {
   private maxCount: ButtonMaxCount | undefined;
   private resetCount: ButtonResetCount | undefined;
   private workflow: ButtonWorkflow | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -1465,6 +1723,16 @@ export class ButtonFieldBuilder {
     return this;
   }
 
+  withNotNull(notNull: FieldNotNull): ButtonFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): ButtonFieldBuilder {
+    this.unique = unique;
+    return this;
+  }
+
   primary(): ButtonFieldBuilder {
     this.isPrimary = true;
     return this;
@@ -1486,10 +1754,12 @@ export class ButtonFieldBuilder {
         maxCount: this.maxCount,
         resetCount: this.resetCount,
         workflow: this.workflow,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;
@@ -1500,6 +1770,8 @@ export class LinkFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
   private config: LinkFieldConfig | undefined;
+  private notNull: FieldNotNull = FieldNotNull.optional();
+  private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
 
   constructor(
@@ -1519,6 +1791,16 @@ export class LinkFieldBuilder {
 
   withConfig(config: LinkFieldConfig): LinkFieldBuilder {
     this.config = config;
+    return this;
+  }
+
+  withNotNull(notNull: FieldNotNull): LinkFieldBuilder {
+    this.notNull = notNull;
+    return this;
+  }
+
+  withUnique(unique: FieldUnique): LinkFieldBuilder {
+    this.unique = unique;
     return this;
   }
 
@@ -1557,10 +1839,12 @@ export class LinkFieldBuilder {
         config,
         baseId: baseIdResult.value,
         hostTableId: tableIdResult.value,
-      }).andThen((field) => {
-        if (!this.isPrimary) return ok(field);
-        return this.parent.markPrimaryFieldId(field.id()).map(() => field);
       })
+        .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
+        .andThen((field) => {
+          if (!this.isPrimary) return ok(field);
+          return this.parent.markPrimaryFieldId(field.id()).map(() => field);
+        })
     );
     this.sink.addFieldResult(result);
     return this.parent;

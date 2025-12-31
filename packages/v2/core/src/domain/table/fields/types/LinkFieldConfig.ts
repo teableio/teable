@@ -3,6 +3,7 @@ import { err, ok, safeTry } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../../../base/BaseId';
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { getRandomString } from '../../../shared/IdGenerator';
 import { ValueObject } from '../../../shared/ValueObject';
 import { DbTableName } from '../../DbTableName';
@@ -50,16 +51,16 @@ export type LinkFieldDbConfig = {
 
 const optional = <T>(
   raw: unknown,
-  parser: (value: unknown) => Result<T, string>
-): Result<T | undefined, string> => {
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
 };
 
 const optionalNullable = <T>(
   raw: unknown,
-  parser: (value: unknown) => Result<T, string>
-): Result<T | null | undefined, string> => {
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | null | undefined, DomainError> => {
   if (raw === null) return ok(null);
   if (raw === undefined) return ok(undefined);
   return parser(raw).map((value) => value);
@@ -67,12 +68,12 @@ const optionalNullable = <T>(
 
 const optionalNullableArray = <T>(
   raw: ReadonlyArray<string> | null | undefined,
-  parser: (value: string) => Result<T, string>
-): Result<ReadonlyArray<T> | null | undefined, string> => {
+  parser: (value: string) => Result<T, DomainError>
+): Result<ReadonlyArray<T> | null | undefined, DomainError> => {
   if (raw === null) return ok(null);
   if (raw === undefined) return ok(undefined);
   const parsed = raw.map((value) => parser(value));
-  return parsed.reduce<Result<ReadonlyArray<T>, string>>(
+  return parsed.reduce<Result<ReadonlyArray<T>, DomainError>>(
     (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
     ok([])
   );
@@ -95,22 +96,22 @@ export class LinkFieldConfig extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<LinkFieldConfig, string> {
+  static create(raw: unknown): Result<LinkFieldConfig, DomainError> {
     const parsed = linkFieldConfigSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid LinkFieldConfig');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkFieldConfig'));
     const data = parsed.data;
 
-    const fkHostTableNameResult: Result<DbTableName, string> = data.fkHostTableName
+    const fkHostTableNameResult: Result<DbTableName, DomainError> = data.fkHostTableName
       ? DbTableName.rehydrate(data.fkHostTableName)
-      : ok<DbTableName, string>(DbTableName.empty());
-    const selfKeyNameResult: Result<DbFieldName, string> = data.selfKeyName
+      : ok<DbTableName, DomainError>(DbTableName.empty());
+    const selfKeyNameResult: Result<DbFieldName, DomainError> = data.selfKeyName
       ? DbFieldName.rehydrate(data.selfKeyName)
-      : ok<DbFieldName, string>(DbFieldName.empty());
-    const foreignKeyNameResult: Result<DbFieldName, string> = data.foreignKeyName
+      : ok<DbFieldName, DomainError>(DbFieldName.empty());
+    const foreignKeyNameResult: Result<DbFieldName, DomainError> = data.foreignKeyName
       ? DbFieldName.rehydrate(data.foreignKeyName)
-      : ok<DbFieldName, string>(DbFieldName.empty());
+      : ok<DbFieldName, DomainError>(DbFieldName.empty());
 
-    return safeTry<LinkFieldConfig, string>(function* () {
+    return safeTry<LinkFieldConfig, DomainError>(function* () {
       const baseId = yield* optional(data.baseId, BaseId.create);
       const relationship = yield* LinkRelationship.create(data.relationship);
       const foreignTableId = yield* TableId.create(data.foreignTableId);
@@ -140,7 +141,7 @@ export class LinkFieldConfig extends ValueObject {
     });
   }
 
-  static foreignKeyFieldName(fieldId?: FieldId): Result<DbFieldName, string> {
+  static foreignKeyFieldName(fieldId?: FieldId): Result<DbFieldName, DomainError> {
     const name = fieldId ? `__fk_${fieldId.toString()}` : `__fk_rad${getRandomString(16)}`;
     return DbFieldName.rehydrate(name);
   }
@@ -149,7 +150,7 @@ export class LinkFieldConfig extends ValueObject {
     fkHostTableName: string;
     selfKeyName: string;
     foreignKeyName: string;
-  }): Result<LinkFieldDbConfig, string> {
+  }): Result<LinkFieldDbConfig, DomainError> {
     return DbTableName.rehydrate(raw.fkHostTableName).andThen((fkHostTableName) =>
       DbFieldName.rehydrate(raw.foreignKeyName).andThen((selfKeyName) =>
         DbFieldName.rehydrate(raw.selfKeyName).map((foreignKeyName) => ({
@@ -167,7 +168,7 @@ export class LinkFieldConfig extends ValueObject {
     fieldId: FieldId;
     symmetricFieldId?: FieldId;
     isOneWay: boolean;
-  }): Result<LinkFieldDbConfig, string> {
+  }): Result<LinkFieldDbConfig, DomainError> {
     const relationship = params.relationship.toString();
 
     if (relationship === 'manyMany') {
@@ -210,7 +211,7 @@ export class LinkFieldConfig extends ValueObject {
       );
     }
 
-    return err('Unsupported LinkRelationship');
+    return err(domainError.fromMessage('Unsupported LinkRelationship'));
   }
 
   equals(other: LinkFieldConfig): boolean {
@@ -257,7 +258,7 @@ export class LinkFieldConfig extends ValueObject {
     return this.fkHostTableNameValue;
   }
 
-  fkHostTableNameString(): Result<string, string> {
+  fkHostTableNameString(): Result<string, DomainError> {
     return this.fkHostTableNameValue.value();
   }
 
@@ -265,7 +266,7 @@ export class LinkFieldConfig extends ValueObject {
     return this.selfKeyNameValue;
   }
 
-  selfKeyNameString(): Result<string, string> {
+  selfKeyNameString(): Result<string, DomainError> {
     return this.selfKeyNameValue.value();
   }
 
@@ -273,7 +274,7 @@ export class LinkFieldConfig extends ValueObject {
     return this.foreignKeyNameValue;
   }
 
-  foreignKeyNameString(): Result<string, string> {
+  foreignKeyNameString(): Result<string, DomainError> {
     return this.foreignKeyNameValue.value();
   }
 
@@ -304,20 +305,20 @@ export class LinkFieldConfig extends ValueObject {
     );
   }
 
-  withDbConfig(params: LinkFieldDbConfig): Result<LinkFieldConfig, string> {
+  withDbConfig(params: LinkFieldDbConfig): Result<LinkFieldConfig, DomainError> {
     if (this.fkHostTableNameValue.isRehydrated()) {
       if (!this.fkHostTableNameValue.equals(params.fkHostTableName)) {
-        return err('LinkFieldConfig fkHostTableName already set');
+        return err(domainError.fromMessage('LinkFieldConfig fkHostTableName already set'));
       }
     }
     if (this.selfKeyNameValue.isRehydrated()) {
       if (!this.selfKeyNameValue.equals(params.selfKeyName)) {
-        return err('LinkFieldConfig selfKeyName already set');
+        return err(domainError.fromMessage('LinkFieldConfig selfKeyName already set'));
       }
     }
     if (this.foreignKeyNameValue.isRehydrated()) {
       if (!this.foreignKeyNameValue.equals(params.foreignKeyName)) {
-        return err('LinkFieldConfig foreignKeyName already set');
+        return err(domainError.fromMessage('LinkFieldConfig foreignKeyName already set'));
       }
     }
 
@@ -338,10 +339,10 @@ export class LinkFieldConfig extends ValueObject {
     );
   }
 
-  withSymmetricFieldId(symmetricFieldId: FieldId): Result<LinkFieldConfig, string> {
+  withSymmetricFieldId(symmetricFieldId: FieldId): Result<LinkFieldConfig, DomainError> {
     if (this.symmetricFieldIdValue) {
       if (!this.symmetricFieldIdValue.equals(symmetricFieldId)) {
-        return err('LinkFieldConfig symmetricFieldId already set');
+        return err(domainError.fromMessage('LinkFieldConfig symmetricFieldId already set'));
       }
       return ok(this);
     }
@@ -363,7 +364,7 @@ export class LinkFieldConfig extends ValueObject {
     );
   }
 
-  orderColumnName(): Result<string, string> {
+  orderColumnName(): Result<string, DomainError> {
     const relationship = this.relationshipValue.toString();
     if (relationship === 'manyMany') return ok('__order');
     if (relationship === 'oneMany') {
@@ -372,7 +373,7 @@ export class LinkFieldConfig extends ValueObject {
     return this.foreignKeyNameString().map((name) => `${name}_order`);
   }
 
-  toDto(): Result<LinkFieldConfigValue, string> {
+  toDto(): Result<LinkFieldConfigValue, DomainError> {
     return this.fkHostTableNameString().andThen((fkHostTableName) =>
       this.selfKeyNameString().andThen((selfKeyName) =>
         this.foreignKeyNameString().map((foreignKeyName) => ({

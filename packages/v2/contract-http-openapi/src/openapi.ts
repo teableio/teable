@@ -10,6 +10,22 @@ const INVALID_REQUEST_MESSAGE = 'Invalid request';
 const getErrorMessage = (error: unknown) =>
   error instanceof Error ? error.message : 'Unknown error';
 
+const getErrorCode = (error: unknown) => {
+  if (error instanceof ORPCError) {
+    return error.code;
+  }
+  return 'INTERNAL_SERVER_ERROR';
+};
+
+const encodeErrorResponse = (error: unknown) => ({
+  ok: false as const,
+  error: {
+    code: getErrorCode(error),
+    message: getErrorMessage(error),
+    tags: [] as string[],
+  },
+});
+
 export const createV2OpenApiNodeHandler = <TContext extends Context>(
   router: Router<AnyContractRouter, TContext>
 ) => {
@@ -28,10 +44,7 @@ export const createV2OpenApiNodeHandler = <TContext extends Context>(
         }
       }),
     ],
-    customErrorResponseBodyEncoder: (error: unknown) => ({
-      ok: false as const,
-      error: getErrorMessage(error),
-    }),
+    customErrorResponseBodyEncoder: encodeErrorResponse,
   });
 };
 
@@ -53,10 +66,7 @@ export const createV2OpenApiFastifyHandler = <TContext extends Context>(
         }
       }),
     ],
-    customErrorResponseBodyEncoder: (error: unknown) => ({
-      ok: false as const,
-      error: getErrorMessage(error),
-    }),
+    customErrorResponseBodyEncoder: encodeErrorResponse,
   });
 };
 
@@ -78,9 +88,6 @@ export const createV2OpenApiFetchHandler = <TContext extends Context>(
         }
       }),
     ],
-    customErrorResponseBodyEncoder: (error: unknown) => ({
-      ok: false as const,
-      error: getErrorMessage(error),
-    }),
+    customErrorResponseBodyEncoder: encodeErrorResponse,
   });
 };

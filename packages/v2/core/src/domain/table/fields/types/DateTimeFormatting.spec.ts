@@ -33,10 +33,9 @@ describe('DateTimeFormatting', () => {
       time: TimeFormatting.Hour24,
       timeZone: 'utc',
     });
-    custom._unsafeUnwrap();
-
-    expect(custom.value.equals(custom.value)).toBe(true);
-    expect(custom.value.toDto()).toEqual({
+    const customValue = custom._unsafeUnwrap();
+    expect(customValue.equals(customValue)).toBe(true);
+    expect(customValue.toDto()).toEqual({
       date: 'YYYY/MM/DD',
       time: TimeFormatting.Hour24,
       timeZone: 'utc',

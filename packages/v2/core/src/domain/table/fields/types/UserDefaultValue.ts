@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { UserId } from './UserId';
 
@@ -15,9 +16,9 @@ export class UserDefaultValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<UserDefaultValue, string> {
+  static create(raw: unknown): Result<UserDefaultValue, DomainError> {
     const parsed = userDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid UserDefaultValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid UserDefaultValue'));
 
     if (typeof parsed.data === 'string') {
       return UserId.create(parsed.data).map((id) => new UserDefaultValue(id));
@@ -26,7 +27,7 @@ export class UserDefaultValue extends ValueObject {
     const ids = parsed.data.map((v) => UserId.create(v));
     return ids
       .reduce<
-        Result<ReadonlyArray<UserId>, string>
+        Result<ReadonlyArray<UserId>, DomainError>
       >((acc, next) => acc.andThen((arr) => next.map((id) => [...arr, id])), ok([]))
       .map((values) => new UserDefaultValue(values));
   }

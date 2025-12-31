@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { IDomainEvent } from '../../domain/shared/DomainEvent';
 import type { IEventBus } from '../EventBus';
 import type { EventType, IEventHandler } from '../EventHandler';
@@ -17,7 +18,10 @@ export class MemoryEventBus implements IEventBus {
     return [...this.publishedEvents];
   }
 
-  async publish(context: IExecutionContext, event: IDomainEvent): Promise<Result<void, string>> {
+  async publish(
+    context: IExecutionContext,
+    event: IDomainEvent
+  ): Promise<Result<void, DomainError>> {
     this.publishedEvents.push(event);
     return this.dispatch(context, [event]);
   }
@@ -25,7 +29,7 @@ export class MemoryEventBus implements IEventBus {
   async publishMany(
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     this.publishedEvents.push(...events);
     return this.dispatch(context, events);
   }
@@ -33,7 +37,7 @@ export class MemoryEventBus implements IEventBus {
   private async dispatch(
     context: IExecutionContext,
     events: ReadonlyArray<IDomainEvent>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     for (const event of events) {
       const eventType = (event as { constructor: EventType<IDomainEvent> }).constructor;
       const handlers = getEventHandlerTokens(eventType as EventType<IDomainEvent>);
@@ -48,9 +52,9 @@ export class MemoryEventBus implements IEventBus {
           }
         } catch (error) {
           if (error instanceof Error) {
-            return err(error.message);
+            return err(domainError.fromUnknown(error));
           }
-          return err('Event handler execution failed');
+          return err(domainError.fromMessage('Event handler execution failed'));
         }
       }
     }

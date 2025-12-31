@@ -29,7 +29,7 @@ export const registerV2BroadcastChannelRealtime = (
     : undefined;
   const hubResult = getBroadcastChannelRealtimeHub(channelName, logger);
   if (hubResult.isErr()) {
-    throw new Error(hubResult.error);
+    throw new Error(hubResult.error.message);
   }
 
   c.registerInstance(v2BroadcastChannelTokens.hub, hubResult.value);

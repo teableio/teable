@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
@@ -12,6 +13,7 @@ import type { LastModifiedByField } from '../types/LastModifiedByField';
 import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
+import type { LookupField } from '../types/LookupField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
@@ -21,23 +23,24 @@ import type { SingleSelectField } from '../types/SingleSelectField';
 import type { UserField } from '../types/UserField';
 
 export interface IFieldVisitor<T = void> {
-  visitSingleLineTextField(field: SingleLineTextField): Result<T, string>;
-  visitLongTextField(field: LongTextField): Result<T, string>;
-  visitNumberField(field: NumberField): Result<T, string>;
-  visitRatingField(field: RatingField): Result<T, string>;
-  visitFormulaField(field: FormulaField): Result<T, string>;
-  visitRollupField(field: RollupField): Result<T, string>;
-  visitSingleSelectField(field: SingleSelectField): Result<T, string>;
-  visitMultipleSelectField(field: MultipleSelectField): Result<T, string>;
-  visitCheckboxField(field: CheckboxField): Result<T, string>;
-  visitAttachmentField(field: AttachmentField): Result<T, string>;
-  visitDateField(field: DateField): Result<T, string>;
-  visitCreatedTimeField(field: CreatedTimeField): Result<T, string>;
-  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<T, string>;
-  visitUserField(field: UserField): Result<T, string>;
-  visitCreatedByField(field: CreatedByField): Result<T, string>;
-  visitLastModifiedByField(field: LastModifiedByField): Result<T, string>;
-  visitAutoNumberField(field: AutoNumberField): Result<T, string>;
-  visitButtonField(field: ButtonField): Result<T, string>;
-  visitLinkField(field: LinkField): Result<T, string>;
+  visitSingleLineTextField(field: SingleLineTextField): Result<T, DomainError>;
+  visitLongTextField(field: LongTextField): Result<T, DomainError>;
+  visitNumberField(field: NumberField): Result<T, DomainError>;
+  visitRatingField(field: RatingField): Result<T, DomainError>;
+  visitFormulaField(field: FormulaField): Result<T, DomainError>;
+  visitRollupField(field: RollupField): Result<T, DomainError>;
+  visitSingleSelectField(field: SingleSelectField): Result<T, DomainError>;
+  visitMultipleSelectField(field: MultipleSelectField): Result<T, DomainError>;
+  visitCheckboxField(field: CheckboxField): Result<T, DomainError>;
+  visitAttachmentField(field: AttachmentField): Result<T, DomainError>;
+  visitDateField(field: DateField): Result<T, DomainError>;
+  visitCreatedTimeField(field: CreatedTimeField): Result<T, DomainError>;
+  visitLastModifiedTimeField(field: LastModifiedTimeField): Result<T, DomainError>;
+  visitUserField(field: UserField): Result<T, DomainError>;
+  visitCreatedByField(field: CreatedByField): Result<T, DomainError>;
+  visitLastModifiedByField(field: LastModifiedByField): Result<T, DomainError>;
+  visitAutoNumberField(field: AutoNumberField): Result<T, DomainError>;
+  visitButtonField(field: ButtonField): Result<T, DomainError>;
+  visitLinkField(field: LinkField): Result<T, DomainError>;
+  visitLookupField(field: LookupField): Result<T, DomainError>;
 }

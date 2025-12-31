@@ -1,7 +1,9 @@
+import { mapDomainErrorToHttpError, mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import type { IHandlerResolver } from '@teable/v2-contract-http';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
 import { createV2OpenApiFastifyHandler } from '@teable/v2-contract-http-openapi';
 import type { IExecutionContext } from '@teable/v2-core';
+import { domainError } from '@teable/v2-core';
 import type { FastifyPluginCallback } from 'fastify';
 
 export interface IV2FastifyRouterOptions {
@@ -22,7 +24,14 @@ export const createV2FastifyPlugin = (
     fastify.all('/*', async (request, reply) => {
       const result = await handler.handle(request, reply, { context: {} });
       if (result.matched) return;
-      reply.status(404).send({ ok: false, error: 'Not found' });
+      const notFoundError = domainError.notFound({
+        code: 'route.not_found',
+        message: 'Not found',
+      });
+      reply.status(mapDomainErrorToHttpStatus(notFoundError)).send({
+        ok: false,
+        error: mapDomainErrorToHttpError(notFoundError),
+      });
     });
     done();
   };

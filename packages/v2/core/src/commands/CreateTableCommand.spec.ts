@@ -281,7 +281,7 @@ describe('CreateTableCommand', () => {
       ],
       views: [{ type: 'grid' }],
     })._unsafeUnwrapErr();
-    expect(multiplePrimaryError).toContain('primary Field');
+    expect(multiplePrimaryError.message).toContain('primary Field');
 
     expect(
       CreateTableCommand.create({

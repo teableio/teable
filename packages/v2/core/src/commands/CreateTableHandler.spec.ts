@@ -7,6 +7,7 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -37,9 +38,9 @@ class FakeTableRepository implements ITableRepository {
   inserted: Table[] = [];
   updated: Table[] = [];
   lastContext: IExecutionContext | undefined;
-  failInsert: string | undefined;
-  failUpdate: string | undefined;
-  failFind: string | undefined;
+  failInsert: DomainError | undefined;
+  failUpdate: DomainError | undefined;
+  failFind: DomainError | undefined;
 
   async insert(context: IExecutionContext, table: Table) {
     this.lastContext = context;
@@ -51,10 +52,10 @@ class FakeTableRepository implements ITableRepository {
   async findOne(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
+  ): Promise<Result<Table, DomainError>> {
     if (this.failFind) return err(this.failFind);
     const match = this.inserted.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err('Not found');
+    if (!match) return err(domainError.fromMessage('Not found'));
     return ok(match);
   }
 
@@ -62,7 +63,7 @@ class FakeTableRepository implements ITableRepository {
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     if (this.failFind) return err(this.failFind);
     return ok(this.inserted.filter((table) => spec.isSatisfiedBy(table)));
   }
@@ -71,16 +72,16 @@ class FakeTableRepository implements ITableRepository {
     _context: IExecutionContext,
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     if (this.failUpdate) return err(this.failUpdate);
     const index = this.inserted.findIndex((entry) => entry.id().equals(table.id()));
-    if (index === -1) return err('Not found');
+    if (index === -1) return err(domainError.fromMessage('Not found'));
     this.inserted[index] = table;
     this.updated.push(table);
     return ok(undefined);
   }
 
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, string>> {
+  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -88,7 +89,7 @@ class FakeTableRepository implements ITableRepository {
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   inserted: Table[] = [];
   lastContext: IExecutionContext | undefined;
-  failInsert: string | undefined;
+  failInsert: DomainError | undefined;
 
   async insert(context: IExecutionContext, table: Table) {
     this.lastContext = context;
@@ -112,7 +113,7 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 
 class FakeEventBus implements IEventBus {
   published: IDomainEvent[] = [];
-  failPublish: string | undefined;
+  failPublish: DomainError | undefined;
 
   async publish(_context: IExecutionContext, event: IDomainEvent) {
     this.published.push(event);
@@ -133,7 +134,7 @@ class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
-  ): Promise<Result<T, string>> {
+  ): Promise<Result<T, DomainError>> {
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     const transactionContext = { ...context, transaction };
     this.transactions.push(transactionContext);
@@ -246,7 +247,7 @@ describe('CreateTableHandler', () => {
     commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
-    tableRepository.failInsert = 'insert failed';
+    tableRepository.failInsert = domainError.fromMessage('insert failed');
     const schemaRepository = new FakeTableSchemaRepository();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
@@ -270,17 +271,17 @@ describe('CreateTableHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toBe('insert failed');
+    expect(result._unsafeUnwrapErr().message).toBe('insert failed');
 
     tableRepository.failInsert = undefined;
-    schemaRepository.failInsert = 'schema failed';
+    schemaRepository.failInsert = domainError.fromMessage('schema failed');
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(schemaResult._unsafeUnwrapErr()).toBe('schema failed');
+    expect(schemaResult._unsafeUnwrapErr().message).toBe('schema failed');
 
     schemaRepository.failInsert = undefined;
-    eventBus.failPublish = 'publish failed';
+    eventBus.failPublish = domainError.fromMessage('publish failed');
     const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-    expect(publishResult._unsafeUnwrapErr()).toBe('publish failed');
+    expect(publishResult._unsafeUnwrapErr().message).toBe('publish failed');
   });
 
   it('fails when the command produces an invalid table', async () => {
@@ -319,7 +320,7 @@ describe('CreateTableHandler', () => {
 
     const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     result._unsafeUnwrapErr();
-    expect(result._unsafeUnwrapErr()).toContain('Field names must be unique');
+    expect(result._unsafeUnwrapErr().message).toContain('Field names must be unique');
   });
 
   describe('link fields', () => {

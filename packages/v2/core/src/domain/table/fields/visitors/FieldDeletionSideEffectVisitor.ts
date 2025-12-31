@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import { ForeignTable } from '../../ForeignTable';
 import type { ITableSpecVisitor } from '../../specs/ITableSpecVisitor';
@@ -20,6 +21,7 @@ import type { LastModifiedByField } from '../types/LastModifiedByField';
 import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
+import type { LookupField } from '../types/LookupField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
@@ -50,9 +52,9 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
   static collect(
     fields: ReadonlyArray<Field>,
     context: FieldDeletionSideEffectContext
-  ): Result<FieldDeletionSideEffects, string> {
+  ): Result<FieldDeletionSideEffects, DomainError> {
     const visitor = FieldDeletionSideEffectVisitor.create(context);
-    return fields.reduce<Result<FieldDeletionSideEffects, string>>(
+    return fields.reduce<Result<FieldDeletionSideEffects, DomainError>>(
       (acc, field) =>
         acc.andThen((effects) => field.accept(visitor).map((next) => [...effects, ...next])),
       ok([])
@@ -67,79 +69,81 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
     return new FieldDeletionSideEffectVisitor(context.table, foreignTablesById);
   }
 
-  visitSingleLineTextField(_: SingleLineTextField): Result<FieldDeletionSideEffects, string> {
+  visitSingleLineTextField(_: SingleLineTextField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitLongTextField(_: LongTextField): Result<FieldDeletionSideEffects, string> {
+  visitLongTextField(_: LongTextField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitNumberField(_: NumberField): Result<FieldDeletionSideEffects, string> {
+  visitNumberField(_: NumberField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitRatingField(_: RatingField): Result<FieldDeletionSideEffects, string> {
+  visitRatingField(_: RatingField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitFormulaField(_: FormulaField): Result<FieldDeletionSideEffects, string> {
+  visitFormulaField(_: FormulaField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitRollupField(_: RollupField): Result<FieldDeletionSideEffects, string> {
+  visitRollupField(_: RollupField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitSingleSelectField(_: SingleSelectField): Result<FieldDeletionSideEffects, string> {
+  visitSingleSelectField(_: SingleSelectField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitMultipleSelectField(_: MultipleSelectField): Result<FieldDeletionSideEffects, string> {
+  visitMultipleSelectField(_: MultipleSelectField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitCheckboxField(_: CheckboxField): Result<FieldDeletionSideEffects, string> {
+  visitCheckboxField(_: CheckboxField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitAttachmentField(_: AttachmentField): Result<FieldDeletionSideEffects, string> {
+  visitAttachmentField(_: AttachmentField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitDateField(_: DateField): Result<FieldDeletionSideEffects, string> {
+  visitDateField(_: DateField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitCreatedTimeField(_: CreatedTimeField): Result<FieldDeletionSideEffects, string> {
+  visitCreatedTimeField(_: CreatedTimeField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<FieldDeletionSideEffects, string> {
+  visitLastModifiedTimeField(
+    _: LastModifiedTimeField
+  ): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitUserField(_: UserField): Result<FieldDeletionSideEffects, string> {
+  visitUserField(_: UserField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitCreatedByField(_: CreatedByField): Result<FieldDeletionSideEffects, string> {
+  visitCreatedByField(_: CreatedByField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitLastModifiedByField(_: LastModifiedByField): Result<FieldDeletionSideEffects, string> {
+  visitLastModifiedByField(_: LastModifiedByField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitAutoNumberField(_: AutoNumberField): Result<FieldDeletionSideEffects, string> {
+  visitAutoNumberField(_: AutoNumberField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitButtonField(_: ButtonField): Result<FieldDeletionSideEffects, string> {
+  visitButtonField(_: ButtonField): Result<FieldDeletionSideEffects, DomainError> {
     return ok([]);
   }
 
-  visitLinkField(field: LinkField): Result<FieldDeletionSideEffects, string> {
+  visitLinkField(field: LinkField): Result<FieldDeletionSideEffects, DomainError> {
     if (field.isOneWay()) return ok([]);
 
     const foreignTableResult = this.foreignTable(field.foreignTableId());
@@ -157,9 +161,15 @@ export class FieldDeletionSideEffectVisitor implements IFieldVisitor<FieldDeleti
     });
   }
 
-  private foreignTable(tableId: TableId): Result<Table, string> {
+  visitLookupField(_: LookupField): Result<FieldDeletionSideEffects, DomainError> {
+    // Lookup fields don't have deletion side effects
+    // They reference link fields which handle their own side effects
+    return ok([]);
+  }
+
+  private foreignTable(tableId: TableId): Result<Table, DomainError> {
     const table = this.foreignTablesById.get(tableId.toString());
-    if (!table) return err('Foreign table not loaded');
+    if (!table) return err(domainError.fromMessage('Foreign table not loaded'));
     return ok(table);
   }
 }

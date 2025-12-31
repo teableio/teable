@@ -113,7 +113,7 @@ export const createV2BunTestContainer = async (
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {
-    throw new Error(baseIdResult.error);
+    throw new Error(baseIdResult.error.message);
   }
   const baseId = baseIdResult.value;
   const spaceId = `spc${getRandomString(16)}`;

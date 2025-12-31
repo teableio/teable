@@ -1,4 +1,6 @@
 import {
+  domainError,
+  type DomainError,
   type Field,
   isBooleanField,
   isDateField,
@@ -11,19 +13,24 @@ import {
 import type { CreateTableBuilder } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
-
 export type TableColumnDataType = Parameters<CreateTableBuilder<string, string>['addColumn']>[1];
 
-export const resolveColumnName = (field: Field): Result<string, string> => {
-  return safeTry<string, string>(function* () {
+export const resolveColumnName = (field: Field): Result<string, DomainError> => {
+  return safeTry<string, DomainError>(function* () {
     const columnName = yield* field.dbFieldName().andThen((name) => name.value());
     return ok(columnName);
-  }).mapErr((error) => `Missing db field name for field ${field.id().toString()}: ${error}`);
+  }).mapErr((error) =>
+    domainError.invariant({
+      message: `Missing db field name for field ${field.id().toString()}: ${error.message}`,
+      code: 'invariant.missing_db_field_name',
+      details: { fieldId: field.id().toString(), cause: error.message },
+    })
+  );
 };
 
-export const resolveColumnType = (field: Field): Result<TableColumnDataType, string> => {
+export const resolveColumnType = (field: Field): Result<TableColumnDataType, DomainError> => {
   return match(field)
-    .returnType<Result<TableColumnDataType, string>>()
+    .returnType<Result<TableColumnDataType, DomainError>>()
     .when(isFormulaField, (f) =>
       f
         .cellValueType()

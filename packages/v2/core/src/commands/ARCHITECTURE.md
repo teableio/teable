@@ -20,6 +20,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `CreateFieldHandler.ts` - Role: command handler; Purpose: update table meta/schema and publish events.
 - `DeleteFieldCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deleting a field.
 - `DeleteFieldHandler.ts` - Role: command handler; Purpose: remove field metadata/schema and publish events.
+- `FieldValidation.ts` - Role: helper; Purpose: decide notNull/unique support by field type.
 - `DeleteTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for deletion.
 - `DeleteTableHandler.ts` - Role: command handler; Purpose: delete table state/schema and publish events.
 - `RenameTableCommand.ts` - Role: command DTO + schema; Purpose: validate inputs for renaming.

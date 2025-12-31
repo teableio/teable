@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const numericPrecisionSchema = z.number().int().min(0).max(5);
@@ -11,9 +12,9 @@ export class NumericPrecision extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<NumericPrecision, string> {
+  static create(raw: unknown): Result<NumericPrecision, DomainError> {
     const parsed = numericPrecisionSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid NumericPrecision');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid NumericPrecision'));
     return ok(new NumericPrecision(parsed.data));
   }
 

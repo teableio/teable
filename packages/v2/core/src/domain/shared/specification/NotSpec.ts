@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../DomainError';
 import type { ISpecification } from './ISpecification';
 import type { ISpecVisitor } from './ISpecVisitor';
 import { isSpecFilterVisitor } from './visitors/ISpecFilterVisitor';
@@ -16,11 +17,11 @@ export class NotSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpeci
     return !this.inner.isSatisfiedBy(t);
   }
 
-  mutate(t: T): Result<T, string> {
+  mutate(t: T): Result<T, DomainError> {
     return ok(t);
   }
 
-  accept(v: V): Result<void, string> {
+  accept(v: V): Result<void, DomainError> {
     const visited = v.visit(this);
     if (isSpecFilterVisitor(v)) {
       const innerVisitor = v.clone();
@@ -39,4 +40,4 @@ export class NotSpec<T, V extends ISpecVisitor = ISpecVisitor> implements ISpeci
 
 export const notSpec = <T, V extends ISpecVisitor = ISpecVisitor>(
   inner: ISpecification<T, V>
-): Result<NotSpec<T, V>, string> => ok(new NotSpec(inner));
+): Result<NotSpec<T, V>, DomainError> => ok(new NotSpec(inner));

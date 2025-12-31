@@ -9,6 +9,8 @@ import {
   TableByIdsSpec,
   TableByNameLikeSpec,
   TableByNameSpec,
+  domainError,
+  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Expression, ExpressionBuilder, SqlBool } from 'kysely';
@@ -28,43 +30,46 @@ export class TableWhereVisitor
     this.addCond((eb) => eb.eb('deleted_time', 'is', null));
   }
 
-  visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, string> {
-    return err('TableAddFieldSpec is not supported for table filters');
+  visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, DomainError> {
+    return err(domainError.fromMessage('TableAddFieldSpec is not supported for table filters'));
   }
 
-  visitTableRemoveField(_: TableRemoveFieldSpec): Result<ITableMetaWhere, string> {
-    return err('TableRemoveFieldSpec is not supported for table filters');
+  visitTableRemoveField(_: TableRemoveFieldSpec): Result<ITableMetaWhere, DomainError> {
+    return err(domainError.fromMessage('TableRemoveFieldSpec is not supported for table filters'));
   }
 
   visitTableUpdateViewColumnMeta(
     _: TableUpdateViewColumnMetaSpec
-  ): Result<ITableMetaWhere, string> {
-    return err('TableUpdateViewColumnMetaSpec is not supported for table filters');
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.fromMessage('TableUpdateViewColumnMetaSpec is not supported for table filters')
+    );
   }
 
-  visitTableByBaseId(spec: TableByBaseIdSpec): Result<ITableMetaWhere, string> {
+  visitTableByBaseId(spec: TableByBaseIdSpec): Result<ITableMetaWhere, DomainError> {
     const cond: ITableMetaWhere = (eb) => eb.eb('base_id', '=', spec.baseId().toString());
     return this.addCond(cond).map(() => cond);
   }
 
-  visitTableById(spec: TableByIdSpec): Result<ITableMetaWhere, string> {
+  visitTableById(spec: TableByIdSpec): Result<ITableMetaWhere, DomainError> {
     const cond: ITableMetaWhere = (eb) => eb.eb('id', '=', spec.tableId().toString());
     return this.addCond(cond).map(() => cond);
   }
 
-  visitTableByIds(spec: TableByIdsSpec): Result<ITableMetaWhere, string> {
+  visitTableByIds(spec: TableByIdsSpec): Result<ITableMetaWhere, DomainError> {
     const ids = spec.tableIds().map((id) => id.toString());
-    if (ids.length === 0) return err('TableByIdsSpec requires at least one id');
+    if (ids.length === 0)
+      return err(domainError.fromMessage('TableByIdsSpec requires at least one id'));
     const cond: ITableMetaWhere = (eb) => eb.eb('id', 'in', ids);
     return this.addCond(cond).map(() => cond);
   }
 
-  visitTableByName(spec: TableByNameSpec): Result<ITableMetaWhere, string> {
+  visitTableByName(spec: TableByNameSpec): Result<ITableMetaWhere, DomainError> {
     const cond: ITableMetaWhere = (eb) => eb.eb('name', '=', spec.tableName().toString());
     return this.addCond(cond).map(() => cond);
   }
 
-  visitTableByNameLike(spec: TableByNameLikeSpec): Result<ITableMetaWhere, string> {
+  visitTableByNameLike(spec: TableByNameLikeSpec): Result<ITableMetaWhere, DomainError> {
     const pattern = `%${spec.tableName().toString()}%`;
     const cond: ITableMetaWhere = (eb) => eb.eb('name', 'like', pattern);
     return this.addCond(cond).map(() => cond);

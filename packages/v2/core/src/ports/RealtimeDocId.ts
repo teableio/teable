@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { ValueObject } from '../domain/shared/ValueObject';
 
 const realtimeDocIdSchema = z.string().min(1);
@@ -17,21 +18,21 @@ export class RealtimeDocId extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RealtimeDocId, string> {
+  static create(raw: unknown): Result<RealtimeDocId, DomainError> {
     const parsed = realtimeDocIdSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RealtimeDocId');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RealtimeDocId'));
     return ok(new RealtimeDocId(parsed.data));
   }
 
-  static fromParts(collection: string, docId: string): Result<RealtimeDocId, string> {
+  static fromParts(collection: string, docId: string): Result<RealtimeDocId, DomainError> {
     return RealtimeDocId.create(`${collection}${realtimeDocIdSeparator}${docId}`);
   }
 
-  static parse(raw: RealtimeDocId): Result<RealtimeDocIdParts, string> {
+  static parse(raw: RealtimeDocId): Result<RealtimeDocIdParts, DomainError> {
     const value = raw.toString();
     const separatorIndex = value.indexOf(realtimeDocIdSeparator);
     if (separatorIndex <= 0 || separatorIndex >= value.length - 1) {
-      return err('Invalid RealtimeDocId');
+      return err(domainError.fromMessage('Invalid RealtimeDocId'));
     }
 
     return ok({

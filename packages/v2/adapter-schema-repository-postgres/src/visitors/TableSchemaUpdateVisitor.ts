@@ -9,6 +9,8 @@ import {
   TableByNameSpec,
   TableUpdateViewColumnMetaSpec,
   type ITableSpecVisitor,
+  domainError,
+  type DomainError,
 } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
@@ -37,10 +39,10 @@ export class TableSchemaUpdateVisitor
 
   visitTableAddField(
     spec: TableAddFieldSpec
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldVisitor = PostgresTableSchemaFieldCreateVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements = yield* spec.field().accept(fieldVisitor);
       yield* addCond(statements);
       return ok(statements);
@@ -49,10 +51,10 @@ export class TableSchemaUpdateVisitor
 
   visitTableRemoveField(
     spec: TableRemoveFieldSpec
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const fieldVisitor = PostgresTableSchemaFieldDeleteVisitor.forSchemaUpdate(this.params);
     const addCond = this.addCond.bind(this);
-    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, string>(function* () {
+    return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const statements = yield* spec.field().accept(fieldVisitor);
       yield* addCond(statements);
       return ok(statements);
@@ -61,34 +63,44 @@ export class TableSchemaUpdateVisitor
 
   visitTableUpdateViewColumnMeta(
     _: TableUpdateViewColumnMetaSpec
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);
   }
 
   visitTableByBaseId(
     _: TableByBaseIdSpec
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    return err('TableByBaseIdSpec is not supported for table schema updates');
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.fromMessage('TableByBaseIdSpec is not supported for table schema updates')
+    );
   }
 
-  visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    return err('TableByIdSpec is not supported for table schema updates');
+  visitTableById(
+    _: TableByIdSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByIdSpec is not supported for table schema updates'));
   }
 
-  visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    return err('TableByIdsSpec is not supported for table schema updates');
+  visitTableByIds(
+    _: TableByIdsSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(domainError.fromMessage('TableByIdsSpec is not supported for table schema updates'));
   }
 
-  visitTableByName(_: TableByNameSpec): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
+  visitTableByName(
+    _: TableByNameSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
     return this.addCond(statements).map(() => statements);
   }
 
   visitTableByNameLike(
     _: TableByNameLikeSpec
-  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, string> {
-    return err('TableByNameLikeSpec is not supported for table schema updates');
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    return err(
+      domainError.fromMessage('TableByNameLikeSpec is not supported for table schema updates')
+    );
   }
 
   clone(): this {

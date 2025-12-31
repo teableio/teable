@@ -1,6 +1,7 @@
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../base/BaseId';
+import type { DomainError } from '../../shared/DomainError';
 import type { ISpecification } from '../../shared/specification/ISpecification';
 import { SpecBuilder } from '../../shared/specification/SpecBuilder';
 import type { SpecBuilderMode } from '../../shared/specification/SpecBuilder';
@@ -79,7 +80,7 @@ export class TableSpecBuilder extends SpecBuilder<Table, ITableSpecVisitor, Tabl
     return this;
   }
 
-  build(): Result<ISpecification<Table, ITableSpecVisitor>, string> {
+  build(): Result<ISpecification<Table, ITableSpecVisitor>, DomainError> {
     const specs = this.includeBaseId
       ? [TableByBaseIdSpec.create(this.baseIdValue), ...this.specs]
       : [...this.specs];

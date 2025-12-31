@@ -7,15 +7,14 @@ describe('SortDirection', () => {
   it('validates directions and helpers', () => {
     const asc = SortDirection.create('asc');
     const desc = SortDirection.create('desc');
-    [asc, desc].forEach((r) => r._unsafeUnwrap());
-    asc._unsafeUnwrap();
-    desc._unsafeUnwrap();
-    expect(asc.value.toString()).toBe('asc');
-    expect(desc.value.toString()).toBe('desc');
+    const ascValue = asc._unsafeUnwrap();
+    const descValue = desc._unsafeUnwrap();
+    expect(ascValue.toString()).toBe('asc');
+    expect(descValue.toString()).toBe('desc');
     expect(SortDirection.from('asc').toString()).toBe('asc');
     expect(SortDirection.asc().toString()).toBe('asc');
     expect(SortDirection.desc().toString()).toBe('desc');
-    expect(asc.value.equals(desc.value)).toBe(false);
+    expect(ascValue.equals(descValue)).toBe(false);
     SortDirection.create('up')._unsafeUnwrapErr();
   });
 });

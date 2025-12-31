@@ -3,6 +3,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 export const ratingColorValues = ['yellowBright', 'redBright', 'tealBright'] as const;
@@ -15,9 +16,9 @@ export class RatingColor extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RatingColor, string> {
+  static create(raw: unknown): Result<RatingColor, DomainError> {
     const parsed = ratingColorSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RatingColor');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RatingColor'));
     return ok(new RatingColor(parsed.data));
   }
 

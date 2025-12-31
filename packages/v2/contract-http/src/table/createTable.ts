@@ -1,4 +1,4 @@
-import type { CreateTableResult, ICreateTableCommandInput } from '@teable/v2-core';
+import type { CreateTableResult, ICreateTableCommandInput, DomainError } from '@teable/v2-core';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
@@ -7,6 +7,7 @@ import { domainEventDtoSchema, mapDomainEventToDto } from '../shared/domainEvent
 import {
   apiErrorResponseDtoSchema,
   apiOkResponseDtoSchema,
+  type HttpErrorStatus,
   type IApiErrorResponseDto,
   type IApiOkResponseDto,
   type IApiResponseDto,
@@ -28,8 +29,7 @@ export type ICreateTableErrorResponseDto = IApiErrorResponseDto;
 
 export type ICreateTableEndpointResult =
   | { status: 201; body: ICreateTableOkResponseDto }
-  | { status: 400; body: ICreateTableErrorResponseDto }
-  | { status: 500; body: ICreateTableErrorResponseDto };
+  | { status: HttpErrorStatus; body: ICreateTableErrorResponseDto };
 
 export const createTableResponseDataSchema = z.object({
   table: tableDtoSchema,
@@ -42,7 +42,7 @@ export const createTableErrorResponseSchema = apiErrorResponseDtoSchema;
 
 export const mapCreateTableResultToDto = (
   result: CreateTableResult
-): Result<ICreateTableResponseDataDto, string> => {
+): Result<ICreateTableResponseDataDto, DomainError> => {
   return mapTableToDto(result.table).map((table) => ({
     table,
     events: result.events.map(mapDomainEventToDto),

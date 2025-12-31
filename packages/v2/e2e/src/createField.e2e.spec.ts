@@ -152,10 +152,14 @@ describe('v2 http createField (e2e)', () => {
           id: createFieldId(),
           name: 'Title',
           options: { showAs: { type: 'email' }, defaultValue: 'Hello' },
+          notNull: true,
+          unique: true,
         },
         expect: {
           type: 'singleLineText',
           options: { showAs: { type: 'email' }, defaultValue: 'Hello' },
+          notNull: true,
+          unique: true,
         },
       },
       {
@@ -466,10 +470,66 @@ describe('v2 http createField (e2e)', () => {
       if ('options' in entry.expect) {
         expect(created.options).toEqual(entry.expect.options);
       }
+      if ('notNull' in entry.expect) {
+        expect(created.notNull).toBe(entry.expect.notNull);
+      }
+      if ('unique' in entry.expect) {
+        expect(created.unique).toBe(entry.expect.unique);
+      }
       if (created.type === 'formula') {
         expect(created.cellValueType).toBe(entry.expect.cellValueType);
         expect(created.isMultipleCellValue).toBe(entry.expect.isMultipleCellValue);
       }
+    }
+  });
+
+  it('rejects notNull/unique for computed fields', async () => {
+    const notNullResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          id: createFieldId(),
+          name: 'Computed NotNull',
+          notNull: true,
+          options: { expression: '1' },
+        },
+      }),
+    });
+    const notNullRaw = await notNullResponse.json();
+    expect(notNullResponse.status).toBe(400);
+    const notNullParsed = createFieldErrorResponseSchema.safeParse(notNullRaw);
+    expect(notNullParsed.success).toBe(true);
+    if (notNullParsed.success) {
+      expect(notNullParsed.data.ok).toBe(false);
+      expect(notNullParsed.data.error.message).toContain('notNull');
+    }
+
+    const uniqueResponse = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId,
+        field: {
+          type: 'formula',
+          id: createFieldId(),
+          name: 'Computed Unique',
+          unique: true,
+          options: { expression: '2' },
+        },
+      }),
+    });
+    const uniqueRaw = await uniqueResponse.json();
+    expect(uniqueResponse.status).toBe(400);
+    const uniqueParsed = createFieldErrorResponseSchema.safeParse(uniqueRaw);
+    expect(uniqueParsed.success).toBe(true);
+    if (uniqueParsed.success) {
+      expect(uniqueParsed.data.ok).toBe(false);
+      expect(uniqueParsed.data.error.message).toContain('unique');
     }
   });
 
@@ -932,6 +992,8 @@ describe('v2 http createField (e2e)', () => {
           }),
         },
       ],
+      // Lookup fields cannot be used as rollup source (no nested lookup)
+      lookup: () => [],
     };
 
     const lookupFieldSpecs = Object.values(lookupFieldFactories).flatMap((factory) => factory());
@@ -1056,7 +1118,7 @@ describe('v2 http createField (e2e)', () => {
         expect(errorParsed.success).toBe(true);
         if (!errorParsed.success) return;
         expect(errorParsed.data.ok).toBe(false);
-        expect(errorParsed.data.error).toContain('Invalid RollupExpression');
+        expect(errorParsed.data.error.message).toContain('Invalid RollupExpression');
         return;
       }
 
@@ -1073,6 +1135,671 @@ describe('v2 http createField (e2e)', () => {
       if (!created || created.type !== 'rollup') return;
       expect(created.options.expression).toBe(entry.expression);
       expect(created.config.lookupFieldId).toBe(entry.lookupFieldId);
+    });
+  });
+
+  describe('lookup fields', () => {
+    type FieldTypeLiteral = ITableFieldInput['type'];
+
+    type LookupFieldSpec = {
+      type: FieldTypeLiteral;
+      label: string;
+      id: string;
+      name: string;
+      expectedCellValueType: string;
+      expectedIsMultiple: boolean;
+      expectedOptions: Record<string, unknown>;
+      buildInput: () => ITableFieldInput;
+    };
+
+    type LookupFieldFactory = () => ReadonlyArray<LookupFieldSpec>;
+
+    const lookupForeignPrimaryFieldId = createFieldId();
+    const lookupForeignLongTextFieldId = createFieldId();
+    const lookupForeignNumberFieldId = createFieldId();
+    const lookupForeignRatingFieldId = createFieldId();
+    const lookupForeignSingleSelectFieldId = createFieldId();
+    const lookupForeignMultipleSelectFieldId = createFieldId();
+    const lookupForeignCheckboxFieldId = createFieldId();
+    const lookupForeignAttachmentFieldId = createFieldId();
+    const lookupForeignDateFieldId = createFieldId();
+    const lookupForeignCreatedTimeFieldId = createFieldId();
+    const lookupForeignAutoNumberFieldId = createFieldId();
+    const lookupForeignUserFieldId = createFieldId();
+    const lookupForeignCreatedByFieldId = createFieldId();
+
+    const lookupHostPrimaryFieldId = createFieldId();
+    const lookupHostLinkFieldId = createFieldId();
+
+    // Map by field type to test lookup for different inner field types
+    const lookupFieldFactories: Partial<Record<FieldTypeLiteral, LookupFieldFactory>> = {
+      singleLineText: () => [
+        {
+          type: 'singleLineText',
+          label: 'singleLineText',
+          id: lookupForeignPrimaryFieldId,
+          name: 'Lookup Name',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: { showAs: { type: 'email' }, defaultValue: 'test@example.com' },
+          buildInput: () => ({
+            type: 'singleLineText',
+            id: lookupForeignPrimaryFieldId,
+            name: 'Lookup Name',
+            isPrimary: true,
+            options: { showAs: { type: 'email' }, defaultValue: 'test@example.com' },
+          }),
+        },
+      ],
+      longText: () => [
+        {
+          type: 'longText',
+          label: 'longText',
+          id: lookupForeignLongTextFieldId,
+          name: 'Lookup Notes',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: { defaultValue: 'Notes content' },
+          buildInput: () => ({
+            type: 'longText',
+            id: lookupForeignLongTextFieldId,
+            name: 'Lookup Notes',
+            options: { defaultValue: 'Notes content' },
+          }),
+        },
+      ],
+      number: () => [
+        {
+          type: 'number',
+          label: 'number',
+          id: lookupForeignNumberFieldId,
+          name: 'Lookup Amount',
+          expectedCellValueType: 'number',
+          expectedIsMultiple: true,
+          expectedOptions: {
+            formatting: { type: 'currency', precision: 2, symbol: '$' },
+            defaultValue: 100,
+          },
+          buildInput: () => ({
+            type: 'number',
+            id: lookupForeignNumberFieldId,
+            name: 'Lookup Amount',
+            options: {
+              formatting: { type: 'currency', precision: 2, symbol: '$' },
+              defaultValue: 100,
+            },
+          }),
+        },
+      ],
+      rating: () => [
+        {
+          type: 'rating',
+          label: 'rating',
+          id: lookupForeignRatingFieldId,
+          name: 'Lookup Rating',
+          expectedCellValueType: 'number',
+          expectedIsMultiple: true,
+          expectedOptions: { max: 5, icon: 'heart', color: 'redBright' },
+          buildInput: () => ({
+            type: 'rating',
+            id: lookupForeignRatingFieldId,
+            name: 'Lookup Rating',
+            options: { max: 5, icon: 'heart', color: 'redBright' },
+          }),
+        },
+      ],
+      singleSelect: () => [
+        {
+          type: 'singleSelect',
+          label: 'singleSelect',
+          id: lookupForeignSingleSelectFieldId,
+          name: 'Lookup Status',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: {
+            choices: [
+              { id: 'lkp1', name: 'Active', color: 'green' },
+              { id: 'lkp2', name: 'Inactive', color: 'gray' },
+            ],
+            defaultValue: 'Active',
+          },
+          buildInput: () => ({
+            type: 'singleSelect',
+            id: lookupForeignSingleSelectFieldId,
+            name: 'Lookup Status',
+            options: {
+              choices: [
+                { id: 'lkp1', name: 'Active', color: 'green' },
+                { id: 'lkp2', name: 'Inactive', color: 'gray' },
+              ],
+              defaultValue: 'Active',
+            },
+          }),
+        },
+      ],
+      multipleSelect: () => [
+        {
+          type: 'multipleSelect',
+          label: 'multipleSelect',
+          id: lookupForeignMultipleSelectFieldId,
+          name: 'Lookup Tags',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: {
+            choices: [
+              { id: 'lkp3', name: 'TagA', color: 'purple' },
+              { id: 'lkp4', name: 'TagB', color: 'teal' },
+            ],
+          },
+          buildInput: () => ({
+            type: 'multipleSelect',
+            id: lookupForeignMultipleSelectFieldId,
+            name: 'Lookup Tags',
+            options: {
+              choices: [
+                { id: 'lkp3', name: 'TagA', color: 'purple' },
+                { id: 'lkp4', name: 'TagB', color: 'teal' },
+              ],
+            },
+          }),
+        },
+      ],
+      checkbox: () => [
+        {
+          type: 'checkbox',
+          label: 'checkbox',
+          id: lookupForeignCheckboxFieldId,
+          name: 'Lookup Done',
+          expectedCellValueType: 'boolean',
+          expectedIsMultiple: true,
+          expectedOptions: { defaultValue: true },
+          buildInput: () => ({
+            type: 'checkbox',
+            id: lookupForeignCheckboxFieldId,
+            name: 'Lookup Done',
+            options: { defaultValue: true },
+          }),
+        },
+      ],
+      attachment: () => [
+        {
+          type: 'attachment',
+          label: 'attachment',
+          id: lookupForeignAttachmentFieldId,
+          name: 'Lookup Files',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: {},
+          buildInput: () => ({
+            type: 'attachment',
+            id: lookupForeignAttachmentFieldId,
+            name: 'Lookup Files',
+          }),
+        },
+      ],
+      date: () => [
+        {
+          type: 'date',
+          label: 'date',
+          id: lookupForeignDateFieldId,
+          name: 'Lookup Date',
+          expectedCellValueType: 'dateTime',
+          expectedIsMultiple: true,
+          expectedOptions: {
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+          buildInput: () => ({
+            type: 'date',
+            id: lookupForeignDateFieldId,
+            name: 'Lookup Date',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          }),
+        },
+      ],
+      createdTime: () => [
+        {
+          type: 'createdTime',
+          label: 'createdTime',
+          id: lookupForeignCreatedTimeFieldId,
+          name: 'Lookup Created At',
+          expectedCellValueType: 'dateTime',
+          expectedIsMultiple: true,
+          expectedOptions: {
+            expression: 'CREATED_TIME()',
+            formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+          },
+          buildInput: () => ({
+            type: 'createdTime',
+            id: lookupForeignCreatedTimeFieldId,
+            name: 'Lookup Created At',
+            options: {
+              formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
+            },
+          }),
+        },
+      ],
+      autoNumber: () => [
+        {
+          type: 'autoNumber',
+          label: 'autoNumber',
+          id: lookupForeignAutoNumberFieldId,
+          name: 'Lookup Auto Number',
+          expectedCellValueType: 'number',
+          expectedIsMultiple: true,
+          expectedOptions: { expression: 'AUTO_NUMBER()' },
+          buildInput: () => ({
+            type: 'autoNumber',
+            id: lookupForeignAutoNumberFieldId,
+            name: 'Lookup Auto Number',
+          }),
+        },
+      ],
+      user: () => [
+        {
+          type: 'user',
+          label: 'user',
+          id: lookupForeignUserFieldId,
+          name: 'Lookup Owner',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: { isMultiple: true, shouldNotify: false },
+          buildInput: () => ({
+            type: 'user',
+            id: lookupForeignUserFieldId,
+            name: 'Lookup Owner',
+            options: { isMultiple: true, shouldNotify: false },
+          }),
+        },
+      ],
+      createdBy: () => [
+        {
+          type: 'createdBy',
+          label: 'createdBy',
+          id: lookupForeignCreatedByFieldId,
+          name: 'Lookup Created By',
+          expectedCellValueType: 'string',
+          expectedIsMultiple: true,
+          expectedOptions: {},
+          buildInput: () => ({
+            type: 'createdBy',
+            id: lookupForeignCreatedByFieldId,
+            name: 'Lookup Created By',
+          }),
+        },
+      ],
+    };
+
+    const lookupFieldSpecs = Object.values(lookupFieldFactories).flatMap((factory) =>
+      factory ? factory() : []
+    );
+
+    type LookupCase = {
+      caseLabel: string;
+      lookupFieldId: string;
+      innerType: FieldTypeLiteral;
+      expectedCellValueType: string;
+      expectedIsMultiple: boolean;
+      expectedOptions: Record<string, unknown>;
+    };
+
+    const lookupCases: LookupCase[] = lookupFieldSpecs.map((spec) => ({
+      caseLabel: spec.label,
+      lookupFieldId: spec.id,
+      innerType: spec.type,
+      expectedCellValueType: spec.expectedCellValueType,
+      expectedIsMultiple: spec.expectedIsMultiple,
+      expectedOptions: spec.expectedOptions,
+    }));
+
+    let lookupHostTableId: string;
+    let lookupForeignTableId: string;
+
+    beforeAll(async () => {
+      // Create foreign table with various field types
+      const foreignTable = await createTable({
+        baseId,
+        name: 'Lookup Foreign',
+        fields: lookupFieldSpecs.map((spec) => spec.buildInput()),
+      });
+      lookupForeignTableId = foreignTable.id;
+
+      // Create host table
+      const hostTable = await createTable({
+        baseId,
+        name: 'Lookup Host',
+        fields: [
+          {
+            type: 'singleLineText',
+            id: lookupHostPrimaryFieldId,
+            name: 'Name',
+            isPrimary: true,
+          },
+        ],
+      });
+      lookupHostTableId = hostTable.id;
+
+      // Create link field from host to foreign
+      const linkResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'link',
+            id: lookupHostLinkFieldId,
+            name: 'Link to Foreign',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: lookupForeignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+
+      const linkRaw = await linkResponse.json();
+      if (linkResponse.status !== 200) {
+        throw new Error(`CreateField failed for lookup link: ${JSON.stringify(linkRaw)}`);
+      }
+      const linkParsed = createFieldOkResponseSchema.safeParse(linkRaw);
+      expect(linkParsed.success).toBe(true);
+      if (!linkParsed.success || !linkParsed.data.ok) {
+        throw new Error(`Failed to create lookup link: ${JSON.stringify(linkRaw)}`);
+      }
+    });
+
+    test.each(lookupCases)('creates lookup field for $caseLabel inner type', async (entry) => {
+      const lookupFieldId = createFieldId();
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'lookup',
+            id: lookupFieldId,
+            name: `Lookup ${entry.caseLabel} ${lookupFieldId}`,
+            options: {
+              linkFieldId: lookupHostLinkFieldId,
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: entry.lookupFieldId,
+            },
+          },
+        }),
+      });
+
+      const rawBody = await response.json();
+      if (response.status !== 200) {
+        throw new Error(`CreateField failed for lookup: ${JSON.stringify(rawBody)}`);
+      }
+      expect(response.status).toBe(200);
+
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find((field) => field.id === lookupFieldId);
+      expect(created).toBeTruthy();
+      if (!created) return;
+
+      // Verify isLookup flag
+      expect(created.isLookup).toBe(true);
+
+      // Verify lookupOptions with exact values
+      expect(created.lookupOptions).toEqual({
+        linkFieldId: lookupHostLinkFieldId,
+        foreignTableId: lookupForeignTableId,
+        lookupFieldId: entry.lookupFieldId,
+      });
+
+      // Verify the inner type matches the expected type
+      expect(created.type).toBe(entry.innerType);
+
+      // Verify options match the inner field's expected options
+      expect(created.options).toEqual(entry.expectedOptions);
+    });
+
+    it('creates nested lookup field (lookup -> lookup -> number)', async () => {
+      // Table1: has a number field
+      const nestedTable1NumberFieldId = createFieldId();
+      const nestedTable1PrimaryFieldId = createFieldId();
+      const nestedTable1 = await createTable({
+        baseId,
+        name: 'Nested Lookup Table1',
+        fields: [
+          { type: 'singleLineText', id: nestedTable1PrimaryFieldId, name: 'Name', isPrimary: true },
+          {
+            type: 'number',
+            id: nestedTable1NumberFieldId,
+            name: 'Amount',
+            options: { formatting: { type: 'decimal', precision: 2 } },
+          },
+        ],
+      });
+
+      // Table2: links to Table1, has lookup to Table1's number field
+      const nestedTable2PrimaryFieldId = createFieldId();
+      const nestedTable2 = await createTable({
+        baseId,
+        name: 'Nested Lookup Table2',
+        fields: [
+          { type: 'singleLineText', id: nestedTable2PrimaryFieldId, name: 'Name', isPrimary: true },
+        ],
+      });
+
+      const nestedTable2LinkFieldId = createFieldId();
+      await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: nestedTable2.id,
+          field: {
+            type: 'link',
+            id: nestedTable2LinkFieldId,
+            name: 'Link to Table1',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: nestedTable1.id,
+              lookupFieldId: nestedTable1PrimaryFieldId,
+            },
+          },
+        }),
+      });
+
+      const nestedTable2LookupFieldId = createFieldId();
+      const table2LookupResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: nestedTable2.id,
+          field: {
+            type: 'lookup',
+            id: nestedTable2LookupFieldId,
+            name: 'Lookup Amount from Table1',
+            options: {
+              linkFieldId: nestedTable2LinkFieldId,
+              foreignTableId: nestedTable1.id,
+              lookupFieldId: nestedTable1NumberFieldId,
+            },
+          },
+        }),
+      });
+      expect(table2LookupResponse.status).toBe(200);
+
+      // Table3: links to Table2, has nested lookup to Table2's lookup field
+      const nestedTable3PrimaryFieldId = createFieldId();
+      const nestedTable3 = await createTable({
+        baseId,
+        name: 'Nested Lookup Table3',
+        fields: [
+          { type: 'singleLineText', id: nestedTable3PrimaryFieldId, name: 'Name', isPrimary: true },
+        ],
+      });
+
+      const nestedTable3LinkFieldId = createFieldId();
+      await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: nestedTable3.id,
+          field: {
+            type: 'link',
+            id: nestedTable3LinkFieldId,
+            name: 'Link to Table2',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: nestedTable2.id,
+              lookupFieldId: nestedTable2PrimaryFieldId,
+            },
+          },
+        }),
+      });
+
+      // Create nested lookup: Table3 -> Table2 -> lookup field (which looks up Table1's number)
+      const nestedLookupFieldId = createFieldId();
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: nestedTable3.id,
+          field: {
+            type: 'lookup',
+            id: nestedLookupFieldId,
+            name: 'Nested Lookup Amount',
+            options: {
+              linkFieldId: nestedTable3LinkFieldId,
+              foreignTableId: nestedTable2.id,
+              lookupFieldId: nestedTable2LookupFieldId,
+            },
+          },
+        }),
+      });
+
+      expect(response.status).toBe(200);
+      const rawBody = await response.json();
+      const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+      expect(parsed.success).toBe(true);
+      if (!parsed.success || !parsed.data.ok) return;
+
+      const created = parsed.data.data.table.fields.find((f) => f.id === nestedLookupFieldId);
+      expect(created).toBeTruthy();
+      if (!created) return;
+
+      // Verify isLookup flag
+      expect(created.isLookup).toBe(true);
+
+      // Verify lookupOptions point to Table2's lookup field
+      expect(created.lookupOptions).toEqual({
+        linkFieldId: nestedTable3LinkFieldId,
+        foreignTableId: nestedTable2.id,
+        lookupFieldId: nestedTable2LookupFieldId,
+      });
+
+      // Nested lookup should inherit the inner-most field type (number)
+      expect(created.type).toBe('number');
+
+      // Options should match the original number field's options
+      expect(created.options).toEqual({ formatting: { type: 'decimal', precision: 2 } });
+    });
+
+    it('rejects notNull/unique for lookup fields (computed)', async () => {
+      const notNullResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'lookup',
+            id: createFieldId(),
+            name: 'Lookup NotNull',
+            notNull: true,
+            options: {
+              linkFieldId: lookupHostLinkFieldId,
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: lookupForeignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+      // notNull on computed field should be rejected
+      expect(notNullResponse.status).not.toBe(200);
+
+      const uniqueResponse = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'lookup',
+            id: createFieldId(),
+            name: 'Lookup Unique',
+            unique: true,
+            options: {
+              linkFieldId: lookupHostLinkFieldId,
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: lookupForeignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+      // unique on computed field should be rejected
+      expect(uniqueResponse.status).not.toBe(200);
+    });
+
+    it('rejects invalid linkFieldId', async () => {
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'lookup',
+            id: createFieldId(),
+            name: 'Invalid Link',
+            options: {
+              linkFieldId: 'fldNonExistent12345',
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: lookupForeignPrimaryFieldId,
+            },
+          },
+        }),
+      });
+      // Invalid linkFieldId should be rejected (400 or 404)
+      expect(response.status).not.toBe(200);
+    });
+
+    it('rejects invalid lookupFieldId', async () => {
+      const response = await fetch(`${baseUrl}/tables/createField`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          baseId,
+          tableId: lookupHostTableId,
+          field: {
+            type: 'lookup',
+            id: createFieldId(),
+            name: 'Invalid Lookup Field',
+            options: {
+              linkFieldId: lookupHostLinkFieldId,
+              foreignTableId: lookupForeignTableId,
+              lookupFieldId: 'fldNonExistent12345',
+            },
+          },
+        }),
+      });
+      // Invalid lookupFieldId should be rejected (400 or 404)
+      expect(response.status).not.toBe(200);
     });
   });
 
@@ -1165,5 +1892,99 @@ describe('v2 http createField (e2e)', () => {
     expect(symmetricField).toBeDefined();
     if (!symmetricField) return;
     expect(symmetricField.name).toBe('Projects');
+  });
+
+  it('rollup can aggregate lookup field values', async () => {
+    const table1NumberFieldId = createFieldId();
+    const table1PrimaryFieldId = createFieldId();
+    const table1 = await createTable({
+      baseId,
+      name: 'Rollup Lookup Table1',
+      fields: [
+        { type: 'singleLineText', id: table1PrimaryFieldId, name: 'Name', isPrimary: true },
+        { type: 'number', id: table1NumberFieldId, name: 'Value' },
+      ],
+    });
+
+    const table2PrimaryFieldId = createFieldId();
+    const table2 = await createTable({
+      baseId,
+      name: 'Rollup Lookup Table2',
+      fields: [{ type: 'singleLineText', id: table2PrimaryFieldId, name: 'Name', isPrimary: true }],
+    });
+
+    const table2LinkFieldId = createFieldId();
+    await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId: table2.id,
+        field: {
+          type: 'link',
+          id: table2LinkFieldId,
+          name: 'Link to Table1',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: table1.id,
+            lookupFieldId: table1PrimaryFieldId,
+          },
+        },
+      }),
+    });
+
+    const table2LookupFieldId = createFieldId();
+    await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId: table2.id,
+        field: {
+          type: 'lookup',
+          id: table2LookupFieldId,
+          name: 'Lookup Value',
+          options: {
+            linkFieldId: table2LinkFieldId,
+            foreignTableId: table1.id,
+            lookupFieldId: table1NumberFieldId,
+          },
+        },
+      }),
+    });
+
+    // Create rollup field that aggregates the lookup field's source (table1.Value)
+    // Rollup's lookupFieldId must point to a field in the foreignTable (table1)
+    const rollupFieldId = createFieldId();
+    const response = await fetch(`${baseUrl}/tables/createField`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        baseId,
+        tableId: table2.id,
+        field: {
+          type: 'rollup',
+          id: rollupFieldId,
+          name: 'Count Lookup Values',
+          options: { expression: 'countall({values})' },
+          config: {
+            linkFieldId: table2LinkFieldId,
+            foreignTableId: table1.id,
+            lookupFieldId: table1NumberFieldId, // Points to foreign table field
+          },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    const rawBody = await response.json();
+    const parsed = createFieldOkResponseSchema.safeParse(rawBody);
+    expect(parsed.success).toBe(true);
+    if (!parsed.success || !parsed.data.ok) return;
+
+    const created = parsed.data.data.table.fields.find((f) => f.id === rollupFieldId);
+    expect(created).toBeTruthy();
+    if (!created || created.type !== 'rollup') return;
+    expect(created.config.lookupFieldId).toBe(table1NumberFieldId);
   });
 });

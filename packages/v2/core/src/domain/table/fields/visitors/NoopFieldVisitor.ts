@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { AttachmentField } from '../types/AttachmentField';
 import type { AutoNumberField } from '../types/AutoNumberField';
 import type { ButtonField } from '../types/ButtonField';
@@ -13,6 +14,7 @@ import type { LastModifiedByField } from '../types/LastModifiedByField';
 import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
+import type { LookupField } from '../types/LookupField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
@@ -23,79 +25,83 @@ import type { UserField } from '../types/UserField';
 import type { IFieldVisitor } from './IFieldVisitor';
 
 export class NoopFieldVisitor implements IFieldVisitor {
-  visitSingleLineTextField(_: SingleLineTextField): Result<void, string> {
+  visitSingleLineTextField(_: SingleLineTextField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitLongTextField(_: LongTextField): Result<void, string> {
+  visitLongTextField(_: LongTextField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitNumberField(_: NumberField): Result<void, string> {
+  visitNumberField(_: NumberField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitRatingField(_: RatingField): Result<void, string> {
+  visitRatingField(_: RatingField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitFormulaField(_: FormulaField): Result<void, string> {
+  visitFormulaField(_: FormulaField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitRollupField(_: RollupField): Result<void, string> {
+  visitRollupField(_: RollupField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitSingleSelectField(_: SingleSelectField): Result<void, string> {
+  visitSingleSelectField(_: SingleSelectField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitMultipleSelectField(_: MultipleSelectField): Result<void, string> {
+  visitMultipleSelectField(_: MultipleSelectField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitCheckboxField(_: CheckboxField): Result<void, string> {
+  visitCheckboxField(_: CheckboxField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitAttachmentField(_: AttachmentField): Result<void, string> {
+  visitAttachmentField(_: AttachmentField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitDateField(_: DateField): Result<void, string> {
+  visitDateField(_: DateField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitCreatedTimeField(_: CreatedTimeField): Result<void, string> {
+  visitCreatedTimeField(_: CreatedTimeField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<void, string> {
+  visitLastModifiedTimeField(_: LastModifiedTimeField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitUserField(_: UserField): Result<void, string> {
+  visitUserField(_: UserField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitCreatedByField(_: CreatedByField): Result<void, string> {
+  visitCreatedByField(_: CreatedByField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitLastModifiedByField(_: LastModifiedByField): Result<void, string> {
+  visitLastModifiedByField(_: LastModifiedByField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitAutoNumberField(_: AutoNumberField): Result<void, string> {
+  visitAutoNumberField(_: AutoNumberField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitButtonField(_: ButtonField): Result<void, string> {
+  visitButtonField(_: ButtonField): Result<void, DomainError> {
     return ok(undefined);
   }
 
-  visitLinkField(_: LinkField): Result<void, string> {
+  visitLinkField(_: LinkField): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitLookupField(_: LookupField): Result<void, DomainError> {
     return ok(undefined);
   }
 }

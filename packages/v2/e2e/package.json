@@ -34,6 +34,7 @@
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-contract-http-client": "workspace:*",
     "@teable/v2-contract-http-express": "workspace:*",
+    "@teable/v2-table-templates": "workspace:*",
     "express": "4.21.1",
     "sharedb": "4.1.2",
     "ws": "8.17.1"

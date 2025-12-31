@@ -259,13 +259,23 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
     {
       type: 'singleLineText',
       name: 'Name',
+      notNull: true,
+      unique: true,
       options: { showAs: { type: 'email' }, defaultValue: 'owner@example.com' },
     },
-    { type: 'longText', name: 'Description', options: { defaultValue: 'Details' } },
+    {
+      type: 'longText',
+      name: 'Description',
+      notNull: true,
+      unique: true,
+      options: { defaultValue: 'Details' },
+    },
     {
       type: 'number',
       id: amountFieldId,
       name: 'Amount',
+      notNull: true,
+      unique: true,
       options: {
         formatting: { type: 'currency', precision: 2, symbol: '$' },
         showAs: {
@@ -297,11 +307,13 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
     {
       type: 'rating',
       name: 'Priority',
+      notNull: true,
       options: { max: 5, icon: 'star', color: 'yellowBright' },
     },
     {
       type: 'singleSelect',
       name: 'Status',
+      notNull: true,
       options: {
         choices: [
           { name: 'Todo', color: 'blue' },
@@ -315,6 +327,7 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
     {
       type: 'multipleSelect',
       name: 'Tags',
+      notNull: true,
       options: {
         choices: [
           { name: 'Frontend', color: 'purple' },
@@ -325,10 +338,12 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
       },
     },
     { type: 'checkbox', name: 'Done', options: { defaultValue: true } },
-    { type: 'attachment', name: 'Files' },
+    { type: 'attachment', name: 'Files', notNull: true },
     {
       type: 'date',
       name: 'Due Date',
+      notNull: true,
+      unique: true,
       options: {
         formatting: { date: 'YYYY-MM-DD', time: 'HH:mm', timeZone: 'utc' },
         defaultValue: 'now',
@@ -337,6 +352,7 @@ export const createAllFieldTypesFields = (): ICreateTableRequestDto['fields'] =>
     {
       type: 'user',
       name: 'Owner',
+      notNull: true,
       options: { isMultiple: true, shouldNotify: false, defaultValue: ['me'] },
     },
     {

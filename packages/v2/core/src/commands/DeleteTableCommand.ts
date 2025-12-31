@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 
 export const deleteTableInputSchema = z.object({
@@ -18,9 +19,9 @@ export class DeleteTableCommand {
     readonly tableId: TableId
   ) {}
 
-  static create(raw: unknown): Result<DeleteTableCommand, string> {
+  static create(raw: unknown): Result<DeleteTableCommand, DomainError> {
     const parsed = deleteTableInputSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DeleteTableCommand input');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DeleteTableCommand input'));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map((tableId) => new DeleteTableCommand(baseId, tableId))

@@ -1,6 +1,8 @@
+import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../base/BaseId';
+import type { DomainError } from '../../shared/DomainError';
 import type { TableId } from '../TableId';
 import type { Field } from './Field';
 import type { FieldId } from './FieldId';
@@ -22,6 +24,8 @@ import type { DateDefaultValue } from './types/DateDefaultValue';
 import { DateField } from './types/DateField';
 import type { DateTimeFormatting } from './types/DateTimeFormatting';
 import type { FieldColor } from './types/FieldColor';
+import type { FieldNotNull } from './types/FieldNotNull';
+import type { FieldUnique } from './types/FieldUnique';
 import type { FormulaExpression } from './types/FormulaExpression';
 import { FormulaField, type FormulaFormatting, type FormulaShowAs } from './types/FormulaField';
 import type { FormulaMeta } from './types/FormulaMeta';
@@ -31,6 +35,8 @@ import { LinkField } from './types/LinkField';
 import type { LinkFieldConfig } from './types/LinkFieldConfig';
 import type { LinkFieldMeta } from './types/LinkFieldMeta';
 import { LongTextField } from './types/LongTextField';
+import { LookupField } from './types/LookupField';
+import type { LookupOptions } from './types/LookupOptions';
 import { MultipleSelectField } from './types/MultipleSelectField';
 import type { NumberDefaultValue } from './types/NumberDefaultValue';
 import { NumberField } from './types/NumberField';
@@ -56,12 +62,26 @@ import { UserField } from './types/UserField';
 import type { UserMultiplicity } from './types/UserMultiplicity';
 import type { UserNotification } from './types/UserNotification';
 
+const applyFieldValidation = (
+  field: Field,
+  params?: { notNull?: FieldNotNull; unique?: FieldUnique }
+): Result<Field, DomainError> => {
+  const notNull = params?.notNull;
+  const unique = params?.unique;
+  return (notNull ? field.setNotNull(notNull) : ok(undefined))
+    .andThen(() => (unique ? field.setUnique(unique) : ok(undefined)))
+    .map(() => field);
+};
+
 export const createSingleLineTextField = (params: {
   id: FieldId;
   name: FieldName;
   showAs?: SingleLineTextShowAs;
   defaultValue?: TextDefaultValue;
-}): Result<Field, string> => SingleLineTextField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  SingleLineTextField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createTextField = createSingleLineTextField;
 
@@ -69,7 +89,10 @@ export const createLongTextField = (params: {
   id: FieldId;
   name: FieldName;
   defaultValue?: TextDefaultValue;
-}): Result<Field, string> => LongTextField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LongTextField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createNumberField = (params: {
   id: FieldId;
@@ -77,7 +100,10 @@ export const createNumberField = (params: {
   formatting?: NumberFormatting;
   showAs?: NumberShowAs;
   defaultValue?: NumberDefaultValue;
-}): Result<Field, string> => NumberField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  NumberField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createRatingField = (params: {
   id: FieldId;
@@ -85,7 +111,10 @@ export const createRatingField = (params: {
   max?: RatingMax;
   icon?: RatingIcon;
   color?: RatingColor;
-}): Result<Field, string> => RatingField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  RatingField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createFormulaField = (params: {
   id: FieldId;
@@ -97,7 +126,10 @@ export const createFormulaField = (params: {
   meta?: FormulaMeta;
   resultType?: { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity };
   dependencies?: ReadonlyArray<FieldId>;
-}): Result<Field, string> => FormulaField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  FormulaField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createRollupField = (params: {
   id: FieldId;
@@ -109,7 +141,10 @@ export const createRollupField = (params: {
   formatting?: RollupFormatting;
   showAs?: RollupShowAs;
   dependencies?: ReadonlyArray<FieldId>;
-}): Result<Field, string> => RollupField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  RollupField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createRollupFieldPending = (params: {
   id: FieldId;
@@ -120,7 +155,20 @@ export const createRollupFieldPending = (params: {
   formatting?: RollupFormatting;
   showAs?: RollupShowAs;
   dependencies?: ReadonlyArray<FieldId>;
-}): Result<Field, string> => RollupField.createPending(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  RollupField.createPending(params).andThen((field) => applyFieldValidation(field, params));
+
+export const createLookupFieldPending = (params: {
+  id: FieldId;
+  name: FieldName;
+  lookupOptions: LookupOptions;
+  dependencies?: ReadonlyArray<FieldId>;
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LookupField.createPending(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createSelectField = (params: {
   id: FieldId;
@@ -128,7 +176,10 @@ export const createSelectField = (params: {
   options: ReadonlyArray<SelectOption>;
   defaultValue?: SelectDefaultValue;
   preventAutoNewOptions?: SelectAutoNewOptions;
-}): Result<Field, string> => SingleSelectField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  SingleSelectField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createSingleSelectField = createSelectField;
 
@@ -138,38 +189,56 @@ export const createMultipleSelectField = (params: {
   options: ReadonlyArray<SelectOption>;
   defaultValue?: SelectDefaultValue;
   preventAutoNewOptions?: SelectAutoNewOptions;
-}): Result<Field, string> => MultipleSelectField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  MultipleSelectField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createCheckboxField = (params: {
   id: FieldId;
   name: FieldName;
   defaultValue?: CheckboxDefaultValue;
-}): Result<Field, string> => CheckboxField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  CheckboxField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createAttachmentField = (params: {
   id: FieldId;
   name: FieldName;
-}): Result<Field, string> => AttachmentField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  AttachmentField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createDateField = (params: {
   id: FieldId;
   name: FieldName;
   formatting?: DateTimeFormatting;
   defaultValue?: DateDefaultValue;
-}): Result<Field, string> => DateField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  DateField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createCreatedTimeField = (params: {
   id: FieldId;
   name: FieldName;
   formatting?: DateTimeFormatting;
-}): Result<Field, string> => CreatedTimeField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  CreatedTimeField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createLastModifiedTimeField = (params: {
   id: FieldId;
   name: FieldName;
   formatting?: DateTimeFormatting;
   trackedFieldIds?: ReadonlyArray<FieldId>;
-}): Result<Field, string> => LastModifiedTimeField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LastModifiedTimeField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createUserField = (params: {
   id: FieldId;
@@ -177,23 +246,35 @@ export const createUserField = (params: {
   isMultiple?: UserMultiplicity;
   shouldNotify?: UserNotification;
   defaultValue?: UserDefaultValue;
-}): Result<Field, string> => UserField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  UserField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createCreatedByField = (params: {
   id: FieldId;
   name: FieldName;
-}): Result<Field, string> => CreatedByField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  CreatedByField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createLastModifiedByField = (params: {
   id: FieldId;
   name: FieldName;
   trackedFieldIds?: ReadonlyArray<FieldId>;
-}): Result<Field, string> => LastModifiedByField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LastModifiedByField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createAutoNumberField = (params: {
   id: FieldId;
   name: FieldName;
-}): Result<Field, string> => AutoNumberField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  AutoNumberField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createButtonField = (params: {
   id: FieldId;
@@ -203,14 +284,20 @@ export const createButtonField = (params: {
   maxCount?: ButtonMaxCount;
   resetCount?: ButtonResetCount;
   workflow?: ButtonWorkflow;
-}): Result<Field, string> => ButtonField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  ButtonField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createLinkField = (params: {
   id: FieldId;
   name: FieldName;
   config: LinkFieldConfig;
   meta?: LinkFieldMeta;
-}): Result<Field, string> => LinkField.create(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LinkField.create(params).andThen((field) => applyFieldValidation(field, params));
 
 export const createNewLinkField = (params: {
   id: FieldId;
@@ -219,4 +306,7 @@ export const createNewLinkField = (params: {
   baseId: BaseId;
   hostTableId: TableId;
   meta?: LinkFieldMeta;
-}): Result<Field, string> => LinkField.createNew(params);
+  notNull?: FieldNotNull;
+  unique?: FieldUnique;
+}): Result<Field, DomainError> =>
+  LinkField.createNew(params).andThen((field) => applyFieldValidation(field, params));

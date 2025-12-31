@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { View } from '../View';
 import type { ViewId } from '../ViewId';
 import type { ViewName } from '../ViewName';
@@ -12,11 +13,11 @@ export class GridView extends View {
     super(id, name, ViewType.grid());
   }
 
-  static create(params: { id: ViewId; name: ViewName }): Result<GridView, string> {
+  static create(params: { id: ViewId; name: ViewName }): Result<GridView, DomainError> {
     return ok(new GridView(params.id, params.name));
   }
 
-  accept<T = void>(visitor: IViewVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IViewVisitor<T>): Result<T, DomainError> {
     return visitor.visitGridView(this);
   }
 }

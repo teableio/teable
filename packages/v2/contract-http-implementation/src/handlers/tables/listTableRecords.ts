@@ -1,10 +1,11 @@
 import type { IListTableRecordsEndpointResult } from '@teable/v2-contract-http';
-import { mapListTableRecordsResultToDto } from '@teable/v2-contract-http';
+import {
+  mapDomainErrorToHttpError,
+  mapDomainErrorToHttpStatus,
+  mapListTableRecordsResultToDto,
+} from '@teable/v2-contract-http';
 import { ListTableRecordsQuery } from '@teable/v2-core';
 import type { IExecutionContext, IQueryBus, ListTableRecordsResult } from '@teable/v2-core';
-
-const isNotFoundError = (error: string): boolean =>
-  error === 'Not found' || error === 'Table not found';
 
 export const executeListTableRecordsEndpoint = async (
   context: IExecutionContext,
@@ -13,7 +14,11 @@ export const executeListTableRecordsEndpoint = async (
 ): Promise<IListTableRecordsEndpointResult> => {
   const queryResult = ListTableRecordsQuery.create(rawInput);
   if (queryResult.isErr()) {
-    return { status: 400, body: { ok: false, error: queryResult.error } };
+    const error = queryResult.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const result = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
@@ -21,15 +26,20 @@ export const executeListTableRecordsEndpoint = async (
     queryResult.value
   );
   if (result.isErr()) {
-    if (isNotFoundError(result.error)) {
-      return { status: 404, body: { ok: false, error: result.error } };
-    }
-    return { status: 500, body: { ok: false, error: result.error } };
+    const error = result.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   const mapped = mapListTableRecordsResultToDto(result.value);
   if (mapped.isErr()) {
-    return { status: 500, body: { ok: false, error: mapped.error } };
+    const error = mapped.error;
+    return {
+      status: mapDomainErrorToHttpStatus(error),
+      body: { ok: false, error: mapDomainErrorToHttpError(error) },
+    };
   }
 
   return {

@@ -1,10 +1,11 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../domain/shared/DomainError';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import { TraceSpan, isTraceSpanWrapped } from '../ports/TraceSpan';
 
 export interface IQueryHandler<TQuery, TResult> {
-  handle(context: IExecutionContext, query: TQuery): Promise<Result<TResult, string>>;
+  handle(context: IExecutionContext, query: TQuery): Promise<Result<TResult, DomainError>>;
 }
 
 export type QueryType<TQuery> = {

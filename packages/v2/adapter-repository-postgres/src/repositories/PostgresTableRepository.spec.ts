@@ -14,6 +14,7 @@ import type {
   LastModifiedTimeField,
   LinkField,
   LongTextField,
+  LookupField,
   MultipleSelectField,
   NumberField,
   RatingField,
@@ -47,6 +48,7 @@ import {
   TableByNameSpec,
   TableSortKey,
   v2CoreTokens,
+  domainError,
 } from '@teable/v2-core';
 import { container } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -221,7 +223,11 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   }
 
   visitLinkField(_: LinkField) {
-    return err('Not implemented');
+    return err(domainError.fromMessage('Not implemented'));
+  }
+
+  visitLookupField(_: LookupField) {
+    return err(domainError.fromMessage('Not implemented'));
   }
 }
 

@@ -4,6 +4,9 @@ import { DbFieldName } from './DbFieldName';
 import { FieldId } from './FieldId';
 import { FieldName } from './FieldName';
 import { FieldType } from './FieldType';
+import { CreatedTimeField } from './types/CreatedTimeField';
+import { FieldNotNull } from './types/FieldNotNull';
+import { FieldUnique } from './types/FieldUnique';
 import { SingleLineTextField } from './types/SingleLineTextField';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
@@ -18,13 +21,12 @@ describe('FieldName', () => {
     const left = FieldName.create('A');
     const right = FieldName.create('A');
     const other = FieldName.create('B');
-    [left, right, other].forEach((r) => r._unsafeUnwrap());
-    left._unsafeUnwrap();
-    right._unsafeUnwrap();
-    other._unsafeUnwrap();
-    expect(left.value.equals(right.value)).toBe(true);
-    expect(left.value.equals(other.value)).toBe(false);
-    expect(left.value.toString()).toBe('A');
+    const leftName = left._unsafeUnwrap();
+    const rightName = right._unsafeUnwrap();
+    const otherName = other._unsafeUnwrap();
+    expect(leftName.equals(rightName)).toBe(true);
+    expect(leftName.equals(otherName)).toBe(false);
+    expect(leftName.toString()).toBe('A');
   });
 });
 
@@ -100,5 +102,29 @@ describe('Field', () => {
     field.dbFieldName()._unsafeUnwrap();
     field.setDbFieldName(dbNameResult._unsafeUnwrap())._unsafeUnwrap();
     field.setDbFieldName(otherDbNameResult._unsafeUnwrap())._unsafeUnwrapErr();
+  });
+
+  it('handles notNull/unique flags and blocks computed updates', () => {
+    const fieldIdResult = createFieldId('b');
+    const fieldNameResult = FieldName.create('Title');
+    [fieldIdResult, fieldNameResult].forEach((r) => r._unsafeUnwrap());
+
+    const field = SingleLineTextField.create({
+      id: fieldIdResult._unsafeUnwrap(),
+      name: fieldNameResult._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    field.setNotNull(FieldNotNull.required())._unsafeUnwrap();
+    field.setUnique(FieldUnique.enabled())._unsafeUnwrap();
+    expect(field.notNull().toBoolean()).toBe(true);
+    expect(field.unique().toBoolean()).toBe(true);
+
+    const computed = CreatedTimeField.create({
+      id: createFieldId('c')._unsafeUnwrap(),
+      name: FieldName.create('Created')._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    expect(computed.setNotNull(FieldNotNull.required()).isErr()).toBe(true);
+    expect(computed.setUnique(FieldUnique.enabled()).isErr()).toBe(true);
   });
 });

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { RehydratedValueObject } from '../../../shared/RehydratedValueObject';
 
 const formulaMetaSchema = z.object({
@@ -19,29 +20,29 @@ export class FormulaMeta extends RehydratedValueObject {
     return new FormulaMeta();
   }
 
-  static rehydrate(raw: unknown): Result<FormulaMeta, string> {
+  static rehydrate(raw: unknown): Result<FormulaMeta, DomainError> {
     const parsed = formulaMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err('Invalid FormulaMeta');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaMeta'));
     return ok(new FormulaMeta(JSON.stringify(parsed.data)));
   }
 
-  value(): Result<FormulaMetaValue, string> {
+  value(): Result<FormulaMetaValue, DomainError> {
     return this.valueResult('FormulaMeta').andThen((rawValue) => {
       try {
         const parsed = formulaMetaSchema.safeParse(JSON.parse(rawValue));
-        if (!parsed.success) return err('Invalid FormulaMeta');
+        if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaMeta'));
         return ok(parsed.data);
       } catch {
-        return err('Invalid FormulaMeta');
+        return err(domainError.fromMessage('Invalid FormulaMeta'));
       }
     });
   }
 
-  persistedAsGeneratedColumn(): Result<boolean, string> {
+  persistedAsGeneratedColumn(): Result<boolean, DomainError> {
     return this.value().map((value) => value.persistedAsGeneratedColumn ?? false);
   }
 
-  toDto(): Result<FormulaMetaValue, string> {
+  toDto(): Result<FormulaMetaValue, DomainError> {
     return this.value().map((value) => ({
       persistedAsGeneratedColumn: value.persistedAsGeneratedColumn ?? false,
     }));

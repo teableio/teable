@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../shared/DomainError';
 import { ValueObject } from '../../shared/ValueObject';
 import type { Field } from '../fields/Field';
 import type { FieldId } from '../fields/FieldId';
@@ -39,15 +40,15 @@ export class ViewColumnMeta extends ValueObject {
     super();
   }
 
-  static create(raw: ViewColumnMetaValue): Result<ViewColumnMeta, string> {
+  static create(raw: ViewColumnMetaValue): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err('Invalid ViewColumnMeta');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewColumnMeta'));
     return ok(new ViewColumnMeta(parsed.data));
   }
 
-  static rehydrate(raw: unknown): Result<ViewColumnMeta, string> {
+  static rehydrate(raw: unknown): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err('Invalid ViewColumnMeta');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewColumnMeta'));
     return ok(new ViewColumnMeta(parsed.data));
   }
 
@@ -59,7 +60,7 @@ export class ViewColumnMeta extends ValueObject {
     viewType: ViewType;
     fields: ReadonlyArray<Field>;
     primaryFieldId: FieldId;
-  }): Result<ViewColumnMeta, string> {
+  }): Result<ViewColumnMeta, DomainError> {
     const orderedFieldIds = ViewColumnMeta.orderFieldIds(params.fields, params.primaryFieldId);
     const columnMeta: ViewColumnMetaValue = {};
 

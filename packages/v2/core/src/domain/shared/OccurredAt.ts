@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from './DomainError';
 import { ValueObject } from './ValueObject';
 
 const occurredAtSchema = z.instanceof(Date);
@@ -15,9 +16,9 @@ export class OccurredAt extends ValueObject {
     return new OccurredAt(new Date());
   }
 
-  static create(raw: unknown): Result<OccurredAt, string> {
+  static create(raw: unknown): Result<OccurredAt, DomainError> {
     const parsed = occurredAtSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid OccurredAt');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid OccurredAt'));
     return ok(new OccurredAt(parsed.data));
   }
 

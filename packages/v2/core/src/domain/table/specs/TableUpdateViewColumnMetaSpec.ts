@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import { MutateOnlySpec } from '../../shared/specification/MutateOnlySpec';
 import type { Table } from '../Table';
 import type { ViewColumnMeta } from '../views/ViewColumnMeta';
@@ -23,11 +24,11 @@ export class TableUpdateViewColumnMetaSpec<
     return new TableUpdateViewColumnMetaSpec(updates);
   }
 
-  static fromTable(table: Table): Result<TableUpdateViewColumnMetaSpec, string> {
+  static fromTable(table: Table): Result<TableUpdateViewColumnMetaSpec, DomainError> {
     const updatesResult = table
       .views()
       .reduce<
-        Result<ReadonlyArray<TableViewColumnMetaUpdate>, string>
+        Result<ReadonlyArray<TableViewColumnMetaUpdate>, DomainError>
       >((acc, view) => acc.andThen((updates) => view.columnMeta().map((columnMeta) => [...updates, { viewId: view.id(), columnMeta }])), ok([]));
 
     return updatesResult.map((updates) => new TableUpdateViewColumnMetaSpec(updates));
@@ -37,11 +38,11 @@ export class TableUpdateViewColumnMetaSpec<
     return this.updatesValue;
   }
 
-  mutate(t: Table): Result<Table, string> {
+  mutate(t: Table): Result<Table, DomainError> {
     return ok(t);
   }
 
-  accept(v: V): Result<void, string> {
+  accept(v: V): Result<void, DomainError> {
     return v.visitTableUpdateViewColumnMeta(this).map(() => undefined);
   }
 }

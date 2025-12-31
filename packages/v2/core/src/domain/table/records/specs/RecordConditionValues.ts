@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import type { Field } from '../../fields/Field';
 import { TimeZone } from '../../fields/types/TimeZone';
@@ -52,9 +53,9 @@ export class RecordConditionLiteralValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RecordConditionLiteralValue, string> {
+  static create(raw: unknown): Result<RecordConditionLiteralValue, DomainError> {
     const parsed = literalValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RecordConditionLiteralValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RecordConditionLiteralValue'));
     return ok(new RecordConditionLiteralValue(parsed.data));
   }
 
@@ -72,9 +73,10 @@ export class RecordConditionLiteralListValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RecordConditionLiteralListValue, string> {
+  static create(raw: unknown): Result<RecordConditionLiteralListValue, DomainError> {
     const parsed = literalValueListSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RecordConditionLiteralListValue');
+    if (!parsed.success)
+      return err(domainError.fromMessage('Invalid RecordConditionLiteralListValue'));
     return ok(new RecordConditionLiteralListValue(parsed.data));
   }
 
@@ -98,9 +100,9 @@ export class RecordConditionDateValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RecordConditionDateValue, string> {
+  static create(raw: unknown): Result<RecordConditionDateValue, DomainError> {
     const parsed = dateValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RecordConditionDateValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RecordConditionDateValue'));
 
     const timeZoneResult = TimeZone.create(parsed.data.timeZone);
     if (timeZoneResult.isErr()) return err(timeZoneResult.error);
@@ -155,7 +157,7 @@ export class RecordConditionFieldReferenceValue extends ValueObject {
     super();
   }
 
-  static create(field: Field): Result<RecordConditionFieldReferenceValue, string> {
+  static create(field: Field): Result<RecordConditionFieldReferenceValue, DomainError> {
     return ok(new RecordConditionFieldReferenceValue(field));
   }
 

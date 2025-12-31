@@ -1,4 +1,5 @@
 import * as core from '@teable/v2-core';
+import type { DomainError } from '@teable/v2-core';
 import dayjs, { type Dayjs, type ManipulateType } from 'dayjs';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
@@ -76,49 +77,55 @@ class DateUtil {
   }
 }
 
-const resolveColumn = (field: core.Field): Result<string, string> => {
-  return safeTry<string, string>(function* () {
+const resolveColumn = (field: core.Field): Result<string, DomainError> => {
+  return safeTry<string, DomainError>(function* () {
     const dbFieldName = yield* field.dbFieldName();
     const column = yield* dbFieldName.value();
     return ok(column);
-  }).mapErr((error) => `Missing db field name for field ${field.id().toString()}: ${error}`);
+  }).mapErr((error) =>
+    core.domainError.invariant({
+      message: `Missing db field name for field ${field.id().toString()}: ${error.message}`,
+      code: 'invariant.missing_db_field_name',
+      details: { fieldId: field.id().toString(), cause: error.message },
+    })
+  );
 };
 
 const resolvePrimitiveOperand = (
   value: core.RecordConditionValue
-): Result<PrimitiveOperand, string> => {
+): Result<PrimitiveOperand, DomainError> => {
   if (core.isRecordConditionLiteralValue(value)) {
     return ok({ kind: 'literal', value: value.toValue() });
   }
   if (core.isRecordConditionFieldReferenceValue(value)) {
-    return safeTry<PrimitiveOperand, string>(function* () {
+    return safeTry<PrimitiveOperand, DomainError>(function* () {
       const column = yield* resolveColumn(value.field());
       return ok({ kind: 'field', column });
     });
   }
-  return err('Record condition requires primitive value');
+  return err(core.domainError.fromMessage('Record condition requires primitive value'));
 };
 
 const resolveListValues = (
   value: core.RecordConditionValue
-): Result<ReadonlyArray<Primitive>, string> => {
+): Result<ReadonlyArray<Primitive>, DomainError> => {
   if (!core.isRecordConditionLiteralListValue(value)) {
-    return err('Record condition requires list value');
+    return err(core.domainError.fromMessage('Record condition requires list value'));
   }
   return ok(value.toValues());
 };
 
 const resolveDateValue = (
   value: core.RecordConditionValue
-): Result<core.RecordConditionDateValue, string> => {
+): Result<core.RecordConditionDateValue, DomainError> => {
   if (!core.isRecordConditionDateValue(value)) {
-    return err('Record condition requires date value');
+    return err(core.domainError.fromMessage('Record condition requires date value'));
   }
   return ok(value);
 };
 
-const fieldIsMultiple = (field: core.Field): Result<boolean, string> => {
-  return safeTry<boolean, string>(function* () {
+const fieldIsMultiple = (field: core.Field): Result<boolean, DomainError> => {
+  return safeTry<boolean, DomainError>(function* () {
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
     return ok(valueType.isMultipleCellValue.isMultiple());
   });
@@ -149,20 +156,24 @@ const resolveDateFormatting = (field: core.Field): core.DateTimeFormatting | und
 const resolveDateRange = (
   value: core.RecordConditionDateValue,
   formatting?: core.DateTimeFormatting
-): Result<{ start: string; end: string }, string> => {
-  return safeTry<{ start: string; end: string }, string>(function* () {
+): Result<{ start: string; end: string }, DomainError> => {
+  return safeTry<{ start: string; end: string }, DomainError>(function* () {
     const mode = value.mode();
     const numberOfDays = value.numberOfDays();
     const exactDate = value.exactDate();
     const dateUtil = new DateUtil(value.timeZone().toString());
 
-    const requireExactDate = (): Result<string, string> => {
-      if (!exactDate) return err('Date condition requires exactDate');
+    const requireExactDate = (): Result<string, DomainError> => {
+      if (!exactDate) {
+        return err(core.domainError.fromMessage('Date condition requires exactDate'));
+      }
       return ok(exactDate);
     };
 
-    const requireNumberOfDays = (): Result<number, string> => {
-      if (numberOfDays == null) return err('Date condition requires numberOfDays');
+    const requireNumberOfDays = (): Result<number, DomainError> => {
+      if (numberOfDays == null) {
+        return err(core.domainError.fromMessage('Date condition requires numberOfDays'));
+      }
       return ok(numberOfDays);
     };
 
@@ -173,7 +184,9 @@ const resolveDateRange = (
       return [target.startOf('day'), target.endOf('day')];
     };
 
-    const calculateDateRangeForOffsetDays = (isPast: boolean): Result<[Dayjs, Dayjs], string> => {
+    const calculateDateRangeForOffsetDays = (
+      isPast: boolean
+    ): Result<[Dayjs, Dayjs], DomainError> => {
       return requireNumberOfDays().map((days) => {
         const offset = isPast ? -days : days;
         const target = dateUtil.offsetDay(offset);
@@ -181,7 +194,7 @@ const resolveDateRange = (
       });
     };
 
-    const determineExactDateRange = (): Result<[Dayjs, Dayjs], string> => {
+    const determineExactDateRange = (): Result<[Dayjs, Dayjs], DomainError> => {
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
         return [parsed.startOf('day'), parsed.endOf('day')];
@@ -197,7 +210,7 @@ const resolveDateRange = (
         .otherwise(() => 'day');
     };
 
-    const determineExactFormatDateRange = (): Result<[Dayjs, Dayjs], string> => {
+    const determineExactFormatDateRange = (): Result<[Dayjs, Dayjs], DomainError> => {
       return requireExactDate().map((raw) => {
         const parsed = dateUtil.date(raw);
         const unit = determineDateUnit();
@@ -209,8 +222,10 @@ const resolveDateRange = (
       isPast: boolean,
       unit: 'day' | 'week' | 'month' | 'year',
       days?: number
-    ): Result<[Dayjs, Dayjs], string> => {
-      if (days == null) return err('Date condition requires numberOfDays');
+    ): Result<[Dayjs, Dayjs], DomainError> => {
+      if (days == null) {
+        return err(core.domainError.fromMessage('Date condition requires numberOfDays'));
+      }
       const currentDate = dateUtil.date();
       const startOfDay = currentDate.startOf('day');
       const endOfDay = currentDate.endOf('day');
@@ -234,9 +249,9 @@ const resolveDateRange = (
       return [cursorDate.startOf(unit).startOf('day'), cursorDate.endOf(unit).endOf('day')];
     };
 
-    const resolveRange = (): Result<[Dayjs, Dayjs], string> => {
+    const resolveRange = (): Result<[Dayjs, Dayjs], DomainError> => {
       return match(mode)
-        .returnType<Result<[Dayjs, Dayjs], string>>()
+        .returnType<Result<[Dayjs, Dayjs], DomainError>>()
         .with('today', () => ok(computeDateRangeForFixedDays('date')))
         .with('tomorrow', () => ok(computeDateRangeForFixedDays('tomorrow')))
         .with('yesterday', () => ok(computeDateRangeForFixedDays('yesterday')))
@@ -276,20 +291,20 @@ const resolveDateRange = (
         .with('nextMonth', () => generateOffsetDateRange(false, 'month', 1))
         .with('nextYear', () => generateOffsetDateRange(false, 'year', 1))
         .with('pastNumberOfDays', () =>
-          safeTry<[Dayjs, Dayjs], string>(function* () {
+          safeTry<[Dayjs, Dayjs], DomainError>(function* () {
             const days = yield* requireNumberOfDays();
             const range = yield* generateOffsetDateRange(true, 'day', days);
             return ok(range);
           })
         )
         .with('nextNumberOfDays', () =>
-          safeTry<[Dayjs, Dayjs], string>(function* () {
+          safeTry<[Dayjs, Dayjs], DomainError>(function* () {
             const days = yield* requireNumberOfDays();
             const range = yield* generateOffsetDateRange(false, 'day', days);
             return ok(range);
           })
         )
-        .otherwise(() => err('Unsupported date mode'));
+        .otherwise(() => err(core.domainError.fromMessage('Unsupported date mode')));
     };
 
     const range = yield* resolveRange();
@@ -297,8 +312,8 @@ const resolveDateRange = (
   });
 };
 
-const buildIsEmptyCondition = (field: core.Field): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
+const buildIsEmptyCondition = (field: core.Field): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
     const column = yield* resolveColumn(field);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
     const columnRef = sql.ref(column);
@@ -320,8 +335,8 @@ const buildIsEmptyCondition = (field: core.Field): Result<RecordConditionWhere, 
   });
 };
 
-const buildIsNotEmptyCondition = (field: core.Field): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
+const buildIsNotEmptyCondition = (field: core.Field): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
     const column = yield* resolveColumn(field);
     const valueType = yield* field.accept(new core.FieldValueTypeVisitor());
     const columnRef = sql.ref(column);
@@ -350,9 +365,9 @@ const buildIsNotEmptyCondition = (field: core.Field): Result<RecordConditionWher
 const buildIsCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
@@ -368,9 +383,9 @@ const buildIsCondition = (
 const buildIsNotCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
@@ -389,13 +404,13 @@ const buildContainsCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   isNegative: boolean
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const operand = yield* resolvePrimitiveOperand(value);
     if (operand.kind === 'literal' && typeof operand.value !== 'string') {
-      return err('Record condition requires string value');
+      return err(core.domainError.fromMessage('Record condition requires string value'));
     }
     const columnRef = sql.ref(column);
     const pattern =
@@ -413,13 +428,13 @@ const buildNumericComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   operator: ComparisonOperator
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const operand = yield* resolvePrimitiveOperand(value);
     if (operand.kind === 'literal' && typeof operand.value !== 'number') {
-      return err('Record condition requires numeric value');
+      return err(core.domainError.fromMessage('Record condition requires numeric value'));
     }
     const columnRef = sql.ref(column);
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
@@ -434,9 +449,9 @@ const buildDateComparisonCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   operator: ComparisonOperator
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
@@ -453,9 +468,9 @@ const buildDateComparisonCondition = (
 const buildIsWithinCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
@@ -468,12 +483,13 @@ const buildListCondition = (
   field: core.Field,
   value: core.RecordConditionValue | undefined,
   kind: ListOperatorKind
-): Result<RecordConditionWhere, string> => {
-  return safeTry<RecordConditionWhere, string>(function* () {
-    if (!value) return err('Record condition requires value');
+): Result<RecordConditionWhere, DomainError> => {
+  return safeTry<RecordConditionWhere, DomainError>(function* () {
+    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
     const column = yield* resolveColumn(field);
     const values = yield* resolveListValues(value);
-    if (values.length === 0) return err('Record condition requires list values');
+    if (values.length === 0)
+      return err(core.domainError.fromMessage('Record condition requires list values'));
     const isMultiple = yield* fieldIsMultiple(field);
     const columnRef = sql.ref(column);
     if (!isMultiple) {
@@ -520,558 +536,606 @@ export class TableRecordConditionWhereVisitor
 
   visitSingleLineTextIs(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
   visitSingleLineTextIsNot(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
   visitSingleLineTextContains(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
   visitSingleLineTextDoesNotContain(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
   visitSingleLineTextIsEmpty(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
   visitSingleLineTextIsNotEmpty(
     spec: core.SingleLineTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitLongTextIs(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, string> {
+  visitLongTextIs(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitLongTextIsNot(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, string> {
+  visitLongTextIsNot(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitLongTextContains(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, string> {
+  visitLongTextContains(
+    spec: core.LongTextConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
   visitLongTextDoesNotContain(
     spec: core.LongTextConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
-  visitLongTextIsEmpty(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, string> {
+  visitLongTextIsEmpty(
+    spec: core.LongTextConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitLongTextIsNotEmpty(spec: core.LongTextConditionSpec): Result<RecordConditionWhere, string> {
+  visitLongTextIsNotEmpty(
+    spec: core.LongTextConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitButtonIs(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonIs(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitButtonIsNot(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonIsNot(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitButtonContains(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonContains(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
-  visitButtonDoesNotContain(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonDoesNotContain(
+    spec: core.ButtonConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
-  visitButtonIsEmpty(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonIsEmpty(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitButtonIsNotEmpty(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, string> {
+  visitButtonIsNotEmpty(spec: core.ButtonConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitNumberIs(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIs(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitNumberIsNot(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsNot(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitNumberIsGreater(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsGreater(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>');
   }
 
-  visitNumberIsGreaterEqual(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsGreaterEqual(
+    spec: core.NumberConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitNumberIsLess(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsLess(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<');
   }
 
-  visitNumberIsLessEqual(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsLessEqual(
+    spec: core.NumberConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitNumberIsEmpty(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsEmpty(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitNumberIsNotEmpty(spec: core.NumberConditionSpec): Result<RecordConditionWhere, string> {
+  visitNumberIsNotEmpty(spec: core.NumberConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitRatingIs(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIs(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitRatingIsNot(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsNot(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitRatingIsGreater(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsGreater(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>');
   }
 
-  visitRatingIsGreaterEqual(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsGreaterEqual(
+    spec: core.RatingConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitRatingIsLess(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsLess(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<');
   }
 
-  visitRatingIsLessEqual(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsLessEqual(
+    spec: core.RatingConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitRatingIsEmpty(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsEmpty(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitRatingIsNotEmpty(spec: core.RatingConditionSpec): Result<RecordConditionWhere, string> {
+  visitRatingIsNotEmpty(spec: core.RatingConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitCheckboxIs(spec: core.CheckboxConditionSpec): Result<RecordConditionWhere, string> {
+  visitCheckboxIs(spec: core.CheckboxConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitDateIs(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIs(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitDateIsNot(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsNot(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitDateIsWithIn(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsWithIn(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsWithin(spec.field(), spec.value());
   }
 
-  visitDateIsBefore(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsBefore(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<');
   }
 
-  visitDateIsAfter(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsAfter(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>');
   }
 
-  visitDateIsOnOrBefore(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsOnOrBefore(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitDateIsOnOrAfter(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsOnOrAfter(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitDateIsEmpty(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsEmpty(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitDateIsNotEmpty(spec: core.DateConditionSpec): Result<RecordConditionWhere, string> {
+  visitDateIsNotEmpty(spec: core.DateConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitSingleSelectIs(spec: core.SingleSelectConditionSpec): Result<RecordConditionWhere, string> {
+  visitSingleSelectIs(
+    spec: core.SingleSelectConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
   visitSingleSelectIsNot(
     spec: core.SingleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
   visitSingleSelectIsAnyOf(
     spec: core.SingleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
   visitSingleSelectIsNoneOf(
     spec: core.SingleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
   visitSingleSelectIsEmpty(
     spec: core.SingleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
   visitSingleSelectIsNotEmpty(
     spec: core.SingleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
   visitMultipleSelectHasAnyOf(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
   visitMultipleSelectHasAllOf(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'all');
   }
 
   visitMultipleSelectIsExactly(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'exact');
   }
 
   visitMultipleSelectIsNotExactly(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'notExact');
   }
 
   visitMultipleSelectHasNoneOf(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
   visitMultipleSelectIsEmpty(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
   visitMultipleSelectIsNotEmpty(
     spec: core.MultipleSelectConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitAttachmentIsEmpty(spec: core.AttachmentConditionSpec): Result<RecordConditionWhere, string> {
+  visitAttachmentIsEmpty(
+    spec: core.AttachmentConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
   visitAttachmentIsNotEmpty(
     spec: core.AttachmentConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitUserIs(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIs(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitUserIsNot(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsNot(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitUserIsAnyOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsAnyOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitUserIsNoneOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsNoneOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitUserHasAnyOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserHasAnyOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitUserHasAllOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserHasAllOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'all');
   }
 
-  visitUserIsExactly(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsExactly(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'exact');
   }
 
-  visitUserIsNotExactly(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsNotExactly(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'notExact');
   }
 
-  visitUserHasNoneOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserHasNoneOf(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitUserIsEmpty(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsEmpty(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitUserIsNotEmpty(spec: core.UserConditionSpec): Result<RecordConditionWhere, string> {
+  visitUserIsNotEmpty(spec: core.UserConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitLinkIs(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIs(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitLinkIsNot(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsNot(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitLinkIsAnyOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsAnyOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitLinkIsNoneOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsNoneOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitLinkHasAnyOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkHasAnyOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitLinkHasAllOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkHasAllOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'all');
   }
 
-  visitLinkIsExactly(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsExactly(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'exact');
   }
 
-  visitLinkIsNotExactly(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsNotExactly(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'notExact');
   }
 
-  visitLinkHasNoneOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkHasNoneOf(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitLinkContains(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkContains(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
-  visitLinkDoesNotContain(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkDoesNotContain(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
-  visitLinkIsEmpty(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsEmpty(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitLinkIsNotEmpty(spec: core.LinkConditionSpec): Result<RecordConditionWhere, string> {
+  visitLinkIsNotEmpty(spec: core.LinkConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitFormulaIs(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIs(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitFormulaIsNot(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsNot(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitFormulaContains(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaContains(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
   visitFormulaDoesNotContain(
     spec: core.FormulaConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
-  visitFormulaIsEmpty(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsEmpty(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitFormulaIsNotEmpty(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsNotEmpty(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitFormulaIsGreater(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsGreater(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>');
   }
 
   visitFormulaIsGreaterEqual(
     spec: core.FormulaConditionSpec
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitFormulaIsLess(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsLess(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<');
   }
 
-  visitFormulaIsLessEqual(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsLessEqual(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitFormulaIsAnyOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsAnyOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitFormulaIsNoneOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsNoneOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitFormulaHasAnyOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaHasAnyOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitFormulaHasAllOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaHasAllOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'all');
   }
 
-  visitFormulaIsNotExactly(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsNotExactly(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'notExact');
   }
 
-  visitFormulaHasNoneOf(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaHasNoneOf(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitFormulaIsExactly(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsExactly(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'exact');
   }
 
-  visitFormulaIsWithIn(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsWithIn(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsWithin(spec.field(), spec.value());
   }
 
-  visitFormulaIsBefore(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsBefore(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<');
   }
 
-  visitFormulaIsAfter(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsAfter(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>');
   }
 
-  visitFormulaIsOnOrBefore(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsOnOrBefore(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitFormulaIsOnOrAfter(spec: core.FormulaConditionSpec): Result<RecordConditionWhere, string> {
+  visitFormulaIsOnOrAfter(
+    spec: core.FormulaConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitRollupIs(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIs(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIs(spec.field(), spec.value());
   }
 
-  visitRollupIsNot(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsNot(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNot(spec.field(), spec.value());
   }
 
-  visitRollupContains(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupContains(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyContains(spec.field(), spec.value());
   }
 
-  visitRollupDoesNotContain(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupDoesNotContain(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDoesNotContain(spec.field(), spec.value());
   }
 
-  visitRollupIsEmpty(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsEmpty(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsEmpty(spec.field());
   }
 
-  visitRollupIsNotEmpty(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsNotEmpty(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsNotEmpty(spec.field());
   }
 
-  visitRollupIsGreater(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsGreater(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>');
   }
 
-  visitRollupIsGreaterEqual(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsGreaterEqual(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '>=');
   }
 
-  visitRollupIsLess(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsLess(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<');
   }
 
-  visitRollupIsLessEqual(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsLessEqual(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyNumericComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitRollupIsAnyOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsAnyOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitRollupIsNoneOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsNoneOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitRollupHasAnyOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupHasAnyOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'any');
   }
 
-  visitRollupHasAllOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupHasAllOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'all');
   }
 
-  visitRollupIsNotExactly(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsNotExactly(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'notExact');
   }
 
-  visitRollupHasNoneOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupHasNoneOf(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'none');
   }
 
-  visitRollupIsExactly(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsExactly(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyListCondition(spec.field(), spec.value(), 'exact');
   }
 
-  visitRollupIsWithIn(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsWithIn(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyIsWithin(spec.field(), spec.value());
   }
 
-  visitRollupIsBefore(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsBefore(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<');
   }
 
-  visitRollupIsAfter(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsAfter(spec: core.RollupConditionSpec): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>');
   }
 
-  visitRollupIsOnOrBefore(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsOnOrBefore(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '<=');
   }
 
-  visitRollupIsOnOrAfter(spec: core.RollupConditionSpec): Result<RecordConditionWhere, string> {
+  visitRollupIsOnOrAfter(
+    spec: core.RollupConditionSpec
+  ): Result<RecordConditionWhere, DomainError> {
     return this.applyDateComparison(spec.field(), spec.value(), '>=');
   }
 
-  private addCondition(condition: RecordConditionWhere): Result<RecordConditionWhere, string> {
-    return safeTry<RecordConditionWhere, string>(
+  private addCondition(condition: RecordConditionWhere): Result<RecordConditionWhere, DomainError> {
+    return safeTry<RecordConditionWhere, DomainError>(
       function* (this: TableRecordConditionWhereVisitor) {
         yield* this.addCond(condition);
         return ok(condition);
@@ -1080,9 +1144,9 @@ export class TableRecordConditionWhereVisitor
   }
 
   private addConditionResult(
-    conditionResult: Result<RecordConditionWhere, string>
-  ): Result<RecordConditionWhere, string> {
-    return safeTry<RecordConditionWhere, string>(
+    conditionResult: Result<RecordConditionWhere, DomainError>
+  ): Result<RecordConditionWhere, DomainError> {
+    return safeTry<RecordConditionWhere, DomainError>(
       function* (this: TableRecordConditionWhereVisitor) {
         const condition = yield* conditionResult;
         yield* this.addCond(condition);
@@ -1094,36 +1158,36 @@ export class TableRecordConditionWhereVisitor
   private applyIs(
     field: core.Field,
     value: core.RecordConditionValue | undefined
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildIsCondition(field, value));
   }
 
   private applyIsNot(
     field: core.Field,
     value: core.RecordConditionValue | undefined
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildIsNotCondition(field, value));
   }
 
   private applyContains(
     field: core.Field,
     value: core.RecordConditionValue | undefined
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildContainsCondition(field, value, false));
   }
 
   private applyDoesNotContain(
     field: core.Field,
     value: core.RecordConditionValue | undefined
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildContainsCondition(field, value, true));
   }
 
-  private applyIsEmpty(field: core.Field): Result<RecordConditionWhere, string> {
+  private applyIsEmpty(field: core.Field): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildIsEmptyCondition(field));
   }
 
-  private applyIsNotEmpty(field: core.Field): Result<RecordConditionWhere, string> {
+  private applyIsNotEmpty(field: core.Field): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildIsNotEmptyCondition(field));
   }
 
@@ -1131,7 +1195,7 @@ export class TableRecordConditionWhereVisitor
     field: core.Field,
     value: core.RecordConditionValue | undefined,
     operator: ComparisonOperator
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildNumericComparisonCondition(field, value, operator));
   }
 
@@ -1139,14 +1203,14 @@ export class TableRecordConditionWhereVisitor
     field: core.Field,
     value: core.RecordConditionValue | undefined,
     operator: ComparisonOperator
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildDateComparisonCondition(field, value, operator));
   }
 
   private applyIsWithin(
     field: core.Field,
     value: core.RecordConditionValue | undefined
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildIsWithinCondition(field, value));
   }
 
@@ -1154,7 +1218,7 @@ export class TableRecordConditionWhereVisitor
     field: core.Field,
     value: core.RecordConditionValue | undefined,
     kind: ListOperatorKind
-  ): Result<RecordConditionWhere, string> {
+  ): Result<RecordConditionWhere, DomainError> {
     return this.addConditionResult(buildListCondition(field, value, kind));
   }
 }

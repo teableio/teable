@@ -1,12 +1,13 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../DomainError';
 export interface ISpecFilterVisitor<Cond> {
   clone(): this;
   and(left: Cond, right: Cond): Cond;
   or(left: Cond, right: Cond): Cond;
   not(inner: Cond): Cond;
-  addCond(cond: Cond): Result<void, string>;
-  where(): Result<Cond, string>;
+  addCond(cond: Cond): Result<void, DomainError>;
+  where(): Result<Cond, DomainError>;
 }
 
 export const isSpecFilterVisitor = (v: unknown): v is ISpecFilterVisitor<unknown> => {

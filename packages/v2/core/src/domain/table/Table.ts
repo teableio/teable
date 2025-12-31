@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
+import { domainError, type DomainError } from '../shared/DomainError';
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
@@ -85,10 +86,11 @@ export class Table extends AggregateRoot<TableId> {
     return TableSpecBuilder.create(this.baseIdValue);
   }
 
-  static rehydrate(props: ITableBuildProps): Result<Table, string> {
-    if (props.fields.length === 0) return err('Table requires at least one Field');
+  static rehydrate(props: ITableBuildProps): Result<Table, DomainError> {
+    if (props.fields.length === 0)
+      return err(domainError.fromMessage('Table requires at least one Field'));
     if (!props.fields.some((f) => f.id().equals(props.primaryFieldId)))
-      return err('Primary Field must exist in Table fields');
+      return err(domainError.fromMessage('Primary Field must exist in Table fields'));
 
     const table = new Table(
       props.id,
@@ -118,19 +120,20 @@ export class Table extends AggregateRoot<TableId> {
     return this.nameValue;
   }
 
-  dbTableName(): Result<DbTableName, string> {
+  dbTableName(): Result<DbTableName, DomainError> {
     const valueResult = this.dbTableNameValue.value();
     if (valueResult.isErr()) return err(valueResult.error);
     return ok(this.dbTableNameValue);
   }
 
-  setDbTableName(dbTableName: DbTableName): Result<void, string> {
+  setDbTableName(dbTableName: DbTableName): Result<void, DomainError> {
     const nextValue = dbTableName.value();
     if (nextValue.isErr()) return err(nextValue.error);
 
     const currentValue = this.dbTableNameValue.value();
     if (currentValue.isOk()) {
-      if (currentValue.value !== nextValue.value) return err('DbTableName already set');
+      if (currentValue.value !== nextValue.value)
+        return err(domainError.fromMessage('DbTableName already set'));
       return ok(undefined);
     }
 
@@ -138,21 +141,21 @@ export class Table extends AggregateRoot<TableId> {
     return ok(undefined);
   }
 
-  getField<T extends Field>(predicate: (field: Field) => field is T): Result<T, string>;
-  getField(predicate: (field: Field) => boolean): Result<Field, string>;
-  getField(spec: ISpecification<Field, ISpecVisitor>): Result<Field, string>;
+  getField<T extends Field>(predicate: (field: Field) => field is T): Result<T, DomainError>;
+  getField(predicate: (field: Field) => boolean): Result<Field, DomainError>;
+  getField(spec: ISpecification<Field, ISpecVisitor>): Result<Field, DomainError>;
   getField<T extends Field>(
     predicateOrSpec:
       | ((field: Field) => field is T)
       | ((field: Field) => boolean)
       | ISpecification<Field, ISpecVisitor>
-  ): Result<T | Field, string> {
+  ): Result<T | Field, DomainError> {
     const predicate =
       typeof predicateOrSpec === 'function'
         ? predicateOrSpec
         : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
     const field = this.fieldsValue.find(predicate);
-    if (!field) return err('Field not found');
+    if (!field) return err(domainError.fromMessage('Field not found'));
     return ok(field);
   }
 
@@ -174,7 +177,7 @@ export class Table extends AggregateRoot<TableId> {
     return this.fieldsValue.filter(predicate);
   }
 
-  generateFieldName(baseName: FieldName): Result<FieldName, string> {
+  generateFieldName(baseName: FieldName): Result<FieldName, DomainError> {
     const existingNames = this.fieldsValue.map((field) => field.name());
     if (!existingNames.some((name) => name.equals(baseName))) {
       return ok(baseName);
@@ -191,16 +194,16 @@ export class Table extends AggregateRoot<TableId> {
       }
     }
 
-    return err('Failed to generate unique FieldName');
+    return err(domainError.fromMessage('Failed to generate unique FieldName'));
   }
 
   primaryFieldId(): FieldId {
     return this.primaryFieldIdValue;
   }
 
-  primaryField(): Result<Field, string> {
+  primaryField(): Result<Field, DomainError> {
     const field = this.fieldsValue.find((f) => f.id().equals(this.primaryFieldIdValue));
-    if (!field) return err('Primary field not found');
+    if (!field) return err(domainError.fromMessage('Primary field not found'));
     return ok(field);
   }
 
@@ -230,10 +233,10 @@ export class Table extends AggregateRoot<TableId> {
     return this.fieldsValue.map((f) => f.id());
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     const visitor = new LinkForeignTableReferenceVisitor();
     return this.fieldsValue
-      .reduce<Result<ReadonlyArray<LinkForeignTableReference>, string>>(
+      .reduce<Result<ReadonlyArray<LinkForeignTableReference>, DomainError>>(
         (acc, field) =>
           acc.andThen((refs) => field.accept(visitor).map((next) => [...refs, ...next])),
         ok([])
@@ -256,7 +259,7 @@ export class Table extends AggregateRoot<TableId> {
     return this.viewsValue.map((v) => v.id());
   }
 
-  markDeleted(): Result<void, string> {
+  markDeleted(): Result<void, DomainError> {
     this.addDomainEvent(
       TableDeleted.create({
         tableId: this.id(),
@@ -269,12 +272,12 @@ export class Table extends AggregateRoot<TableId> {
     return ok(undefined);
   }
 
-  update(build: (mutator: TableMutator) => TableMutator): Result<TableUpdateResult, string> {
+  update(build: (mutator: TableMutator) => TableMutator): Result<TableUpdateResult, DomainError> {
     const mutator = build(TableMutator.create(this));
     return mutator.apply();
   }
 
-  rename(nextName: TableName): Result<Table, string> {
+  rename(nextName: TableName): Result<Table, DomainError> {
     const cloned = this.cloneWithName(nextName);
     if (cloned.isErr()) return err(cloned.error);
     const nextTable = cloned.value;
@@ -296,12 +299,12 @@ export class Table extends AggregateRoot<TableId> {
   addField(
     field: Field,
     options?: { foreignTables?: ReadonlyArray<Table> }
-  ): Result<Table, string> {
+  ): Result<Table, DomainError> {
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
-      return err('Field already exists');
+      return err(domainError.fromMessage('Field already exists'));
     }
     if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
-      return err('Field names must be unique');
+      return err(domainError.fromMessage('Field names must be unique'));
     }
 
     const validationResult = this.validateForeignTables([field], options?.foreignTables);
@@ -340,16 +343,17 @@ export class Table extends AggregateRoot<TableId> {
     });
   }
 
-  removeField(fieldId: FieldId): Result<Table, string> {
+  removeField(fieldId: FieldId): Result<Table, DomainError> {
     if (this.primaryFieldIdValue.equals(fieldId)) {
-      return err('Cannot delete primary field');
+      return err(domainError.fromMessage('Cannot delete primary field'));
     }
 
     const targetField = this.fieldsValue.find((field) => field.id().equals(fieldId));
-    if (!targetField) return err('Field not found');
+    if (!targetField) return err(domainError.fromMessage('Field not found'));
 
     const nextFields = this.fieldsValue.filter((field) => !field.id().equals(fieldId));
-    if (nextFields.length === 0) return err('Table requires at least one Field');
+    if (nextFields.length === 0)
+      return err(domainError.fromMessage('Table requires at least one Field'));
 
     const nextViewsResult = this.cloneViewsWithoutField(nextFields, fieldId);
     if (nextViewsResult.isErr()) return err(nextViewsResult.error);
@@ -382,12 +386,12 @@ export class Table extends AggregateRoot<TableId> {
   private validateForeignTables(
     fields: ReadonlyArray<Field>,
     foreignTables?: ReadonlyArray<Table>
-  ): Result<void, string> {
+  ): Result<void, DomainError> {
     if (!foreignTables || foreignTables.length === 0) return ok(undefined);
     return validateForeignTablesForFields(fields, { hostTable: this, foreignTables });
   }
 
-  private cloneWithName(nextName: TableName): Result<Table, string> {
+  private cloneWithName(nextName: TableName): Result<Table, DomainError> {
     const props: ITableBuildProps = {
       id: this.id(),
       baseId: this.baseIdValue,
@@ -407,7 +411,7 @@ export class Table extends AggregateRoot<TableId> {
   private cloneViewsWithField(
     fields: ReadonlyArray<Field>,
     newField: Field
-  ): Result<ReadonlyArray<View>, string> {
+  ): Result<ReadonlyArray<View>, DomainError> {
     const defaultMetaByType = new Map<string, ViewColumnMeta>();
     const newFieldKey = newField.id().toString();
 
@@ -430,7 +434,7 @@ export class Table extends AggregateRoot<TableId> {
       }
 
       const defaultEntry = defaultMeta.toDto()[newFieldKey];
-      if (!defaultEntry) return err('Missing new field column meta');
+      if (!defaultEntry) return err(domainError.fromMessage('Missing new field column meta'));
 
       const currentEntries = Object.values(currentMeta);
       const maxOrder = currentEntries.length
@@ -455,7 +459,7 @@ export class Table extends AggregateRoot<TableId> {
       return ok(clone);
     });
 
-    return clones.reduce<Result<ReadonlyArray<View>, string>>(
+    return clones.reduce<Result<ReadonlyArray<View>, DomainError>>(
       (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
       ok([])
     );
@@ -464,7 +468,7 @@ export class Table extends AggregateRoot<TableId> {
   private cloneViewsWithoutField(
     fields: ReadonlyArray<Field>,
     removedFieldId: FieldId
-  ): Result<ReadonlyArray<View>, string> {
+  ): Result<ReadonlyArray<View>, DomainError> {
     const removedKey = removedFieldId.toString();
     const clones = this.viewsValue.map((view) => {
       const currentMetaResult = view.columnMeta();
@@ -487,7 +491,7 @@ export class Table extends AggregateRoot<TableId> {
       return ok(clone);
     });
 
-    return clones.reduce<Result<ReadonlyArray<View>, string>>(
+    return clones.reduce<Result<ReadonlyArray<View>, DomainError>>(
       (acc, next) => acc.andThen((arr) => next.map((value) => [...arr, value])),
       ok([])
     );

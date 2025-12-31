@@ -23,6 +23,7 @@ type InfoSchemaColumnRow = {
   column_name: string;
   table_schema: string;
   table_name: string;
+  is_nullable: string;
 };
 
 type InfoSchemaTableRow = {
@@ -30,7 +31,26 @@ type InfoSchemaTableRow = {
   table_name: string;
 };
 
-type V1Db = V1TeableDatabase & { columns: InfoSchemaColumnRow; tables: InfoSchemaTableRow };
+type InfoSchemaConstraintRow = {
+  constraint_name: string;
+  constraint_type: string;
+  table_schema: string;
+  table_name: string;
+};
+
+type InfoSchemaConstraintUsageRow = {
+  constraint_name: string;
+  table_schema: string;
+  table_name: string;
+  column_name: string;
+};
+
+type V1Db = V1TeableDatabase & {
+  columns: InfoSchemaColumnRow;
+  tables: InfoSchemaTableRow;
+  table_constraints: InfoSchemaConstraintRow;
+  constraint_column_usage: InfoSchemaConstraintUsageRow;
+};
 
 describe('CreateFieldHandler (db)', () => {
   beforeEach(async () => {
@@ -121,6 +141,8 @@ describe('CreateFieldHandler (db)', () => {
           showAs: { type: 'bar', color: 'red', showValue: true, maxValue: 100 },
           defaultValue: 42,
         },
+        notNull: true,
+        unique: true,
       },
       {
         type: 'checkbox',
@@ -223,6 +245,8 @@ describe('CreateFieldHandler (db)', () => {
         'is_multiple_cell_value',
         'db_field_type',
         'db_field_name',
+        'not_null',
+        'unique',
         'is_computed',
         'options',
         'meta',
@@ -234,6 +258,7 @@ describe('CreateFieldHandler (db)', () => {
         multiSelectFieldId,
         formulaFieldId,
         createdTimeFieldId,
+        createdTimeFieldId2,
         lastModifiedTimeFieldId,
         createdByFieldId,
         lastModifiedByFieldId,
@@ -253,6 +278,8 @@ describe('CreateFieldHandler (db)', () => {
     expect(numberRow.cell_value_type).toBe('number');
     expect(numberRow.is_multiple_cell_value).toBe(false);
     expect(numberRow.db_field_type).toBe('REAL');
+    expect(numberRow.not_null).toBe(true);
+    expect(numberRow.unique).toBe(true);
     expect(numberRow.is_computed).toBeNull();
     expect(numberRow.db_field_name).toBeTruthy();
     expect(JSON.parse(numberRow.options ?? '')).toEqual({
@@ -268,6 +295,8 @@ describe('CreateFieldHandler (db)', () => {
     expect(checkboxRow.cell_value_type).toBe('boolean');
     expect(checkboxRow.is_multiple_cell_value).toBe(false);
     expect(checkboxRow.db_field_type).toBe('BOOLEAN');
+    expect(checkboxRow.not_null).toBeNull();
+    expect(checkboxRow.unique).toBeNull();
     expect(checkboxRow.is_computed).toBeNull();
     expect(JSON.parse(checkboxRow.options ?? '')).toEqual({ defaultValue: true });
 
@@ -294,6 +323,8 @@ describe('CreateFieldHandler (db)', () => {
     expect(formulaRow.cell_value_type).toBe('number');
     expect(formulaRow.is_multiple_cell_value).toBe(false);
     expect(formulaRow.db_field_type).toBe('REAL');
+    expect(formulaRow.not_null).toBeNull();
+    expect(formulaRow.unique).toBeNull();
     expect(formulaRow.is_computed).toBe(true);
     expect(JSON.parse(formulaRow.options ?? '')).toEqual({
       expression: `{${numberFieldId}} * 2`,
@@ -402,15 +433,39 @@ describe('CreateFieldHandler (db)', () => {
     const columnRows = await db
       .withSchema('information_schema')
       .selectFrom('columns')
-      .select(['column_name'])
+      .select(['column_name', 'is_nullable'])
       .where('table_schema', '=', schemaName)
       .where('table_name', '=', tableName)
       .execute();
-    const columnNames = new Set(columnRows.map((row) => row.column_name));
+    const columnByName = new Map(columnRows.map((row) => [row.column_name, row] as const));
 
     for (const row of rows) {
-      expect(columnNames.has(row.db_field_name)).toBe(true);
+      expect(columnByName.has(row.db_field_name)).toBe(true);
     }
+
+    const numberColumn = columnByName.get(numberRow.db_field_name);
+    expect(numberColumn?.is_nullable).toBe('NO');
+
+    const uniqueColumnRows = await db
+      .withSchema('information_schema')
+      .selectFrom('table_constraints')
+      .innerJoin('constraint_column_usage', (join) =>
+        join
+          .onRef(
+            'table_constraints.constraint_name',
+            '=',
+            'constraint_column_usage.constraint_name'
+          )
+          .onRef('table_constraints.table_schema', '=', 'constraint_column_usage.table_schema')
+          .onRef('table_constraints.table_name', '=', 'constraint_column_usage.table_name')
+      )
+      .select(['constraint_column_usage.column_name'])
+      .where('table_constraints.table_schema', '=', schemaName)
+      .where('table_constraints.table_name', '=', tableName)
+      .where('table_constraints.constraint_type', '=', 'UNIQUE')
+      .execute();
+    const uniqueColumnNames = new Set(uniqueColumnRows.map((row) => row.column_name));
+    expect(uniqueColumnNames.has(numberRow.db_field_name)).toBe(true);
 
     const referenceRows = await db
       .selectFrom('reference')

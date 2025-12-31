@@ -2,6 +2,7 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../../base/BaseId';
+import type { DomainError } from '../../../shared/DomainError';
 import type { TableId } from '../../TableId';
 import type { Field } from '../Field';
 import type { AttachmentField } from '../types/AttachmentField';
@@ -16,6 +17,7 @@ import type { LastModifiedByField } from '../types/LastModifiedByField';
 import type { LastModifiedTimeField } from '../types/LastModifiedTimeField';
 import type { LinkField } from '../types/LinkField';
 import type { LongTextField } from '../types/LongTextField';
+import type { LookupField } from '../types/LookupField';
 import type { MultipleSelectField } from '../types/MultipleSelectField';
 import type { NumberField } from '../types/NumberField';
 import type { RatingField } from '../types/RatingField';
@@ -33,7 +35,9 @@ export type LinkForeignTableReference = {
 export class LinkForeignTableReferenceVisitor
   implements IFieldVisitor<ReadonlyArray<LinkForeignTableReference>>
 {
-  collect(fields: ReadonlyArray<Field>): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  collect(
+    fields: ReadonlyArray<Field>
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     const results: LinkForeignTableReference[] = [];
     for (const field of fields) {
       const result = field.accept(this);
@@ -56,27 +60,33 @@ export class LinkForeignTableReferenceVisitor
 
   visitSingleLineTextField(
     _: SingleLineTextField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitLongTextField(_: LongTextField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitLongTextField(
+    _: LongTextField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitNumberField(_: NumberField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitNumberField(_: NumberField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitRatingField(_: RatingField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitRatingField(_: RatingField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitFormulaField(_: FormulaField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitFormulaField(
+    _: FormulaField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitRollupField(field: RollupField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitRollupField(
+    field: RollupField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
       {
         foreignTableId: field.foreignTableId(),
@@ -86,71 +96,86 @@ export class LinkForeignTableReferenceVisitor
 
   visitSingleSelectField(
     _: SingleSelectField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitMultipleSelectField(
     _: MultipleSelectField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitCheckboxField(_: CheckboxField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitCheckboxField(
+    _: CheckboxField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitAttachmentField(
     _: AttachmentField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitDateField(_: DateField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitDateField(_: DateField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitCreatedTimeField(
     _: CreatedTimeField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitLastModifiedTimeField(
     _: LastModifiedTimeField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitUserField(_: UserField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitUserField(_: UserField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitCreatedByField(_: CreatedByField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitCreatedByField(
+    _: CreatedByField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitLastModifiedByField(
     _: LastModifiedByField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
   visitAutoNumberField(
     _: AutoNumberField
-  ): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitButtonField(_: ButtonField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitButtonField(_: ButtonField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
-  visitLinkField(field: LinkField): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  visitLinkField(field: LinkField): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
       {
         foreignTableId: field.foreignTableId(),
         baseId: field.baseId(),
+      },
+    ]);
+  }
+
+  visitLookupField(
+    field: LookupField
+  ): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    // Lookup fields reference foreign tables through their link field
+    return ok([
+      {
+        foreignTableId: field.foreignTableId(),
       },
     ]);
   }

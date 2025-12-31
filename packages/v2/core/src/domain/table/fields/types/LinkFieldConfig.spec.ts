@@ -29,12 +29,11 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    manyMany._unsafeUnwrap();
-
-    expect(manyMany.value.selfKeyName.value()._unsafeUnwrap()).toBe(
+    const manyManyConfig = manyMany._unsafeUnwrap();
+    expect(manyManyConfig.selfKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${symmetricFieldId.toString()}`
     );
-    expect(manyMany.value.foreignKeyName.value()._unsafeUnwrap()).toBe(
+    expect(manyManyConfig.foreignKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${fieldId.toString()}`
     );
 
@@ -45,10 +44,9 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    manyOne._unsafeUnwrap();
-
-    expect(manyOne.value.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
-    expect(manyOne.value.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
+    const manyOneConfig = manyOne._unsafeUnwrap();
+    expect(manyOneConfig.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
+    expect(manyOneConfig.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
 
     const oneOne = LinkFieldConfig.buildDbConfig({
       fkHostTableName,
@@ -57,10 +55,9 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    oneOne._unsafeUnwrap();
-
-    expect(oneOne.value.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
-    expect(oneOne.value.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
+    const oneOneConfig = oneOne._unsafeUnwrap();
+    expect(oneOneConfig.selfKeyName.value()._unsafeUnwrap()).toBe('__id');
+    expect(oneOneConfig.foreignKeyName.value()._unsafeUnwrap()).toBe(`__fk_${fieldId.toString()}`);
 
     const oneMany = LinkFieldConfig.buildDbConfig({
       fkHostTableName,
@@ -69,12 +66,11 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId,
       isOneWay: false,
     });
-    oneMany._unsafeUnwrap();
-
-    expect(oneMany.value.selfKeyName.value()._unsafeUnwrap()).toBe(
+    const oneManyConfig = oneMany._unsafeUnwrap();
+    expect(oneManyConfig.selfKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${symmetricFieldId.toString()}`
     );
-    expect(oneMany.value.foreignKeyName.value()._unsafeUnwrap()).toBe('__id');
+    expect(oneManyConfig.foreignKeyName.value()._unsafeUnwrap()).toBe('__id');
   });
 
   it('builds oneMany db config for one-way links', () => {
@@ -93,12 +89,11 @@ describe('LinkFieldConfig', () => {
       symmetricFieldId: symmetricIdResult._unsafeUnwrap(),
       isOneWay: true,
     });
-    configResult._unsafeUnwrap();
-
-    expect(configResult._unsafeUnwrap().selfKeyName.value()._unsafeUnwrap()).toBe(
+    const config = configResult._unsafeUnwrap();
+    expect(config.selfKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${symmetricIdResult._unsafeUnwrap().toString()}`
     );
-    expect(configResult._unsafeUnwrap().foreignKeyName.value()._unsafeUnwrap()).toBe(
+    expect(config.foreignKeyName.value()._unsafeUnwrap()).toBe(
       `__fk_${fieldIdResult._unsafeUnwrap().toString()}`
     );
   });
@@ -122,10 +117,9 @@ describe('LinkFieldConfig', () => {
       selfKeyName: selfKeyNameResult._unsafeUnwrap(),
       foreignKeyName: foreignKeyNameResult._unsafeUnwrap(),
     });
-    swapped._unsafeUnwrap();
-
-    expect(swapped.value.selfKeyName.value()._unsafeUnwrap()).toBe('__foreign');
-    expect(swapped.value.foreignKeyName.value()._unsafeUnwrap()).toBe('__self');
+    const swappedConfig = swapped._unsafeUnwrap();
+    expect(swappedConfig.selfKeyName.value()._unsafeUnwrap()).toBe('__foreign');
+    expect(swappedConfig.foreignKeyName.value()._unsafeUnwrap()).toBe('__self');
 
     const configResult = LinkFieldConfig.create({
       relationship: 'manyOne',
@@ -160,12 +154,12 @@ describe('LinkFieldConfig', () => {
     const first = configResult
       ._unsafeUnwrap()
       .withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
-    first._unsafeUnwrap();
+    const firstConfig = first._unsafeUnwrap();
 
-    const same = first.value.withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
+    const same = firstConfig.withSymmetricFieldId(symmetricIdResult._unsafeUnwrap());
     same._unsafeUnwrap();
 
-    const different = first.value.withSymmetricFieldId(otherIdResult._unsafeUnwrap());
+    const different = firstConfig.withSymmetricFieldId(otherIdResult._unsafeUnwrap());
     different._unsafeUnwrapErr();
   });
 

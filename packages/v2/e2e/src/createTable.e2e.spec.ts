@@ -9,6 +9,7 @@ import {
 import { createV2HttpClient } from '@teable/v2-contract-http-client';
 import { createV2ExpressRouter } from '@teable/v2-contract-http-express';
 import type { ICreateTableCommandInput } from '@teable/v2-core';
+import { tableTemplates } from '@teable/v2-table-templates';
 import express from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -161,6 +162,19 @@ describe('v2 http createTable (e2e)', () => {
     expect(first.id).not.toBe(second.id);
     expect(first.baseId).toBe(baseId);
     expect(second.baseId).toBe(baseId);
+  });
+
+  it('creates tables for every template', async () => {
+    let index = 0;
+    for (const template of tableTemplates) {
+      const name = `Template ${template.key} ${index + 1}`;
+      const created = await createTable(template.createInput(baseId, name));
+
+      expect(created.name).toBe(name);
+      expect(created.baseId).toBe(baseId);
+      expect(created.fields.length).toBeGreaterThan(0);
+      index += 1;
+    }
   });
 
   it('creates tables when rollup and formula fields are declared before dependencies', async () => {

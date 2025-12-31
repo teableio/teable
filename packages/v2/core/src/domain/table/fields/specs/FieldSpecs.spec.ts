@@ -2,6 +2,7 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import type { DomainError } from '../../../shared/DomainError';
 import type { ISpecification } from '../../../shared/specification/ISpecification';
 import type { ISpecVisitor } from '../../../shared/specification/ISpecVisitor';
 import { TableId } from '../../TableId';
@@ -63,17 +64,22 @@ import { FieldIsUserSpec } from './FieldIsUserSpec';
 class SpyVisitor implements ISpecVisitor {
   readonly visited: Array<ISpecification> = [];
 
-  visit(spec: ISpecification): Result<void, string> {
+  visit(spec: ISpecification): Result<void, DomainError> {
     this.visited.push(spec);
     return ok(undefined);
   }
 }
 
+const repeatToLength = (seed: string, length: number): string => {
+  if (seed.length === 0) return '0'.repeat(length);
+  return seed.repeat(Math.ceil(length / seed.length)).slice(0, length);
+};
+
 const createFieldId = (seed: string): FieldId =>
-  FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
+  FieldId.create(`fld${repeatToLength(seed, 16)}`)._unsafeUnwrap();
 
 const createTableId = (seed: string): TableId =>
-  TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
+  TableId.create(`tbl${repeatToLength(seed, 16)}`)._unsafeUnwrap();
 
 const createFieldName = (value: string): FieldName => FieldName.create(value)._unsafeUnwrap();
 

@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { fieldColorSchema } from './FieldColor';
 
@@ -42,9 +43,9 @@ export class NumberShowAs extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<NumberShowAs, string> {
+  static create(raw: unknown): Result<NumberShowAs, DomainError> {
     const parsed = numberShowAsSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid NumberShowAs');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberShowAs'));
     return ok(new NumberShowAs(parsed.data));
   }
 

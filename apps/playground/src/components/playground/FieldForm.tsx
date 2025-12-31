@@ -12,6 +12,9 @@ import { createTanstackQueryUtils } from '@orpc/tanstack-query';
 import {
   ROLLUP_FUNCTIONS,
   TIME_ZONE_LIST,
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
+  isComputedFieldType,
   type ITableFieldInput,
   tableFieldInputSchema,
 } from '@teable/v2-core';
@@ -42,6 +45,7 @@ type FieldFormValidator = Validator<FieldFormValues, StandardSchemaV1<FieldFormV
 type LinkFieldOptions = Extract<ITableFieldInput, { type: 'link' }>['options'];
 type RollupFieldConfig = Extract<ITableFieldInput, { type: 'rollup' }>['config'];
 type RollupFieldOptions = Extract<ITableFieldInput, { type: 'rollup' }>['options'];
+type LookupFieldOptions = Extract<ITableFieldInput, { type: 'lookup' }>['options'];
 type FieldType = ITableFieldInput['type'];
 
 export type FieldFormApi = ReactFormApi<FieldFormValues, FieldFormValidator>;
@@ -69,7 +73,17 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
   );
 
   const typeDrafts = useRef<
-    Partial<Record<FieldType, { options?: FieldOptionsValue; config?: RollupFieldConfig }>>
+    Partial<
+      Record<
+        FieldType,
+        {
+          options?: FieldOptionsValue;
+          config?: RollupFieldConfig;
+          notNull?: boolean;
+          unique?: boolean;
+        }
+      >
+    >
   >({});
 
   const defaultLinkOptions = (): LinkFieldOptions => {
@@ -117,6 +131,26 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
     } as any;
   };
 
+  const defaultLookupOptions = (): LookupFieldOptions => {
+    const tables = tablesQuery.data ?? [];
+    const currentTable = tables.find((table) => table.id === tableId);
+    const linkField = currentTable?.fields.find((field) => field.type === 'link') as
+      | Extract<ITableDto['fields'][number], { type: 'link' }>
+      | undefined;
+    if (!linkField || linkField.type !== 'link') {
+      return {} as any;
+    }
+    const foreignTableId = linkField.options?.foreignTableId;
+    const foreignTable = tables.find((table) => table.id === foreignTableId);
+    const lookupField =
+      foreignTable?.fields.find((field) => field.isPrimary) ?? foreignTable?.fields[0];
+    return {
+      linkFieldId: linkField.id,
+      foreignTableId: foreignTableId ?? '',
+      lookupFieldId: lookupField?.id ?? linkField.options?.lookupFieldId ?? '',
+    } as any;
+  };
+
   const defaultFormulaOptions = () => {
     return {
       expression: '1',
@@ -133,6 +167,8 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
         return { options: defaultFormulaOptions() };
       case 'rollup':
         return { options: defaultRollupOptions(), config: defaultRollupConfig() };
+      case 'lookup':
+        return { options: defaultLookupOptions() };
       default:
         return { options: {} };
     }
@@ -202,9 +238,13 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 const currentConfig = form.getFieldValue('config' as any) as
                   | RollupFieldConfig
                   | undefined;
+                const currentNotNull = form.getFieldValue('notNull' as any) as boolean | undefined;
+                const currentUnique = form.getFieldValue('unique' as any) as boolean | undefined;
                 typeDrafts.current[currentType] = {
                   options: currentOptions,
                   config: currentConfig,
+                  notNull: currentNotNull,
+                  unique: currentUnique,
                 };
 
                 const draft = typeDrafts.current[nextType];
@@ -212,11 +252,22 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 const nextOptions = draft?.options ?? defaults.options;
                 const nextConfig =
                   nextType === 'rollup' ? draft?.config ?? defaults.config : undefined;
+                const isComputed = isComputedFieldType(nextType);
+                const notNullEnabled = checkFieldNotNullValidationEnabled(nextType, {
+                  isComputed,
+                });
+                const uniqueEnabled = checkFieldUniqueValidationEnabled(nextType, {
+                  isComputed,
+                });
+                const nextNotNull = notNullEnabled ? draft?.notNull : undefined;
+                const nextUnique = uniqueEnabled ? draft?.unique : undefined;
 
                 const nextValues: FieldFormValues = {
                   ...form.state.values,
                   type: nextType,
                   options: nextOptions,
+                  notNull: nextNotNull,
+                  unique: nextUnique,
                 };
 
                 if (nextType === 'rollup') {
@@ -251,6 +302,7 @@ export function FieldForm({ baseId, tableId, onCancel, onSuccess }: FieldFormPro
                 <SelectItem value="formula">Formula</SelectItem>
                 <SelectItem value="link">Link</SelectItem>
                 <SelectItem value="rollup">Rollup</SelectItem>
+                <SelectItem value="lookup">Lookup</SelectItem>
               </SelectContent>
             </Select>
           </div>

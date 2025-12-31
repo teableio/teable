@@ -29,6 +29,8 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `DateTimeFormatting.ts` - Role: value object; Purpose: date/time/timezone formatting.
 - `FieldColor.ts` - Role: value object; Purpose: field color enum wrapper.
 - `FieldComputed.ts` - Role: value object; Purpose: computed field flag.
+- `FieldNotNull.ts` - Role: value object; Purpose: not-null validation flag.
+- `FieldUnique.ts` - Role: value object; Purpose: uniqueness validation flag.
 - `FormulaExpression.ts` - Role: value object; Purpose: formula expression parsing + type inference.
 - `FormulaField.ts` - Role: field subtype; Purpose: formula field entity.
 - `FormulaMeta.ts` - Role: value object; Purpose: formula persistence meta (rehydrated).

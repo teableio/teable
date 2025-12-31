@@ -4,7 +4,11 @@ import type {
   RealtimeChange,
   RealtimeDocId,
 } from '@teable/v2-core';
-import { RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
+import {
+  RealtimeDocId as RealtimeDocIdValue,
+  domainError,
+  type DomainError,
+} from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -23,7 +27,7 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
     context: IExecutionContext,
     docId: RealtimeDocId,
     initial: unknown
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
 
@@ -53,11 +57,14 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
     _context: IExecutionContext,
     _docId: RealtimeDocId,
     _change: RealtimeChange
-  ): Promise<Result<void, string>> {
-    return err('Not implemented');
+  ): Promise<Result<void, DomainError>> {
+    return err(domainError.fromMessage('Not implemented'));
   }
 
-  async delete(context: IExecutionContext, docId: RealtimeDocId): Promise<Result<void, string>> {
+  async delete(
+    context: IExecutionContext,
+    docId: RealtimeDocId
+  ): Promise<Result<void, DomainError>> {
     const docIdResult = RealtimeDocIdValue.parse(docId);
     if (docIdResult.isErr()) return err(docIdResult.error);
 

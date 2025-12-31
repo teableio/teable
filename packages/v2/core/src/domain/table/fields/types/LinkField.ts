@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { BaseId } from '../../../base/BaseId';
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { DbTableName } from '../../DbTableName';
 import { ForeignTable } from '../../ForeignTable';
 import type { Table } from '../../Table';
@@ -40,7 +41,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     name: FieldName;
     config: LinkFieldConfig;
     meta?: LinkFieldMeta;
-  }): Result<LinkField, string> {
+  }): Result<LinkField, DomainError> {
     return ok(new LinkField(params.id, params.name, params.config, params.meta));
   }
 
@@ -51,7 +52,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     baseId: BaseId;
     hostTableId: TableId;
     meta?: LinkFieldMeta;
-  }): Result<LinkField, string> {
+  }): Result<LinkField, DomainError> {
     return LinkField.create(params).andThen((field) =>
       field
         .ensureDbConfig({ baseId: params.baseId, hostTableId: params.hostTableId })
@@ -63,7 +64,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return this.configValue;
   }
 
-  configDto(): Result<LinkFieldConfigValue, string> {
+  configDto(): Result<LinkFieldConfigValue, DomainError> {
     return this.configValue.toDto();
   }
 
@@ -107,7 +108,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return this.configValue.fkHostTableName();
   }
 
-  fkHostTableNameString(): Result<string, string> {
+  fkHostTableNameString(): Result<string, DomainError> {
     return this.configValue.fkHostTableNameString();
   }
 
@@ -115,7 +116,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return this.configValue.selfKeyName();
   }
 
-  selfKeyNameString(): Result<string, string> {
+  selfKeyNameString(): Result<string, DomainError> {
     return this.configValue.selfKeyNameString();
   }
 
@@ -123,7 +124,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return this.configValue.foreignKeyName();
   }
 
-  foreignKeyNameString(): Result<string, string> {
+  foreignKeyNameString(): Result<string, DomainError> {
     return this.configValue.foreignKeyNameString();
   }
 
@@ -143,17 +144,17 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return this.metaValue?.hasOrderColumn() ?? false;
   }
 
-  orderColumnName(): Result<string, string> {
+  orderColumnName(): Result<string, DomainError> {
     return this.configValue.orderColumnName();
   }
 
-  lookupField(foreignTable: ForeignTable): Result<Field, string> {
+  lookupField(foreignTable: ForeignTable): Result<Field, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() =>
       foreignTable.fieldById(this.lookupFieldId())
     );
   }
 
-  symmetricField(foreignTable: ForeignTable): Result<Field | undefined, string> {
+  symmetricField(foreignTable: ForeignTable): Result<Field | undefined, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() => {
       const symmetricFieldId = this.symmetricFieldId();
       if (!symmetricFieldId) return ok(undefined);
@@ -163,11 +164,11 @@ export class LinkField extends Field implements ForeignTableRelatedField {
 
   visibleFields(
     foreignTable: ForeignTable
-  ): Result<ReadonlyArray<Field> | null | undefined, string> {
+  ): Result<ReadonlyArray<Field> | null | undefined, DomainError> {
     return this.ensureForeignTable(foreignTable).andThen(() => {
       const fieldIds = this.visibleFieldIds();
       if (fieldIds === null || fieldIds === undefined) return ok(fieldIds);
-      return fieldIds.reduce<Result<ReadonlyArray<Field>, string>>(
+      return fieldIds.reduce<Result<ReadonlyArray<Field>, DomainError>>(
         (acc, fieldId) =>
           acc.andThen((fields) =>
             foreignTable.fieldById(fieldId).map((field) => [...fields, field])
@@ -181,9 +182,9 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     foreignTable: ForeignTable;
     hostTable: Table;
     symmetricFieldId?: FieldId;
-  }): Result<LinkField, string> {
+  }): Result<LinkField, DomainError> {
     const { foreignTable, hostTable } = params;
-    if (this.isOneWay()) return err('One-way link has no symmetric field');
+    if (this.isOneWay()) return err(domainError.fromMessage('One-way link has no symmetric field'));
 
     const symmetricFieldIdResult = params.symmetricFieldId
       ? ok(params.symmetricFieldId)
@@ -194,7 +195,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     const baseId = this.isCrossBase() ? hostTable.baseId().toString() : undefined;
     const lookupFieldId = hostTable.primaryFieldId().toString();
 
-    const symmetricDbConfigResult: Result<LinkFieldDbConfig | undefined, string> =
+    const symmetricDbConfigResult: Result<LinkFieldDbConfig | undefined, DomainError> =
       this.config().hasDbConfig()
         ? this.fkHostTableNameString().andThen((fkHostTableName) =>
             this.selfKeyNameString().andThen((selfKeyName) =>
@@ -207,7 +208,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
               )
             )
           )
-        : ok<LinkFieldDbConfig | undefined, string>(undefined);
+        : ok<LinkFieldDbConfig | undefined, DomainError>(undefined);
 
     return this.lookupField(foreignTable).andThen(() =>
       symmetricFieldIdResult.andThen((symmetricFieldId) =>
@@ -239,7 +240,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     );
   }
 
-  validateForeignTables(context: ForeignTableValidationContext): Result<void, string> {
+  validateForeignTables(context: ForeignTableValidationContext): Result<void, DomainError> {
     const foreignTableResult = this.resolveForeignTable(context.foreignTables);
     if (foreignTableResult.isErr()) return err(foreignTableResult.error);
     const foreignTable = foreignTableResult.value;
@@ -253,25 +254,25 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     return ok(undefined);
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLinkField(this);
   }
 
-  setDbConfig(params: LinkFieldDbConfig): Result<void, string> {
+  setDbConfig(params: LinkFieldDbConfig): Result<void, DomainError> {
     return this.configValue.withDbConfig(params).map((next) => {
       this.configValue = next;
       return undefined;
     });
   }
 
-  setSymmetricFieldId(symmetricFieldId: FieldId): Result<void, string> {
+  setSymmetricFieldId(symmetricFieldId: FieldId): Result<void, DomainError> {
     return this.configValue.withSymmetricFieldId(symmetricFieldId).map((next) => {
       this.configValue = next;
       return undefined;
     });
   }
 
-  ensureDbConfig(params: { baseId: BaseId; hostTableId: TableId }): Result<void, string> {
+  ensureDbConfig(params: { baseId: BaseId; hostTableId: TableId }): Result<void, DomainError> {
     if (this.configValue.hasDbConfig()) return ok(undefined);
 
     const symmetricFieldIdResult = (() => {
@@ -300,9 +301,9 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     );
   }
 
-  private ensureForeignTable(foreignTable: ForeignTable): Result<void, string> {
+  private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {
     if (!foreignTable.id().equals(this.foreignTableId())) {
-      return err('ForeignTable does not match LinkField foreign table');
+      return err(domainError.fromMessage('ForeignTable does not match LinkField foreign table'));
     }
     return ok(undefined);
   }
@@ -311,7 +312,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     baseId: BaseId;
     hostTableId: TableId;
     symmetricFieldId?: FieldId;
-  }): Result<DbTableName, string> => {
+  }): Result<DbTableName, DomainError> => {
     const relationship = this.relationship().toString();
     if (relationship === 'manyMany') {
       return this.buildJunctionTableName(params.baseId, params.symmetricFieldId);
@@ -327,13 +328,13 @@ export class LinkField extends Field implements ForeignTableRelatedField {
         `${params.baseId.toString()}.${this.foreignTableId().toString()}`
       );
     }
-    return err('Unsupported LinkRelationship');
+    return err(domainError.fromMessage('Unsupported LinkRelationship'));
   };
 
   private buildJunctionTableName(
     baseId: BaseId,
     symmetricFieldId?: FieldId
-  ): Result<DbTableName, string> {
+  ): Result<DbTableName, DomainError> {
     const suffix = symmetricFieldId
       ? `${this.id().toString()}_${symmetricFieldId.toString()}`
       : this.id().toString();
@@ -343,15 +344,17 @@ export class LinkField extends Field implements ForeignTableRelatedField {
   private resolveSymmetricFieldName(
     hostTable: Table,
     foreignTable: ForeignTable
-  ): Result<FieldName, string> {
+  ): Result<FieldName, DomainError> {
     const baseNameResult = FieldName.create(hostTable.name().toString());
     if (baseNameResult.isErr()) return err(baseNameResult.error);
     return foreignTable.generateFieldName(baseNameResult.value);
   }
 
-  private resolveForeignTable(foreignTables: ReadonlyArray<Table>): Result<ForeignTable, string> {
+  private resolveForeignTable(
+    foreignTables: ReadonlyArray<Table>
+  ): Result<ForeignTable, DomainError> {
     const table = foreignTables.find((candidate) => candidate.id().equals(this.foreignTableId()));
-    if (!table) return err('Foreign table not loaded');
+    if (!table) return err(domainError.fromMessage('Foreign table not loaded'));
     return ok(ForeignTable.from(table));
   }
 }

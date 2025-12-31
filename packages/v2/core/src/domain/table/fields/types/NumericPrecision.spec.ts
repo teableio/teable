@@ -22,9 +22,8 @@ describe('NumericPrecision', () => {
   it('compares precision values by value', () => {
     const left = NumericPrecision.create(2);
     const right = NumericPrecision.create(2);
-    [left, right].forEach((r) => r._unsafeUnwrap());
-    left._unsafeUnwrap();
-    right._unsafeUnwrap();
-    expect(left.value.equals(right.value)).toBe(true);
+    const leftValue = left._unsafeUnwrap();
+    const rightValue = right._unsafeUnwrap();
+    expect(leftValue.equals(rightValue)).toBe(true);
   });
 });

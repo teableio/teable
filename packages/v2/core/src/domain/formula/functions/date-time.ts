@@ -1,5 +1,6 @@
 import { err, ok } from 'neverthrow';
 
+import { domainError } from '../../shared/DomainError';
 import { CellValueType } from '../CellValueType';
 import type { TypedValue } from '../typed-value';
 import { FormulaFunc, FormulaFuncType, FunctionName } from './common';
@@ -10,14 +11,14 @@ abstract class DateTimeFunc extends FormulaFunc {
 
 const requireExact = (fnName: FunctionName, params: TypedValue[], count: number) => {
   if (params.length !== count) {
-    return err(`${fnName} only allow ${count} param`);
+    return err(domainError.fromMessage(`${fnName} only allow ${count} param`));
   }
   return ok(undefined);
 };
 
 const requireAtLeast = (fnName: FunctionName, params: TypedValue[], count: number) => {
   if (params.length < count) {
-    return err(`${fnName} needs at least ${count} params`);
+    return err(domainError.fromMessage(`${fnName} needs at least ${count} params`));
   }
   return ok(undefined);
 };
@@ -434,7 +435,11 @@ export class LastModifiedTime extends DateTimeFunc {
   validateParams(params: TypedValue[]) {
     if (!params.length) return ok(undefined);
     if (params.some((param) => !param?.field)) {
-      return err(`${FunctionName.LastModifiedTime} parameter must be a field reference`);
+      return err(
+        domainError.fromMessage(
+          `${FunctionName.LastModifiedTime} parameter must be a field reference`
+        )
+      );
     }
     return ok(undefined);
   }

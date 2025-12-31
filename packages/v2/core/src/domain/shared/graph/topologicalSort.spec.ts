@@ -10,21 +10,20 @@ describe('topologicalSort', () => {
     const a = createFieldId('a');
     const b = createFieldId('b');
     const c = createFieldId('c');
-    [a, b, c].forEach((r) => r._unsafeUnwrap());
-    a._unsafeUnwrap();
-    b._unsafeUnwrap();
-    c._unsafeUnwrap();
+    const aId = a._unsafeUnwrap();
+    const bId = b._unsafeUnwrap();
+    const cId = c._unsafeUnwrap();
 
     const result = topologicalSort([
-      { id: a.value, dependencies: [] },
-      { id: b.value, dependencies: [] },
-      { id: c.value, dependencies: [a.value, b.value] },
+      { id: aId, dependencies: [] },
+      { id: bId, dependencies: [] },
+      { id: cId, dependencies: [aId, bId] },
     ]);
 
     expect(result.order.map((id) => id.toString())).toEqual([
-      a.value.toString(),
-      b.value.toString(),
-      c.value.toString(),
+      aId.toString(),
+      bId.toString(),
+      cId.toString(),
     ]);
     expect(result.cycles).toEqual([]);
   });
@@ -32,28 +31,27 @@ describe('topologicalSort', () => {
   it('detects simple cycles', () => {
     const a = createFieldId('d');
     const b = createFieldId('e');
-    [a, b].forEach((r) => r._unsafeUnwrap());
-    a._unsafeUnwrap();
-    b._unsafeUnwrap();
+    const aId = a._unsafeUnwrap();
+    const bId = b._unsafeUnwrap();
 
     const result = topologicalSort([
-      { id: a.value, dependencies: [b.value] },
-      { id: b.value, dependencies: [a.value] },
+      { id: aId, dependencies: [bId] },
+      { id: bId, dependencies: [aId] },
     ]);
 
     expect(result.cycles.length).toBeGreaterThan(0);
     const cycleIds = result.cycles.flat().map((id) => id.toString());
-    expect(cycleIds).toContain(a.value.toString());
-    expect(cycleIds).toContain(b.value.toString());
+    expect(cycleIds).toContain(aId.toString());
+    expect(cycleIds).toContain(bId.toString());
   });
 
   it('detects self cycles', () => {
     const a = createFieldId('f');
-    a._unsafeUnwrap();
+    const aId = a._unsafeUnwrap();
 
-    const result = topologicalSort([{ id: a.value, dependencies: [a.value] }]);
+    const result = topologicalSort([{ id: aId, dependencies: [aId] }]);
     expect(result.cycles.length).toBeGreaterThan(0);
     const cycleIds = result.cycles.flat().map((id) => id.toString());
-    expect(cycleIds).toContain(a.value.toString());
+    expect(cycleIds).toContain(aId.toString());
   });
 });

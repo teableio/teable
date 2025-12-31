@@ -20,6 +20,7 @@ import { z } from 'zod';
 import type { CellValueType as FormulaCellValueType } from '../../../formula/CellValueType';
 import type { FormulaFieldReference } from '../../../formula/FormulaFieldReference';
 import { FormulaTypeVisitor } from '../../../formula/visitor';
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { FieldId } from '../FieldId';
 import type { FieldValueType } from '../visitors/FieldValueTypeVisitor';
@@ -52,9 +53,9 @@ export class FormulaExpression extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FormulaExpression, string> {
+  static create(raw: unknown): Result<FormulaExpression, DomainError> {
     const parsed = formulaExpressionSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FormulaExpression');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaExpression'));
     return ok(new FormulaExpression(parsed.data));
   }
 
@@ -62,10 +63,14 @@ export class FormulaExpression extends ValueObject {
     return this.value === other.value;
   }
 
-  getReferencedFieldIds(): Result<ReadonlyArray<FieldId>, string> {
+  getReferencedFieldIds(): Result<ReadonlyArray<FieldId>, DomainError> {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) {
-      return err(`Formula expression ${this.value} parse error: ${parseResult.error}`);
+      return err(
+        domainError.fromMessage(
+          `Formula expression ${this.value} parse error: ${parseResult.error}`
+        )
+      );
     }
     const visitor = new FieldReferenceVisitor();
     const rawRefs = Array.from(new Set(visitor.visit(parseResult.value))).map((ref) => String(ref));
@@ -83,9 +88,11 @@ export class FormulaExpression extends ValueObject {
 
     if (invalidRefs.length > 0) {
       return err(
-        `Formula references not found: ${invalidRefs.join(
-          ', '
-        )}. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.`
+        domainError.fromMessage(
+          `Formula references not found: ${invalidRefs.join(
+            ', '
+          )}. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.`
+        )
       );
     }
 
@@ -94,7 +101,10 @@ export class FormulaExpression extends ValueObject {
 
   getParsedValueType(
     fieldValueTypes: ReadonlyArray<{ id: FieldId; valueType: FieldValueType }>
-  ): Result<{ cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity }, string> {
+  ): Result<
+    { cellValueType: CellValueType; isMultipleCellValue: CellValueMultiplicity },
+    DomainError
+  > {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) return err(parseResult.error);
 
@@ -127,7 +137,7 @@ export class FormulaExpression extends ValueObject {
     return this.value;
   }
 
-  private parseTree(): Result<ExprContext, string> {
+  private parseTree(): Result<ExprContext, DomainError> {
     const inputStream = CharStreams.fromString(this.value);
     const lexer = new FormulaLexer(inputStream);
     const tokenStream = new CommonTokenStream(lexer);
@@ -137,7 +147,7 @@ export class FormulaExpression extends ValueObject {
     parser.addErrorListener(errorCollector);
     const tree = parser.root();
     const error = errorCollector.firstError();
-    if (error) return err(error);
+    if (error) return err(domainError.fromMessage(error));
     return ok(tree);
   }
 

@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -27,7 +28,7 @@ export class SingleSelectField extends Field {
     options: ReadonlyArray<SelectOption>;
     defaultValue?: SelectDefaultValue;
     preventAutoNewOptions?: SelectAutoNewOptions;
-  }): Result<SingleSelectField, string> {
+  }): Result<SingleSelectField, DomainError> {
     return validateSelectOptions(params.options, params.defaultValue, 'single').map(
       (options) =>
         new SingleSelectField(
@@ -52,7 +53,7 @@ export class SingleSelectField extends Field {
     return this.preventAutoNewOptionsValue;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitSingleSelectField(this);
   }
 }

@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../domain/shared/DomainError';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
@@ -12,5 +13,5 @@ export interface ITableRecordQueryRepository {
     context: IExecutionContext,
     table: Table,
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
-  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, string>>;
+  ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>>;
 }

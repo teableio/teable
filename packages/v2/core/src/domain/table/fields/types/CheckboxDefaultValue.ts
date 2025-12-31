@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const checkboxDefaultValueSchema = z.boolean();
@@ -11,9 +12,9 @@ export class CheckboxDefaultValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<CheckboxDefaultValue, string> {
+  static create(raw: unknown): Result<CheckboxDefaultValue, DomainError> {
     const parsed = checkboxDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid CheckboxDefaultValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid CheckboxDefaultValue'));
     return ok(new CheckboxDefaultValue(parsed.data));
   }
 

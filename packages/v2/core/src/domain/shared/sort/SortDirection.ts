@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../DomainError';
 import { ValueObject } from '../ValueObject';
 
 export const sortDirectionValues = ['asc', 'desc'] as const;
@@ -13,9 +14,9 @@ export class SortDirection extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<SortDirection, string> {
+  static create(raw: unknown): Result<SortDirection, DomainError> {
     const parsed = sortDirectionSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid SortDirection');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid SortDirection'));
     return ok(new SortDirection(parsed.data));
   }
 

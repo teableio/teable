@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../shared/DomainError';
 import { ValueObject } from '../shared/ValueObject';
 
 export const tableSortKeyValues = ['name', 'id'] as const;
@@ -13,9 +14,9 @@ export class TableSortKey extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<TableSortKey, string> {
+  static create(raw: unknown): Result<TableSortKey, DomainError> {
     const parsed = tableSortKeySchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid TableSortKey');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid TableSortKey'));
     return ok(new TableSortKey(parsed.data));
   }
 

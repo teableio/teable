@@ -1,5 +1,6 @@
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../shared/DomainError';
 import type { CellValueType } from '../CellValueType';
 import type { TypedValue } from '../typed-value';
 
@@ -35,7 +36,7 @@ export abstract class FormulaFunc {
    * 3. The function name should be clearly stated in the error message
    * 4. Arabic numerals such as "3" should be used instead of Chinese characters such as "三" in error messages regarding numbers.
    */
-  abstract validateParams(params: TypedValue[]): Result<void, string>;
+  abstract validateParams(params: TypedValue[]): Result<void, DomainError>;
 
   /**
    * @param params The parameter is optional. When the parameter is not passed, it returns a static default type. When the parameter is passed, different functions dynamically calculate the return type based on the parameter type.
@@ -43,7 +44,7 @@ export abstract class FormulaFunc {
    */
   abstract getReturnType(
     params?: TypedValue[]
-  ): Result<{ type: CellValueType; isMultiple?: boolean }, string>;
+  ): Result<{ type: CellValueType; isMultiple?: boolean }, DomainError>;
 }
 
 export enum FunctionName {

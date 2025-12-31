@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../domain/shared/DomainError';
 import { FieldDeleted } from '../../domain/table/events/FieldDeleted';
 import type { IEventHandler } from '../../ports/EventHandler';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -23,7 +24,7 @@ export class FieldDeletedRealtimeProjection implements IEventHandler<FieldDelete
   async handle(
     context: ExecutionContextPort.IExecutionContext,
     event: FieldDeleted
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const collection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
     const docIdResult = RealtimeDocId.fromParts(collection, event.fieldId.toString());
     if (docIdResult.isErr()) return err(docIdResult.error);

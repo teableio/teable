@@ -4,6 +4,7 @@ import { match } from 'ts-pattern';
 import { z } from 'zod';
 
 import type { BaseId } from '../domain/base/BaseId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { Field } from '../domain/table/fields/Field';
 import {
   createAttachmentField,
@@ -16,6 +17,7 @@ import {
   createFormulaField,
   createLastModifiedByField,
   createLastModifiedTimeField,
+  createLookupFieldPending,
   createRollupFieldPending,
   createNewLinkField,
   createLongTextField,
@@ -39,9 +41,12 @@ import {
   TimeFormatting,
 } from '../domain/table/fields/types/DateTimeFormatting';
 import { FieldColor, fieldColorValues } from '../domain/table/fields/types/FieldColor';
+import { FieldNotNull } from '../domain/table/fields/types/FieldNotNull';
+import { FieldUnique } from '../domain/table/fields/types/FieldUnique';
 import { FormulaExpression } from '../domain/table/fields/types/FormulaExpression';
 import type { FormulaFormatting, FormulaShowAs } from '../domain/table/fields/types/FormulaField';
 import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
+import { LookupOptions } from '../domain/table/fields/types/LookupOptions';
 import { NumberDefaultValue } from '../domain/table/fields/types/NumberDefaultValue';
 import {
   NumberFormatting,
@@ -71,7 +76,12 @@ import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity'
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { TableBuilder } from '../domain/table/TableBuilder';
-import type { TableId } from '../domain/table/TableId';
+import { TableId } from '../domain/table/TableId';
+import {
+  checkFieldNotNullValidationEnabled,
+  checkFieldUniqueValidationEnabled,
+  isComputedFieldType,
+} from './FieldValidation';
 
 const fieldColorSchema = z.enum(fieldColorValues);
 const ratingIconSchema = z.enum(ratingIconValues);
@@ -241,6 +251,14 @@ const rollupConfigSchema = z
   })
   .strict();
 
+const lookupOptionsSchema = z
+  .object({
+    linkFieldId: z.string(),
+    foreignTableId: z.string(),
+    lookupFieldId: z.string(),
+  })
+  .strict();
+
 export const tableFieldInputSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('singleLineText'),
@@ -248,6 +266,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: singleLineTextOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('longText'),
@@ -255,6 +275,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: longTextOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('number'),
@@ -262,6 +284,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: numberOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('rating'),
@@ -270,6 +294,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     max: z.number().optional(),
     options: ratingOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('singleSelect'),
@@ -277,6 +303,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('multipleSelect'),
@@ -284,6 +312,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: z.union([z.array(z.string()), selectOptionsSchema]).optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('checkbox'),
@@ -291,12 +321,16 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: checkboxOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('attachment'),
     id: z.string().optional(),
     name: z.string().optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('date'),
@@ -304,6 +338,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: dateOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('createdTime'),
@@ -311,6 +347,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: createdTimeOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('lastModifiedTime'),
@@ -318,6 +356,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: lastModifiedTimeOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('user'),
@@ -325,6 +365,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: userOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('createdBy'),
@@ -332,6 +374,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: createdByOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('lastModifiedBy'),
@@ -339,6 +383,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: lastModifiedByOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('autoNumber'),
@@ -346,6 +392,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: autoNumberOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z.object({
     type: z.literal('button'),
@@ -353,6 +401,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
     name: z.string().optional(),
     options: buttonOptionsSchema.optional(),
     isPrimary: z.boolean().optional(),
+    notNull: z.boolean().optional(),
+    unique: z.boolean().optional(),
   }),
   z
     .object({
@@ -361,6 +411,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
       name: z.string().optional(),
       options: formulaOptionsSchema,
       isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
     })
     .strict(),
   z
@@ -370,6 +422,8 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
       name: z.string().optional(),
       options: linkOptionsSchema,
       isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
     })
     .strict(),
   z
@@ -380,6 +434,19 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
       options: rollupOptionsSchema,
       config: rollupConfigSchema,
       isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal('lookup'),
+      id: z.string().optional(),
+      name: z.string().optional(),
+      options: lookupOptionsSchema,
+      isPrimary: z.boolean().optional(),
+      notNull: z.boolean().optional(),
+      unique: z.boolean().optional(),
     })
     .strict(),
 ]);
@@ -453,6 +520,8 @@ const defaultFieldName = (field: ITableFieldInput): string => {
       return 'Rollup';
     case 'link':
       return 'Link';
+    case 'lookup':
+      return 'Lookup';
     default:
       return 'Field';
   }
@@ -461,7 +530,7 @@ const defaultFieldName = (field: ITableFieldInput): string => {
 export const resolveTableFieldInputName = (
   field: ITableFieldInput,
   existingNames: ReadonlyArray<string>
-): Result<ResolvedTableFieldInput, string> => {
+): Result<ResolvedTableFieldInput, DomainError> => {
   if (typeof field.name === 'string') {
     const trimmed = field.name.trim();
     if (trimmed.length > 0) {
@@ -477,7 +546,7 @@ export const resolveTableFieldInputName = (
 export const resolveTableFieldInputs = (
   fields: ReadonlyArray<ITableFieldInput>,
   existingNames: ReadonlyArray<string>
-): Result<ReadonlyArray<ResolvedTableFieldInput>, string> => {
+): Result<ReadonlyArray<ResolvedTableFieldInput>, DomainError> => {
   const resolved: ResolvedTableFieldInput[] = [];
   const names = [...existingNames];
 
@@ -493,8 +562,8 @@ export const resolveTableFieldInputs = (
 
 export interface ICreateTableFieldSpec {
   applyTo(builder: TableBuilder): void;
-  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string>;
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string>;
+  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError>;
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError>;
 }
 
 const uniqueForeignTableReferences = (
@@ -514,10 +583,10 @@ const uniqueForeignTableReferences = (
 
 export const collectForeignTableReferences = (
   specs: ReadonlyArray<ICreateTableFieldSpec>
-): Result<ReadonlyArray<LinkForeignTableReference>, string> => {
+): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> => {
   return specs
     .reduce<
-      Result<ReadonlyArray<LinkForeignTableReference>, string>
+      Result<ReadonlyArray<LinkForeignTableReference>, DomainError>
     >((acc, spec) => acc.andThen((refs) => spec.foreignTableReferences().map((next) => [...refs, ...next])), ok([]))
     .map((refs) => uniqueForeignTableReferences(refs));
 };
@@ -527,7 +596,9 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly showAs: SingleLineTextShowAs | undefined,
-    private readonly defaultValue: TextDefaultValue | undefined
+    private readonly defaultValue: TextDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -537,18 +608,27 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
       isPrimary: boolean;
       showAs?: SingleLineTextShowAs;
       defaultValue?: TextDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateSingleLineTextFieldSpec {
     return new CreateSingleLineTextFieldSpec(
       id,
       name,
       options.showAs,
-      options.defaultValue
+      options.defaultValue,
+      options.notNull,
+      options.unique
     ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().singleLineText().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .singleLineText()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
@@ -556,19 +636,22 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createSingleLineTextField({
         id,
         name: this.name,
         showAs: this.showAs,
         defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -584,35 +667,58 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
-    private readonly defaultValue: TextDefaultValue | undefined
+    private readonly defaultValue: TextDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
     id: FieldId | undefined,
     name: FieldName,
-    options: { isPrimary: boolean; defaultValue?: TextDefaultValue }
+    options: {
+      isPrimary: boolean;
+      defaultValue?: TextDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
+    }
   ): CreateLongTextFieldSpec {
-    return new CreateLongTextFieldSpec(id, name, options.defaultValue).withPrimary(
-      options.isPrimary
-    );
+    return new CreateLongTextFieldSpec(
+      id,
+      name,
+      options.defaultValue,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().longText().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .longText()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
-      createLongTextField({ id, name: this.name, defaultValue: this.defaultValue })
+      createLongTextField({
+        id,
+        name: this.name,
+        defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
+      })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -630,7 +736,9 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
     private readonly name: FieldName,
     private readonly formatting: NumberFormatting | undefined,
     private readonly showAs: NumberShowAs | undefined,
-    private readonly defaultValue: NumberDefaultValue | undefined
+    private readonly defaultValue: NumberDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -641,6 +749,8 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
       formatting?: NumberFormatting;
       showAs?: NumberShowAs;
       defaultValue?: NumberDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateNumberFieldSpec {
     return new CreateNumberFieldSpec(
@@ -648,12 +758,19 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
       name,
       options.formatting,
       options.showAs,
-      options.defaultValue
+      options.defaultValue,
+      options.notNull,
+      options.unique
     ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().number().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .number()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.showAs) fieldBuilder.withShowAs(this.showAs);
@@ -662,8 +779,9 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createNumberField({
         id,
@@ -671,11 +789,13 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
         formatting: this.formatting,
         showAs: this.showAs,
         defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -693,7 +813,9 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
     private readonly name: FieldName,
     private readonly max: RatingMax | undefined,
     private readonly icon: RatingIcon | undefined,
-    private readonly color: RatingColor | undefined
+    private readonly color: RatingColor | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -704,6 +826,8 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
       max?: RatingMax;
       icon?: RatingIcon;
       color?: RatingColor;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateRatingFieldSpec {
     return new CreateRatingFieldSpec(
@@ -711,12 +835,19 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
       name,
       options.max,
       options.icon,
-      options.color
+      options.color,
+      options.notNull,
+      options.unique
     ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().rating().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .rating()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.max) fieldBuilder.withMax(this.max);
     if (this.icon) fieldBuilder.withIcon(this.icon);
@@ -725,8 +856,9 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createRatingField({
         id,
@@ -734,11 +866,13 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
         max: this.max,
         icon: this.icon,
         color: this.color,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -795,8 +929,9 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createFormulaField({
         id,
@@ -809,7 +944,7 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -870,8 +1005,9 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createRollupFieldPending({
         id,
@@ -885,7 +1021,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
       {
         foreignTableId: this.config.foreignTableId(),
@@ -905,35 +1041,64 @@ class CreateLinkFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
-    private readonly config: LinkFieldConfig
+    private readonly config: LinkFieldConfig,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
     id: FieldId | undefined,
     name: FieldName,
-    options: { isPrimary: boolean; config: LinkFieldConfig }
+    options: {
+      isPrimary: boolean;
+      config: LinkFieldConfig;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
+    }
   ): CreateLinkFieldSpec {
-    return new CreateLinkFieldSpec(id, name, options.config).withPrimary(options.isPrimary);
+    return new CreateLinkFieldSpec(
+      id,
+      name,
+      options.config,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().link().withName(this.name).withConfig(this.config);
+    const fieldBuilder = builder
+      .field()
+      .link()
+      .withName(this.name)
+      .withConfig(this.config)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
 
-  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     const baseId = params?.baseId;
     const tableId = params?.tableId;
-    if (!baseId || !tableId) return err('CreateLinkFieldSpec requires table context');
+    if (!baseId || !tableId)
+      return err(domainError.fromMessage('CreateLinkFieldSpec requires table context'));
     return resolveFieldId(this.id).andThen((id) =>
-      createNewLinkField({ id, name: this.name, config: this.config, baseId, hostTableId: tableId })
+      createNewLinkField({
+        id,
+        name: this.name,
+        config: this.config,
+        baseId,
+        hostTableId: tableId,
+        notNull: this.notNull,
+        unique: this.unique,
+      })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([
       {
         foreignTableId: this.config.foreignTableId(),
@@ -950,13 +1115,124 @@ class CreateLinkFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
+class CreateLookupFieldSpec implements ICreateTableFieldSpec {
+  private constructor(
+    private readonly id: FieldId | undefined,
+    private readonly name: FieldName,
+    private readonly linkFieldId: string,
+    private readonly foreignTableId: string,
+    private readonly lookupFieldId: string,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
+  ) {}
+
+  static create(
+    id: FieldId | undefined,
+    name: FieldName,
+    options: {
+      isPrimary: boolean;
+      linkFieldId: string;
+      foreignTableId: string;
+      lookupFieldId: string;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
+    }
+  ): CreateLookupFieldSpec {
+    return new CreateLookupFieldSpec(
+      id,
+      name,
+      options.linkFieldId,
+      options.foreignTableId,
+      options.lookupFieldId,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
+  }
+
+  applyTo(_builder: TableBuilder): void {
+    // Lookup fields are created through the repository layer with isLookup=true
+    // This is a placeholder for the builder pattern
+    // The actual lookup field creation happens in the repository mapper
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary) {
+      return err(domainError.fromMessage('Primary field cannot be a lookup field'));
+    }
+    return resolveFieldId(this.id).andThen((id) =>
+      LookupOptions.create({
+        linkFieldId: this.linkFieldId,
+        foreignTableId: this.foreignTableId,
+        lookupFieldId: this.lookupFieldId,
+      }).andThen((lookupOptions) =>
+        createLookupFieldPending({
+          id,
+          name: this.name,
+          lookupOptions,
+          notNull: this.notNull,
+          unique: this.unique,
+        })
+      )
+    );
+  }
+
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
+    return TableId.create(this.foreignTableId).map((foreignTableId) => [
+      {
+        foreignTableId,
+      },
+    ]);
+  }
+
+  linkFieldIdValue(): string {
+    return this.linkFieldId;
+  }
+
+  foreignTableIdValue(): string {
+    return this.foreignTableId;
+  }
+
+  lookupFieldIdValue(): string {
+    return this.lookupFieldId;
+  }
+
+  nameValue(): FieldName {
+    return this.name;
+  }
+
+  idValue(): FieldId | undefined {
+    return this.id;
+  }
+
+  notNullValue(): FieldNotNull {
+    return this.notNull;
+  }
+
+  uniqueValue(): FieldUnique {
+    return this.unique;
+  }
+
+  private isPrimary = false;
+
+  isPrimaryValue(): boolean {
+    return this.isPrimary;
+  }
+
+  private withPrimary(isPrimary: boolean): CreateLookupFieldSpec {
+    this.isPrimary = isPrimary;
+    return this;
+  }
+}
+
 class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly options: ReadonlyArray<SelectOption>,
     private readonly defaultValue: SelectDefaultValue | undefined,
-    private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined
+    private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -967,6 +1243,8 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       isPrimary: boolean;
       defaultValue?: SelectDefaultValue;
       preventAutoNewOptions?: SelectAutoNewOptions;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateSingleSelectFieldSpec {
     return new CreateSingleSelectFieldSpec(
@@ -974,7 +1252,9 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       name,
       options,
       meta.defaultValue,
-      meta.preventAutoNewOptions
+      meta.preventAutoNewOptions,
+      meta.notNull,
+      meta.unique
     ).withPrimary(meta.isPrimary);
   }
 
@@ -983,7 +1263,9 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
       .field()
       .singleSelect()
       .withName(this.name)
-      .withOptions(this.options);
+      .withOptions(this.options)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.preventAutoNewOptions) {
@@ -993,8 +1275,9 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createSingleSelectField({
         id,
@@ -1002,11 +1285,13 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1024,7 +1309,9 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     private readonly name: FieldName,
     private readonly options: ReadonlyArray<SelectOption>,
     private readonly defaultValue: SelectDefaultValue | undefined,
-    private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined
+    private readonly preventAutoNewOptions: SelectAutoNewOptions | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -1035,6 +1322,8 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       isPrimary: boolean;
       defaultValue?: SelectDefaultValue;
       preventAutoNewOptions?: SelectAutoNewOptions;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateMultipleSelectFieldSpec {
     return new CreateMultipleSelectFieldSpec(
@@ -1042,7 +1331,9 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       name,
       options,
       meta.defaultValue,
-      meta.preventAutoNewOptions
+      meta.preventAutoNewOptions,
+      meta.notNull,
+      meta.unique
     ).withPrimary(meta.isPrimary);
   }
 
@@ -1051,7 +1342,9 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
       .field()
       .multipleSelect()
       .withName(this.name)
-      .withOptions(this.options);
+      .withOptions(this.options)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.preventAutoNewOptions) {
@@ -1061,8 +1354,9 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createMultipleSelectField({
         id,
@@ -1070,11 +1364,13 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
         options: this.options,
         defaultValue: this.defaultValue,
         preventAutoNewOptions: this.preventAutoNewOptions,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1090,35 +1386,58 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
-    private readonly defaultValue: CheckboxDefaultValue | undefined
+    private readonly defaultValue: CheckboxDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
     id: FieldId | undefined,
     name: FieldName,
-    options: { isPrimary: boolean; defaultValue?: CheckboxDefaultValue }
+    options: {
+      isPrimary: boolean;
+      defaultValue?: CheckboxDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
+    }
   ): CreateCheckboxFieldSpec {
-    return new CreateCheckboxFieldSpec(id, name, options.defaultValue).withPrimary(
-      options.isPrimary
-    );
+    return new CreateCheckboxFieldSpec(
+      id,
+      name,
+      options.defaultValue,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().checkbox().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .checkbox()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
-      createCheckboxField({ id, name: this.name, defaultValue: this.defaultValue })
+      createCheckboxField({
+        id,
+        name: this.name,
+        defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
+      })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1133,30 +1452,47 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
 class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
-    private readonly name: FieldName
+    private readonly name: FieldName,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
     id: FieldId | undefined,
     name: FieldName,
-    options: { isPrimary: boolean }
+    options: { isPrimary: boolean; notNull: FieldNotNull; unique: FieldUnique }
   ): CreateAttachmentFieldSpec {
-    return new CreateAttachmentFieldSpec(id, name).withPrimary(options.isPrimary);
+    return new CreateAttachmentFieldSpec(id, name, options.notNull, options.unique).withPrimary(
+      options.isPrimary
+    );
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().attachment().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .attachment()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
-    return resolveFieldId(this.id).andThen((id) => createAttachmentField({ id, name: this.name }));
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
+    return resolveFieldId(this.id).andThen((id) =>
+      createAttachmentField({
+        id,
+        name: this.name,
+        notNull: this.notNull,
+        unique: this.unique,
+      })
+    );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1173,7 +1509,9 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
     private readonly formatting: DateTimeFormatting | undefined,
-    private readonly defaultValue: DateDefaultValue | undefined
+    private readonly defaultValue: DateDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -1183,15 +1521,27 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
       isPrimary: boolean;
       formatting?: DateTimeFormatting;
       defaultValue?: DateDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateDateFieldSpec {
-    return new CreateDateFieldSpec(id, name, options.formatting, options.defaultValue).withPrimary(
-      options.isPrimary
-    );
+    return new CreateDateFieldSpec(
+      id,
+      name,
+      options.formatting,
+      options.defaultValue,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().date().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .date()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.formatting) fieldBuilder.withFormatting(this.formatting);
     if (this.defaultValue) fieldBuilder.withDefaultValue(this.defaultValue);
@@ -1199,19 +1549,22 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createDateField({
         id,
         name: this.name,
         formatting: this.formatting,
         defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1248,8 +1601,9 @@ class CreateCreatedTimeFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createCreatedTimeField({
         id,
@@ -1259,7 +1613,7 @@ class CreateCreatedTimeFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1305,8 +1659,9 @@ class CreateLastModifiedTimeFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createLastModifiedTimeField({
         id,
@@ -1317,7 +1672,7 @@ class CreateLastModifiedTimeFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1335,7 +1690,9 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
     private readonly name: FieldName,
     private readonly multiplicity: UserMultiplicity | undefined,
     private readonly notification: UserNotification | undefined,
-    private readonly defaultValue: UserDefaultValue | undefined
+    private readonly defaultValue: UserDefaultValue | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -1346,6 +1703,8 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
       isMultiple?: UserMultiplicity;
       shouldNotify?: UserNotification;
       defaultValue?: UserDefaultValue;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateUserFieldSpec {
     return new CreateUserFieldSpec(
@@ -1353,12 +1712,19 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
       name,
       options.isMultiple,
       options.shouldNotify,
-      options.defaultValue
+      options.defaultValue,
+      options.notNull,
+      options.unique
     ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().user().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .user()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.multiplicity) fieldBuilder.withMultiplicity(this.multiplicity);
     if (this.notification) fieldBuilder.withNotification(this.notification);
@@ -1367,8 +1733,9 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createUserField({
         id,
@@ -1376,11 +1743,13 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
         isMultiple: this.multiplicity,
         shouldNotify: this.notification,
         defaultValue: this.defaultValue,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1413,12 +1782,13 @@ class CreateCreatedByFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) => createCreatedByField({ id, name: this.name }));
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1455,8 +1825,9 @@ class CreateLastModifiedByFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createLastModifiedByField({
         id,
@@ -1466,7 +1837,7 @@ class CreateLastModifiedByFieldSpec implements ICreateTableFieldSpec {
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1499,12 +1870,13 @@ class CreateAutoNumberFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) => createAutoNumberField({ id, name: this.name }));
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1524,7 +1896,9 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
     private readonly color: FieldColor | undefined,
     private readonly maxCount: ButtonMaxCount | undefined,
     private readonly resetCount: ButtonResetCount | undefined,
-    private readonly workflow: ButtonWorkflow | undefined
+    private readonly workflow: ButtonWorkflow | undefined,
+    private readonly notNull: FieldNotNull,
+    private readonly unique: FieldUnique
   ) {}
 
   static create(
@@ -1537,6 +1911,8 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
       maxCount?: ButtonMaxCount;
       resetCount?: ButtonResetCount;
       workflow?: ButtonWorkflow;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
     }
   ): CreateButtonFieldSpec {
     return new CreateButtonFieldSpec(
@@ -1546,12 +1922,19 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
       options.color,
       options.maxCount,
       options.resetCount,
-      options.workflow
+      options.workflow,
+      options.notNull,
+      options.unique
     ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
-    const fieldBuilder = builder.field().button().withName(this.name);
+    const fieldBuilder = builder
+      .field()
+      .button()
+      .withName(this.name)
+      .withNotNull(this.notNull)
+      .withUnique(this.unique);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.label) fieldBuilder.withLabel(this.label);
     if (this.color) fieldBuilder.withColor(this.color);
@@ -1562,8 +1945,9 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
     fieldBuilder.done();
   }
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, string> {
-    if (this.isPrimary) return err('Primary field updates are not supported');
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
+    if (this.isPrimary)
+      return err(domainError.fromMessage('Primary field updates are not supported'));
     return resolveFieldId(this.id).andThen((id) =>
       createButtonField({
         id,
@@ -1573,11 +1957,13 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
         maxCount: this.maxCount,
         resetCount: this.resetCount,
         workflow: this.workflow,
+        notNull: this.notNull,
+        unique: this.unique,
       })
     );
   }
 
-  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, string> {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok([]);
   }
 
@@ -1589,18 +1975,60 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
   }
 }
 
-const sequence = <T>(values: ReadonlyArray<Result<T, string>>): Result<ReadonlyArray<T>, string> =>
-  values.reduce<Result<ReadonlyArray<T>, string>>(
+const sequence = <T>(
+  values: ReadonlyArray<Result<T, DomainError>>
+): Result<ReadonlyArray<T>, DomainError> =>
+  values.reduce<Result<ReadonlyArray<T>, DomainError>>(
     (acc, next) => acc.andThen((arr) => next.map((v) => [...arr, v])),
     ok([])
   );
 
 const optional = <T>(
   raw: unknown,
-  parser: (value: unknown) => Result<T, string>
-): Result<T | undefined, string> => {
+  parser: (value: unknown) => Result<T, DomainError>
+): Result<T | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   return parser(raw).map((value) => value);
+};
+
+type FieldValidationConfig = {
+  notNull: FieldNotNull;
+  unique: FieldUnique;
+};
+
+const parseFieldNotNull = (raw: unknown, enabled: boolean): Result<FieldNotNull, DomainError> => {
+  if (!enabled) {
+    if (raw === true)
+      return err(domainError.fromMessage('Field notNull is not supported for this type'));
+    return ok(FieldNotNull.optional());
+  }
+  if (raw == null) return ok(FieldNotNull.optional());
+  return FieldNotNull.create(raw);
+};
+
+const parseFieldUnique = (raw: unknown, enabled: boolean): Result<FieldUnique, DomainError> => {
+  if (!enabled) {
+    if (raw === true)
+      return err(domainError.fromMessage('Field unique is not supported for this type'));
+    return ok(FieldUnique.disabled());
+  }
+  if (raw == null) return ok(FieldUnique.disabled());
+  return FieldUnique.create(raw);
+};
+
+const resolveFieldValidation = (
+  field: ResolvedTableFieldInput
+): Result<FieldValidationConfig, DomainError> => {
+  const isComputed = isComputedFieldType(field.type);
+  const notNullEnabled = checkFieldNotNullValidationEnabled(field.type, { isComputed });
+  const uniqueEnabled = checkFieldUniqueValidationEnabled(field.type, { isComputed });
+
+  return parseFieldNotNull(field.notNull, notNullEnabled).andThen((notNull) =>
+    parseFieldUnique(field.unique, uniqueEnabled).map((unique) => ({
+      notNull,
+      unique,
+    }))
+  );
 };
 
 type ParsedSelectOptions = {
@@ -1609,7 +2037,7 @@ type ParsedSelectOptions = {
   preventAutoNewOptions?: SelectAutoNewOptions;
 };
 
-const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, string> => {
+const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, DomainError> => {
   if (raw == null) return ok({ options: [] });
 
   if (Array.isArray(raw)) {
@@ -1644,112 +2072,108 @@ const parseSelectOptions = (raw: unknown): Result<ParsedSelectOptions, string> =
   );
 };
 
-const parseFormulaFormatting = (raw: unknown): Result<FormulaFormatting | undefined, string> => {
+const parseFormulaFormatting = (
+  raw: unknown
+): Result<FormulaFormatting | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberFormatting.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err('Invalid FormulaFormatting');
+  return err(domainError.fromMessage('Invalid FormulaFormatting'));
 };
 
-const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, string> => {
+const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, DomainError> => {
   if (raw == null) return ok(undefined);
   const numberResult = NumberShowAs.create(raw);
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err('Invalid FormulaShowAs');
+  return err(domainError.fromMessage('Invalid FormulaShowAs'));
 };
 
-const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, string> => {
+const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
   const parsed = trackedFieldIdsSchema.safeParse(raw);
-  if (!parsed.success) return err('Invalid trackedFieldIds');
+  if (!parsed.success) return err(domainError.fromMessage('Invalid trackedFieldIds'));
   return sequence(parsed.data.map((entry) => FieldId.create(entry)));
 };
 
-const resolveFieldId = (id?: FieldId): Result<FieldId, string> =>
+const resolveFieldId = (id?: FieldId): Result<FieldId, DomainError> =>
   id ? ok(id) : FieldId.generate();
 
 export const parseTableFieldSpec = (
   field: ResolvedTableFieldInput,
   options: { isPrimary: boolean }
-): Result<ICreateTableFieldSpec, string> => {
+): Result<ICreateTableFieldSpec, DomainError> => {
   return optional(field.id, FieldId.create).andThen((id) =>
-    FieldName.create(field.name).andThen((name) => {
-      return match(field)
-        .with({ type: 'singleLineText' }, (field) =>
-          optional(field.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+    FieldName.create(field.name).andThen((name) =>
+      resolveFieldValidation(field).andThen((validation) =>
+        match(field)
+          .with({ type: 'singleLineText' }, (field) =>
+            optional(field.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+              optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
+                CreateSingleLineTextFieldSpec.create(id, name, {
+                  isPrimary: options.isPrimary,
+                  showAs,
+                  defaultValue,
+                  notNull: validation.notNull,
+                  unique: validation.unique,
+                })
+              )
+            )
+          )
+          .with({ type: 'longText' }, (field) =>
             optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
-              CreateSingleLineTextFieldSpec.create(id, name, {
+              CreateLongTextFieldSpec.create(id, name, {
                 isPrimary: options.isPrimary,
-                showAs,
                 defaultValue,
+                notNull: validation.notNull,
+                unique: validation.unique,
               })
             )
           )
-        )
-        .with({ type: 'longText' }, (field) =>
-          optional(field.options?.defaultValue, TextDefaultValue.create).map((defaultValue) =>
-            CreateLongTextFieldSpec.create(id, name, { isPrimary: options.isPrimary, defaultValue })
-          )
-        )
-        .with({ type: 'number' }, (field) =>
-          optional(field.options?.formatting, NumberFormatting.create).andThen((formatting) =>
-            optional(field.options?.showAs, NumberShowAs.create).andThen((showAs) =>
-              optional(field.options?.defaultValue, NumberDefaultValue.create).map((defaultValue) =>
-                CreateNumberFieldSpec.create(id, name, {
-                  isPrimary: options.isPrimary,
-                  formatting,
-                  showAs,
-                  defaultValue,
-                })
-              )
-            )
-          )
-        )
-        .with({ type: 'rating' }, (field) => {
-          const maxRaw = field.options?.max ?? field.max;
-          return optional(maxRaw, RatingMax.create).andThen((max) =>
-            optional(field.options?.icon, RatingIcon.create).andThen((icon) =>
-              optional(field.options?.color, RatingColor.create).map((color) =>
-                CreateRatingFieldSpec.create(id, name, {
-                  isPrimary: options.isPrimary,
-                  max,
-                  icon,
-                  color,
-                })
-              )
-            )
-          );
-        })
-        .with({ type: 'formula' }, (field) =>
-          FormulaExpression.create(field.options.expression).andThen((expression) =>
-            optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
-              parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
-                parseFormulaShowAs(field.options.showAs).map((showAs) =>
-                  CreateFormulaFieldSpec.create(id, name, {
-                    isPrimary: options.isPrimary,
-                    expression,
-                    timeZone,
-                    formatting,
-                    showAs,
-                  })
+          .with({ type: 'number' }, (field) =>
+            optional(field.options?.formatting, NumberFormatting.create).andThen((formatting) =>
+              optional(field.options?.showAs, NumberShowAs.create).andThen((showAs) =>
+                optional(field.options?.defaultValue, NumberDefaultValue.create).map(
+                  (defaultValue) =>
+                    CreateNumberFieldSpec.create(id, name, {
+                      isPrimary: options.isPrimary,
+                      formatting,
+                      showAs,
+                      defaultValue,
+                      notNull: validation.notNull,
+                      unique: validation.unique,
+                    })
                 )
               )
             )
           )
-        )
-        .with({ type: 'rollup' }, (field) =>
-          RollupExpression.create(field.options.expression).andThen((expression) =>
-            RollupFieldConfig.create(field.config).andThen((config) =>
+          .with({ type: 'rating' }, (field) => {
+            const maxRaw = field.options?.max ?? field.max;
+            return optional(maxRaw, RatingMax.create).andThen((max) =>
+              optional(field.options?.icon, RatingIcon.create).andThen((icon) =>
+                optional(field.options?.color, RatingColor.create).map((color) =>
+                  CreateRatingFieldSpec.create(id, name, {
+                    isPrimary: options.isPrimary,
+                    max,
+                    icon,
+                    color,
+                    notNull: validation.notNull,
+                    unique: validation.unique,
+                  })
+                )
+              )
+            );
+          })
+          .with({ type: 'formula' }, (field) =>
+            FormulaExpression.create(field.options.expression).andThen((expression) =>
               optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
                 parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
                   parseFormulaShowAs(field.options.showAs).map((showAs) =>
-                    CreateRollupFieldSpec.create(id, name, {
+                    CreateFormulaFieldSpec.create(id, name, {
                       isPrimary: options.isPrimary,
-                      config,
                       expression,
                       timeZone,
                       formatting,
@@ -1760,133 +2184,188 @@ export const parseTableFieldSpec = (
               )
             )
           )
-        )
-        .with({ type: 'link' }, (field) =>
-          LinkFieldConfig.create(field.options).map((config) =>
-            CreateLinkFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-              config,
-            })
-          )
-        )
-        .with({ type: 'singleSelect' }, (field) =>
-          parseSelectOptions(field.options).map(
-            ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
-              CreateSingleSelectFieldSpec.create(id, name, selectOptions, {
-                isPrimary: options.isPrimary,
-                defaultValue,
-                preventAutoNewOptions,
-              })
-          )
-        )
-        .with({ type: 'multipleSelect' }, (field) =>
-          parseSelectOptions(field.options).map(
-            ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
-              CreateMultipleSelectFieldSpec.create(id, name, selectOptions, {
-                isPrimary: options.isPrimary,
-                defaultValue,
-                preventAutoNewOptions,
-              })
-          )
-        )
-        .with({ type: 'checkbox' }, (field) =>
-          optional(field.options?.defaultValue, CheckboxDefaultValue.create).map((defaultValue) =>
-            CreateCheckboxFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-              defaultValue,
-            })
-          )
-        )
-        .with({ type: 'attachment' }, () =>
-          ok(CreateAttachmentFieldSpec.create(id, name, { isPrimary: options.isPrimary }))
-        )
-        .with({ type: 'date' }, (field) =>
-          optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
-            optional(field.options?.defaultValue, DateDefaultValue.create).map((defaultValue) =>
-              CreateDateFieldSpec.create(id, name, {
-                isPrimary: options.isPrimary,
-                formatting,
-                defaultValue,
-              })
-            )
-          )
-        )
-        .with({ type: 'createdTime' }, (field) =>
-          optional(field.options?.formatting, DateTimeFormatting.create).map((formatting) =>
-            CreateCreatedTimeFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-              formatting,
-            })
-          )
-        )
-        .with({ type: 'lastModifiedTime' }, (field) =>
-          optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
-            parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
-              CreateLastModifiedTimeFieldSpec.create(id, name, {
-                isPrimary: options.isPrimary,
-                formatting,
-                trackedFieldIds,
-              })
-            )
-          )
-        )
-        .with({ type: 'user' }, (field) =>
-          optional(field.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
-            optional(field.options?.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
-              optional(field.options?.defaultValue, UserDefaultValue.create).map((defaultValue) =>
-                CreateUserFieldSpec.create(id, name, {
-                  isPrimary: options.isPrimary,
-                  isMultiple,
-                  shouldNotify,
-                  defaultValue,
-                })
-              )
-            )
-          )
-        )
-        .with({ type: 'createdBy' }, () =>
-          ok(
-            CreateCreatedByFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-            })
-          )
-        )
-        .with({ type: 'lastModifiedBy' }, (field) =>
-          parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
-            CreateLastModifiedByFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-              trackedFieldIds,
-            })
-          )
-        )
-        .with({ type: 'autoNumber' }, () =>
-          ok(
-            CreateAutoNumberFieldSpec.create(id, name, {
-              isPrimary: options.isPrimary,
-            })
-          )
-        )
-        .with({ type: 'button' }, (field) =>
-          optional(field.options?.label, ButtonLabel.create).andThen((label) =>
-            optional(field.options?.color, FieldColor.create).andThen((color) =>
-              optional(field.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-                optional(field.options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
-                  optional(field.options?.workflow, ButtonWorkflow.create).map((workflow) =>
-                    CreateButtonFieldSpec.create(id, name, {
-                      isPrimary: options.isPrimary,
-                      label,
-                      color,
-                      maxCount,
-                      resetCount,
-                      workflow,
-                    })
+          .with({ type: 'rollup' }, (field) =>
+            RollupExpression.create(field.options.expression).andThen((expression) =>
+              RollupFieldConfig.create(field.config).andThen((config) =>
+                optional(field.options.timeZone, TimeZone.create).andThen((timeZone) =>
+                  parseFormulaFormatting(field.options.formatting).andThen((formatting) =>
+                    parseFormulaShowAs(field.options.showAs).map((showAs) =>
+                      CreateRollupFieldSpec.create(id, name, {
+                        isPrimary: options.isPrimary,
+                        config,
+                        expression,
+                        timeZone,
+                        formatting,
+                        showAs,
+                      })
+                    )
                   )
                 )
               )
             )
           )
-        )
-        .exhaustive();
-    })
+          .with({ type: 'link' }, (field) =>
+            LinkFieldConfig.create(field.options).map((config) =>
+              CreateLinkFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                config,
+                notNull: validation.notNull,
+                unique: validation.unique,
+              })
+            )
+          )
+          .with({ type: 'lookup' }, (field) =>
+            ok(
+              CreateLookupFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                linkFieldId: field.options.linkFieldId,
+                foreignTableId: field.options.foreignTableId,
+                lookupFieldId: field.options.lookupFieldId,
+                notNull: validation.notNull,
+                unique: validation.unique,
+              })
+            )
+          )
+          .with({ type: 'singleSelect' }, (field) =>
+            parseSelectOptions(field.options).map(
+              ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
+                CreateSingleSelectFieldSpec.create(id, name, selectOptions, {
+                  isPrimary: options.isPrimary,
+                  defaultValue,
+                  preventAutoNewOptions,
+                  notNull: validation.notNull,
+                  unique: validation.unique,
+                })
+            )
+          )
+          .with({ type: 'multipleSelect' }, (field) =>
+            parseSelectOptions(field.options).map(
+              ({ options: selectOptions, defaultValue, preventAutoNewOptions }) =>
+                CreateMultipleSelectFieldSpec.create(id, name, selectOptions, {
+                  isPrimary: options.isPrimary,
+                  defaultValue,
+                  preventAutoNewOptions,
+                  notNull: validation.notNull,
+                  unique: validation.unique,
+                })
+            )
+          )
+          .with({ type: 'checkbox' }, (field) =>
+            optional(field.options?.defaultValue, CheckboxDefaultValue.create).map((defaultValue) =>
+              CreateCheckboxFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                defaultValue,
+                notNull: validation.notNull,
+                unique: validation.unique,
+              })
+            )
+          )
+          .with({ type: 'attachment' }, () =>
+            ok(
+              CreateAttachmentFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                notNull: validation.notNull,
+                unique: validation.unique,
+              })
+            )
+          )
+          .with({ type: 'date' }, (field) =>
+            optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+              optional(field.options?.defaultValue, DateDefaultValue.create).map((defaultValue) =>
+                CreateDateFieldSpec.create(id, name, {
+                  isPrimary: options.isPrimary,
+                  formatting,
+                  defaultValue,
+                  notNull: validation.notNull,
+                  unique: validation.unique,
+                })
+              )
+            )
+          )
+          .with({ type: 'createdTime' }, (field) =>
+            optional(field.options?.formatting, DateTimeFormatting.create).map((formatting) =>
+              CreateCreatedTimeFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                formatting,
+              })
+            )
+          )
+          .with({ type: 'lastModifiedTime' }, (field) =>
+            optional(field.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+              parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
+                CreateLastModifiedTimeFieldSpec.create(id, name, {
+                  isPrimary: options.isPrimary,
+                  formatting,
+                  trackedFieldIds,
+                })
+              )
+            )
+          )
+          .with({ type: 'user' }, (field) =>
+            optional(field.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
+              optional(field.options?.shouldNotify, UserNotification.create).andThen(
+                (shouldNotify) =>
+                  optional(field.options?.defaultValue, UserDefaultValue.create).map(
+                    (defaultValue) =>
+                      CreateUserFieldSpec.create(id, name, {
+                        isPrimary: options.isPrimary,
+                        isMultiple,
+                        shouldNotify,
+                        defaultValue,
+                        notNull: validation.notNull,
+                        unique: validation.unique,
+                      })
+                  )
+              )
+            )
+          )
+          .with({ type: 'createdBy' }, () =>
+            ok(
+              CreateCreatedByFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+              })
+            )
+          )
+          .with({ type: 'lastModifiedBy' }, (field) =>
+            parseTrackedFieldIds(field.options?.trackedFieldIds).map((trackedFieldIds) =>
+              CreateLastModifiedByFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+                trackedFieldIds,
+              })
+            )
+          )
+          .with({ type: 'autoNumber' }, () =>
+            ok(
+              CreateAutoNumberFieldSpec.create(id, name, {
+                isPrimary: options.isPrimary,
+              })
+            )
+          )
+          .with({ type: 'button' }, (field) =>
+            optional(field.options?.label, ButtonLabel.create).andThen((label) =>
+              optional(field.options?.color, FieldColor.create).andThen((color) =>
+                optional(field.options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
+                  optional(field.options?.resetCount, ButtonResetCount.create).andThen(
+                    (resetCount) =>
+                      optional(field.options?.workflow, ButtonWorkflow.create).map((workflow) =>
+                        CreateButtonFieldSpec.create(id, name, {
+                          isPrimary: options.isPrimary,
+                          label,
+                          color,
+                          maxCount,
+                          resetCount,
+                          workflow,
+                          notNull: validation.notNull,
+                          unique: validation.unique,
+                        })
+                      )
+                  )
+                )
+              )
+            )
+          )
+          .exhaustive()
+      )
+    )
   );
 };

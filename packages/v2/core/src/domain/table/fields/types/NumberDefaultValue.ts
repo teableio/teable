@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const numberDefaultValueSchema = z.number();
@@ -11,9 +12,9 @@ export class NumberDefaultValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<NumberDefaultValue, string> {
+  static create(raw: unknown): Result<NumberDefaultValue, DomainError> {
     const parsed = numberDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid NumberDefaultValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberDefaultValue'));
     return ok(new NumberDefaultValue(parsed.data));
   }
 

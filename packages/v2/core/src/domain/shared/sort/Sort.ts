@@ -1,6 +1,7 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { domainError, type DomainError } from '../DomainError';
 import type { SortDirection } from './SortDirection';
 
 export interface ISortField<TSortKey> {
@@ -13,8 +14,8 @@ export class Sort<TSortKey> {
 
   static create<TSortKey>(
     fields: ReadonlyArray<ISortField<TSortKey>>
-  ): Result<Sort<TSortKey>, string> {
-    if (fields.length === 0) return err('Empty sort');
+  ): Result<Sort<TSortKey>, DomainError> {
+    if (fields.length === 0) return err(domainError.fromMessage('Empty sort'));
     return ok(new Sort(fields));
   }
 

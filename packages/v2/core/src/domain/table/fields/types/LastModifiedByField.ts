@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import type { DomainError } from '../../../shared/DomainError';
 import { Field } from '../Field';
 import type { FieldId } from '../FieldId';
 import type { FieldName } from '../FieldName';
@@ -21,7 +22,7 @@ export class LastModifiedByField extends Field {
     id: FieldId;
     name: FieldName;
     trackedFieldIds?: ReadonlyArray<FieldId>;
-  }): Result<LastModifiedByField, string> {
+  }): Result<LastModifiedByField, DomainError> {
     return ok(new LastModifiedByField(params.id, params.name, params.trackedFieldIds ?? []));
   }
 
@@ -33,7 +34,7 @@ export class LastModifiedByField extends Field {
     return this.trackedFieldIdsValue.length === 0;
   }
 
-  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, string> {
+  accept<T = void>(visitor: IFieldVisitor<T>): Result<T, DomainError> {
     return visitor.visitLastModifiedByField(this);
   }
 }

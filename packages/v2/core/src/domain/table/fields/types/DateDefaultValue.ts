@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 const dateDefaultValueSchema = z.enum(['now']);
@@ -12,9 +13,9 @@ export class DateDefaultValue extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<DateDefaultValue, string> {
+  static create(raw: unknown): Result<DateDefaultValue, DomainError> {
     const parsed = dateDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid DateDefaultValue');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid DateDefaultValue'));
     return ok(new DateDefaultValue(parsed.data));
   }
 

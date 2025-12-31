@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 export const ratingIconValues = [
@@ -23,9 +24,9 @@ export class RatingIcon extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<RatingIcon, string> {
+  static create(raw: unknown): Result<RatingIcon, DomainError> {
     const parsed = ratingIconSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid RatingIcon');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid RatingIcon'));
     return ok(new RatingIcon(parsed.data));
   }
 

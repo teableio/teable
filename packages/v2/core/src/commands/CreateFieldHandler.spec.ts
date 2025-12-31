@@ -7,6 +7,7 @@ import { ForeignTableLoaderService } from '../application/services/ForeignTableL
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { BaseId } from '../domain/base/BaseId';
 import { ActorId } from '../domain/shared/ActorId';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -44,9 +45,9 @@ class InMemoryTableRepository implements ITableRepository {
   async findOne(
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<Table, string>> {
+  ): Promise<Result<Table, DomainError>> {
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err('Not found');
+    if (!match) return err(domainError.fromMessage('Not found'));
     return ok(match);
   }
 
@@ -54,7 +55,7 @@ class InMemoryTableRepository implements ITableRepository {
     _context: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
     _options?: IFindOptions<TableSortKey>
-  ): Promise<Result<ReadonlyArray<Table>, string>> {
+  ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     return ok(this.tables.filter((table) => spec.isSatisfiedBy(table)));
   }
 
@@ -62,14 +63,14 @@ class InMemoryTableRepository implements ITableRepository {
     _context: IExecutionContext,
     table: Table,
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
-  ): Promise<Result<void, string>> {
+  ): Promise<Result<void, DomainError>> {
     const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
-    if (index === -1) return err('Not found');
+    if (index === -1) return err(domainError.fromMessage('Not found'));
     this.tables[index] = table;
     return ok(undefined);
   }
 
-  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, string>> {
+  async delete(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
@@ -106,7 +107,7 @@ class FakeUnitOfWork implements IUnitOfWork {
   async withTransaction<T>(
     context: IExecutionContext,
     work: UnitOfWorkOperation<T>
-  ): Promise<Result<T, string>> {
+  ): Promise<Result<T, DomainError>> {
     const transaction: IUnitOfWorkTransaction = { kind: 'unitOfWorkTransaction' };
     return work({ ...context, transaction });
   }

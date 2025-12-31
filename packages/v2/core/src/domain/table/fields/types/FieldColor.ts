@@ -2,6 +2,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 
 export const fieldColorValues = [
@@ -65,9 +66,9 @@ export class FieldColor extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<FieldColor, string> {
+  static create(raw: unknown): Result<FieldColor, DomainError> {
     const parsed = fieldColorSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid FieldColor');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldColor'));
     return ok(new FieldColor(parsed.data));
   }
 

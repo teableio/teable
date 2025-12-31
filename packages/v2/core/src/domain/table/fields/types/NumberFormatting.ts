@@ -2,6 +2,7 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { domainError, type DomainError } from '../../../shared/DomainError';
 import { ValueObject } from '../../../shared/ValueObject';
 import { NumericPrecision } from './NumericPrecision';
 
@@ -47,9 +48,9 @@ export class NumberFormatting extends ValueObject {
     super();
   }
 
-  static create(raw: unknown): Result<NumberFormatting, string> {
+  static create(raw: unknown): Result<NumberFormatting, DomainError> {
     const parsed = numberFormattingSchema.safeParse(raw);
-    if (!parsed.success) return err('Invalid NumberFormatting');
+    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberFormatting'));
 
     return NumericPrecision.create(parsed.data.precision).map((precision) => {
       if (parsed.data.type === NumberFormattingType.Currency) {
