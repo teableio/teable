@@ -2223,7 +2223,6 @@ export type I18nTranslations = {
             "databaseConnectionUnavailable": string;
             "gatewayTimeout": string;
             "unknownErrorCode": string;
-            "networkError": string;
             "requestTimeout": string;
             "failedDependency": string;
             "automationNodeParseError": string;

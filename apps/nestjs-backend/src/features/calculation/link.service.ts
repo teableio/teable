@@ -1818,37 +1818,24 @@ export class LinkService {
     }, {});
   }
 
-  /**
-   * Build cell contexts for record deletion.
-   * @param tableId - The table being deleted from
-   * @param relatedLinkFieldRaws - Link fields from OTHER tables that reference the current table
-   * @param currentTableLinkFields - Link fields belonging to the current table itself
-   * @param records - Records being deleted
-   */
-  private async getContextByDelete(
-    tableId: string,
-    relatedLinkFieldRaws: Field[],
-    currentTableLinkFields: Field[],
-    records: IRecord[]
-  ) {
+  private async getContextByDelete(tableId: string, linkFieldRaws: Field[], records: IRecord[]) {
     const cellContextsMap: { [tableId: string]: ICellContext[] } = {};
     const recordIds = records.map((record) => record.id);
 
     const keyToValue = (key: string | string[] | null) =>
       key ? (Array.isArray(key) ? key.map((id) => ({ id })) : { id: key }) : null;
 
-    // Process link fields from OTHER tables that reference the current table
-    for (const fieldRaws of relatedLinkFieldRaws) {
+    for (const fieldRaws of linkFieldRaws) {
       const options = JSON.parse(fieldRaws.options as string) as ILinkFieldOptions;
-      const fieldTableId = fieldRaws.tableId;
+      const tableId = fieldRaws.tableId;
       const foreignKeys = await this.getJoinedForeignKeys(recordIds, options);
       const fieldItems = this.parseFkRecordItemToDelete(options, recordIds, foreignKeys);
-      if (!cellContextsMap[fieldTableId]) {
-        cellContextsMap[fieldTableId] = [];
+      if (!cellContextsMap[tableId]) {
+        cellContextsMap[tableId] = [];
       }
       Object.keys(fieldItems).forEach((recordId) => {
         const { oldKey, newKey } = fieldItems[recordId];
-        cellContextsMap[fieldTableId].push({
+        cellContextsMap[tableId].push({
           fieldId: fieldRaws.id,
           recordId,
           oldValue: keyToValue(oldKey),
@@ -1857,61 +1844,23 @@ export class LinkService {
       });
     }
 
-    // Process link fields belonging to the current table itself
-    // Query junction tables directly to handle cases where record.fields has null values
-    // but junction table still has data (data inconsistency)
-    for (const linkField of currentTableLinkFields) {
-      const options = JSON.parse(linkField.options as string) as ILinkFieldOptions;
-      const foreignKeys = await this.getDirectForeignKeys(recordIds, options);
-
-      if (foreignKeys.length > 0) {
-        if (!cellContextsMap[tableId]) {
-          cellContextsMap[tableId] = [];
-        }
-
-        // Group foreign keys by record id
-        const fkByRecordId = groupBy(foreignKeys, 'id');
-
-        for (const recordId of Object.keys(fkByRecordId)) {
-          const fks = fkByRecordId[recordId];
-          const oldValue = fks.map((fk) => ({ id: fk.foreignId }));
-
+    // delete link cell clean foreign key
+    records.forEach((record) => {
+      Object.entries(record.fields).forEach(([fieldId, value]) => {
+        if (isLinkCellValue(value)) {
+          if (!cellContextsMap[tableId]) {
+            cellContextsMap[tableId] = [];
+          }
           cellContextsMap[tableId].push({
-            fieldId: linkField.id,
-            recordId,
-            oldValue: oldValue.length === 1 ? oldValue[0] : oldValue,
+            fieldId,
+            recordId: record.id,
+            oldValue: value,
             newValue: null,
           });
         }
-      }
-    }
-
+      });
+    });
     return cellContextsMap;
-  }
-
-  /**
-   * Get foreign keys from junction table where selfKeyName matches the given record IDs.
-   * This is used for cleaning up junction table data when deleting records from the source table.
-   */
-  private async getDirectForeignKeys(
-    recordIds: string[],
-    options: ILinkFieldOptions
-  ): Promise<{ id: string; foreignId: string }[]> {
-    const { fkHostTableName, selfKeyName, foreignKeyName } = options;
-
-    const query = this.knex(fkHostTableName)
-      .select({
-        id: selfKeyName,
-        foreignId: foreignKeyName,
-      })
-      .whereIn(selfKeyName, recordIds)
-      .whereNotNull(selfKeyName)
-      .whereNotNull(foreignKeyName)
-      .toQuery();
-
-    return this.prismaService
-      .txClient()
-      .$queryRawUnsafe<{ id: string; foreignId: string }[]>(query);
   }
 
   async getRelatedLinkFieldRaws(tableId: string) {
@@ -1957,24 +1906,7 @@ export class LinkService {
   }
 
   async getDeleteRecordUpdateContext(tableId: string, records: IRecord[]) {
-    // Get link fields from OTHER tables that reference the current table
-    const relatedLinkFieldRaws = await this.getRelatedLinkFieldRaws(tableId);
-
-    // Get link fields belonging to the current table itself
-    const currentTableLinkFields = await this.prismaService.txClient().field.findMany({
-      where: {
-        tableId,
-        type: FieldType.Link,
-        isLookup: null,
-        deletedTime: null,
-      },
-    });
-
-    return await this.getContextByDelete(
-      tableId,
-      relatedLinkFieldRaws,
-      currentTableLinkFields,
-      records
-    );
+    const linkFieldRaws = await this.getRelatedLinkFieldRaws(tableId);
+    return await this.getContextByDelete(tableId, linkFieldRaws, records);
   }
 }
