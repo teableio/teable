@@ -193,7 +193,8 @@
         "actions": "Acciones",
         "featured": "Destacado",
         "createdBy": "Creado por",
-        "userNonExistent": "Usuario no existe"
+        "userNonExistent": "Usuario no existe",
+        "usage": "Uso"
       }
     }
   },

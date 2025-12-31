@@ -197,7 +197,8 @@
         "actions": "Azioni",
         "featured": "In evidenza",
         "createdBy": "Creato da",
-        "userNonExistent": "Utente inesistente"
+        "userNonExistent": "Utente inesistente",
+        "usage": "Utilizzo"
       }
     }
   },

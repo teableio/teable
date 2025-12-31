@@ -195,7 +195,8 @@
         "actions": "アクション",
         "featured": "おすすめ",
         "createdBy": "作成者",
-        "userNonExistent": "ユーザーが存在しません"
+        "userNonExistent": "ユーザーが存在しません",
+        "usage": "使用回数"
       }
     }
   },

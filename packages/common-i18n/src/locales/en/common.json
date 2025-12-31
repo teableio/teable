@@ -143,7 +143,8 @@
         "featured": "Featured",
         "createdBy": "Created by",
         "userNonExistent": "User non-existent",
-        "preview": "Preview"
+        "preview": "Preview",
+        "usage": "Usage"
       },
       "actions": {
         "title": "Actions",

@@ -194,7 +194,8 @@
         "actions": "Дії",
         "featured": "Рекомендовано",
         "createdBy": "Створено",
-        "userNonExistent": "Користувач не існує"
+        "userNonExistent": "Користувач не існує",
+        "usage": "Використання"
       }
     }
   },

@@ -731,6 +731,128 @@ describe('OpenAPI Base Duplicate (e2e)', () => {
     });
   });
 
+  // with ai
+  it('should duplicate base with bidirectional link field', async () => {
+    const table1 = await createTable(base.id, { name: 'table1' });
+    const table2 = await createTable(base.id, { name: 'table2' });
+
+    // Create bidirectional link field with dbFieldName 'link'
+    const linkFieldRo: IFieldRo = {
+      name: 'link field',
+      type: FieldType.Link,
+      dbFieldName: 'link',
+      options: {
+        relationship: Relationship.ManyMany,
+        foreignTableId: table2.id,
+      },
+    };
+
+    const linkField = (await createField(table1.id, linkFieldRo)).data;
+
+    // Get the symmetric field
+    const symmetricFieldId = (linkField.options as ILinkFieldOptions).symmetricFieldId!;
+    const symmetricField = (await getField(table2.id, symmetricFieldId)).data;
+
+    // Convert link field to required (notNull: true)
+    await convertField(table1.id, linkField.id, {
+      ...linkFieldRo,
+      notNull: true,
+    });
+
+    // Get records
+    const table1Records = await getRecords(table1.id);
+    const table2Records = await getRecords(table2.id);
+
+    // Fill all link relationships
+    await updateRecord(table1.id, table1Records.records[0].id, {
+      record: {
+        fields: {
+          [linkField.name]: [{ id: table2Records.records[0].id }],
+        },
+      },
+    });
+
+    await updateRecord(table1.id, table1Records.records[1].id, {
+      record: {
+        fields: {
+          [linkField.name]: [{ id: table2Records.records[1].id }],
+        },
+      },
+    });
+
+    await updateRecord(table1.id, table1Records.records[2].id, {
+      record: {
+        fields: {
+          [linkField.name]: [{ id: table2Records.records[2].id }],
+        },
+      },
+    });
+
+    // Duplicate base with records
+    const dupResult = await duplicateBase({
+      fromBaseId: base.id,
+      spaceId: spaceId,
+      name: 'test base copy - required link',
+      withRecords: true,
+    });
+
+    duplicateBaseId = dupResult.data.id;
+
+    // Verify duplicated base
+    const duplicatedTableList = await getTableList(duplicateBaseId).then((res) => res.data);
+    expect(duplicatedTableList.length).toBe(2);
+
+    const duplicatedTable1 = duplicatedTableList.find((t) => t.name === 'table1')!;
+    const duplicatedTable2 = duplicatedTableList.find((t) => t.name === 'table2')!;
+
+    // Verify link field properties
+    const duplicatedTable1Fields = (await getFields(duplicatedTable1.id)).data;
+    const duplicatedLinkField = duplicatedTable1Fields.find((f) => f.dbFieldName === 'link');
+
+    expect(duplicatedLinkField).toBeDefined();
+    expect(duplicatedLinkField?.type).toBe(FieldType.Link);
+    expect(duplicatedLinkField?.dbFieldName).toBe('link');
+    expect(duplicatedLinkField?.notNull).toBe(true);
+    expect((duplicatedLinkField?.options as ILinkFieldOptions).relationship).toBe(
+      Relationship.ManyMany
+    );
+    expect((duplicatedLinkField?.options as ILinkFieldOptions).foreignTableId).toBe(
+      duplicatedTable2.id
+    );
+
+    // Verify symmetric field
+    const duplicatedTable2Fields = (await getFields(duplicatedTable2.id)).data;
+    const duplicatedSymmetricField = duplicatedTable2Fields.find(
+      (f) => f.id === (duplicatedLinkField?.options as ILinkFieldOptions).symmetricFieldId
+    );
+    expect(duplicatedSymmetricField).toBeDefined();
+
+    // Verify link data is preserved
+    const duplicatedTable1Records = await getRecords(duplicatedTable1.id);
+    const duplicatedTable2Records = await getRecords(duplicatedTable2.id);
+
+    expect(duplicatedTable1Records.records[0].fields[linkField.name]).toMatchObject([
+      { id: duplicatedTable2Records.records[0].id },
+    ]);
+    expect(duplicatedTable1Records.records[1].fields[linkField.name]).toMatchObject([
+      { id: duplicatedTable2Records.records[1].id },
+    ]);
+    expect(duplicatedTable1Records.records[2].fields[linkField.name]).toMatchObject([
+      { id: duplicatedTable2Records.records[2].id },
+    ]);
+
+    // Verify symmetric link data
+    expect(duplicatedTable2Records.records[0].fields[symmetricField.name]).toMatchObject([
+      { id: duplicatedTable1Records.records[0].id },
+    ]);
+    expect(duplicatedTable2Records.records[1].fields[symmetricField.name]).toMatchObject([
+      { id: duplicatedTable1Records.records[1].id },
+    ]);
+    expect(duplicatedTable2Records.records[2].fields[symmetricField.name]).toMatchObject([
+      { id: duplicatedTable1Records.records[2].id },
+    ]);
+  });
+
   describe('Partial base duplication with nodes parameter', () => {
     it('should duplicate only selected tables using nodes parameter', async () => {
       const table1 = await createTable(base.id, { name: 'table1' });

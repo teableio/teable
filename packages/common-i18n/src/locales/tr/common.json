@@ -199,7 +199,8 @@
         "actions": "İşlemler",
         "featured": "Öne çıkan",
         "createdBy": "Oluşturan",
-        "userNonExistent": "Kullanıcı mevcut değil"
+        "userNonExistent": "Kullanıcı mevcut değil",
+        "usage": "Kullanım"
       }
     }
   },
