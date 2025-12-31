@@ -21,18 +21,22 @@ export const validateSelectOptions = (
   mode: 'single' | 'multiple' = 'single'
 ): Result<ReadonlyArray<SelectOption>, DomainError> => {
   if (!isUniqueByStringValue(options.map((option) => option.name())))
-    return err(domainError.fromMessage('SelectField options must be unique'));
+    return err(domainError.conflict({ message: 'SelectField options must be unique' }));
 
   if (defaultValue) {
     if (mode === 'single' && defaultValue.isMultiple())
-      return err(domainError.fromMessage('SelectField defaultValue must be a single option'));
+      return err(
+        domainError.validation({ message: 'SelectField defaultValue must be a single option' })
+      );
 
     const names = new Set(options.map((option) => option.name().toString()));
     const defaults = defaultValue.toDto();
     const values = Array.isArray(defaults) ? defaults : [defaults];
     for (const value of values) {
       if (!names.has(value))
-        return err(domainError.fromMessage('SelectField defaultValue must match an option name'));
+        return err(
+          domainError.validation({ message: 'SelectField defaultValue must match an option name' })
+        );
     }
   }
 

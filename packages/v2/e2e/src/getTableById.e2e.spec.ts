@@ -17,9 +17,14 @@ describe('v2 http getTableById (e2e)', () => {
   let dispose: (() => Promise<void>) | undefined;
   let baseId: string;
   let tableId: string;
+  let foreignTableId: string;
   const nameFieldId = `fld${'a'.repeat(16)}`;
   const amountFieldId = `fld${'b'.repeat(16)}`;
   const notesFieldId = `fld${'c'.repeat(16)}`;
+  const foreignNameFieldId = `fld${'d'.repeat(16)}`;
+  const foreignStatusFieldId = `fld${'e'.repeat(16)}`;
+  const linkFieldId = `fld${'f'.repeat(16)}`;
+  const lookupFieldId = `fld${'g'.repeat(16)}`;
 
   beforeAll(async () => {
     const testContainer = await createV2NodeTestContainer();
@@ -40,13 +45,67 @@ describe('v2 http getTableById (e2e)', () => {
     const address = server.address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}`;
 
+    const foreignPayload = {
+      baseId,
+      tableId: `tbl${'x'.repeat(16)}`,
+      name: 'Foreign',
+      fields: [
+        { type: 'singleLineText', id: foreignNameFieldId, name: 'Title', isPrimary: true },
+        { type: 'singleSelect', id: foreignStatusFieldId, name: 'Status', options: ['Todo'] },
+      ],
+    };
+
+    const foreignResponse = await fetch(`${baseUrl}/tables/create`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(foreignPayload),
+    });
+
+    expect(foreignResponse.status).toBe(201);
+
+    const foreignRaw = await foreignResponse.json();
+    const foreignParsed = createTableOkResponseSchema.safeParse(foreignRaw);
+    expect(foreignParsed.success).toBe(true);
+    if (!foreignParsed.success) {
+      throw new Error('Failed to parse create foreign table response');
+    }
+
+    foreignTableId = foreignParsed.data.data.table.id;
+
     const payload = {
       baseId,
       name: 'Lookup',
       fields: [
         { type: 'singleLineText', id: nameFieldId, name: 'Name' },
-        { type: 'number', id: amountFieldId, name: 'Amount', isPrimary: true },
+        {
+          type: 'number',
+          id: amountFieldId,
+          name: 'Amount',
+          isPrimary: true,
+          notNull: true,
+          unique: true,
+        },
         { type: 'longText', id: notesFieldId, name: 'Notes' },
+        {
+          type: 'link',
+          id: linkFieldId,
+          name: 'Link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId,
+            lookupFieldId: foreignNameFieldId,
+          },
+        },
+        {
+          type: 'lookup',
+          id: lookupFieldId,
+          name: 'Lookup',
+          options: {
+            linkFieldId,
+            foreignTableId,
+            lookupFieldId: foreignStatusFieldId,
+          },
+        },
       ],
     };
 
@@ -103,6 +162,8 @@ describe('v2 http getTableById (e2e)', () => {
     expect(columnMeta[amountFieldId]?.order).toBe(0);
     expect(columnMeta[nameFieldId]?.order).toBe(1);
     expect(columnMeta[notesFieldId]?.order).toBe(2);
+    expect(columnMeta[linkFieldId]?.order).toBe(3);
+    expect(columnMeta[lookupFieldId]?.order).toBe(4);
     expect(columnMeta[amountFieldId]?.visible).toBeUndefined();
   });
 
@@ -116,5 +177,16 @@ describe('v2 http getTableById (e2e)', () => {
 
     expect(body.data.table.id).toBe(tableId);
     expect(body.data.table.baseId).toBe(baseId);
+    const lookupField = body.data.table.fields.find((field) => field.id === lookupFieldId);
+    expect(lookupField?.isLookup).toBe(true);
+    expect(lookupField?.lookupOptions?.linkFieldId).toBe(linkFieldId);
+    expect(lookupField?.lookupOptions?.foreignTableId).toBe(foreignTableId);
+    expect(lookupField?.lookupOptions?.lookupFieldId).toBe(foreignStatusFieldId);
+    expect(lookupField?.dbFieldName).toBeDefined();
+
+    const amountField = body.data.table.fields.find((field) => field.id === amountFieldId);
+    expect(amountField?.notNull).toBe(true);
+    expect(amountField?.unique).toBe(true);
+    expect(amountField?.dbFieldName).toBeDefined();
   });
 });

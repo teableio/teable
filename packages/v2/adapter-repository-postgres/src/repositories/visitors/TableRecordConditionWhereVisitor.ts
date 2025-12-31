@@ -103,14 +103,14 @@ const resolvePrimitiveOperand = (
       return ok({ kind: 'field', column });
     });
   }
-  return err(core.domainError.fromMessage('Record condition requires primitive value'));
+  return err(core.domainError.unexpected({ message: 'Record condition requires primitive value' }));
 };
 
 const resolveListValues = (
   value: core.RecordConditionValue
 ): Result<ReadonlyArray<Primitive>, DomainError> => {
   if (!core.isRecordConditionLiteralListValue(value)) {
-    return err(core.domainError.fromMessage('Record condition requires list value'));
+    return err(core.domainError.unexpected({ message: 'Record condition requires list value' }));
   }
   return ok(value.toValues());
 };
@@ -119,7 +119,7 @@ const resolveDateValue = (
   value: core.RecordConditionValue
 ): Result<core.RecordConditionDateValue, DomainError> => {
   if (!core.isRecordConditionDateValue(value)) {
-    return err(core.domainError.fromMessage('Record condition requires date value'));
+    return err(core.domainError.unexpected({ message: 'Record condition requires date value' }));
   }
   return ok(value);
 };
@@ -165,14 +165,16 @@ const resolveDateRange = (
 
     const requireExactDate = (): Result<string, DomainError> => {
       if (!exactDate) {
-        return err(core.domainError.fromMessage('Date condition requires exactDate'));
+        return err(core.domainError.unexpected({ message: 'Date condition requires exactDate' }));
       }
       return ok(exactDate);
     };
 
     const requireNumberOfDays = (): Result<number, DomainError> => {
       if (numberOfDays == null) {
-        return err(core.domainError.fromMessage('Date condition requires numberOfDays'));
+        return err(
+          core.domainError.unexpected({ message: 'Date condition requires numberOfDays' })
+        );
       }
       return ok(numberOfDays);
     };
@@ -224,7 +226,9 @@ const resolveDateRange = (
       days?: number
     ): Result<[Dayjs, Dayjs], DomainError> => {
       if (days == null) {
-        return err(core.domainError.fromMessage('Date condition requires numberOfDays'));
+        return err(
+          core.domainError.unexpected({ message: 'Date condition requires numberOfDays' })
+        );
       }
       const currentDate = dateUtil.date();
       const startOfDay = currentDate.startOf('day');
@@ -304,7 +308,7 @@ const resolveDateRange = (
             return ok(range);
           })
         )
-        .otherwise(() => err(core.domainError.fromMessage('Unsupported date mode')));
+        .otherwise(() => err(core.domainError.validation({ message: 'Unsupported date mode' })));
     };
 
     const range = yield* resolveRange();
@@ -367,7 +371,8 @@ const buildIsCondition = (
   value: core.RecordConditionValue | undefined
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
@@ -385,7 +390,8 @@ const buildIsNotCondition = (
   value: core.RecordConditionValue | undefined
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const columnRef = sql.ref(column);
     if (core.isRecordConditionDateValue(value)) {
@@ -406,11 +412,14 @@ const buildContainsCondition = (
   isNegative: boolean
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const operand = yield* resolvePrimitiveOperand(value);
     if (operand.kind === 'literal' && typeof operand.value !== 'string') {
-      return err(core.domainError.fromMessage('Record condition requires string value'));
+      return err(
+        core.domainError.unexpected({ message: 'Record condition requires string value' })
+      );
     }
     const columnRef = sql.ref(column);
     const pattern =
@@ -430,11 +439,14 @@ const buildNumericComparisonCondition = (
   operator: ComparisonOperator
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const operand = yield* resolvePrimitiveOperand(value);
     if (operand.kind === 'literal' && typeof operand.value !== 'number') {
-      return err(core.domainError.fromMessage('Record condition requires numeric value'));
+      return err(
+        core.domainError.unexpected({ message: 'Record condition requires numeric value' })
+      );
     }
     const columnRef = sql.ref(column);
     const right = operand.kind === 'field' ? sql.ref(operand.column) : sql`${operand.value}`;
@@ -451,7 +463,8 @@ const buildDateComparisonCondition = (
   operator: ComparisonOperator
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
@@ -470,7 +483,8 @@ const buildIsWithinCondition = (
   value: core.RecordConditionValue | undefined
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const dateValue = yield* resolveDateValue(value);
     const range = yield* resolveDateRange(dateValue, resolveDateFormatting(field));
@@ -485,11 +499,12 @@ const buildListCondition = (
   kind: ListOperatorKind
 ): Result<RecordConditionWhere, DomainError> => {
   return safeTry<RecordConditionWhere, DomainError>(function* () {
-    if (!value) return err(core.domainError.fromMessage('Record condition requires value'));
+    if (!value)
+      return err(core.domainError.unexpected({ message: 'Record condition requires value' }));
     const column = yield* resolveColumn(field);
     const values = yield* resolveListValues(value);
     if (values.length === 0)
-      return err(core.domainError.fromMessage('Record condition requires list values'));
+      return err(core.domainError.unexpected({ message: 'Record condition requires list values' }));
     const isMultiple = yield* fieldIsMultiple(field);
     const columnRef = sql.ref(column);
     if (!isMultiple) {

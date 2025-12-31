@@ -1,5 +1,5 @@
-import type { ILogger } from '@teable/v2-core';
-import { NoopLogger, domainError, type DomainError } from '@teable/v2-core';
+import type { DomainError, ILogger } from '@teable/v2-core';
+import { domainError, NoopLogger } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type ShareDbClass from 'sharedb';
@@ -26,7 +26,7 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
     const collection = op.c;
     const docId = op.d;
     if (!collection || !docId) {
-      return err(domainError.fromMessage('ShareDB op missing collection or docId'));
+      return err(domainError.validation({ message: 'ShareDB op missing collection or docId' }));
     }
 
     this.logger.debug('ShareDB backend publish', {
@@ -62,7 +62,7 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
           resolve(err(domainError.fromUnknown(error)));
           return;
         }
-        resolve(err(domainError.fromMessage('ShareDB submit failed')));
+        resolve(err(domainError.unexpected({ message: 'ShareDB submit failed' })));
       };
 
       if (op.create) {
@@ -106,7 +106,13 @@ export class ShareDbBackendPublisher implements IShareDbOpPublisher {
       }
 
       if (op.op) {
-        doc.submitOp(op.op, {}, done);
+        doc.fetch((fetchError) => {
+          if (fetchError) {
+            done(fetchError);
+            return;
+          }
+          doc.submitOp(op.op, {}, done);
+        });
         return;
       }
 

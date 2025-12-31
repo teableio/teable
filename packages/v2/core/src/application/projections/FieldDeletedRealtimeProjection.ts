@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err } from 'neverthrow';
+import { safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
@@ -25,10 +25,16 @@ export class FieldDeletedRealtimeProjection implements IEventHandler<FieldDelete
     context: ExecutionContextPort.IExecutionContext,
     event: FieldDeleted
   ): Promise<Result<void, DomainError>> {
-    const collection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
-    const docIdResult = RealtimeDocId.fromParts(collection, event.fieldId.toString());
-    if (docIdResult.isErr()) return err(docIdResult.error);
+    const { realtimeEngine } = this;
 
-    return this.realtimeEngine.delete(context, docIdResult.value);
+    return safeTry(async function* () {
+      const collection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
+      const docId = yield* RealtimeDocId.fromParts(
+        collection,
+        event.fieldId.toString()
+      ).safeUnwrap();
+
+      return realtimeEngine.delete(context, docId);
+    });
   }
 }

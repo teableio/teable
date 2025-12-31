@@ -444,7 +444,7 @@ export class TimeZone extends ValueObject {
 
   static create(raw: unknown): Result<TimeZone, DomainError> {
     const parsed = timeZoneSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TimeZone'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid TimeZone' }));
     return ok(new TimeZone(parsed.data));
   }
 

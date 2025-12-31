@@ -14,7 +14,7 @@ export class PageOffset extends ValueObject {
 
   static create(raw: unknown): Result<PageOffset, DomainError> {
     const parsed = pageOffsetSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid PageOffset'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid PageOffset' }));
     return ok(new PageOffset(parsed.data));
   }
 

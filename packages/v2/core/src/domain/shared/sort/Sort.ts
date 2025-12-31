@@ -15,7 +15,7 @@ export class Sort<TSortKey> {
   static create<TSortKey>(
     fields: ReadonlyArray<ISortField<TSortKey>>
   ): Result<Sort<TSortKey>, DomainError> {
-    if (fields.length === 0) return err(domainError.fromMessage('Empty sort'));
+    if (fields.length === 0) return err(domainError.validation({ message: 'Empty sort' }));
     return ok(new Sort(fields));
   }
 

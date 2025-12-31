@@ -216,7 +216,7 @@ describe('MemoryEventBus', () => {
         _context: IExecutionContext,
         _event: FailingEvent
       ): ReturnType<IEventHandler<FailingEvent>['handle']> {
-        return err(domainError.fromMessage('fail'));
+        return err(domainError.unexpected({ message: 'fail' }));
       }
     }
     expect(FailingEventHandler).toBeDefined();
@@ -301,7 +301,7 @@ describe('AsyncMemoryEventBus', () => {
         _context: IExecutionContext,
         _event: FailingEvent
       ): ReturnType<IEventHandler<FailingEvent>['handle']> {
-        return err(domainError.fromMessage('fail'));
+        return err(domainError.unexpected({ message: 'fail' }));
       }
     }
     expect(FailingEventHandler).toBeDefined();

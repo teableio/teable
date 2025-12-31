@@ -21,7 +21,7 @@ export class ButtonWorkflow extends ValueObject {
   static create(raw: unknown): Result<ButtonWorkflow | undefined, DomainError> {
     if (raw == null) return ok(undefined);
     const parsed = buttonWorkflowSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonWorkflow'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ButtonWorkflow' }));
     return ok(new ButtonWorkflow(parsed.data));
   }
 

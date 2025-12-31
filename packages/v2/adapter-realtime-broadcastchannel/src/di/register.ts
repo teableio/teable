@@ -2,6 +2,7 @@ import {
   FieldCreatedRealtimeProjection,
   FieldDeletedRealtimeProjection,
   TableCreatedRealtimeProjection,
+  ViewColumnMetaUpdatedRealtimeProjection,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { ILogger } from '@teable/v2-core';
@@ -50,6 +51,9 @@ export const registerV2BroadcastChannelRealtime = (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(FieldDeletedRealtimeProjection, FieldDeletedRealtimeProjection, {
+    lifecycle: Lifecycle.Singleton,
+  });
+  c.register(ViewColumnMetaUpdatedRealtimeProjection, ViewColumnMetaUpdatedRealtimeProjection, {
     lifecycle: Lifecycle.Singleton,
   });
 

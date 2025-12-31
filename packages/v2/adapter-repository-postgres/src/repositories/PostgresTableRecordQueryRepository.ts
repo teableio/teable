@@ -57,7 +57,9 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           return ok(records);
         } catch (error) {
           return err(
-            domainError.fromMessage(`Failed to load table records: ${describeError(error)}`)
+            domainError.unexpected({
+              message: `Failed to load table records: ${describeError(error)}`,
+            })
           );
         }
       }.bind(this)
@@ -72,7 +74,8 @@ const mapRowsToReadModels = (
   const records: core.TableRecordReadModel[] = [];
   for (const row of rows) {
     const rawId = row[recordIdColumn];
-    if (typeof rawId !== 'string') return err(domainError.fromMessage('Invalid record id'));
+    if (typeof rawId !== 'string')
+      return err(domainError.validation({ message: 'Invalid record id' }));
 
     const fields: Record<string, unknown> = {};
     for (const column of fieldColumns) {

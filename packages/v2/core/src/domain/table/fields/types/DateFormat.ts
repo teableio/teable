@@ -15,7 +15,7 @@ export class DateFormat extends ValueObject {
 
   static create(raw: unknown): Result<DateFormat, DomainError> {
     const parsed = dateFormatSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DateFormat'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid DateFormat' }));
     return ok(new DateFormat(parsed.data));
   }
 

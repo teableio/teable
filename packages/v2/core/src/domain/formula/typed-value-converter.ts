@@ -30,7 +30,9 @@ export class TypedValueConverter {
 
     const firstAcceptValueType = func.acceptValueType.values().next().value;
     if (!firstAcceptValueType) {
-      return err(domainError.fromMessage(`function ${func.name} has no acceptable value types`));
+      return err(
+        domainError.unexpected({ message: `function ${func.name} has no acceptable value types` })
+      );
     }
 
     return ok(

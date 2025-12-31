@@ -72,20 +72,28 @@ export class TableSchemaUpdateVisitor
     _: TableByBaseIdSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return err(
-      domainError.fromMessage('TableByBaseIdSpec is not supported for table schema updates')
+      domainError.validation({
+        message: 'TableByBaseIdSpec is not supported for table schema updates',
+      })
     );
   }
 
   visitTableById(
     _: TableByIdSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByIdSpec is not supported for table schema updates'));
+    return err(
+      domainError.validation({ message: 'TableByIdSpec is not supported for table schema updates' })
+    );
   }
 
   visitTableByIds(
     _: TableByIdsSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByIdsSpec is not supported for table schema updates'));
+    return err(
+      domainError.validation({
+        message: 'TableByIdsSpec is not supported for table schema updates',
+      })
+    );
   }
 
   visitTableByName(
@@ -99,7 +107,9 @@ export class TableSchemaUpdateVisitor
     _: TableByNameLikeSpec
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     return err(
-      domainError.fromMessage('TableByNameLikeSpec is not supported for table schema updates')
+      domainError.validation({
+        message: 'TableByNameLikeSpec is not supported for table schema updates',
+      })
     );
   }
 

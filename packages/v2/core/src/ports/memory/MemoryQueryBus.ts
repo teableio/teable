@@ -32,7 +32,9 @@ export class MemoryQueryBus implements IQueryBus {
         | undefined;
 
       if (!handlerToken) {
-        return err(domainError.fromMessage(`Missing query handler for ${queryType.name}`));
+        return err(
+          domainError.validation({ message: `Missing query handler for ${queryType.name}` })
+        );
       }
 
       try {
@@ -44,7 +46,7 @@ export class MemoryQueryBus implements IQueryBus {
         if (error instanceof Error) {
           return err(domainError.fromUnknown(error));
         }
-        return err(domainError.fromMessage('Query handler execution failed'));
+        return err(domainError.unexpected({ message: 'Query handler execution failed' }));
       }
     };
 
@@ -56,7 +58,7 @@ export class MemoryQueryBus implements IQueryBus {
           if (error instanceof Error) {
             return err(domainError.fromUnknown(error));
           }
-          return err(domainError.fromMessage('Query middleware execution failed'));
+          return err(domainError.unexpected({ message: 'Query middleware execution failed' }));
         }
       },
       executeHandler as QueryBusNext<TQuery, TResult>

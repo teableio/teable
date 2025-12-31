@@ -14,7 +14,8 @@ export class NumberDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<NumberDefaultValue, DomainError> {
     const parsed = numberDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid NumberDefaultValue' }));
     return ok(new NumberDefaultValue(parsed.data));
   }
 

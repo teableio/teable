@@ -1,10 +1,5 @@
-import type { ILogger, RealtimeChange, RealtimeDocId } from '@teable/v2-core';
-import {
-  NoopLogger,
-  RealtimeDocId as RealtimeDocIdValue,
-  domainError,
-  type DomainError,
-} from '@teable/v2-core';
+import type { DomainError, ILogger, RealtimeChange, RealtimeDocId } from '@teable/v2-core';
+import { domainError, NoopLogger, RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
@@ -104,7 +99,9 @@ export class BroadcastChannelRealtimeHub {
     logger?: ILogger
   ): Result<BroadcastChannelRealtimeHub, DomainError> {
     if (typeof BroadcastChannel === 'undefined') {
-      return err(domainError.fromMessage('BroadcastChannel is not available in this environment'));
+      return err(
+        domainError.invariant({ message: 'BroadcastChannel is not available in this environment' })
+      );
     }
     return ok(new BroadcastChannelRealtimeHub(channelName, logger));
   }
@@ -155,7 +152,7 @@ export class BroadcastChannelRealtimeHub {
     const current = this.docs.get(docKey);
     if (!current) {
       this.logger.warn('BroadcastChannel realtime snapshot missing', { docKey });
-      return err(domainError.fromMessage('Realtime snapshot missing'));
+      return err(domainError.validation({ message: 'Realtime snapshot missing' }));
     }
 
     const nextSnapshot = applyRealtimeChange(current.snapshot, change);

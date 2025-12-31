@@ -14,7 +14,7 @@ import {
   type ITablePersistenceDTO,
 } from '@teable/v2-core';
 import { tableTemplates, type TableTemplateDefinition } from '@teable/v2-table-templates';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useLocalStorage } from 'usehooks-ts';
 
@@ -248,7 +248,12 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   });
   const realtimeDoc = isSandbox ? broadcastDoc : shareDbDoc;
   const realtimeFields = isSandbox ? broadcastFields : shareDbFields;
-  const shouldFetchTable = !realtimeDoc.data;
+  const realtimeHasDbFieldNames = useMemo(() => {
+    const fields = realtimeDoc.data?.fields ?? [];
+    if (!fields.length) return false;
+    return fields.every((field) => Boolean(field.dbFieldName));
+  }, [realtimeDoc.data]);
+  const shouldFetchTable = !realtimeDoc.data || !realtimeHasDbFieldNames;
 
   const tableQuery = useQuery(
     orpc.tables.getById.queryOptions({
@@ -284,17 +289,62 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const tableDto = tableQuery.data ?? null;
   const tableResult = useMemo(() => (tableDto ? mapTableDtoToDomain(tableDto) : null), [tableDto]);
   const table = tableResult?.isOk() ? tableResult.value : null;
-  const mappingError = tableResult?.isErr() ? tableResult.error : null;
+  const mappingError = tableResult?.isErr() ? tableResult.error.message : null;
   const records = recordsQuery.data ?? null;
   const recordsError = recordsQuery.error
     ? getErrorMessage(recordsQuery.error, 'Failed to load records')
     : null;
 
+  // Track previous realtime data to avoid unnecessary updates
+  const prevRealtimeDocRef = useRef<string | null>(null);
+  const prevRealtimeFieldsRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!realtimeDoc.data) return;
+
+    // Serialize and compare to detect actual changes
+    const serialized = JSON.stringify(realtimeDoc.data);
+    if (prevRealtimeDocRef.current === serialized) {
+      return; // Data hasn't actually changed, skip update
+    }
+    prevRealtimeDocRef.current = serialized;
+
     const dtoResult = tableMapper.toDomain(realtimeDoc.data).andThen(mapTableToDto);
     if (dtoResult.isErr()) return;
     const tableDto = dtoResult.value;
+    const mergeTableFields = (
+      incoming: ITableDto['fields'],
+      existing?: ITableDto['fields']
+    ): ITableDto['fields'] => {
+      if (!existing?.length) return incoming;
+      const existingById = new Map(existing.map((field) => [field.id, field] as const));
+      return incoming.map((field) => {
+        const previous = existingById.get(field.id);
+        if (!previous) return field;
+        return {
+          ...field,
+          isPrimary: field.isPrimary,
+          dbFieldName: field.dbFieldName ?? previous.dbFieldName,
+          isLookup: field.isLookup ?? previous.isLookup,
+          lookupOptions: field.lookupOptions ?? previous.lookupOptions,
+          isComputed: field.isComputed ?? previous.isComputed,
+          notNull: field.notNull ?? previous.notNull,
+          unique: field.unique ?? previous.unique,
+          options: field.options ?? previous.options,
+          meta: field.meta ?? previous.meta,
+          cellValueType: field.cellValueType ?? previous.cellValueType,
+          isMultipleCellValue: field.isMultipleCellValue ?? previous.isMultipleCellValue,
+        };
+      });
+    };
+    const mergeTableDto = (incoming: ITableDto, existing?: ITableDto): ITableDto => {
+      if (!existing) return incoming;
+      return {
+        ...incoming,
+        dbTableName: incoming.dbTableName ?? existing.dbTableName,
+        fields: mergeTableFields(incoming.fields, existing.fields),
+      };
+    };
 
     queryClient.setQueryData(
       orpc.tables.getById.queryKey({
@@ -303,7 +353,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
           tableId: tableDto.id,
         },
       }),
-      { ok: true, data: { table: tableDto } }
+      (current) => {
+        const existingTable = current && current.ok ? current.data.table : undefined;
+        return { ok: true, data: { table: mergeTableDto(tableDto, existingTable) } };
+      }
     );
 
     const updateList = (list: IListTablesOkResponseDto | undefined): IListTablesOkResponseDto => {
@@ -315,7 +368,9 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
         data: {
           ...list.data,
           tables: list.data.tables.some((table) => table.id === tableDto.id)
-            ? list.data.tables.map((table) => (table.id === tableDto.id ? tableDto : table))
+            ? list.data.tables.map((table) =>
+                table.id === tableDto.id ? mergeTableDto(tableDto, table) : table
+              )
             : [...list.data.tables, tableDto],
         },
       };
@@ -326,6 +381,20 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
 
   useEffect(() => {
     if (realtimeFields.status !== 'ready') return;
+    // Ensure the realtime data belongs to the current table to prevent cross-table contamination
+    // when switching between tables (fields from the previous table should not merge into the current one)
+    if (realtimeFields.collection !== realtimeFieldCollection) return;
+
+    // Serialize and compare to detect actual changes
+    const serialized = JSON.stringify({
+      data: realtimeFields.data,
+      removedIds: realtimeFields.removedIds,
+    });
+    if (prevRealtimeFieldsRef.current === serialized) {
+      return; // Data hasn't actually changed, skip update
+    }
+    prevRealtimeFieldsRef.current = serialized;
+
     const mergeFields = (table: ITableDto): ITableDto => {
       const incomingById = new Map(realtimeFields.data.map((field) => [field.id, field] as const));
       const removedIds = new Set(realtimeFields.removedIds);
@@ -340,6 +409,15 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
             ...incoming,
             isPrimary: field.isPrimary,
             dbFieldName: incoming.dbFieldName ?? field.dbFieldName,
+            isLookup: incoming.isLookup ?? field.isLookup,
+            lookupOptions: incoming.lookupOptions ?? field.lookupOptions,
+            isComputed: incoming.isComputed ?? field.isComputed,
+            notNull: incoming.notNull ?? field.notNull,
+            unique: incoming.unique ?? field.unique,
+            options: incoming.options ?? field.options,
+            meta: incoming.meta ?? field.meta,
+            cellValueType: incoming.cellValueType ?? field.cellValueType,
+            isMultipleCellValue: incoming.isMultipleCellValue ?? field.isMultipleCellValue,
           };
         });
 
@@ -349,13 +427,13 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
             ...incoming,
             isPrimary: false,
             dbFieldName: incoming.dbFieldName ?? undefined,
-          });
+          } as ITableDto['fields'][number]);
         }
       }
 
       return {
         ...table,
-        fields: mergedFields,
+        fields: mergedFields as ITableDto['fields'],
       };
     };
 
@@ -397,9 +475,11 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     baseId,
     queryClient,
     orpc,
+    realtimeFields.collection,
     realtimeFields.data,
     realtimeFields.removedIds,
     realtimeFields.status,
+    realtimeFieldCollection,
     tableId,
   ]);
 

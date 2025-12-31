@@ -706,16 +706,13 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
       lookupFieldId: field.lookupFieldId().toString(),
     };
 
-    const isPrimary = field.id().equals(this.primaryFieldId);
+    const baseField = this.baseField(field);
 
     // For pending lookup fields, return minimal DTO with singleLineText as default type
     if (field.isPending()) {
       return ok({
-        id: field.id().toString(),
-        name: field.name().toString(),
+        ...baseField,
         type: 'singleLineText',
-        isPrimary,
-        isComputed: true,
         isLookup: true,
         lookupOptions,
       });
@@ -728,9 +725,7 @@ class FieldToDtoVisitor implements IFieldVisitor<IFieldDto> {
     const innerDto = innerResult.value;
     return ok({
       ...innerDto,
-      id: field.id().toString(),
-      name: field.name().toString(),
-      isPrimary,
+      ...baseField,
       isLookup: true,
       lookupOptions,
     });

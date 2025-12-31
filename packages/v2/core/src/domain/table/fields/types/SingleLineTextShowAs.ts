@@ -20,7 +20,8 @@ export class SingleLineTextShowAs extends ValueObject {
 
   static create(raw: unknown): Result<SingleLineTextShowAs, DomainError> {
     const parsed = singleLineTextShowAsSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SingleLineTextShowAs'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid SingleLineTextShowAs' }));
     return ok(new SingleLineTextShowAs(parsed.data));
   }
 

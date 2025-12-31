@@ -33,11 +33,19 @@ export class CreateFieldCommand extends TableUpdateCommand {
 
   static create(raw: unknown): Result<CreateFieldCommand, DomainError> {
     const parsed = createFieldInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid CreateFieldCommand input'));
+    if (!parsed.success)
+      return err(
+        domainError.validation({
+          message: 'Invalid CreateFieldCommand input',
+          details: z.formatError(parsed.error),
+        })
+      );
 
     if (parsed.data.field.isPrimary === true) {
       return err(
-        domainError.fromMessage('CreateFieldCommand does not support primary field updates')
+        domainError.unexpected({
+          message: 'CreateFieldCommand does not support primary field updates',
+        })
       );
     }
 

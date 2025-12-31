@@ -81,7 +81,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         await executeCompiledQueries(db, compiledStatements);
       } catch (error) {
         return err(
-          domainError.fromMessage(`Failed to insert table schema: ${describeError(error)}`)
+          domainError.infrastructure({
+            message: `Failed to insert table schema: ${describeError(error)}`,
+          })
         );
       }
 
@@ -119,7 +121,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         );
       } catch (error) {
         return err(
-          domainError.fromMessage(`Failed to update table schema: ${describeError(error)}`)
+          domainError.infrastructure({
+            message: `Failed to update table schema: ${describeError(error)}`,
+          })
         );
       }
 
@@ -141,7 +145,9 @@ export class PostgresTableSchemaRepository implements ITableSchemaRepository {
         await schemaBuilder.dropTable(tableName).ifExists().execute();
       } catch (error) {
         return err(
-          domainError.fromMessage(`Failed to delete table schema: ${describeError(error)}`)
+          domainError.infrastructure({
+            message: `Failed to delete table schema: ${describeError(error)}`,
+          })
         );
       }
 

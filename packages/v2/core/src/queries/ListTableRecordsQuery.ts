@@ -24,7 +24,8 @@ export class ListTableRecordsQuery {
 
   static create(raw: unknown): Result<ListTableRecordsQuery, DomainError> {
     const parsed = listTableRecordsInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ListTableRecordsQuery input'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid ListTableRecordsQuery input' }));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map(

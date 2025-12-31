@@ -19,13 +19,13 @@ import {
   TableCreated,
   v2CoreTokens,
 } from '@teable/v2-core';
+import { domainError } from '@teable/v2-core';
 import { injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { getV2NodeTestContainer } from '../testkit/v2NodeTestContainer';
 
-import { domainError } from '@teable/v2-core';
 describe('CreateTableHandler', () => {
   it('returns ok and publishes TableCreated', async () => {
     const { container, tableRepository, eventBus, baseId } = getV2NodeTestContainer();
@@ -403,7 +403,7 @@ describe('CreateTableHandler', () => {
 
     class FailingTableSchemaRepository implements ITableSchemaRepository {
       async insert(_: IExecutionContext, __: Table) {
-        return err(domainError.fromMessage('Forced schema failure'));
+        return err(domainError.unexpected({ message: 'Forced schema failure' }));
       }
 
       async update(_: IExecutionContext, __: Table, ___: ISpecification<Table, ITableSpecVisitor>) {

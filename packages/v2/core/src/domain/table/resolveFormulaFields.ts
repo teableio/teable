@@ -42,11 +42,11 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
 
     if (missingRefs.length > 0) {
       return err(
-        domainError.fromMessage(
-          `Formula field references not found: ${missingRefs.join(
+        domainError.notFound({
+          message: `Formula field references not found: ${missingRefs.join(
             ', '
-          )}. These field IDs do not exist in the table.`
-        )
+          )}. These field IDs do not exist in the table.`,
+        })
       );
     }
 
@@ -78,7 +78,11 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
     const cycleMessage = dependencyOrder.cycles
       .map((cycle) => cycle.map((id) => id.toString()).join(' -> '))
       .join('; ');
-    return err(domainError.fromMessage(`Formula field dependency cycle detected: ${cycleMessage}`));
+    return err(
+      domainError.invariant({
+        message: `Formula field dependency cycle detected: ${cycleMessage}`,
+      })
+    );
   }
 
   const valueTypeVisitor = new FieldValueTypeVisitor();
@@ -102,9 +106,9 @@ export const resolveFormulaFields = (table: Table): Result<void, DomainError> =>
     const typeResult = formulaField.expression().getParsedValueType(valueTypes);
     if (typeResult.isErr()) {
       return err(
-        domainError.fromMessage(
-          `Parse formula expression ${formulaField.expression().toString()} error: ${typeResult.error}`
-        )
+        domainError.unexpected({
+          message: `Parse formula expression ${formulaField.expression().toString()} error: ${typeResult.error}`,
+        })
       );
     }
 

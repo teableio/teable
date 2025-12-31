@@ -70,7 +70,8 @@ export class PostgresTableRepository implements core.ITableRepository {
         dbTableName
       );
       const tableDbMetaValue = tableDbMeta;
-      if (!tableDbMetaValue) return err(domainError.fromMessage('Missing table db metadata'));
+      if (!tableDbMetaValue)
+        return err(domainError.validation({ message: 'Missing table db metadata' }));
       const fieldValuesResult = fieldRowBuilder.buildRowsFromDbMeta(tableDbMetaValue.fields);
       if (fieldValuesResult.isErr()) return err(fieldValuesResult.error);
 
@@ -292,11 +293,14 @@ export class PostgresTableRepository implements core.ITableRepository {
         : await this.db.transaction().execute(async (trx) => persist(trx));
       if (persistResult.isErr()) return err(persistResult.error);
     } catch (error) {
-      return err(domainError.fromMessage(`Failed to insert table: ${describeError(error)}`));
+      return err(
+        domainError.infrastructure({ message: `Failed to insert table: ${describeError(error)}` })
+      );
     }
 
     const tableDbMetaValue = tableDbMeta;
-    if (!tableDbMetaValue) return err(domainError.fromMessage('Missing table db metadata'));
+    if (!tableDbMetaValue)
+      return err(domainError.validation({ message: 'Missing table db metadata' }));
 
     const applyDbMetaResult = this.applyDbMeta(table, tableDbMetaValue);
     if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
@@ -336,6 +340,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'unique',
                 'is_primary',
                 'is_computed',
+                'is_lookup',
+                'is_conditional_lookup',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -373,14 +379,16 @@ export class PostgresTableRepository implements core.ITableRepository {
         .where((eb) => whereFactory(eb));
 
       const tableRow = await baseQuery.executeTakeFirst();
-      if (!tableRow) return err(domainError.fromMessage('Not found'));
+      if (!tableRow) return err(domainError.notFound({ message: 'Not found' }));
 
       const tableResult = this.mapTableRow(tableRow);
       if (tableResult.isErr()) return err(tableResult.error);
 
       return ok(tableResult.value);
     } catch (error) {
-      return err(domainError.fromMessage(`Failed to load table: ${describeError(error)}`));
+      return err(
+        domainError.unexpected({ message: `Failed to load table: ${describeError(error)}` })
+      );
     }
   }
 
@@ -417,6 +425,8 @@ export class PostgresTableRepository implements core.ITableRepository {
                 'unique',
                 'is_primary',
                 'is_computed',
+                'is_lookup',
+                'is_conditional_lookup',
                 'lookup_linked_field_id',
                 'lookup_options',
                 'db_field_name',
@@ -475,7 +485,9 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(tablesResult.value);
     } catch (error) {
-      return err(domainError.fromMessage(`Failed to load tables: ${describeError(error)}`));
+      return err(
+        domainError.unexpected({ message: `Failed to load tables: ${describeError(error)}` })
+      );
     }
   }
 
@@ -519,7 +531,9 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(domainError.fromMessage(`Failed to update table: ${describeError(error)}`));
+      return err(
+        domainError.infrastructure({ message: `Failed to update table: ${describeError(error)}` })
+      );
     }
   }
 
@@ -546,7 +560,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         .executeTakeFirst();
 
       const updatedRows = Number(tableUpdate.numUpdatedRows ?? 0);
-      if (updatedRows === 0) return err(domainError.fromMessage('Not found'));
+      if (updatedRows === 0) return err(domainError.notFound({ message: 'Not found' }));
 
       await db
         .updateTable('field')
@@ -572,7 +586,9 @@ export class PostgresTableRepository implements core.ITableRepository {
 
       return ok(undefined);
     } catch (error) {
-      return err(domainError.fromMessage(`Failed to delete table: ${describeError(error)}`));
+      return err(
+        domainError.infrastructure({ message: `Failed to delete table: ${describeError(error)}` })
+      );
     }
   }
 
@@ -597,6 +613,8 @@ export class PostgresTableRepository implements core.ITableRepository {
           unique: boolean | null;
           is_primary: boolean | null;
           is_computed: boolean | null;
+          is_lookup: boolean | null;
+          is_conditional_lookup: boolean | null;
           lookup_linked_field_id: string | null;
           lookup_options: string | null;
           db_field_name: string | null;
@@ -644,6 +662,8 @@ export class PostgresTableRepository implements core.ITableRepository {
     not_null: boolean | null;
     unique: boolean | null;
     is_computed: boolean | null;
+    is_lookup: boolean | null;
+    is_conditional_lookup: boolean | null;
     lookup_linked_field_id: string | null;
     lookup_options: string | null;
     db_field_name: string | null;
@@ -651,6 +671,20 @@ export class PostgresTableRepository implements core.ITableRepository {
     const parsed = this.parseOptions(row.options);
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
+    const lookupParsed = this.parseOptions(row.lookup_options);
+    const hasLookupOptions = Object.keys(lookupParsed).length > 0;
+    const asLookupOptions = <T>(): T | undefined =>
+      hasLookupOptions ? (lookupParsed as T) : undefined;
+    const resolveLookupOptions = (): core.ILookupOptionsDTO | undefined => {
+      if (!row.is_lookup || !hasLookupOptions) return undefined;
+      const candidate = asLookupOptions<core.ILookupOptionsDTO>();
+      if (!candidate) return undefined;
+      if (core.FieldId.create(candidate.linkFieldId).isErr()) return undefined;
+      if (core.FieldId.create(candidate.lookupFieldId).isErr()) return undefined;
+      if (core.TableId.create(candidate.foreignTableId).isErr()) return undefined;
+      return candidate;
+    };
+    const lookupOptions = resolveLookupOptions();
     const dbFieldName = row.db_field_name ?? undefined;
     const base = {
       id: row.id,
@@ -659,14 +693,13 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.not_null ? { notNull: true } : {}),
       ...(row.unique ? { unique: true } : {}),
       ...(row.is_computed ? { isComputed: true } : {}),
+      ...(lookupOptions ? { isLookup: true } : {}),
+      ...(row.is_conditional_lookup && lookupOptions ? { isConditionalLookup: true } : {}),
+      ...(lookupOptions ? { lookupOptions } : {}),
     };
     const metaParsed = this.parseOptions(row.meta);
     const hasMeta = Object.keys(metaParsed).length > 0;
     const asMeta = <T>(): T | undefined => (hasMeta ? (metaParsed as T) : undefined);
-    const lookupParsed = this.parseOptions(row.lookup_options);
-    const hasLookupOptions = Object.keys(lookupParsed).length > 0;
-    const asLookupOptions = <T>(): T | undefined =>
-      hasLookupOptions ? (lookupParsed as T) : undefined;
 
     if (row.type === 'rating') {
       const options = {
@@ -876,7 +909,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     if (row.type === 'form') return ok({ id: row.id, name: row.name, type: 'form', columnMeta });
     if (row.type === 'plugin')
       return ok({ id: row.id, name: row.name, type: 'plugin', columnMeta });
-    return err(domainError.fromMessage('Unsupported view type'));
+    return err(domainError.validation({ message: 'Unsupported view type' }));
   }
 
   private sequenceResults<T>(
@@ -898,7 +931,10 @@ export class PostgresTableRepository implements core.ITableRepository {
     const fieldsById = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const fieldResults = tableDbMeta.fields.map((meta) => {
       const field = fieldsById.get(meta.field.id);
-      if (!field) return err(domainError.fromMessage(`Missing field for db name ${meta.field.id}`));
+      if (!field)
+        return err(
+          domainError.validation({ message: `Missing field for db name ${meta.field.id}` })
+        );
       return core.DbFieldName.rehydrate(meta.dbFieldName).andThen((dbFieldName) =>
         field.setDbFieldName(dbFieldName)
       );

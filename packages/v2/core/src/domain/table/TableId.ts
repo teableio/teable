@@ -17,7 +17,7 @@ export class TableId extends ValueObject {
 
   static create(raw: unknown): Result<TableId, DomainError> {
     const parsed = tableIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TableId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid TableId' }));
     return ok(new TableId(parsed.data));
   }
 
@@ -25,7 +25,7 @@ export class TableId extends ValueObject {
     try {
       return ok(new TableId(generatePrefixedId(tableIdPrefix, tableIdBodyLength)));
     } catch {
-      return err(domainError.fromMessage('Failed to generate TableId'));
+      return err(domainError.unexpected({ message: 'Failed to generate TableId' }));
     }
   }
 

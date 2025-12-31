@@ -64,7 +64,9 @@ export class TableMetaUpdateVisitor
   }
 
   visitTableByBaseId(_: TableByBaseIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByBaseIdSpec is not supported for table updates'));
+    return err(
+      domainError.validation({ message: 'TableByBaseIdSpec is not supported for table updates' })
+    );
   }
 
   visitTableAddField(
@@ -120,11 +122,15 @@ export class TableMetaUpdateVisitor
   }
 
   visitTableById(_: TableByIdSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByIdSpec is not supported for table updates'));
+    return err(
+      domainError.validation({ message: 'TableByIdSpec is not supported for table updates' })
+    );
   }
 
   visitTableByIds(_: TableByIdsSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByIdsSpec is not supported for table updates'));
+    return err(
+      domainError.validation({ message: 'TableByIdsSpec is not supported for table updates' })
+    );
   }
 
   visitTableByName(spec: TableByNameSpec): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
@@ -137,7 +143,9 @@ export class TableMetaUpdateVisitor
   visitTableByNameLike(
     _: TableByNameLikeSpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
-    return err(domainError.fromMessage('TableByNameLikeSpec is not supported for table updates'));
+    return err(
+      domainError.validation({ message: 'TableByNameLikeSpec is not supported for table updates' })
+    );
   }
 
   clone(): this {

@@ -14,7 +14,7 @@ export class FieldName extends ValueObject {
 
   static create(raw: unknown): Result<FieldName, DomainError> {
     const parsed = fieldNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldName' }));
     return ok(new FieldName(parsed.data));
   }
 

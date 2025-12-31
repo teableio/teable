@@ -15,7 +15,8 @@ export class TableRecordCellValue extends ValueObject {
 
   static create(raw: unknown): Result<TableRecordCellValue, DomainError> {
     const parsed = tableRecordCellValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TableRecordCellValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid TableRecordCellValue' }));
     return ok(new TableRecordCellValue(parsed.data));
   }
 
@@ -44,7 +45,8 @@ export class TableRecordFields extends ValueObject {
     const seen = new Set<string>();
     for (const entry of entries) {
       const key = entry.fieldId.toString();
-      if (seen.has(key)) return err(domainError.fromMessage('Duplicate TableRecord field id'));
+      if (seen.has(key))
+        return err(domainError.conflict({ message: 'Duplicate TableRecord field id' }));
       seen.add(key);
     }
     return ok(new TableRecordFields([...entries]));

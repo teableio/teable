@@ -70,12 +70,12 @@ describe('GetTableByIdHandler', () => {
       context,
       queryResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
+    const resultValue = result._unsafeUnwrap();
 
-    expect(result.value.table.id().equals(createResult._unsafeUnwrap().table.id())).toBe(true);
-    expect(result.value.table.baseId().equals(baseId)).toBe(true);
+    expect(resultValue.table.id().equals(createResult._unsafeUnwrap().table.id())).toBe(true);
+    expect(resultValue.table.baseId().equals(baseId)).toBe(true);
 
-    const table = result.value.table;
+    const table = resultValue.table;
     const byId = new Map(table.getFields().map((field) => [field.id().toString(), field]));
     const scoreField = byId.get(scoreId);
     const scoreLabelField = byId.get(scoreLabelId);
@@ -85,14 +85,12 @@ describe('GetTableByIdHandler', () => {
 
     const valueTypeVisitor = new FieldValueTypeVisitor();
     const scoreType = scoreField.accept(valueTypeVisitor);
-    scoreType._unsafeUnwrap();
-
-    expect(scoreType.value.cellValueType.toString()).toBe('number');
+    const scoreTypeValue = scoreType._unsafeUnwrap();
+    expect(scoreTypeValue.cellValueType.toString()).toBe('number');
 
     const scoreLabelType = scoreLabelField.accept(valueTypeVisitor);
-    scoreLabelType._unsafeUnwrap();
-
-    expect(scoreLabelType.value.cellValueType.toString()).toBe('string');
+    const scoreLabelTypeValue = scoreLabelType._unsafeUnwrap();
+    expect(scoreLabelTypeValue.cellValueType.toString()).toBe('string');
   });
 
   it('returns err when table is missing', async () => {

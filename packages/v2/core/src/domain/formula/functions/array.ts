@@ -35,7 +35,7 @@ export class CountAll extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.CountAll} needs 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.CountAll} needs 1 param` }));
     }
     return ok(undefined);
   }
@@ -60,7 +60,9 @@ export class CountA extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.CountA} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.CountA} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }
@@ -85,7 +87,9 @@ export class Count extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.Count} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.Count} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }
@@ -105,7 +109,9 @@ export class ArrayJoin extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.ArrayJoin} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.ArrayJoin} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }
@@ -130,7 +136,9 @@ export class ArrayUnique extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.ArrayUnique} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.ArrayUnique} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }
@@ -155,7 +163,9 @@ export class ArrayFlatten extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.ArrayFlatten} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.ArrayFlatten} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }
@@ -180,7 +190,9 @@ export class ArrayCompact extends ArrayFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.ArrayCompact} needs at least 1 param`));
+      return err(
+        domainError.validation({ message: `${FunctionName.ArrayCompact} needs at least 1 param` })
+      );
     }
     return ok(undefined);
   }

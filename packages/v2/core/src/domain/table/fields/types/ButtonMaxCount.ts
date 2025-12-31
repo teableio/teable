@@ -14,7 +14,7 @@ export class ButtonMaxCount extends ValueObject {
 
   static create(raw: unknown): Result<ButtonMaxCount, DomainError> {
     const parsed = buttonMaxCountSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonMaxCount'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ButtonMaxCount' }));
     return ok(new ButtonMaxCount(parsed.data));
   }
 

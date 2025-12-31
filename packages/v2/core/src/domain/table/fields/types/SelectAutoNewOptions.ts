@@ -14,7 +14,8 @@ export class SelectAutoNewOptions extends ValueObject {
 
   static create(raw: unknown): Result<SelectAutoNewOptions, DomainError> {
     const parsed = selectAutoNewOptionsSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectAutoNewOptions'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid SelectAutoNewOptions' }));
     return ok(new SelectAutoNewOptions(parsed.data));
   }
 

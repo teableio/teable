@@ -123,7 +123,8 @@ export class RollupExpression extends ValueObject {
 
   static create(raw: unknown): Result<RollupExpression, DomainError> {
     const parsed = rollupExpressionSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RollupExpression'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid RollupExpression' }));
     return ok(new RollupExpression(parsed.data));
   }
 
@@ -182,7 +183,7 @@ export class RollupExpression extends ValueObject {
     parser.addErrorListener(errorCollector);
     const tree = parser.root();
     const error = errorCollector.firstError();
-    if (error) return err(domainError.fromMessage(error));
+    if (error) return err(domainError.unexpected({ message: error }));
     return ok(tree);
   }
 

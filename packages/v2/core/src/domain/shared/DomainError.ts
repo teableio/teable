@@ -127,46 +127,6 @@ const withTags = (tags: ReadonlyArray<DomainErrorTag>, params: DomainErrorParams
     details: params.details,
   });
 
-/**
- * Heuristic classifier that infers error tags from message content.
- * Used by `domainError.fromMessage` when no explicit tags are provided.
- *
- * This is a fallback mechanism; prefer explicit factory methods when possible.
- */
-const classifyMessage = (message: string): { tags: DomainErrorTag[]; code: DomainErrorCode } => {
-  const normalized = message.trim().toLowerCase();
-  if (normalized.includes('not implemented')) {
-    return { tags: ['not-implemented'], code: 'not_implemented' };
-  }
-  if (normalized.includes('not found')) {
-    return { tags: ['not-found'], code: 'not_found' };
-  }
-  if (normalized.includes('not supported') || normalized.includes('unsupported')) {
-    return { tags: ['validation'], code: 'validation.not_supported' };
-  }
-  if (normalized.includes('rehydrat') || normalized.includes('not hydrated')) {
-    return { tags: ['invariant'], code: 'invariant.rehydration' };
-  }
-  if (
-    normalized.includes('already exists') ||
-    normalized.includes('duplicate') ||
-    normalized.includes('must be unique') ||
-    normalized.includes('unique')
-  ) {
-    return { tags: ['conflict'], code: 'conflict' };
-  }
-  if (
-    normalized.startsWith('invalid ') ||
-    normalized.includes(' invalid ') ||
-    normalized.includes('cannot') ||
-    normalized.includes('must ') ||
-    normalized.includes('required')
-  ) {
-    return { tags: ['validation'], code: 'validation.invalid' };
-  }
-  return { tags: ['unexpected'], code: 'unexpected' };
-};
-
 // ---------------------------------------------------------------------------
 // Domain Error Factory
 // ---------------------------------------------------------------------------
@@ -175,7 +135,7 @@ const classifyMessage = (message: string): { tags: DomainErrorTag[]; code: Domai
  * Factory object for creating DomainError instances.
  *
  * Usage guidelines:
- * - Prefer explicit factory methods (validation, conflict, etc.) over fromMessage.
+ * - Prefer explicit factory methods (validation, conflict, etc.).
  * - Always provide a descriptive message for debugging and logging.
  * - Use `details` to attach structured context (field names, IDs, constraints).
  *
@@ -271,26 +231,6 @@ export const domainError = {
    */
   unexpected: (params: DomainErrorParams): DomainError =>
     withTags(['unexpected'], { code: params.code ?? 'unexpected', ...params }),
-
-  /**
-   * Create error from message string with automatic classification.
-   * Uses heuristics to infer error type from message content.
-   *
-   * Prefer explicit factory methods when the error type is known.
-   * This is useful for wrapping legacy string errors or third-party messages.
-   */
-  fromMessage: (message: string, params?: Omit<DomainErrorParams, 'message'>): DomainError => {
-    if (params?.tags && params.tags.length > 0) {
-      return withTags(params.tags, { message, ...params });
-    }
-    const classified = classifyMessage(message);
-    return withTags(classified.tags, {
-      message,
-      code: params?.code ?? classified.code,
-      details: params?.details,
-      tags: params?.tags,
-    });
-  },
 
   /**
    * Wrap unknown errors (e.g., caught exceptions) into DomainError.

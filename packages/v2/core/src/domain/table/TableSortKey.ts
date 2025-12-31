@@ -16,7 +16,7 @@ export class TableSortKey extends ValueObject {
 
   static create(raw: unknown): Result<TableSortKey, DomainError> {
     const parsed = tableSortKeySchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TableSortKey'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid TableSortKey' }));
     return ok(new TableSortKey(parsed.data));
   }
 

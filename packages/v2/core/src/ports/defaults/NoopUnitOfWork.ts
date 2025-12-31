@@ -14,7 +14,11 @@ export class NoopUnitOfWork implements IUnitOfWork {
     try {
       return await work(context);
     } catch (error) {
-      return err(domainError.fromMessage(`Unexpected unit of work error: ${describeError(error)}`));
+      return err(
+        domainError.unexpected({
+          message: `Unexpected unit of work error: ${describeError(error)}`,
+        })
+      );
     }
   }
 }

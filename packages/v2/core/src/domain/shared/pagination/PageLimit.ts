@@ -14,7 +14,7 @@ export class PageLimit extends ValueObject {
 
   static create(raw: unknown): Result<PageLimit, DomainError> {
     const parsed = pageLimitSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid PageLimit'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid PageLimit' }));
     return ok(new PageLimit(parsed.data));
   }
 

@@ -14,7 +14,7 @@ export class TableName extends ValueObject {
 
   static create(raw: unknown): Result<TableName, DomainError> {
     const parsed = tableNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TableName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid TableName' }));
     return ok(new TableName(parsed.data));
   }
 

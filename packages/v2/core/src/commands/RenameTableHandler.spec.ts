@@ -17,6 +17,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -55,7 +56,7 @@ class FakeTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     const found = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!found) return err(domainError.fromMessage('Not found'));
+    if (!found) return err(domainError.notFound({ message: 'Not found' }));
     return ok(found);
   }
 
@@ -82,7 +83,7 @@ class FakeTableRepository implements ITableRepository {
       this.updated.push(updatedTable);
       return updatedTable;
     });
-    if (!updated) return err(domainError.fromMessage('Not found'));
+    if (!updated) return err(domainError.notFound({ message: 'Not found' }));
     return ok(undefined);
   }
 
@@ -149,9 +150,10 @@ describe('RenameTableHandler', () => {
     const repo = new FakeTableRepository();
     repo.tables.push(table);
     const schemaRepo = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
-    const flow = new TableUpdateFlow(repo, schemaRepo, eventBus, unitOfWork);
+    const flow = new TableUpdateFlow(repo, schemaRepo, tableMapper, eventBus, unitOfWork);
 
     const commandResult = RenameTableCommand.create({
       baseId: table.baseId().toString(),
@@ -175,6 +177,7 @@ describe('RenameTableHandler', () => {
       new TableUpdateFlow(
         repo,
         new FakeTableSchemaRepository(),
+        new DefaultTableMapper(),
         new FakeEventBus(),
         new FakeUnitOfWork()
       )

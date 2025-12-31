@@ -15,7 +15,8 @@ export class LinkRelationship extends ValueObject {
 
   static create(raw: unknown): Result<LinkRelationship, DomainError> {
     const parsed = linkRelationshipSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkRelationship'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid LinkRelationship' }));
     return ok(new LinkRelationship(parsed.data));
   }
 

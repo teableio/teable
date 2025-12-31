@@ -1,5 +1,5 @@
 import { inject, injectable } from '@teable/v2-di';
-import { err, ok } from 'neverthrow';
+import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
@@ -33,39 +33,27 @@ export class TableCreatedRealtimeProjection implements IEventHandler<TableCreate
     context: ExecutionContextPort.IExecutionContext,
     event: TableCreated
   ): Promise<Result<void, DomainError>> {
-    const specResult = Table.specs(event.baseId).byId(event.tableId).build();
-    if (specResult.isErr()) return err(specResult.error);
+    const { tableRepository, tableMapper, realtimeEngine } = this;
 
-    const tableResult = await this.tableRepository.findOne(context, specResult.value);
-    if (tableResult.isErr()) return err(tableResult.error);
+    return safeTry(async function* () {
+      const spec = yield* Table.specs(event.baseId).byId(event.tableId).build().safeUnwrap();
+      const table = yield* (await tableRepository.findOne(context, spec)).safeUnwrap();
+      const snapshot = yield* tableMapper.toDTO(table).safeUnwrap();
 
-    const snapshotResult = this.tableMapper.toDTO(tableResult.value);
-    if (snapshotResult.isErr()) return err(snapshotResult.error);
-    const snapshot = snapshotResult.value;
+      const collection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
+      const docId = yield* RealtimeDocId.fromParts(
+        collection,
+        event.tableId.toString()
+      ).safeUnwrap();
+      yield* (await realtimeEngine.ensure(context, docId, snapshot)).safeUnwrap();
 
-    const collection = `${tableCollectionPrefix}_${event.baseId.toString()}`;
-    const docIdResult = RealtimeDocId.fromParts(collection, event.tableId.toString());
-    if (docIdResult.isErr()) return err(docIdResult.error);
+      const fieldCollection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
+      for (const field of snapshot.fields) {
+        const fieldDocId = yield* RealtimeDocId.fromParts(fieldCollection, field.id).safeUnwrap();
+        yield* (await realtimeEngine.ensure(context, fieldDocId, field)).safeUnwrap();
+      }
 
-    const ensureTableResult = await this.realtimeEngine.ensure(
-      context,
-      docIdResult.value,
-      snapshot
-    );
-    if (ensureTableResult.isErr()) return err(ensureTableResult.error);
-
-    const fieldCollection = `${fieldCollectionPrefix}_${event.tableId.toString()}`;
-    for (const field of snapshot.fields) {
-      const fieldDocIdResult = RealtimeDocId.fromParts(fieldCollection, field.id);
-      if (fieldDocIdResult.isErr()) return err(fieldDocIdResult.error);
-      const ensureFieldResult = await this.realtimeEngine.ensure(
-        context,
-        fieldDocIdResult.value,
-        field
-      );
-      if (ensureFieldResult.isErr()) return err(ensureFieldResult.error);
-    }
-
-    return ok(undefined);
+      return ok(undefined);
+    });
   }
 }

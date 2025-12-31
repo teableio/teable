@@ -31,18 +31,24 @@ export class TableWhereVisitor
   }
 
   visitTableAddField(_: TableAddFieldSpec): Result<ITableMetaWhere, DomainError> {
-    return err(domainError.fromMessage('TableAddFieldSpec is not supported for table filters'));
+    return err(
+      domainError.validation({ message: 'TableAddFieldSpec is not supported for table filters' })
+    );
   }
 
   visitTableRemoveField(_: TableRemoveFieldSpec): Result<ITableMetaWhere, DomainError> {
-    return err(domainError.fromMessage('TableRemoveFieldSpec is not supported for table filters'));
+    return err(
+      domainError.validation({ message: 'TableRemoveFieldSpec is not supported for table filters' })
+    );
   }
 
   visitTableUpdateViewColumnMeta(
     _: TableUpdateViewColumnMetaSpec
   ): Result<ITableMetaWhere, DomainError> {
     return err(
-      domainError.fromMessage('TableUpdateViewColumnMetaSpec is not supported for table filters')
+      domainError.validation({
+        message: 'TableUpdateViewColumnMetaSpec is not supported for table filters',
+      })
     );
   }
 
@@ -59,7 +65,7 @@ export class TableWhereVisitor
   visitTableByIds(spec: TableByIdsSpec): Result<ITableMetaWhere, DomainError> {
     const ids = spec.tableIds().map((id) => id.toString());
     if (ids.length === 0)
-      return err(domainError.fromMessage('TableByIdsSpec requires at least one id'));
+      return err(domainError.unexpected({ message: 'TableByIdsSpec requires at least one id' }));
     const cond: ITableMetaWhere = (eb) => eb.eb('id', 'in', ids);
     return this.addCond(cond).map(() => cond);
   }

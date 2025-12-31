@@ -18,7 +18,8 @@ export class SelectDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<SelectDefaultValue, DomainError> {
     const parsed = selectDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid SelectDefaultValue' }));
 
     if (typeof parsed.data === 'string') {
       return SelectOptionName.create(parsed.data).map((name) => new SelectDefaultValue(name));

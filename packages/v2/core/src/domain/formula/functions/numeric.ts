@@ -11,7 +11,7 @@ abstract class NumericFunc extends FormulaFunc {
 
 const validateAtLeastOne = (fnName: FunctionName, params: TypedValue[]) => {
   if (!params.length) {
-    return err(domainError.fromMessage(`${fnName} needs at least 1 param`));
+    return err(domainError.validation({ message: `${fnName} needs at least 1 param` }));
   }
   return ok(undefined);
 };
@@ -22,7 +22,9 @@ const validateOnlyNumber = (fnName: FunctionName, params: TypedValue[]) => {
   for (const [index, param] of params.entries()) {
     if (param && param.type === CellValueType.String) {
       return err(
-        domainError.fromMessage(`${fnName} can't process string type param at ${index + 1}`)
+        domainError.validation({
+          message: `${fnName} can't process string type param at ${index + 1}`,
+        })
       );
     }
   }
@@ -76,9 +78,9 @@ export class Max extends NumericFunc {
     for (const [index, param] of params.entries()) {
       if (param && param.type !== CellValueType.Number && param.type !== CellValueType.DateTime) {
         return err(
-          domainError.fromMessage(
-            `${FunctionName.Max} can only process number or datetime type param at ${index + 1}`
-          )
+          domainError.validation({
+            message: `${FunctionName.Max} can only process number or datetime type param at ${index + 1}`,
+          })
         );
       }
     }
@@ -106,9 +108,9 @@ export class Min extends NumericFunc {
     for (const [index, param] of params.entries()) {
       if (param && param.type !== CellValueType.Number && param.type !== CellValueType.DateTime) {
         return err(
-          domainError.fromMessage(
-            `${FunctionName.Min} can only process number or datetime type param at ${index + 1}`
-          )
+          domainError.validation({
+            message: `${FunctionName.Min} can only process number or datetime type param at ${index + 1}`,
+          })
         );
       }
     }
@@ -285,7 +287,7 @@ export class Sqrt extends NumericFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.Sqrt} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Sqrt} only allow 1 param` }));
     }
     return validateOnlyNumber(FunctionName.Sqrt, params);
   }
@@ -305,7 +307,7 @@ export class Power extends NumericFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 2) {
-      return err(domainError.fromMessage(`${FunctionName.Power} needs 2 params`));
+      return err(domainError.validation({ message: `${FunctionName.Power} needs 2 params` }));
     }
     return validateOnlyNumber(FunctionName.Power, params);
   }
@@ -325,7 +327,7 @@ export class Exp extends NumericFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.Exp} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Exp} only allow 1 param` }));
     }
     return validateOnlyNumber(FunctionName.Exp, params);
   }
@@ -362,7 +364,7 @@ export class Mod extends NumericFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 2) {
-      return err(domainError.fromMessage(`${FunctionName.Mod} needs 2 params`));
+      return err(domainError.validation({ message: `${FunctionName.Mod} needs 2 params` }));
     }
     return validateOnlyNumber(FunctionName.Mod, params);
   }
@@ -382,14 +384,14 @@ export class Value extends NumericFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.Value} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Value} only allow 1 param` }));
     }
     for (const [index, param] of params.entries()) {
       if (param && param.type !== CellValueType.String) {
         return err(
-          domainError.fromMessage(
-            `${FunctionName.Value} can't process string type param at ${index + 1}`
-          )
+          domainError.validation({
+            message: `${FunctionName.Value} can't process string type param at ${index + 1}`,
+          })
         );
       }
     }

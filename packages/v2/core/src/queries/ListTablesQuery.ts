@@ -34,7 +34,8 @@ export class ListTablesQuery {
 
   static create(raw: unknown): Result<ListTablesQuery, DomainError> {
     const parsed = listTablesInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ListTablesQuery input'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid ListTablesQuery input' }));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       this.buildSort(parsed.data).andThen((sort) =>
@@ -49,7 +50,7 @@ export class ListTablesQuery {
 
   private static buildSort(data: IListTablesQueryOutput): Result<Sort<TableSortKey>, DomainError> {
     if (data.sortDirection && !data.sortBy) {
-      return err(domainError.fromMessage('Sort direction requires sortBy'));
+      return err(domainError.unexpected({ message: 'Sort direction requires sortBy' }));
     }
 
     const key = data.sortBy ? TableSortKey.from(data.sortBy) : TableSortKey.default();
@@ -64,7 +65,7 @@ export class ListTablesQuery {
     data: IListTablesQueryOutput
   ): Result<OffsetPagination | undefined, DomainError> {
     if (data.offset !== undefined && data.limit === undefined) {
-      return err(domainError.fromMessage('Pagination offset requires limit'));
+      return err(domainError.unexpected({ message: 'Pagination offset requires limit' }));
     }
 
     if (data.limit === undefined) return ok(undefined);

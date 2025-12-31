@@ -172,9 +172,9 @@ export class TableBuilder {
 
   build(options?: TableBuildOptions): Result<Table, DomainError> {
     const tableName = this.tableName;
-    if (!tableName) return err(domainError.fromMessage('TableName is required'));
+    if (!tableName) return err(domainError.validation({ message: 'TableName is required' }));
     const baseId = this.baseId;
-    if (!baseId) return err(domainError.fromMessage('BaseId is required'));
+    if (!baseId) return err(domainError.validation({ message: 'BaseId is required' }));
 
     if (this.errors.length > 0) {
       if (this.errors.length === 1) return err(this.errors[0]);
@@ -188,19 +188,20 @@ export class TableBuilder {
     }
 
     if (this.fields.length === 0)
-      return err(domainError.fromMessage('Table requires at least one Field'));
+      return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
     if (this.views.length === 0)
-      return err(domainError.fromMessage('Table requires at least one View'));
+      return err(domainError.unexpected({ message: 'Table requires at least one View' }));
     if (!isUniqueByStringValue(this.views.map((v) => v.name())))
-      return err(domainError.fromMessage('View names must be unique'));
+      return err(domainError.conflict({ message: 'View names must be unique' }));
 
     if (!isUniqueByStringValue(this.fields.map((f) => f.name())))
-      return err(domainError.fromMessage('Field names must be unique'));
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
 
     const primaryFieldId = this.primaryFieldId ?? this.fields[0]?.id();
-    if (!primaryFieldId) return err(domainError.fromMessage('Table requires a primary Field'));
+    if (!primaryFieldId)
+      return err(domainError.unexpected({ message: 'Table requires a primary Field' }));
     if (!this.fields.some((f) => f.id().equals(primaryFieldId)))
-      return err(domainError.fromMessage('Primary Field must exist in Table fields'));
+      return err(domainError.validation({ message: 'Primary Field must exist in Table fields' }));
 
     const columnMetaResult = this.applyViewColumnMeta(this.views, this.fields, primaryFieldId);
     if (columnMetaResult.isErr()) return err(columnMetaResult.error);
@@ -237,7 +238,7 @@ export class TableBuilder {
   }
 
   requireBaseId(): Result<BaseId, DomainError> {
-    if (!this.baseId) return err(domainError.fromMessage('BaseId is required'));
+    if (!this.baseId) return err(domainError.validation({ message: 'BaseId is required' }));
     return ok(this.baseId);
   }
 
@@ -250,7 +251,9 @@ export class TableBuilder {
   }
 
   private addError(error: DomainError | string): void {
-    this.errors.push(typeof error === 'string' ? domainError.fromMessage(error) : error);
+    this.errors.push(
+      typeof error === 'string' ? domainError.unexpected({ message: error }) : error
+    );
   }
 
   private addField(field: Field): void {
@@ -277,7 +280,7 @@ export class TableBuilder {
 
   markPrimaryFieldId(fieldId: FieldId): Result<void, DomainError> {
     if (this.primaryFieldId)
-      return err(domainError.fromMessage('Table can only have one primary Field'));
+      return err(domainError.unexpected({ message: 'Table can only have one primary Field' }));
     this.primaryFieldId = fieldId;
     return ok(undefined);
   }

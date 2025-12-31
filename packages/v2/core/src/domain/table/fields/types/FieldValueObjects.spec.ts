@@ -82,10 +82,6 @@ describe('SelectDefaultValue', () => {
   it('handles single and multiple values', () => {
     const single = SelectDefaultValue.create('Todo');
     const multiple = SelectDefaultValue.create(['Todo', 'Done']);
-    single._unsafeUnwrap();
-    multiple._unsafeUnwrap();
-    single._unsafeUnwrap();
-    multiple._unsafeUnwrap();
     expect(single._unsafeUnwrap().isMultiple()).toBe(false);
     expect(multiple._unsafeUnwrap().isMultiple()).toBe(true);
     expect(single._unsafeUnwrap().toDto()).toBe('Todo');
@@ -165,11 +161,6 @@ describe('SelectOptions', () => {
     const optionTwo = SelectOption.create({ name: 'Done', color: 'green' });
     const duplicate = SelectOption.create({ name: 'Todo', color: 'blue' });
     const defaultValue = SelectDefaultValue.create('Todo');
-    [optionOne, optionTwo, duplicate, defaultValue].forEach((r) => r._unsafeUnwrap());
-    optionOne._unsafeUnwrap();
-    optionTwo._unsafeUnwrap();
-    duplicate._unsafeUnwrap();
-    defaultValue._unsafeUnwrap();
 
     const uniqueResult = validateSelectOptions(
       [optionOne._unsafeUnwrap(), optionTwo._unsafeUnwrap()],
@@ -217,11 +208,6 @@ describe('Button types', () => {
       name: 'Deploy',
       isActive: true,
     });
-    [label, count, reset, workflow].forEach((r) => r._unsafeUnwrap());
-    label._unsafeUnwrap();
-    count._unsafeUnwrap();
-    reset._unsafeUnwrap();
-    workflow._unsafeUnwrap();
 
     expect(label._unsafeUnwrap().toString()).toBe('Run');
     expect(ButtonLabel.default().toString()).toBe('Button');
@@ -255,11 +241,6 @@ describe('Defaults and rating values', () => {
     const number = NumberDefaultValue.create(5);
     const checkbox = CheckboxDefaultValue.create(false);
     const date = DateDefaultValue.create('now');
-    [text, number, checkbox, date].forEach((r) => r._unsafeUnwrap());
-    text._unsafeUnwrap();
-    number._unsafeUnwrap();
-    checkbox._unsafeUnwrap();
-    date._unsafeUnwrap();
     expect(text._unsafeUnwrap().toString()).toBe('hello');
     expect(text._unsafeUnwrap().equals(text._unsafeUnwrap())).toBe(true);
     expect(number._unsafeUnwrap().toNumber()).toBe(5);
@@ -275,10 +256,6 @@ describe('Defaults and rating values', () => {
     const max = RatingMax.create(5);
     const icon = RatingIcon.create('star');
     const color = RatingColor.create('yellowBright');
-    [max, icon, color].forEach((r) => r._unsafeUnwrap());
-    max._unsafeUnwrap();
-    icon._unsafeUnwrap();
-    color._unsafeUnwrap();
     expect(max._unsafeUnwrap().toNumber()).toBe(5);
     expect(max._unsafeUnwrap().equals(max._unsafeUnwrap())).toBe(true);
     expect(icon._unsafeUnwrap().toString()).toBe('star');
@@ -296,11 +273,6 @@ describe('User values', () => {
     const single = UserMultiplicity.single();
     const notify = UserNotification.create(true);
     const defaults = UserDefaultValue.create(['me', 'usr123']);
-    [me, user, notify, defaults].forEach((r) => r._unsafeUnwrap());
-    me._unsafeUnwrap();
-    user._unsafeUnwrap();
-    notify._unsafeUnwrap();
-    defaults._unsafeUnwrap();
 
     expect(me._unsafeUnwrap().isMe()).toBe(true);
     expect(user._unsafeUnwrap().isMe()).toBe(false);
@@ -322,10 +294,6 @@ describe('Link field values', () => {
     const reverse = LinkRelationship.manyOne();
     const meta = LinkFieldMeta.create({ hasOrderColumn: true });
     const emptyMeta = LinkFieldMeta.create(undefined);
-    [relationship, meta, emptyMeta].forEach((r) => r._unsafeUnwrap());
-    relationship._unsafeUnwrap();
-    meta._unsafeUnwrap();
-    emptyMeta._unsafeUnwrap();
     expect(relationship._unsafeUnwrap().isMultipleValue()).toBe(true);
     expect(relationship._unsafeUnwrap().reverse().equals(reverse)).toBe(true);
     const metaValue = meta._unsafeUnwrap();
@@ -350,8 +318,6 @@ describe('Link field values', () => {
       filterByViewId: `viw${'e'.repeat(16)}`,
       visibleFieldIds: [`fld${'c'.repeat(16)}`, `fld${'d'.repeat(16)}`],
     });
-
-    configResult._unsafeUnwrap();
 
     const config = configResult._unsafeUnwrap();
     expect(config.baseId()?.toString()).toBe(`bse${'a'.repeat(16)}`);

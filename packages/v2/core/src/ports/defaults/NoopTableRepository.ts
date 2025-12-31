@@ -19,7 +19,7 @@ export class NoopTableRepository implements ITableRepository {
     _: IExecutionContext,
     __: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
-    return err(domainError.fromMessage('Not found'));
+    return err(domainError.notFound({ message: 'Not found' }));
   }
 
   async find(

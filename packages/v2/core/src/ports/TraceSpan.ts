@@ -121,7 +121,7 @@ export const TraceSpan =
       } catch (error) {
         const errorMessage = describeError(error) || 'Command handler execution failed';
         span.recordError(errorMessage);
-        return err(domainError.fromMessage(errorMessage));
+        return err(domainError.unexpected({ message: errorMessage }));
       } finally {
         try {
           span.end();

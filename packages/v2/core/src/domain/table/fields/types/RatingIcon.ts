@@ -26,7 +26,7 @@ export class RatingIcon extends ValueObject {
 
   static create(raw: unknown): Result<RatingIcon, DomainError> {
     const parsed = ratingIconSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RatingIcon'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid RatingIcon' }));
     return ok(new RatingIcon(parsed.data));
   }
 

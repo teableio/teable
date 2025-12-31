@@ -3,8 +3,8 @@
   "display": "@teable/v2-test-node",
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
     "target": "esnext",
@@ -28,6 +28,7 @@
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
+      "@teable/v2-adapter-db-postgres-shared": ["../adapter-db-postgres-shared/src"],
       "@teable/v2-di": ["../di/src"],
       "@teable/v2-contract-http": ["../contract-http/src"],
       "@teable/v2-postgres-schema": ["../postgres-schema/src"],
@@ -35,7 +36,7 @@
     },
     "types": ["vitest/globals"]
   },
-  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage"],
+  "exclude": ["**/node_modules", "**/.*/", "./dist", "./coverage", "../core/src/**/*.spec.ts"],
   "include": [
     "vitest.setup.ts",
     "src",
@@ -45,6 +46,7 @@
     "../adapter-repository-postgres/src",
     "../core/src",
     "../adapter-db-postgres-pg/src",
+    "../adapter-db-postgres-shared/src",
     "../di/src",
     "../contract-http/src",
     "../postgres-schema/src",

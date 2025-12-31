@@ -98,7 +98,11 @@ export class TableFieldPersistenceBuilder {
     const results = fields.map((field, index) => {
       const storageType = storageTypeById.get(field.field.id);
       if (!storageType)
-        return err(domainError.fromMessage(`Missing storage type for field ${field.field.id}`));
+        return err(
+          domainError.validation({
+            message: `Missing storage type for field ${field.field.id}`,
+          })
+        );
       return ok(
         this.buildRowValue({
           fieldDto: field.field,
@@ -164,14 +168,20 @@ export class TableFieldPersistenceBuilder {
 
     const fieldDto = dto.fields.find((item) => item.id === field.id().toString());
     if (!fieldDto)
-      return err(domainError.fromMessage(`Missing field DTO for ${field.id().toString()}`));
+      return err(
+        domainError.validation({
+          message: `Missing field DTO for ${field.id().toString()}`,
+        })
+      );
 
     const storageTypeByIdResult = this.getStorageTypeById();
     if (storageTypeByIdResult.isErr()) return err(storageTypeByIdResult.error);
     const storageType = storageTypeByIdResult.value.get(field.id().toString());
     if (!storageType)
       return err(
-        domainError.fromMessage(`Missing storage type for field ${field.id().toString()}`)
+        domainError.validation({
+          message: `Missing storage type for field ${field.id().toString()}`,
+        })
       );
 
     return ok({ fieldDto, storageType });
@@ -182,7 +192,11 @@ export class TableFieldPersistenceBuilder {
     if (fieldSpecResult.isErr()) return err(fieldSpecResult.error);
     const [matched] = this.params.table.getFields(fieldSpecResult.value);
     if (!matched)
-      return err(domainError.fromMessage(`Missing field order for ${field.id().toString()}`));
+      return err(
+        domainError.validation({
+          message: `Missing field order for ${field.id().toString()}`,
+        })
+      );
 
     const fields = this.params.table.getFields();
     for (let index = 0; index < fields.length; index += 1) {
@@ -191,7 +205,11 @@ export class TableFieldPersistenceBuilder {
       }
     }
 
-    return err(domainError.fromMessage(`Missing field order for ${field.id().toString()}`));
+    return err(
+      domainError.validation({
+        message: `Missing field order for ${field.id().toString()}`,
+      })
+    );
   }
 
   private resolveDbFieldName(field: Field): Result<string, DomainError> {

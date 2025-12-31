@@ -14,7 +14,8 @@ export class CellValueMultiplicity extends ValueObject {
 
   static create(raw: unknown): Result<CellValueMultiplicity, DomainError> {
     const parsed = multiplicitySchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid CellValueMultiplicity'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid CellValueMultiplicity' }));
     return ok(new CellValueMultiplicity(parsed.data));
   }
 

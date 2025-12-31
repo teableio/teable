@@ -1,14 +1,11 @@
 import type {
+  DomainError,
   IExecutionContext,
   IRealtimeEngine,
   RealtimeChange,
   RealtimeDocId,
 } from '@teable/v2-core';
-import {
-  RealtimeDocId as RealtimeDocIdValue,
-  domainError,
-  type DomainError,
-} from '@teable/v2-core';
+import { RealtimeDocId as RealtimeDocIdValue } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
@@ -54,11 +51,59 @@ export class ShareDbRealtimeEngine implements IRealtimeEngine {
   }
 
   async applyChange(
-    _context: IExecutionContext,
-    _docId: RealtimeDocId,
-    _change: RealtimeChange
+    context: IExecutionContext,
+    docId: RealtimeDocId,
+    change: RealtimeChange
   ): Promise<Result<void, DomainError>> {
-    return err(domainError.fromMessage('Not implemented'));
+    const docIdResult = RealtimeDocIdValue.parse(docId);
+    if (docIdResult.isErr()) return err(docIdResult.error);
+
+    const { collection, docId: documentId } = docIdResult.value;
+
+    // Convert RealtimeChange to json0 operation
+    const json0Op = this.toJson0Op(change);
+
+    const op: ShareDbOp = {
+      create: undefined,
+      del: undefined,
+      op: json0Op,
+      src: context.actorId.toString(),
+      seq: 1,
+      v: 1,
+      m: {
+        ts: Date.now(),
+      },
+      c: collection,
+      d: documentId,
+    };
+
+    const channels = [collection, `${collection}.${documentId}`];
+    return this.publisher.publish(channels, op);
+  }
+
+  private toJson0Op(change: RealtimeChange): unknown[] {
+    const path = [...change.path];
+
+    switch (change.type) {
+      case 'set': {
+        // json0 object replace: { p: path, od: oldValue, oi: newValue }
+        // Since we don't know the old value, we use oi only which creates/replaces
+        return [{ p: path, oi: change.value }];
+      }
+      case 'insert': {
+        // json0 list insert: { p: path.concat(index), li: value }
+        return [{ p: [...path, change.index], li: change.value }];
+      }
+      case 'delete': {
+        // json0 list delete: { p: path.concat(index), ld: value }
+        // For multiple deletes, we need multiple ops (delete from end to start to keep indices valid)
+        const ops: unknown[] = [];
+        for (let i = change.count - 1; i >= 0; i--) {
+          ops.push({ p: [...path, change.index + i], ld: true });
+        }
+        return ops;
+      }
+    }
   }
 
   async delete(

@@ -14,7 +14,7 @@ export class FieldUnique extends ValueObject {
 
   static create(raw: unknown): Result<FieldUnique, DomainError> {
     const parsed = fieldUniqueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldUnique'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldUnique' }));
     return ok(new FieldUnique(parsed.data));
   }
 

@@ -42,7 +42,8 @@ export class ForeignTableLoaderService {
       const missing = input.references.filter(
         (reference) => !foreignTableIds.has(reference.foreignTableId.toString())
       );
-      if (missing.length > 0) return err(domainError.fromMessage('Foreign tables not found'));
+      if (missing.length > 0)
+        return err(domainError.notFound({ message: 'Foreign tables not found' }));
 
       return ok(foreignTables);
     });

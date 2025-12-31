@@ -95,12 +95,12 @@ export class FormulaTypeVisitor
   visitFieldReferenceCurly(ctx: FieldReferenceCurlyContext): Result<TypedValue, DomainError> {
     const fieldId = extractFieldReferenceId(ctx);
     if (!fieldId) {
-      return err(domainError.fromMessage('FieldId {} is a invalid field id'));
+      return err(domainError.validation({ message: 'FieldId {} is a invalid field id' }));
     }
 
     const field = this.dependencies[fieldId];
     if (!field) {
-      return err(domainError.fromMessage(`FieldId ${fieldId} is a invalid field id`));
+      return err(domainError.validation({ message: `FieldId ${fieldId} is a invalid field id` }));
     }
     return ok(new TypedValue(null, field.cellValueType, field.isMultipleCellValue, field));
   }
@@ -110,7 +110,7 @@ export class FormulaTypeVisitor
     const normalized = normalizeFunctionNameAlias(rawName) as FunctionName;
     const func = FUNCTIONS[normalized];
     if (!func) {
-      return err(domainError.fromMessage(`Function name ${rawName} is not found`));
+      return err(domainError.validation({ message: `Function name ${rawName} is not found` }));
     }
 
     if (normalized === FunctionName.Blank) {

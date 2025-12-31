@@ -50,7 +50,8 @@ export class FieldDeletionSideEffectService {
 
       for (const sideEffect of sideEffects) {
         const foreignTable = foreignTableState.get(sideEffect.foreignTable.id().toString());
-        if (!foreignTable) return err(domainError.fromMessage('Foreign table not found in state'));
+        if (!foreignTable)
+          return err(domainError.notFound({ message: 'Foreign table not found in state' }));
 
         const updateResult = yield* await service.tableUpdateFlow.execute(
           context,

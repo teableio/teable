@@ -21,7 +21,8 @@ export class DeleteTableCommand {
 
   static create(raw: unknown): Result<DeleteTableCommand, DomainError> {
     const parsed = deleteTableInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DeleteTableCommand input'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid DeleteTableCommand input' }));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map((tableId) => new DeleteTableCommand(baseId, tableId))

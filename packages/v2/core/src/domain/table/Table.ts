@@ -13,6 +13,7 @@ import { FieldDeleted } from './events/FieldDeleted';
 import { TableCreated } from './events/TableCreated';
 import { TableDeleted } from './events/TableDeleted';
 import { TableRenamed } from './events/TableRenamed';
+import { ViewColumnMetaUpdated } from './events/ViewColumnMetaUpdated';
 import type { Field } from './fields/Field';
 import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
@@ -88,9 +89,9 @@ export class Table extends AggregateRoot<TableId> {
 
   static rehydrate(props: ITableBuildProps): Result<Table, DomainError> {
     if (props.fields.length === 0)
-      return err(domainError.fromMessage('Table requires at least one Field'));
+      return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
     if (!props.fields.some((f) => f.id().equals(props.primaryFieldId)))
-      return err(domainError.fromMessage('Primary Field must exist in Table fields'));
+      return err(domainError.validation({ message: 'Primary Field must exist in Table fields' }));
 
     const table = new Table(
       props.id,
@@ -133,7 +134,7 @@ export class Table extends AggregateRoot<TableId> {
     const currentValue = this.dbTableNameValue.value();
     if (currentValue.isOk()) {
       if (currentValue.value !== nextValue.value)
-        return err(domainError.fromMessage('DbTableName already set'));
+        return err(domainError.invariant({ message: 'DbTableName already set' }));
       return ok(undefined);
     }
 
@@ -155,7 +156,7 @@ export class Table extends AggregateRoot<TableId> {
         ? predicateOrSpec
         : (field: Field) => predicateOrSpec.isSatisfiedBy(field);
     const field = this.fieldsValue.find(predicate);
-    if (!field) return err(domainError.fromMessage('Field not found'));
+    if (!field) return err(domainError.notFound({ message: 'Field not found' }));
     return ok(field);
   }
 
@@ -194,7 +195,7 @@ export class Table extends AggregateRoot<TableId> {
       }
     }
 
-    return err(domainError.fromMessage('Failed to generate unique FieldName'));
+    return err(domainError.conflict({ message: 'Failed to generate unique FieldName' }));
   }
 
   primaryFieldId(): FieldId {
@@ -203,7 +204,7 @@ export class Table extends AggregateRoot<TableId> {
 
   primaryField(): Result<Field, DomainError> {
     const field = this.fieldsValue.find((f) => f.id().equals(this.primaryFieldIdValue));
-    if (!field) return err(domainError.fromMessage('Primary field not found'));
+    if (!field) return err(domainError.notFound({ message: 'Primary field not found' }));
     return ok(field);
   }
 
@@ -301,10 +302,10 @@ export class Table extends AggregateRoot<TableId> {
     options?: { foreignTables?: ReadonlyArray<Table> }
   ): Result<Table, DomainError> {
     if (this.fieldsValue.some((existing) => existing.id().equals(field.id()))) {
-      return err(domainError.fromMessage('Field already exists'));
+      return err(domainError.conflict({ message: 'Field already exists' }));
     }
     if (this.fieldsValue.some((existing) => existing.name().equals(field.name()))) {
-      return err(domainError.fromMessage('Field names must be unique'));
+      return err(domainError.conflict({ message: 'Field names must be unique' }));
     }
 
     const validationResult = this.validateForeignTables([field], options?.foreignTables);
@@ -339,21 +340,31 @@ export class Table extends AggregateRoot<TableId> {
           fieldId: field.id(),
         })
       );
+      for (const view of nextTable.views()) {
+        nextTable.addDomainEvent(
+          ViewColumnMetaUpdated.create({
+            tableId: nextTable.id(),
+            baseId: nextTable.baseId(),
+            viewId: view.id(),
+            fieldId: field.id(),
+          })
+        );
+      }
       return ok(nextTable);
     });
   }
 
   removeField(fieldId: FieldId): Result<Table, DomainError> {
     if (this.primaryFieldIdValue.equals(fieldId)) {
-      return err(domainError.fromMessage('Cannot delete primary field'));
+      return err(domainError.validation({ message: 'Cannot delete primary field' }));
     }
 
     const targetField = this.fieldsValue.find((field) => field.id().equals(fieldId));
-    if (!targetField) return err(domainError.fromMessage('Field not found'));
+    if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
 
     const nextFields = this.fieldsValue.filter((field) => !field.id().equals(fieldId));
     if (nextFields.length === 0)
-      return err(domainError.fromMessage('Table requires at least one Field'));
+      return err(domainError.unexpected({ message: 'Table requires at least one Field' }));
 
     const nextViewsResult = this.cloneViewsWithoutField(nextFields, fieldId);
     if (nextViewsResult.isErr()) return err(nextViewsResult.error);
@@ -379,6 +390,16 @@ export class Table extends AggregateRoot<TableId> {
           fieldId,
         })
       );
+      for (const view of nextTable.views()) {
+        nextTable.addDomainEvent(
+          ViewColumnMetaUpdated.create({
+            tableId: nextTable.id(),
+            baseId: nextTable.baseId(),
+            viewId: view.id(),
+            fieldId,
+          })
+        );
+      }
       return nextTable;
     });
   }
@@ -434,7 +455,8 @@ export class Table extends AggregateRoot<TableId> {
       }
 
       const defaultEntry = defaultMeta.toDto()[newFieldKey];
-      if (!defaultEntry) return err(domainError.fromMessage('Missing new field column meta'));
+      if (!defaultEntry)
+        return err(domainError.validation({ message: 'Missing new field column meta' }));
 
       const currentEntries = Object.values(currentMeta);
       const maxOrder = currentEntries.length

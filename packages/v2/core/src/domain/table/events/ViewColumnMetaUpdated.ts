@@ -2,19 +2,20 @@ import type { ITablePersistenceDTO } from '../../../ports/mappers/TableMapper';
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
+import type { FieldId } from '../fields/FieldId';
 import type { TableId } from '../TableId';
-import type { TableName } from '../TableName';
+import type { ViewId } from '../views/ViewId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
 
-export class TableRenamed extends AbstractTableUpdatedEvent {
-  readonly name = DomainEventName.tableRenamed();
+export class ViewColumnMetaUpdated extends AbstractTableUpdatedEvent {
+  readonly name = DomainEventName.viewColumnMetaUpdated();
   readonly occurredAt = OccurredAt.now();
 
   private constructor(
     tableId: TableId,
     baseId: BaseId,
-    readonly previousName: TableName,
-    readonly nextName: TableName,
+    readonly viewId: ViewId,
+    readonly fieldId: FieldId,
     tableSnapshot?: ITablePersistenceDTO
   ) {
     super(tableId, baseId, tableSnapshot);
@@ -23,20 +24,26 @@ export class TableRenamed extends AbstractTableUpdatedEvent {
   static create(params: {
     tableId: TableId;
     baseId: BaseId;
-    previousName: TableName;
-    nextName: TableName;
+    viewId: ViewId;
+    fieldId: FieldId;
     tableSnapshot?: ITablePersistenceDTO;
-  }): TableRenamed {
-    return new TableRenamed(
+  }): ViewColumnMetaUpdated {
+    return new ViewColumnMetaUpdated(
       params.tableId,
       params.baseId,
-      params.previousName,
-      params.nextName,
+      params.viewId,
+      params.fieldId,
       params.tableSnapshot
     );
   }
 
-  withSnapshot(snapshot: ITablePersistenceDTO): TableRenamed {
-    return new TableRenamed(this.tableId, this.baseId, this.previousName, this.nextName, snapshot);
+  withSnapshot(snapshot: ITablePersistenceDTO): ViewColumnMetaUpdated {
+    return new ViewColumnMetaUpdated(
+      this.tableId,
+      this.baseId,
+      this.viewId,
+      this.fieldId,
+      snapshot
+    );
   }
 }

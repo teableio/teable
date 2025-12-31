@@ -20,6 +20,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -55,7 +56,7 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<Table, DomainError>> {
     if (this.failFind) return err(this.failFind);
     const match = this.inserted.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.fromMessage('Not found'));
+    if (!match) return err(domainError.notFound({ message: 'Not found' }));
     return ok(match);
   }
 
@@ -75,7 +76,7 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<void, DomainError>> {
     if (this.failUpdate) return err(this.failUpdate);
     const index = this.inserted.findIndex((entry) => entry.id().equals(table.id()));
-    if (index === -1) return err(domainError.fromMessage('Not found'));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     this.inserted[index] = table;
     this.updated.push(table);
     return ok(undefined);
@@ -158,11 +159,13 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -209,11 +212,13 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -247,13 +252,15 @@ describe('CreateTableHandler', () => {
     commandResult._unsafeUnwrap();
 
     const tableRepository = new FakeTableRepository();
-    tableRepository.failInsert = domainError.fromMessage('insert failed');
+    tableRepository.failInsert = domainError.unexpected({ message: 'insert failed' });
     const schemaRepository = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -274,12 +281,12 @@ describe('CreateTableHandler', () => {
     expect(result._unsafeUnwrapErr().message).toBe('insert failed');
 
     tableRepository.failInsert = undefined;
-    schemaRepository.failInsert = domainError.fromMessage('schema failed');
+    schemaRepository.failInsert = domainError.unexpected({ message: 'schema failed' });
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema failed');
 
     schemaRepository.failInsert = undefined;
-    eventBus.failPublish = domainError.fromMessage('publish failed');
+    eventBus.failPublish = domainError.unexpected({ message: 'publish failed' });
     const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(publishResult._unsafeUnwrapErr().message).toBe('publish failed');
   });
@@ -298,11 +305,13 @@ describe('CreateTableHandler', () => {
 
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
+      tableMapper,
       eventBus,
       unitOfWork
     );
@@ -362,11 +371,13 @@ describe('CreateTableHandler', () => {
       const tableRepository = new FakeTableRepository();
       tableRepository.inserted.push(foreignTable);
       const schemaRepository = new FakeTableSchemaRepository();
+      const tableMapper = new DefaultTableMapper();
       const eventBus = new FakeEventBus();
       const unitOfWork = new FakeUnitOfWork();
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
         schemaRepository,
+        tableMapper,
         eventBus,
         unitOfWork
       );
@@ -425,11 +436,13 @@ describe('CreateTableHandler', () => {
 
       const tableRepository = new FakeTableRepository();
       const schemaRepository = new FakeTableSchemaRepository();
+      const tableMapper = new DefaultTableMapper();
       const eventBus = new FakeEventBus();
       const unitOfWork = new FakeUnitOfWork();
       const tableUpdateFlow = new TableUpdateFlow(
         tableRepository,
         schemaRepository,
+        tableMapper,
         eventBus,
         unitOfWork
       );

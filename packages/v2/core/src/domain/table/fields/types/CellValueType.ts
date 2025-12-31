@@ -15,7 +15,7 @@ export class CellValueType extends ValueObject {
 
   static create(raw: unknown): Result<CellValueType, DomainError> {
     const parsed = cellValueTypeSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid CellValueType'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid CellValueType' }));
     return ok(new CellValueType(parsed.data));
   }
 

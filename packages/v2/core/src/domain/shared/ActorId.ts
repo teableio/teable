@@ -14,7 +14,7 @@ export class ActorId extends ValueObject {
 
   static create(raw: unknown): Result<ActorId, DomainError> {
     const parsed = actorIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ActorId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ActorId' }));
     return ok(new ActorId(parsed.data));
   }
 

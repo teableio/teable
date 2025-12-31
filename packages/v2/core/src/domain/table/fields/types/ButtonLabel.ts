@@ -14,7 +14,7 @@ export class ButtonLabel extends ValueObject {
 
   static create(raw: unknown): Result<ButtonLabel, DomainError> {
     const parsed = buttonLabelSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonLabel'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ButtonLabel' }));
     return ok(new ButtonLabel(parsed.data));
   }
 

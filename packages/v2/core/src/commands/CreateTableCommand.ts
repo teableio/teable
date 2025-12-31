@@ -132,7 +132,13 @@ export class CreateTableCommand {
 
   static create(raw: unknown): Result<CreateTableCommand, DomainError> {
     const parsed = createTableInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid CreateTableCommand input'));
+    if (!parsed.success)
+      return err(
+        domainError.validation({
+          message: 'Invalid CreateTableCommand input',
+          details: z.formatError(parsed.error),
+        })
+      );
 
     const tableIdResult: Result<TableId | undefined, DomainError> = parsed.data.tableId
       ? TableId.create(parsed.data.tableId)
@@ -172,7 +178,9 @@ export class CreateTableCommand {
       .map((x) => x.i);
 
     if (primaryIndexes.length > 1)
-      return err(domainError.fromMessage('CreateTableCommand requires exactly one primary Field'));
+      return err(
+        domainError.unexpected({ message: 'CreateTableCommand requires exactly one primary Field' })
+      );
 
     const primaryIndex = primaryIndexes[0] ?? 0;
 
@@ -216,7 +224,7 @@ export class CreateTableCommand {
           .with('calendar', () => ok(CreateCalendarViewSpec.create(name)))
           .with('form', () => ok(CreateFormViewSpec.create(name)))
           .with('plugin', () => ok(CreatePluginViewSpec.create(name)))
-          .otherwise(() => err(domainError.fromMessage('Unsupported view type')));
+          .otherwise(() => err(domainError.validation({ message: 'Unsupported view type' })));
       });
     });
 

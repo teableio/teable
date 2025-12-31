@@ -18,7 +18,8 @@ export class UserDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<UserDefaultValue, DomainError> {
     const parsed = userDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid UserDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid UserDefaultValue' }));
 
     if (typeof parsed.data === 'string') {
       return UserId.create(parsed.data).map((id) => new UserDefaultValue(id));

@@ -13,6 +13,7 @@ import type {
   LastModifiedByField,
   LastModifiedTimeField,
   LinkField,
+  LookupField,
   MultipleSelectField,
   NumberField,
   NumberFormatting,
@@ -93,7 +94,7 @@ const getViewColumnMeta = (
   if (result.isOk()) {
     return { value: result.value.toDto(), error: null };
   }
-  return { value: null, error: result.error };
+  return { value: null, error: result.error.message };
 };
 
 const sortColumnMeta = (
@@ -563,6 +564,28 @@ const formatRecordValue = (field: Field, value: unknown): FormattedRecordValue =
     return formatBadgeListValue(labels, { variant: 'outline' });
   }
 
+  if (fieldType === 'lookup') {
+    const lookupField = field as LookupField;
+    const values = Array.isArray(value) ? value : [value];
+    const innerFieldResult = lookupField.innerField();
+    if (innerFieldResult.isErr()) {
+      const labels = values
+        .map((entry) => stringifyRecordValue(entry))
+        .filter((entry): entry is string => Boolean(entry));
+      return formatBadgeListValue(labels, { variant: 'secondary' });
+    }
+
+    const innerField = innerFieldResult.value;
+    const labels = values
+      .map((entry) => {
+        if (isEmptyRecordValue(entry)) return null;
+        const formatted = formatRecordValue(innerField, entry);
+        return formatted.text || stringifyRecordValue(entry);
+      })
+      .filter((entry): entry is string => Boolean(entry));
+    return formatBadgeListValue(labels, { variant: 'secondary' });
+  }
+
   if (fieldType === 'formula' || fieldType === 'rollup') {
     const computedField = field as FormulaField | RollupField;
     const valueTypeResult = computedField.cellValueType();
@@ -642,7 +665,7 @@ const copyTableJson = async (
 ) => {
   const tableDtoResult = mapTableToDto(table);
   if (tableDtoResult.isErr()) {
-    toast.error('Unable to prepare table JSON', { description: tableDtoResult.error });
+    toast.error('Unable to prepare table JSON', { description: tableDtoResult.error.message });
     return;
   }
 
@@ -720,7 +743,7 @@ export function TableMetaPage({
   );
   const tableDtoResult = useMemo(() => (table ? mapTableToDto(table) : null), [table]);
   const tableJson = tableDtoResult?.isOk() ? tableDtoResult.value : null;
-  const tableJsonError = tableDtoResult?.isErr() ? tableDtoResult.error : null;
+  const tableJsonError = tableDtoResult?.isErr() ? tableDtoResult.error.message : null;
 
   const handleTabChange = (value: string) => {
     if (!isTableMetaTab(value)) return;
@@ -1275,7 +1298,7 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
               <TableHead>Field ID</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>DB Field</TableHead>
-              <TableHead>Primary</TableHead>
+              <TableHead>Info</TableHead>
               <TableHead>Options</TableHead>
               <TableHead className="w-12 text-right">Actions</TableHead>
             </TableRow>
@@ -1296,11 +1319,15 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
                     {dbFieldName ?? '-'}
                   </TableCell>
                   <TableCell>
-                    {isPrimary ? (
-                      <Badge variant="outline">Primary</Badge>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">-</span>
-                    )}
+                    <div className="flex flex-wrap gap-1">
+                      {isPrimary ? <Badge variant="outline">Primary</Badge> : null}
+                      {field.type().toString() === 'lookup' ? (
+                        <Badge variant="secondary">Lookup</Badge>
+                      ) : null}
+                      {!isPrimary && field.type().toString() !== 'lookup' ? (
+                        <span className="text-xs text-muted-foreground">-</span>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>{renderFieldOptions(field)}</TableCell>
                   <TableCell className="text-right">

@@ -18,7 +18,7 @@ export class TextAll extends SystemFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.TextAll} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.TextAll} only allow 1 param` }));
     }
     return ok(undefined);
   }

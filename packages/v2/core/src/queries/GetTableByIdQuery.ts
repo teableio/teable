@@ -21,7 +21,8 @@ export class GetTableByIdQuery {
 
   static create(raw: unknown): Result<GetTableByIdQuery, DomainError> {
     const parsed = getTableByIdInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid GetTableByIdQuery input'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid GetTableByIdQuery input' }));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).map((tableId) => new GetTableByIdQuery(baseId, tableId))

@@ -27,7 +27,8 @@ export class RenameTableCommand extends TableUpdateCommand {
 
   static create(raw: unknown): Result<RenameTableCommand, DomainError> {
     const parsed = renameTableInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RenameTableCommand input'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid RenameTableCommand input' }));
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>

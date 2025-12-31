@@ -168,7 +168,7 @@ export class FieldCreationSideEffectVisitor implements IFieldVisitor<FieldCreati
 
   private foreignTable(tableId: TableId): Result<Table, DomainError> {
     const table = this.foreignTablesById.get(tableId.toString());
-    if (!table) return err(domainError.fromMessage('Foreign table not loaded'));
+    if (!table) return err(domainError.invariant({ message: 'Foreign table not loaded' }));
     return ok(table);
   }
 }

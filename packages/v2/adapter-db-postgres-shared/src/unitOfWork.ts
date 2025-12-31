@@ -3,7 +3,9 @@ import type {
   IUnitOfWork,
   IUnitOfWorkTransaction,
   UnitOfWorkOperation,
+  DomainError,
 } from '@teable/v2-core';
+import { domainError, isDomainError } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { Kysely, Transaction } from 'kysely';
 import { err } from 'neverthrow';
@@ -11,7 +13,6 @@ import type { Result } from 'neverthrow';
 
 import { v2PostgresDbTokens } from './di/tokens';
 
-import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
 class UnitOfWorkAbort extends Error {
   constructor(readonly error: DomainError) {
     super(error.message);
@@ -55,7 +56,7 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       if (context.transaction instanceof PostgresUnitOfWorkTransaction) {
         return work(context);
       }
-      return err(domainError.fromMessage('Unsupported transaction context'));
+      return err(domainError.validation({ message: 'Unsupported transaction context' }));
     }
 
     try {
@@ -74,7 +75,11 @@ export class PostgresUnitOfWork<DB = unknown> implements IUnitOfWork {
       });
     } catch (error) {
       if (error instanceof UnitOfWorkAbort) return err(error.error);
-      return err(domainError.fromMessage(`Unexpected unit of work error: ${describeError(error)}`));
+      return err(
+        domainError.unexpected({
+          message: `Unexpected unit of work error: ${describeError(error)}`,
+        })
+      );
     }
   }
 }

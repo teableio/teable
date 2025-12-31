@@ -22,7 +22,7 @@ export class FormulaMeta extends RehydratedValueObject {
 
   static rehydrate(raw: unknown): Result<FormulaMeta, DomainError> {
     const parsed = formulaMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaMeta'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FormulaMeta' }));
     return ok(new FormulaMeta(JSON.stringify(parsed.data)));
   }
 
@@ -30,10 +30,10 @@ export class FormulaMeta extends RehydratedValueObject {
     return this.valueResult('FormulaMeta').andThen((rawValue) => {
       try {
         const parsed = formulaMetaSchema.safeParse(JSON.parse(rawValue));
-        if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaMeta'));
+        if (!parsed.success) return err(domainError.validation({ message: 'Invalid FormulaMeta' }));
         return ok(parsed.data);
       } catch {
-        return err(domainError.fromMessage('Invalid FormulaMeta'));
+        return err(domainError.validation({ message: 'Invalid FormulaMeta' }));
       }
     });
   }

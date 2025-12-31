@@ -132,7 +132,7 @@ const parseFormulaFormatting = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err(domainError.fromMessage('Invalid FormulaFormatting'));
+  return err(domainError.validation({ message: 'Invalid FormulaFormatting' }));
 };
 
 const parseFormulaShowAs = (
@@ -143,7 +143,7 @@ const parseFormulaShowAs = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err(domainError.fromMessage('Invalid FormulaShowAs'));
+  return err(domainError.validation({ message: 'Invalid FormulaShowAs' }));
 };
 
 const parseFormulaResultType = (
@@ -166,7 +166,8 @@ const parseFormulaResultType = (
 
 const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
-  if (!Array.isArray(raw)) return err(domainError.fromMessage('Invalid trackedFieldIds'));
+  if (!Array.isArray(raw))
+    return err(domainError.validation({ message: 'Invalid trackedFieldIds' }));
   return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
@@ -644,27 +645,28 @@ export class DefaultTableMapper implements ITableMapper {
   private mapLookupFieldToDomain(dto: ITableFieldPersistenceDTO): Result<Field, DomainError> {
     const lookupOptionsRaw = dto.lookupOptions;
     if (!lookupOptionsRaw) {
-      return err(domainError.fromMessage('Lookup field requires lookupOptions'));
+      return err(domainError.unexpected({ message: 'Lookup field requires lookupOptions' }));
     }
 
     return FieldId.create(dto.id).andThen((id) =>
       FieldName.create(dto.name).andThen((name) =>
         LookupOptions.create(lookupOptionsRaw).andThen((lookupOptions) =>
-          // Create a "stripped" DTO without isLookup to create the inner field
-          this.mapBaseFieldToDomain({
-            ...dto,
-            isLookup: undefined,
-            lookupOptions: undefined,
-            // Use a generated id for inner field (it's not persisted separately)
-            id: `inner_${dto.id}`,
-          }).andThen((innerField) =>
-            LookupField.create({
-              id,
-              name,
-              innerField,
-              lookupOptions,
-            }).andThen((field) =>
-              this.applyDbFieldName(field, dto.dbFieldName).map(() => field as Field)
+          FieldId.generate().andThen((innerId) =>
+            this.mapBaseFieldToDomain({
+              ...dto,
+              isLookup: undefined,
+              lookupOptions: undefined,
+              // Use a valid generated id for inner field (it's not persisted separately)
+              id: innerId.toString(),
+            }).andThen((innerField) =>
+              LookupField.create({
+                id,
+                name,
+                innerField,
+                lookupOptions,
+              }).andThen((field) =>
+                this.applyDbFieldName(field, dto.dbFieldName).map(() => field as Field)
+              )
             )
           )
         )
@@ -741,7 +743,8 @@ export class DefaultTableMapper implements ITableMapper {
             .with({ type: 'rollup' }, (dto) => {
               const options = dto.options;
               const configRaw = dto.config;
-              if (!configRaw) return err(domainError.fromMessage('RollupField config is required'));
+              if (!configRaw)
+                return err(domainError.validation({ message: 'RollupField config is required' }));
               return RollupFieldConfig.create(configRaw).andThen((config) =>
                 RollupExpression.create(options.expression).andThen((expression) =>
                   optional(options.timeZone, TimeZone.create).andThen((timeZone) =>

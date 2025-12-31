@@ -32,7 +32,9 @@ export class MemoryCommandBus implements ICommandBus {
         | undefined;
 
       if (!handlerToken) {
-        return err(domainError.fromMessage(`Missing command handler for ${commandType.name}`));
+        return err(
+          domainError.validation({ message: `Missing command handler for ${commandType.name}` })
+        );
       }
 
       try {
@@ -44,7 +46,7 @@ export class MemoryCommandBus implements ICommandBus {
         if (error instanceof Error) {
           return err(domainError.fromUnknown(error));
         }
-        return err(domainError.fromMessage('Command handler execution failed'));
+        return err(domainError.unexpected({ message: 'Command handler execution failed' }));
       }
     };
 
@@ -56,7 +58,7 @@ export class MemoryCommandBus implements ICommandBus {
           if (error instanceof Error) {
             return err(domainError.fromUnknown(error));
           }
-          return err(domainError.fromMessage('Command middleware execution failed'));
+          return err(domainError.unexpected({ message: 'Command middleware execution failed' }));
         }
       },
       executeHandler as CommandBusNext<TCommand, TResult>

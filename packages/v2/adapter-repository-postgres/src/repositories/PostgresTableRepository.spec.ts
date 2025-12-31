@@ -28,9 +28,12 @@ import {
   BaseId,
   FieldId,
   FieldName,
+  FieldNotNull,
+  FieldUnique,
   FormulaExpression,
   getRandomString,
   LinkFieldConfig,
+  LookupOptions,
   OffsetPagination,
   PageLimit,
   PageOffset,
@@ -47,6 +50,7 @@ import {
   TableName,
   TableByNameSpec,
   TableSortKey,
+  createSingleSelectField,
   v2CoreTokens,
   domainError,
 } from '@teable/v2-core';
@@ -223,11 +227,11 @@ class FieldToSnapshotVisitor implements IFieldVisitor<IFieldSnapshot> {
   }
 
   visitLinkField(_: LinkField) {
-    return err(domainError.fromMessage('Not implemented'));
+    return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
   visitLookupField(_: LookupField) {
-    return err(domainError.fromMessage('Not implemented'));
+    return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 }
 
@@ -1014,6 +1018,163 @@ describe('PostgresTableRepository (pg)', () => {
       );
       expect(lookupOptions.selfKeyName).toBe('__id');
       expect(lookupOptions.foreignKeyName).toBe(`__fk_${linkFieldId.toString()}`);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('rehydrates lookup fields with db names and validation flags', async () => {
+    const c = container.createChildContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseIdResult = BaseId.generate();
+      const actorIdResult = ActorId.create('system');
+      [baseIdResult, actorIdResult].forEach((r) => r._unsafeUnwrap());
+      const baseId = baseIdResult._unsafeUnwrap();
+      const actorId = actorIdResult._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Lookup Space', created_by: actorId.toString() })
+        .execute();
+
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Lookup Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const foreignTableName = TableName.create('Foreign')._unsafeUnwrap();
+      const foreignPrimaryName = FieldName.create('Title')._unsafeUnwrap();
+      const foreignStatusName = FieldName.create('Status')._unsafeUnwrap();
+      const foreignStatusId = FieldId.generate()._unsafeUnwrap();
+
+      const optionResult = SelectOption.create({
+        id: `cho${getRandomString(9)}`,
+        name: 'Todo',
+        color: 'orangeDark1',
+      });
+      optionResult._unsafeUnwrap();
+      const foreignStatusOption = optionResult._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder().withBaseId(baseId).withName(foreignTableName);
+      foreignBuilder.field().singleLineText().withName(foreignPrimaryName).primary().done();
+      foreignBuilder
+        .field()
+        .singleSelect()
+        .withId(foreignStatusId)
+        .withName(foreignStatusName)
+        .withOptions([foreignStatusOption])
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTable = foreignBuilder.build()._unsafeUnwrap();
+      (await repo.insert(context, foreignTable))._unsafeUnwrap();
+
+      const hostTableName = TableName.create('Host')._unsafeUnwrap();
+      const hostPrimaryName = FieldName.create('Name')._unsafeUnwrap();
+      const amountName = FieldName.create('Amount')._unsafeUnwrap();
+      const linkFieldName = FieldName.create('Link')._unsafeUnwrap();
+      const lookupFieldName = FieldName.create('Lookup')._unsafeUnwrap();
+      const linkFieldId = FieldId.generate()._unsafeUnwrap();
+      const lookupFieldId = FieldId.generate()._unsafeUnwrap();
+
+      const linkConfig = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignStatusId.toString(),
+      })._unsafeUnwrap();
+
+      const lookupOptions = LookupOptions.create({
+        linkFieldId: linkFieldId.toString(),
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignStatusId.toString(),
+      })._unsafeUnwrap();
+
+      const innerFieldId = FieldId.generate()._unsafeUnwrap();
+      const innerFieldName = FieldName.create('Status Inner')._unsafeUnwrap();
+      const innerField = createSingleSelectField({
+        id: innerFieldId,
+        name: innerFieldName,
+        options: [foreignStatusOption],
+      })._unsafeUnwrap();
+
+      const notNullValue = FieldNotNull.create(true)._unsafeUnwrap();
+      const uniqueValue = FieldUnique.create(true)._unsafeUnwrap();
+
+      const hostBuilder = Table.builder().withBaseId(baseId).withName(hostTableName);
+      hostBuilder.field().singleLineText().withName(hostPrimaryName).primary().done();
+      hostBuilder
+        .field()
+        .number()
+        .withName(amountName)
+        .withNotNull(notNullValue)
+        .withUnique(uniqueValue)
+        .done();
+      hostBuilder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(linkFieldName)
+        .withConfig(linkConfig)
+        .done();
+      hostBuilder
+        .field()
+        .lookup()
+        .withId(lookupFieldId)
+        .withName(lookupFieldName)
+        .withLookupOptions(lookupOptions)
+        .withInnerField(innerField)
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostTable = hostBuilder.build()._unsafeUnwrap();
+      (await repo.insert(context, hostTable))._unsafeUnwrap();
+
+      const specResult = Table.specs(baseId).byId(hostTable.id()).build();
+      specResult._unsafeUnwrap();
+      const fetched = (await repo.findOne(context, specResult._unsafeUnwrap()))._unsafeUnwrap();
+
+      const lookupField = fetched
+        .getFields()
+        .find((field) => field.type().toString() === 'lookup') as LookupField | undefined;
+      expect(lookupField).toBeDefined();
+      if (!lookupField) return;
+
+      expect(lookupField.lookupOptions().linkFieldId().toString()).toBe(linkFieldId.toString());
+      expect(lookupField.lookupOptions().foreignTableId().toString()).toBe(
+        foreignTable.id().toString()
+      );
+      expect(lookupField.lookupOptions().lookupFieldId().toString()).toBe(
+        foreignStatusId.toString()
+      );
+
+      const lookupDbFieldName = lookupField
+        .dbFieldName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap();
+      expect(lookupDbFieldName.length).toBeGreaterThan(0);
+
+      const amountField = fetched.getFields().find((field) => field.name().equals(amountName));
+      expect(amountField?.notNull().toBoolean()).toBe(true);
+      expect(amountField?.unique().toBoolean()).toBe(true);
+
+      const amountDbFieldName = amountField
+        ?.dbFieldName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap();
+      expect(amountDbFieldName?.length).toBeGreaterThan(0);
     } finally {
       await db.destroy();
     }

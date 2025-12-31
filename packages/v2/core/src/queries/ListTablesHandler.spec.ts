@@ -83,11 +83,12 @@ describe('ListTablesHandler', () => {
     });
 
     const repo: ITableRepository = {
-      insert: async () => err(domainError.fromMessage('nope')),
-      findOne: async () => err(domainError.fromMessage('nope')),
-      find: async () => err(domainError.fromMessage('repository error')),
-      updateOne: async (_context, _table, _mutateSpec) => err(domainError.fromMessage('nope')),
-      delete: async () => err(domainError.fromMessage('nope')),
+      insert: async () => err(domainError.unexpected({ message: 'nope' })),
+      findOne: async () => err(domainError.unexpected({ message: 'nope' })),
+      find: async () => err(domainError.unexpected({ message: 'repository error' })),
+      updateOne: async (_context, _table, _mutateSpec) =>
+        err(domainError.unexpected({ message: 'nope' })),
+      delete: async () => err(domainError.unexpected({ message: 'nope' })),
     };
 
     const handler = new ListTablesHandler(repo);

@@ -18,7 +18,8 @@ export class UserMultiplicity extends ValueObject {
 
   static create(raw: unknown): Result<UserMultiplicity, DomainError> {
     const parsed = userMultiplicitySchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid UserMultiplicity'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid UserMultiplicity' }));
     return ok(new UserMultiplicity(parsed.data));
   }
 

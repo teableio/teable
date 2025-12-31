@@ -66,7 +66,7 @@ export abstract class Field extends Entity<FieldId> {
 
   setNotNull(notNull: FieldNotNull): Result<void, DomainError> {
     if (this.computedValue.toBoolean() && notNull.toBoolean()) {
-      return err(domainError.fromMessage('Computed field cannot be not null'));
+      return err(domainError.validation({ message: 'Computed field cannot be not null' }));
     }
     if (this.notNullValue.equals(notNull)) return ok(undefined);
     this.notNullValue = notNull;
@@ -75,7 +75,7 @@ export abstract class Field extends Entity<FieldId> {
 
   setUnique(unique: FieldUnique): Result<void, DomainError> {
     if (this.computedValue.toBoolean() && unique.toBoolean()) {
-      return err(domainError.fromMessage('Computed field cannot be unique'));
+      return err(domainError.conflict({ message: 'Computed field cannot be unique' }));
     }
     if (this.uniqueValue.equals(unique)) return ok(undefined);
     this.uniqueValue = unique;
@@ -95,7 +95,7 @@ export abstract class Field extends Entity<FieldId> {
     const currentValue = this.dbFieldNameValue.value();
     if (currentValue.isOk()) {
       if (currentValue.value !== nextValue.value)
-        return err(domainError.fromMessage('DbFieldName already set'));
+        return err(domainError.invariant({ message: 'DbFieldName already set' }));
       return ok(undefined);
     }
 
@@ -110,7 +110,7 @@ export abstract class Field extends Entity<FieldId> {
   setDependencies(dependencies: ReadonlyArray<FieldId>): Result<void, DomainError> {
     if (Field.hasSameFieldIds(this.dependenciesValue, dependencies)) return ok(undefined);
     if (this.dependenciesValue.length > 0)
-      return err(domainError.fromMessage('Field dependencies already set'));
+      return err(domainError.invariant({ message: 'Field dependencies already set' }));
     this.dependenciesValue = [...dependencies];
     return ok(undefined);
   }
@@ -126,7 +126,7 @@ export abstract class Field extends Entity<FieldId> {
   setDependents(dependents: ReadonlyArray<FieldId>): Result<void, DomainError> {
     if (Field.hasSameFieldIds(this.dependentsValue ?? [], dependents)) return ok(undefined);
     if (this.dependentsValue && this.dependentsValue.length > 0)
-      return err(domainError.fromMessage('Field dependents already set'));
+      return err(domainError.invariant({ message: 'Field dependents already set' }));
     this.dependentsValue = [...dependents];
     return ok(undefined);
   }

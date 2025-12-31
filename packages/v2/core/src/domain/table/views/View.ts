@@ -29,14 +29,15 @@ export abstract class View extends Entity<ViewId> {
   }
 
   columnMeta(): Result<ViewColumnMeta, DomainError> {
-    if (!this.columnMetaValue) return err(domainError.fromMessage('ViewColumnMeta not set'));
+    if (!this.columnMetaValue)
+      return err(domainError.invariant({ message: 'ViewColumnMeta not set' }));
     return ok(this.columnMetaValue);
   }
 
   setColumnMeta(columnMeta: ViewColumnMeta): Result<void, DomainError> {
     if (this.columnMetaValue) {
       if (this.columnMetaValue.equals(columnMeta)) return ok(undefined);
-      return err(domainError.fromMessage('ViewColumnMeta already set'));
+      return err(domainError.invariant({ message: 'ViewColumnMeta already set' }));
     }
     this.columnMetaValue = columnMeta;
     return ok(undefined);

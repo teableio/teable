@@ -15,6 +15,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableRenamed.ts` - Role: domain event; Purpose: payload for table rename.
 - `FieldCreated.ts` - Role: domain event; Purpose: payload for field creation.
 - `FieldDeleted.ts` - Role: domain event; Purpose: payload for field deletion.
+- `ViewColumnMetaUpdated.ts` - Role: domain event; Purpose: payload for view column meta update when field is added/removed.
 
 ## Examples
 
@@ -22,3 +23,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `packages/v2/core/src/domain/table/Table.ts` - TableDeleted emission location.
 - `packages/v2/core/src/domain/table/Table.ts` - FieldCreated emission location.
 - `packages/v2/core/src/domain/table/Table.ts` - FieldDeleted emission location.
+- `packages/v2/core/src/domain/table/Table.ts` - ViewColumnMetaUpdated emission location (addField, removeField).

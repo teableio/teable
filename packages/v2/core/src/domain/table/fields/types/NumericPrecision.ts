@@ -14,7 +14,8 @@ export class NumericPrecision extends ValueObject {
 
   static create(raw: unknown): Result<NumericPrecision, DomainError> {
     const parsed = numericPrecisionSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid NumericPrecision'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid NumericPrecision' }));
     return ok(new NumericPrecision(parsed.data));
   }
 

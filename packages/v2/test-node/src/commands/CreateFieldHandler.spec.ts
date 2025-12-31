@@ -81,11 +81,12 @@ describe('CreateFieldHandler', () => {
       context,
       createForeignResult._unsafeUnwrap()
     );
-    foreignCreated._unsafeUnwrap();
+    const foreignCreatedValue = foreignCreated._unsafeUnwrap();
+    const createdTableValue = createdTable._unsafeUnwrap();
 
-    const foreignTable = foreignCreated.value.table;
+    const foreignTable = foreignCreatedValue.table;
 
-    const tableId = createdTable.value.table.id().toString();
+    const tableId = createdTableValue.table.id().toString();
     const numberFieldId = `fld${'n'.repeat(16)}`;
     const formulaFieldId = `fld${'f'.repeat(16)}`;
     const linkFieldId = `fld${'l'.repeat(16)}`;
@@ -377,7 +378,7 @@ describe('CreateFieldHandler', () => {
       },
     ];
 
-    let currentTable = createdTable.value.table;
+    let currentTable = createdTableValue.table;
     for (const entry of cases) {
       const commandResult = CreateFieldCommand.create({
         baseId: baseId.toString(),
@@ -390,9 +391,8 @@ describe('CreateFieldHandler', () => {
         context,
         commandResult._unsafeUnwrap()
       );
-      result._unsafeUnwrap();
-
-      currentTable = result.value.table;
+      const resultValue = result._unsafeUnwrap();
+      currentTable = resultValue.table;
       entry.assert(currentTable);
     }
 

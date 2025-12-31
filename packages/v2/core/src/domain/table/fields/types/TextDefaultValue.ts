@@ -16,7 +16,8 @@ export class TextDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<TextDefaultValue, DomainError> {
     const parsed = textDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid TextDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid TextDefaultValue' }));
     return ok(new TextDefaultValue(parsed.data));
   }
 

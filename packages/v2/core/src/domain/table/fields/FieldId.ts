@@ -17,7 +17,7 @@ export class FieldId extends ValueObject {
 
   static create(raw: unknown): Result<FieldId, DomainError> {
     const parsed = fieldIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldId' }));
     return ok(new FieldId(parsed.data));
   }
 
@@ -25,7 +25,7 @@ export class FieldId extends ValueObject {
     try {
       return ok(new FieldId(generatePrefixedId(fieldIdPrefix, fieldIdBodyLength)));
     } catch {
-      return err(domainError.fromMessage('Failed to generate FieldId'));
+      return err(domainError.unexpected({ message: 'Failed to generate FieldId' }));
     }
   }
 

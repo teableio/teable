@@ -19,7 +19,7 @@ export class LinkFieldMeta extends ValueObject {
   static create(raw: unknown): Result<LinkFieldMeta | undefined, DomainError> {
     if (raw == null) return ok(undefined);
     const parsed = linkFieldMetaSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkFieldMeta'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid LinkFieldMeta' }));
     return ok(new LinkFieldMeta(parsed.data));
   }
 

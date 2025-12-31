@@ -20,6 +20,7 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
@@ -47,7 +48,7 @@ class InMemoryTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     const match = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!match) return err(domainError.fromMessage('Not found'));
+    if (!match) return err(domainError.notFound({ message: 'Not found' }));
     return ok(match);
   }
 
@@ -65,7 +66,7 @@ class InMemoryTableRepository implements ITableRepository {
     _mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
-    if (index === -1) return err(domainError.fromMessage('Not found'));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     this.tables[index] = table;
     return ok(undefined);
   }
@@ -146,11 +147,13 @@ describe('CreateFieldHandler', () => {
 
     const tableRepository = new InMemoryTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
+    const tableMapper = new DefaultTableMapper();
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();
     const tableUpdateFlow = new TableUpdateFlow(
       tableRepository,
       schemaRepository,
+      tableMapper,
       eventBus,
       unitOfWork
     );

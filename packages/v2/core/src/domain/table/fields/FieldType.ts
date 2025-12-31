@@ -38,7 +38,7 @@ export class FieldType extends ValueObject {
 
   static create(raw: unknown): Result<FieldType, DomainError> {
     const parsed = fieldTypeSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldType'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldType' }));
     return ok(new FieldType(parsed.data));
   }
 

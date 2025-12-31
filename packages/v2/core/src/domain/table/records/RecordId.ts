@@ -17,7 +17,7 @@ export class RecordId extends ValueObject {
 
   static create(raw: unknown): Result<RecordId, DomainError> {
     const parsed = recordIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RecordId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid RecordId' }));
     return ok(new RecordId(parsed.data));
   }
 
@@ -25,7 +25,7 @@ export class RecordId extends ValueObject {
     try {
       return ok(new RecordId(generatePrefixedId(recordIdPrefix, recordIdBodyLength)));
     } catch {
-      return err(domainError.fromMessage('Failed to generate RecordId'));
+      return err(domainError.unexpected({ message: 'Failed to generate RecordId' }));
     }
   }
 

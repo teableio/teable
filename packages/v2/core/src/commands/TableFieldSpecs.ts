@@ -638,7 +638,7 @@ class CreateSingleLineTextFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createSingleLineTextField({
         id,
@@ -706,7 +706,7 @@ class CreateLongTextFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createLongTextField({
         id,
@@ -781,7 +781,7 @@ class CreateNumberFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createNumberField({
         id,
@@ -858,7 +858,7 @@ class CreateRatingFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createRatingField({
         id,
@@ -931,7 +931,7 @@ class CreateFormulaFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createFormulaField({
         id,
@@ -1007,7 +1007,7 @@ class CreateRollupFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createRollupFieldPending({
         id,
@@ -1080,11 +1080,11 @@ class CreateLinkFieldSpec implements ICreateTableFieldSpec {
 
   createField(params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     const baseId = params?.baseId;
     const tableId = params?.tableId;
     if (!baseId || !tableId)
-      return err(domainError.fromMessage('CreateLinkFieldSpec requires table context'));
+      return err(domainError.unexpected({ message: 'CreateLinkFieldSpec requires table context' }));
     return resolveFieldId(this.id).andThen((id) =>
       createNewLinkField({
         id,
@@ -1157,7 +1157,7 @@ class CreateLookupFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary) {
-      return err(domainError.fromMessage('Primary field cannot be a lookup field'));
+      return err(domainError.validation({ message: 'Primary field cannot be a lookup field' }));
     }
     return resolveFieldId(this.id).andThen((id) =>
       LookupOptions.create({
@@ -1277,7 +1277,7 @@ class CreateSingleSelectFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createSingleSelectField({
         id,
@@ -1356,7 +1356,7 @@ class CreateMultipleSelectFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createMultipleSelectField({
         id,
@@ -1425,7 +1425,7 @@ class CreateCheckboxFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createCheckboxField({
         id,
@@ -1481,7 +1481,7 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createAttachmentField({
         id,
@@ -1551,7 +1551,7 @@ class CreateDateFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createDateField({
         id,
@@ -1603,7 +1603,7 @@ class CreateCreatedTimeFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createCreatedTimeField({
         id,
@@ -1661,7 +1661,7 @@ class CreateLastModifiedTimeFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createLastModifiedTimeField({
         id,
@@ -1735,7 +1735,7 @@ class CreateUserFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createUserField({
         id,
@@ -1784,7 +1784,7 @@ class CreateCreatedByFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) => createCreatedByField({ id, name: this.name }));
   }
 
@@ -1827,7 +1827,7 @@ class CreateLastModifiedByFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createLastModifiedByField({
         id,
@@ -1872,7 +1872,7 @@ class CreateAutoNumberFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) => createAutoNumberField({ id, name: this.name }));
   }
 
@@ -1947,7 +1947,7 @@ class CreateButtonFieldSpec implements ICreateTableFieldSpec {
 
   createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     if (this.isPrimary)
-      return err(domainError.fromMessage('Primary field updates are not supported'));
+      return err(domainError.validation({ message: 'Primary field updates are not supported' }));
     return resolveFieldId(this.id).andThen((id) =>
       createButtonField({
         id,
@@ -1999,7 +1999,9 @@ type FieldValidationConfig = {
 const parseFieldNotNull = (raw: unknown, enabled: boolean): Result<FieldNotNull, DomainError> => {
   if (!enabled) {
     if (raw === true)
-      return err(domainError.fromMessage('Field notNull is not supported for this type'));
+      return err(
+        domainError.validation({ message: 'Field notNull is not supported for this type' })
+      );
     return ok(FieldNotNull.optional());
   }
   if (raw == null) return ok(FieldNotNull.optional());
@@ -2009,7 +2011,9 @@ const parseFieldNotNull = (raw: unknown, enabled: boolean): Result<FieldNotNull,
 const parseFieldUnique = (raw: unknown, enabled: boolean): Result<FieldUnique, DomainError> => {
   if (!enabled) {
     if (raw === true)
-      return err(domainError.fromMessage('Field unique is not supported for this type'));
+      return err(
+        domainError.validation({ message: 'Field unique is not supported for this type' })
+      );
     return ok(FieldUnique.disabled());
   }
   if (raw == null) return ok(FieldUnique.disabled());
@@ -2080,7 +2084,7 @@ const parseFormulaFormatting = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err(domainError.fromMessage('Invalid FormulaFormatting'));
+  return err(domainError.validation({ message: 'Invalid FormulaFormatting' }));
 };
 
 const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, DomainError> => {
@@ -2089,13 +2093,13 @@ const parseFormulaShowAs = (raw: unknown): Result<FormulaShowAs | undefined, Dom
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err(domainError.fromMessage('Invalid FormulaShowAs'));
+  return err(domainError.validation({ message: 'Invalid FormulaShowAs' }));
 };
 
 const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
   const parsed = trackedFieldIdsSchema.safeParse(raw);
-  if (!parsed.success) return err(domainError.fromMessage('Invalid trackedFieldIds'));
+  if (!parsed.success) return err(domainError.validation({ message: 'Invalid trackedFieldIds' }));
   return sequence(parsed.data.map((entry) => FieldId.create(entry)));
 };
 

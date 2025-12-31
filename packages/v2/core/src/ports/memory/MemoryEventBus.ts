@@ -54,7 +54,7 @@ export class MemoryEventBus implements IEventBus {
           if (error instanceof Error) {
             return err(domainError.fromUnknown(error));
           }
-          return err(domainError.fromMessage('Event handler execution failed'));
+          return err(domainError.unexpected({ message: 'Event handler execution failed' }));
         }
       }
     }

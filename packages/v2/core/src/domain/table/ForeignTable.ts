@@ -32,7 +32,8 @@ export class ForeignTable extends ValueObject {
 
   fieldById(fieldId: FieldId): Result<Field, DomainError> {
     const fieldResult = this.tableValue.getField((candidate) => candidate.id().equals(fieldId));
-    if (fieldResult.isErr()) return err(domainError.fromMessage('Field not found in ForeignTable'));
+    if (fieldResult.isErr())
+      return err(domainError.notFound({ message: 'Field not found in ForeignTable' }));
     return ok(fieldResult.value);
   }
 

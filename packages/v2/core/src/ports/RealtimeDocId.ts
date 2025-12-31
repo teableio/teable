@@ -20,7 +20,7 @@ export class RealtimeDocId extends ValueObject {
 
   static create(raw: unknown): Result<RealtimeDocId, DomainError> {
     const parsed = realtimeDocIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RealtimeDocId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid RealtimeDocId' }));
     return ok(new RealtimeDocId(parsed.data));
   }
 
@@ -32,7 +32,7 @@ export class RealtimeDocId extends ValueObject {
     const value = raw.toString();
     const separatorIndex = value.indexOf(realtimeDocIdSeparator);
     if (separatorIndex <= 0 || separatorIndex >= value.length - 1) {
-      return err(domainError.fromMessage('Invalid RealtimeDocId'));
+      return err(domainError.validation({ message: 'Invalid RealtimeDocId' }));
     }
 
     return ok({

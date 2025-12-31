@@ -17,7 +17,7 @@ export class ViewId extends ValueObject {
 
   static create(raw: unknown): Result<ViewId, DomainError> {
     const parsed = viewIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewId' }));
     return ok(new ViewId(parsed.data));
   }
 
@@ -25,7 +25,7 @@ export class ViewId extends ValueObject {
     try {
       return ok(new ViewId(generatePrefixedId(viewIdPrefix, viewIdBodyLength)));
     } catch {
-      return err(domainError.fromMessage('Failed to generate ViewId'));
+      return err(domainError.unexpected({ message: 'Failed to generate ViewId' }));
     }
   }
 

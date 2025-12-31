@@ -23,7 +23,7 @@ export class If extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 3) {
-      return err(domainError.fromMessage(`${FunctionName.If} needs at least 3 params`));
+      return err(domainError.validation({ message: `${FunctionName.If} needs at least 3 params` }));
     }
     return ok(undefined);
   }
@@ -71,7 +71,9 @@ export class Switch extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 2) {
-      return err(domainError.fromMessage(`${FunctionName.Switch} needs at least 2 params`));
+      return err(
+        domainError.validation({ message: `${FunctionName.Switch} needs at least 2 params` })
+      );
     }
     return ok(undefined);
   }
@@ -120,7 +122,7 @@ export class And extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.And} needs at least 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.And} needs at least 1 param` }));
     }
     return ok(undefined);
   }
@@ -140,7 +142,7 @@ export class Or extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.Or} needs at least 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Or} needs at least 1 param` }));
     }
     return ok(undefined);
   }
@@ -160,7 +162,7 @@ export class Xor extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length < 1) {
-      return err(domainError.fromMessage(`${FunctionName.Xor} needs at least 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Xor} needs at least 1 param` }));
     }
     return ok(undefined);
   }
@@ -180,7 +182,7 @@ export class Not extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.Not} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.Not} only allow 1 param` }));
     }
     return ok(undefined);
   }
@@ -237,7 +239,7 @@ export class IsError extends LogicalFunc {
 
   validateParams(params: TypedValue[]) {
     if (params.length !== 1) {
-      return err(domainError.fromMessage(`${FunctionName.IsError} only allow 1 param`));
+      return err(domainError.validation({ message: `${FunctionName.IsError} only allow 1 param` }));
     }
     return ok(undefined);
   }

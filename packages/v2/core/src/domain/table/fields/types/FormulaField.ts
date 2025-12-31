@@ -124,9 +124,9 @@ export class FormulaField extends Field {
 
   setFormatting(formatting: FormulaFormatting): Result<void, DomainError> {
     if (this.formattingValue)
-      return err(domainError.fromMessage('FormulaField formatting already set'));
+      return err(domainError.invariant({ message: 'FormulaField formatting already set' }));
     if (!this.cellValueTypeValue || !this.isMultipleCellValueValue) {
-      return err(domainError.fromMessage('FormulaField result type not set'));
+      return err(domainError.invariant({ message: 'FormulaField result type not set' }));
     }
 
     const previous = this.formattingValue;
@@ -154,13 +154,13 @@ export class FormulaField extends Field {
 
   cellValueType(): Result<CellValueType, DomainError> {
     if (!this.cellValueTypeValue)
-      return err(domainError.fromMessage('FormulaField cell value type not set'));
+      return err(domainError.invariant({ message: 'FormulaField cell value type not set' }));
     return ok(this.cellValueTypeValue);
   }
 
   isMultipleCellValue(): Result<CellValueMultiplicity, DomainError> {
     if (!this.isMultipleCellValueValue)
-      return err(domainError.fromMessage('FormulaField multiplicity not set'));
+      return err(domainError.invariant({ message: 'FormulaField multiplicity not set' }));
     return ok(this.isMultipleCellValueValue);
   }
 
@@ -169,10 +169,10 @@ export class FormulaField extends Field {
     isMultipleCellValue: CellValueMultiplicity
   ): Result<void, DomainError> {
     if (this.cellValueTypeValue && !this.cellValueTypeValue.equals(cellValueType)) {
-      return err(domainError.fromMessage('FormulaField cell value type already set'));
+      return err(domainError.invariant({ message: 'FormulaField cell value type already set' }));
     }
     if (this.isMultipleCellValueValue && !this.isMultipleCellValueValue.equals(isMultipleCellValue))
-      return err(domainError.fromMessage('FormulaField multiplicity already set'));
+      return err(domainError.invariant({ message: 'FormulaField multiplicity already set' }));
 
     const validation = this.validateOptions(cellValueType, isMultipleCellValue);
     if (validation.isErr()) return err(validation.error);
@@ -196,40 +196,42 @@ export class FormulaField extends Field {
 
     if (cellValueType.equals(CellValueType.number())) {
       if (formatting && !(formatting instanceof NumberFormattingValue))
-        return err(domainError.fromMessage('Invalid FormulaField formatting'));
+        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
       if (showAs && !(showAs instanceof NumberShowAsValue))
-        return err(domainError.fromMessage('Invalid FormulaField showAs'));
+        return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       if (showAs) {
         const dto = showAs.toDto();
         const isSingle = 'showValue' in dto;
         if (isMultiple && isSingle)
-          return err(domainError.fromMessage('Invalid FormulaField showAs'));
+          return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
         if (!isMultiple && !isSingle)
-          return err(domainError.fromMessage('Invalid FormulaField showAs'));
+          return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       }
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.dateTime())) {
       if (formatting && !(formatting instanceof DateTimeFormattingValue))
-        return err(domainError.fromMessage('Invalid FormulaField formatting'));
-      if (showAs) return err(domainError.fromMessage('Invalid FormulaField showAs'));
+        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+      if (showAs) return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.string())) {
-      if (formatting) return err(domainError.fromMessage('Invalid FormulaField formatting'));
+      if (formatting)
+        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
       if (showAs && !(showAs instanceof SingleLineTextShowAsValue))
-        return err(domainError.fromMessage('Invalid FormulaField showAs'));
+        return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
     }
 
     if (cellValueType.equals(CellValueType.boolean())) {
-      if (formatting) return err(domainError.fromMessage('Invalid FormulaField formatting'));
-      if (showAs) return err(domainError.fromMessage('Invalid FormulaField showAs'));
+      if (formatting)
+        return err(domainError.validation({ message: 'Invalid FormulaField formatting' }));
+      if (showAs) return err(domainError.validation({ message: 'Invalid FormulaField showAs' }));
       return ok(undefined);
     }
 
-    return err(domainError.fromMessage('Invalid FormulaField cell value type'));
+    return err(domainError.validation({ message: 'Invalid FormulaField cell value type' }));
   }
 }

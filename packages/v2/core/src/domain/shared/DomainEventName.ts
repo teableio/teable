@@ -14,7 +14,7 @@ export class DomainEventName extends ValueObject {
 
   static create(raw: unknown): Result<DomainEventName, DomainError> {
     const parsed = domainEventNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DomainEventName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid DomainEventName' }));
     return ok(new DomainEventName(parsed.data));
   }
 
@@ -36,6 +36,10 @@ export class DomainEventName extends ValueObject {
 
   static fieldDeleted(): DomainEventName {
     return new DomainEventName('FieldDeleted');
+  }
+
+  static viewColumnMetaUpdated(): DomainEventName {
+    return new DomainEventName('ViewColumnMetaUpdated');
   }
 
   equals(other: DomainEventName): boolean {

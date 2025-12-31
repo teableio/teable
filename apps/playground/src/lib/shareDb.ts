@@ -13,6 +13,7 @@ export type ShareDbDocState<T> = {
 
 export type ShareDbQueryState<T> = {
   status: ShareDbDocStatus;
+  collection: string | null;
   data: ReadonlyArray<T>;
   ids: ReadonlyArray<string>;
   removedIds: ReadonlyArray<string>;
@@ -98,8 +99,35 @@ export const useShareDbDoc = <T>(params: {
 
     setState((prev) => ({ ...prev, status: 'connecting', error: null }));
 
+    let updatePending = false;
+    let lastUpdateTime = 0;
+    const UPDATE_THROTTLE_MS = 16; // ~60fps
+
     const updateSnapshot = () => {
       if (!isActive) return;
+
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTime;
+
+      // Throttle updates to prevent excessive re-renders
+      if (timeSinceLastUpdate < UPDATE_THROTTLE_MS) {
+        if (!updatePending) {
+          updatePending = true;
+          setTimeout(() => {
+            updatePending = false;
+            if (isActive) {
+              doUpdateSnapshot();
+            }
+          }, UPDATE_THROTTLE_MS - timeSinceLastUpdate);
+        }
+        return;
+      }
+
+      doUpdateSnapshot();
+    };
+
+    const doUpdateSnapshot = () => {
+      lastUpdateTime = Date.now();
       setState({ status: 'ready', data: doc.data ?? null, error: null });
     };
 
@@ -160,17 +188,28 @@ export const useShareDbQuery = <T>(params: {
   const queryValue = useMemo(() => (query == null ? {} : query), [queryKey]);
   const [state, setState] = useState<ShareDbQueryState<T>>({
     status: 'idle',
+    collection: null,
     data: [],
     ids: [],
     removedIds: [],
     error: null,
   });
   const previousIdsRef = useRef<Set<string>>(new Set());
+  // Use ref to always access the latest filter function without adding it to effect dependencies
+  const filterRef = useRef(filter);
+  filterRef.current = filter;
 
   useEffect(() => {
     if (!enabled || !collection) {
       previousIdsRef.current = new Set();
-      setState({ status: 'idle', data: [], ids: [], removedIds: [], error: null });
+      setState({
+        status: 'idle',
+        collection: null,
+        data: [],
+        ids: [],
+        removedIds: [],
+        error: null,
+      });
       return;
     }
 
@@ -183,7 +222,13 @@ export const useShareDbQuery = <T>(params: {
     const connection = shared.connection;
     const subscribeQuery = connection.createSubscribeQuery<T>(collection, queryValue) as Query<T>;
 
-    setState((prev) => ({ ...prev, status: 'connecting', error: null }));
+    const subscribedCollection = collection;
+    setState((prev) => ({
+      ...prev,
+      status: 'connecting',
+      collection: subscribedCollection,
+      error: null,
+    }));
 
     const docListeners = new Map<Doc<T>, () => void>();
 
@@ -205,9 +250,37 @@ export const useShareDbQuery = <T>(params: {
       docListeners.delete(doc);
     };
 
+    let updatePending = false;
+    let lastUpdateTime = 0;
+    const UPDATE_THROTTLE_MS = 16; // ~60fps
+
     const updateResults = () => {
       if (!isActive) return;
-      const docFilter = filter ?? ((doc: Doc<T>) => Boolean(doc.type) && doc.data != null);
+
+      const now = Date.now();
+      const timeSinceLastUpdate = now - lastUpdateTime;
+
+      // Throttle updates to prevent excessive re-renders
+      if (timeSinceLastUpdate < UPDATE_THROTTLE_MS) {
+        if (!updatePending) {
+          updatePending = true;
+          setTimeout(() => {
+            updatePending = false;
+            if (isActive) {
+              doUpdateResults();
+            }
+          }, UPDATE_THROTTLE_MS - timeSinceLastUpdate);
+        }
+        return;
+      }
+
+      doUpdateResults();
+    };
+
+    const doUpdateResults = () => {
+      lastUpdateTime = Date.now();
+      const docFilter =
+        filterRef.current ?? ((doc: Doc<T>) => Boolean(doc.type) && doc.data != null);
       const docs = subscribeQuery.results ?? [];
       const nextDocs = new Set(docs);
       for (const doc of docs) attachDocListener(doc);
@@ -219,7 +292,14 @@ export const useShareDbQuery = <T>(params: {
       const nextIds = new Set(ids);
       const removedIds = [...previousIdsRef.current].filter((id) => !nextIds.has(id));
       previousIdsRef.current = nextIds;
-      setState({ status: 'ready', data: results, ids, removedIds, error: null });
+      setState({
+        status: 'ready',
+        collection: subscribedCollection,
+        data: results,
+        ids,
+        removedIds,
+        error: null,
+      });
     };
 
     const handleError = (error: unknown) => {
@@ -227,6 +307,7 @@ export const useShareDbQuery = <T>(params: {
       previousIdsRef.current = new Set();
       setState({
         status: 'error',
+        collection: subscribedCollection,
         data: [],
         ids: [],
         removedIds: [],

@@ -66,7 +66,7 @@ class TestHandler {
     _context: IExecutionContext,
     _message: PayloadMessage
   ): Promise<Result<string, DomainError>> {
-    return err(domainError.fromMessage('failed'));
+    return err(domainError.unexpected({ message: 'failed' }));
   }
 
   @TraceSpan()

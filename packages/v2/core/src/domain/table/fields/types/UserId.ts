@@ -14,7 +14,7 @@ export class UserId extends ValueObject {
 
   static create(raw: unknown): Result<UserId, DomainError> {
     const parsed = userIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid UserId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid UserId' }));
     return ok(new UserId(parsed.data));
   }
 

@@ -14,7 +14,8 @@ export class SelectOptionName extends ValueObject {
 
   static create(raw: unknown): Result<SelectOptionName, DomainError> {
     const parsed = selectOptionNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectOptionName'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid SelectOptionName' }));
     return ok(new SelectOptionName(parsed.data));
   }
 

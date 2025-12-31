@@ -18,7 +18,7 @@ export class DbFieldName extends RehydratedValueObject {
 
   static rehydrate(raw: unknown): Result<DbFieldName, DomainError> {
     const parsed = dbFieldNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DbFieldName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid DbFieldName' }));
     return ok(new DbFieldName(parsed.data));
   }
 

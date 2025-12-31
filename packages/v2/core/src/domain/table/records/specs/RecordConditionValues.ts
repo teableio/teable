@@ -55,7 +55,8 @@ export class RecordConditionLiteralValue extends ValueObject {
 
   static create(raw: unknown): Result<RecordConditionLiteralValue, DomainError> {
     const parsed = literalValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RecordConditionLiteralValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid RecordConditionLiteralValue' }));
     return ok(new RecordConditionLiteralValue(parsed.data));
   }
 
@@ -76,7 +77,7 @@ export class RecordConditionLiteralListValue extends ValueObject {
   static create(raw: unknown): Result<RecordConditionLiteralListValue, DomainError> {
     const parsed = literalValueListSchema.safeParse(raw);
     if (!parsed.success)
-      return err(domainError.fromMessage('Invalid RecordConditionLiteralListValue'));
+      return err(domainError.validation({ message: 'Invalid RecordConditionLiteralListValue' }));
     return ok(new RecordConditionLiteralListValue(parsed.data));
   }
 
@@ -102,7 +103,8 @@ export class RecordConditionDateValue extends ValueObject {
 
   static create(raw: unknown): Result<RecordConditionDateValue, DomainError> {
     const parsed = dateValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RecordConditionDateValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid RecordConditionDateValue' }));
 
     const timeZoneResult = TimeZone.create(parsed.data.timeZone);
     if (timeZoneResult.isErr()) return err(timeZoneResult.error);

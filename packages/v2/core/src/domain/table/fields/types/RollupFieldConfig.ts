@@ -32,7 +32,8 @@ export class RollupFieldConfig extends ValueObject {
 
   static create(raw: unknown): Result<RollupFieldConfig, DomainError> {
     const parsed = rollupFieldConfigSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RollupFieldConfig'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid RollupFieldConfig' }));
     const data = parsed.data;
 
     return FieldId.create(data.linkFieldId).andThen((linkFieldId) =>

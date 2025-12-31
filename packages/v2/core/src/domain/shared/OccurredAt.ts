@@ -18,7 +18,7 @@ export class OccurredAt extends ValueObject {
 
   static create(raw: unknown): Result<OccurredAt, DomainError> {
     const parsed = occurredAtSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid OccurredAt'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid OccurredAt' }));
     return ok(new OccurredAt(parsed.data));
   }
 

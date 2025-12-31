@@ -15,6 +15,7 @@ export type BroadcastChannelDocState<T> = {
 
 export type BroadcastChannelQueryState<T> = {
   status: BroadcastChannelStatus;
+  collection: string | null;
   data: ReadonlyArray<T>;
   ids: ReadonlyArray<string>;
   removedIds: ReadonlyArray<string>;
@@ -49,7 +50,7 @@ export const useBroadcastChannelDoc = <T>(params: {
 
     const hubResult = getBroadcastChannelRealtimeHub(resolveChannelName());
     if (hubResult.isErr()) {
-      setState({ status: 'error', data: null, error: hubResult.error });
+      setState({ status: 'error', data: null, error: hubResult.error.message });
       return;
     }
 
@@ -74,6 +75,7 @@ export const useBroadcastChannelQuery = <T>(params: {
   const { collection, enabled = true, getId } = params;
   const [state, setState] = useState<BroadcastChannelQueryState<T>>({
     status: 'idle',
+    collection: null,
     data: [],
     ids: [],
     removedIds: [],
@@ -84,19 +86,34 @@ export const useBroadcastChannelQuery = <T>(params: {
   useEffect(() => {
     if (!enabled || !collection) {
       previousIdsRef.current = new Set();
-      setState({ status: 'idle', data: [], ids: [], removedIds: [], error: null });
+      setState({
+        status: 'idle',
+        collection: null,
+        data: [],
+        ids: [],
+        removedIds: [],
+        error: null,
+      });
       return;
     }
 
     const hubResult = getBroadcastChannelRealtimeHub(resolveChannelName());
     if (hubResult.isErr()) {
       previousIdsRef.current = new Set();
-      setState({ status: 'error', data: [], ids: [], removedIds: [], error: hubResult.error });
+      setState({
+        status: 'error',
+        collection,
+        data: [],
+        ids: [],
+        removedIds: [],
+        error: hubResult.error.message ?? 'Unknown error',
+      });
       return;
     }
 
     const hub = hubResult.value;
     previousIdsRef.current = new Set();
+    const subscribedCollection = collection;
     const unsubscribe = hub.subscribeCollection(collection, (snapshots, removedDocIds) => {
       const data = snapshots as ReadonlyArray<T>;
       const ids =
@@ -121,7 +138,14 @@ export const useBroadcastChannelQuery = <T>(params: {
       const normalizedRemovedIds = removedDocIds.filter((id) => !nextIds.has(id));
       const removedIds = [...new Set([...diffRemovedIds, ...normalizedRemovedIds])];
       previousIdsRef.current = nextIds;
-      setState({ status: 'ready', data, ids, removedIds, error: null });
+      setState({
+        status: 'ready',
+        collection: subscribedCollection,
+        data,
+        ids,
+        removedIds,
+        error: null,
+      });
     });
 
     return () => {

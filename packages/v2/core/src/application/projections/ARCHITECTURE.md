@@ -16,3 +16,4 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `TableCreatedRealtimeProjection.ts` - Role: realtime projection; Purpose: publish table snapshots on create.
 - `FieldCreatedRealtimeProjection.ts` - Role: realtime projection; Purpose: publish field snapshots on create.
 - `FieldDeletedRealtimeProjection.ts` - Role: realtime projection; Purpose: delete field snapshots on remove.
+- `ViewColumnMetaUpdatedRealtimeProjection.ts` - Role: realtime projection; Purpose: update view column meta snapshots when field is added/removed.

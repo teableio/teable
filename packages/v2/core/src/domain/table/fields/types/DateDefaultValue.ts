@@ -15,7 +15,8 @@ export class DateDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<DateDefaultValue, DomainError> {
     const parsed = dateDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DateDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid DateDefaultValue' }));
     return ok(new DateDefaultValue(parsed.data));
   }
 

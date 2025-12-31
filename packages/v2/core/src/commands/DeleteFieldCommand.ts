@@ -27,7 +27,13 @@ export class DeleteFieldCommand extends TableUpdateCommand {
 
   static create(raw: unknown): Result<DeleteFieldCommand, DomainError> {
     const parsed = deleteFieldInputSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DeleteFieldCommand input'));
+    if (!parsed.success)
+      return err(
+        domainError.validation({
+          message: 'Invalid DeleteFieldCommand input',
+          details: z.formatError(parsed.error),
+        })
+      );
 
     return BaseId.create(parsed.data.baseId).andThen((baseId) =>
       TableId.create(parsed.data.tableId).andThen((tableId) =>

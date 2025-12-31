@@ -14,7 +14,8 @@ export class UserNotification extends ValueObject {
 
   static create(raw: unknown): Result<UserNotification, DomainError> {
     const parsed = userNotificationSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid UserNotification'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid UserNotification' }));
     return ok(new UserNotification(parsed.data));
   }
 

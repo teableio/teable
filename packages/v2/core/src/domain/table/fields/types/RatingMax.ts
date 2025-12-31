@@ -14,7 +14,7 @@ export class RatingMax extends ValueObject {
 
   static create(raw: unknown): Result<RatingMax, DomainError> {
     const parsed = ratingMaxSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RatingMax'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid RatingMax' }));
     return ok(new RatingMax(parsed.data));
   }
 

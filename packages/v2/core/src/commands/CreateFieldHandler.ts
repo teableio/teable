@@ -72,7 +72,8 @@ export class CreateFieldHandler implements ICommandHandler<CreateFieldCommand, C
           hooks: {
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                if (!createdField) return err(domainError.fromMessage('Field not created'));
+                if (!createdField)
+                  return err(domainError.unexpected({ message: 'Field not created' }));
                 const events = yield* await handler.fieldCreationSideEffectService.execute(
                   transactionContext,
                   {

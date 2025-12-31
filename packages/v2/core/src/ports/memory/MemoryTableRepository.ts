@@ -21,7 +21,7 @@ export class MemoryTableRepository implements ITableRepository {
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     const exists = this.savedTables.some((t) => t.id().equals(table.id()));
-    if (exists) return err(domainError.fromMessage('Table already exists'));
+    if (exists) return err(domainError.conflict({ message: 'Table already exists' }));
     this.savedTables.push(table);
     return ok(table);
   }
@@ -31,7 +31,7 @@ export class MemoryTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     const found = this.savedTables.find((t) => spec.isSatisfiedBy(t));
-    if (!found) return err(domainError.fromMessage('Not found'));
+    if (!found) return err(domainError.notFound({ message: 'Not found' }));
     return ok(found);
   }
 
@@ -52,7 +52,7 @@ export class MemoryTableRepository implements ITableRepository {
     mutateSpec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
-    if (index === -1) return err(domainError.fromMessage('Not found'));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     const current = this.savedTables[index];
     const mutateResult = mutateSpec.mutate(current);
     if (mutateResult.isErr()) return err(mutateResult.error);
@@ -62,7 +62,7 @@ export class MemoryTableRepository implements ITableRepository {
 
   async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
     const index = this.savedTables.findIndex((t) => t.id().equals(table.id()));
-    if (index === -1) return err(domainError.fromMessage('Not found'));
+    if (index === -1) return err(domainError.notFound({ message: 'Not found' }));
     this.savedTables.splice(index, 1);
     return ok(undefined);
   }

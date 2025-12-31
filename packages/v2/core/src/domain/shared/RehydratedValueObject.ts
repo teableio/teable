@@ -14,7 +14,9 @@ export abstract class RehydratedValueObject extends ValueObject {
 
   protected valueResult(typeName: string): Result<string, DomainError> {
     if (typeof this.rawValue !== 'string' || this.rawValue.length === 0) {
-      return err(domainError.fromMessage(`${typeName} is not available before rehydrate`));
+      return err(
+        domainError.invariant({ message: `${typeName} is not available before rehydrate` })
+      );
     }
     return ok(this.rawValue);
   }

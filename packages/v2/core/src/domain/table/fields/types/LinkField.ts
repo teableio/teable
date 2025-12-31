@@ -184,7 +184,8 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     symmetricFieldId?: FieldId;
   }): Result<LinkField, DomainError> {
     const { foreignTable, hostTable } = params;
-    if (this.isOneWay()) return err(domainError.fromMessage('One-way link has no symmetric field'));
+    if (this.isOneWay())
+      return err(domainError.unexpected({ message: 'One-way link has no symmetric field' }));
 
     const symmetricFieldIdResult = params.symmetricFieldId
       ? ok(params.symmetricFieldId)
@@ -303,7 +304,9 @@ export class LinkField extends Field implements ForeignTableRelatedField {
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {
     if (!foreignTable.id().equals(this.foreignTableId())) {
-      return err(domainError.fromMessage('ForeignTable does not match LinkField foreign table'));
+      return err(
+        domainError.unexpected({ message: 'ForeignTable does not match LinkField foreign table' })
+      );
     }
     return ok(undefined);
   }
@@ -328,7 +331,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
         `${params.baseId.toString()}.${this.foreignTableId().toString()}`
       );
     }
-    return err(domainError.fromMessage('Unsupported LinkRelationship'));
+    return err(domainError.validation({ message: 'Unsupported LinkRelationship' }));
   };
 
   private buildJunctionTableName(
@@ -354,7 +357,7 @@ export class LinkField extends Field implements ForeignTableRelatedField {
     foreignTables: ReadonlyArray<Table>
   ): Result<ForeignTable, DomainError> {
     const table = foreignTables.find((candidate) => candidate.id().equals(this.foreignTableId()));
-    if (!table) return err(domainError.fromMessage('Foreign table not loaded'));
+    if (!table) return err(domainError.invariant({ message: 'Foreign table not loaded' }));
     return ok(ForeignTable.from(table));
   }
 }

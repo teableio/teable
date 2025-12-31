@@ -29,9 +29,8 @@ const createTable = async (
     { actorId },
     commandResult._unsafeUnwrap()
   );
-  result._unsafeUnwrap();
-  undefined;
-  return result.value.table;
+  const resultValue = result._unsafeUnwrap();
+  return resultValue.table;
 };
 
 describe('ListTablesHandler', () => {
@@ -60,11 +59,11 @@ describe('ListTablesHandler', () => {
       { actorId },
       queryResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
+    const resultValue = result._unsafeUnwrap();
 
-    const names = result.value.tables.map((table) => table.name().toString());
+    const names = resultValue.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
-    expect(result.value.tables.every((table) => table.baseId().equals(baseId))).toBe(true);
+    expect(resultValue.tables.every((table) => table.baseId().equals(baseId))).toBe(true);
   });
 
   it('supports explicit sort and pagination', async () => {
@@ -94,9 +93,8 @@ describe('ListTablesHandler', () => {
       { actorId },
       queryResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
-
-    const names = result.value.tables.map((table) => table.name().toString());
+    const resultValue = result._unsafeUnwrap();
+    const names = resultValue.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Beta']);
   });
 
@@ -124,9 +122,8 @@ describe('ListTablesHandler', () => {
       { actorId },
       queryResult._unsafeUnwrap()
     );
-    result._unsafeUnwrap();
-
-    const names = result.value.tables.map((table) => table.name().toString());
+    const resultValue = result._unsafeUnwrap();
+    const names = resultValue.tables.map((table) => table.name().toString());
     expect(names).toEqual(['Alpha']);
   });
 });

@@ -68,7 +68,7 @@ export class FieldColor extends ValueObject {
 
   static create(raw: unknown): Result<FieldColor, DomainError> {
     const parsed = fieldColorSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldColor'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldColor' }));
     return ok(new FieldColor(parsed.data));
   }
 

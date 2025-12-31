@@ -98,7 +98,7 @@ export class LinkFieldConfig extends ValueObject {
 
   static create(raw: unknown): Result<LinkFieldConfig, DomainError> {
     const parsed = linkFieldConfigSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid LinkFieldConfig'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid LinkFieldConfig' }));
     const data = parsed.data;
 
     const fkHostTableNameResult: Result<DbTableName, DomainError> = data.fkHostTableName
@@ -211,7 +211,7 @@ export class LinkFieldConfig extends ValueObject {
       );
     }
 
-    return err(domainError.fromMessage('Unsupported LinkRelationship'));
+    return err(domainError.validation({ message: 'Unsupported LinkRelationship' }));
   }
 
   equals(other: LinkFieldConfig): boolean {
@@ -308,17 +308,21 @@ export class LinkFieldConfig extends ValueObject {
   withDbConfig(params: LinkFieldDbConfig): Result<LinkFieldConfig, DomainError> {
     if (this.fkHostTableNameValue.isRehydrated()) {
       if (!this.fkHostTableNameValue.equals(params.fkHostTableName)) {
-        return err(domainError.fromMessage('LinkFieldConfig fkHostTableName already set'));
+        return err(
+          domainError.invariant({ message: 'LinkFieldConfig fkHostTableName already set' })
+        );
       }
     }
     if (this.selfKeyNameValue.isRehydrated()) {
       if (!this.selfKeyNameValue.equals(params.selfKeyName)) {
-        return err(domainError.fromMessage('LinkFieldConfig selfKeyName already set'));
+        return err(domainError.invariant({ message: 'LinkFieldConfig selfKeyName already set' }));
       }
     }
     if (this.foreignKeyNameValue.isRehydrated()) {
       if (!this.foreignKeyNameValue.equals(params.foreignKeyName)) {
-        return err(domainError.fromMessage('LinkFieldConfig foreignKeyName already set'));
+        return err(
+          domainError.invariant({ message: 'LinkFieldConfig foreignKeyName already set' })
+        );
       }
     }
 
@@ -342,7 +346,9 @@ export class LinkFieldConfig extends ValueObject {
   withSymmetricFieldId(symmetricFieldId: FieldId): Result<LinkFieldConfig, DomainError> {
     if (this.symmetricFieldIdValue) {
       if (!this.symmetricFieldIdValue.equals(symmetricFieldId)) {
-        return err(domainError.fromMessage('LinkFieldConfig symmetricFieldId already set'));
+        return err(
+          domainError.invariant({ message: 'LinkFieldConfig symmetricFieldId already set' })
+        );
       }
       return ok(this);
     }

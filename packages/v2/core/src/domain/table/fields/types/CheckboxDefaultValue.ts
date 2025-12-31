@@ -14,7 +14,8 @@ export class CheckboxDefaultValue extends ValueObject {
 
   static create(raw: unknown): Result<CheckboxDefaultValue, DomainError> {
     const parsed = checkboxDefaultValueSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid CheckboxDefaultValue'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid CheckboxDefaultValue' }));
     return ok(new CheckboxDefaultValue(parsed.data));
   }
 

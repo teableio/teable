@@ -39,7 +39,9 @@ export abstract class SpecBuilder<T, V extends ISpecVisitor, B extends SpecBuild
   }
 
   protected recordError(error: DomainError | string): void {
-    this.errors.push(typeof error === 'string' ? domainError.fromMessage(error) : error);
+    this.errors.push(
+      typeof error === 'string' ? domainError.validation({ message: error }) : error
+    );
   }
 
   protected buildFrom(
@@ -55,7 +57,7 @@ export abstract class SpecBuilder<T, V extends ISpecVisitor, B extends SpecBuild
         })
       );
     }
-    if (specs.length === 0) return err(domainError.fromMessage('Empty specification'));
+    if (specs.length === 0) return err(domainError.validation({ message: 'Empty specification' }));
     if (specs.length === 1) return ok(specs[0]);
 
     const [first, ...rest] = specs;

@@ -16,7 +16,7 @@ export class SortDirection extends ValueObject {
 
   static create(raw: unknown): Result<SortDirection, DomainError> {
     const parsed = sortDirectionSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SortDirection'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid SortDirection' }));
     return ok(new SortDirection(parsed.data));
   }
 

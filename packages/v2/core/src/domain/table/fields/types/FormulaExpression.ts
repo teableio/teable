@@ -55,7 +55,8 @@ export class FormulaExpression extends ValueObject {
 
   static create(raw: unknown): Result<FormulaExpression, DomainError> {
     const parsed = formulaExpressionSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FormulaExpression'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid FormulaExpression' }));
     return ok(new FormulaExpression(parsed.data));
   }
 
@@ -67,9 +68,9 @@ export class FormulaExpression extends ValueObject {
     const parseResult = this.parseTree();
     if (parseResult.isErr()) {
       return err(
-        domainError.fromMessage(
-          `Formula expression ${this.value} parse error: ${parseResult.error}`
-        )
+        domainError.validation({
+          message: `Formula expression ${this.value} parse error: ${parseResult.error}`,
+        })
       );
     }
     const visitor = new FieldReferenceVisitor();
@@ -88,11 +89,11 @@ export class FormulaExpression extends ValueObject {
 
     if (invalidRefs.length > 0) {
       return err(
-        domainError.fromMessage(
-          `Formula references not found: ${invalidRefs.join(
+        domainError.validation({
+          message: `Formula references not found: ${invalidRefs.join(
             ', '
-          )}. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.`
-        )
+          )}. Formulas must use field IDs (fldXXXXXXXXXXXXXXXX format), not field names.`,
+        })
       );
     }
 
@@ -147,7 +148,7 @@ export class FormulaExpression extends ValueObject {
     parser.addErrorListener(errorCollector);
     const tree = parser.root();
     const error = errorCollector.firstError();
-    if (error) return err(domainError.fromMessage(error));
+    if (error) return err(domainError.validation({ message: error }));
     return ok(tree);
   }
 

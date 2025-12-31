@@ -18,7 +18,7 @@ export class SelectOptionId extends ValueObject {
 
   static create(raw: unknown): Result<SelectOptionId, DomainError> {
     const parsed = selectOptionIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid SelectOptionId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid SelectOptionId' }));
     return ok(new SelectOptionId(parsed.data));
   }
 
@@ -28,7 +28,7 @@ export class SelectOptionId extends ValueObject {
         new SelectOptionId(generatePrefixedId(selectOptionIdPrefix, selectOptionIdBodyLength))
       );
     } catch {
-      return err(domainError.fromMessage('Failed to generate SelectOptionId'));
+      return err(domainError.unexpected({ message: 'Failed to generate SelectOptionId' }));
     }
   }
 

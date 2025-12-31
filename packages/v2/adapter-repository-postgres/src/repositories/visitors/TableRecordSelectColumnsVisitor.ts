@@ -150,7 +150,8 @@ export class TableRecordSelectColumnsVisitor extends AbstractFieldVisitor<FieldC
       function* (this: TableRecordSelectColumnsVisitor) {
         const dbFieldName = yield* field.dbFieldName();
         const column = yield* dbFieldName.value();
-        if (this.seen.has(column)) return err(domainError.fromMessage('Duplicate DbFieldName'));
+        if (this.seen.has(column))
+          return err(domainError.conflict({ message: 'Duplicate DbFieldName' }));
         this.seen.add(column);
         const next = { fieldId: field.id(), dbFieldName: column };
         this.columns.push(next);

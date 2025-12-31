@@ -14,7 +14,7 @@ export class FieldNotNull extends ValueObject {
 
   static create(raw: unknown): Result<FieldNotNull, DomainError> {
     const parsed = fieldNotNullSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldNotNull'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldNotNull' }));
     return ok(new FieldNotNull(parsed.data));
   }
 

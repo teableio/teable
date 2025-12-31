@@ -62,7 +62,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
       const table = tableResult.value;
       const fieldSpec = yield* Field.specs().withFieldId(command.fieldId).build();
       const targetField = table.getFields(fieldSpec)[0];
-      if (!targetField) return err(domainError.fromMessage('Field not found'));
+      if (!targetField) return err(domainError.notFound({ message: 'Field not found' }));
 
       const referenceVisitor = new LinkForeignTableReferenceVisitor();
       const foreignRefs = yield* referenceVisitor.collect([targetField]);
@@ -77,7 +77,7 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
         { table },
         (candidate) => {
           const currentField = candidate.getFields(fieldSpec)[0];
-          if (!currentField) return err(domainError.fromMessage('Field not found'));
+          if (!currentField) return err(domainError.notFound({ message: 'Field not found' }));
           deletedField = currentField;
           return candidate.update((mutator) => mutator.removeField(command.fieldId));
         },
@@ -85,7 +85,8 @@ export class DeleteFieldHandler implements ICommandHandler<DeleteFieldCommand, D
           hooks: {
             afterPersist: async (transactionContext, updatedTable) =>
               safeTry<ReadonlyArray<IDomainEvent>, DomainError>(async function* () {
-                if (!deletedField) return err(domainError.fromMessage('Field not deleted'));
+                if (!deletedField)
+                  return err(domainError.unexpected({ message: 'Field not deleted' }));
                 const events = yield* await handler.fieldDeletionSideEffectService.execute(
                   transactionContext,
                   {

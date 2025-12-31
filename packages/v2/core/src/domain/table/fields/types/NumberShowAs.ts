@@ -45,7 +45,7 @@ export class NumberShowAs extends ValueObject {
 
   static create(raw: unknown): Result<NumberShowAs, DomainError> {
     const parsed = numberShowAsSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberShowAs'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid NumberShowAs' }));
     return ok(new NumberShowAs(parsed.data));
   }
 

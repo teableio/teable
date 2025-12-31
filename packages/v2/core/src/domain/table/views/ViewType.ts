@@ -15,7 +15,7 @@ export class ViewType extends ValueObject {
 
   static create(raw: unknown): Result<ViewType, DomainError> {
     const parsed = viewTypeSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewType'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewType' }));
     return ok(new ViewType(parsed.data));
   }
 

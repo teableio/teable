@@ -18,7 +18,7 @@ export class DbTableName extends RehydratedValueObject {
 
   static rehydrate(raw: unknown): Result<DbTableName, DomainError> {
     const parsed = dbTableNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DbTableName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid DbTableName' }));
     return ok(new DbTableName(parsed.data));
   }
 

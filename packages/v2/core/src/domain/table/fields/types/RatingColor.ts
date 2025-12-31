@@ -18,7 +18,7 @@ export class RatingColor extends ValueObject {
 
   static create(raw: unknown): Result<RatingColor, DomainError> {
     const parsed = ratingColorSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid RatingColor'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid RatingColor' }));
     return ok(new RatingColor(parsed.data));
   }
 

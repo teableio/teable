@@ -14,7 +14,7 @@ export class ViewName extends ValueObject {
 
   static create(raw: unknown): Result<ViewName, DomainError> {
     const parsed = viewNameSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewName'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewName' }));
     return ok(new ViewName(parsed.data));
   }
 

@@ -141,7 +141,7 @@ export class TableMutator {
   }
 
   apply(): Result<TableUpdateResult, DomainError> {
-    if (!this.hasUpdates) return err(domainError.fromMessage('Empty update'));
+    if (!this.hasUpdates) return err(domainError.validation({ message: 'Empty update' }));
 
     const specResult = this.builder.build();
     if (specResult.isErr()) return err(specResult.error);

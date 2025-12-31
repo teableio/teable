@@ -17,7 +17,7 @@ export class BaseId extends ValueObject {
 
   static create(raw: unknown): Result<BaseId, DomainError> {
     const parsed = baseIdSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid BaseId'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid BaseId' }));
     return ok(new BaseId(parsed.data));
   }
 
@@ -25,7 +25,7 @@ export class BaseId extends ValueObject {
     try {
       return ok(new BaseId(generatePrefixedId(baseIdPrefix, baseIdBodyLength)));
     } catch {
-      return err(domainError.fromMessage('Failed to generate BaseId'));
+      return err(domainError.unexpected({ message: 'Failed to generate BaseId' }));
     }
   }
 

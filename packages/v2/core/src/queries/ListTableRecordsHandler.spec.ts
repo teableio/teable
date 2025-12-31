@@ -154,7 +154,7 @@ describe('ListTableRecordsHandler', () => {
     await tableRepository.insert(createContext(), table);
 
     const recordQueryRepo: ITableRecordQueryRepository = {
-      find: async () => err(domainError.fromMessage('query failed')),
+      find: async () => err(domainError.unexpected({ message: 'query failed' })),
     };
 
     const queryResult = ListTableRecordsQuery.create({

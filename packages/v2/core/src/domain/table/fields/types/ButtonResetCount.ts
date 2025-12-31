@@ -14,7 +14,8 @@ export class ButtonResetCount extends ValueObject {
 
   static create(raw: unknown): Result<ButtonResetCount, DomainError> {
     const parsed = buttonResetCountSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ButtonResetCount'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid ButtonResetCount' }));
     return ok(new ButtonResetCount(parsed.data));
   }
 

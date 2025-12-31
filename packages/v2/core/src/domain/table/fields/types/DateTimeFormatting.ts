@@ -51,7 +51,8 @@ export class DateTimeFormatting extends ValueObject {
 
   static create(raw: unknown): Result<DateTimeFormatting, DomainError> {
     const parsed = dateTimeFormattingSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid DateTimeFormatting'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid DateTimeFormatting' }));
 
     return TimeZone.create(parsed.data.timeZone).map(
       (timeZone) => new DateTimeFormatting(parsed.data.date, parsed.data.time, timeZone)

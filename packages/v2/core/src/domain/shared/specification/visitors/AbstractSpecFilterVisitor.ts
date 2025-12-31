@@ -29,7 +29,7 @@ export abstract class AbstractSpecFilterVisitor<Cond>
   }
 
   where(): Result<Cond, DomainError> {
-    if (!this.condValue) return err(domainError.fromMessage(emptyWhereError));
+    if (!this.condValue) return err(domainError.validation({ message: emptyWhereError }));
     return ok(this.condValue);
   }
 

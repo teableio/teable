@@ -130,7 +130,7 @@ export class LookupField extends Field implements ForeignTableRelatedField {
    */
   innerField(): Result<Field, DomainError> {
     if (!this.innerFieldValue) {
-      return err(domainError.fromMessage('LookupField inner field not yet resolved'));
+      return err(domainError.unexpected({ message: 'LookupField inner field not yet resolved' }));
     }
     return ok(this.innerFieldValue);
   }
@@ -182,11 +182,11 @@ export class LookupField extends Field implements ForeignTableRelatedField {
     const linkFieldId = this.linkFieldId();
     const fieldResult = hostTable.getField((candidate) => candidate.id().equals(linkFieldId));
     if (fieldResult.isErr())
-      return err(domainError.fromMessage('LookupField link field not found'));
+      return err(domainError.notFound({ message: 'LookupField link field not found' }));
 
     const field = fieldResult.value;
     if (!field.type().equals(FieldType.link())) {
-      return err(domainError.fromMessage('LookupField link field must be a LinkField'));
+      return err(domainError.validation({ message: 'LookupField link field must be a LinkField' }));
     }
     return ok(field as LinkField);
   }
@@ -239,7 +239,9 @@ export class LookupField extends Field implements ForeignTableRelatedField {
     // 2. Validate that link field points to our foreign table
     if (!linkField.foreignTableId().equals(this.foreignTableId())) {
       return err(
-        domainError.fromMessage('LookupField foreign table does not match link field target')
+        domainError.unexpected({
+          message: 'LookupField foreign table does not match link field target',
+        })
       );
     }
 
@@ -248,14 +250,16 @@ export class LookupField extends Field implements ForeignTableRelatedField {
       candidate.id().equals(this.foreignTableId())
     );
     if (!foreignTable) {
-      return err(domainError.fromMessage('LookupField foreign table not loaded'));
+      return err(domainError.invariant({ message: 'LookupField foreign table not loaded' }));
     }
 
     // 4. Validate lookup field exists in foreign table and resolve inner field
     const ft = ForeignTable.from(foreignTable);
     const lookupFieldResult = ft.fieldById(this.lookupFieldId());
     if (lookupFieldResult.isErr()) {
-      return err(domainError.fromMessage('LookupField lookup field not found in foreign table'));
+      return err(
+        domainError.notFound({ message: 'LookupField lookup field not found in foreign table' })
+      );
     }
 
     // 5. Resolve the inner field from the foreign table's lookup field
@@ -272,7 +276,9 @@ export class LookupField extends Field implements ForeignTableRelatedField {
 
   private ensureForeignTable(foreignTable: ForeignTable): Result<void, DomainError> {
     if (!foreignTable.id().equals(this.foreignTableId())) {
-      return err(domainError.fromMessage('ForeignTable does not match LookupField foreign table'));
+      return err(
+        domainError.unexpected({ message: 'ForeignTable does not match LookupField foreign table' })
+      );
     }
     return ok(undefined);
   }

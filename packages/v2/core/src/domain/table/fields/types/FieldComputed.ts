@@ -14,7 +14,7 @@ export class FieldComputed extends ValueObject {
 
   static create(raw: unknown): Result<FieldComputed, DomainError> {
     const parsed = fieldComputedSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid FieldComputed'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid FieldComputed' }));
     return ok(new FieldComputed(parsed.data));
   }
 

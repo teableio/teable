@@ -50,7 +50,8 @@ export class NumberFormatting extends ValueObject {
 
   static create(raw: unknown): Result<NumberFormatting, DomainError> {
     const parsed = numberFormattingSchema.safeParse(raw);
-    if (!parsed.success) return err(domainError.fromMessage('Invalid NumberFormatting'));
+    if (!parsed.success)
+      return err(domainError.validation({ message: 'Invalid NumberFormatting' }));
 
     return NumericPrecision.create(parsed.data.precision).map((precision) => {
       if (parsed.data.type === NumberFormattingType.Currency) {

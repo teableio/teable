@@ -55,7 +55,7 @@ class FakeTableRepository implements ITableRepository {
     spec: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<Table, DomainError>> {
     const found = this.tables.find((table) => spec.isSatisfiedBy(table));
-    if (!found) return err(domainError.fromMessage('Not found'));
+    if (!found) return err(domainError.notFound({ message: 'Not found' }));
     return ok(found);
   }
 
@@ -72,7 +72,7 @@ class FakeTableRepository implements ITableRepository {
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
-    return err(domainError.fromMessage('Not implemented'));
+    return err(domainError.notImplemented({ message: 'Not implemented' }));
   }
 
   async delete(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
@@ -233,17 +233,17 @@ describe('DeleteTableHandler', () => {
     });
     commandResult._unsafeUnwrap();
 
-    schemaRepo.failDelete = domainError.fromMessage('schema delete failed');
+    schemaRepo.failDelete = domainError.unexpected({ message: 'schema delete failed' });
     const schemaResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(schemaResult._unsafeUnwrapErr().message).toBe('schema delete failed');
 
     schemaRepo.failDelete = undefined;
-    repo.failDelete = domainError.fromMessage('repo delete failed');
+    repo.failDelete = domainError.unexpected({ message: 'repo delete failed' });
     const repoResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(repoResult._unsafeUnwrapErr().message).toBe('repo delete failed');
 
     repo.failDelete = undefined;
-    eventBus.failPublish = domainError.fromMessage('publish failed');
+    eventBus.failPublish = domainError.unexpected({ message: 'publish failed' });
     const publishResult = await handler.handle(createContext(), commandResult._unsafeUnwrap());
     expect(publishResult._unsafeUnwrapErr().message).toBe('publish failed');
   });

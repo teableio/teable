@@ -13,6 +13,7 @@ import {
   type LastModifiedByField,
   type LastModifiedTimeField,
   type LinkField,
+  type LookupField,
   type LongTextField,
   type MultipleSelectField,
   type NumberField,
@@ -285,6 +286,20 @@ export class FieldOptionsVisitor implements IFieldVisitor<ReactNode> {
     pushToken(tokens, 'foreign', field.foreignTableId().toString());
     pushToken(tokens, 'lookup', field.lookupFieldId().toString());
     if (field.isOneWay()) pushToken(tokens, 'oneWay', 'on');
+    return ok(formatFieldTokens(field, tokens));
+  }
+
+  visitLookupField(field: LookupField): Result<ReactNode, string> {
+    const tokens: string[] = [];
+    pushToken(tokens, 'link', field.linkFieldId().toString());
+    pushToken(tokens, 'foreign', field.foreignTableId().toString());
+    pushToken(tokens, 'lookup', field.lookupFieldId().toString());
+    const innerTypeResult = field.innerFieldType();
+    if (innerTypeResult.isOk()) {
+      pushToken(tokens, 'inner', innerTypeResult.value.toString());
+    } else {
+      pushToken(tokens, 'inner', 'pending');
+    }
     return ok(formatFieldTokens(field, tokens));
   }
 }

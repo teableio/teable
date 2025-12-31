@@ -1,10 +1,10 @@
+import { domainError, type DomainError } from '@teable/v2-core';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import type { PubSub } from 'sharedb';
 
 import type { IShareDbOpPublisher, ShareDbOp } from './ShareDbPublisher';
 
-import { domainError, type DomainError } from '@teable/v2-core';
 type ShareDbPubSub = Pick<PubSub, 'publish'>;
 
 export class ShareDbPubSubPublisher implements IShareDbOpPublisher {
@@ -25,7 +25,7 @@ export class ShareDbPubSubPublisher implements IShareDbOpPublisher {
           resolve(err(domainError.fromUnknown(error)));
           return;
         }
-        resolve(err(domainError.fromMessage('ShareDB publish failed')));
+        resolve(err(domainError.unexpected({ message: 'ShareDB publish failed' })));
       });
     });
   }

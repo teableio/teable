@@ -42,13 +42,13 @@ export class ViewColumnMeta extends ValueObject {
 
   static create(raw: ViewColumnMetaValue): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewColumnMeta'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
     return ok(new ViewColumnMeta(parsed.data));
   }
 
   static rehydrate(raw: unknown): Result<ViewColumnMeta, DomainError> {
     const parsed = viewColumnMetaSchema.safeParse(raw ?? {});
-    if (!parsed.success) return err(domainError.fromMessage('Invalid ViewColumnMeta'));
+    if (!parsed.success) return err(domainError.validation({ message: 'Invalid ViewColumnMeta' }));
     return ok(new ViewColumnMeta(parsed.data));
   }
 

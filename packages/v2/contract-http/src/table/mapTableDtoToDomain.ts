@@ -15,6 +15,7 @@ import {
   FieldId,
   FieldName,
   FormulaExpression,
+  LookupOptions,
   RollupExpression,
   CellValueMultiplicity,
   CellValueType,
@@ -54,6 +55,7 @@ import {
   createKanbanView,
   createLastModifiedByField,
   createLastModifiedTimeField,
+  createLookupFieldPending,
   createLinkField,
   createLongTextField,
   createMultipleSelectField,
@@ -93,7 +95,7 @@ const parseFormulaFormatting = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const dateResult = DateTimeFormatting.create(raw);
   if (dateResult.isOk()) return ok(dateResult.value);
-  return err(domainError.fromMessage('Invalid FormulaFormatting'));
+  return err(domainError.validation({ message: 'Invalid FormulaFormatting' }));
 };
 
 const parseFormulaShowAs = (
@@ -104,12 +106,13 @@ const parseFormulaShowAs = (
   if (numberResult.isOk()) return ok(numberResult.value);
   const textResult = SingleLineTextShowAs.create(raw);
   if (textResult.isOk()) return ok(textResult.value);
-  return err(domainError.fromMessage('Invalid FormulaShowAs'));
+  return err(domainError.validation({ message: 'Invalid FormulaShowAs' }));
 };
 
 const parseTrackedFieldIds = (raw: unknown): Result<ReadonlyArray<FieldId>, DomainError> => {
   if (raw == null) return ok([]);
-  if (!Array.isArray(raw)) return err(domainError.fromMessage('Invalid trackedFieldIds'));
+  if (!Array.isArray(raw))
+    return err(domainError.validation({ message: 'Invalid trackedFieldIds' }));
   return sequenceResults(raw.map((entry) => FieldId.create(entry)));
 };
 
@@ -151,214 +154,226 @@ const applyFormulaResultType = (
 };
 
 const mapFieldDtoToDomain = (dto: IFieldDto): Result<Field, DomainError> => {
-  return FieldId.create(dto.id)
-    .andThen((id) =>
-      FieldName.create(dto.name).andThen((name) => {
-        switch (dto.type) {
-          case 'singleLineText': {
-            return optional(dto.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
-              optional(dto.options?.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
-                createSingleLineTextField({ id, name, showAs, defaultValue })
-              )
-            );
-          }
-          case 'longText': {
-            return optional(dto.options?.defaultValue, TextDefaultValue.create).andThen(
-              (defaultValue) => createLongTextField({ id, name, defaultValue })
-            );
-          }
-          case 'number': {
-            return optional(dto.options?.formatting, NumberFormatting.create).andThen(
-              (formatting) =>
-                optional(dto.options?.showAs, NumberShowAs.create).andThen((showAs) =>
-                  optional(dto.options?.defaultValue, NumberDefaultValue.create).andThen(
-                    (defaultValue) =>
-                      createNumberField({ id, name, formatting, showAs, defaultValue })
-                  )
-                )
-            );
-          }
-          case 'rating': {
-            return optional(dto.options?.max, RatingMax.create).andThen((max) =>
-              optional(dto.options?.icon, RatingIcon.create).andThen((icon) =>
-                optional(dto.options?.color, RatingColor.create).andThen((color) =>
-                  createRatingField({ id, name, max, icon, color })
-                )
-              )
-            );
-          }
-          case 'formula': {
-            const options = dto.options;
-            return FormulaExpression.create(options.expression).andThen((expression) =>
-              optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
-                parseFormulaFormatting(options.formatting).andThen((formatting) =>
-                  parseFormulaShowAs(options.showAs).andThen((showAs) =>
-                    createFormulaField({
-                      id,
-                      name,
-                      expression,
-                      timeZone,
-                      formatting,
-                      showAs,
-                    }).andThen((field) =>
-                      applyFormulaResultType(
-                        field as FormulaField,
-                        dto.cellValueType,
-                        dto.isMultipleCellValue
-                      ).map(() => field)
-                    )
-                  )
-                )
-              )
-            );
-          }
-          case 'rollup': {
-            const options = dto.options;
-            return RollupExpression.create(options.expression).andThen((expression) =>
-              RollupFieldConfig.create(dto.config).andThen((config) =>
-                optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
-                  parseFormulaFormatting(options.formatting).andThen((formatting) =>
-                    parseFormulaShowAs(options.showAs).andThen((showAs) =>
-                      createRollupFieldPending({
-                        id,
-                        name,
-                        config,
-                        expression,
-                        timeZone,
-                        formatting,
-                        showAs,
-                      })
-                    )
-                  )
+  return FieldId.create(dto.id).andThen((id) =>
+    FieldName.create(dto.name).andThen((name) => {
+      if (dto.isLookup && dto.lookupOptions) {
+        return LookupOptions.create(dto.lookupOptions).andThen((lookupOptions) =>
+          createLookupFieldPending({ id, name, lookupOptions })
+            .andThen((field) => applyFieldValidation(field, dto.notNull, dto.unique))
+            .andThen((field) => applyDbFieldName(field, dto.dbFieldName))
+        );
+      }
+
+      return mapBaseFieldDtoToDomain(dto, id, name);
+    })
+  );
+};
+
+const mapBaseFieldDtoToDomain = (
+  dto: IFieldDto,
+  id: FieldId,
+  name: FieldName
+): Result<Field, DomainError> => {
+  const baseResult = (() => {
+    switch (dto.type) {
+      case 'singleLineText': {
+        return optional(dto.options?.showAs, SingleLineTextShowAs.create).andThen((showAs) =>
+          optional(dto.options?.defaultValue, TextDefaultValue.create).andThen((defaultValue) =>
+            createSingleLineTextField({ id, name, showAs, defaultValue })
+          )
+        );
+      }
+      case 'longText': {
+        return optional(dto.options?.defaultValue, TextDefaultValue.create).andThen(
+          (defaultValue) => createLongTextField({ id, name, defaultValue })
+        );
+      }
+      case 'number': {
+        return optional(dto.options?.formatting, NumberFormatting.create).andThen((formatting) =>
+          optional(dto.options?.showAs, NumberShowAs.create).andThen((showAs) =>
+            optional(dto.options?.defaultValue, NumberDefaultValue.create).andThen((defaultValue) =>
+              createNumberField({ id, name, formatting, showAs, defaultValue })
+            )
+          )
+        );
+      }
+      case 'rating': {
+        return optional(dto.options?.max, RatingMax.create).andThen((max) =>
+          optional(dto.options?.icon, RatingIcon.create).andThen((icon) =>
+            optional(dto.options?.color, RatingColor.create).andThen((color) =>
+              createRatingField({ id, name, max, icon, color })
+            )
+          )
+        );
+      }
+      case 'formula': {
+        const options = dto.options;
+        return FormulaExpression.create(options.expression).andThen((expression) =>
+          optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+            parseFormulaFormatting(options.formatting).andThen((formatting) =>
+              parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                createFormulaField({
+                  id,
+                  name,
+                  expression,
+                  timeZone,
+                  formatting,
+                  showAs,
+                }).andThen((field) =>
+                  applyFormulaResultType(
+                    field as FormulaField,
+                    dto.cellValueType,
+                    dto.isMultipleCellValue
+                  ).map(() => field)
                 )
               )
-            );
-          }
-          case 'singleSelect': {
-            const options = dto.options;
-            const choices = options.choices;
-            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
-              (selectOptions) =>
-                optional(options.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-                  optional(options.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-                    (preventAutoNewOptions) =>
-                      createSingleSelectField({
-                        id,
-                        name,
-                        options: selectOptions,
-                        defaultValue,
-                        preventAutoNewOptions,
-                      })
-                  )
-                )
-            );
-          }
-          case 'multipleSelect': {
-            const options = dto.options;
-            const choices = options.choices;
-            return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
-              (selectOptions) =>
-                optional(options.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
-                  optional(options.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
-                    (preventAutoNewOptions) =>
-                      createMultipleSelectField({
-                        id,
-                        name,
-                        options: selectOptions,
-                        defaultValue,
-                        preventAutoNewOptions,
-                      })
-                  )
-                )
-            );
-          }
-          case 'checkbox': {
-            return optional(dto.options?.defaultValue, CheckboxDefaultValue.create).andThen(
-              (defaultValue) => createCheckboxField({ id, name, defaultValue })
-            );
-          }
-          case 'attachment': {
-            return createAttachmentField({ id, name });
-          }
-          case 'date': {
-            return optional(dto.options?.formatting, DateTimeFormatting.create).andThen(
-              (formatting) =>
-                optional(dto.options?.defaultValue, DateDefaultValue.create).andThen(
-                  (defaultValue) => createDateField({ id, name, formatting, defaultValue })
-                )
-            );
-          }
-          case 'createdTime': {
-            return optional(dto.options?.formatting, DateTimeFormatting.create).andThen(
-              (formatting) => createCreatedTimeField({ id, name, formatting })
-            );
-          }
-          case 'lastModifiedTime': {
-            return optional(dto.options?.formatting, DateTimeFormatting.create).andThen(
-              (formatting) =>
-                parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
-                  createLastModifiedTimeField({ id, name, formatting, trackedFieldIds })
-                )
-            );
-          }
-          case 'user': {
-            return optional(dto.options?.isMultiple, UserMultiplicity.create).andThen(
-              (isMultiple) =>
-                optional(dto.options?.shouldNotify, UserNotification.create).andThen(
-                  (shouldNotify) =>
-                    optional(dto.options?.defaultValue, UserDefaultValue.create).andThen(
-                      (defaultValue) =>
-                        createUserField({ id, name, isMultiple, shouldNotify, defaultValue })
-                    )
-                )
-            );
-          }
-          case 'createdBy': {
-            return createCreatedByField({ id, name });
-          }
-          case 'lastModifiedBy': {
-            return parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
-              createLastModifiedByField({ id, name, trackedFieldIds })
-            );
-          }
-          case 'autoNumber': {
-            return createAutoNumberField({ id, name });
-          }
-          case 'button': {
-            const options = dto.options;
-            const workflowResult = ButtonWorkflow.create(options?.workflow);
-            return optional(options?.label, ButtonLabel.create).andThen((label) =>
-              optional(options?.color, FieldColor.create).andThen((color) =>
-                optional(options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
-                  optional(options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
-                    workflowResult.andThen((workflow) =>
-                      createButtonField({
-                        id,
-                        name,
-                        label,
-                        color,
-                        maxCount,
-                        resetCount,
-                        workflow,
-                      })
-                    )
-                  )
+            )
+          )
+        );
+      }
+      case 'rollup': {
+        const options = dto.options;
+        return RollupExpression.create(options.expression).andThen((expression) =>
+          RollupFieldConfig.create(dto.config).andThen((config) =>
+            optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
+              parseFormulaFormatting(options.formatting).andThen((formatting) =>
+                parseFormulaShowAs(options.showAs).andThen((showAs) =>
+                  createRollupFieldPending({
+                    id,
+                    name,
+                    config,
+                    expression,
+                    timeZone,
+                    formatting,
+                    showAs,
+                  })
                 )
               )
-            );
-          }
-          case 'link': {
-            return LinkFieldConfig.create(dto.options).andThen((config) =>
-              LinkFieldMeta.create(dto.meta).andThen((meta) =>
-                createLinkField({ id, name, config, meta: meta ?? undefined })
+            )
+          )
+        );
+      }
+      case 'singleSelect': {
+        const options = dto.options;
+        const choices = options.choices;
+        return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+          (selectOptions) =>
+            optional(options.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
+              optional(options.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+                (preventAutoNewOptions) =>
+                  createSingleSelectField({
+                    id,
+                    name,
+                    options: selectOptions,
+                    defaultValue,
+                    preventAutoNewOptions,
+                  })
               )
-            );
-          }
-          default:
-            return err(domainError.fromMessage('Unsupported field type'));
-        }
-      })
-    )
+            )
+        );
+      }
+      case 'multipleSelect': {
+        const options = dto.options;
+        const choices = options.choices;
+        return sequenceResults(choices.map((choice) => SelectOption.create(choice))).andThen(
+          (selectOptions) =>
+            optional(options.defaultValue, SelectDefaultValue.create).andThen((defaultValue) =>
+              optional(options.preventAutoNewOptions, SelectAutoNewOptions.create).andThen(
+                (preventAutoNewOptions) =>
+                  createMultipleSelectField({
+                    id,
+                    name,
+                    options: selectOptions,
+                    defaultValue,
+                    preventAutoNewOptions,
+                  })
+              )
+            )
+        );
+      }
+      case 'checkbox': {
+        return optional(dto.options?.defaultValue, CheckboxDefaultValue.create).andThen(
+          (defaultValue) => createCheckboxField({ id, name, defaultValue })
+        );
+      }
+      case 'attachment': {
+        return createAttachmentField({ id, name });
+      }
+      case 'date': {
+        return optional(dto.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+          optional(dto.options?.defaultValue, DateDefaultValue.create).andThen((defaultValue) =>
+            createDateField({ id, name, formatting, defaultValue })
+          )
+        );
+      }
+      case 'createdTime': {
+        return optional(dto.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+          createCreatedTimeField({ id, name, formatting })
+        );
+      }
+      case 'lastModifiedTime': {
+        return optional(dto.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>
+          parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
+            createLastModifiedTimeField({ id, name, formatting, trackedFieldIds })
+          )
+        );
+      }
+      case 'user': {
+        return optional(dto.options?.isMultiple, UserMultiplicity.create).andThen((isMultiple) =>
+          optional(dto.options?.shouldNotify, UserNotification.create).andThen((shouldNotify) =>
+            optional(dto.options?.defaultValue, UserDefaultValue.create).andThen((defaultValue) =>
+              createUserField({ id, name, isMultiple, shouldNotify, defaultValue })
+            )
+          )
+        );
+      }
+      case 'createdBy': {
+        return createCreatedByField({ id, name });
+      }
+      case 'lastModifiedBy': {
+        return parseTrackedFieldIds(dto.options?.trackedFieldIds).andThen((trackedFieldIds) =>
+          createLastModifiedByField({ id, name, trackedFieldIds })
+        );
+      }
+      case 'autoNumber': {
+        return createAutoNumberField({ id, name });
+      }
+      case 'button': {
+        const options = dto.options;
+        const workflowResult = ButtonWorkflow.create(options?.workflow);
+        return optional(options?.label, ButtonLabel.create).andThen((label) =>
+          optional(options?.color, FieldColor.create).andThen((color) =>
+            optional(options?.maxCount, ButtonMaxCount.create).andThen((maxCount) =>
+              optional(options?.resetCount, ButtonResetCount.create).andThen((resetCount) =>
+                workflowResult.andThen((workflow) =>
+                  createButtonField({
+                    id,
+                    name,
+                    label,
+                    color,
+                    maxCount,
+                    resetCount,
+                    workflow,
+                  })
+                )
+              )
+            )
+          )
+        );
+      }
+      case 'link': {
+        return LinkFieldConfig.create(dto.options).andThen((config) =>
+          LinkFieldMeta.create(dto.meta).andThen((meta) =>
+            createLinkField({ id, name, config, meta: meta ?? undefined })
+          )
+        );
+      }
+      default:
+        return err(domainError.validation({ message: 'Unsupported field type' }));
+    }
+  })();
+
+  return baseResult
     .andThen((field) => applyFieldValidation(field, dto.notNull, dto.unique))
     .andThen((field) => applyDbFieldName(field, dto.dbFieldName));
 };
@@ -381,7 +396,7 @@ const mapViewDtoToDomain = (dto: IViewDto): Result<View, DomainError> => {
           case 'plugin':
             return createPluginView({ id, name });
           default:
-            return err(domainError.fromMessage('Unsupported view type'));
+            return err(domainError.validation({ message: 'Unsupported view type' }));
         }
       })();
 
@@ -397,9 +412,9 @@ const mapViewDtoToDomain = (dto: IViewDto): Result<View, DomainError> => {
 export const mapTableDtoToDomain = (table: ITableDto): Result<Table, DomainError> => {
   const primaryFields = table.fields.filter((field) => field.isPrimary);
   if (primaryFields.length === 0)
-    return err(domainError.fromMessage('Primary field missing in table dto'));
+    return err(domainError.validation({ message: 'Primary field missing in table dto' }));
   if (primaryFields.length > 1)
-    return err(domainError.fromMessage('Multiple primary fields in table dto'));
+    return err(domainError.unexpected({ message: 'Multiple primary fields in table dto' }));
 
   return TableId.create(table.id).andThen((id) =>
     BaseId.create(table.baseId).andThen((baseId) =>

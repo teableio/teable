@@ -3,6 +3,7 @@ import type {
   IRealtimeEngine,
   RealtimeChange,
   RealtimeDocId,
+  DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { Result } from 'neverthrow';
@@ -10,7 +11,6 @@ import type { Result } from 'neverthrow';
 import { BroadcastChannelRealtimeHub } from './BroadcastChannelRealtimeHub';
 import { v2BroadcastChannelTokens } from './di/tokens';
 
-import { type DomainError } from '@teable/v2-core';
 @injectable()
 export class BroadcastChannelRealtimeEngine implements IRealtimeEngine {
   constructor(

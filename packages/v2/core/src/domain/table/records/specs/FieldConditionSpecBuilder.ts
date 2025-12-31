@@ -55,7 +55,7 @@ const parseOperator = <T>(
   message: string
 ): Result<T, DomainError> => {
   const parsed = schema.safeParse(value);
-  if (!parsed.success) return err(domainError.fromMessage(message));
+  if (!parsed.success) return err(domainError.unexpected({ message: message }));
   return ok(parsed.data);
 };
 
@@ -74,23 +74,27 @@ export class FieldConditionSpecBuilder {
 
     const validOperators = getValidRecordConditionOperators(this.field, valueTypeResult.value);
     if (!validOperators.includes(input.operator)) {
-      return err(domainError.fromMessage('Invalid record condition operator for field'));
+      return err(
+        domainError.validation({ message: 'Invalid record condition operator for field' })
+      );
     }
 
     if (recordConditionOperatorsExpectingNull.includes(input.operator)) {
-      if (input.value) return err(domainError.fromMessage('Record condition expects null value'));
+      if (input.value)
+        return err(domainError.unexpected({ message: 'Record condition expects null value' }));
     } else {
-      if (!input.value) return err(domainError.fromMessage('Record condition requires a value'));
+      if (!input.value)
+        return err(domainError.unexpected({ message: 'Record condition requires a value' }));
     }
 
     if (recordConditionOperatorsExpectingArray.includes(input.operator)) {
       if (input.value && !isRecordConditionLiteralListValue(input.value)) {
         if (!isRecordConditionFieldReferenceValue(input.value)) {
-          return err(domainError.fromMessage('Record condition requires list value'));
+          return err(domainError.unexpected({ message: 'Record condition requires list value' }));
         }
       }
     } else if (input.value && isRecordConditionLiteralListValue(input.value)) {
-      return err(domainError.fromMessage('Record condition does not allow list value'));
+      return err(domainError.validation({ message: 'Record condition does not allow list value' }));
     }
 
     const fieldType = this.field.type();
@@ -227,6 +231,6 @@ export class FieldConditionSpecBuilder {
       return ok(RollupConditionSpec.create(this.field, input.operator, input.value));
     }
 
-    return err(domainError.fromMessage('Unsupported record condition field'));
+    return err(domainError.validation({ message: 'Unsupported record condition field' }));
   }
 }
