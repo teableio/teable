@@ -687,72 +687,83 @@ export class BaseService {
   }
 
   async publishBase(baseId: string, publishBaseRo: IPublishBaseRo) {
-    const prisma = this.prismaService.txClient();
-    const template = await prisma.template.findFirst({
-      where: { baseId },
-      select: { id: true, snapshot: true },
-    });
-    const { title, description, cover, nodes, includeData } = publishBaseRo;
+    return await this.prismaService.$tx(
+      async (prisma) => {
+        const template = await prisma.template.findFirst({
+          where: { baseId },
+          select: { id: true, snapshot: true },
+        });
+        const { title, description, cover, nodes, includeData } = publishBaseRo;
 
-    const snapshotBaseId = template?.snapshot ? JSON.parse(template.snapshot).baseId : undefined;
+        const snapshotBaseId = template?.snapshot
+          ? JSON.parse(template.snapshot).baseId
+          : undefined;
 
-    const snapshot = await this.createSnapshot(baseId, nodes, includeData, snapshotBaseId);
+        const snapshot = await this.createSnapshot(baseId, nodes, includeData, snapshotBaseId);
 
-    // Calculate snapshotActiveNodeId and defaultUrl
-    const snapshotActiveNodeId = publishBaseRo.defaultActiveNodeId
-      ? snapshot.nodeIdMap?.[publishBaseRo.defaultActiveNodeId] || null
-      : null;
-    const defaultUrl = await this.generateDefaultUrlForNode(snapshot.baseId, snapshotActiveNodeId);
+        // Calculate snapshotActiveNodeId and defaultUrl
+        const snapshotActiveNodeId = publishBaseRo.defaultActiveNodeId
+          ? snapshot.nodeIdMap?.[publishBaseRo.defaultActiveNodeId] || null
+          : null;
+        const defaultUrl = await this.generateDefaultUrlForNode(
+          snapshot.baseId,
+          snapshotActiveNodeId
+        );
 
-    const publishInfo = {
-      nodes: publishBaseRo.nodes,
-      includeData: publishBaseRo.includeData,
-      defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
-      snapshotActiveNodeId,
-      defaultUrl,
-    };
+        const publishInfo = {
+          nodes: publishBaseRo.nodes,
+          includeData: publishBaseRo.includeData,
+          defaultActiveNodeId: publishBaseRo.defaultActiveNodeId,
+          snapshotActiveNodeId,
+          defaultUrl,
+        };
 
-    // if already published, update template
-    if (template) {
-      const updatedTemplate = await prisma.template.update({
-        where: { id: template.id },
-        data: {
-          name: title,
-          description,
-          cover: cover ? JSON.stringify(cover) : undefined,
-          snapshot: JSON.stringify({
+        // if already published, update template
+        if (template) {
+          const updatedTemplate = await prisma.template.update({
+            where: { id: template.id },
+            data: {
+              name: title,
+              description,
+              cover: cover ? JSON.stringify(cover) : undefined,
+              snapshot: JSON.stringify({
+                baseId: snapshot.baseId,
+                snapshotTime: new Date().toISOString(),
+                spaceId: snapshot.spaceId,
+                name: snapshot.name,
+              }),
+              publishInfo,
+            },
+            select: {
+              id: true,
+            },
+          });
+          return {
             baseId: snapshot.baseId,
-            snapshotTime: new Date().toISOString(),
-            spaceId: snapshot.spaceId,
-            name: snapshot.name,
-          }),
-          publishInfo,
-        },
-        select: {
-          id: true,
-        },
-      });
-      return {
-        baseId: snapshot.baseId,
-        defaultUrl,
-        permalink: `/t/${updatedTemplate.id}`,
-      };
-    }
+            defaultUrl,
+            permalink: `/t/${updatedTemplate.id}`,
+          };
+        }
 
-    // if the base is not published, create a template
-    // publish snapshot
-    const newTemplate = await this.createTemplateBySnapshot(
-      baseId,
-      snapshot,
-      publishBaseRo,
-      publishInfo
+        // if the base is not published, create a template
+        // publish snapshot
+        const newTemplate = await this.createTemplateBySnapshot(
+          baseId,
+          snapshot,
+          publishBaseRo,
+          publishInfo
+        );
+
+        return {
+          baseId: snapshot.baseId,
+          defaultUrl,
+          permalink: `/t/${newTemplate.id}`,
+        };
+      },
+      {
+        timeout: this.thresholdConfig.bigTransactionTimeout,
+      }
     );
-
-    return {
-      baseId: snapshot.baseId,
-      defaultUrl,
-      permalink: `/t/${newTemplate.id}`,
-    };
   }
 
   private async createSnapshot(

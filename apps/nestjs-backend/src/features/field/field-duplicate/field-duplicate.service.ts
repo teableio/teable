@@ -651,19 +651,6 @@ export class FieldDuplicateService {
           },
         });
 
-    await this.replenishmentConstraint(
-      newFieldId,
-      targetTableId,
-      order,
-      {
-        notNull,
-        unique,
-        dbFieldName,
-        isPrimary,
-      },
-      resolvedDbTableName
-    );
-
     const { dbFieldName: genDbFieldName } = await this.prismaService
       .txClient()
       .field.findUniqueOrThrow({
@@ -714,6 +701,19 @@ export class FieldDuplicateService {
         }
       }
     }
+
+    await this.replenishmentConstraint(
+      newFieldId,
+      targetTableId,
+      order,
+      {
+        notNull,
+        unique,
+        dbFieldName,
+        isPrimary,
+      },
+      resolvedDbTableName
+    );
   }
 
   async repairFieldOptions(
