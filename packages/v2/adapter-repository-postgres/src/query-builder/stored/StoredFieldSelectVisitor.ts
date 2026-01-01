@@ -27,12 +27,10 @@ import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 
 /**
- * Visitor that generates simple SELECT expressions for physical column values.
+ * Visitor that generates simple SELECT expressions for stored column values.
  * All fields are selected directly from the table without any computation.
  */
-export class PhysicalFieldSelectVisitor
-  implements IFieldVisitor<AliasedRawBuilder<unknown, string>>
-{
+export class StoredFieldSelectVisitor implements IFieldVisitor<AliasedRawBuilder<unknown, string>> {
   constructor(private readonly tableAlias: string) {}
 
   private selectColumn(field: Field): Result<AliasedRawBuilder<unknown, string>, DomainError> {
@@ -128,7 +126,7 @@ export class PhysicalFieldSelectVisitor
     return this.selectColumn(field);
   }
 
-  // Computed fields - still select physical column (pre-computed value)
+  // Computed fields - still select stored column (pre-computed value)
   visitFormulaField(field: FormulaField): Result<AliasedRawBuilder<unknown, string>, DomainError> {
     return this.selectColumn(field);
   }

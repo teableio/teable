@@ -2,5 +2,5 @@ export * from './FieldOutputColumnVisitor';
 export * from './FieldSelectExpressionVisitor';
 export * from './TableRecordQueryBuilder';
 
-// Physical column query builder (no computed fields)
-export * from './physical';
+// Stored column query builder (no computed fields, reads pre-stored values)
+export * from './stored';

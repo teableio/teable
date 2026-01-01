@@ -3,7 +3,7 @@ import { sql, type AliasedRawBuilder, type Kysely, type SelectQueryBuilder } fro
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 
-import { PhysicalFieldSelectVisitor } from './PhysicalFieldSelectVisitor';
+import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
 
 const T = 't'; // main table alias
 
@@ -11,11 +11,11 @@ type DynamicDB = Record<string, Record<string, unknown>>;
 type QB = SelectQueryBuilder<DynamicDB, string, Record<string, unknown>>;
 
 /**
- * Query builder that selects all physical column values directly.
+ * Query builder that selects all stored column values directly.
  * No LATERAL joins, no formula computation - just raw column selection.
  * Used for fast reads when pre-computed values are acceptable.
  */
-export class PhysicalTableRecordQueryBuilder {
+export class StoredTableRecordQueryBuilder {
   private table: Table | null = null;
   private projection: FieldId[] | null = null;
   private limitValue: number | null = null;
@@ -52,7 +52,7 @@ export class PhysicalTableRecordQueryBuilder {
     const projection = this.projection;
 
     return safeTry<QB, DomainError>(
-      function* (this: PhysicalTableRecordQueryBuilder) {
+      function* (this: StoredTableRecordQueryBuilder) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
 
@@ -77,7 +77,7 @@ export class PhysicalTableRecordQueryBuilder {
     projection: FieldId[] | null
   ): Result<AliasedRawBuilder<unknown, string>[], DomainError> {
     return safeTry(function* () {
-      const visitor = new PhysicalFieldSelectVisitor(T);
+      const visitor = new StoredFieldSelectVisitor(T);
       const columns: AliasedRawBuilder<unknown, string>[] = [];
 
       for (const field of table.getFields()) {

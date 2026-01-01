@@ -8,7 +8,7 @@ import {
 } from 'kysely';
 import { describe, expect, test } from 'vitest';
 
-import { PhysicalTableRecordQueryBuilder } from './PhysicalTableRecordQueryBuilder';
+import { StoredTableRecordQueryBuilder } from './StoredTableRecordQueryBuilder';
 
 // ============================================================================
 // Test Utilities
@@ -26,7 +26,7 @@ const createTestDb = () =>
 
 const compileQuery = (
   db: Kysely<Record<string, Record<string, unknown>>>,
-  builder: PhysicalTableRecordQueryBuilder
+  builder: StoredTableRecordQueryBuilder
 ) => {
   const result = builder.build();
   expect(result.isOk()).toBe(true);
@@ -43,7 +43,7 @@ const MAIN_TABLE_ID = `tbl${'m'.repeat(16)}`;
 // Tests
 // ============================================================================
 
-describe('PhysicalTableRecordQueryBuilder', () => {
+describe('StoredTableRecordQueryBuilder', () => {
   describe('basic field types', () => {
     const createTableWithAllFields = () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -149,7 +149,7 @@ describe('PhysicalTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
 
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table));
 
       expect(sql).toMatchInlineSnapshot(
@@ -162,7 +162,7 @@ describe('PhysicalTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
 
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table).limit(10).offset(20));
 
       expect(sql).toContain('limit $1 offset $2');
@@ -174,7 +174,7 @@ describe('PhysicalTableRecordQueryBuilder', () => {
       const table = createTableWithAllFields();
       const firstFieldId = table.getFields()[0].id();
 
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).select([firstFieldId]));
 
       expect(sql).toMatchInlineSnapshot(
@@ -183,8 +183,8 @@ describe('PhysicalTableRecordQueryBuilder', () => {
     });
   });
 
-  describe('computed-like fields (selected as physical columns)', () => {
-    // For physical builder, even "computed" fields are just selected as stored columns
+  describe('computed-like fields (selected as stored columns)', () => {
+    // For stored builder, even "computed" fields are just selected as stored columns
     const createTableWithComputedFieldColumns = () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
       const tableId = TableId.create(MAIN_TABLE_ID)._unsafeUnwrap();
@@ -243,10 +243,10 @@ describe('PhysicalTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const table = createTableWithComputedFieldColumns();
 
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table));
 
-      // Physical builder should select all columns directly without joins
+      // Stored builder should select all columns directly without joins
       expect(sql).toMatchInlineSnapshot(
         `"select "t"."__id" as "__id", "t"."col_text" as "col_text", "t"."col_formula_stored" as "col_formula_stored", "t"."col_link_stored" as "col_link_stored", "t"."col_lookup_stored" as "col_lookup_stored", "t"."col_rollup_stored" as "col_rollup_stored" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t""`
       );
@@ -264,7 +264,7 @@ describe('PhysicalTableRecordQueryBuilder', () => {
       const formulaFieldId = table.getFields()[1].id();
       const lookupFieldId = table.getFields()[3].id();
 
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).select([formulaFieldId, lookupFieldId]));
 
       expect(sql).toMatchInlineSnapshot(
@@ -276,7 +276,7 @@ describe('PhysicalTableRecordQueryBuilder', () => {
   describe('error handling', () => {
     test('returns error when from() not called', () => {
       const db = createTestDb();
-      const qb = new PhysicalTableRecordQueryBuilder(db);
+      const qb = new StoredTableRecordQueryBuilder(db);
       const result = qb.build();
 
       expect(result.isErr()).toBe(true);
