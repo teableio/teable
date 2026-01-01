@@ -21,10 +21,10 @@ import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
 import {
-  FieldSelectExpressionVisitor,
+  ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
   type LateralColumnType,
-} from './FieldSelectExpressionVisitor';
+} from './ComputedFieldSelectExpressionVisitor';
 
 const T = 't'; // main table alias
 const F = 'f'; // foreign table alias in lateral
@@ -36,7 +36,11 @@ export interface IQueryBuilderOptions {
   readonly foreignTables?: ReadonlyMap<string, Table>;
 }
 
-export class PostgresTableRecordQueryBuilder {
+/**
+ * Query builder that computes field values using LATERAL joins and SQL expressions.
+ * Dynamically resolves link/lookup/rollup fields through database-side computation.
+ */
+export class ComputedTableRecordQueryBuilder {
   private table: Table | null = null;
   private foreignTables: ReadonlyMap<string, Table> = new Map();
   private projection: FieldId[] | null = null;
@@ -77,7 +81,7 @@ export class PostgresTableRecordQueryBuilder {
     const { laterals, ctx: lateralCtx } = this.createLateralContext();
 
     return safeTry<QB, DomainError>(
-      function* (this: PostgresTableRecordQueryBuilder) {
+      function* (this: ComputedTableRecordQueryBuilder) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
 
@@ -131,7 +135,7 @@ export class PostgresTableRecordQueryBuilder {
     lateralCtx: ILateralContext
   ): Result<AliasedRawBuilder<unknown, string>[], DomainError> {
     return safeTry(function* () {
-      const visitor = new FieldSelectExpressionVisitor(T, lateralCtx);
+      const visitor = new ComputedFieldSelectExpressionVisitor(T, lateralCtx);
       const columns: AliasedRawBuilder<unknown, string>[] = [];
 
       for (const field of table.getFields()) {
@@ -163,7 +167,7 @@ export class PostgresTableRecordQueryBuilder {
     }
 
     return safeTry<(qb: QB) => QB, DomainError>(
-      function* (this: PostgresTableRecordQueryBuilder) {
+      function* (this: ComputedTableRecordQueryBuilder) {
         const subqueries: AliasedExpression<Record<string, unknown>, string>[] = [];
 
         for (const [, lateral] of laterals) {

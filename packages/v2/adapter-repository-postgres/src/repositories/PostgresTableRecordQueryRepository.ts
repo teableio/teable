@@ -14,10 +14,10 @@ import type { Result } from 'neverthrow';
 
 import { v2PostgresStateTokens } from '../di/tokens';
 import {
+  ComputedTableRecordQueryBuilder,
   FieldOutputColumnVisitor,
   type FieldOutputColumn,
-} from '../query-builder/FieldOutputColumnVisitor';
-import { PostgresTableRecordQueryBuilder } from '../query-builder/TableRecordQueryBuilder';
+} from '../query-builder';
 
 const RECORD_ID_COLUMN = '__id';
 
@@ -40,8 +40,8 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
       async function* (this: PostgresTableRecordQueryRepository) {
         const db = resolvePostgresDb(this.db, context);
 
-        // Build query using the new query builder
-        const queryBuilder = new PostgresTableRecordQueryBuilder(
+        // Build query using the computed query builder
+        const queryBuilder = new ComputedTableRecordQueryBuilder(
           db as unknown as Kysely<Record<string, Record<string, unknown>>>
         );
         const builtQuery = yield* queryBuilder

@@ -1,6 +1,8 @@
+// Shared utilities
 export * from './FieldOutputColumnVisitor';
-export * from './FieldSelectExpressionVisitor';
-export * from './TableRecordQueryBuilder';
 
-// Stored column query builder (no computed fields, reads pre-stored values)
+// Computed query builder (LATERAL joins, formula computation)
+export * from './computed';
+
+// Stored query builder (direct column reads, pre-stored values)
 export * from './stored';

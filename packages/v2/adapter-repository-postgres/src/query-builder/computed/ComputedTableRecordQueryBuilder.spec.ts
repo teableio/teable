@@ -21,7 +21,7 @@ import {
 } from 'kysely';
 import { describe, expect, test } from 'vitest';
 
-import { PostgresTableRecordQueryBuilder } from './TableRecordQueryBuilder';
+import { ComputedTableRecordQueryBuilder } from './ComputedTableRecordQueryBuilder';
 
 // ============================================================================
 // Test Utilities
@@ -39,7 +39,7 @@ const createTestDb = () =>
 
 const compileQuery = (
   db: Kysely<Record<string, Record<string, unknown>>>,
-  builder: PostgresTableRecordQueryBuilder
+  builder: ComputedTableRecordQueryBuilder
 ) => {
   const result = builder.build();
   expect(result.isOk()).toBe(true);
@@ -59,7 +59,7 @@ const LOOKUP_TARGET_FIELD_ID = `fld${'l'.repeat(16)}`;
 // Tests
 // ============================================================================
 
-describe('PostgresTableRecordQueryBuilder', () => {
+describe('ComputedTableRecordQueryBuilder', () => {
   describe('all field types', () => {
     const createTableWithAllFields = () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -165,7 +165,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
 
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table));
 
       expect(sql).toMatchInlineSnapshot(
@@ -178,7 +178,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const db = createTestDb();
       const table = createTableWithAllFields();
 
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql, parameters } = compileQuery(db, qb.from(table).limit(10).offset(20));
 
       expect(sql).toContain('limit $1 offset $2');
@@ -190,7 +190,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const table = createTableWithAllFields();
       const firstFieldId = table.getFields()[0].id();
 
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table).select([firstFieldId]));
 
       expect(sql).toMatchInlineSnapshot(
@@ -279,7 +279,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
       // Verify lateral join exists
@@ -304,7 +304,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
       expect(sql).toMatchSnapshot(`link-${relationship}`);
@@ -407,7 +407,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
       // Should have only ONE lateral join (shared)
@@ -427,7 +427,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const lookupFieldId = mainTable.getFields()[2].id();
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(
         db,
         qb.from(mainTable, { foreignTables }).select([lookupFieldId])
@@ -551,7 +551,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
         const { mainTable, foreignTable, foreignTableId } = createRollupTable(expression);
 
         const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-        const qb = new PostgresTableRecordQueryBuilder(db);
+        const qb = new ComputedTableRecordQueryBuilder(db);
         const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
         expect(sql).toContain(`${sqlAggregate}("f"."col_number")`);
@@ -563,11 +563,11 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createRollupTable('sum({values})');
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldHKJp0XFtr3eXOXfO" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldOWCWmDwGJybc7bqy" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });
@@ -702,7 +702,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
         [foreignTableAId.toString(), foreignTableA],
         [foreignTableBId.toString(), foreignTableB],
       ]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
 
       // Should have TWO lateral joins
@@ -718,7 +718,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       expect(sql).toContain(`"${FOREIGN_TABLE_B_ID}"`);
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fldL5zIZJWnMYnLdRs8" = "t"."__id") as "lat_fld2222222222222222" on true"`
+        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fldq2HReUVKdaUSjW5u" = "t"."__id") as "lat_fld2222222222222222" on true"`
       );
     });
   });
@@ -779,7 +779,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
 
       // Self-ref: foreign table is the same as main table
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
 
       expect(sql).toContain('inner join lateral');
@@ -791,7 +791,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { table, tableId } = createSelfRefTable(relationship);
 
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
 
       expect(sql).toMatchSnapshot(`self-ref-link-${relationship}`);
@@ -911,7 +911,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
         const { table, tableId } = createSelfRefWithLookupRollup(relationship);
 
         const foreignTables = new Map([[tableId.toString(), table]]);
-        const qb = new PostgresTableRecordQueryBuilder(db);
+        const qb = new ComputedTableRecordQueryBuilder(db);
         const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
 
         // Should have only ONE lateral join (link, lookup, rollup share it)
@@ -931,7 +931,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
       const { table, tableId } = createSelfRefWithLookupRollup(relationship);
 
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
 
       expect(sql).toMatchSnapshot(`self-ref-${relationship}-with-lookup-rollup`);
@@ -941,7 +941,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
   describe('error handling', () => {
     test('returns error when from() not called', () => {
       const db = createTestDb();
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
 
       const result = qb.build();
 
@@ -980,7 +980,7 @@ describe('PostgresTableRecordQueryBuilder', () => {
         ._unsafeUnwrap();
 
       const db = createTestDb();
-      const qb = new PostgresTableRecordQueryBuilder(db);
+      const qb = new ComputedTableRecordQueryBuilder(db);
 
       const result = qb.from(table).build();
 

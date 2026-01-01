@@ -27,7 +27,7 @@ import {
 import { sql, type AliasedRawBuilder } from 'kysely';
 import type { Result } from 'neverthrow';
 
-import { FieldOutputColumnVisitor } from './FieldOutputColumnVisitor';
+import { FieldOutputColumnVisitor } from '../FieldOutputColumnVisitor';
 
 /** SQL aggregate functions for rollup */
 export const SqlAggregate = {
@@ -62,7 +62,7 @@ export interface ILateralContext {
   ): string;
 }
 
-export class FieldSelectExpressionVisitor
+export class ComputedFieldSelectExpressionVisitor
   implements IFieldVisitor<AliasedRawBuilder<unknown, string>>
 {
   private readonly columnVisitor = new FieldOutputColumnVisitor();
