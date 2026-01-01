@@ -9,6 +9,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.3.14",
     "@hookform/resolvers": "3.3.4",
     "@opentelemetry/api": "1.9.0",
     "@opentelemetry/exporter-trace-otlp-http": "0.201.1",
@@ -51,11 +52,11 @@
     "@tanstack/react-router-devtools": "^1.132.0",
     "@tanstack/react-router-ssr-query": "^1.131.7",
     "@tanstack/react-start": "^1.132.0",
+    "@tanstack/react-table": "8.11.7",
     "@tanstack/router-plugin": "^1.132.0",
     "@tanstack/zod-form-adapter": "^0.41.2",
-    "@electric-sql/pglite": "0.3.14",
-    "@teable/v2-adapter-db-postgres-pglite": "workspace:^",
     "@teable/v2-adapter-db-postgres-pg": "workspace:^",
+    "@teable/v2-adapter-db-postgres-pglite": "workspace:^",
     "@teable/v2-adapter-logger-pino": "workspace:^",
     "@teable/v2-adapter-realtime-broadcastchannel": "workspace:^",
     "@teable/v2-adapter-realtime-sharedb": "workspace:^",
