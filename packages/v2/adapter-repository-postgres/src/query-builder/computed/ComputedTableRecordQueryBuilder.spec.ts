@@ -279,8 +279,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
 
       // Verify lateral join exists
       expect(sql).toContain('inner join lateral');
@@ -304,8 +306,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLinkedTables(relationship);
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
 
       expect(sql).toMatchSnapshot(`link-${relationship}`);
     });
@@ -407,8 +411,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createLookupTable();
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
 
       // Should have only ONE lateral join (shared)
       const lateralCount = (sql.match(/inner join lateral/g) || []).length;
@@ -427,10 +433,11 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const lookupFieldId = mainTable.getFields()[2].id();
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
       const { sql } = compileQuery(
         db,
-        qb.from(mainTable, { foreignTables }).select([lookupFieldId])
+        new ComputedTableRecordQueryBuilder(db, { foreignTables })
+          .from(mainTable)
+          .select([lookupFieldId])
       );
 
       // Should still have lateral join for lookup
@@ -551,8 +558,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
         const { mainTable, foreignTable, foreignTableId } = createRollupTable(expression);
 
         const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-        const qb = new ComputedTableRecordQueryBuilder(db);
-        const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+        const { sql } = compileQuery(
+          db,
+          new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+        );
 
         expect(sql).toContain(`${sqlAggregate}("f"."col_number")`);
       }
@@ -563,11 +572,13 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { mainTable, foreignTable, foreignTableId } = createRollupTable('sum({values})');
 
       const foreignTables = new Map([[foreignTableId.toString(), foreignTable]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldOWCWmDwGJybc7bqy" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldcMEwE9b827iMbem9" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });
@@ -702,8 +713,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
         [foreignTableAId.toString(), foreignTableA],
         [foreignTableBId.toString(), foreignTableB],
       ]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(mainTable, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(mainTable)
+      );
 
       // Should have TWO lateral joins
       const lateralCount = (sql.match(/inner join lateral/g) || []).length;
@@ -718,7 +731,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(`"${FOREIGN_TABLE_B_ID}"`);
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fldq2HReUVKdaUSjW5u" = "t"."__id") as "lat_fld2222222222222222" on true"`
+        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fldadfeJ8a3lVQ3XBm0" = "t"."__id") as "lat_fld2222222222222222" on true"`
       );
     });
   });
@@ -779,8 +792,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
 
       // Self-ref: foreign table is the same as main table
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(table)
+      );
 
       expect(sql).toContain('inner join lateral');
       expect(sql).toContain("jsonb_build_object('id'");
@@ -791,8 +806,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { table, tableId } = createSelfRefTable(relationship);
 
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(table)
+      );
 
       expect(sql).toMatchSnapshot(`self-ref-link-${relationship}`);
     });
@@ -911,8 +928,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
         const { table, tableId } = createSelfRefWithLookupRollup(relationship);
 
         const foreignTables = new Map([[tableId.toString(), table]]);
-        const qb = new ComputedTableRecordQueryBuilder(db);
-        const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
+        const { sql } = compileQuery(
+          db,
+          new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(table)
+        );
 
         // Should have only ONE lateral join (link, lookup, rollup share it)
         const lateralCount = (sql.match(/inner join lateral/g) || []).length;
@@ -931,8 +950,10 @@ describe('ComputedTableRecordQueryBuilder', () => {
       const { table, tableId } = createSelfRefWithLookupRollup(relationship);
 
       const foreignTables = new Map([[tableId.toString(), table]]);
-      const qb = new ComputedTableRecordQueryBuilder(db);
-      const { sql } = compileQuery(db, qb.from(table, { foreignTables }));
+      const { sql } = compileQuery(
+        db,
+        new ComputedTableRecordQueryBuilder(db, { foreignTables }).from(table)
+      );
 
       expect(sql).toMatchSnapshot(`self-ref-${relationship}-with-lookup-rollup`);
     });

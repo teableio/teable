@@ -7,16 +7,14 @@ import {
   type DomainError,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
-import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Kysely, Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2PostgresStateTokens } from '../di/tokens';
 import {
-  ComputedTableRecordQueryBuilder,
   FieldOutputColumnVisitor,
   type FieldOutputColumn,
+  TableRecordQueryBuilderManager,
 } from '../query-builder';
 
 const RECORD_ID_COLUMN = '__id';
@@ -24,8 +22,8 @@ const RECORD_ID_COLUMN = '__id';
 @injectable()
 export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
   constructor(
-    @inject(v2PostgresStateTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2PostgresStateTokens.tableRecordQueryBuilderManager)
+    private readonly queryBuilderManager: TableRecordQueryBuilderManager,
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger
   ) {}
@@ -38,16 +36,13 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
   ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>> {
     return safeTry<ReadonlyArray<core.TableRecordReadModel>, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
-        const db = resolvePostgresDb(this.db, context);
+        // Create query builder via manager (it handles prepare)
+        const queryBuilder = yield* await this.queryBuilderManager.createBuilder(context, table, {
+          mode: options?.mode,
+        });
 
-        // Build query using the computed query builder
-        const queryBuilder = new ComputedTableRecordQueryBuilder(
-          db as unknown as Kysely<Record<string, Record<string, unknown>>>
-        );
-        const builtQuery = yield* queryBuilder
-          .from(table, { foreignTables: options?.foreignTables })
-          // TODO: Apply spec/filter to the query
-          .build();
+        // Build the query
+        const builtQuery = yield* queryBuilder.build();
 
         const compiled = builtQuery.compile();
         this.logger.debug(`find:sql\n${compiled.sql}`, { parameters: compiled.parameters });
@@ -85,26 +80,6 @@ const mapRowsToReadModels = (
     }
     return { id, fields };
   });
-};
-
-type PostgresTransactionContext<DB> = {
-  kind: 'unitOfWorkTransaction';
-  db: Transaction<DB>;
-};
-
-const getPostgresTransaction = <DB>(context: core.IExecutionContext): Transaction<DB> | null => {
-  const transaction = context.transaction as Partial<PostgresTransactionContext<DB>> | undefined;
-  if (transaction?.kind === 'unitOfWorkTransaction' && transaction.db) {
-    return transaction.db as Transaction<DB>;
-  }
-  return null;
-};
-
-const resolvePostgresDb = <DB>(
-  db: Kysely<DB>,
-  context: core.IExecutionContext
-): Kysely<DB> | Transaction<DB> => {
-  return getPostgresTransaction<DB>(context) ?? db;
 };
 
 const describeError = (error: unknown): string => {

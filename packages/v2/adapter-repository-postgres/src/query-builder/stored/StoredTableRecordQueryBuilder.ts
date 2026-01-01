@@ -1,21 +1,24 @@
 import { domainError, type DomainError, type FieldId, type Table } from '@teable/v2-core';
-import { sql, type AliasedRawBuilder, type Kysely, type SelectQueryBuilder } from 'kysely';
+import { sql, type AliasedRawBuilder, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 
+import type {
+  DynamicDB,
+  IQueryBuilderDeps,
+  ITableRecordQueryBuilder,
+  QB,
+} from '../ITableRecordQueryBuilder';
 import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
 
 const T = 't'; // main table alias
-
-type DynamicDB = Record<string, Record<string, unknown>>;
-type QB = SelectQueryBuilder<DynamicDB, string, Record<string, unknown>>;
 
 /**
  * Query builder that selects all stored column values directly.
  * No LATERAL joins, no formula computation - just raw column selection.
  * Used for fast reads when pre-computed values are acceptable.
  */
-export class StoredTableRecordQueryBuilder {
+export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private table: Table | null = null;
   private projection: FieldId[] | null = null;
   private limitValue: number | null = null;
@@ -41,6 +44,13 @@ export class StoredTableRecordQueryBuilder {
   offset(n: number): this {
     this.offsetValue = n;
     return this;
+  }
+
+  /**
+   * No preparation needed for stored builder - reads pre-stored values.
+   */
+  async prepare(_deps: IQueryBuilderDeps): Promise<Result<void, DomainError>> {
+    return ok(undefined);
   }
 
   build(): Result<QB, DomainError> {

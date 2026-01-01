@@ -1,11 +1,14 @@
 import {
   domainError,
+  isNotFoundError,
+  LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
   type FieldId,
   type LinkField,
   type Table,
 } from '@teable/v2-core';
+import { Table as TableAggregate } from '@teable/v2-core';
 import {
   sql,
   type AliasedExpression,
@@ -13,13 +16,18 @@ import {
   type Expression,
   type Kysely,
   type RawBuilder,
-  type SelectQueryBuilder,
   type SqlBool,
 } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
 import { match } from 'ts-pattern';
 
+import type {
+  DynamicDB,
+  IQueryBuilderDeps,
+  ITableRecordQueryBuilder,
+  QB,
+} from '../ITableRecordQueryBuilder';
 import {
   ComputedFieldSelectExpressionVisitor,
   type ILateralContext,
@@ -29,10 +37,8 @@ import {
 const T = 't'; // main table alias
 const F = 'f'; // foreign table alias in lateral
 
-type DynamicDB = Record<string, Record<string, unknown>>;
-type QB = SelectQueryBuilder<DynamicDB, string, Record<string, unknown>>;
-
-export interface IQueryBuilderOptions {
+export interface IComputedQueryBuilderOptions {
+  /** Foreign tables for link/lookup/rollup - can be pre-set (for tests) or loaded via prepare() */
   readonly foreignTables?: ReadonlyMap<string, Table>;
 }
 
@@ -40,18 +46,22 @@ export interface IQueryBuilderOptions {
  * Query builder that computes field values using LATERAL joins and SQL expressions.
  * Dynamically resolves link/lookup/rollup fields through database-side computation.
  */
-export class ComputedTableRecordQueryBuilder {
+export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private table: Table | null = null;
-  private foreignTables: ReadonlyMap<string, Table> = new Map();
   private projection: FieldId[] | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
+  private foreignTables: ReadonlyMap<string, Table>;
 
-  constructor(private readonly db: Kysely<DynamicDB>) {}
-
-  from(table: Table, options?: IQueryBuilderOptions): this {
-    this.table = table;
+  constructor(
+    private readonly db: Kysely<DynamicDB>,
+    options?: IComputedQueryBuilderOptions
+  ) {
     this.foreignTables = options?.foreignTables ?? new Map();
+  }
+
+  from(table: Table): this {
+    this.table = table;
     return this;
   }
 
@@ -68,6 +78,56 @@ export class ComputedTableRecordQueryBuilder {
   offset(n: number): this {
     this.offsetValue = n;
     return this;
+  }
+
+  /**
+   * Prepare by loading foreign tables needed for link/lookup/rollup fields.
+   */
+  async prepare(deps: IQueryBuilderDeps): Promise<Result<void, DomainError>> {
+    if (!this.table) {
+      return err(domainError.validation({ message: 'Call from() first' }));
+    }
+
+    const table = this.table;
+
+    return safeTry<void, DomainError>(
+      async function* (this: ComputedTableRecordQueryBuilder) {
+        // Collect all foreign table references from link/lookup/rollup fields
+        const visitor = new LinkForeignTableReferenceVisitor();
+        const refs = yield* visitor.collect(table.getFields());
+
+        if (refs.length === 0) {
+          this.foreignTables = new Map();
+          return ok(undefined);
+        }
+
+        // Load each foreign table
+        const foreignTables = new Map<string, Table>();
+        for (const ref of refs) {
+          // Skip self-referential links (same table)
+          if (ref.foreignTableId.equals(table.id())) {
+            foreignTables.set(ref.foreignTableId.toString(), table);
+            continue;
+          }
+
+          const foreignSpec = yield* table.specs().byId(ref.foreignTableId).build();
+          const foreignTable = yield* (
+            await deps.tableRepository.findOne(deps.context, foreignSpec)
+          ).mapErr((error: DomainError) =>
+            isNotFoundError(error)
+              ? domainError.notFound({
+                  code: 'foreign_table.not_found',
+                  message: `Foreign table not found: ${ref.foreignTableId.toString()}`,
+                })
+              : error
+          );
+          foreignTables.set(ref.foreignTableId.toString(), foreignTable);
+        }
+
+        this.foreignTables = foreignTables;
+        return ok(undefined);
+      }.bind(this)
+    );
   }
 
   build(): Result<QB, DomainError> {

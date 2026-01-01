@@ -2,10 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { BaseId } from '../domain/base/BaseId';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
-import { LinkForeignTableReferenceVisitor } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
-import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
@@ -60,61 +57,20 @@ export class ListTableRecordsHandler
               : error
         );
 
-        // 2. Load foreign tables for link/lookup/rollup fields
-        const foreignTables = yield* await this.loadForeignTables(context, query.baseId, table);
-
-        // 3. Build filter spec
+        // 2. Build filter spec
         const filterSpec = query.filter
           ? yield* buildRecordConditionSpec(table, query.filter)
           : undefined;
 
-        // 4. Query records
+        // 3. Query records (repository handles foreign table loading via query builder prepare)
         const records = yield* await this.tableRecordQueryRepository.find(
           context,
           table,
-          filterSpec,
-          { foreignTables }
+          filterSpec
         );
 
         logger.debug('ListTableRecordsHandler.success', { count: records.length });
         return ok(ListTableRecordsResult.create(records));
-      }.bind(this)
-    );
-  }
-
-  private async loadForeignTables(
-    context: IExecutionContext,
-    baseId: BaseId,
-    table: Table
-  ): Promise<Result<ReadonlyMap<string, Table>, DomainError>> {
-    return safeTry<ReadonlyMap<string, Table>, DomainError>(
-      async function* (this: ListTableRecordsHandler) {
-        const refs = yield* new LinkForeignTableReferenceVisitor().collect(table.getFields());
-        if (refs.length === 0) return ok(new Map<string, Table>());
-
-        const foreignTables = new Map<string, Table>();
-
-        for (const ref of refs) {
-          // Self-referential: reuse same table
-          if (ref.foreignTableId.equals(table.id())) {
-            foreignTables.set(ref.foreignTableId.toString(), table);
-            continue;
-          }
-
-          const spec = yield* TableAggregate.specs(baseId).byId(ref.foreignTableId).build();
-          const foreignTable = yield* (await this.tableRepository.findOne(context, spec)).mapErr(
-            (error: DomainError) =>
-              isNotFoundError(error)
-                ? domainError.notFound({
-                    code: 'foreign_table.not_found',
-                    message: `Foreign table not found: ${ref.foreignTableId.toString()}`,
-                  })
-                : error
-          );
-          foreignTables.set(ref.foreignTableId.toString(), foreignTable);
-        }
-
-        return ok(foreignTables as ReadonlyMap<string, Table>);
       }.bind(this)
     );
   }

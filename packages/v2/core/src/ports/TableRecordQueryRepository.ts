@@ -8,9 +8,16 @@ import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { TableRecordReadModel } from './TableRecordReadModel';
 
+/** Query mode determines how computed fields are resolved */
+export type TableRecordQueryMode = 'computed' | 'stored';
+
 export interface ITableRecordQueryOptions {
-  /** Foreign tables needed for link/lookup/rollup fields */
-  readonly foreignTables?: ReadonlyMap<string, Table>;
+  /**
+   * Query mode:
+   * - 'computed': Dynamically compute link/lookup/rollup via LATERAL joins (default)
+   * - 'stored': Read pre-stored values directly from columns
+   */
+  readonly mode?: TableRecordQueryMode;
 }
 
 export interface ITableRecordQueryRepository {
