@@ -103,6 +103,51 @@ const fetchColumnTypes = async (
   return new Map(columnsResult.rows.map((row) => [row.columnName, row.udtName]));
 };
 
+type IndexInfo = {
+  indexName: string;
+  isUnique: boolean;
+  columnNames: string[];
+};
+
+const fetchIndexes = async (
+  db: Kysely<V1TeableDatabase>,
+  tableName: string,
+  schemaName = 'public'
+): Promise<IndexInfo[]> => {
+  const indexesResult = await sql<{
+    indexName: string;
+    isUnique: boolean;
+    columnName: string;
+  }>`
+    select
+      i.relname as "indexName",
+      ix.indisunique as "isUnique",
+      a.attname as "columnName"
+    from pg_class t
+    join pg_index ix on t.oid = ix.indrelid
+    join pg_class i on i.oid = ix.indexrelid
+    join pg_attribute a on a.attrelid = t.oid and a.attnum = any(ix.indkey)
+    join pg_namespace n on n.oid = t.relnamespace
+    where t.relkind = 'r'
+      and n.nspname = ${schemaName}
+      and t.relname = ${tableName}
+    order by i.relname, a.attnum
+  `.execute(db);
+
+  const indexMap = new Map<string, IndexInfo>();
+  for (const row of indexesResult.rows) {
+    if (!indexMap.has(row.indexName)) {
+      indexMap.set(row.indexName, {
+        indexName: row.indexName,
+        isUnique: row.isUnique,
+        columnNames: [],
+      });
+    }
+    indexMap.get(row.indexName)!.columnNames.push(row.columnName);
+  }
+  return Array.from(indexMap.values());
+};
+
 describe('PostgresTableSchemaRepository (pg)', () => {
   let testContainer: IV2NodeTestContainer;
 
@@ -729,6 +774,17 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(joinColumns.get('__self_id')).toBe('text');
         expect(joinColumns.get('__foreign_id')).toBe('text');
         expect(joinColumns.get('__order')).toBe('float8');
+
+        // Verify indexes on junction table
+        const joinIndexes = await fetchIndexes(db, joinTableInfo.tableName, joinSchema);
+        const selfKeyIndex = joinIndexes.find((idx) => idx.indexName === 'index___self_id');
+        const foreignKeyIndex = joinIndexes.find((idx) => idx.indexName === 'index___foreign_id');
+        expect(selfKeyIndex).toBeDefined();
+        expect(selfKeyIndex?.columnNames).toEqual(['__self_id']);
+        expect(selfKeyIndex?.isUnique).toBe(false);
+        expect(foreignKeyIndex).toBeDefined();
+        expect(foreignKeyIndex?.columnNames).toEqual(['__foreign_id']);
+        expect(foreignKeyIndex?.isUnique).toBe(false);
       } finally {
         // no cleanup required
         void 0;
@@ -845,6 +901,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         expect(hostColumns.get('link_value_om')).toBe('jsonb');
         expect(hostColumns.get('__self_id')).toBe('text');
         expect(hostColumns.get('__self_id_order')).toBe('float8');
+
+        // Verify index on FK column
+        const hostIndexes = await fetchIndexes(db, dbTableNameFromSplit, actualSchemaName);
+        const selfKeyIndex = hostIndexes.find((idx) => idx.indexName === 'index___self_id');
+        expect(selfKeyIndex).toBeDefined();
+        expect(selfKeyIndex?.columnNames).toEqual(['__self_id']);
+        expect(selfKeyIndex?.isUnique).toBe(false);
       } finally {
         // no cleanup required
         void 0;
@@ -1076,6 +1139,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_mo')).toBe('jsonb');
         expect(hostColumns.get('__foreign_id')).toBe('text');
+
+        // Verify index on FK column
+        const hostIndexes = await fetchIndexes(db, dbTableNameFromSplit, actualSchemaName);
+        const foreignKeyIndex = hostIndexes.find((idx) => idx.indexName === 'index___foreign_id');
+        expect(foreignKeyIndex).toBeDefined();
+        expect(foreignKeyIndex?.columnNames).toEqual(['__foreign_id']);
+        expect(foreignKeyIndex?.isUnique).toBe(false);
       } finally {
         // no cleanup required
         void 0;
@@ -1187,6 +1257,13 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         const hostColumns = await fetchColumnTypes(db, dbTableNameFromSplit, actualSchemaName);
         expect(hostColumns.get('link_value_oo')).toBe('jsonb');
         expect(hostColumns.get('__foreign_id')).toBe('text');
+
+        // Verify UNIQUE index on FK column for oneOne relationship
+        const hostIndexes = await fetchIndexes(db, dbTableNameFromSplit, actualSchemaName);
+        const foreignKeyIndex = hostIndexes.find((idx) => idx.indexName === 'index___foreign_id');
+        expect(foreignKeyIndex).toBeDefined();
+        expect(foreignKeyIndex?.columnNames).toEqual(['__foreign_id']);
+        expect(foreignKeyIndex?.isUnique).toBe(true);
       } finally {
         // shared container disposed in afterAll
       }

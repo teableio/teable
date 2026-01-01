@@ -59,6 +59,20 @@ const buildTableIdentifier = (target: TableIdentifier) => {
   return sql`${sql.ref(target.schema)}.${sql.ref(target.tableName)}`;
 };
 
+const createIndexStatement = (
+  target: TableIdentifier,
+  indexName: string,
+  columnName: string
+): TableSchemaStatementBuilder =>
+  sql`create index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
+
+const createUniqueIndexStatement = (
+  target: TableIdentifier,
+  indexName: string,
+  columnName: string
+): TableSchemaStatementBuilder =>
+  sql`create unique index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
+
 const buildColumnConstraints = (
   field: Field
 ): ((col: ColumnDefinitionBuilder) => ColumnDefinitionBuilder) | undefined => {
@@ -436,13 +450,29 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
       relationship === 'oneMany' ? field.selfKeyNameString() : field.foreignKeyNameString();
 
     const params = this.params;
+    const currentTable = this.currentTable.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const keyName = yield* keyNameResult;
       const statements = yield* params.addColumn(keyName, 'text');
       const orderColumnName = yield* field.orderColumnName();
       const orderStatements = yield* params.addColumn(orderColumnName, 'double precision');
-      return ok([...statements, ...orderStatements]);
+
+      // Create index for FK column
+      const indexName = `index_${keyName}`;
+      const table = currentTable();
+
+      // OneOne requires UNIQUE index, others use regular index
+      const indexStatement =
+        relationship === 'oneOne'
+          ? createUniqueIndexStatement(table, indexName, keyName)
+          : createIndexStatement(table, indexName, keyName);
+
+      return ok([...statements, ...orderStatements, indexStatement]);
     });
+  }
+
+  private currentTable(): TableIdentifier {
+    return { schema: this.params.currentSchema, tableName: this.params.currentTableName };
   }
 
   private buildManyManyStatements(
@@ -465,7 +495,22 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
         .addColumn(foreignKeyName, 'text');
       const orderColumnName = yield* field.orderColumnName();
       builder = builder.addColumn(orderColumnName, 'double precision');
-      return ok([builder]);
+
+      // Create indexes for junction table FK columns
+      const selfKeyIndexName = `index_${selfKeyName}`;
+      const foreignKeyIndexName = `index_${foreignKeyName}`;
+      const selfKeyIndexStatement = createIndexStatement(
+        fkHostTable,
+        selfKeyIndexName,
+        selfKeyName
+      );
+      const foreignKeyIndexStatement = createIndexStatement(
+        fkHostTable,
+        foreignKeyIndexName,
+        foreignKeyName
+      );
+
+      return ok([builder, selfKeyIndexStatement, foreignKeyIndexStatement]);
     });
   }
 

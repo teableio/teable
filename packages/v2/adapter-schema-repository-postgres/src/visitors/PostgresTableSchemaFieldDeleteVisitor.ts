@@ -58,6 +58,16 @@ const dropColumnStatement = (
 const dropTableStatement = (target: TableIdentifier): TableSchemaStatementBuilder =>
   sql`drop table if exists ${buildTableIdentifier(target)} cascade`;
 
+const dropIndexStatement = (
+  target: TableIdentifier,
+  indexName: string
+): TableSchemaStatementBuilder => {
+  if (!target.schema) {
+    return sql`drop index if exists ${sql.ref(indexName)}`;
+  }
+  return sql`drop index if exists ${sql.ref(target.schema)}.${sql.ref(indexName)}`;
+};
+
 const deleteReferenceStatement = (
   db: Kysely<V1TeableDatabase>,
   fieldId: string
@@ -207,12 +217,20 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
       const fkHostTable = yield* visitor.resolveFkHostTable(field);
 
       if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
+        // DROP TABLE CASCADE will automatically drop indexes, no need to drop them explicitly
         statements.push(dropTableStatement(fkHostTable));
       } else {
         const keyName =
           relationship === 'oneMany'
             ? yield* field.selfKeyNameString()
             : yield* field.foreignKeyNameString();
+
+        // Drop index first (before dropping the column)
+        // Index is on fkHostTable, not currentTable
+        const indexName = `index_${keyName}`;
+        statements.push(dropIndexStatement(fkHostTable, indexName));
+
+        // Then drop the column and order column from fkHostTable
         statements.push(...visitor.dropColumns(fkHostTable, [keyName]));
         const orderColumnName = yield* field.orderColumnName();
         statements.push(...visitor.dropColumns(fkHostTable, [orderColumnName]));
