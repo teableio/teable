@@ -4,4 +4,5 @@ export * from './get-public';
 export * from './update';
 export * from './upload-logo';
 export * from './test-llm';
+export * from './batch-test-llm';
 export * from './set-transport-config';

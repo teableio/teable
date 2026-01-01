@@ -3,16 +3,23 @@ import type {
   IImageModelDefination,
   ISimpleLLMProvider,
   ITextModelDefination,
+  LLMProvider,
 } from '@teable/openapi';
 import type { TFunction } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { Trans } from 'react-i18next';
 
-export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[]) => {
+export const generateModelKeyList = (llmProviders: ISimpleLLMProvider[] | LLMProvider[]) => {
   return llmProviders
-    .map(({ models, type, name, isInstance }) =>
-      models.split(',').map((model) => ({ modelKey: `${type}@${model}@${name}`, isInstance }))
-    )
+    .map((provider) => {
+      const { models, type, name, isInstance } = provider;
+      const modelConfigs = 'modelConfigs' in provider ? provider.modelConfigs : undefined;
+      return models.split(',').map((model) => ({
+        modelKey: `${type}@${model}@${name}`,
+        isInstance,
+        isImageModel: modelConfigs?.[model]?.isImageModel,
+      }));
+    })
     .flat();
 };
 

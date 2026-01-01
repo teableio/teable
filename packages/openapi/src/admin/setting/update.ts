@@ -22,17 +22,6 @@ export enum LLMProviderType {
   OPENAI_COMPATIBLE = 'openaiCompatible',
 }
 
-export const llmProviderSchema = z.object({
-  type: z.enum(LLMProviderType),
-  name: z.string(),
-  apiKey: z.string().optional(),
-  baseUrl: z.string().url().optional(),
-  models: z.string().default(''),
-  isInstance: z.boolean().optional(),
-});
-
-export type LLMProvider = z.infer<typeof llmProviderSchema>;
-
 // Detailed ability support with URL and base64 variants
 export const abilityDetailSchema = z.object({
   url: z.boolean().optional(),
@@ -41,12 +30,54 @@ export const abilityDetailSchema = z.object({
 
 export type IAbilityDetail = z.infer<typeof abilityDetailSchema>;
 
-export const chatModelAbilitySchema = z.object({
+// Model ability schema for test results
+export const modelAbilitySchema = z.object({
   image: z.union([z.boolean(), abilityDetailSchema]).optional(),
   pdf: z.union([z.boolean(), abilityDetailSchema]).optional(),
   webSearch: z.boolean().optional(),
   toolCall: z.boolean().optional(),
 });
+
+export type IModelAbility = z.infer<typeof modelAbilitySchema>;
+
+// Image model ability schema
+export const imageModelAbilitySchema = z.object({
+  generation: z.boolean().optional(), // can generate images from text
+  imageToImage: z.boolean().optional(), // can generate images from image input
+});
+
+export type IImageModelAbility = z.infer<typeof imageModelAbilitySchema>;
+
+// Model-specific configuration (rates per 1M tokens in USD + test results)
+export const modelConfigSchema = z.object({
+  inputRate: z.number().min(0).optional(),
+  outputRate: z.number().min(0).optional(),
+  // Mark as image generation model
+  isImageModel: z.boolean().optional(),
+  // Persisted test results for text models
+  ability: modelAbilitySchema.optional(),
+  // Persisted test results for image models
+  imageAbility: imageModelAbilitySchema.optional(),
+  testedAt: z.number().optional(), // timestamp of last test
+});
+
+export type IModelConfig = z.infer<typeof modelConfigSchema>;
+
+export const llmProviderSchema = z.object({
+  type: z.enum(LLMProviderType),
+  name: z.string(),
+  apiKey: z.string().optional(),
+  baseUrl: z.string().url().optional(),
+  models: z.string().default(''),
+  isInstance: z.boolean().optional(),
+  // Model-specific configurations keyed by model name
+  modelConfigs: z.record(z.string(), modelConfigSchema).optional(),
+});
+
+export type LLMProvider = z.infer<typeof llmProviderSchema>;
+
+// chatModelAbilitySchema is same as modelAbilitySchema, for backward compatibility
+export const chatModelAbilitySchema = modelAbilitySchema;
 
 export const chatModelAbilityType = chatModelAbilitySchema.keyof();
 
