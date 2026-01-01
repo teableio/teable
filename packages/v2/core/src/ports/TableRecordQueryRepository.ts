@@ -8,10 +8,16 @@ import type { Table } from '../domain/table/Table';
 import type { IExecutionContext } from './ExecutionContext';
 import type { TableRecordReadModel } from './TableRecordReadModel';
 
+export interface ITableRecordQueryOptions {
+  /** Foreign tables needed for link/lookup/rollup fields */
+  readonly foreignTables?: ReadonlyMap<string, Table>;
+}
+
 export interface ITableRecordQueryRepository {
   find(
     context: IExecutionContext,
     table: Table,
-    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>>;
 }

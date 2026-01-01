@@ -1,59 +1,63 @@
 import * as core from '@teable/v2-core';
-import { domainError, isDomainError, type DomainError } from '@teable/v2-core';
+import {
+  domainError,
+  type ILogger,
+  isDomainError,
+  v2CoreTokens,
+  type DomainError,
+} from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
-import type { Expression, Kysely, SqlBool, Transaction } from 'kysely';
+import type { Kysely, Transaction } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { v2PostgresStateTokens } from '../di/tokens';
 import {
-  TableRecordConditionWhereVisitor,
-  type RecordConditionWhere,
-} from './visitors/TableRecordConditionWhereVisitor';
-import {
-  TableRecordSelectColumnsVisitor,
-  type FieldColumn,
-} from './visitors/TableRecordSelectColumnsVisitor';
+  FieldOutputColumnVisitor,
+  type FieldOutputColumn,
+} from '../query-builder/FieldOutputColumnVisitor';
+import { PostgresTableRecordQueryBuilder } from '../query-builder/TableRecordQueryBuilder';
 
-const recordIdColumn = '__id';
-const autoNumberColumn = '__auto_number';
+const RECORD_ID_COLUMN = '__id';
 
 @injectable()
 export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
   constructor(
     @inject(v2PostgresStateTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>
+    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2CoreTokens.logger)
+    private readonly logger: ILogger
   ) {}
 
   async find(
     context: core.IExecutionContext,
     table: core.Table,
-    spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
+    _spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>,
+    options?: core.ITableRecordQueryOptions
   ): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>> {
     return safeTry<ReadonlyArray<core.TableRecordReadModel>, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
-        const dbTableName = yield* table.dbTableName();
-        const { schema, tableName } = yield* dbTableName.split({ defaultSchema: null });
+        const db = resolvePostgresDb(this.db, context);
 
-        const selectVisitor = new TableRecordSelectColumnsVisitor();
-        const selectedColumns = yield* selectVisitor.apply(table);
+        // Build query using the new query builder
+        const queryBuilder = new PostgresTableRecordQueryBuilder(
+          db as unknown as Kysely<Record<string, Record<string, unknown>>>
+        );
+        const builtQuery = yield* queryBuilder
+          .from(table, { foreignTables: options?.foreignTables })
+          // TODO: Apply spec/filter to the query
+          .build();
 
-        const whereClause = spec ? yield* buildRecordWhere(spec) : undefined;
+        const compiled = builtQuery.compile();
+        this.logger.debug(`find:sql\n${compiled.sql}`, { parameters: compiled.parameters });
+
+        // Collect field column mappings
+        const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);
 
         try {
-          const db = resolvePostgresDb(this.db, context);
-          const dbWithSchema = schema ? db.withSchema(schema) : db;
-          const dynamic = db.dynamic;
-          const selectColumns = selectVisitor.selectColumns(dynamic, recordIdColumn);
-
-          const baseQuery = dbWithSchema.selectFrom(tableName as never).select(selectColumns);
-          const query = whereClause
-            ? baseQuery.where(whereClause as unknown as Expression<SqlBool>)
-            : baseQuery;
-
-          const rows = await query.orderBy(dynamic.ref(autoNumberColumn)).execute();
-          const records = yield* mapRowsToReadModels(selectedColumns, rows);
+          const rows = await builtQuery.execute();
+          const records = mapRowsToReadModels(fieldColumns, rows);
           return ok(records);
         } catch (error) {
           return err(
@@ -68,31 +72,19 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
 }
 
 const mapRowsToReadModels = (
-  fieldColumns: ReadonlyArray<FieldColumn>,
+  fieldColumns: ReadonlyArray<FieldOutputColumn>,
   rows: ReadonlyArray<Record<string, unknown>>
-): Result<ReadonlyArray<core.TableRecordReadModel>, DomainError> => {
-  const records: core.TableRecordReadModel[] = [];
-  for (const row of rows) {
-    const rawId = row[recordIdColumn];
-    if (typeof rawId !== 'string')
-      return err(domainError.validation({ message: 'Invalid record id' }));
+): ReadonlyArray<core.TableRecordReadModel> => {
+  return rows.map((row) => {
+    const rawId = row[RECORD_ID_COLUMN];
+    const id = typeof rawId === 'string' ? rawId : String(rawId);
 
     const fields: Record<string, unknown> = {};
     for (const column of fieldColumns) {
-      fields[column.fieldId.toString()] = row[column.dbFieldName];
+      fields[column.fieldId.toString()] = row[column.columnAlias];
     }
-    records.push({ id: rawId, fields });
-  }
-  return ok(records);
-};
-
-const buildRecordWhere = (
-  spec: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>
-): Result<RecordConditionWhere, DomainError> => {
-  const visitor = new TableRecordConditionWhereVisitor();
-  const acceptResult = spec.accept(visitor);
-  if (acceptResult.isErr()) return err(acceptResult.error);
-  return visitor.where();
+    return { id, fields };
+  });
 };
 
 type PostgresTransactionContext<DB> = {

@@ -12,3 +12,4 @@ export * from './di/register';
 export * from './di/tokens';
 export * from './repositories/PostgresTableRepository';
 export * from './repositories/PostgresTableRecordQueryRepository';
+export * from './query-builder';
