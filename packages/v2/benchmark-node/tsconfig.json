@@ -33,6 +33,9 @@
         "../adapter-schema-repository-postgres/src"
       ],
       "@teable/v2-adapter-repository-postgres": ["../adapter-repository-postgres/src"],
+      "@teable/v2-adapter-record-repository-postgres": [
+        "../adapter-record-repository-postgres/src"
+      ],
       "@teable/v2-core": ["../core/src"],
       "@teable/v2-table-templates": ["../table-templates/src"],
       "@teable/v2-adapter-db-postgres-pg": ["../adapter-db-postgres-pg/src"],
@@ -56,6 +59,7 @@
     "../adapter-logger-console/src",
     "../adapter-schema-repository-postgres/src",
     "../adapter-repository-postgres/src",
+    "../adapter-record-repository-postgres/src",
     "../core/src",
     "../table-templates/src",
     "../adapter-db-postgres-pg/src",
