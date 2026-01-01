@@ -320,7 +320,10 @@ function PlaygroundSidebar({
                               <Link
                                 to={env.routes.table}
                                 params={{ baseId, tableId: table.id }}
-                                search={searchValue ? { q: searchValue } : {}}
+                                search={(prev) => ({
+                                  ...prev,
+                                  ...(searchValue ? { q: searchValue } : {}),
+                                })}
                               >
                                 <TableIcon className="h-4 w-4" />
                                 <span className="truncate">{table.name}</span>
