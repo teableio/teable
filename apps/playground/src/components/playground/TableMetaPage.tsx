@@ -39,6 +39,7 @@ import {
   Trash2,
   TriangleAlert,
 } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
 import { parseAsStringEnum, useQueryState } from 'nuqs';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { JsonView } from 'react-json-view-lite';
@@ -71,10 +72,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DataTable } from '@/components/ui/data-table';
 import {
   Table as UITable,
   TableBody,
-  TableCaption,
   TableCell,
   TableHead,
   TableHeader,
@@ -1400,6 +1401,44 @@ function TableRecordsCard({
   const recordCount = records?.length ?? 0;
   const isInitialLoading = isRecordsLoading && !records;
 
+  const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
+    const idColumn: ColumnDef<ITableRecordDto> = {
+      accessorKey: 'id',
+      header: 'Record ID',
+      cell: ({ row }) => (
+        <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+          {row.original.id}
+        </span>
+      ),
+    };
+
+    const fieldColumns: ColumnDef<ITableRecordDto>[] = fields.map((field) => ({
+      id: field.id().toString(),
+      header: field.name().toString(),
+      cell: ({ row }) => {
+        const value = row.original.fields[field.id().toString()];
+        const formattedValue = formatRecordValue(field, value);
+        return (
+          <div
+            className={cn('max-w-[240px]', formattedValue.cellClassName)}
+            title={formattedValue.text}
+          >
+            {formattedValue.node}
+          </div>
+        );
+      },
+    }));
+
+    return [idColumn, ...fieldColumns];
+  }, [fields]);
+
+  const data = useMemo(() => (records ?? []) as ITableRecordDto[], [records]);
+
+  const caption =
+    recordCount === 0
+      ? 'No records yet.'
+      : `${recordCount} record${recordCount === 1 ? '' : 's'} loaded.`;
+
   return (
     <section className="space-y-3 min-w-0">
       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
@@ -1444,63 +1483,7 @@ function TableRecordsCard({
           ))}
         </div>
       ) : (
-        <div className="overflow-auto rounded-md border border-border/60">
-          <UITable className="min-w-max">
-            <TableCaption className="text-xs">
-              {recordCount === 0
-                ? 'No records yet.'
-                : `${recordCount} record${recordCount === 1 ? '' : 's'} loaded.`}
-            </TableCaption>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[140px] whitespace-nowrap text-xs uppercase tracking-wide text-muted-foreground">
-                  Record ID
-                </TableHead>
-                {fields.map((field) => (
-                  <TableHead
-                    key={field.id().toString()}
-                    className="whitespace-nowrap text-xs uppercase tracking-wide text-muted-foreground"
-                  >
-                    {field.name().toString()}
-                  </TableHead>
-                ))}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {records && records.length > 0 ? (
-                records.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-                      {record.id}
-                    </TableCell>
-                    {fields.map((field) => {
-                      const value = record.fields[field.id().toString()];
-                      const formattedValue = formatRecordValue(field, value);
-                      return (
-                        <TableCell
-                          key={`${record.id}-${field.id().toString()}`}
-                          className={cn('max-w-[240px]', formattedValue.cellClassName)}
-                          title={formattedValue.text}
-                        >
-                          {formattedValue.node}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={fields.length + 1}
-                    className="text-center text-sm text-muted-foreground"
-                  >
-                    No records yet.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </UITable>
-        </div>
+        <DataTable columns={columns} data={data} emptyMessage="No records yet." caption={caption} />
       )}
     </section>
   );
