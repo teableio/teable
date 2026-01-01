@@ -54,6 +54,7 @@ const MAIN_TABLE_ID = `tbl${'m'.repeat(16)}`;
 const FOREIGN_TABLE_ID = `tbl${'f'.repeat(16)}`;
 const LINK_FIELD_ID = `fld${'k'.repeat(16)}`;
 const LOOKUP_TARGET_FIELD_ID = `fld${'l'.repeat(16)}`;
+const SYMMETRIC_FIELD_ID = `fld${'s'.repeat(16)}`;
 
 // ============================================================================
 // Tests
@@ -239,6 +240,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship,
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
       })._unsafeUnwrap();
 
       // Main table
@@ -347,6 +349,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship: 'manyOne',
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
       })._unsafeUnwrap();
 
       // Lookup options
@@ -497,6 +500,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship: 'oneMany',
         foreignTableId: foreignTableId.toString(),
         lookupFieldId: lookupFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
       })._unsafeUnwrap();
 
       // Rollup config
@@ -578,7 +582,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       );
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldcMEwE9b827iMbem9" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
+        `"select "t"."__id" as "__id", "t"."col_single_line_text" as "col_single_line_text", "lat_fldkkkkkkkkkkkkkkkk"."col_link" as "col_link", "lat_fldkkkkkkkkkkkkkkkk"."col_rollup" as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_number"))) as "col_link", SUM("f"."col_number") as "col_rollup" from "bseaaaaaaaaaaaaaaaa"."tblffffffffffffffff" as "f" where "f"."__fk_fldssssssssssssssss" = "t"."__id") as "lat_fldkkkkkkkkkkkkkkkk" on true"`
       );
     });
   });
@@ -590,6 +594,8 @@ describe('ComputedTableRecordQueryBuilder', () => {
     const LINK_FIELD_B_ID = `fld${'2'.repeat(16)}`;
     const LOOKUP_FIELD_A_ID = `fld${'3'.repeat(16)}`;
     const LOOKUP_FIELD_B_ID = `fld${'4'.repeat(16)}`;
+    const SYMMETRIC_FIELD_A_ID = `fld${'5'.repeat(16)}`;
+    const SYMMETRIC_FIELD_B_ID = `fld${'6'.repeat(16)}`;
 
     const createMultiLinkTable = () => {
       const baseId = BaseId.create(BASE_ID)._unsafeUnwrap();
@@ -644,12 +650,14 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship: 'manyOne',
         foreignTableId: foreignTableAId.toString(),
         lookupFieldId: lookupFieldAId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_A_ID,
       })._unsafeUnwrap();
 
       const linkConfigB = LinkFieldConfig.create({
         relationship: 'oneMany',
         foreignTableId: foreignTableBId.toString(),
         lookupFieldId: lookupFieldBId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_B_ID,
       })._unsafeUnwrap();
 
       // Main table with two links to different tables
@@ -731,7 +739,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
       expect(sql).toContain(`"${FOREIGN_TABLE_B_ID}"`);
 
       expect(sql).toMatchInlineSnapshot(
-        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fldadfeJ8a3lVQ3XBm0" = "t"."__id") as "lat_fld2222222222222222" on true"`
+        `"select "t"."__id" as "__id", "t"."col_title" as "col_title", "lat_fld1111111111111111"."col_link_project" as "col_link_project", "lat_fld2222222222222222"."col_link_categories" as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblmmmmmmmmmmmmmmmm" as "t" inner join lateral (select (json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_project_name"))))[0] as "col_link_project" from "bseaaaaaaaaaaaaaaaa"."tblaaaaaaaaaaaaaaaa" as "f" where "f"."__id" = "t"."__fk_fld1111111111111111") as "lat_fld1111111111111111" on true inner join lateral (select json_agg(jsonb_strip_nulls(jsonb_build_object('id', "f"."__id", 'title', "f"."col_category_name"))) as "col_link_categories" from "bseaaaaaaaaaaaaaaaa"."tblbbbbbbbbbbbbbbbb" as "f" where "f"."__fk_fld6666666666666666" = "t"."__id") as "lat_fld2222222222222222" on true"`
       );
     });
   });
@@ -750,6 +758,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship,
         foreignTableId: tableId.toString(),
         lookupFieldId: primaryFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
       })._unsafeUnwrap();
 
       // Table that links to itself
@@ -830,6 +839,7 @@ describe('ComputedTableRecordQueryBuilder', () => {
         relationship,
         foreignTableId: tableId.toString(),
         lookupFieldId: primaryFieldId.toString(),
+        symmetricFieldId: SYMMETRIC_FIELD_ID,
       })._unsafeUnwrap();
 
       // Lookup options (lookup name of linked record)

@@ -8,7 +8,6 @@ import {
   type LinkField,
   type Table,
 } from '@teable/v2-core';
-import { Table as TableAggregate } from '@teable/v2-core';
 import {
   sql,
   type AliasedExpression,

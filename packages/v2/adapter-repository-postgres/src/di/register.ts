@@ -7,8 +7,6 @@ import type { Kysely } from 'kysely';
 import type { IV2PostgresStateAdapterConfig } from '../config';
 import { v2PostgresStateAdapterConfigSchema } from '../config';
 import { ensureV1MetaSchema } from '../db/schema';
-import { TableRecordQueryBuilderManager } from '../query-builder';
-import { PostgresTableRecordQueryRepository } from '../repositories/PostgresTableRecordQueryRepository';
 import { PostgresTableRepository } from '../repositories/PostgresTableRepository';
 import { v2PostgresStateTokens } from './tokens';
 
@@ -39,12 +37,6 @@ export const registerV2PostgresStateAdapter = async (
     lifecycle: Lifecycle.Singleton,
   });
   c.register(v2CoreTokens.tableRepository, PostgresTableRepository, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2PostgresStateTokens.tableRecordQueryBuilderManager, TableRecordQueryBuilderManager, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, {
     lifecycle: Lifecycle.Singleton,
   });
 

@@ -11,7 +11,7 @@ import type { Kysely } from 'kysely';
 import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { v2PostgresStateTokens } from '../di/tokens';
+import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import { ComputedTableRecordQueryBuilder } from './computed';
 import type { DynamicDB, ITableRecordQueryBuilder } from './ITableRecordQueryBuilder';
 import { StoredTableRecordQueryBuilder } from './stored';
@@ -38,7 +38,7 @@ export interface IQueryBuilderManagerOptions {
 @injectable()
 export class TableRecordQueryBuilderManager {
   constructor(
-    @inject(v2PostgresStateTokens.db)
+    @inject(v2RecordRepositoryPostgresTokens.db)
     private readonly db: Kysely<V1TeableDatabase>,
     @inject(v2CoreTokens.tableRepository)
     private readonly tableRepository: ITableRepository

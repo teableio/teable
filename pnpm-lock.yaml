@@ -2910,6 +2910,61 @@ importers:
         specifier: 4.0.16
         version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/v2/adapter-record-repository-postgres:
+    dependencies:
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
+      '@teable/v2-di':
+        specifier: workspace:*
+        version: link:../di
+      '@teable/v2-postgres-schema':
+        specifier: workspace:*
+        version: link:../postgres-schema
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
+      ts-pattern:
+        specifier: 5.8.0
+        version: 5.8.0
+    devDependencies:
+      '@teable/eslint-config-bases':
+        specifier: workspace:^
+        version: link:../../eslint-config-bases
+      '@teable/v2-tsdown-config':
+        specifier: workspace:*
+        version: link:../tsdown-config
+      '@types/node':
+        specifier: 22.18.0
+        version: 22.18.0
+      '@vitest/coverage-v8':
+        specifier: 4.0.16
+        version: 4.0.16(vitest@4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      eslint:
+        specifier: 8.57.0
+        version: 8.57.0
+      prettier:
+        specifier: 3.2.5
+        version: 3.2.5
+      rimraf:
+        specifier: 5.0.5
+        version: 5.0.5
+      tsdown:
+        specifier: 0.18.1
+        version: 0.18.1(typescript@5.4.3)
+      typescript:
+        specifier: 5.4.3
+        version: 5.4.3
+      vite-tsconfig-paths:
+        specifier: 4.3.2
+        version: 4.3.2(typescript@5.4.3)(vite@7.3.0(@types/node@22.18.0)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2))
+      vitest:
+        specifier: 4.0.16
+        version: 4.0.16(@opentelemetry/api@1.9.0)(@types/node@22.18.0)(happy-dom@15.11.6)(jiti@2.6.1)(jsdom@27.3.0)(lightningcss@1.30.2)(terser@5.37.0)(tsx@4.21.0)(yaml@2.8.2)
+
   packages/v2/adapter-repository-postgres:
     dependencies:
       '@teable/v2-core':
@@ -3225,6 +3280,9 @@ importers:
       '@teable/v2-adapter-db-postgres-pglite':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pglite
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
       '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-repository-postgres
@@ -3277,6 +3335,9 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
       '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-repository-postgres
@@ -3332,6 +3393,9 @@ importers:
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
       '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-repository-postgres
@@ -3396,6 +3460,9 @@ importers:
       '@teable/v2-adapter-db-postgres-pg':
         specifier: workspace:*
         version: link:../adapter-db-postgres-pg
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
       '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-repository-postgres
@@ -3451,6 +3518,9 @@ importers:
       '@teable/v2-adapter-logger-console':
         specifier: workspace:*
         version: link:../adapter-logger-console
+      '@teable/v2-adapter-record-repository-postgres':
+        specifier: workspace:*
+        version: link:../adapter-record-repository-postgres
       '@teable/v2-adapter-repository-postgres':
         specifier: workspace:*
         version: link:../adapter-repository-postgres

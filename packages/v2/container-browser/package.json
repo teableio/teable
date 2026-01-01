@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@teable/v2-adapter-db-postgres-pglite": "workspace:*",
+    "@teable/v2-adapter-record-repository-postgres": "workspace:*",
     "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-adapter-schema-repository-postgres": "workspace:*",
     "@teable/v2-core": "workspace:*",

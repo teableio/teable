@@ -29,15 +29,16 @@
     "fix-all-files": "eslint . --ext .ts,.js,.mjs,.cjs,.mts,.cts --fix"
   },
   "dependencies": {
-    "@teable/v2-adapter-logger-console": "workspace:*",
-    "@teable/v2-adapter-schema-repository-postgres": "workspace:*",
-    "@teable/v2-adapter-repository-postgres": "workspace:*",
-    "@teable/v2-core": "workspace:*",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
+    "@teable/v2-adapter-logger-console": "workspace:*",
+    "@teable/v2-adapter-record-repository-postgres": "workspace:*",
+    "@teable/v2-adapter-repository-postgres": "workspace:*",
+    "@teable/v2-adapter-schema-repository-postgres": "workspace:*",
+    "@teable/v2-core": "workspace:*",
     "@teable/v2-di": "workspace:*",
     "@teable/v2-postgres-schema": "workspace:*",
-    "kysely": "0.28.9",
-    "@testcontainers/postgresql": "11.10.0"
+    "@testcontainers/postgresql": "11.10.0",
+    "kysely": "0.28.9"
   },
   "devDependencies": {
     "@teable/v2-tsdown-config": "workspace:*",

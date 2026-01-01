@@ -10,7 +10,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { v2PostgresStateTokens } from '../di/tokens';
+import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import {
   FieldOutputColumnVisitor,
   type FieldOutputColumn,
@@ -22,7 +22,7 @@ const RECORD_ID_COLUMN = '__id';
 @injectable()
 export class PostgresTableRecordQueryRepository implements core.ITableRecordQueryRepository {
   constructor(
-    @inject(v2PostgresStateTokens.tableRecordQueryBuilderManager)
+    @inject(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager)
     private readonly queryBuilderManager: TableRecordQueryBuilderManager,
     @inject(v2CoreTokens.logger)
     private readonly logger: ILogger

@@ -5,6 +5,7 @@ import {
   v2PostgresDbTokens,
 } from '@teable/v2-adapter-db-postgres-pg';
 import { ConsoleLogger } from '@teable/v2-adapter-logger-console';
+import { registerV2RecordRepositoryPostgresAdapter } from '@teable/v2-adapter-record-repository-postgres';
 import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-postgres';
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import type { ITableRepository } from '@teable/v2-core';
@@ -90,6 +91,8 @@ export const createV2NodeTestContainer = async (
     db,
     ensureSchema,
   });
+
+  registerV2RecordRepositoryPostgresAdapter(c, { db });
 
   await registerV2PostgresDdlAdapter(c, { db });
 
