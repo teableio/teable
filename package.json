@@ -59,28 +59,28 @@
     "run:plugin": "pnpm -F '@teable/plugin' dev"
   },
   "dependencies": {
-    "cross-env": "7.0.3"
+    "cross-env": "^10"
   },
   "devDependencies": {
-    "@commitlint/cli": "19.2.1",
-    "@commitlint/config-conventional": "19.1.0",
+    "@commitlint/cli": "catalog:",
+    "@commitlint/config-conventional": "catalog:",
     "@teable/eslint-config-bases": "workspace:^",
-    "@types/shell-quote": "1.7.5",
-    "eslint": "8.57.0",
-    "husky": "9.0.11",
-    "lint-staged": "15.2.2",
-    "npm-run-all2": "6.1.2",
-    "openapi-typescript": "6.7.5",
-    "prettier": "3.2.5",
-    "rimraf": "5.0.5",
-    "shell-quote": "1.8.1",
-    "typescript": "5.4.3",
-    "zx": "7.2.3"
+    "@types/shell-quote": "catalog:",
+    "eslint": "catalog:",
+    "husky": "catalog:",
+    "lint-staged": "catalog:",
+    "npm-run-all2": "catalog:",
+    "openapi-typescript": "catalog:",
+    "prettier": "catalog:",
+    "rimraf": "catalog:",
+    "shell-quote": "catalog:",
+    "typescript": "catalog:",
+    "zx": "catalog:"
   },
   "engines": {
     "node": ">=22.0.0",
-    "pnpm": ">=9.13.0",
+    "pnpm": ">=10",
     "npm": "please-use-pnpm"
   },
-  "packageManager": "pnpm@9.13.0"
+  "packageManager": "pnpm@10.26.2"
 }

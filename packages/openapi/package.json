@@ -28,23 +28,23 @@
     "typecheck": "tsc --project ./tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@asteasolutions/zod-to-openapi": "8.1.0",
+    "@asteasolutions/zod-to-openapi": "catalog:",
     "@teable/core": "workspace:^",
-    "@types/node": "22.18.0",
-    "axios": "1.7.7",
-    "form-data": "4.0.0",
-    "httpsnippet-lite": "3.0.5",
-    "openapi-sampler": "1.4.0",
-    "openapi3-ts": "4.2.2",
-    "zod": "4.1.8"
+    "@types/node": "catalog:",
+    "axios": "catalog:",
+    "form-data": "catalog:",
+    "httpsnippet-lite": "catalog:",
+    "openapi-sampler": "catalog:",
+    "openapi3-ts": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
-    "@vitest/coverage-v8": "2.1.5",
-    "eslint": "8.57.0",
-    "rimraf": "5.0.5",
-    "typescript": "5.4.3",
-    "vite-tsconfig-paths": "4.3.2",
-    "vitest": "2.1.5"
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "rimraf": "catalog:",
+    "typescript": "catalog:",
+    "vite-tsconfig-paths": "catalog:",
+    "vitest": "catalog:"
   }
 }
