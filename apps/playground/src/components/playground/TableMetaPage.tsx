@@ -48,6 +48,7 @@ import { useCopyToClipboard } from 'usehooks-ts';
 
 import { CreateTableDropdown } from '@/components/playground/CreateTableDropdown';
 import { FieldCreateDialog } from '@/components/playground/FieldCreateDialog';
+import { RecordCreateDialog } from '@/components/playground/RecordCreateDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -702,6 +703,7 @@ type TableMetaPageProps = {
   errorMessage: string | null;
   onRefresh: () => void;
   onFieldCreated: () => void;
+  onRecordCreated?: () => void;
   templates: ReadonlyArray<TableTemplateDefinition>;
   onCreateTemplate: (template: TableTemplateDefinition) => void;
   onDelete: () => void;
@@ -732,6 +734,7 @@ export function TableMetaPage({
   errorMessage,
   onRefresh,
   onFieldCreated,
+  onRecordCreated,
   templates,
   onCreateTemplate,
   onDelete,
@@ -819,11 +822,13 @@ export function TableMetaPage({
               </TabsContent>
               <TabsContent value="records" className="mt-0 outline-none">
                 <PlaygroundRecordsLayout
+                  baseId={baseId}
                   table={table}
                   records={records}
                   recordsError={recordsError}
                   isRecordsLoading={isRecordsLoading}
                   isRecordsFetching={isRecordsFetching}
+                  onRecordCreated={onRecordCreated}
                 />
               </TabsContent>
               <TabsContent value="json" className="mt-0">
@@ -1170,28 +1175,34 @@ function PlaygroundMetaLayout({
 }
 
 type PlaygroundRecordsLayoutProps = {
+  baseId: string;
   table: TableAggregate;
   records: ReadonlyArray<ITableRecordDto> | null;
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
+  onRecordCreated?: () => void;
 };
 
 function PlaygroundRecordsLayout({
+  baseId,
   table,
   records,
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
+  onRecordCreated,
 }: PlaygroundRecordsLayoutProps) {
   return (
     <div className="space-y-6 min-w-0">
       <TableRecordsCard
+        baseId={baseId}
         table={table}
         records={records}
         recordsError={recordsError}
         isRecordsLoading={isRecordsLoading}
         isRecordsFetching={isRecordsFetching}
+        onRecordCreated={onRecordCreated}
       />
     </div>
   );
@@ -1383,36 +1394,54 @@ function TableSchemaCard({ table, isDeletingField, onDeleteField }: TableSchemaC
 }
 
 type TableRecordsCardProps = {
+  baseId: string;
   table: TableAggregate;
   records: ReadonlyArray<ITableRecordDto> | null;
   recordsError: string | null;
   isRecordsLoading: boolean;
   isRecordsFetching: boolean;
+  onRecordCreated?: () => void;
 };
 
 function TableRecordsCard({
+  baseId,
   table,
   records,
   recordsError,
   isRecordsLoading,
   isRecordsFetching,
+  onRecordCreated,
 }: TableRecordsCardProps) {
+  const [, copyToClipboard] = useCopyToClipboard();
   const fields = table.getFields();
+  const primaryFieldId = table.primaryFieldId().toString();
   const recordCount = records?.length ?? 0;
   const isInitialLoading = isRecordsLoading && !records;
 
   const columns = useMemo<ColumnDef<ITableRecordDto>[]>(() => {
-    const idColumn: ColumnDef<ITableRecordDto> = {
-      accessorKey: 'id',
-      header: 'Record ID',
-      cell: ({ row }) => (
-        <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
-          {row.original.id}
-        </span>
-      ),
+    const handleCopyRecordId = (recordId: string) => {
+      copyToClipboard(recordId)
+        .then((success) => {
+          if (success) {
+            toast.success('Record ID copied to clipboard');
+          } else {
+            toast.error('Failed to copy Record ID');
+          }
+        })
+        .catch(() => {
+          toast.error('Failed to copy Record ID');
+        });
     };
+    // Sort fields: primary field first, then others
+    const sortedFields = [...fields].sort((a, b) => {
+      const aIsPrimary = a.id().toString() === primaryFieldId;
+      const bIsPrimary = b.id().toString() === primaryFieldId;
+      if (aIsPrimary) return -1;
+      if (bIsPrimary) return 1;
+      return 0;
+    });
 
-    const fieldColumns: ColumnDef<ITableRecordDto>[] = fields.map((field) => ({
+    const fieldColumns: ColumnDef<ITableRecordDto>[] = sortedFields.map((field) => ({
       id: field.id().toString(),
       header: field.name().toString(),
       cell: ({ row }) => {
@@ -1429,35 +1458,61 @@ function TableRecordsCard({
       },
     }));
 
-    return [idColumn, ...fieldColumns];
-  }, [fields]);
+    const actionsColumn: ColumnDef<ITableRecordDto> = {
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <MoreVertical className="h-4 w-4" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleCopyRecordId(row.original.id)}>
+              <Copy className="mr-2 h-4 w-4" />
+              Copy Record ID
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    };
+
+    return [...fieldColumns, actionsColumn];
+  }, [fields, primaryFieldId, copyToClipboard]);
 
   const data = useMemo(() => (records ?? []) as ITableRecordDto[], [records]);
 
-  const caption =
-    recordCount === 0
-      ? 'No records yet.'
-      : `${recordCount} record${recordCount === 1 ? '' : 's'} loaded.`;
+  const pinnedColumns = useMemo(
+    () => ({
+      left: [primaryFieldId],
+    }),
+    [primaryFieldId]
+  );
 
   return (
     <section className="space-y-3 min-w-0">
-      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-        <TableIcon className="h-4 w-4 text-muted-foreground" />
-        Records
-        <Badge
-          variant="secondary"
-          className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
-        >
-          {recordCount} records
-        </Badge>
-        {isRecordsFetching ? (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+          <TableIcon className="h-4 w-4 text-muted-foreground" />
+          Records
           <Badge
-            variant="outline"
+            variant="secondary"
             className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
           >
-            Loading
+            {recordCount} records
           </Badge>
-        ) : null}
+          {isRecordsFetching ? (
+            <Badge
+              variant="outline"
+              className="h-5 px-1.5 text-[10px] font-normal uppercase tracking-wider"
+            >
+              Loading
+            </Badge>
+          ) : null}
+        </div>
+        {table && <RecordCreateDialog table={table} onSuccess={onRecordCreated} baseId={baseId} />}
       </div>
       {recordsError ? (
         <div className="flex items-center gap-2 text-sm text-destructive">
@@ -1483,7 +1538,12 @@ function TableRecordsCard({
           ))}
         </div>
       ) : (
-        <DataTable columns={columns} data={data} emptyMessage="No records yet." caption={caption} />
+        <DataTable
+          columns={columns}
+          data={data}
+          emptyMessage="No records yet."
+          pinnedColumns={pinnedColumns}
+        />
       )}
     </section>
   );

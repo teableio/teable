@@ -1,9 +1,6 @@
 import {
   BaseId,
   DefaultTableMapper,
-  FieldCreationSideEffectService,
-  FieldDeletionSideEffectService,
-  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
@@ -15,7 +12,7 @@ import {
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
-  TableUpdateFlow,
+  registerV2CoreServices,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { ITableRepository } from '@teable/v2-core';
@@ -44,10 +41,8 @@ export const createV2NodeTestContainer = async (): Promise<IV2NodeTestContainer>
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.unitOfWork, new NoopUnitOfWork());
-  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow);
-  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService);
-  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService);
-  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService);
+  // Register core services (uses defaults unless already registered)
+  registerV2CoreServices(c);
   c.registerInstance(v2CoreTokens.tableMapper, new DefaultTableMapper());
   c.registerInstance(v2CoreTokens.realtimeEngine, new NoopRealtimeEngine());
   c.registerInstance(v2CoreTokens.logger, new NoopLogger());

@@ -1291,6 +1291,9 @@ importers:
       cmdk:
         specifier: ^1.0.0
         version: 1.0.0(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      date-fns:
+        specifier: 4.1.0
+        version: 4.1.0
       kysely:
         specifier: 0.28.9
         version: 0.28.9
@@ -1312,6 +1315,9 @@ importers:
       react:
         specifier: 19.2.3
         version: 19.2.3
+      react-day-picker:
+        specifier: 9.5.1
+        version: 9.5.1(react@19.2.3)
       react-dom:
         specifier: 19.2.3
         version: 19.2.3(react@19.2.3)
@@ -4032,12 +4038,18 @@ importers:
       '@teable/v2-container-node-test':
         specifier: workspace:*
         version: link:../container-node-test
+      '@teable/v2-contract-http':
+        specifier: workspace:*
+        version: link:../contract-http
       '@teable/v2-contract-http-client':
         specifier: workspace:*
         version: link:../contract-http-client
       '@teable/v2-contract-http-express':
         specifier: workspace:*
         version: link:../contract-http-express
+      '@teable/v2-core':
+        specifier: workspace:*
+        version: link:../core
       '@teable/v2-table-templates':
         specifier: workspace:*
         version: link:../table-templates
@@ -4075,6 +4087,9 @@ importers:
       eslint:
         specifier: 8.57.0
         version: 8.57.0
+      kysely:
+        specifier: 0.28.9
+        version: 0.28.9
       prettier:
         specifier: 3.2.5
         version: 3.2.5
@@ -43267,6 +43282,13 @@ snapshots:
       date-fns: 4.1.0
       date-fns-jalali: 4.1.0-0
       react: 18.3.1
+
+  react-day-picker@9.5.1(react@19.2.3):
+    dependencies:
+      '@date-fns/tz': 1.2.0
+      date-fns: 4.1.0
+      date-fns-jalali: 4.1.0-0
+      react: 19.2.3
 
   react-dnd-html5-backend@16.0.1:
     dependencies:

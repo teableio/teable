@@ -3,7 +3,7 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
-import { Table as TableAggregate } from '../domain/table/Table';
+import { TableByIdSpec } from '../domain/table/specs/TableByIdSpec';
 import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
@@ -41,15 +41,14 @@ export class ListTableRecordsHandler
     query: ListTableRecordsQuery
   ): Promise<Result<ListTableRecordsResult, DomainError>> {
     const logger = this.logger.scope('query', { name: ListTableRecordsHandler.name }).child({
-      baseId: query.baseId.toString(),
       tableId: query.tableId.toString(),
     });
     logger.debug('ListTableRecordsHandler.start', { actorId: context.actorId.toString() });
 
     return safeTry<ListTableRecordsResult, DomainError>(
       async function* (this: ListTableRecordsHandler) {
-        // 1. Load main table
-        const tableSpec = yield* TableAggregate.specs(query.baseId).byId(query.tableId).build();
+        // 1. Load main table (tableId is globally unique)
+        const tableSpec = TableByIdSpec.create(query.tableId);
         const table = yield* (await this.tableRepository.findOne(context, tableSpec)).mapErr(
           (error: DomainError) =>
             isNotFoundError(error)

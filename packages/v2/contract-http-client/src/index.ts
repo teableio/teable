@@ -57,6 +57,7 @@ export const createV2HttpClient = (options: IV2HttpClientOptions) => {
           data: {
             domainErrorCode: parsedError.data.error.code,
             tags: parsedError.data.error.tags,
+            details: parsedError.data.error.details,
           },
         });
       }

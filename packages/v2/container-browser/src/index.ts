@@ -9,9 +9,6 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-po
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   AsyncMemoryEventBus,
-  FieldCreationSideEffectService,
-  FieldDeletionSideEffectService,
-  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopLogger,
@@ -22,7 +19,7 @@ import {
   NoopTableSchemaRepository,
   NoopTracer,
   NoopUnitOfWork,
-  TableUpdateFlow,
+  registerV2CoreServices,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type ILogger,
@@ -88,18 +85,6 @@ export const registerV2BrowserPgliteDependencies = async (
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
-    lifecycle: Lifecycle.Singleton,
-  });
 
   const logger = options.logger ?? new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
@@ -137,6 +122,9 @@ export const registerV2BrowserPgliteDependencies = async (
       lifecycle: Lifecycle.Singleton,
     });
   }
+
+  // Register core services (uses defaults unless already registered)
+  registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
 
   return c;
 };
@@ -177,15 +165,6 @@ export const registerV2BrowserNoopDependencies = (
   c.register(v2CoreTokens.unitOfWork, NoopUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
-    lifecycle: Lifecycle.Singleton,
-  });
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
   });
@@ -194,6 +173,10 @@ export const registerV2BrowserNoopDependencies = (
       lifecycle: Lifecycle.Singleton,
     });
   }
+
+  // Register core services (uses defaults unless already registered)
+  registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
+
   return c;
 };
 

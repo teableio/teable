@@ -11,16 +11,13 @@ import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-reposito
 import type { ITableRepository } from '@teable/v2-core';
 import {
   BaseId,
-  FieldCreationSideEffectService,
-  FieldDeletionSideEffectService,
-  ForeignTableLoaderService,
   getRandomString,
   MemoryCommandBus,
   MemoryEventBus,
   MemoryQueryBus,
   NoopRealtimeEngine,
   NoopTracer,
-  TableUpdateFlow,
+  registerV2CoreServices,
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
@@ -83,18 +80,6 @@ export const createV2BunTestContainer = async (
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
-    lifecycle: Lifecycle.Singleton,
-  });
   c.registerInstance(v2CoreTokens.logger, new ConsoleLogger());
   c.register(v2CoreTokens.tracer, NoopTracer, {
     lifecycle: Lifecycle.Singleton,
@@ -113,6 +98,9 @@ export const createV2BunTestContainer = async (
   c.registerInstance(v2CoreTokens.commandBus, commandBus);
   c.registerInstance(v2CoreTokens.queryBus, queryBus);
   c.registerInstance(v2CoreTokens.eventBus, eventBus);
+
+  // Register core services (uses defaults unless already registered)
+  registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
 
   const baseIdResult = BaseId.generate();
   if (baseIdResult.isErr()) {

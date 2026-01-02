@@ -4,6 +4,7 @@ export const v2CoreTokens = {
   tableRecordRepository: Symbol('v2.core.tableRecordRepository'),
   tableSchemaRepository: Symbol('v2.core.tableSchemaRepository'),
   tableUpdateFlow: Symbol('v2.core.tableUpdateFlow'),
+  tableQueryService: Symbol('v2.core.tableQueryService'),
   fieldCreationSideEffectService: Symbol('v2.core.fieldCreationSideEffectService'),
   fieldDeletionSideEffectService: Symbol('v2.core.fieldDeletionSideEffectService'),
   foreignTableLoaderService: Symbol('v2.core.foreignTableLoaderService'),

@@ -83,6 +83,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
         void navigate({
           to: env.routes.table,
           params: { baseId, tableId: created.id },
+          search: (prev) => prev,
         });
       },
     })
@@ -274,7 +275,6 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
   const recordsQuery = useQuery(
     orpc.tables.listRecords.queryOptions({
       input: {
-        baseId,
         tableId,
       },
       enabled: Boolean(tableId),
@@ -522,6 +522,10 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
     deleteFieldMutation.mutate({ baseId, tableId, fieldId });
   };
 
+  const handleRecordCreated = () => {
+    void recordsQuery.refetch();
+  };
+
   return (
     <TableMetaPage
       baseId={baseId}
@@ -547,6 +551,7 @@ function PlaygroundTableDetail({ baseId, tableId }: PlaygroundTableDetailProps) 
       errorMessage={errorMessage}
       onRefresh={handleRefresh}
       onFieldCreated={() => {}}
+      onRecordCreated={handleRecordCreated}
       templates={tableTemplates}
       onCreateTemplate={handleCreateTemplate}
       onDelete={handleDelete}

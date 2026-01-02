@@ -32,8 +32,10 @@
   "dependencies": {
     "@teable/v2-adapter-realtime-sharedb": "workspace:*",
     "@teable/v2-container-node-test": "workspace:*",
+    "@teable/v2-contract-http": "workspace:*",
     "@teable/v2-contract-http-client": "workspace:*",
     "@teable/v2-contract-http-express": "workspace:*",
+    "@teable/v2-core": "workspace:*",
     "@teable/v2-table-templates": "workspace:*",
     "express": "4.21.1",
     "sharedb": "4.1.2",
@@ -48,6 +50,7 @@
     "@types/ws": "8.5.12",
     "@vitest/coverage-v8": "4.0.16",
     "eslint": "8.57.0",
+    "kysely": "0.28.9",
     "prettier": "3.2.5",
     "rimraf": "5.0.5",
     "tsdown": "0.18.1",

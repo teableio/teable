@@ -68,6 +68,12 @@ const dropIndexStatement = (
   return sql`drop index if exists ${sql.ref(target.schema)}.${sql.ref(indexName)}`;
 };
 
+const dropForeignKeyConstraintStatement = (
+  target: TableIdentifier,
+  constraintName: string
+): TableSchemaStatementBuilder =>
+  sql`alter table ${buildTableIdentifier(target)} drop constraint if exists ${sql.ref(constraintName)}`;
+
 const deleteReferenceStatement = (
   db: Kysely<V1TeableDatabase>,
   fieldId: string
@@ -217,7 +223,7 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
       const fkHostTable = yield* visitor.resolveFkHostTable(field);
 
       if (relationship === 'manyMany' || (relationship === 'oneMany' && field.isOneWay())) {
-        // DROP TABLE CASCADE will automatically drop indexes, no need to drop them explicitly
+        // DROP TABLE CASCADE will automatically drop FK constraints and indexes
         statements.push(dropTableStatement(fkHostTable));
       } else {
         const keyName =
@@ -225,8 +231,11 @@ export class PostgresTableSchemaFieldDeleteVisitor extends AbstractFieldVisitor<
             ? yield* field.selfKeyNameString()
             : yield* field.foreignKeyNameString();
 
-        // Drop index first (before dropping the column)
-        // Index is on fkHostTable, not currentTable
+        // Drop FK constraint first (before dropping the column)
+        const fkConstraintName = `fk_${keyName}`;
+        statements.push(dropForeignKeyConstraintStatement(fkHostTable, fkConstraintName));
+
+        // Drop index (before dropping the column)
         const indexName = `index_${keyName}`;
         statements.push(dropIndexStatement(fkHostTable, indexName));
 

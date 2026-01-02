@@ -21,6 +21,7 @@ import {
 } from 'kysely';
 import { describe, expect, test } from 'vitest';
 
+import type { DynamicDB } from '../ITableRecordQueryBuilder';
 import { ComputedTableRecordQueryBuilder } from './ComputedTableRecordQueryBuilder';
 
 // ============================================================================
@@ -28,7 +29,7 @@ import { ComputedTableRecordQueryBuilder } from './ComputedTableRecordQueryBuild
 // ============================================================================
 
 const createTestDb = () =>
-  new Kysely<Record<string, Record<string, unknown>>>({
+  new Kysely<DynamicDB>({
     dialect: {
       createAdapter: () => new PostgresAdapter(),
       createDriver: () => new DummyDriver(),
@@ -37,10 +38,7 @@ const createTestDb = () =>
     },
   });
 
-const compileQuery = (
-  db: Kysely<Record<string, Record<string, unknown>>>,
-  builder: ComputedTableRecordQueryBuilder
-) => {
+const compileQuery = (db: Kysely<DynamicDB>, builder: ComputedTableRecordQueryBuilder) => {
   const result = builder.build();
   expect(result.isOk()).toBe(true);
   if (result.isErr()) throw new Error(result.error.message);

@@ -2,13 +2,11 @@ import { err } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
-import { BaseId } from '../domain/base/BaseId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { recordFilterSchema, type RecordFilter } from './RecordFilterDto';
 
 export const listTableRecordsInputSchema = z.object({
-  baseId: z.string(),
   tableId: z.string(),
   filter: recordFilterSchema.optional(),
 });
@@ -17,7 +15,6 @@ export type IListTableRecordsQueryInput = z.input<typeof listTableRecordsInputSc
 
 export class ListTableRecordsQuery {
   private constructor(
-    readonly baseId: BaseId,
     readonly tableId: TableId,
     readonly filter: RecordFilter | null | undefined
   ) {}
@@ -27,10 +24,8 @@ export class ListTableRecordsQuery {
     if (!parsed.success)
       return err(domainError.validation({ message: 'Invalid ListTableRecordsQuery input' }));
 
-    return BaseId.create(parsed.data.baseId).andThen((baseId) =>
-      TableId.create(parsed.data.tableId).map(
-        (tableId) => new ListTableRecordsQuery(baseId, tableId, parsed.data.filter)
-      )
+    return TableId.create(parsed.data.tableId).map(
+      (tableId) => new ListTableRecordsQuery(tableId, parsed.data.filter)
     );
   }
 }

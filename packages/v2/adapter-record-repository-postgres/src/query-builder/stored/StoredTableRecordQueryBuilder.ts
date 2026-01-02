@@ -1,4 +1,4 @@
-import { domainError, type DomainError, type FieldId, type Table } from '@teable/v2-core';
+import { domainError, FieldId, type DomainError, type Table } from '@teable/v2-core';
 import { sql, type AliasedRawBuilder, type Kysely } from 'kysely';
 import type { Result } from 'neverthrow';
 import { err, ok, safeTry } from 'neverthrow';
@@ -7,9 +7,11 @@ import type {
   DynamicDB,
   IQueryBuilderDeps,
   ITableRecordQueryBuilder,
+  OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
 import { StoredFieldSelectVisitor } from './StoredFieldSelectVisitor';
+import { QueryMode } from '../TableRecordQueryBuilderManager';
 
 const T = 't'; // main table alias
 
@@ -23,6 +25,10 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
   private projection: FieldId[] | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
+  private orderByColumnValue: OrderByColumn | null = null;
+  private orderByDirection: 'asc' | 'desc' = 'asc';
+
+  readonly mode: QueryMode = 'stored';
 
   constructor(private readonly db: Kysely<DynamicDB>) {}
 
@@ -43,6 +49,12 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
 
   offset(n: number): this {
     this.offsetValue = n;
+    return this;
+  }
+
+  orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
+    this.orderByColumnValue = column;
+    this.orderByDirection = direction;
     return this;
   }
 
@@ -71,9 +83,15 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
         // Always include __id column for record identification
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
 
+        // Resolve orderBy column name
+        const orderByColumn = yield* this.resolveOrderByColumn(table);
+
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => [idColumn, ...selectColumns])
+          .$if(orderByColumn !== null, (qb) =>
+            qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
+          )
           .$if(this.limitValue !== null, (qb) => qb.limit(this.limitValue!))
           .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
 
@@ -99,5 +117,27 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
 
       return ok(columns);
     });
+  }
+
+  /**
+   * Resolve orderBy column to actual database column name.
+   * If FieldId, look up the field's dbFieldName.
+   * If system column string, use as-is.
+   */
+  private resolveOrderByColumn(table: Table): Result<string | null, DomainError> {
+    if (this.orderByColumnValue === null) {
+      return ok(null);
+    }
+
+    // If it's a FieldId, resolve to dbFieldName
+    if (this.orderByColumnValue instanceof FieldId) {
+      return table
+        .getField((f) => f.id().equals(this.orderByColumnValue as FieldId))
+        .andThen((field) => field.dbFieldName())
+        .andThen((dbFieldName) => dbFieldName.value());
+    }
+
+    // System column - use as-is
+    return ok(this.orderByColumnValue);
   }
 }

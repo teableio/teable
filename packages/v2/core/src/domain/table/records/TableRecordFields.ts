@@ -60,6 +60,26 @@ export class TableRecordFields extends ValueObject {
     return this.entriesValue.find((entry) => entry.fieldId.equals(fieldId))?.value;
   }
 
+  /**
+   * Set a field value, returning a new TableRecordFields instance.
+   * If the fieldId already exists, the value is updated.
+   * If the fieldId doesn't exist, a new entry is added.
+   */
+  set(fieldId: FieldId, value: TableRecordCellValue): Result<TableRecordFields, DomainError> {
+    const existingIndex = this.entriesValue.findIndex((entry) => entry.fieldId.equals(fieldId));
+    const newEntries = [...this.entriesValue];
+
+    if (existingIndex >= 0) {
+      // Update existing entry
+      newEntries[existingIndex] = { fieldId, value };
+    } else {
+      // Add new entry
+      newEntries.push({ fieldId, value });
+    }
+
+    return ok(new TableRecordFields(newEntries));
+  }
+
   equals(other: TableRecordFields): boolean {
     if (this.entriesValue.length !== other.entriesValue.length) return false;
     const byId = new Map<string, TableRecordCellValue>();

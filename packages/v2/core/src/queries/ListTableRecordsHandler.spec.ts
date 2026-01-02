@@ -23,13 +23,13 @@ const createContext = (): IExecutionContext => {
   return { actorId };
 };
 
-const baseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
-const tableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
+const createBaseId = (seed: string) => BaseId.create(`bse${seed.repeat(16)}`)._unsafeUnwrap();
+const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
 const selectOption = (name: string) => SelectOption.create({ name, color: 'blue' })._unsafeUnwrap();
 
 const buildTable = () => {
   const builder = Table.builder()
-    .withBaseId(baseId('a'))
+    .withBaseId(createBaseId('a'))
     .withName(TableName.create('Records')._unsafeUnwrap());
   builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
   builder
@@ -58,7 +58,6 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const queryResult = ListTableRecordsQuery.create({
-      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
     });
     const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());
@@ -86,7 +85,6 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const queryResult = ListTableRecordsQuery.create({
-      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
       filter: {
         fieldId: titleField.id().toString(),
@@ -117,8 +115,7 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const queryResult = ListTableRecordsQuery.create({
-      baseId: baseId('b').toString(),
-      tableId: tableId('b').toString(),
+      tableId: createTableId('b').toString(),
     });
     const handler = new ListTableRecordsHandler(tableRepo, recordQueryRepo, new NoopLogger());
     const result = await handler.handle(createContext(), queryResult._unsafeUnwrap());
@@ -135,7 +132,6 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const queryResult = ListTableRecordsQuery.create({
-      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
       filter: {
         fieldId: 'fldmissing123456789',
@@ -158,7 +154,6 @@ describe('ListTableRecordsHandler', () => {
     };
 
     const queryResult = ListTableRecordsQuery.create({
-      baseId: table.baseId().toString(),
       tableId: table.id().toString(),
     });
     const handler = new ListTableRecordsHandler(tableRepository, recordQueryRepo, new NoopLogger());

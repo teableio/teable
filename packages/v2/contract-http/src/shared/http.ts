@@ -15,6 +15,7 @@ export interface IHttpErrorDto {
   code: string;
   message: string;
   tags: ReadonlyArray<(typeof domainErrorTagValues)[number]>;
+  details?: Readonly<Record<string, unknown>>;
 }
 
 export interface IApiErrorResponseDto {
@@ -42,6 +43,7 @@ export const apiErrorResponseDtoSchema = z.object({
     code: z.string(),
     message: z.string(),
     tags: z.array(z.enum(domainErrorTagValues)),
+    details: z.record(z.string(), z.unknown()).optional(),
   }),
 });
 
@@ -49,6 +51,7 @@ export const mapDomainErrorToHttpError = (error: DomainError): IHttpErrorDto => 
   code: error.code,
   message: error.message,
   tags: error.tags,
+  details: error.details,
 });
 
 export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus => {

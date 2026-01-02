@@ -160,6 +160,7 @@ export function PlaygroundBaseLayout({ baseId }: PlaygroundBaseLayoutProps) {
         void navigate({
           to: env.routes.table,
           params: { baseId, tableId: created.id },
+          search: (prev) => prev,
         });
       },
     })

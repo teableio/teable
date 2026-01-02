@@ -59,6 +59,9 @@ const buildTableIdentifier = (target: TableIdentifier) => {
   return sql`${sql.ref(target.schema)}.${sql.ref(target.tableName)}`;
 };
 
+/** Compress multi-line SQL into single line for cleaner logs */
+const compressSql = (sqlStr: string): string => sqlStr.replace(/\s+/g, ' ').trim();
+
 const createIndexStatement = (
   target: TableIdentifier,
   indexName: string,
@@ -72,6 +75,55 @@ const createUniqueIndexStatement = (
   columnName: string
 ): TableSchemaStatementBuilder =>
   sql`create unique index if not exists ${sql.ref(indexName)} on ${buildTableIdentifier(target)} (${sql.ref(columnName)})`;
+
+/**
+ * Creates a FK constraint statement that checks if the target table exists first.
+ * This is necessary because link fields may reference tables that don't exist yet
+ * during table creation. The FK constraint will only be added if the target table exists.
+ * Uses a PL/pgSQL DO block to conditionally add the constraint.
+ */
+const createForeignKeyConstraintStatement = (
+  sourceTable: TableIdentifier,
+  constraintName: string,
+  columnName: string,
+  targetTable: TableIdentifier,
+  targetColumn: string,
+  onDelete: 'CASCADE' | 'SET NULL' | 'RESTRICT' = 'CASCADE'
+): TableSchemaStatementBuilder => {
+  const sourceTableFull = sourceTable.schema
+    ? `"${sourceTable.schema}"."${sourceTable.tableName}"`
+    : `"${sourceTable.tableName}"`;
+  const targetTableFull = targetTable.schema
+    ? `"${targetTable.schema}"."${targetTable.tableName}"`
+    : `"${targetTable.tableName}"`;
+  const targetSchema = targetTable.schema ?? 'public';
+
+  // Use DO block to conditionally add FK only if target table exists
+  // This prevents errors when creating link fields before the foreign table exists
+  return sql.raw(
+    compressSql(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.tables 
+          WHERE table_schema = '${targetSchema}' 
+          AND table_name = '${targetTable.tableName}'
+        ) THEN
+          BEGIN
+            ALTER TABLE ${sourceTableFull} 
+            ADD CONSTRAINT "${constraintName}" 
+            FOREIGN KEY ("${columnName}") 
+            REFERENCES ${targetTableFull} ("${targetColumn}") 
+            ON DELETE ${onDelete};
+          EXCEPTION WHEN duplicate_object THEN
+            NULL;
+          END;
+        END IF;
+      END
+      $$;
+    `)
+  );
+};
 
 const buildColumnConstraints = (
   field: Field
@@ -451,6 +503,7 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
 
     const params = this.params;
     const currentTable = this.currentTable.bind(this);
+    const resolveForeignTable = this.resolveForeignTable.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const keyName = yield* keyNameResult;
       const statements = yield* params.addColumn(keyName, 'text');
@@ -467,7 +520,19 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
           ? createUniqueIndexStatement(table, indexName, keyName)
           : createIndexStatement(table, indexName, keyName);
 
-      return ok([...statements, ...orderStatements, indexStatement]);
+      // Add FK constraint referencing the foreign table's __id column
+      const foreignTable = yield* resolveForeignTable(field);
+      const fkConstraintName = `fk_${keyName}`;
+      const fkConstraintStatement = createForeignKeyConstraintStatement(
+        table,
+        fkConstraintName,
+        keyName,
+        foreignTable,
+        '__id',
+        'CASCADE'
+      );
+
+      return ok([...statements, ...orderStatements, indexStatement, fkConstraintStatement]);
     });
   }
 
@@ -480,6 +545,8 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
+    const resolveForeignTable = this.resolveForeignTable.bind(this);
+    const currentTable = this.currentTable.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fkHostTable = yield* resolveFkHostTable(field);
       const selfKeyName = yield* field.selfKeyNameString();
@@ -487,14 +554,16 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
       const schemaBuilder = fkHostTable.schema
         ? params.db.schema.withSchema(fkHostTable.schema)
         : params.db.schema;
-      let builder = schemaBuilder
+      const orderColumnName = yield* field.orderColumnName();
+      const uniqueConstraintName = `uniq_${selfKeyName}_${foreignKeyName}`;
+      const builder = schemaBuilder
         .createTable(fkHostTable.tableName)
         .ifNotExists()
         .addColumn('__id', 'serial', (col) => col.primaryKey())
         .addColumn(selfKeyName, 'text')
-        .addColumn(foreignKeyName, 'text');
-      const orderColumnName = yield* field.orderColumnName();
-      builder = builder.addColumn(orderColumnName, 'double precision');
+        .addColumn(foreignKeyName, 'text')
+        .addColumn(orderColumnName, 'double precision')
+        .addUniqueConstraint(uniqueConstraintName, [selfKeyName, foreignKeyName]);
 
       // Create indexes for junction table FK columns
       const selfKeyIndexName = `index_${selfKeyName}`;
@@ -510,7 +579,37 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
         foreignKeyName
       );
 
-      return ok([builder, selfKeyIndexStatement, foreignKeyIndexStatement]);
+      // Add FK constraints for junction table
+      // selfKeyName references current table's __id
+      // foreignKeyName references foreign table's __id
+      const foreignTable = yield* resolveForeignTable(field);
+      const selfFkConstraintName = `fk_${selfKeyName}`;
+      const foreignFkConstraintName = `fk_${foreignKeyName}`;
+
+      const selfFkConstraintStatement = createForeignKeyConstraintStatement(
+        fkHostTable,
+        selfFkConstraintName,
+        selfKeyName,
+        currentTable(),
+        '__id',
+        'CASCADE'
+      );
+      const foreignFkConstraintStatement = createForeignKeyConstraintStatement(
+        fkHostTable,
+        foreignFkConstraintName,
+        foreignKeyName,
+        foreignTable,
+        '__id',
+        'CASCADE'
+      );
+
+      return ok([
+        builder,
+        selfKeyIndexStatement,
+        foreignKeyIndexStatement,
+        selfFkConstraintStatement,
+        foreignFkConstraintStatement,
+      ]);
     });
   }
 
@@ -519,10 +618,13 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
   ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
     const params = this.params;
     const resolveFkHostTable = this.resolveFkHostTable.bind(this);
+    const resolveForeignTable = this.resolveForeignTable.bind(this);
+    const currentTable = this.currentTable.bind(this);
     return safeTry<ReadonlyArray<TableSchemaStatementBuilder>, DomainError>(function* () {
       const fkHostTable = yield* resolveFkHostTable(field);
       const selfKeyName = yield* field.selfKeyNameString();
       const foreignKeyName = yield* field.foreignKeyNameString();
+      const orderColumnName = yield* field.orderColumnName();
       const schemaBuilder = fkHostTable.schema
         ? params.db.schema.withSchema(fkHostTable.schema)
         : params.db.schema;
@@ -533,8 +635,34 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
         .addColumn('__id', 'serial', (col) => col.primaryKey())
         .addColumn(selfKeyName, 'text')
         .addColumn(foreignKeyName, 'text')
+        .addColumn(orderColumnName, 'double precision')
         .addUniqueConstraint(constraintName, [selfKeyName, foreignKeyName]);
-      return ok([builder]);
+
+      // Add FK constraints for junction table
+      // selfKeyName references current table's __id
+      // foreignKeyName references foreign table's __id
+      const foreignTable = yield* resolveForeignTable(field);
+      const selfFkConstraintName = `fk_${selfKeyName}`;
+      const foreignFkConstraintName = `fk_${foreignKeyName}`;
+
+      const selfFkConstraintStatement = createForeignKeyConstraintStatement(
+        fkHostTable,
+        selfFkConstraintName,
+        selfKeyName,
+        currentTable(),
+        '__id',
+        'CASCADE'
+      );
+      const foreignFkConstraintStatement = createForeignKeyConstraintStatement(
+        fkHostTable,
+        foreignFkConstraintName,
+        foreignKeyName,
+        foreignTable,
+        '__id',
+        'CASCADE'
+      );
+
+      return ok([builder, selfFkConstraintStatement, foreignFkConstraintStatement]);
     });
   }
 
@@ -560,6 +688,22 @@ export class PostgresTableSchemaFieldCreateVisitor extends AbstractFieldVisitor<
     field: LinkField
   ): Result<{ schema: string | null; tableName: string }, DomainError> {
     return field.fkHostTableName().split({ defaultSchema: this.params.currentSchema });
+  }
+
+  /**
+   * Resolves the foreign table's identifier for FK constraints.
+   * Uses the field's baseId if available, otherwise assumes same schema as current table.
+   */
+  private resolveForeignTable(
+    field: LinkField
+  ): Result<{ schema: string | null; tableName: string }, DomainError> {
+    const foreignTableId = field.foreignTableId().toString();
+    const baseId = field.baseId();
+
+    // If baseId is available, use it as the schema; otherwise use current schema
+    const schema = baseId ? baseId.toString() : this.params.currentSchema;
+
+    return ok({ schema, tableName: foreignTableId });
   }
 
   private isCurrentTable(target: { schema: string | null; tableName: string }): boolean {

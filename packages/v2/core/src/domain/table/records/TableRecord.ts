@@ -2,10 +2,16 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../shared/DomainError';
 import { Entity } from '../../shared/Entity';
+import type { FieldId } from '../fields/FieldId';
 import type { TableId } from '../TableId';
 import type { RecordId } from './RecordId';
 import { RecordConditionSpecBuilder } from './specs/RecordConditionSpecBuilder';
-import { TableRecordFields, type TableRecordFieldValue } from './TableRecordFields';
+import {
+  TableRecordCellValue,
+  TableRecordFields,
+  type TableRecordFieldValue,
+} from './TableRecordFields';
+import type { CellValue } from './values/CellValue';
 
 export class TableRecord extends Entity<RecordId> {
   private constructor(
@@ -36,5 +42,18 @@ export class TableRecord extends Entity<RecordId> {
 
   static specs(): RecordConditionSpecBuilder {
     return RecordConditionSpecBuilder.create();
+  }
+
+  /**
+   * Set a field value, returning a new TableRecord instance.
+   * This is used by SetValueSpec.mutate() to update the record in memory.
+   */
+  setFieldValue<T>(fieldId: FieldId, value: CellValue<T>): Result<TableRecord, DomainError> {
+    // Convert CellValue<T> to TableRecordCellValue
+    return TableRecordCellValue.create(value.toValue()).andThen((cellValue) =>
+      this.fieldsValue
+        .set(fieldId, cellValue)
+        .map((newFields) => new TableRecord(this.id(), this.tableIdValue, newFields))
+    );
   }
 }

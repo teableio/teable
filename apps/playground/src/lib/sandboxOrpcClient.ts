@@ -3,6 +3,7 @@ import type { ClientLink } from '@orpc/client';
 import type { ContractRouterClient } from '@orpc/contract';
 import {
   executeCreateFieldEndpoint,
+  executeCreateRecordEndpoint,
   executeCreateTableEndpoint,
   executeDeleteFieldEndpoint,
   executeDeleteTableEndpoint,
@@ -78,6 +79,12 @@ const createSandboxHandlers = (): Record<string, SandboxHandler> => ({
     const container = await createSandboxContainer();
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const result = await executeCreateFieldEndpoint(executionContext, input, commandBus);
+    return unwrapEndpointResult(result);
+  },
+  'tables.createRecord': async (input, executionContext) => {
+    const container = await createSandboxContainer();
+    const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
+    const result = await executeCreateRecordEndpoint(executionContext, input, commandBus);
     return unwrapEndpointResult(result);
   },
   'tables.deleteField': async (input, executionContext) => {

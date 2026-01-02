@@ -5,7 +5,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 
 import { TableRecordQueryBuilderManager } from '../query-builder';
-import { PostgresTableRecordQueryRepository } from '../repository';
+import { PostgresTableRecordQueryRepository, PostgresTableRecordRepository } from '../repository';
 import { v2RecordRepositoryPostgresTokens } from './tokens';
 
 export interface IV2RecordRepositoryPostgresConfig {
@@ -28,6 +28,10 @@ export const registerV2RecordRepositoryPostgresAdapter = (
   );
 
   c.register(v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, {
+    lifecycle: Lifecycle.Singleton,
+  });
+
+  c.register(v2CoreTokens.tableRecordRepository, PostgresTableRecordRepository, {
     lifecycle: Lifecycle.Singleton,
   });
 

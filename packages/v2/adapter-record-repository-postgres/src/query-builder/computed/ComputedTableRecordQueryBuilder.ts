@@ -1,10 +1,10 @@
 import {
   domainError,
+  FieldId,
   isNotFoundError,
   LinkForeignTableReferenceVisitor,
   LinkRelationship,
   type DomainError,
-  type FieldId,
   type LinkField,
   type Table,
 } from '@teable/v2-core';
@@ -25,6 +25,7 @@ import type {
   DynamicDB,
   IQueryBuilderDeps,
   ITableRecordQueryBuilder,
+  OrderByColumn,
   QB,
 } from '../ITableRecordQueryBuilder';
 import {
@@ -32,6 +33,7 @@ import {
   type ILateralContext,
   type LateralColumnType,
 } from './ComputedFieldSelectExpressionVisitor';
+import { QueryMode } from '../TableRecordQueryBuilderManager';
 
 const T = 't'; // main table alias
 const F = 'f'; // foreign table alias in lateral
@@ -50,7 +52,11 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
   private projection: FieldId[] | null = null;
   private limitValue: number | null = null;
   private offsetValue: number | null = null;
+  private orderByColumnValue: OrderByColumn | null = null;
+  private orderByDirection: 'asc' | 'desc' = 'asc';
   private foreignTables: ReadonlyMap<string, Table>;
+
+  readonly mode: QueryMode = 'computed';
 
   constructor(
     private readonly db: Kysely<DynamicDB>,
@@ -79,6 +85,12 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
     return this;
   }
 
+  orderBy(column: OrderByColumn, direction: 'asc' | 'desc'): this {
+    this.orderByColumnValue = column;
+    this.orderByDirection = direction;
+    return this;
+  }
+
   /**
    * Prepare by loading foreign tables needed for link/lookup/rollup fields.
    */
@@ -100,27 +112,39 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
           return ok(undefined);
         }
 
-        // Load each foreign table
         const foreignTables = new Map<string, Table>();
-        for (const ref of refs) {
-          // Skip self-referential links (same table)
-          if (ref.foreignTableId.equals(table.id())) {
-            foreignTables.set(ref.foreignTableId.toString(), table);
-            continue;
+
+        // Separate self-referential from external references
+        const externalTableIds = refs
+          .filter((ref) => !ref.foreignTableId.equals(table.id()))
+          .map((ref) => ref.foreignTableId);
+
+        // Add self-referential table if present
+        const hasSelfRef = refs.some((ref) => ref.foreignTableId.equals(table.id()));
+        if (hasSelfRef) {
+          foreignTables.set(table.id().toString(), table);
+        }
+
+        // Batch load all external foreign tables in one query
+        if (externalTableIds.length > 0) {
+          // Use withoutBaseId() to support cross-base foreign tables
+          const foreignSpec = yield* table.specs().withoutBaseId().byIds(externalTableIds).build();
+          const loadedTables = yield* await deps.tableRepository.find(deps.context, foreignSpec);
+
+          for (const loadedTable of loadedTables) {
+            foreignTables.set(loadedTable.id().toString(), loadedTable);
           }
 
-          const foreignSpec = yield* table.specs().byId(ref.foreignTableId).build();
-          const foreignTable = yield* (
-            await deps.tableRepository.findOne(deps.context, foreignSpec)
-          ).mapErr((error: DomainError) =>
-            isNotFoundError(error)
-              ? domainError.notFound({
-                  code: 'foreign_table.not_found',
-                  message: `Foreign table not found: ${ref.foreignTableId.toString()}`,
-                })
-              : error
-          );
-          foreignTables.set(ref.foreignTableId.toString(), foreignTable);
+          // Check if all foreign tables were found
+          const missingIds = externalTableIds.filter((id) => !foreignTables.has(id.toString()));
+          if (missingIds.length > 0) {
+            return err(
+              domainError.notFound({
+                code: 'foreign_table.not_found',
+                message: `Foreign tables not found: ${missingIds.map((id) => id.toString()).join(', ')}`,
+              })
+            );
+          }
         }
 
         this.foreignTables = foreignTables;
@@ -151,10 +175,16 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         const idColumn = sql`${sql.ref(`${T}.__id`)}`.as('__id');
         const selectColumns = [idColumn, ...fieldSelectColumns];
 
+        // Resolve orderBy column name
+        const orderByColumn = yield* this.resolveOrderByColumn(table);
+
         const query = this.db
           .selectFrom(`${tableName} as ${T}`)
           .select(() => selectColumns)
           .$call(applyLateralJoins)
+          .$if(orderByColumn !== null, (qb) =>
+            qb.orderBy(sql`${sql.ref(`${T}.${orderByColumn}`)}`, this.orderByDirection)
+          )
           .$if(this.limitValue !== null, (qb) => qb.limit(this.limitValue!))
           .$if(this.offsetValue !== null, (qb) => qb.offset(this.offsetValue!));
 
@@ -397,5 +427,27 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
         message: `Cannot build join condition for link field: missing FK configuration`,
       })
     );
+  }
+
+  /**
+   * Resolve orderBy column to actual database column name.
+   * If FieldId, look up the field's dbFieldName.
+   * If system column string, use as-is.
+   */
+  private resolveOrderByColumn(table: Table): Result<string | null, DomainError> {
+    if (this.orderByColumnValue === null) {
+      return ok(null);
+    }
+
+    // If it's a FieldId, resolve to dbFieldName
+    if (this.orderByColumnValue instanceof FieldId) {
+      return table
+        .getField((f) => f.id().equals(this.orderByColumnValue as FieldId))
+        .andThen((field) => field.dbFieldName())
+        .andThen((dbFieldName) => dbFieldName.value());
+    }
+
+    // System column - use as-is
+    return ok(this.orderByColumnValue);
   }
 }

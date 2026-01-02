@@ -605,7 +605,7 @@ TableRecordQueryBuilderManager = __decorate([
 //#endregion
 //#region src/repository/PostgresTableRecordQueryRepository.ts
 var _ref;
-const RECORD_ID_COLUMN = "__id";
+const RECORD_ID_COLUMN$1 = "__id";
 let PostgresTableRecordQueryRepository = class PostgresTableRecordQueryRepository$1 {
 	constructor(queryBuilderManager, logger) {
 		this.queryBuilderManager = queryBuilderManager;
@@ -620,7 +620,7 @@ let PostgresTableRecordQueryRepository = class PostgresTableRecordQueryRepositor
 			try {
 				return (0, neverthrow.ok)(mapRowsToReadModels(fieldColumns, await builtQuery.execute()));
 			} catch (error) {
-				return (0, neverthrow.err)(_teable_v2_core.domainError.unexpected({ message: `Failed to load table records: ${describeError(error)}` }));
+				return (0, neverthrow.err)(_teable_v2_core.domainError.unexpected({ message: `Failed to load table records: ${describeError$1(error)}` }));
 			}
 		}.bind(this));
 	}
@@ -633,7 +633,7 @@ PostgresTableRecordQueryRepository = __decorate([
 ], PostgresTableRecordQueryRepository);
 const mapRowsToReadModels = (fieldColumns, rows) => {
 	return rows.map((row) => {
-		const rawId = row[RECORD_ID_COLUMN];
+		const rawId = row[RECORD_ID_COLUMN$1];
 		const id = typeof rawId === "string" ? rawId : String(rawId);
 		const fields = {};
 		for (const column of fieldColumns) fields[column.fieldId.toString()] = row[column.columnAlias];
@@ -643,6 +643,311 @@ const mapRowsToReadModels = (fieldColumns, rows) => {
 		};
 	});
 };
+const describeError$1 = (error) => {
+	if ((0, _teable_v2_core.isDomainError)(error)) return error.message;
+	if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;
+	if (typeof error === "string") return error;
+	try {
+		return JSON.stringify(error) ?? String(error);
+	} catch {
+		return String(error);
+	}
+};
+
+//#endregion
+//#region src/visitors/FieldDatabaseValueVisitor.ts
+/**
+* Visitor that transforms cell values to their database storage format.
+*
+* This handles the conversion of JavaScript values to PostgreSQL-compatible formats:
+* - Primitive values (string, number, boolean) are returned as-is
+* - Complex values (arrays, objects) are JSON stringified for JSONB columns
+*
+* Usage:
+* ```typescript
+* const visitor = FieldDatabaseValueVisitor.create(cellValue.toValue());
+* const dbValue = field.accept(visitor);
+* ```
+*/
+var FieldDatabaseValueVisitor = class FieldDatabaseValueVisitor {
+	constructor(rawValue) {
+		this.rawValue = rawValue;
+	}
+	static create(rawValue) {
+		return new FieldDatabaseValueVisitor(rawValue);
+	}
+	visitSingleLineTextField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitLongTextField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitNumberField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitRatingField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitFormulaField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitRollupField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitLookupField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitSingleSelectField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitMultipleSelectField(_field) {
+		if (this.rawValue === null || this.rawValue === void 0) return (0, _teable_v2_core.ok)(null);
+		return (0, _teable_v2_core.ok)(JSON.stringify(this.rawValue));
+	}
+	visitCheckboxField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitDateField(_field) {
+		return (0, _teable_v2_core.ok)(this.rawValue);
+	}
+	visitAttachmentField(_field) {
+		if (this.rawValue === null || this.rawValue === void 0) return (0, _teable_v2_core.ok)(null);
+		return (0, _teable_v2_core.ok)(JSON.stringify(this.rawValue));
+	}
+	visitUserField(_field) {
+		if (this.rawValue === null || this.rawValue === void 0) return (0, _teable_v2_core.ok)(null);
+		return (0, _teable_v2_core.ok)(JSON.stringify(this.rawValue));
+	}
+	visitLinkField(_field) {
+		if (this.rawValue === null || this.rawValue === void 0) return (0, _teable_v2_core.ok)(null);
+		return (0, _teable_v2_core.ok)(JSON.stringify(this.rawValue));
+	}
+	visitCreatedTimeField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitLastModifiedTimeField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitCreatedByField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitLastModifiedByField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitAutoNumberField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+	visitButtonField(_field) {
+		return (0, _teable_v2_core.ok)(null);
+	}
+};
+
+//#endregion
+//#region src/visitors/PostgresCellValueSpecVisitor.ts
+/**
+* PostgreSQL implementation of ICellValueSpecVisitor.
+*
+* This visitor collects column/value pairs from SetValueSpecs for use in
+* UPDATE SQL generation.
+*
+* Future: Will be used when implementing repository.update() to generate
+* UPDATE SET column1 = value1, column2 = value2 ... queries.
+*
+* Usage:
+* ```typescript
+* const visitor = new PostgresCellValueSpecVisitor();
+* await spec.accept(visitor);
+* const entries = visitor.getColumnValues();
+* // Use entries to generate UPDATE SQL
+* ```
+*/
+var PostgresCellValueSpecVisitor = class {
+	entries = [];
+	/**
+	* Generic visit method for ISpecification interface.
+	* Required by ISpecVisitor.
+	*/
+	visit(_spec) {
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetSingleLineTextValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetLongTextValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetNumberValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetRatingValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetSingleSelectValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetMultipleSelectValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetCheckboxValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetDateValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: spec.value.toValue()
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetAttachmentValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: JSON.stringify(spec.value.toValue())
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetLinkValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: JSON.stringify(spec.value.toValue())
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	visitSetUserValue(spec) {
+		this.entries.push({
+			fieldId: spec.fieldId.toString(),
+			value: JSON.stringify(spec.value.toValue())
+		});
+		return (0, _teable_v2_core.ok)(void 0);
+	}
+	/**
+	* Get all collected column/value entries.
+	*/
+	getColumnValues() {
+		return [...this.entries];
+	}
+	/**
+	* Clear all collected entries.
+	*/
+	clear() {
+		this.entries.length = 0;
+	}
+};
+
+//#endregion
+//#region src/repository/PostgresTableRecordRepository.ts
+const RECORD_ID_COLUMN = "__id";
+const CREATED_TIME_COLUMN = "__created_time";
+const CREATED_BY_COLUMN = "__created_by";
+const LAST_MODIFIED_TIME_COLUMN = "__last_modified_time";
+const LAST_MODIFIED_BY_COLUMN = "__last_modified_by";
+const VERSION_COLUMN = "__version";
+let PostgresTableRecordRepository = class PostgresTableRecordRepository$1 {
+	constructor(db, logger) {
+		this.db = db;
+		this.logger = logger;
+	}
+	async insert(context, table, record) {
+		const repo = this;
+		return (0, neverthrow.safeTry)(async function* () {
+			const tableName = yield* (yield* table.dbTableName()).value();
+			const now = (/* @__PURE__ */ new Date()).toISOString();
+			const actorId = context.actorId.toString();
+			const values = {
+				[RECORD_ID_COLUMN]: record.id().toString(),
+				[CREATED_TIME_COLUMN]: now,
+				[CREATED_BY_COLUMN]: actorId,
+				[LAST_MODIFIED_TIME_COLUMN]: now,
+				[LAST_MODIFIED_BY_COLUMN]: actorId,
+				[VERSION_COLUMN]: 1
+			};
+			const fields = table.getFields();
+			const recordFields = record.fields();
+			for (const field of fields) {
+				if (field.computed().toBoolean()) continue;
+				const dbFieldNameResult = field.dbFieldName();
+				if (dbFieldNameResult.isErr()) continue;
+				const dbFieldNameValueResult = dbFieldNameResult.value.value();
+				if (dbFieldNameValueResult.isErr()) continue;
+				const dbFieldName = dbFieldNameValueResult.value;
+				const rawValue = recordFields.get(field.id())?.toValue() ?? null;
+				const dbValueVisitor = FieldDatabaseValueVisitor.create(rawValue);
+				const dbValueResult = field.accept(dbValueVisitor);
+				values[dbFieldName] = dbValueResult.isOk() ? dbValueResult.value : rawValue;
+			}
+			repo.logger.debug(`insert:table=${tableName}`, { values });
+			try {
+				await repo.db.insertInto(tableName).values(values).execute();
+			} catch (error) {
+				return (0, neverthrow.err)(_teable_v2_core.domainError.infrastructure({
+					message: `Failed to insert record: ${describeError(error)}`,
+					code: "infrastructure.database.insert_failed",
+					details: {
+						tableName,
+						error: describeError(error)
+					}
+				}));
+			}
+			return (0, neverthrow.ok)(void 0);
+		});
+	}
+	async update(_context, _table, _record) {
+		return (0, neverthrow.err)(_teable_v2_core.domainError.unexpected({ message: "Update not implemented yet" }));
+	}
+	async delete(_context, table, recordId) {
+		const repo = this;
+		return (0, neverthrow.safeTry)(async function* () {
+			const tableName = yield* (yield* table.dbTableName()).value();
+			try {
+				await repo.db.deleteFrom(tableName).where(RECORD_ID_COLUMN, "=", recordId.toString()).execute();
+			} catch (error) {
+				return (0, neverthrow.err)(_teable_v2_core.domainError.infrastructure({
+					message: `Failed to delete record: ${describeError(error)}`,
+					code: "infrastructure.database.delete_failed",
+					details: {
+						tableName,
+						recordId: recordId.toString(),
+						error: describeError(error)
+					}
+				}));
+			}
+			return (0, neverthrow.ok)(void 0);
+		});
+	}
+};
+PostgresTableRecordRepository = __decorate([
+	(0, _teable_v2_di.injectable)(),
+	__decorateParam(0, (0, _teable_v2_di.inject)(v2RecordRepositoryPostgresTokens.db)),
+	__decorateParam(1, (0, _teable_v2_di.inject)(_teable_v2_core.v2CoreTokens.logger)),
+	__decorateMetadata("design:paramtypes", [Object, Object])
+], PostgresTableRecordRepository);
 const describeError = (error) => {
 	if ((0, _teable_v2_core.isDomainError)(error)) return error.message;
 	if (error instanceof Error) return error.message ? `${error.name}: ${error.message}` : error.name;
@@ -660,17 +965,26 @@ const registerV2RecordRepositoryPostgresAdapter = (c = _teable_v2_di.container, 
 	c.registerInstance(v2RecordRepositoryPostgresTokens.db, config.db);
 	c.register(v2RecordRepositoryPostgresTokens.tableRecordQueryBuilderManager, TableRecordQueryBuilderManager, { lifecycle: _teable_v2_di.Lifecycle.Singleton });
 	c.register(_teable_v2_core.v2CoreTokens.tableRecordQueryRepository, PostgresTableRecordQueryRepository, { lifecycle: _teable_v2_di.Lifecycle.Singleton });
+	c.register(_teable_v2_core.v2CoreTokens.tableRecordRepository, PostgresTableRecordRepository, { lifecycle: _teable_v2_di.Lifecycle.Singleton });
 	return c;
 };
 
 //#endregion
 exports.ComputedFieldSelectExpressionVisitor = ComputedFieldSelectExpressionVisitor;
 exports.ComputedTableRecordQueryBuilder = ComputedTableRecordQueryBuilder;
+exports.FieldDatabaseValueVisitor = FieldDatabaseValueVisitor;
 exports.FieldOutputColumnVisitor = FieldOutputColumnVisitor;
+exports.PostgresCellValueSpecVisitor = PostgresCellValueSpecVisitor;
 Object.defineProperty(exports, 'PostgresTableRecordQueryRepository', {
   enumerable: true,
   get: function () {
     return PostgresTableRecordQueryRepository;
+  }
+});
+Object.defineProperty(exports, 'PostgresTableRecordRepository', {
+  enumerable: true,
+  get: function () {
+    return PostgresTableRecordRepository;
   }
 });
 exports.SqlAggregate = SqlAggregate;

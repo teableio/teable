@@ -13,14 +13,18 @@ const v2ServerPackages = [
   '@teable/v2-contract-http',
   '@teable/v2-contract-http-implementation',
   '@teable/v2-container-node',
+  '@teable/v2-container-browser',
   '@teable/v2-adapter-db-postgres-pg',
   '@teable/v2-adapter-db-postgres-pglite',
   '@teable/v2-adapter-db-postgres-shared',
   '@teable/v2-postgres-schema',
   '@teable/v2-adapter-repository-postgres',
+  '@teable/v2-adapter-record-repository-postgres',
   '@teable/v2-adapter-schema-repository-postgres',
   '@teable/v2-adapter-realtime-broadcastchannel',
   '@teable/v2-adapter-realtime-sharedb',
+  '@teable/v2-adapter-logger-pino',
+  '@teable/v2-table-templates',
   '@teable/v2-di',
 ];
 const sourceOnlyPackages = ['@teable/formula'];

@@ -1,11 +1,13 @@
-import { err, ok } from 'neverthrow';
+import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { z } from 'zod';
 import type { BaseId } from '../base/BaseId';
 import { AggregateRoot } from '../shared/AggregateRoot';
 import { domainError, type DomainError } from '../shared/DomainError';
 import { topologicalSort } from '../shared/graph/topologicalSort';
 import type { ISpecification } from '../shared/specification/ISpecification';
 import type { ISpecVisitor } from '../shared/specification/ISpecVisitor';
+import { NotSpec } from '../shared/specification/NotSpec';
 
 import { DbTableName } from './DbTableName';
 import { FieldCreated } from './events/FieldCreated';
@@ -19,10 +21,17 @@ import type { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
 import { FieldType } from './fields/FieldType';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
+import { FieldIsComputedSpec } from './fields/specs/FieldIsComputedSpec';
+import { FieldCellValueSchemaVisitor } from './fields/visitors/FieldCellValueSchemaVisitor';
+import { FieldDefaultValueVisitor } from './fields/visitors/FieldDefaultValueVisitor';
 import {
   LinkForeignTableReferenceVisitor,
   type LinkForeignTableReference,
 } from './fields/visitors/LinkForeignTableReferenceVisitor';
+import { RecordId } from './records/RecordId';
+import { RecordMutationSpecBuilder } from './records/RecordMutationSpecBuilder';
+import { TableRecord } from './records/TableRecord';
+import { TableRecordFields } from './records/TableRecordFields';
 import { resolveFormulaFields } from './resolveFormulaFields';
 import { TableSpecBuilder } from './specs/TableSpecBuilder';
 import type { ITableBuildProps } from './TableBuilder';
@@ -254,6 +263,115 @@ export class Table extends AggregateRoot<TableId> {
         }
         return unique;
       });
+  }
+
+  /**
+   * Get editable (non-computed) fields in this table.
+   * Uses NotSpec(FieldIsComputedSpec) internally.
+   */
+  getEditableFields(): ReadonlyArray<Field> {
+    const notComputedSpec = new NotSpec(FieldIsComputedSpec.create());
+    return this.getFields(notComputedSpec);
+  }
+
+  /**
+   * Create a Zod schema for record input validation.
+   * Only includes editable (non-computed) fields.
+   *
+   * @returns Result containing the Zod object schema
+   *
+   * @example
+   * ```typescript
+   * const schemaResult = table.createRecordInputSchema();
+   * if (schemaResult.isOk()) {
+   *   const validated = schemaResult.value.safeParse({ fieldId: 'value' });
+   * }
+   * ```
+   */
+  createRecordInputSchema(): Result<z.ZodObject<Record<string, z.ZodTypeAny>>, DomainError> {
+    const editableFields = this.getEditableFields();
+    const schemaShape: Record<string, z.ZodTypeAny> = {};
+    const visitor = FieldCellValueSchemaVisitor.create();
+
+    for (const field of editableFields) {
+      const schemaResult = field.accept(visitor);
+      if (schemaResult.isErr()) {
+        return err(schemaResult.error);
+      }
+      schemaShape[field.id().toString()] = schemaResult.value;
+    }
+
+    return ok(z.object(schemaShape));
+  }
+
+  /**
+   * Create a new record for this table with the given field values.
+   *
+   * This method:
+   * 1. Generates a new record ID
+   * 2. Validates and applies field values using the mutation spec builder
+   * 3. Returns the fully constructed record
+   *
+   * @param fieldValues - Map of field IDs to raw values
+   * @returns Result containing the new record or validation error
+   *
+   * @example
+   * ```typescript
+   * const recordResult = table.createRecord(new Map([
+   *   ['fld123', 'John Doe'],
+   *   ['fld456', 30],
+   * ]));
+   * ```
+   */
+  createRecord(fieldValues: ReadonlyMap<string, unknown>): Result<TableRecord, DomainError> {
+    const table = this;
+    return safeTry<TableRecord, DomainError>(function* () {
+      // 1. Generate a new record ID
+      const recordId = yield* RecordId.generate();
+
+      // 2. Build mutation specs from field values with default value support
+      const builder = RecordMutationSpecBuilder.create();
+      const fields = table.getEditableFields();
+      const defaultValueVisitor = FieldDefaultValueVisitor.create();
+
+      for (const field of fields) {
+        const fieldIdStr = field.id().toString();
+        const providedValue = fieldValues.get(fieldIdStr);
+
+        // If value was explicitly provided (even if null), use it
+        if (fieldValues.has(fieldIdStr) && providedValue !== undefined && providedValue !== null) {
+          builder.set(field, providedValue);
+        } else {
+          // Otherwise, try to get the default value
+          const defaultValueResult = field.accept(defaultValueVisitor);
+          if (defaultValueResult.isOk()) {
+            const defaultValue = defaultValueResult.value;
+            if (defaultValue !== undefined) {
+              builder.set(field, defaultValue);
+            }
+          }
+        }
+      }
+
+      // 3. Check for validation errors before proceeding
+      if (builder.hasErrors()) {
+        return err(builder.getErrors()[0]!);
+      }
+
+      // 4. Create an empty record
+      const emptyFields = yield* TableRecordFields.create([]);
+      const emptyRecord = yield* TableRecord.create({
+        id: recordId,
+        tableId: table.id(),
+        fieldValues: emptyFields.entries(),
+      });
+
+      // 5. Apply mutation spec if there are any values to set
+      if (builder.hasSpecs()) {
+        return ok(yield* builder.buildAndMutate(emptyRecord));
+      }
+      return ok(emptyRecord);
+    });
   }
 
   viewIds(): ReadonlyArray<ViewId> {

@@ -1,5 +1,5 @@
 import * as core from "@teable/v2-core";
-import { AttachmentField, AutoNumberField, ButtonField, CheckboxField, CreatedByField, CreatedTimeField, DateField, DomainError, Field, FieldId, FormulaField, IExecutionContext, IFieldVisitor, ILogger, ITableRepository, LastModifiedByField, LastModifiedTimeField, LinkField, LongTextField, LookupField, MultipleSelectField, NumberField, RatingField, RollupField, SingleLineTextField, SingleSelectField, Table, UserField } from "@teable/v2-core";
+import { AttachmentField, AutoNumberField, ButtonField, CheckboxField, CreatedByField, CreatedTimeField, DateField, DomainError, Field, FieldId, FormulaField, ICellValueSpecVisitor, IExecutionContext, IFieldVisitor, ILogger, ISpecification, ITableRepository, LastModifiedByField, LastModifiedTimeField, LinkField, LongTextField, LookupField, MultipleSelectField, NumberField, RatingField, RollupField, SetAttachmentValueSpec, SetCheckboxValueSpec, SetDateValueSpec, SetLinkValueSpec, SetLongTextValueSpec, SetMultipleSelectValueSpec, SetNumberValueSpec, SetRatingValueSpec, SetSingleLineTextValueSpec, SetSingleSelectValueSpec, SetUserValueSpec, SingleLineTextField, SingleSelectField, Table, UserField } from "@teable/v2-core";
 import { Result } from "neverthrow";
 import { AliasedRawBuilder, Kysely, SelectQueryBuilder } from "kysely";
 import { V1TeableDatabase } from "@teable/v2-postgres-schema";
@@ -315,5 +315,113 @@ declare class PostgresTableRecordQueryRepository implements core.ITableRecordQue
   find(context: core.IExecutionContext, table: core.Table, _spec?: core.ISpecification<core.TableRecord, core.ITableRecordConditionSpecVisitor>, options?: core.ITableRecordQueryOptions): Promise<Result<ReadonlyArray<core.TableRecordReadModel>, DomainError>>;
 }
 //#endregion
-export { ComputedFieldSelectExpressionVisitor, ComputedTableRecordQueryBuilder, type DynamicDB, FieldOutputColumn, FieldOutputColumnVisitor, IComputedQueryBuilderOptions, ILateralContext, IQueryBuilderDeps, IQueryBuilderManagerOptions, ITableRecordQueryBuilder, IV2RecordRepositoryPostgresConfig, LateralColumnType, PostgresTableRecordQueryRepository, type QB, QueryMode, SqlAggregate, StoredFieldSelectVisitor, StoredTableRecordQueryBuilder, TableRecordQueryBuilderManager, registerV2RecordRepositoryPostgresAdapter, v2RecordRepositoryPostgresTokens };
+//#region src/repository/PostgresTableRecordRepository.d.ts
+/**
+ * PostgreSQL implementation of TableRecordRepository.
+ *
+ * Handles insert, update, and delete operations for table records.
+ */
+declare class PostgresTableRecordRepository implements core.ITableRecordRepository {
+  private readonly db;
+  private readonly logger;
+  constructor(db: Kysely<V1TeableDatabase>, logger: ILogger);
+  insert(context: core.IExecutionContext, table: core.Table, record: core.TableRecord): Promise<Result<void, DomainError>>;
+  update(_context: core.IExecutionContext, _table: core.Table, _record: core.TableRecord): Promise<Result<void, DomainError>>;
+  delete(_context: core.IExecutionContext, table: core.Table, recordId: core.RecordId): Promise<Result<void, DomainError>>;
+}
+//#endregion
+//#region src/visitors/FieldDatabaseValueVisitor.d.ts
+/**
+ * Visitor that transforms cell values to their database storage format.
+ *
+ * This handles the conversion of JavaScript values to PostgreSQL-compatible formats:
+ * - Primitive values (string, number, boolean) are returned as-is
+ * - Complex values (arrays, objects) are JSON stringified for JSONB columns
+ *
+ * Usage:
+ * ```typescript
+ * const visitor = FieldDatabaseValueVisitor.create(cellValue.toValue());
+ * const dbValue = field.accept(visitor);
+ * ```
+ */
+declare class FieldDatabaseValueVisitor implements IFieldVisitor<unknown> {
+  private readonly rawValue;
+  private constructor();
+  static create(rawValue: unknown): FieldDatabaseValueVisitor;
+  visitSingleLineTextField(_field: SingleLineTextField): Result<unknown, DomainError>;
+  visitLongTextField(_field: LongTextField): Result<unknown, DomainError>;
+  visitNumberField(_field: NumberField): Result<unknown, DomainError>;
+  visitRatingField(_field: RatingField): Result<unknown, DomainError>;
+  visitFormulaField(_field: FormulaField): Result<unknown, DomainError>;
+  visitRollupField(_field: RollupField): Result<unknown, DomainError>;
+  visitLookupField(_field: LookupField): Result<unknown, DomainError>;
+  visitSingleSelectField(_field: SingleSelectField): Result<unknown, DomainError>;
+  visitMultipleSelectField(_field: MultipleSelectField): Result<unknown, DomainError>;
+  visitCheckboxField(_field: CheckboxField): Result<unknown, DomainError>;
+  visitDateField(_field: DateField): Result<unknown, DomainError>;
+  visitAttachmentField(_field: AttachmentField): Result<unknown, DomainError>;
+  visitUserField(_field: UserField): Result<unknown, DomainError>;
+  visitLinkField(_field: LinkField): Result<unknown, DomainError>;
+  visitCreatedTimeField(_field: CreatedTimeField): Result<unknown, DomainError>;
+  visitLastModifiedTimeField(_field: LastModifiedTimeField): Result<unknown, DomainError>;
+  visitCreatedByField(_field: CreatedByField): Result<unknown, DomainError>;
+  visitLastModifiedByField(_field: LastModifiedByField): Result<unknown, DomainError>;
+  visitAutoNumberField(_field: AutoNumberField): Result<unknown, DomainError>;
+  visitButtonField(_field: ButtonField): Result<unknown, DomainError>;
+}
+//#endregion
+//#region src/visitors/PostgresCellValueSpecVisitor.d.ts
+/**
+ * Column value entry for SQL generation
+ */
+interface ColumnValueEntry {
+  fieldId: string;
+  value: unknown;
+}
+/**
+ * PostgreSQL implementation of ICellValueSpecVisitor.
+ *
+ * This visitor collects column/value pairs from SetValueSpecs for use in
+ * UPDATE SQL generation.
+ *
+ * Future: Will be used when implementing repository.update() to generate
+ * UPDATE SET column1 = value1, column2 = value2 ... queries.
+ *
+ * Usage:
+ * ```typescript
+ * const visitor = new PostgresCellValueSpecVisitor();
+ * await spec.accept(visitor);
+ * const entries = visitor.getColumnValues();
+ * // Use entries to generate UPDATE SQL
+ * ```
+ */
+declare class PostgresCellValueSpecVisitor implements ICellValueSpecVisitor {
+  private readonly entries;
+  /**
+   * Generic visit method for ISpecification interface.
+   * Required by ISpecVisitor.
+   */
+  visit(_spec: ISpecification<any, any>): Result<void, DomainError>;
+  visitSetSingleLineTextValue(spec: SetSingleLineTextValueSpec): Result<void, DomainError>;
+  visitSetLongTextValue(spec: SetLongTextValueSpec): Result<void, DomainError>;
+  visitSetNumberValue(spec: SetNumberValueSpec): Result<void, DomainError>;
+  visitSetRatingValue(spec: SetRatingValueSpec): Result<void, DomainError>;
+  visitSetSingleSelectValue(spec: SetSingleSelectValueSpec): Result<void, DomainError>;
+  visitSetMultipleSelectValue(spec: SetMultipleSelectValueSpec): Result<void, DomainError>;
+  visitSetCheckboxValue(spec: SetCheckboxValueSpec): Result<void, DomainError>;
+  visitSetDateValue(spec: SetDateValueSpec): Result<void, DomainError>;
+  visitSetAttachmentValue(spec: SetAttachmentValueSpec): Result<void, DomainError>;
+  visitSetLinkValue(spec: SetLinkValueSpec): Result<void, DomainError>;
+  visitSetUserValue(spec: SetUserValueSpec): Result<void, DomainError>;
+  /**
+   * Get all collected column/value entries.
+   */
+  getColumnValues(): ReadonlyArray<ColumnValueEntry>;
+  /**
+   * Clear all collected entries.
+   */
+  clear(): void;
+}
+//#endregion
+export { type ColumnValueEntry, ComputedFieldSelectExpressionVisitor, ComputedTableRecordQueryBuilder, type DynamicDB, FieldDatabaseValueVisitor, FieldOutputColumn, FieldOutputColumnVisitor, IComputedQueryBuilderOptions, ILateralContext, IQueryBuilderDeps, IQueryBuilderManagerOptions, ITableRecordQueryBuilder, IV2RecordRepositoryPostgresConfig, LateralColumnType, PostgresCellValueSpecVisitor, PostgresTableRecordQueryRepository, PostgresTableRecordRepository, type QB, QueryMode, SqlAggregate, StoredFieldSelectVisitor, StoredTableRecordQueryBuilder, TableRecordQueryBuilderManager, registerV2RecordRepositoryPostgresAdapter, v2RecordRepositoryPostgresTokens };
 //# sourceMappingURL=index.d.ts.map

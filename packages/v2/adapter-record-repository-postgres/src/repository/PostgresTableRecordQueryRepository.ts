@@ -41,11 +41,16 @@ export class PostgresTableRecordQueryRepository implements core.ITableRecordQuer
           mode: options?.mode,
         });
 
+        // Default ordering by auto_number
+        queryBuilder.orderBy('__auto_number', 'asc');
+
         // Build the query
         const builtQuery = yield* queryBuilder.build();
 
         const compiled = builtQuery.compile();
-        this.logger.debug(`find:sql\n${compiled.sql}`, { parameters: compiled.parameters });
+        this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
+          parameters: compiled.parameters,
+        });
 
         // Collect field column mappings
         const fieldColumns = yield* new FieldOutputColumnVisitor().collect(table);

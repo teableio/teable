@@ -9,15 +9,12 @@ import { registerV2PostgresStateAdapter } from '@teable/v2-adapter-repository-po
 import { registerV2PostgresDdlAdapter } from '@teable/v2-adapter-schema-repository-postgres';
 import {
   AsyncMemoryEventBus,
-  FieldCreationSideEffectService,
-  FieldDeletionSideEffectService,
-  ForeignTableLoaderService,
   MemoryCommandBus,
   MemoryQueryBus,
   NoopLogger,
   NoopRealtimeEngine,
   NoopTracer,
-  TableUpdateFlow,
+  registerV2CoreServices,
   v2CoreTokens,
   type ICommandBusMiddleware,
   type IQueryBusMiddleware,
@@ -79,18 +76,6 @@ export const registerV2NodePgDependencies = async (
   c.register(v2CoreTokens.unitOfWork, PostgresUnitOfWork, {
     lifecycle: Lifecycle.Singleton,
   });
-  c.register(v2CoreTokens.tableUpdateFlow, TableUpdateFlow, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldCreationSideEffectService, FieldCreationSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.fieldDeletionSideEffectService, FieldDeletionSideEffectService, {
-    lifecycle: Lifecycle.Singleton,
-  });
-  c.register(v2CoreTokens.foreignTableLoaderService, ForeignTableLoaderService, {
-    lifecycle: Lifecycle.Singleton,
-  });
 
   const logger = options.logger ?? new NoopLogger();
   c.registerInstance(v2CoreTokens.logger, logger);
@@ -128,6 +113,9 @@ export const registerV2NodePgDependencies = async (
       lifecycle: Lifecycle.Singleton,
     });
   }
+
+  // Register core services (uses defaults unless already registered)
+  registerV2CoreServices(c, { lifecycle: Lifecycle.Singleton });
 
   return c;
 };

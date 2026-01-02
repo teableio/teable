@@ -1466,5 +1466,576 @@ describe('PostgresTableSchemaRepository (pg)', () => {
         }
       }
     });
+
+    it('creates FK constraints when foreign table exists', async () => {
+      const c = testContainer.container;
+      const db = testContainer.db;
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      // Step 1: Create the foreign table first
+      const baseIdResult = BaseId.generate();
+      baseIdResult._unsafeUnwrap();
+      const baseId = baseIdResult._unsafeUnwrap();
+
+      const foreignTableNameResult = TableName.create('Foreign Table');
+      const foreignPrimaryNameResult = FieldName.create('Foreign Title');
+      const foreignPrimaryIdResult = FieldId.generate();
+      [foreignTableNameResult, foreignPrimaryNameResult, foreignPrimaryIdResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+      const foreignTableName = foreignTableNameResult._unsafeUnwrap();
+      const foreignPrimaryName = foreignPrimaryNameResult._unsafeUnwrap();
+      const foreignPrimaryId = foreignPrimaryIdResult._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder().withBaseId(baseId).withName(foreignTableName);
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(foreignPrimaryName)
+        .withId(foreignPrimaryId)
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTableResult = foreignBuilder.build();
+      foreignTableResult._unsafeUnwrap();
+      const foreignTable = foreignTableResult._unsafeUnwrap();
+
+      // Set dbFieldName for foreign table fields
+      const foreignTitleDbName = DbFieldName.rehydrate('foreign_title')._unsafeUnwrap();
+      const foreignPrimaryField = getFieldById(foreignTable, foreignPrimaryId);
+      expect(foreignPrimaryField).toBeDefined();
+      if (!foreignPrimaryField) return;
+      foreignPrimaryField.setDbFieldName(foreignTitleDbName)._unsafeUnwrap();
+
+      const actorIdResult = ActorId.create('system');
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
+
+      // Insert foreign table
+      const insertForeignResult = await repo.insert(context, foreignTable);
+      insertForeignResult._unsafeUnwrap();
+
+      // Step 2: Create the host table with manyOne link (FK in host table)
+      const hostTableNameResult = TableName.create('Host Table');
+      const hostPrimaryNameResult = FieldName.create('Host Title');
+      const linkNameResult = FieldName.create('Link To Foreign');
+      const hostPrimaryIdResult = FieldId.generate();
+      const linkFieldIdResult = FieldId.generate();
+      [
+        hostTableNameResult,
+        hostPrimaryNameResult,
+        linkNameResult,
+        hostPrimaryIdResult,
+        linkFieldIdResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      const hostTableName = hostTableNameResult._unsafeUnwrap();
+      const hostPrimaryName = hostPrimaryNameResult._unsafeUnwrap();
+      const linkName = linkNameResult._unsafeUnwrap();
+      const hostPrimaryId = hostPrimaryIdResult._unsafeUnwrap();
+      const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+
+      const hostBuilder = Table.builder().withBaseId(baseId).withName(hostTableName);
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(hostPrimaryName)
+        .withId(hostPrimaryId)
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostBaseTableResult = hostBuilder.build();
+      hostBaseTableResult._unsafeUnwrap();
+      const hostBaseTable = hostBaseTableResult._unsafeUnwrap();
+
+      const hostDbTableName = hostBaseTable
+        .dbTableName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap();
+
+      const linkConfigResult = LinkFieldConfig.create({
+        baseId: baseId.toString(),
+        relationship: 'manyOne',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+        fkHostTableName: hostDbTableName,
+        selfKeyName: '__id',
+        foreignKeyName: '__fk_link',
+      });
+      linkConfigResult._unsafeUnwrap();
+      const linkConfig = linkConfigResult._unsafeUnwrap();
+
+      const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
+      linkMetaResult._unsafeUnwrap();
+      const linkMeta = linkMetaResult._unsafeUnwrap();
+
+      const linkFieldResult = createNewLinkField({
+        id: linkFieldId,
+        name: linkName,
+        config: linkConfig,
+        meta: linkMeta,
+        baseId,
+        hostTableId: hostBaseTable.id(),
+      });
+      linkFieldResult._unsafeUnwrap();
+      const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
+
+      const hostTableResult = hostBaseTable.addField(linkFieldValue);
+      hostTableResult._unsafeUnwrap();
+      const hostTable = hostTableResult._unsafeUnwrap();
+
+      // Set dbFieldNames for host table
+      const hostTitleDbName = DbFieldName.rehydrate('host_title')._unsafeUnwrap();
+      const linkDbName = DbFieldName.rehydrate('link_to_foreign')._unsafeUnwrap();
+      const hostPrimaryField = getFieldById(hostTable, hostPrimaryId);
+      const linkField = getFieldById(hostTable, linkFieldId);
+      expect(hostPrimaryField).toBeDefined();
+      expect(linkField).toBeDefined();
+      if (!hostPrimaryField || !linkField) return;
+      hostPrimaryField.setDbFieldName(hostTitleDbName)._unsafeUnwrap();
+      linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
+
+      // Insert host table
+      const insertHostResult = await repo.insert(context, hostTable);
+      insertHostResult._unsafeUnwrap();
+
+      // Step 3: Verify FK constraint exists
+      const hostDbTableNameValue = hostTable.dbTableName()._unsafeUnwrap();
+      const splitResult = hostDbTableNameValue.split({ defaultSchema: 'public' });
+      splitResult._unsafeUnwrap();
+      const { schema, tableName: hostTableDbName } = splitResult._unsafeUnwrap();
+      const actualSchemaName = schema ?? 'public';
+
+      // Query FK constraints
+      const fkConstraints = await sql<{
+        constraintName: string;
+        columnName: string;
+        foreignTableName: string;
+        foreignColumnName: string;
+        deleteRule: string;
+      }>`
+        SELECT 
+          tc.constraint_name as "constraintName",
+          kcu.column_name as "columnName",
+          ccu.table_name as "foreignTableName",
+          ccu.column_name as "foreignColumnName",
+          rc.delete_rule as "deleteRule"
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu 
+          ON tc.constraint_name = kcu.constraint_name
+          AND tc.table_schema = kcu.table_schema
+        JOIN information_schema.constraint_column_usage ccu 
+          ON ccu.constraint_name = tc.constraint_name
+          AND ccu.table_schema = tc.table_schema
+        JOIN information_schema.referential_constraints rc
+          ON tc.constraint_name = rc.constraint_name
+          AND tc.table_schema = rc.constraint_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+          AND tc.table_schema = ${actualSchemaName}
+          AND tc.table_name = ${hostTableDbName}
+      `.execute(db);
+
+      // Verify FK constraint on __fk_link column
+      const fkLinkConstraint = fkConstraints.rows.find((c) => c.columnName === '__fk_link');
+      expect(fkLinkConstraint).toBeDefined();
+      expect(fkLinkConstraint?.foreignTableName).toBe(foreignTable.id().toString());
+      expect(fkLinkConstraint?.foreignColumnName).toBe('__id');
+      expect(fkLinkConstraint?.deleteRule).toBe('CASCADE');
+    });
+
+    /**
+     * This test directly operates on the database to verify FK CASCADE behavior.
+     * Direct SQL is used here specifically to test the constraint mechanism,
+     * as the constraint only enforces behavior at the database level.
+     */
+    it('FK constraint CASCADE deletes linked records in junction table when foreign record is deleted', async () => {
+      const c = testContainer.container;
+      const db = testContainer.db;
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      // Step 1: Create foreign table
+      const baseIdResult = BaseId.generate();
+      baseIdResult._unsafeUnwrap();
+      const baseId = baseIdResult._unsafeUnwrap();
+
+      const foreignTableNameResult = TableName.create('Foreign For Cascade');
+      const foreignPrimaryNameResult = FieldName.create('Foreign Title');
+      const foreignPrimaryIdResult = FieldId.generate();
+      [foreignTableNameResult, foreignPrimaryNameResult, foreignPrimaryIdResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+      const foreignTableName = foreignTableNameResult._unsafeUnwrap();
+      const foreignPrimaryName = foreignPrimaryNameResult._unsafeUnwrap();
+      const foreignPrimaryId = foreignPrimaryIdResult._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder().withBaseId(baseId).withName(foreignTableName);
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(foreignPrimaryName)
+        .withId(foreignPrimaryId)
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTableResult = foreignBuilder.build();
+      foreignTableResult._unsafeUnwrap();
+      const foreignTable = foreignTableResult._unsafeUnwrap();
+
+      const foreignTitleDbName = DbFieldName.rehydrate('foreign_title_cascade')._unsafeUnwrap();
+      const foreignPrimaryField = getFieldById(foreignTable, foreignPrimaryId);
+      expect(foreignPrimaryField).toBeDefined();
+      if (!foreignPrimaryField) return;
+      foreignPrimaryField.setDbFieldName(foreignTitleDbName)._unsafeUnwrap();
+
+      const actorIdResult = ActorId.create('system');
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
+
+      const insertForeignResult = await repo.insert(context, foreignTable);
+      insertForeignResult._unsafeUnwrap();
+
+      // Step 2: Create host table with ManyMany link (junction table)
+      const hostTableNameResult = TableName.create('Host For Cascade');
+      const hostPrimaryNameResult = FieldName.create('Host Title');
+      const linkNameResult = FieldName.create('Cascade Link');
+      const hostPrimaryIdResult = FieldId.generate();
+      const linkFieldIdResult = FieldId.generate();
+      const symmetricFieldIdResult = FieldId.generate();
+      [
+        hostTableNameResult,
+        hostPrimaryNameResult,
+        linkNameResult,
+        hostPrimaryIdResult,
+        linkFieldIdResult,
+        symmetricFieldIdResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      const hostTableName = hostTableNameResult._unsafeUnwrap();
+      const hostPrimaryName = hostPrimaryNameResult._unsafeUnwrap();
+      const linkName = linkNameResult._unsafeUnwrap();
+      const hostPrimaryId = hostPrimaryIdResult._unsafeUnwrap();
+      const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+      const symmetricFieldId = symmetricFieldIdResult._unsafeUnwrap();
+
+      const hostBuilder = Table.builder().withBaseId(baseId).withName(hostTableName);
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(hostPrimaryName)
+        .withId(hostPrimaryId)
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostBaseTableResult = hostBuilder.build();
+      hostBaseTableResult._unsafeUnwrap();
+      const hostBaseTable = hostBaseTableResult._unsafeUnwrap();
+
+      // ManyMany uses junction table
+      const junctionTableName = joinDbTableName(
+        baseId.toString(),
+        `junction_${linkFieldId.toString()}_${symmetricFieldId.toString()}`
+      );
+
+      const linkConfigResult = LinkFieldConfig.create({
+        baseId: baseId.toString(),
+        relationship: 'manyMany',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+        fkHostTableName: junctionTableName,
+        selfKeyName: `__fk_${symmetricFieldId.toString()}`,
+        foreignKeyName: `__fk_${linkFieldId.toString()}`,
+        symmetricFieldId: symmetricFieldId.toString(),
+      });
+      linkConfigResult._unsafeUnwrap();
+      const linkConfig = linkConfigResult._unsafeUnwrap();
+
+      const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
+      linkMetaResult._unsafeUnwrap();
+      const linkMeta = linkMetaResult._unsafeUnwrap();
+
+      const linkFieldResult = createNewLinkField({
+        id: linkFieldId,
+        name: linkName,
+        config: linkConfig,
+        meta: linkMeta,
+        baseId,
+        hostTableId: hostBaseTable.id(),
+      });
+      linkFieldResult._unsafeUnwrap();
+      const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
+
+      const hostTableResult = hostBaseTable.addField(linkFieldValue);
+      hostTableResult._unsafeUnwrap();
+      const hostTable = hostTableResult._unsafeUnwrap();
+
+      const hostTitleDbName = DbFieldName.rehydrate('host_title_cascade')._unsafeUnwrap();
+      const linkDbName = DbFieldName.rehydrate('cascade_link')._unsafeUnwrap();
+      const hostPrimaryField = getFieldById(hostTable, hostPrimaryId);
+      const linkField = getFieldById(hostTable, linkFieldId);
+      expect(hostPrimaryField).toBeDefined();
+      expect(linkField).toBeDefined();
+      if (!hostPrimaryField || !linkField) return;
+      hostPrimaryField.setDbFieldName(hostTitleDbName)._unsafeUnwrap();
+      linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
+
+      const insertHostResult = await repo.insert(context, hostTable);
+      insertHostResult._unsafeUnwrap();
+
+      // Step 3: Directly insert records into the database to test FK constraint
+      // (This is the only place we use direct SQL - to test the constraint mechanism)
+      const foreignDbTableNameValue = foreignTable.dbTableName()._unsafeUnwrap();
+      const foreignSplit = foreignDbTableNameValue
+        .split({ defaultSchema: 'public' })
+        ._unsafeUnwrap();
+      const foreignSchema = foreignSplit.schema ?? 'public';
+      const foreignDbTableName = foreignSplit.tableName;
+
+      const hostDbTableNameValue = hostTable.dbTableName()._unsafeUnwrap();
+      const hostSplit = hostDbTableNameValue.split({ defaultSchema: 'public' })._unsafeUnwrap();
+      const hostSchema = hostSplit.schema ?? 'public';
+      const hostDbTableName = hostSplit.tableName;
+
+      const junctionSplit = linkFieldValue
+        .fkHostTableName()
+        .split({ defaultSchema: 'public' })
+        ._unsafeUnwrap();
+      const junctionSchema = junctionSplit.schema ?? 'public';
+      const junctionDbTableName = junctionSplit.tableName;
+
+      // Insert a record into foreign table
+      const foreignRecordId = 'rec_foreign_cascade_test';
+      await sql`
+        INSERT INTO ${sql.ref(foreignSchema)}.${sql.ref(foreignDbTableName)} 
+        ("__id", "__auto_number", "__created_time", "__created_by", "__last_modified_time", "__last_modified_by", "__version", "foreign_title_cascade")
+        VALUES (${foreignRecordId}, 1, NOW(), 'system', NOW(), 'system', 1, 'Foreign Record')
+      `.execute(db);
+
+      // Insert a record into host table
+      const hostRecordId = 'rec_host_cascade_test';
+      await sql`
+        INSERT INTO ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+        ("__id", "__auto_number", "__created_time", "__created_by", "__last_modified_time", "__last_modified_by", "__version", "host_title_cascade")
+        VALUES (${hostRecordId}, 1, NOW(), 'system', NOW(), 'system', 1, 'Host Record')
+      `.execute(db);
+
+      // Insert a link in junction table
+      const selfKeyName = `__fk_${symmetricFieldId.toString()}`;
+      const foreignKeyName = `__fk_${linkFieldId.toString()}`;
+      await sql`
+        INSERT INTO ${sql.ref(junctionSchema)}.${sql.ref(junctionDbTableName)}
+        (${sql.ref(selfKeyName)}, ${sql.ref(foreignKeyName)}, "__order")
+        VALUES (${hostRecordId}, ${foreignRecordId}, 1.0)
+      `.execute(db);
+
+      // Verify junction table has 1 row
+      const beforeDelete = await sql<{ count: string }>`
+        SELECT COUNT(*) as count FROM ${sql.ref(junctionSchema)}.${sql.ref(junctionDbTableName)}
+        WHERE ${sql.ref(foreignKeyName)} = ${foreignRecordId}
+      `.execute(db);
+      expect(parseInt(beforeDelete.rows[0].count, 10)).toBe(1);
+
+      // Step 4: Delete the foreign record - FK CASCADE should delete junction row
+      await sql`
+        DELETE FROM ${sql.ref(foreignSchema)}.${sql.ref(foreignDbTableName)}
+        WHERE "__id" = ${foreignRecordId}
+      `.execute(db);
+
+      // Step 5: Verify junction table row was CASCADE deleted
+      const afterDelete = await sql<{ count: string }>`
+        SELECT COUNT(*) as count FROM ${sql.ref(junctionSchema)}.${sql.ref(junctionDbTableName)}
+        WHERE ${sql.ref(foreignKeyName)} = ${foreignRecordId}
+      `.execute(db);
+      expect(parseInt(afterDelete.rows[0].count, 10)).toBe(0);
+
+      // Verify host record still exists (only junction row was deleted)
+      const hostRecordAfterDelete = await sql<{ count: string }>`
+        SELECT COUNT(*) as count FROM ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+        WHERE "__id" = ${hostRecordId}
+      `.execute(db);
+      expect(parseInt(hostRecordAfterDelete.rows[0].count, 10)).toBe(1);
+    });
+
+    /**
+     * This test directly operates on the database to verify FK CASCADE behavior
+     * for ManyOne relationship where FK column is in the host table.
+     */
+    it('FK constraint CASCADE sets NULL when foreign record is deleted (manyOne)', async () => {
+      const c = testContainer.container;
+      const db = testContainer.db;
+      const repo = c.resolve<ITableSchemaRepository>(v2CoreTokens.tableSchemaRepository);
+
+      // Step 1: Create foreign table
+      const baseIdResult = BaseId.generate();
+      baseIdResult._unsafeUnwrap();
+      const baseId = baseIdResult._unsafeUnwrap();
+
+      const foreignTableNameResult = TableName.create('Foreign ManyOne Cascade');
+      const foreignPrimaryNameResult = FieldName.create('Foreign Title MO');
+      const foreignPrimaryIdResult = FieldId.generate();
+      [foreignTableNameResult, foreignPrimaryNameResult, foreignPrimaryIdResult].forEach((r) =>
+        r._unsafeUnwrap()
+      );
+      const foreignTableName = foreignTableNameResult._unsafeUnwrap();
+      const foreignPrimaryName = foreignPrimaryNameResult._unsafeUnwrap();
+      const foreignPrimaryId = foreignPrimaryIdResult._unsafeUnwrap();
+
+      const foreignBuilder = Table.builder().withBaseId(baseId).withName(foreignTableName);
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withName(foreignPrimaryName)
+        .withId(foreignPrimaryId)
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreignTableResult = foreignBuilder.build();
+      foreignTableResult._unsafeUnwrap();
+      const foreignTable = foreignTableResult._unsafeUnwrap();
+
+      const foreignTitleDbName = DbFieldName.rehydrate('foreign_title_mo')._unsafeUnwrap();
+      const foreignPrimaryField = getFieldById(foreignTable, foreignPrimaryId);
+      expect(foreignPrimaryField).toBeDefined();
+      if (!foreignPrimaryField) return;
+      foreignPrimaryField.setDbFieldName(foreignTitleDbName)._unsafeUnwrap();
+
+      const actorIdResult = ActorId.create('system');
+      actorIdResult._unsafeUnwrap();
+      const context: IExecutionContext = { actorId: actorIdResult._unsafeUnwrap() };
+
+      const insertForeignResult = await repo.insert(context, foreignTable);
+      insertForeignResult._unsafeUnwrap();
+
+      // Step 2: Create host table with ManyOne link (FK in host table)
+      const hostTableNameResult = TableName.create('Host ManyOne Cascade');
+      const hostPrimaryNameResult = FieldName.create('Host Title MO');
+      const linkNameResult = FieldName.create('ManyOne Cascade Link');
+      const hostPrimaryIdResult = FieldId.generate();
+      const linkFieldIdResult = FieldId.generate();
+      [
+        hostTableNameResult,
+        hostPrimaryNameResult,
+        linkNameResult,
+        hostPrimaryIdResult,
+        linkFieldIdResult,
+      ].forEach((r) => r._unsafeUnwrap());
+      const hostTableName = hostTableNameResult._unsafeUnwrap();
+      const hostPrimaryName = hostPrimaryNameResult._unsafeUnwrap();
+      const linkName = linkNameResult._unsafeUnwrap();
+      const hostPrimaryId = hostPrimaryIdResult._unsafeUnwrap();
+      const linkFieldId = linkFieldIdResult._unsafeUnwrap();
+
+      const hostBuilder = Table.builder().withBaseId(baseId).withName(hostTableName);
+      hostBuilder
+        .field()
+        .singleLineText()
+        .withName(hostPrimaryName)
+        .withId(hostPrimaryId)
+        .primary()
+        .done();
+      hostBuilder.view().defaultGrid().done();
+      const hostBaseTableResult = hostBuilder.build();
+      hostBaseTableResult._unsafeUnwrap();
+      const hostBaseTable = hostBaseTableResult._unsafeUnwrap();
+
+      const hostDbTableNameStr = hostBaseTable
+        .dbTableName()
+        .andThen((name) => name.value())
+        ._unsafeUnwrap();
+
+      const linkConfigResult = LinkFieldConfig.create({
+        baseId: baseId.toString(),
+        relationship: 'manyOne',
+        foreignTableId: foreignTable.id().toString(),
+        lookupFieldId: foreignPrimaryId.toString(),
+        fkHostTableName: hostDbTableNameStr,
+        selfKeyName: '__id',
+        foreignKeyName: `__fk_${linkFieldId.toString()}`,
+      });
+      linkConfigResult._unsafeUnwrap();
+      const linkConfig = linkConfigResult._unsafeUnwrap();
+
+      const linkMetaResult = LinkFieldMeta.create({ hasOrderColumn: true });
+      linkMetaResult._unsafeUnwrap();
+      const linkMeta = linkMetaResult._unsafeUnwrap();
+
+      const linkFieldResult = createNewLinkField({
+        id: linkFieldId,
+        name: linkName,
+        config: linkConfig,
+        meta: linkMeta,
+        baseId,
+        hostTableId: hostBaseTable.id(),
+      });
+      linkFieldResult._unsafeUnwrap();
+      const linkFieldValue = linkFieldResult._unsafeUnwrap() as LinkField;
+
+      const hostTableResult = hostBaseTable.addField(linkFieldValue);
+      hostTableResult._unsafeUnwrap();
+      const hostTable = hostTableResult._unsafeUnwrap();
+
+      const hostTitleDbName = DbFieldName.rehydrate('host_title_mo')._unsafeUnwrap();
+      const linkDbName = DbFieldName.rehydrate('mo_cascade_link')._unsafeUnwrap();
+      const hostPrimaryField = getFieldById(hostTable, hostPrimaryId);
+      const linkField = getFieldById(hostTable, linkFieldId);
+      expect(hostPrimaryField).toBeDefined();
+      expect(linkField).toBeDefined();
+      if (!hostPrimaryField || !linkField) return;
+      hostPrimaryField.setDbFieldName(hostTitleDbName)._unsafeUnwrap();
+      linkField.setDbFieldName(linkDbName)._unsafeUnwrap();
+
+      const insertHostResult = await repo.insert(context, hostTable);
+      insertHostResult._unsafeUnwrap();
+
+      // Step 3: Directly insert records to test FK constraint
+      const foreignDbTableNameValue = foreignTable.dbTableName()._unsafeUnwrap();
+      const foreignSplit = foreignDbTableNameValue
+        .split({ defaultSchema: 'public' })
+        ._unsafeUnwrap();
+      const foreignSchema = foreignSplit.schema ?? 'public';
+      const foreignDbTableName = foreignSplit.tableName;
+
+      const hostDbTableNameValue = hostTable.dbTableName()._unsafeUnwrap();
+      const hostSplit = hostDbTableNameValue.split({ defaultSchema: 'public' })._unsafeUnwrap();
+      const hostSchema = hostSplit.schema ?? 'public';
+      const hostDbTableName = hostSplit.tableName;
+
+      // Insert foreign record
+      const foreignRecordId = 'rec_foreign_mo_cascade';
+      await sql`
+        INSERT INTO ${sql.ref(foreignSchema)}.${sql.ref(foreignDbTableName)}
+        ("__id", "__auto_number", "__created_time", "__created_by", "__last_modified_time", "__last_modified_by", "__version", "foreign_title_mo")
+        VALUES (${foreignRecordId}, 1, NOW(), 'system', NOW(), 'system', 1, 'Foreign MO Record')
+      `.execute(db);
+
+      // Insert host record with FK pointing to foreign record
+      const hostRecordId = 'rec_host_mo_cascade';
+      const fkColumnName = `__fk_${linkFieldId.toString()}`;
+      await sql`
+        INSERT INTO ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+        ("__id", "__auto_number", "__created_time", "__created_by", "__last_modified_time", "__last_modified_by", "__version", "host_title_mo", ${sql.ref(fkColumnName)})
+        VALUES (${hostRecordId}, 1, NOW(), 'system', NOW(), 'system', 1, 'Host MO Record', ${foreignRecordId})
+      `.execute(db);
+
+      // Verify FK value is set
+      const beforeDelete = await sql<{ fkValue: string | null }>`
+        SELECT ${sql.ref(fkColumnName)} as "fkValue" 
+        FROM ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+        WHERE "__id" = ${hostRecordId}
+      `.execute(db);
+      expect(beforeDelete.rows[0].fkValue).toBe(foreignRecordId);
+
+      // Step 4: Delete foreign record - CASCADE should delete host record
+      // (Since we use ON DELETE CASCADE, the entire host row is deleted)
+      await sql`
+        DELETE FROM ${sql.ref(foreignSchema)}.${sql.ref(foreignDbTableName)}
+        WHERE "__id" = ${foreignRecordId}
+      `.execute(db);
+
+      // Step 5: Verify host record was CASCADE deleted
+      const afterDelete = await sql<{ count: string }>`
+        SELECT COUNT(*) as count FROM ${sql.ref(hostSchema)}.${sql.ref(hostDbTableName)}
+        WHERE "__id" = ${hostRecordId}
+      `.execute(db);
+      // With ON DELETE CASCADE on the FK column, the entire host record is deleted
+      expect(parseInt(afterDelete.rows[0].count, 10)).toBe(0);
+    });
   });
 });

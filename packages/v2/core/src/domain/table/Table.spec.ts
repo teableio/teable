@@ -9,7 +9,11 @@ import { TableRenamed } from './events/TableRenamed';
 import { Field } from './fields/Field';
 import { FieldId } from './fields/FieldId';
 import { FieldName } from './fields/FieldName';
+import { CheckboxDefaultValue } from './fields/types/CheckboxDefaultValue';
+import { FormulaExpression } from './fields/types/FormulaExpression';
+import { NumberDefaultValue } from './fields/types/NumberDefaultValue';
 import { SingleLineTextField } from './fields/types/SingleLineTextField';
+import { TextDefaultValue } from './fields/types/TextDefaultValue';
 import { Table } from './Table';
 import { TableId } from './TableId';
 import { TableName } from './TableName';
@@ -424,5 +428,423 @@ describe('DbTableName', () => {
     const empty = DbTableName.empty();
     expect(empty.isRehydrated()).toBe(false);
     empty.value()._unsafeUnwrapErr();
+  });
+});
+
+describe('Table.createRecord', () => {
+  const buildSimpleTable = () => {
+    const baseIdResult = createBaseId('r');
+    const tableNameResult = TableName.create('Records');
+    const textFieldId = createFieldId('t');
+    const numberFieldId = createFieldId('n');
+    const checkboxFieldId = createFieldId('c');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .checkbox()
+      .withId(checkboxFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Approved')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    return {
+      table: builder.build()._unsafeUnwrap(),
+      textFieldId: textFieldId._unsafeUnwrap().toString(),
+      numberFieldId: numberFieldId._unsafeUnwrap().toString(),
+      checkboxFieldId: checkboxFieldId._unsafeUnwrap().toString(),
+    };
+  };
+
+  it('creates a record with field values', () => {
+    const { table, textFieldId, numberFieldId, checkboxFieldId } = buildSimpleTable();
+
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId, 'Hello World'],
+      [numberFieldId, 42],
+      [checkboxFieldId, true],
+    ]);
+
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.id().toString()).toMatch(/^rec/);
+    expect(record.tableId().equals(table.id())).toBe(true);
+
+    const fields = record.fields();
+    const textFieldIdObj = FieldId.create(textFieldId)._unsafeUnwrap();
+    const numberFieldIdObj = FieldId.create(numberFieldId)._unsafeUnwrap();
+    const checkboxFieldIdObj = FieldId.create(checkboxFieldId)._unsafeUnwrap();
+
+    expect(fields.get(textFieldIdObj)?.toValue()).toBe('Hello World');
+    expect(fields.get(numberFieldIdObj)?.toValue()).toBe(42);
+    expect(fields.get(checkboxFieldIdObj)?.toValue()).toBe(true);
+  });
+
+  it('creates an empty record without field values', () => {
+    const { table } = buildSimpleTable();
+
+    const fieldValues = new Map<string, unknown>();
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.id().toString()).toMatch(/^rec/);
+    expect(record.tableId().equals(table.id())).toBe(true);
+  });
+
+  it('ignores unknown field IDs', () => {
+    const { table, textFieldId } = buildSimpleTable();
+
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId, 'Valid'],
+      ['fldUnknownField12345', 'Ignored'],
+    ]);
+
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.fields().entries().length).toBe(1);
+  });
+
+  it('validates field values against their schemas', () => {
+    const { table, numberFieldId } = buildSimpleTable();
+
+    // Passing invalid type - string instead of number
+    const fieldValues = new Map<string, unknown>([[numberFieldId, 'not a number']]);
+
+    const recordResult = table.createRecord(fieldValues);
+    expect(recordResult.isErr()).toBe(true);
+    expect(recordResult._unsafeUnwrapErr().message).toContain('Invalid value');
+  });
+
+  it('generates unique record IDs for each call', () => {
+    const { table } = buildSimpleTable();
+
+    const record1 = table.createRecord(new Map())._unsafeUnwrap();
+    const record2 = table.createRecord(new Map())._unsafeUnwrap();
+
+    expect(record1.id().equals(record2.id())).toBe(false);
+  });
+
+  it('creates record input schema for editable fields only', () => {
+    const baseIdResult = createBaseId('s');
+    const tableNameResult = TableName.create('Schema Test');
+    const textFieldId = createFieldId('u');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(tableNameResult._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    // Add a computed field (formula)
+    builder
+      .field()
+      .formula()
+      .withName(FieldName.create('Computed')._unsafeUnwrap())
+      .withExpression(FormulaExpression.create('1 + 1')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const schemaResult = table.createRecordInputSchema();
+    const schema = schemaResult._unsafeUnwrap();
+
+    // Schema should only contain the editable field (singleLineText)
+    // and not the computed field (formula)
+    const shape = schema.shape;
+    expect(Object.keys(shape).length).toBe(1);
+    expect(shape[textFieldId._unsafeUnwrap().toString()]).toBeDefined();
+  });
+});
+
+describe('Table.createRecord with default values', () => {
+  it('applies text default value when field value is not provided', () => {
+    const baseIdResult = createBaseId('d');
+    const textFieldId = createFieldId('t');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Default Text')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Create record without providing the text field value
+    const recordResult = table.createRecord(new Map());
+    const record = recordResult._unsafeUnwrap();
+
+    const textFieldIdObj = textFieldId._unsafeUnwrap();
+    expect(record.fields().get(textFieldIdObj)?.toValue()).toBe('Default Title');
+  });
+
+  it('applies number default value when field value is not provided', () => {
+    const baseIdResult = createBaseId('e');
+    const textFieldId = createFieldId('p');
+    const numberFieldId = createFieldId('n');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Default Number')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .withDefaultValue(NumberDefaultValue.create(100)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Create record without providing the number field value
+    const recordResult = table.createRecord(new Map());
+    const record = recordResult._unsafeUnwrap();
+
+    const numberFieldIdObj = numberFieldId._unsafeUnwrap();
+    expect(record.fields().get(numberFieldIdObj)?.toValue()).toBe(100);
+  });
+
+  it('applies checkbox default value when field value is not provided', () => {
+    const baseIdResult = createBaseId('f');
+    const textFieldId = createFieldId('p');
+    const checkboxFieldId = createFieldId('c');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Default Checkbox')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .checkbox()
+      .withId(checkboxFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Approved')._unsafeUnwrap())
+      .withDefaultValue(CheckboxDefaultValue.create(true)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Create record without providing the checkbox field value
+    const recordResult = table.createRecord(new Map());
+    const record = recordResult._unsafeUnwrap();
+
+    const checkboxFieldIdObj = checkboxFieldId._unsafeUnwrap();
+    expect(record.fields().get(checkboxFieldIdObj)?.toValue()).toBe(true);
+  });
+
+  it('does not apply default value when field value is explicitly provided', () => {
+    const baseIdResult = createBaseId('g');
+    const textFieldId = createFieldId('t');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Explicit Value')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Create record with explicit value
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId._unsafeUnwrap().toString(), 'My Custom Title'],
+    ]);
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    const textFieldIdObj = textFieldId._unsafeUnwrap();
+    expect(record.fields().get(textFieldIdObj)?.toValue()).toBe('My Custom Title');
+  });
+
+  it('applies multiple default values for different field types', () => {
+    const baseIdResult = createBaseId('h');
+    const textFieldId = createFieldId('t');
+    const numberFieldId = createFieldId('n');
+    const checkboxFieldId = createFieldId('c');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Multiple Defaults')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Text')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Amount')._unsafeUnwrap())
+      .withDefaultValue(NumberDefaultValue.create(50)._unsafeUnwrap())
+      .done();
+    builder
+      .field()
+      .checkbox()
+      .withId(checkboxFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Enabled')._unsafeUnwrap())
+      .withDefaultValue(CheckboxDefaultValue.create(false)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Create record without any field values
+    const recordResult = table.createRecord(new Map());
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Default Text');
+    expect(record.fields().get(numberFieldId._unsafeUnwrap())?.toValue()).toBe(50);
+    expect(record.fields().get(checkboxFieldId._unsafeUnwrap())?.toValue()).toBe(false);
+  });
+
+  it('mixes explicit values with default values', () => {
+    const baseIdResult = createBaseId('i');
+    const textFieldId = createFieldId('t');
+    const numberFieldId = createFieldId('n');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Mixed Values')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .number()
+      .withId(numberFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Count')._unsafeUnwrap())
+      .withDefaultValue(NumberDefaultValue.create(10)._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Provide only the text field value, let number use default
+    const fieldValues = new Map<string, unknown>([
+      [textFieldId._unsafeUnwrap().toString(), 'Explicit Title'],
+    ]);
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Explicit Title');
+    expect(record.fields().get(numberFieldId._unsafeUnwrap())?.toValue()).toBe(10);
+  });
+
+  it('does not apply default when null is explicitly passed', () => {
+    const baseIdResult = createBaseId('j');
+    const textFieldId = createFieldId('t');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Null Override')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    // Explicitly pass null - should use the default value since null is treated as "not provided"
+    const fieldValues = new Map<string, unknown>([[textFieldId._unsafeUnwrap().toString(), null]]);
+    const recordResult = table.createRecord(fieldValues);
+    const record = recordResult._unsafeUnwrap();
+
+    // null is treated as "empty", so default value should be applied
+    expect(record.fields().get(textFieldId._unsafeUnwrap())?.toValue()).toBe('Default Title');
+  });
+
+  it('applies longText default value', () => {
+    const baseIdResult = createBaseId('k');
+    const textFieldId = createFieldId('p');
+    const longTextFieldId = createFieldId('l');
+
+    const builder = Table.builder()
+      .withBaseId(baseIdResult._unsafeUnwrap())
+      .withName(TableName.create('Default LongText')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(textFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .longText()
+      .withId(longTextFieldId._unsafeUnwrap())
+      .withName(FieldName.create('Description')._unsafeUnwrap())
+      .withDefaultValue(TextDefaultValue.create('Default description text')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+
+    const table = builder.build()._unsafeUnwrap();
+
+    const recordResult = table.createRecord(new Map());
+    const record = recordResult._unsafeUnwrap();
+
+    expect(record.fields().get(longTextFieldId._unsafeUnwrap())?.toValue()).toBe(
+      'Default description text'
+    );
   });
 });
