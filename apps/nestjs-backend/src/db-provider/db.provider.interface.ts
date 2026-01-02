@@ -4,7 +4,6 @@ import type {
   FieldType,
   IFilter,
   ILookupLinkOptionsVo,
-  ILookupOptionsVo,
   ISortItem,
   TableDomain,
 } from '@teable/core';

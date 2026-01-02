@@ -12,7 +12,7 @@ const baseId = 'bseTestBaseId';
 const baseName = 'test base';
 
 const collaboratorId = 'usrTestCollaboratorId';
-const generateSpace = (): Prisma.SpaceCreateInput => {
+const generateSpace = () => {
   return {
     id: spaceId,
     name: spaceName,
@@ -21,7 +21,7 @@ const generateSpace = (): Prisma.SpaceCreateInput => {
   };
 };
 
-const generateBase = (): Prisma.BaseCreateInput => {
+const generateBase = () => {
   return {
     id: baseId,
     name: baseName,
@@ -36,9 +36,7 @@ const generateBase = (): Prisma.BaseCreateInput => {
   };
 };
 
-export const generateCollaborator = async (
-  connectUserNum: number
-): Promise<Prisma.CollaboratorUncheckedCreateInput[]> => {
+export const generateCollaborator = async (connectUserNum: number) => {
   const userSets = await generateUser(connectUserNum);
 
   return Array.from({ length: connectUserNum + 1 }, (_, i) => ({
@@ -54,7 +52,7 @@ export const generateCollaborator = async (
 
 export class SpaceSeeds extends AbstractSeed {
   execute = async (): Promise<void> => {
-    await this.prisma.$transaction(async (tx) => {
+    await this.prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       // Space
       await this.createSpace(tx);
 

@@ -137,7 +137,7 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
         [schemaName, dbTableName, columnName]
       )
       .toQuery();
-    const res = await prisma.$queryRawUnsafe<{ exists: boolean }[]>(sql);
+    const res = await prisma.$queryRawUnsafe(sql);
     return res[0].exists;
   }
 

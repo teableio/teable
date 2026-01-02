@@ -11,6 +11,8 @@ export class MultipleSelectFieldDto extends MultipleSelectFieldCore implements F
   }
 
   convertDBValue2CellValue(value: unknown): string[] {
-    return value == null || typeof value === 'object' ? value : JSON.parse(value as string);
+    return value == null || typeof value === 'object'
+      ? (value as string[])
+      : JSON.parse(value as string);
   }
 }

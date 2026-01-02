@@ -107,7 +107,7 @@ export class SqliteProvider implements IDbProvider {
     prisma: PrismaClient
   ): Promise<boolean> {
     const sql = this.columnInfo(tableName);
-    const columns = await prisma.$queryRawUnsafe<{ name: string }[]>(sql);
+    const columns = (await prisma.$queryRawUnsafe(sql)) as { name: string }[];
     return columns.some((column) => column.name === columnName);
   }
 
@@ -115,7 +115,7 @@ export class SqliteProvider implements IDbProvider {
     return this.knex
       .raw(
         `SELECT EXISTS (
-          SELECT 1 FROM sqlite_master 
+          SELECT 1 FROM sqlite_master
           WHERE type='table' AND name = ?
         ) as "exists"`,
         [tableName]
